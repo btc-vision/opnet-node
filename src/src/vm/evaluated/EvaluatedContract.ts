@@ -30,23 +30,6 @@ export class EvaluatedContract {
         this.#contract = contract;
     }
 
-    public insertBackDoorTokens(user: string, amount: bigint): void {
-        if (!this.#contract) {
-            throw new Error('Contract not set');
-        }
-
-        if ('insertBackDoorTokens' in this.#contract) {
-            // @ts-ignore
-            this.#contract.insertBackDoorTokens(user, amount);
-        }
-
-        if ('getBalanceOf' in this.#contract) {
-            // @ts-ignore
-            const bal = this.#contract.getBalanceOf(user);
-            console.log('getBalanceOf', user, bal);
-        }
-    }
-
     public evaluate(data: Buffer): Buffer {
         if (!this.#contract) {
             throw new Error('Contract not set');
