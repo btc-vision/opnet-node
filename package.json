@@ -27,6 +27,7 @@
         "asyncapi-validator": "^4.0.0",
         "bignumber.js": "^9.1.2",
         "bitcoinjs-lib": "^6.1.5",
+        "bytenode": "^1.5.6",
         "chalk": "^5.3.0",
         "cors": "^2.8.5",
         "ecpair": "^2.1.0",
