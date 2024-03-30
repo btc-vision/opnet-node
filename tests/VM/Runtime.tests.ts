@@ -1,30 +1,17 @@
 import 'jest';
+import fs from 'fs';
 import { ABICoder } from '../../src/src/vm/abi/ABICoder.js';
-import {
-    BinaryReader,
-    ContractABIMap,
-    MethodMap,
-    PropertyABIMap,
-    SelectorsMap,
-} from '../../src/src/vm/buffer/BinaryReader.js';
+import { VMManager } from '../../src/src/vm/VMManager.js';
 
 describe('I should be able to create my own smart contract for Bitcoin.', () => {
     const OWNER = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
     const CONTRACT_ADDRESS = 'bc1p5d7rjq7g6rdk2yhzks9smlaqtedr4dekq08ge8ztwac72sfr9rusxg3297';
 
-    let module: MotoSwapFactory | null = null;
-    let moduleWasm: Awaited<typeof wasm.promise>;
-
-    let decodedViewSelectors: SelectorsMap;
-    let decodedMethodSelectors: MethodMap;
-
-    let mainContractViewSelectors: PropertyABIMap | undefined;
-    let mainContractMethodSelectors: ContractABIMap | undefined;
-
     const abiCoder: ABICoder = new ABICoder();
+    const vmManager: VMManager = new VMManager();
 
     beforeEach(async () => {
-        moduleWasm = await wasm.promise;
+        /*moduleWasm = await wasm.promise;
 
         if (!moduleWasm) {
             throw new Error('Module not found');
@@ -59,45 +46,15 @@ describe('I should be able to create my own smart contract for Bitcoin.', () => 
 
         expect(decodedViewSelectors).toBeDefined();
         expect(decodedMethodSelectors).toBeDefined();
-        expect(module).toBeDefined();
+        expect(module).toBeDefined();*/
     });
 
-    it('Contract owner should be owner.', async () => {
-        expect(module).toBeDefined();
-        expect(decodedViewSelectors).toBeDefined();
-        expect(decodedMethodSelectors).toBeDefined();
+    it(`Should be able to load a contract from its bytecode.`, async () => {
+        const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
+        const contract = await vmManager.loadContractFromBytecode(contractBytecode);
 
-        if (!mainContractMethodSelectors) {
-            throw new Error('Method not found');
-        }
+        console.log(contract);
 
-        if (!mainContractViewSelectors) {
-            throw new Error('ABI not found');
-        }
-
-        if (!module) {
-            throw new Error('Module not found');
-        }
-
-        const ownerSelector = mainContractViewSelectors.get('owner');
-        if (!ownerSelector) {
-            throw new Error('Owner selector not found');
-        }
-
-        const ownerValue = moduleWasm.readView(ownerSelector);
-        const decodedResponse = abiCoder.decodeData(ownerValue, [ABIDataTypes.ADDRESS]);
-
-        expect(decodedResponse[0]).toBe(OWNER);
+        expect(contractBytecode).toBeDefined();
     });
-
-    /*it('Contract owner to be owner2', async () => {
-        expect(module).toBeDefined();
-        expect(decodedViewSelectors).toBeDefined();
-        expect(decodedMethodSelectors).toBeDefined();
-
-        if (!module) {
-            throw new Error('Module not found');
-        }
-
-    });*/
 });

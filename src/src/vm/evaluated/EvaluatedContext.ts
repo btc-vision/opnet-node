@@ -2,7 +2,12 @@ import { Context } from 'node:vm';
 import { EvaluatedStack } from './EvaluatedStack.js';
 
 export interface EvaluatedContext extends Context {
-    readonly stack: EvaluatedStack;
+    readonly context: {
+        readonly stack: EvaluatedStack;
 
-    readonly process: null;
+        getStorage: (address: string, pointer: Buffer) => Buffer;
+        setStorage: (address: string, pointer: Buffer, value: Buffer) => void;
+
+        initialBytecode: Buffer;
+    };
 }

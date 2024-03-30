@@ -4,20 +4,24 @@ import { ok } from 'node:assert';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { Logger } from '../logger/Logger.js';
-import { ABIFactory } from './abi/ABIFactory.js';
+import { Globals } from '../utils/Globals.js';
 import { EvaluatedContext } from './evaluated/EvaluatedContext.js';
+import { VMStorage } from './storage/VMStorage.js';
+
+Globals.register();
 
 export class VMManager extends Logger {
     private readonly MAGIC_NUMBER: Buffer = Buffer.from([0xde, 0xc0]);
     private readonly ZERO_LENGTH_EXTERNAL_REFERENCE_TABLE = Buffer.alloc(2);
 
-    private readonly runtimeCode: string = fs.readFileSync(`../runtime`).toString();
-    private abiFactory: ABIFactory = new ABIFactory();
+    private readonly runtimeCode: string = fs
+        .readFileSync(`${__dirname}/../vm/runtime/index.js`)
+        .toString();
+
+    private readonly vmStorage: VMStorage = new VMStorage();
 
     constructor() {
         super();
-
-        void this.init();
     }
 
     public fixBytecode(bytecodeBuffer: Buffer): void {
@@ -42,14 +46,19 @@ export class VMManager extends Logger {
 
     public async loadContractFromBytecode(contractBytecode: Buffer): Promise<unknown> {
         const contextOptions: EvaluatedContext = {
-            stack: {
-                logs: null,
-                errors: null,
-                contract: null,
-                result: null,
-            },
+            context: {
+                stack: {
+                    logs: null,
+                    errors: null,
+                    contract: null,
+                    result: null,
+                },
 
-            process: null,
+                getStorage: this.vmStorage.getStorage.bind(this.vmStorage),
+                setStorage: this.vmStorage.setStorage.bind(this.vmStorage),
+
+                initialBytecode: contractBytecode,
+            },
         };
 
         const scriptRunningOptions: RunningScriptInNewContextOptions = {
@@ -62,15 +71,8 @@ export class VMManager extends Logger {
         };
 
         const runtime: Script = this.createRuntimeVM();
-        const contract = runtime.runInNewContext(contextOptions, scriptRunningOptions);
 
-        return contract;
-    }
-
-    public async init(): Promise<void> {
-        this.log(`VMManager initialized.`);
-
-        await this.test();
+        return runtime.runInNewContext(contextOptions, scriptRunningOptions);
     }
 
     private createRuntimeVM(): Script {
@@ -125,10 +127,6 @@ export class VMManager extends Logger {
         return script;
     }
 
-    private async test(): Promise<void> {
-        const idk = await this.loadContractFromBytecode();
-    }
-
     private readSourceHash(bytecodeBuffer: Buffer): number {
         if (!Buffer.isBuffer(bytecodeBuffer)) {
             throw new Error('bytecodeBuffer must be a buffer object.');
@@ -148,5 +146,3 @@ export class VMManager extends Logger {
         }
     }
 }
-
-new VMManager();
