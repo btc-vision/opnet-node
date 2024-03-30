@@ -19,6 +19,7 @@ const spec = openapi({
         '../../components/openapi.yaml',
         '../api/Server.js',
         '../../components/schemas/_index.yaml',
+        '../api/routes/*',
     ], //
     verbose: true,
     throwLevel: 'on',

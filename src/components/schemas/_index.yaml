@@ -1,6 +1,6 @@
 components:
   schemas:
-    Example:
+    HeapBlock:
       type: object
       proprieties:
         heapBlock:
