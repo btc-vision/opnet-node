@@ -1,0 +1,9 @@
+components:
+  schemas:
+    Example:
+      type: object
+      proprieties:
+        heapBlock:
+          type: integer
+          minimum: 0
+          description: The current heap block of the Bitcoin blockchain.

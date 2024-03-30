@@ -1,0 +1,28 @@
+openapi: 3.0.0
+
+info:
+  title: MotoSwap RPC API
+  description: This document is the official API documentation of MotoSwap RPC.
+  version: 1.0.0
+  pointerResolutionBasePath: "/"
+  swagger: 2.0
+  basePath: "/"
+tags:
+  - name: "Websocket"
+    description: "MotoSwap websocket configuration related endpoints."
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+servers:
+  - url: http://localhost:9001
+    description: Sandbox server
+  - url: https://testnet.motoswap.io
+    description: MotoSwap Testnet Server
+  - url: https://prod.motoswap.io
+    description: MotoSwap Prod Server
