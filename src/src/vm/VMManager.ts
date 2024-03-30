@@ -8,6 +8,8 @@ import { Globals } from '../utils/Globals.js';
 import { EvaluatedContext } from './evaluated/EvaluatedContext.js';
 import { VMStorage } from './storage/VMStorage.js';
 
+import { instantiate } from './wasmRuntime/runDebug.js';
+
 Globals.register();
 
 export class VMManager extends Logger {
@@ -15,7 +17,7 @@ export class VMManager extends Logger {
     private readonly ZERO_LENGTH_EXTERNAL_REFERENCE_TABLE = Buffer.alloc(2);
 
     private readonly runtimeCode: string = fs
-        .readFileSync(`${__dirname}/../vm/runtime/index.js`)
+        .readFileSync(`${__dirname}/../vm/runtime/index.mjs`)
         .toString();
 
     private readonly vmStorage: VMStorage = new VMStorage();
@@ -54,6 +56,8 @@ export class VMManager extends Logger {
                     result: null,
                 },
 
+                instantiate: this.instantiatedContract.bind(this),
+
                 getStorage: this.vmStorage.getStorage.bind(this.vmStorage),
                 setStorage: this.vmStorage.setStorage.bind(this.vmStorage),
 
@@ -67,12 +71,17 @@ export class VMManager extends Logger {
                 strings: false,
                 wasm: false,
             },
-            microtaskMode: 'afterEvaluate',
+            //microtaskMode: 'afterEvaluate',
         };
 
         const runtime: Script = this.createRuntimeVM();
+        await runtime.runInNewContext(contextOptions, scriptRunningOptions);
 
-        return runtime.runInNewContext(contextOptions, scriptRunningOptions);
+        return contextOptions.context;
+    }
+
+    private async instantiatedContract(bytecode: Buffer, state: {}): Promise<void> {
+        return instantiate(bytecode, state);
     }
 
     private createRuntimeVM(): Script {

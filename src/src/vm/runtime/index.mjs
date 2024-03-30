@@ -1,7 +1,7 @@
 /**
  * @type {EvaluatedContext}
  */
-const stack = _stack;
+const stack = context;
 
 stack.logs = [];
 stack.errors = [];
@@ -15,4 +15,8 @@ const console = {
     },
 };
 
-console.log(stack.initialBytecode);
+(async () => {
+    stack.contract = await stack.instantiate(stack.initialBytecode, {});
+
+    console.log('Contract instantiated');
+})();

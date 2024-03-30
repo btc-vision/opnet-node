@@ -1,13 +1,30 @@
-import { Collection, Db, Filter, ObjectId, Sort, OptionalUnlessRequiredId } from 'mongodb';
+import { Collection, Db, Filter, ObjectId, OptionalUnlessRequiredId, Sort } from 'mongodb';
+import { DataAccessError, DataAccessErrorType } from '../../errors/DataAccessError.js';
 import { Logger } from '../../logger/Logger.js';
+import { DBConstants } from '../DBConstants.js';
 import { DBManagerInstance } from '../DBManager.js';
 import { IBaseDocument } from '../documents/interfaces/IBaseDocument.js';
 import { PagingQueryInfo, PagingQueryResult } from './PagingQuery.js';
-import { DataAccessError, DataAccessErrorType } from '../../errors/DataAccessError.js';
-import { DBConstants } from '../DBConstants.js';
 
 export abstract class Repository<TDocument extends IBaseDocument> extends Logger {
     private readonly _db?: Db;
+
+    protected constructor(customDb?: Db) {
+        super();
+        this._db = customDb;
+    }
+
+    protected get db(): Db {
+        if (!DBManagerInstance.db) {
+            throw new DataAccessError('Database is not connected.');
+        }
+
+        if (!this._db) {
+            return DBManagerInstance.db;
+        } else {
+            return this._db;
+        }
+    }
 
     public async deleteById(id: ObjectId): Promise<boolean> {
         try {
@@ -232,23 +249,6 @@ export abstract class Repository<TDocument extends IBaseDocument> extends Logger
             } else {
                 throw error;
             }
-        }
-    }
-
-    protected constructor(customDb?: Db) {
-        super();
-        this._db = customDb;
-    }
-
-    protected get db(): Db {
-        if (!DBManagerInstance.db) {
-            throw new DataAccessError('Database is not connected.');
-        }
-
-        if (!this._db) {
-            return DBManagerInstance.db;
-        } else {
-            return this._db;
         }
     }
 
