@@ -165,6 +165,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             logs: vmContext?.logs,
         });
 
-        expect(decodedResponse[0]).toBe(0n);
+        const balanceOfResponse = decodedResponse[0];
+        expect(balanceOfResponse).toBe(0n);
     });
 });
