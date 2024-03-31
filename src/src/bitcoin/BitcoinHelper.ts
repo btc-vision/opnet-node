@@ -48,15 +48,10 @@ export class BitcoinHelper {
             opcodes.OP_ENDIF,
         ]);
 
-        console.log(`script`, p2pk_script);
-
         const hash = bitcoin.crypto.hash160(bytecode);
         const hash_script_asm = `OP_HASH160 ${hash.toString('hex')} OP_EQUALVERIFY ${xOnly} OP_CHECKSIG`;
 
         const hash_lock_script = script.fromASM(hash_script_asm);
-
-        //const p2pk_script = script.fromASM(p2pk_script_asm);
-
         const scriptTree: Taptree = [
             {
                 output: hash_lock_script,
@@ -72,10 +67,11 @@ export class BitcoinHelper {
             network,
         });
 
-        const script_addr = script_p2tr.address ?? '';
-        console.log(`CAN DEPLOY CONTRACT AT: ${script_addr}`);
+        if (!script_p2tr.address) {
+            throw new Error('Failed to generate contract address');
+        }
 
-        return script_addr;
+        return script_p2tr.address;
     }
 
     public static generateWallet(): { address: string; privateKey: string; publicKey: string } {

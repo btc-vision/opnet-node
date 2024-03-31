@@ -4,7 +4,7 @@ import { BitcoinHelper } from '../../src/src/bitcoin/BitcoinHelper.js';
 import { ABICoder } from '../../src/src/vm/abi/ABICoder.js';
 import { VMManager } from '../../src/src/vm/VMManager.js';
 
-describe('I should be able to create my own smart contract for Bitcoin.', () => {
+describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
     const OWNER = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
     const CONTRACT_ADDRESS = 'bc1p5d7rjq7g6rdk2yhzks9smlaqtedr4dekq08ge8ztwac72sfr9rusxg3297';
 
@@ -52,7 +52,7 @@ describe('I should be able to create my own smart contract for Bitcoin.', () => 
         expect(module).toBeDefined();*/
     });
 
-    it(`Should be able to load a contract from its bytecode.`, async () => {
+    it(`When I deploy a smart contract on the bitcoin network, it should have a valid address.`, async () => {
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
         expect(contractBytecode).toBeDefined();
 
@@ -71,7 +71,7 @@ describe('I should be able to create my own smart contract for Bitcoin.', () => 
             DEPLOYER_ADDRESS.publicKey,
         );
 
-        console.log(`Generated contract address: ${generatedContract}`);
+        console.log(`Bitcoin Smart Contract will be deployed at: ${generatedContract}`);
 
         //vmRuntime.INIT(OWNER, CONTRACT_ADDRESS);
     });
