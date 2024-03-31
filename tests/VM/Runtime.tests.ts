@@ -2,13 +2,13 @@ import 'jest';
 import fs from 'fs';
 import { BitcoinHelper } from '../../src/src/bitcoin/BitcoinHelper.js';
 import { ABICoder, ABIDataTypes } from '../../src/src/vm/abi/ABICoder.js';
+import { BinaryReader } from '../../src/src/vm/buffer/BinaryReader.js';
 import {
-    BinaryReader,
     ContractABIMap,
     MethodMap,
     PropertyABIMap,
     SelectorsMap,
-} from '../../src/src/vm/buffer/BinaryReader.js';
+} from '../../src/src/vm/buffer/types/math.js';
 import { VMManager } from '../../src/src/vm/VMManager.js';
 import { VMRuntime } from '../../src/src/vm/wasmRuntime/runDebug.js';
 
@@ -46,7 +46,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             contractBytecode,
             DEPLOYER_ADDRESS.publicKey,
         );
-        
+
         console.log(`Bitcoin Smart Contract will be deployed at: ${CONTRACT_ADDRESS} by ${OWNER}`);
 
         vmRuntime.INIT(OWNER, CONTRACT_ADDRESS);
