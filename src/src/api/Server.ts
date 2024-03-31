@@ -1,9 +1,8 @@
 import cors from 'cors';
-import fs from 'fs';
-import nanoexpress, { IHttpRequest, IHttpResponse, IWebSocket } from 'nanoexpress';
-import path from 'path';
+import nanoexpress, { IHttpRequest, IHttpResponse, INanoexpressApp, IWebSocket } from 'nanoexpress';
 import { Logger } from '../logger/Logger.js';
 import { Globals } from '../utils/Globals.js';
+import { DefinedRoutes } from './routes/DefinedRoutes.js';
 
 Globals.register();
 
@@ -13,10 +12,7 @@ export class Server extends Logger {
     private apiPrefix: string = '/api/v1';
 
     private serverPort: number = 0;
-    private app: any = nanoexpress();
-
-    private schemaPath: string = path.join(__dirname, '../../protocols/MotoSwap.proto');
-    private schema: string = fs.readFileSync(this.schemaPath)?.toString();
+    private app: INanoexpressApp = nanoexpress();
 
     constructor() {
         super();
@@ -25,7 +21,7 @@ export class Server extends Logger {
     public createServer(): void {
         // ERROR HANDLING
         this.app.setErrorHandler(
-            (err: Error, req: IHttpRequest, res: IHttpResponse): IHttpResponse => {
+            (_err: Error, _req: IHttpRequest, res: IHttpResponse): IHttpResponse => {
                 res.status(500);
 
                 return res.send({
@@ -34,16 +30,17 @@ export class Server extends Logger {
             },
         );
 
-        // USE
+        // @ts-ignore
         this.app.use(cors());
+
+        // @ts-ignore
         this.app.use('/*', this.handleAny.bind(this));
 
         // GET
-        this.app.get(`${this.apiPrefix}/schema`, this.handleGetSchema.bind(this));
-
-        this.app.get(`${this.apiPrefix}/test`, this.handleTest.bind(this));
+        this.loadRoutes();
 
         // WS
+        // @ts-ignore
         this.app.ws(`${this.apiPrefix}/live`, this.onNewWebsocketConnection.bind(this), {
             maxPayloadLength: 16 * 1024 * 1024,
             idleTimeout: 4 * 3,
@@ -62,47 +59,14 @@ export class Server extends Logger {
         this.createServer();
     }
 
-    /**
-     * GET /api/v1/schema
-     * @tag Websocket
-     * @summary Get the protocol schema
-     * @description Get the protocol schema for the MotoSwap packets and messages in protobuf format.
-     * @response 200 - Return the protocol schema
-     * @response 404 - Schema not found
-     * @response 500 - Something went wrong
-     * @security BearerAuth
-     * @response default - Unexpected error
-     * @responseContent {string} 200.plain/text
-     */
-    private async handleGetSchema(req: IHttpRequest, res: IHttpResponse): Promise<void> {
-        let response: string | null = this.schema || null;
+    private loadRoutes(): void {
+        for (const route of Object.values(DefinedRoutes)) {
+            const routeData = route.getRoute();
+            const path = `${this.apiPrefix}/${route.getPath()}`;
 
-        if (response === null || !response) {
-            res.status(404);
-            res.send('No schema found');
-        } else {
-            res.send(response);
-        }
-    }
+            this.log(`Loading route: ${path} (${routeData.type})`);
 
-    /**
-     * GET /api/v1/test
-     * @tag Example API!
-     * @summary Get the current heap block of MotoSwap
-     * @description Get the current heap block of MotoSwap (the block that is currently being processed)
-     * @response 200 - Return the current heap block of the Ethereum blockchain.
-     * @response 400 - Something went wrong.
-     * @response default - Unexpected error
-     * @responseContent {HeapBlock} 200.application/json
-     */
-    private async handleTest(req: IHttpRequest, res: IHttpResponse): Promise<void> {
-        try {
-            res.status(200);
-
-            res.json({ api: 'is working!' });
-        } catch (err: unknown) {
-            let e = err as Error;
-            this.error(e.stack);
+            this.app[routeData.type](path, routeData.handler as any);
         }
     }
 
@@ -116,6 +80,7 @@ export class Server extends Logger {
     private async onNewWebsocketConnection(req: IHttpRequest, res: IHttpResponse): Promise<void> {
         this.log('New websocket connection detected');
 
+        // @ts-ignore
         res.on('connection', (ws: IWebSocket<{}>) => {
             /*let newClient = new WebsocketClientManager(req, res, ws);
             this.websockets.push(newClient);

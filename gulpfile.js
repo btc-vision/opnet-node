@@ -88,7 +88,15 @@ gulp.task('default', async () => {
 
 gulp.task('watch', () => {
     gulp.watch(
-        ['src/**/**/*.ts', 'src/**/*.ts', 'src/**/*.js', 'src/*.ts', 'src/*.js'],
+        [
+            'src/**/**/*.ts',
+            'src/**/*.ts',
+            'src/**/*.js',
+            'src/*.ts',
+            'src/*.js',
+            'src/**/*.mjs',
+            'src/*.mjs',
+        ],
         async (cb) => {
             await build().catch((e) => {
                 console.log('Errored 2', e);

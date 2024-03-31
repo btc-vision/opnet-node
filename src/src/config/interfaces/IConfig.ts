@@ -1,7 +1,7 @@
+import { CacheStrategy } from '../../cache/enum/CacheStrategy.js';
 import { MONGO_CONNECTION_TYPE } from '../../db/credentials/MongoCredentials.js';
 import { DebugLevel } from '../../logger/enums/DebugLevel.js';
-import { CacheStrategy } from '../../cache/enum/CacheStrategy.js'
-import { BitcoinNetwork } from '../enum/BitcoinNetwork.js'
+import { BitcoinNetwork } from '../enum/BitcoinNetwork.js';
 
 export interface DocsConfig {
     ENABLED: boolean;
@@ -35,6 +35,9 @@ export interface BlockchainConfig {
     BITCOIND_NETWORK: BitcoinNetwork;
     BITCOIND_HOST: string;
     BITCOIND_PORT: number;
+
+    BITCOIND_USERNAME: string;
+    BITCOIND_PASSWORD: string;
 }
 
 export interface ORDClientConfig {

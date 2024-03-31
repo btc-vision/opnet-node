@@ -1,16 +1,11 @@
-import config from './config/Config.js'
+import { Config } from '../config/Config.js';
 
-class CBRCDistributionHelper {
-    constructor() {
-
-    }
-
-    static getBaseBlockFromCurrentHeight(currentBlockHeight) {
-        const MRC_DISTRIBUTION_PERIOD = config.getDistributionPeriod();
+export class CBRCDistributionHelper {
+    public static getBaseBlockFromCurrentHeight(currentBlockHeight: number): number {
+        const MRC_DISTRIBUTION_PERIOD = Config.getDistributionPeriod();
 
         const base =
-            Math.floor(currentBlockHeight / MRC_DISTRIBUTION_PERIOD) *
-            MRC_DISTRIBUTION_PERIOD;
+            Math.floor(currentBlockHeight / MRC_DISTRIBUTION_PERIOD) * MRC_DISTRIBUTION_PERIOD;
 
         if (isNaN(base)) {
             // !!!TODO: log error
@@ -19,13 +14,12 @@ class CBRCDistributionHelper {
 
         return base;
     }
-
-    static getDistBlockFromCurrentHeight(currentBlockHeight) {
-        const MRC_DISTRIBUTION_PERIOD = config.getDistributionPeriod();
+    
+    public static getDistBlockFromCurrentHeight(currentBlockHeight: number): number {
+        const MRC_DISTRIBUTION_PERIOD = Config.getDistributionPeriod();
 
         const dist =
-            Math.ceil(currentBlockHeight / MRC_DISTRIBUTION_PERIOD) *
-            MRC_DISTRIBUTION_PERIOD;
+            Math.ceil(currentBlockHeight / MRC_DISTRIBUTION_PERIOD) * MRC_DISTRIBUTION_PERIOD;
 
         if (isNaN(dist)) {
             // TODO: log error
@@ -35,5 +29,3 @@ class CBRCDistributionHelper {
         return dist;
     }
 }
-
-export { CBRCDistributionHelper }

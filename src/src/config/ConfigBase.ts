@@ -7,7 +7,7 @@ import {
     DocsConfig,
     IConfig,
     IndexerConfig,
-    ORDClientConfig
+    ORDClientConfig,
 } from './interfaces/IConfig.js';
 
 export class ConfigBase implements IConfig {
@@ -41,5 +41,9 @@ export class ConfigBase implements IConfig {
         this.DEBUG_FILEPATH = config.DEBUG_FILEPATH;
         this.CACHE_STRATEGY = config.CACHE_STRATEGY;
         this.LOG_FOLDER = config.LOG_FOLDER;
+    }
+
+    public getDistributionPeriod(): number {
+        return this.MRC_DISTRIBUTION_PERIOD;
     }
 }

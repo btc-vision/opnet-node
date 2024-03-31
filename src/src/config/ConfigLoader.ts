@@ -1,12 +1,14 @@
 import fs from 'fs';
 import toml from 'toml';
+import { CacheStrategy } from '../cache/enum/CacheStrategy.js';
 import { MONGO_CONNECTION_TYPE } from '../db/credentials/MongoCredentials.js';
 import { DebugLevel } from '../logger/enums/DebugLevel.js';
 import { Logger } from '../logger/Logger.js';
 import { ConfigBase } from './ConfigBase.js';
+import { BitcoinNetwork } from './enum/BitcoinNetwork.js';
 import { IConfig } from './interfaces/IConfig.js';
-import { CacheStrategy } from '../cache/enum/CacheStrategy.js'
-import { BitcoinNetwork } from './enum/BitcoinNetwork.js'
+import path from 'path';
+import '../utils/Globals.js';
 
 export class ConfigManager extends Logger {
     public readonly logColor: string = '#c71585';
@@ -24,7 +26,9 @@ export class ConfigManager extends Logger {
         BLOCKCHAIN: {
             BITCOIND_HOST: '',
             BITCOIND_NETWORK: BitcoinNetwork.Unknown,
-            BITCOIND_PORT: 0
+            BITCOIND_PORT: 0,
+            BITCOIND_USERNAME: '',
+            BITCOIND_PASSWORD: '',
         },
         INDEXER: {
             ENABLED: true,
@@ -42,7 +46,7 @@ export class ConfigManager extends Logger {
             },
         },
         ORDCLIENT: {
-            ORDCLIENT_URL: ''
+            ORDCLIENT_URL: '',
         },
 
         DEBUG_LEVEL: DebugLevel.INFO,
@@ -59,7 +63,10 @@ export class ConfigManager extends Logger {
     }
 
     private loadConfig(): void {
-        const config: string = fs.readFileSync('./config/motoswap.conf', 'utf-8');
+        let pathPrefix = '../../';
+
+        const configPath = path.join(__dirname, pathPrefix, '/config/btc.conf');
+        const config: string = fs.readFileSync(configPath, 'utf-8');
 
         if (!config) {
             throw new Error(
@@ -145,13 +152,19 @@ export class ConfigManager extends Logger {
                 throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_HOST is not valid.`);
             }
 
-            if (typeof parsedConfig.BLOCKCHAIN.BITCOIND_NETWORK !== 'number') {
-                throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_NETWORK is not a valid BitcoinNetwork enum value.`);
+            if (typeof parsedConfig.BLOCKCHAIN.BITCOIND_NETWORK !== 'string') {
+                throw new Error(
+                    `Oops the property BLOCKCHAIN.BITCOIND_NETWORK is not a valid BitcoinNetwork enum value.`,
+                );
             }
 
-            if (parsedConfig.BLOCKCHAIN.BITCOIND_NETWORK !== BitcoinNetwork.Mainnet &&
-                parsedConfig.BLOCKCHAIN.BITCOIND_NETWORK !== BitcoinNetwork.TestNet) {
-                throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_NETWORK is not a valid BitcoinNetwork enum value.`);
+            if (
+                parsedConfig.BLOCKCHAIN.BITCOIND_NETWORK !== BitcoinNetwork.Mainnet &&
+                parsedConfig.BLOCKCHAIN.BITCOIND_NETWORK !== BitcoinNetwork.TestNet
+            ) {
+                throw new Error(
+                    `Oops the property BLOCKCHAIN.BITCOIND_NETWORK is not a valid BitcoinNetwork enum value.`,
+                );
             }
 
             if (typeof parsedConfig.BLOCKCHAIN.BITCOIND_PORT !== 'number') {
@@ -171,11 +184,15 @@ export class ConfigManager extends Logger {
 
         if (parsedConfig.CACHE_STRATEGY) {
             if (typeof parsedConfig.CACHE_STRATEGY !== 'number') {
-                throw new Error(`Oops the property CACHE_STRATEGY is not a valid CacheStrategy enum value.`);
+                throw new Error(
+                    `Oops the property CACHE_STRATEGY is not a valid CacheStrategy enum value.`,
+                );
             }
 
             if (parsedConfig.CACHE_STRATEGY !== CacheStrategy.NODE_CACHE) {
-                throw new Error(`Oops the property CACHE_STRATEGY is not a valid CacheStrategy enum value.`);
+                throw new Error(
+                    `Oops the property CACHE_STRATEGY is not a valid CacheStrategy enum value.`,
+                );
             }
         }
 
@@ -241,7 +258,7 @@ export class ConfigManager extends Logger {
             ...parsedConfig.DATABASE,
         };
 
-        this.config.ORDCLIENT= {
+        this.config.ORDCLIENT = {
             ...this.config.ORDCLIENT,
             ...parsedConfig.ORDCLIENT,
         };
@@ -250,10 +267,11 @@ export class ConfigManager extends Logger {
         this.config.CACHE_STRATEGY = parsedConfig.CACHE_STRATEGY || this.config.CACHE_STRATEGY;
         this.config.DEBUG_FILEPATH = parsedConfig.DEBUG_FILEPATH || this.config.DEBUG_FILEPATH;
         this.config.LOG_FOLDER = parsedConfig.LOG_FOLDER || this.config.LOG_FOLDER;
-        this.config.MRC_DISTRIBUTION_PERIOD = parsedConfig.MRC_DISTRIBUTION_PERIOD || this.config.MRC_DISTRIBUTION_PERIOD;
+        this.config.MRC_DISTRIBUTION_PERIOD =
+            parsedConfig.MRC_DISTRIBUTION_PERIOD || this.config.MRC_DISTRIBUTION_PERIOD;
     }
 
-    public getConfigs(): IConfig {
+    public getConfigs(): ConfigBase {
         return new ConfigBase(this.config);
     }
 }

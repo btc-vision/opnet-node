@@ -69,6 +69,14 @@ class ConfigurableDBManager extends InnerDBManager {
         return false;
     }
 
+    public async close(): Promise<void> {
+        this.client?.close();
+        this.db = null;
+        delete this.client;
+        this.connectionPromise = null;
+        this.isConnected = false;
+    }
+
     public async connect(): Promise<void> {
         if (this.connectionPromise) {
             return this.connectionPromise;
