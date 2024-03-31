@@ -36,17 +36,19 @@ export async function instantiate(bytecode, imports = {}) {
                     __release(owner);
                 }
             },
-            readMethod(method, contract, calldata) {
-                // src/btc/exports/index/readMethod(u32, src/btc/contracts/BTCContract/BTCContract | null, src/btc/buffer/BytesReader/BytesReader) => ~lib/typedarray/Uint8Array
+            readMethod(method, contract, calldata, caller) {
+                // src/btc/exports/index/readMethod(u32, src/btc/contracts/BTCContract/BTCContract | null, src/btc/buffer/BytesReader/BytesReader, ~lib/string/String | null) => ~lib/typedarray/Uint8Array
                 contract = __retain(__lowerInternref(contract));
-                calldata = __lowerInternref(calldata) || __notnull();
+                calldata = __retain(__lowerInternref(calldata) || __notnull());
+                caller = __lowerString(caller);
                 try {
                     return __liftTypedArray(
                         Uint8Array,
-                        exports.readMethod(method, contract, calldata) >>> 0,
+                        exports.readMethod(method, contract, calldata, caller) >>> 0,
                     );
                 } finally {
                     __release(contract);
+                    __release(calldata);
                 }
             },
             readView(method, contract) {

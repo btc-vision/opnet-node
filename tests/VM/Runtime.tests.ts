@@ -3,6 +3,7 @@ import fs from 'fs';
 import { BitcoinHelper } from '../../src/src/bitcoin/BitcoinHelper.js';
 import { ABICoder, ABIDataTypes } from '../../src/src/vm/abi/ABICoder.js';
 import { BinaryReader } from '../../src/src/vm/buffer/BinaryReader.js';
+import { BinaryWriter } from '../../src/src/vm/buffer/BinaryWriter.js';
 import {
     ContractABIMap,
     MethodMap,
@@ -107,6 +108,42 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const ownerValue = vmRuntime.readView(ownerSelector);
+        const decodedResponse = abiCoder.decodeData(ownerValue, [ABIDataTypes.ADDRESS]);
+
+        expect(decodedResponse[0]).toBe(OWNER);
+    });
+
+    it(`I should be able to interact with a readonly method in my contract.`, async () => {
+        expect(mainContractViewSelectors).toBeDefined();
+        expect(mainContractMethodSelectors).toBeDefined();
+
+        if (!vmRuntime) {
+            throw new Error('VM runtime not found.');
+        }
+
+        if (!mainContractMethodSelectors) {
+            throw new Error('Method not found');
+        }
+
+        if (!mainContractViewSelectors) {
+            throw new Error('ABI not found');
+        }
+
+        if (!module) {
+            throw new Error('Module not found');
+        }
+
+        const totalSupplySelector = Number(`0x` + abiCoder.encodeSelector('totalSupply'));
+        console.log(totalSupplySelector);
+
+        const hasTotalSupply = mainContractMethodSelectors.has(totalSupplySelector);
+        if (!hasTotalSupply) {
+            throw new Error('Owner selector not found');
+        }
+
+        const calldata: BinaryWriter = new BinaryWriter();
+
+        const ownerValue = vmRuntime.readMethod(totalSupplySelector, calldata);
         const decodedResponse = abiCoder.decodeData(ownerValue, [ABIDataTypes.ADDRESS]);
 
         expect(decodedResponse[0]).toBe(OWNER);
