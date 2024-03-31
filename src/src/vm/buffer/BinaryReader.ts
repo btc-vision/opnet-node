@@ -145,15 +145,22 @@ export class BinaryReader {
         return storage;
     }
 
-    public readRequestedStorage(): Map<Address, bigint> {
-        const storage: Map<Address, bigint> = new Map();
-        const size: u32 = this.readU16();
+    public readRequestedStorage(): Map<Address, Set<bigint>> {
+        const storage: Map<Address, Set<bigint>> = new Map();
+        const size: u32 = this.readU32();
 
         for (let i: u32 = 0; i < size; i++) {
             const address: Address = this.readAddress();
-            const slots: bigint = this.readU256();
+            const length: u32 = this.readU32();
 
-            storage.set(address, slots);
+            const pointers: Set<bigint> = new Set();
+            for (let j: u32 = 0; j < length; j++) {
+                const keyPointer: bigint = this.readU256();
+
+                pointers.add(keyPointer);
+            }
+
+            storage.set(address, pointers);
         }
 
         return storage;

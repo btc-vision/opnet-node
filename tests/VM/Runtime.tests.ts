@@ -10,6 +10,7 @@ import {
     PropertyABIMap,
     SelectorsMap,
 } from '../../src/src/vm/buffer/types/math.js';
+import { VMContext } from '../../src/src/vm/evaluated/EvaluatedContext.js';
 import { VMManager } from '../../src/src/vm/VMManager.js';
 import { VMRuntime } from '../../src/src/vm/wasmRuntime/runDebug.js';
 
@@ -27,6 +28,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     let mainContractViewSelectors: PropertyABIMap | undefined;
     let mainContractMethodSelectors: ContractABIMap | undefined;
 
+    let vmContext: VMContext | null = null;
     let vmRuntime: VMRuntime | null = null;
     let contractRef: Number = 0;
 
@@ -34,7 +36,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
         expect(contractBytecode).toBeDefined();
 
-        const vmContext = await vmManager.loadContractFromBytecode(contractBytecode);
+        vmContext = await vmManager.loadContractFromBytecode(contractBytecode);
         expect(vmContext).toBeDefined();
 
         vmRuntime = vmContext.contract;
@@ -159,6 +161,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         console.log('Storage ->', {
             requiredStorage: decodedRequiredStorage,
             modifiedStorage: decodedModifiedStorage,
+
+            logs: vmContext?.logs,
         });
 
         expect(decodedResponse[0]).toBe(0n);
