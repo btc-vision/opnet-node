@@ -28,8 +28,9 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     let mainContractMethodSelectors: ContractABIMap | undefined;
 
     let vmRuntime: VMRuntime | null = null;
+    let contractRef: Number = 0;
 
-    beforeEach(async () => {
+    beforeAll(async () => {
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
         expect(contractBytecode).toBeDefined();
 
@@ -50,7 +51,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         console.log(`Bitcoin Smart Contract will be deployed at: ${CONTRACT_ADDRESS} by ${OWNER}`);
 
-        vmRuntime.INIT(OWNER, CONTRACT_ADDRESS);
+        contractRef = vmRuntime.INIT(OWNER, CONTRACT_ADDRESS);
 
         const abi: Uint8Array = vmRuntime.getViewABI();
         const abiDecoder = new BinaryReader(abi);
@@ -133,19 +134,33 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('Module not found');
         }
 
-        const totalSupplySelector = Number(`0x` + abiCoder.encodeSelector('totalSupply'));
-        console.log(totalSupplySelector);
-
-        const hasTotalSupply = mainContractMethodSelectors.has(totalSupplySelector);
+        const balanceOfSelector = Number(`0x` + abiCoder.encodeSelector('balanceOf'));
+        const hasTotalSupply = mainContractMethodSelectors.has(balanceOfSelector);
         if (!hasTotalSupply) {
-            throw new Error('Owner selector not found');
+            throw new Error('balanceOf selector not found');
         }
 
         const calldata: BinaryWriter = new BinaryWriter();
+        calldata.writeAddress(OWNER);
 
-        const ownerValue = vmRuntime.readMethod(totalSupplySelector, calldata);
-        const decodedResponse = abiCoder.decodeData(ownerValue, [ABIDataTypes.ADDRESS]);
+        const buffer = calldata.getBuffer();
+        const ownerValue = vmRuntime.readMethod(balanceOfSelector, contractRef, buffer, null);
+        const decodedResponse = abiCoder.decodeData(ownerValue, [ABIDataTypes.UINT256]);
 
-        expect(decodedResponse[0]).toBe(OWNER);
+        const requiredStorageSlots = vmRuntime.getRequiredStorage();
+        const modifiedStorageSlots = vmRuntime.getModifiedStorage();
+
+        const binaryReader = new BinaryReader(requiredStorageSlots);
+        const decodedRequiredStorage = binaryReader.readRequestedStorage();
+
+        binaryReader.setBuffer(modifiedStorageSlots);
+        const decodedModifiedStorage = binaryReader.readStorage();
+
+        console.log('Storage ->', {
+            requiredStorage: decodedRequiredStorage,
+            modifiedStorage: decodedModifiedStorage,
+        });
+
+        expect(decodedResponse[0]).toBe(0n);
     });
 });

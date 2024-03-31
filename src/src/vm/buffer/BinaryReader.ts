@@ -6,6 +6,7 @@ import {
     f32,
     i32,
     MethodMap,
+    PointerStorage,
     PropertyABIMap,
     Selector,
     SelectorsMap,
@@ -121,10 +122,49 @@ export class BinaryReader {
         return (BigInt(high) << 32n) | low;
     }
 
+    public readStorage(): Map<Address, PointerStorage> {
+        const contractsSize: u32 = this.readU32();
+        const storage: Map<Address, PointerStorage> = new Map();
+
+        for (let i: u32 = 0; i < contractsSize; i++) {
+            const address: Address = this.readAddress();
+            const storageSize: u32 = this.readU32();
+
+            const subPointerStorage: Map<bigint, bigint> = new Map();
+
+            for (let j: u32 = 0; j < storageSize; j++) {
+                const keyPointer: bigint = this.readU256();
+                const value: bigint = this.readU256();
+
+                subPointerStorage.set(keyPointer, value);
+            }
+
+            storage.set(address, subPointerStorage);
+        }
+
+        return storage;
+    }
+
+    public readRequestedStorage(): Map<Address, bigint> {
+        const storage: Map<Address, bigint> = new Map();
+        const size: u32 = this.readU16();
+
+        for (let i: u32 = 0; i < size; i++) {
+            const address: Address = this.readAddress();
+            const slots: bigint = this.readU256();
+
+            storage.set(address, slots);
+        }
+
+        return storage;
+    }
+
     public readU256(): bigint {
         const next32Bytes = this.readBytes(32);
 
-        return BigInt('0x' + next32Bytes.reduce((acc, byte) => acc + byte.toString(16).padStart(2, '0'), ''));
+        return BigInt(
+            '0x' + next32Bytes.reduce((acc, byte) => acc + byte.toString(16).padStart(2, '0'), ''),
+        );
     }
 
     public readBytes(length: u32, zeroStop: boolean = false): Uint8Array {

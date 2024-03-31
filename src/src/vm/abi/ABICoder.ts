@@ -9,6 +9,7 @@ export enum ABIDataTypes {
     ADDRESS = 'ADDRESS',
     STRING = 'STRING',
     BYTES32 = 'BYTES32',
+    UINT256 = 'UINT256',
 }
 
 export class ABICoder {
@@ -41,6 +42,9 @@ export class ABICoder {
                     break;
                 case ABIDataTypes.STRING:
                     result.push(byteReader.readStringWithLength());
+                    break;
+                case ABIDataTypes.UINT256:
+                    result.push(byteReader.readU256());
                     break;
             }
         }

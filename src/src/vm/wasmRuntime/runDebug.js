@@ -22,12 +22,11 @@ export async function instantiate(bytecode, imports = {}) {
         }),
     };
     const { exports } = await WebAssembly.instantiate(module, adaptedImports);
-
     const memory = exports.memory || imports.env.memory;
     const adaptedExports = Object.setPrototypeOf(
         {
             INIT(owner, self) {
-                // src/index/CONTRACT(~lib/string/String, ~lib/string/String) => contracts/MotoSwapFactory/MotoSwapFactory
+                // src/index/INIT(~lib/string/String, ~lib/string/String) => src/btc/contracts/BTCContract/BTCContract
                 owner = __retain(__lowerString(owner) || __notnull());
                 self = __lowerString(self) || __notnull();
                 try {
@@ -36,19 +35,19 @@ export async function instantiate(bytecode, imports = {}) {
                     __release(owner);
                 }
             },
-            readMethod(method, contract, calldata, caller) {
-                // src/btc/exports/index/readMethod(u32, src/btc/contracts/BTCContract/BTCContract | null, src/btc/buffer/BytesReader/BytesReader, ~lib/string/String | null) => ~lib/typedarray/Uint8Array
+            readMethod(method, contract, data, caller) {
+                // src/btc/exports/index/readMethod(u32, src/btc/contracts/BTCContract/BTCContract | null, ~lib/typedarray/Uint8Array, ~lib/string/String | null) => ~lib/typedarray/Uint8Array
                 contract = __retain(__lowerInternref(contract));
-                calldata = __retain(__lowerInternref(calldata) || __notnull());
+                data = __retain(__lowerTypedArray(Uint8Array, 13, 0, data) || __notnull());
                 caller = __lowerString(caller);
                 try {
                     return __liftTypedArray(
                         Uint8Array,
-                        exports.readMethod(method, contract, calldata, caller) >>> 0,
+                        exports.readMethod(method, contract, data, caller) >>> 0,
                     );
                 } finally {
                     __release(contract);
-                    __release(calldata);
+                    __release(data);
                 }
             },
             readView(method, contract) {
@@ -63,6 +62,14 @@ export async function instantiate(bytecode, imports = {}) {
             getMethodABI() {
                 // src/btc/exports/index/getMethodABI() => ~lib/typedarray/Uint8Array
                 return __liftTypedArray(Uint8Array, exports.getMethodABI() >>> 0);
+            },
+            getRequiredStorage() {
+                // src/btc/exports/index/getRequiredStorage() => ~lib/typedarray/Uint8Array
+                return __liftTypedArray(Uint8Array, exports.getRequiredStorage() >>> 0);
+            },
+            getModifiedStorage() {
+                // src/btc/exports/index/getModifiedStorage() => ~lib/typedarray/Uint8Array
+                return __liftTypedArray(Uint8Array, exports.getModifiedStorage() >>> 0);
             },
         },
         exports,
@@ -95,6 +102,19 @@ export async function instantiate(bytecode, imports = {}) {
             __getU32(pointer + 4),
             __dataview.getUint32(pointer + 8, true) / constructor.BYTES_PER_ELEMENT,
         ).slice();
+    }
+
+    function __lowerTypedArray(constructor, id, align, values) {
+        if (values == null) return 0;
+        const length = values.length,
+            buffer = exports.__pin(exports.__new(length << align, 1)) >>> 0,
+            header = exports.__new(12, id) >>> 0;
+        __setU32(header + 0, buffer);
+        __dataview.setUint32(header + 4, buffer, true);
+        __dataview.setUint32(header + 8, length << align, true);
+        new constructor(memory.buffer, buffer, length).set(values);
+        exports.__unpin(buffer);
+        return header;
     }
 
     class Internref extends Number {}
@@ -139,6 +159,15 @@ export async function instantiate(bytecode, imports = {}) {
     }
 
     let __dataview = new DataView(memory.buffer);
+
+    function __setU32(pointer, value) {
+        try {
+            __dataview.setUint32(pointer, value, true);
+        } catch {
+            __dataview = new DataView(memory.buffer);
+            __dataview.setUint32(pointer, value, true);
+        }
+    }
 
     function __getU32(pointer) {
         try {

@@ -1,5 +1,10 @@
 export const ADDRESS_BYTE_LENGTH: number = 62;
 
+export type MemorySlotPointer = bigint;
+
+export type MemorySlotData<T> = T;
+export type PointerStorage = Map<MemorySlotPointer, MemorySlotData<bigint>>;
+
 export type Address = string;
 export type i32 = number;
 export type u8 = number;

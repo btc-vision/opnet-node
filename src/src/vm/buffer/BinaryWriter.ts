@@ -1,4 +1,3 @@
-import { BinaryReader } from './BinaryReader';
 import {
     Address,
     ADDRESS_BYTE_LENGTH,
@@ -12,12 +11,15 @@ import {
     u64,
     u8,
 } from './types/math';
+import { BinaryReader } from './BinaryReader';
 
 export class BinaryWriter {
     private currentOffset: u32 = 0;
     private buffer: DataView = new DataView(new ArrayBuffer(ADDRESS_BYTE_LENGTH));
 
-    constructor() {}
+    constructor() {
+
+    }
 
     public writeU8(value: u8): void {
         this.allocSafe(1);
@@ -53,7 +55,7 @@ export class BinaryWriter {
         // Step 2: Iterate over BigInt value in 64-bit (8 bytes) chunks
         for (let i = 0n; i < 4n; i++) {
             // Extract 64-bit (8-byte) chunk from the BigInt
-            const chunk = (bigIntValue >> (64n * i)) & BigInt('0xFFFFFFFFFFFFFFFF');
+            const chunk = (bigIntValue >> 64n * i) & BigInt('0xFFFFFFFFFFFFFFFF');
 
             // Step 3: Write the chunk to the DataView
             // JavaScript's DataView does not support writing BigInt directly, so split into two 32-bit parts
@@ -93,23 +95,19 @@ export class BinaryWriter {
     public writeViewSelectorMap(map: SelectorsMap): void {
         this.writeU16(map.size);
 
-        map.forEach(
-            (value: PropertyABIMap, key: string, _map: Map<string, PropertyABIMap>): void => {
-                this.writeAddress(key);
-                this.writeSelectors(value);
-            },
-        );
+        map.forEach((value: PropertyABIMap, key: string, _map: Map<string, PropertyABIMap>): void => {
+            this.writeAddress(key);
+            this.writeSelectors(value);
+        });
     }
 
     public writeMethodSelectorsMap(map: MethodMap): void {
         this.writeU16(map.size);
 
-        map.forEach(
-            (value: Set<Selector>, key: Address, _map: Map<Address, Set<Selector>>): void => {
-                this.writeAddress(key);
-                this.writeMethodSelectorMap(value);
-            },
-        );
+        map.forEach((value: Set<Selector>, key: Address, _map: Map<Address, Set<Selector>>): void => {
+            this.writeAddress(key);
+            this.writeMethodSelectorMap(value);
+        });
     }
 
     public getBuffer(): Uint8Array {
