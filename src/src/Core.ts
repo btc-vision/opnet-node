@@ -31,7 +31,7 @@ export class Core extends Logger {
             this.createThread(0, './src/blockchain-indexer/BlockchainIndexerManager.js');
         }
 
-        this.createThread(0, './src/vm/VMManager.js');
+        this.createThread(0, './src/vm/VMThread.js');
     }
 
     public start(): void {

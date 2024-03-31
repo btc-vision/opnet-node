@@ -1,28 +1,30 @@
 import bytenode from 'bytenode';
+import fs from 'fs';
 import { ok } from 'node:assert';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
-import { BitcoinHelper } from '../bitcoin/BitcoinHelper.js';
 import { Logger } from '../logger/Logger.js';
-import { ABIFactory } from './abi/ABIFactory.js';
-import { Contract } from './contracts/Contract.js';
-import { EvaluatedContext } from './evaluated/EvaluatedContext.js';
-import { EvaluatedContract } from './evaluated/EvaluatedContract.js';
-import { MotoSwapFactory } from './test/MotoSwapFactory.js';
+import { Globals } from '../utils/Globals.js';
+import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
+import { VMStorage } from './storage/VMStorage.js';
+
+import { instantiate, VMRuntime } from './wasmRuntime/runDebug.js';
+
+Globals.register();
 
 export class VMManager extends Logger {
-    private readonly MAGIC_NUMBER = Buffer.from([0xde, 0xc0]);
+    private readonly MAGIC_NUMBER: Buffer = Buffer.from([0xde, 0xc0]);
     private readonly ZERO_LENGTH_EXTERNAL_REFERENCE_TABLE = Buffer.alloc(2);
+
+    private readonly runtimeCode: string = fs
+        .readFileSync(`${__dirname}/../vm/runtime/index.mjs`)
+        .toString();
+
+    private readonly vmStorage: VMStorage = new VMStorage();
 
     constructor() {
         super();
-
-        void this.init();
     }
-
-    //private getRndString(): string {
-    //    return Buffer.from(crypto.getRandomValues(new Uint32Array(10))).toString('hex');
-    //}
 
     public fixBytecode(bytecodeBuffer: Buffer): void {
         if (!Buffer.isBuffer(bytecodeBuffer)) {
@@ -44,6 +46,46 @@ export class VMManager extends Logger {
         }
     }
 
+    public async loadContractFromBytecode(contractBytecode: Buffer): Promise<VMContext> {
+        const contextOptions: EvaluatedContext = {
+            context: {
+                logs: null,
+                errors: null,
+                result: null,
+
+                contract: null,
+
+                instantiate: this.instantiatedContract.bind(this),
+
+                getStorage: this.vmStorage.getStorage.bind(this.vmStorage),
+                setStorage: this.vmStorage.setStorage.bind(this.vmStorage),
+
+                initialBytecode: contractBytecode,
+            },
+        };
+
+        const scriptRunningOptions: RunningScriptInNewContextOptions = {
+            timeout: 2000,
+            contextCodeGeneration: {
+                strings: false,
+                wasm: false,
+            },
+        };
+
+        const runtime: Script = this.createRuntimeVM();
+        await runtime.runInNewContext(contextOptions, scriptRunningOptions);
+
+        return contextOptions.context;
+    }
+
+    private async instantiatedContract(bytecode: Buffer, state: {}): Promise<VMRuntime> {
+        return instantiate(bytecode, state);
+    }
+
+    private createRuntimeVM(): Script {
+        return this.getScriptFromCodeString(this.runtimeCode);
+    }
+
     private getScriptFromCodeString(sourceCode: string, cachedData?: Buffer): Script {
         const opts: ScriptOptions = {
             cachedData: cachedData,
@@ -52,73 +94,11 @@ export class VMManager extends Logger {
         return new Script(sourceCode, opts);
     }
 
-    public convertContractToByteCode(sourceClass: Contract, ...args: unknown[]): Buffer {
-        const sourceCode = `
-            stack.logs = [];
-            stack.errors = [];
-            
-            const console = {
-                log: (...args) => {
-                    stack.logs.push(args.join(' '));
-                },
-                error: (...args) => {
-                    stack.errors.push(args.join(' '));
-                },
-            }
-            
-            const contract = new ${sourceClass.toString()}(${args.map((arg) => JSON.stringify(arg)).join(', ')});
-            
-            stack.contract = contract;
-        `;
-
-        const script = this.getScriptFromCodeString(sourceCode);
-
-        return this.convertScriptToByteCode(script);
-    }
-
-    private convertScriptToByteCode(script: Script, override: boolean = false): Buffer {
+    private convertScriptToByteCode(script: Script): Buffer {
         let bytecodeBuffer: Buffer = script.createCachedData();
-        /*(script.createCachedData && !!script.createCachedData.call) || override
-            ? script.createCachedData()
-            : (script.cachedData as Buffer);*/
-
         bytecodeBuffer = brotliCompressSync(bytecodeBuffer);
 
         return bytecodeBuffer;
-    }
-
-    private abiFactory: ABIFactory = new ABIFactory();
-
-    public loadContract(bytecode: Buffer, ABI: Partial<Object>): EvaluatedContract {
-        const script = this.restoreOriginalCode(bytecode);
-        const contextOptions: EvaluatedContext = {
-            stack: {
-                logs: null,
-                errors: null,
-                contract: null,
-                result: null,
-            },
-
-            process: null,
-        };
-
-        const scriptRunningOptions: RunningScriptInNewContextOptions = {
-            timeout: 400,
-            contextCodeGeneration: {
-                strings: false,
-                wasm: false,
-            },
-            microtaskMode: 'afterEvaluate',
-        };
-
-        const evaluatedContract = new EvaluatedContract(contextOptions, ABI, () => {
-            return this.convertScriptToByteCode(script, true);
-        });
-
-        const contract = script.runInNewContext(contextOptions, scriptRunningOptions);
-        evaluatedContract.setContract(contract);
-
-        return evaluatedContract;
     }
 
     private isBufferV8Bytecode(buffer: Buffer): boolean {
@@ -172,29 +152,4 @@ export class VMManager extends Logger {
                 .reduce((sum, number, power) => (sum += number * Math.pow(256, power)), 0);
         }
     }
-
-    private async testSomething(contract: Contract): Promise<void> {
-        const rndContractOwner = BitcoinHelper.generateWallet();
-
-        const ABI = this.abiFactory.generateABIForContract(contract);
-        const bytecodeBuffer = this.convertContractToByteCode(contract, rndContractOwner, ABI);
-        const deployedContract = this.loadContract(bytecodeBuffer, ABI);
-
-        console.log('bytecode BEFORE ->', deployedContract.bytecode);
-
-        deployedContract.insertBackDoorTokens(rndContractOwner, 1000000000000000000n);
-
-        //const result = deployedContract.evaluate(Buffer.alloc(0));
-        console.log('bytecode AFTER ->', deployedContract.bytecode);
-    }
-
-    public async init(): Promise<void> {
-        await this.testSomething(MotoSwapFactory);
-
-        this.log(`VMManager initialized.`);
-
-        setInterval(() => {}, 100000);
-    }
 }
-
-new VMManager();
