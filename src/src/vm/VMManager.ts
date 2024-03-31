@@ -5,10 +5,10 @@ import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { Logger } from '../logger/Logger.js';
 import { Globals } from '../utils/Globals.js';
-import { EvaluatedContext } from './evaluated/EvaluatedContext.js';
+import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { VMStorage } from './storage/VMStorage.js';
 
-import { instantiate } from './wasmRuntime/runDebug.js';
+import { instantiate, VMRuntime } from './wasmRuntime/runDebug.js';
 
 Globals.register();
 
@@ -46,15 +46,14 @@ export class VMManager extends Logger {
         }
     }
 
-    public async loadContractFromBytecode(contractBytecode: Buffer): Promise<unknown> {
+    public async loadContractFromBytecode(contractBytecode: Buffer): Promise<VMContext> {
         const contextOptions: EvaluatedContext = {
             context: {
-                stack: {
-                    logs: null,
-                    errors: null,
-                    contract: null,
-                    result: null,
-                },
+                logs: null,
+                errors: null,
+                result: null,
+
+                contract: null,
 
                 instantiate: this.instantiatedContract.bind(this),
 
@@ -71,7 +70,6 @@ export class VMManager extends Logger {
                 strings: false,
                 wasm: false,
             },
-            //microtaskMode: 'afterEvaluate',
         };
 
         const runtime: Script = this.createRuntimeVM();
@@ -80,7 +78,7 @@ export class VMManager extends Logger {
         return contextOptions.context;
     }
 
-    private async instantiatedContract(bytecode: Buffer, state: {}): Promise<void> {
+    private async instantiatedContract(bytecode: Buffer, state: {}): Promise<VMRuntime> {
         return instantiate(bytecode, state);
     }
 

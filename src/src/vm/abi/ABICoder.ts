@@ -48,16 +48,26 @@ export class ABICoder {
         return result;
     }
 
-    public encodeSelector(name: string): string {
-        // first 4 bytes of sha256 hash of the function signature
+    public encodePointer(pointer: number, key: string): string {
+        const hash = this.sha256(pointer.toString() + key);
+        const selector = hash.slice(0, 32); // 32 bytes
 
-        const hash = createHash('sha256').update(name).digest();
-        const selector = hash.slice(0, 4);
+        return selector.toString('hex');
+    }
+
+    public encodeSelector(selectorIdentifier: string): string {
+        // first 4 bytes of sha256 hash of the function signature
+        const hash = this.sha256(selectorIdentifier);
+        const selector = hash.slice(0, 4); // 4 bytes
 
         return selector.toString('hex');
     }
 
     public numericSelectorToHex(selector: number): string {
         return selector.toString(16);
+    }
+
+    private sha256(buffer: Buffer | string): Buffer {
+        return createHash('sha256').update(buffer).digest();
     }
 }

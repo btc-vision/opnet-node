@@ -1,11 +1,14 @@
 import 'jest';
 import fs from 'fs';
+import { BitcoinHelper } from '../../src/src/bitcoin/BitcoinHelper.js';
 import { ABICoder } from '../../src/src/vm/abi/ABICoder.js';
 import { VMManager } from '../../src/src/vm/VMManager.js';
 
 describe('I should be able to create my own smart contract for Bitcoin.', () => {
     const OWNER = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
     const CONTRACT_ADDRESS = 'bc1p5d7rjq7g6rdk2yhzks9smlaqtedr4dekq08ge8ztwac72sfr9rusxg3297';
+
+    const DEPLOYER_ADDRESS = BitcoinHelper.generateWallet();
 
     const abiCoder: ABICoder = new ABICoder();
     const vmManager: VMManager = new VMManager();
@@ -51,10 +54,25 @@ describe('I should be able to create my own smart contract for Bitcoin.', () => 
 
     it(`Should be able to load a contract from its bytecode.`, async () => {
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
-        const contract = await vmManager.loadContractFromBytecode(contractBytecode);
-
-        console.log(contract);
-
         expect(contractBytecode).toBeDefined();
+
+        const vmContext = await vmManager.loadContractFromBytecode(contractBytecode);
+        expect(vmContext).toBeDefined();
+
+        const vmRuntime = vmContext.contract;
+        expect(vmRuntime).toBeDefined();
+
+        if (!vmRuntime) {
+            throw new Error('VM runtime not found.');
+        }
+
+        const generatedContract = BitcoinHelper.generateNewContractAddress(
+            contractBytecode,
+            DEPLOYER_ADDRESS.publicKey,
+        );
+
+        console.log(`Generated contract address: ${generatedContract}`);
+
+        //vmRuntime.INIT(OWNER, CONTRACT_ADDRESS);
     });
 });
