@@ -1,3 +1,5 @@
+// const module = await globalThis.WebAssembly.compile(bytecode);
+
 export async function instantiate(bytecode, imports = {}) {
     const module = await globalThis.WebAssembly.compile(bytecode);
 
@@ -14,10 +16,10 @@ export async function instantiate(bytecode, imports = {}) {
                     throw Error(`${message} in ${fileName}:${lineNumber}:${columnNumber}`);
                 })();
             },
-            'console.log'(s) {
-                // src/btc/env/index/consoleLog(~lib/string/String) => void
-                s = __liftString(s >>> 0);
-                console.log(s);
+            'console.log'(text) {
+                // ~lib/bindings/dom/console.log(~lib/string/String) => void
+                text = __liftString(text >>> 0);
+                console.log(text);
             },
         }),
     };
@@ -25,15 +27,9 @@ export async function instantiate(bytecode, imports = {}) {
     const memory = exports.memory || imports.env.memory;
     const adaptedExports = Object.setPrototypeOf(
         {
-            INIT(owner, self) {
-                // src/index/INIT(~lib/string/String, ~lib/string/String) => src/btc/contracts/BTCContract/BTCContract
-                owner = __retain(__lowerString(owner) || __notnull());
-                self = __lowerString(self) || __notnull();
-                try {
-                    return __liftInternref(exports.INIT(owner, self) >>> 0);
-                } finally {
-                    __release(owner);
-                }
+            getContract() {
+                // src/index/getContract() => src/btc/contracts/BTCContract/BTCContract
+                return __liftInternref(exports.getContract() >>> 0);
             },
             readMethod(method, contract, data, caller) {
                 // src/btc/exports/index/readMethod(u32, src/btc/contracts/BTCContract/BTCContract | null, ~lib/typedarray/Uint8Array, ~lib/string/String | null) => ~lib/typedarray/Uint8Array
@@ -48,6 +44,16 @@ export async function instantiate(bytecode, imports = {}) {
                 } finally {
                     __release(contract);
                     __release(data);
+                }
+            },
+            INIT(owner, contractAddress) {
+                // src/btc/exports/index/INIT(~lib/string/String, ~lib/string/String) => void
+                owner = __retain(__lowerString(owner) || __notnull());
+                contractAddress = __lowerString(contractAddress) || __notnull();
+                try {
+                    exports.INIT(owner, contractAddress);
+                } finally {
+                    __release(owner);
                 }
             },
             readView(method, contract) {
@@ -70,6 +76,11 @@ export async function instantiate(bytecode, imports = {}) {
             getModifiedStorage() {
                 // src/btc/exports/index/getModifiedStorage() => ~lib/typedarray/Uint8Array
                 return __liftTypedArray(Uint8Array, exports.getModifiedStorage() >>> 0);
+            },
+            loadStorage(data) {
+                // src/btc/exports/index/loadStorage(~lib/typedarray/Uint8Array) => void
+                data = __lowerTypedArray(Uint8Array, 13, 0, data) || __notnull();
+                exports.loadStorage(data);
             },
         },
         exports,

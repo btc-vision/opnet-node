@@ -2,6 +2,7 @@ import {
     ABIRegistryItem,
     Address,
     ADDRESS_BYTE_LENGTH,
+    BlockchainRequestedStorage,
     ContractABIMap,
     f32,
     i32,
@@ -145,7 +146,7 @@ export class BinaryReader {
         return storage;
     }
 
-    public readRequestedStorage(): Map<Address, Set<bigint>> {
+    public readRequestedStorage(): BlockchainRequestedStorage {
         const storage: Map<Address, Set<bigint>> = new Map();
         const size: u32 = this.readU32();
 

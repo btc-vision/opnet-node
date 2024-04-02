@@ -5,8 +5,6 @@ import { ContractRepository } from './ContractRepository.js';
 export class ContractPointerValueRepository extends ContractRepository {
     public readonly logColor: string = '#afeeee';
 
-    private currentSession?: ClientSession;
-
     constructor(db: Db) {
         super(db);
     }

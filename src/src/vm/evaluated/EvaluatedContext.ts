@@ -2,28 +2,30 @@ import { Context } from 'node:vm';
 
 // @ts-ignore
 import * as wasm from '../../config/runDebug.js';
+import { ContractEvaluator } from '../runtime/ContractEvaluator.js';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
-import { StoragePointer } from '../storage/types/StoragePointer.js';
 
-import { VMRuntime } from '../wasmRuntime/runDebug.js';
+import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { EvaluatedResult } from './EvaluatedResult.js';
 
 export interface VMContext {
-    readonly logs: string[] | null;
-    readonly errors: string[] | null;
+    logs: string[];
+    errors: string[];
 
-    readonly result: Partial<EvaluatedResult> | null;
-
-    instantiate: (bytecode: Buffer, state: {}) => Promise<VMRuntime>;
+    result: Partial<EvaluatedResult> | null;
 
     getStorage: (address: string, pointer: StoragePointer) => Promise<MemoryValue | null>;
     setStorage: (address: string, pointer: StoragePointer, value: MemoryValue) => Promise<void>;
 
-    contract: VMRuntime | null;
+    contract: ContractEvaluator | null;
+
+    readonly ContractEvaluator: typeof ContractEvaluator;
 
     initialBytecode: Buffer;
 }
 
-export interface EvaluatedContext extends Context {
+export interface ExtendedContext {
     readonly context: VMContext;
 }
+
+export type EvaluatedContext = ExtendedContext & Context;

@@ -1,25 +1,24 @@
 import { Globals, Logger } from '@btc-vision/motoswapcommon';
-import bytenode from 'bytenode';
 import fs from 'fs';
-import { ok } from 'node:assert';
-import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
+import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
+import { ContractEvaluator } from './runtime/ContractEvaluator.js';
 import { VMMongoStorage } from './storage/databases/VMMongoStorage.js';
 import { IndexerStorageType } from './storage/types/IndexerStorageType.js';
+import { MemoryValue } from './storage/types/MemoryValue.js';
+import { StoragePointer } from './storage/types/StoragePointer.js';
 import { VMStorage } from './storage/VMStorage.js';
-
-import { instantiate, VMRuntime } from './wasmRuntime/runDebug.js';
 
 Globals.register();
 
 export class VMManager extends Logger {
-    private readonly MAGIC_NUMBER: Buffer = Buffer.from([0xde, 0xc0]);
-    private readonly ZERO_LENGTH_EXTERNAL_REFERENCE_TABLE = Buffer.alloc(2);
+    //private readonly MAGIC_NUMBER: Buffer = Buffer.from([0xde, 0xc0]);
+    //private readonly ZERO_LENGTH_EXTERNAL_REFERENCE_TABLE = Buffer.alloc(2);
 
     private readonly runtimeCode: string = fs
-        .readFileSync(`${__dirname}/../vm/runtime/index.js`)
+        .readFileSync(`${__dirname}/../../../build/src/vm/runtime/index.js`)
         .toString();
 
     private readonly vmStorage: VMStorage;
@@ -34,7 +33,7 @@ export class VMManager extends Logger {
         await this.vmStorage.init();
     }
 
-    public fixBytecode(bytecodeBuffer: Buffer): void {
+    /*public fixBytecode(bytecodeBuffer: Buffer): void {
         if (!Buffer.isBuffer(bytecodeBuffer)) {
             throw new Error('bytecodeBuffer must be a buffer object.');
         }
@@ -52,7 +51,7 @@ export class VMManager extends Logger {
             dummyBytecode.subarray(12, 16).copy(bytecodeBuffer, 12);
             dummyBytecode.subarray(16, 20).copy(bytecodeBuffer, 16);
         }
-    }
+    }*/
 
     public async closeDatabase(): Promise<void> {
         await this.vmStorage.close();
@@ -61,16 +60,16 @@ export class VMManager extends Logger {
     public async loadContractFromBytecode(contractBytecode: Buffer): Promise<VMContext> {
         const contextOptions: EvaluatedContext = {
             context: {
-                logs: null,
-                errors: null,
+                logs: [],
+                errors: [],
                 result: null,
 
                 contract: null,
 
-                instantiate: this.instantiatedContract.bind(this),
+                getStorage: this.getStorage.bind(this),
+                setStorage: this.setStorage.bind(this),
 
-                getStorage: this.vmStorage.getStorage.bind(this.vmStorage),
-                setStorage: this.vmStorage.setStorage.bind(this.vmStorage),
+                ContractEvaluator: ContractEvaluator,
 
                 initialBytecode: contractBytecode,
             },
@@ -85,9 +84,29 @@ export class VMManager extends Logger {
         };
 
         const runtime: Script = this.createRuntimeVM();
-        await runtime.runInNewContext(contextOptions, scriptRunningOptions);
+
+        try {
+            await runtime.runInNewContext(contextOptions, scriptRunningOptions);
+        } catch (error) {
+            console.log('Error:', error, contextOptions.context);
+        }
 
         return contextOptions.context;
+    }
+
+    private async setStorage(
+        address: BitcoinAddress,
+        pointer: StoragePointer,
+        value: MemoryValue,
+    ): Promise<void> {
+        return this.vmStorage.setStorage(address, pointer, value);
+    }
+
+    private async getStorage(
+        address: string,
+        pointer: StoragePointer,
+    ): Promise<MemoryValue | null> {
+        return this.vmStorage.getStorage(address, pointer);
     }
 
     private getVMStorage(): VMStorage {
@@ -97,10 +116,6 @@ export class VMManager extends Logger {
             default:
                 throw new Error('Invalid VM Storage type.');
         }
-    }
-
-    private async instantiatedContract(bytecode: Buffer, state: {}): Promise<VMRuntime> {
-        return instantiate(bytecode, state);
     }
 
     private createRuntimeVM(): Script {
@@ -115,7 +130,7 @@ export class VMManager extends Logger {
         return new Script(sourceCode, opts);
     }
 
-    private convertScriptToByteCode(script: Script): Buffer {
+    /*private convertScriptToByteCode(script: Script): Buffer {
         let bytecodeBuffer: Buffer = script.createCachedData();
         bytecodeBuffer = brotliCompressSync(bytecodeBuffer);
 
@@ -172,5 +187,5 @@ export class VMManager extends Logger {
                 .subarray(8, 12)
                 .reduce((sum, number, power) => (sum += number * Math.pow(256, power)), 0);
         }
-    }
+    }*/
 }

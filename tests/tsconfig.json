@@ -3,7 +3,6 @@
     "module": "esnext",
     "declaration": true,
     "target": "esnext",
-
     "noImplicitAny": true,
     "removeComments": true,
     "suppressImplicitAnyIndexErrors": false,
