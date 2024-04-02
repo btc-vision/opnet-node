@@ -22,6 +22,8 @@ export async function instantiate(bytecode, imports = {}) {
                 console.log(text);
             },
         }),
+        
+        memory: new WebAssembly.Memory({ initial: 65536, maximum: 65536 }),
     };
     const { exports } = await WebAssembly.instantiate(module, adaptedImports);
     const memory = exports.memory || imports.env.memory;

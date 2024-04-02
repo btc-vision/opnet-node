@@ -13,7 +13,7 @@ export type VMRuntime = {
         caller?: Address | null,
     ): Uint8Array;
 
-    readView(method: Selector): Uint8Array;
+    readView(method: Selector, contract?: Number | null): Uint8Array;
 
     getViewABI(): Uint8Array;
     getMethodABI(): Uint8Array;

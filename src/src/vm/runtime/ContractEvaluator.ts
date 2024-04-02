@@ -128,6 +128,8 @@ export class ContractEvaluator {
     private viewAbi: SelectorsMap = new Map();
     private methodAbi: MethodMap = new Map();
 
+    private initializeContract: boolean = false;
+
     public async setupContract(owner: string, contractAddress: string): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
@@ -145,8 +147,6 @@ export class ContractEvaluator {
         this.viewAbi = this.getViewABI();
         this.methodAbi = this.getMethodABI();
 
-        console.log('Contract initialized', this.contractRef, this.viewAbi, this.methodAbi);
-
         const requiredPersistentStorage = this.getCurrentStorageState();
         const modifiedStorage = this.getCurrentModifiedStorageState();
 
@@ -156,7 +156,8 @@ export class ContractEvaluator {
             this.persistentStorageState,
         );
 
-        console.log('Contract initialized', this.contractRef, this.persistentStorageState);
+        this.initializeContract = true;
+        console.log('Contract initialized');
     }
 
     private async loadPersistentStorageState(
@@ -268,6 +269,10 @@ export class ContractEvaluator {
         calldata: Uint8Array | null,
         caller?: Address | null,
     ): Promise<Uint8Array | undefined> {
+        if (!this.initializeContract) {
+            throw new Error('Contract not initialized');
+        }
+
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
@@ -337,8 +342,6 @@ export class ContractEvaluator {
         }
 
         const abi = this.contractInstance.getViewABI();
-        console.log('ABI ->', abi);
-
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readViewSelectorsMap();
@@ -350,8 +353,6 @@ export class ContractEvaluator {
         }
 
         const abi = this.contractInstance.getMethodABI();
-        console.log('ABI ->', abi);
-
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readMethodSelectorsMap();
