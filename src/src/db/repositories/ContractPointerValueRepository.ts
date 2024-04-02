@@ -11,7 +11,7 @@ export class ContractPointerValueRepository {
         
     }
 
-    public async getByContractAndKey(
+    public async getByContractAndPointer(
         contractAddress: string,
         pointer: Binary,
         currentSession?: ClientSession
@@ -21,9 +21,6 @@ export class ContractPointerValueRepository {
             pointer: pointer
         };
 
-        const document = this.queryOne(criteria,
-            currentSession);
-
-        return document;
+        return null;
     }
 }
