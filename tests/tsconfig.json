@@ -3,6 +3,7 @@
     "module": "esnext",
     "declaration": true,
     "target": "esnext",
+
     "noImplicitAny": true,
     "removeComments": true,
     "suppressImplicitAnyIndexErrors": false,
@@ -32,8 +33,7 @@
     "moduleResolution": "node",
     "allowJs": true,
     "incremental": true,
-    "allowSyntheticDefaultImports": true,
-    "outDir": "build"
+    "allowSyntheticDefaultImports": true
   },
   "include": [
     "src/**/*.ts",
