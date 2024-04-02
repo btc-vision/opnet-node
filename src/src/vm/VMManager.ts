@@ -30,6 +30,10 @@ export class VMManager extends Logger {
         this.vmStorage = this.getVMStorage();
     }
 
+    public async init(): Promise<void> {
+        await this.vmStorage.init();
+    }
+
     public fixBytecode(bytecodeBuffer: Buffer): void {
         if (!Buffer.isBuffer(bytecodeBuffer)) {
             throw new Error('bytecodeBuffer must be a buffer object.');
@@ -48,6 +52,10 @@ export class VMManager extends Logger {
             dummyBytecode.subarray(12, 16).copy(bytecodeBuffer, 12);
             dummyBytecode.subarray(16, 20).copy(bytecodeBuffer, 16);
         }
+    }
+
+    public async closeDatabase(): Promise<void> {
+        await this.vmStorage.close();
     }
 
     public async loadContractFromBytecode(contractBytecode: Buffer): Promise<VMContext> {

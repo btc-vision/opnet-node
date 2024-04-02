@@ -21,4 +21,8 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         pointer: StoragePointer,
         value: MemoryValue,
     ): Promise<void>;
+
+    public abstract init(): Promise<void>;
+
+    public abstract close(): Promise<void>;
 }

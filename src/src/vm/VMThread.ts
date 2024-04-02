@@ -1,4 +1,5 @@
 import { Config } from '../config/Config.js';
 import { VMManager } from './VMManager.js';
 
-new VMManager(Config);
+const vmManager = new VMManager(Config);
+void vmManager.init();

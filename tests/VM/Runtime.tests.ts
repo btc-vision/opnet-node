@@ -34,6 +34,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     let contractRef: Number = 0;
 
     beforeAll(async () => {
+        await vmManager.init();
+
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
         expect(contractBytecode).toBeDefined();
 
@@ -84,6 +86,10 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         expect(decodedViewSelectors).toBeDefined();
         expect(decodedMethodSelectors).toBeDefined();
         expect(module).toBeDefined();
+    });
+
+    afterAll(async () => {
+        vmManager.closeDatabase();
     });
 
     test(`When I deploy a smart contract on the bitcoin network, it should have a valid address.`, async () => {

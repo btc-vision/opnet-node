@@ -19,6 +19,10 @@ export class VMMongoStorage extends VMStorage {
         await this.db.connect();
     }
 
+    public async close(): Promise<void> {
+        await this.db.close();
+    }
+
     public async getStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
