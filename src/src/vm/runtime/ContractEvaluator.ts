@@ -6,8 +6,10 @@ import {
     BlockchainStorage,
     MemorySlotData,
     MemorySlotPointer,
+    MethodMap,
     PointerStorage,
     Selector,
+    SelectorsMap,
 } from '../buffer/types/math.js';
 import { VMContext } from '../evaluated/EvaluatedContext.js';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
@@ -20,6 +22,8 @@ export class ContractEvaluator {
 
     private currentStorageState: BlockchainStorage = new Map();
     private persistentStorageState: BlockchainStorage = new Map();
+
+    private currentRequiredStorage: BlockchainRequestedStorage = new Map();
 
     private contractRef: Number = 0;
     private isProcessing: boolean = false;
@@ -84,14 +88,45 @@ export class ContractEvaluator {
         const storage = this.getMergedStorageState();
 
         this.binaryWriter.writeStorage(storage);
-        this.currentStorageState.clear();
 
         return this.binaryWriter.getBuffer();
+    }
+
+    private sameRequiredStorage(
+        requiredStorageBefore: BlockchainRequestedStorage,
+        requiredStorageAfter: BlockchainRequestedStorage,
+    ): boolean {
+        if (requiredStorageBefore.size !== requiredStorageAfter.size) {
+            return false;
+        }
+
+        for (const [key, value] of requiredStorageBefore) {
+            const valueAfter = requiredStorageAfter.get(key);
+
+            if (!valueAfter) {
+                return false;
+            }
+
+            if (value.size !== valueAfter.size) {
+                return false;
+            }
+
+            for (const v of value) {
+                if (!valueAfter.has(v)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     public getLogs(): string[] {
         return this.stack.logs;
     }
+
+    private viewAbi: SelectorsMap = new Map();
+    private methodAbi: MethodMap = new Map();
 
     public async setupContract(owner: string, contractAddress: string): Promise<void> {
         if (!this.contractInstance) {
@@ -107,28 +142,42 @@ export class ContractEvaluator {
         this.contractInstance.INIT(owner, contractAddress);
         this.contractRef = this.contractInstance.getContract();
 
+        this.viewAbi = this.getViewABI();
+        this.methodAbi = this.getMethodABI();
+
+        console.log('Contract initialized', this.contractRef, this.viewAbi, this.methodAbi);
+
         const requiredPersistentStorage = this.getCurrentStorageState();
         const modifiedStorage = this.getCurrentModifiedStorageState();
 
-        await this.loadPersistentStorageState(requiredPersistentStorage, modifiedStorage);
+        await this.loadPersistentStorageState(
+            requiredPersistentStorage,
+            modifiedStorage,
+            this.persistentStorageState,
+        );
+
+        console.log('Contract initialized', this.contractRef, this.persistentStorageState);
     }
 
     private async loadPersistentStorageState(
         requestPersistentStorage: BlockchainRequestedStorage,
         modifiedStorage: BlockchainStorage,
+        initialStorage: BlockchainStorage = this.persistentStorageState,
     ): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        if (this.persistentStorageState.size !== 0) {
+        if (initialStorage.size !== 0) {
             throw new Error('Persistent storage already loaded');
         }
 
         const loadedPromises: Promise<void>[] = [];
         for (const [key, value] of requestPersistentStorage) {
-            const storage: PointerStorage = new Map();
-            this.persistentStorageState.set(key, storage);
+            const storage: PointerStorage = initialStorage.get(key) || new Map();
+            if (!initialStorage.has(key)) {
+                initialStorage.set(key, storage);
+            }
 
             const defaultPointerStorage = modifiedStorage.get(key);
             if (!defaultPointerStorage) {
@@ -138,6 +187,11 @@ export class ContractEvaluator {
             }
 
             for (let v of value) {
+                const hasValue = storage.has(v);
+                if (hasValue) {
+                    continue;
+                }
+
                 const defaultPointer: MemorySlotData<bigint> | undefined =
                     defaultPointerStorage.get(v);
 
@@ -147,17 +201,18 @@ export class ContractEvaluator {
                     );
                 }
 
-                loadedPromises.push(this.setPersistentStorageState(key, v, defaultPointer));
+                loadedPromises.push(this.setStorageState(key, v, defaultPointer, storage));
             }
         }
 
         await Promise.all(loadedPromises);
     }
 
-    private async setPersistentStorageState(
+    private async setStorageState(
         address: Address,
         pointer: MemorySlotPointer,
         defaultValue: MemorySlotData<bigint>,
+        pointerStorage: PointerStorage,
     ): Promise<void> {
         const rawData: Buffer = Buffer.from(pointer.toString(16), 'hex');
         const defaultValueBuffer: Buffer = Buffer.from(defaultValue.toString(16), 'hex');
@@ -171,13 +226,6 @@ export class ContractEvaluator {
 
         const finalValue: bigint =
             value === null ? defaultValue : BigInt('0x' + value.toString('hex'));
-
-        console.log(value, finalValue);
-
-        const pointerStorage: PointerStorage | undefined = this.persistentStorageState.get(address);
-        if (!pointerStorage) {
-            throw new Error(`Pointer storage ${address} not found`);
-        }
 
         pointerStorage.set(pointer, finalValue);
     }
@@ -208,28 +256,113 @@ export class ContractEvaluator {
         return this.contractRef;
     }
 
+    public clear(): void {
+        this.currentStorageState.clear();
+        this.persistentStorageState.clear();
+        this.currentRequiredStorage.clear();
+    }
+
     public async evaluate(
         abi: Selector,
-        calldata: Uint8Array,
+        isView: boolean,
+        calldata: Uint8Array | null,
         caller?: Address | null,
-    ): Promise<void> {
+    ): Promise<Uint8Array | undefined> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
+        if (!calldata && !isView) {
+            throw new Error('Calldata is required for method call');
+        }
+
         try {
+            this.currentStorageState.clear();
             this.contractInstance.purgeMemory();
             this.contractInstance.loadStorage(this.writeCurrentStorageState());
+
+            let result: Uint8Array;
+            if (!isView) {
+                result = this.contractInstance.readMethod(
+                    abi,
+                    this.getContract(),
+                    calldata as Uint8Array,
+                    caller,
+                );
+            } else {
+                result = this.contractInstance.readView(abi);
+            }
+
+            const requiredStorageAfter = this.getCurrentStorageState();
+            const sameStorage = this.sameRequiredStorage(
+                this.currentRequiredStorage,
+                requiredStorageAfter,
+            );
+
+            this.currentRequiredStorage.clear();
+            this.currentRequiredStorage = requiredStorageAfter;
+
+            const modifiedStorage = this.getCurrentModifiedStorageState();
+            await this.loadPersistentStorageState(
+                requiredStorageAfter,
+                modifiedStorage,
+                this.currentStorageState,
+            );
+
+            if (!sameStorage) {
+                console.log(`STORAGE SLOTS CHANGED. RELOADING...`);
+                await this.evaluate(abi, isView, calldata, caller);
+            } else {
+                console.log(`LOADED ALL REQUIRED STORAGE SLOTS. THIS RESULT IS FINAL.`);
+                this.clear();
+
+                return result;
+            }
         } catch (e) {
             throw e;
         }
     }
 
+    public getViewSelectors(): SelectorsMap {
+        return this.viewAbi;
+    }
+
+    public getMethodSelectors(): MethodMap {
+        return this.methodAbi;
+    }
+
+    private getViewABI(): SelectorsMap {
+        if (!this.contractInstance) {
+            throw new Error('Contract not initialized');
+        }
+
+        const abi = this.contractInstance.getViewABI();
+        console.log('ABI ->', abi);
+
+        const abiDecoder = new BinaryReader(abi);
+
+        return abiDecoder.readViewSelectorsMap();
+    }
+
+    private getMethodABI(): MethodMap {
+        if (!this.contractInstance) {
+            throw new Error('Contract not initialized');
+        }
+
+        const abi = this.contractInstance.getMethodABI();
+        console.log('ABI ->', abi);
+
+        const abiDecoder = new BinaryReader(abi);
+
+        return abiDecoder.readMethodSelectorsMap();
+    }
+
     public async execute(
+        isView: boolean,
         abi: Selector,
-        calldata: Uint8Array,
-        caller?: Address | null,
-    ): Promise<Uint8Array> {
+        calldata: Uint8Array | null = null,
+        caller: Address | null = null,
+    ): Promise<Uint8Array | undefined> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
@@ -241,12 +374,7 @@ export class ContractEvaluator {
         this.isProcessing = true;
 
         try {
-            const resp = this.contractInstance.readMethod(
-                abi,
-                this.getContract(),
-                calldata,
-                caller,
-            );
+            const resp = await this.evaluate(abi, isView, calldata, caller);
 
             this.isProcessing = false;
 
