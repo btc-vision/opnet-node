@@ -1,5 +1,5 @@
 import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';
-import { IConfig } from '@btc-vision/motoswapcommon';
+import { IConfigTemplate } from '@btc-vision/motoswapcommon';
 
 export interface IndexerConfig {
     ENABLED: boolean;
@@ -7,6 +7,6 @@ export interface IndexerConfig {
     STORAGE_TYPE: IndexerStorageType;
 }
 
-export interface IBtcIndexerConfig extends IConfig {
+export interface IBtcIndexerConfig extends IConfigTemplate {
     INDEXER: IndexerConfig;
 }

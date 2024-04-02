@@ -1,11 +1,9 @@
 import { ConfigBase, ConfigManager, IConfig } from '@btc-vision/motoswapcommon';
 import { IndexerStorageType } from '../vm/storage/types/IndexerStorageType.js';
-import '../utils/Globals.js';
 import { IBtcIndexerConfig } from './interfaces/IBtcIndexerConfig.js';
 import { BtcIndexerConfig } from './BtcIndexerConfig.js';
 
-type test = IConfig & IBtcIndexerConfig;
-export class BtcIndexerConfigManager extends ConfigManager<IBtcIndexerConfig> {
+export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerConfig>> {
     private defaultConfig: Partial<IBtcIndexerConfig> = {
         INDEXER: {
             ENABLED: false,
@@ -17,12 +15,12 @@ export class BtcIndexerConfigManager extends ConfigManager<IBtcIndexerConfig> {
         super(fullFileName);
     }
 
-    public override getConfigs(): ConfigBase {
+    public override getConfigs(): BtcIndexerConfig {
         return new BtcIndexerConfig(this.config);
     }
 
-    protected override getDefaultConfig(): IConfig {
-        const config: test = {
+    protected getDefaultConfig(): IConfig<IBtcIndexerConfig> {
+        const config: IConfig<IBtcIndexerConfig> = {
             ...super.getDefaultConfig(),
             ...this.defaultConfig
         };
@@ -53,6 +51,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IBtcIndexerConfig> {
         this.verifyConfig(parsedConfig);
         super.parsePartialConfig(parsedConfig);
 
-
+        this.config.INDEXER = {
+            ...parsedConfig.INDEXER,
+            ...this.config.INDEXER
+        };
     }
 }

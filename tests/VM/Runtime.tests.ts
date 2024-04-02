@@ -13,12 +13,13 @@ import {
 import { VMContext } from '../../src/src/vm/evaluated/EvaluatedContext.js';
 import { VMManager } from '../../src/src/vm/VMManager.js';
 import { VMRuntime } from '../../src/src/vm/wasmRuntime/runDebug.js';
+import { TestConfig } from '../config/Config.js';
 
 describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
     const DEPLOYER_ADDRESS = BitcoinHelper.generateWallet();
 
     const abiCoder: ABICoder = new ABICoder();
-    const vmManager: VMManager = new VMManager();
+    const vmManager: VMManager = new VMManager(TestConfig);
 
     let OWNER = DEPLOYER_ADDRESS.address;
 

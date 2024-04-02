@@ -10,6 +10,8 @@ import { IndexerStorageType } from './storage/types/IndexerStorageType.js';
 import { VMStorage } from './storage/VMStorage.js';
 
 import { instantiate, VMRuntime } from './wasmRuntime/runDebug.js';
+import { Config } from '../config/Config.js';
+import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 
 Globals.register();
 
@@ -21,14 +23,17 @@ export class VMManager extends Logger {
         .readFileSync(`${__dirname}/../vm/runtime/index.js`)
         .toString();
 
-    private readonly vmStorage: VMStorage = this.getVMStorage();
+    private readonly vmStorage: VMStorage;
 
-    constructor() {
+    constructor(private readonly config: IBtcIndexerConfig) {
         super();
+
+        this.vmStorage = this.getVMStorage();
     }
 
     private getVMStorage(): VMStorage {
-        switch (Config.INDEXER.STORAGE_TYPE) {
+        console.log(this.config);
+        switch (this.config.INDEXER.STORAGE_TYPE) {
             case IndexerStorageType.MONGODB:
                 return new VMMongoStorage();
             default:
