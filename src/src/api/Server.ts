@@ -1,7 +1,6 @@
+import { Globals, Logger } from '@btc-vision/motoswapcommon';
 import cors from 'cors';
 import nanoexpress, { IHttpRequest, IHttpResponse, INanoexpressApp, IWebSocket } from 'nanoexpress';
-import { Logger } from '@btc-vision/motoswapcommon';
-import { Globals } from '@btc-vision/motoswapcommon';
 import { DefinedRoutes } from './routes/DefinedRoutes.js';
 
 Globals.register();

@@ -1,17 +1,16 @@
+import { Globals, Logger } from '@btc-vision/motoswapcommon';
 import bytenode from 'bytenode';
 import fs from 'fs';
 import { ok } from 'node:assert';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
-import { Logger, Globals } from '@btc-vision/motoswapcommon';
+import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { VMMongoStorage } from './storage/databases/VMMongoStorage.js';
 import { IndexerStorageType } from './storage/types/IndexerStorageType.js';
 import { VMStorage } from './storage/VMStorage.js';
 
 import { instantiate, VMRuntime } from './wasmRuntime/runDebug.js';
-import { Config } from '../config/Config.js';
-import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 
 Globals.register();
 
@@ -29,16 +28,6 @@ export class VMManager extends Logger {
         super();
 
         this.vmStorage = this.getVMStorage();
-    }
-
-    private getVMStorage(): VMStorage {
-        console.log(this.config);
-        switch (this.config.INDEXER.STORAGE_TYPE) {
-            case IndexerStorageType.MONGODB:
-                return new VMMongoStorage();
-            default:
-                throw new Error('Invalid VM Storage type.');
-        }
     }
 
     public fixBytecode(bytecodeBuffer: Buffer): void {
@@ -91,6 +80,16 @@ export class VMManager extends Logger {
         await runtime.runInNewContext(contextOptions, scriptRunningOptions);
 
         return contextOptions.context;
+    }
+
+    private getVMStorage(): VMStorage {
+        console.log(this.config);
+        switch (this.config.INDEXER.STORAGE_TYPE) {
+            case IndexerStorageType.MONGODB:
+                return new VMMongoStorage();
+            default:
+                throw new Error('Invalid VM Storage type.');
+        }
     }
 
     private async instantiatedContract(bytecode: Buffer, state: {}): Promise<VMRuntime> {

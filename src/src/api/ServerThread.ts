@@ -1,9 +1,9 @@
+import { Globals } from '@btc-vision/motoswapcommon';
 import { Config } from '../config/Config.js';
 import { DBManagerInstance } from '../db/DBManager.js';
 import { MessageType } from '../threading/enum/MessageType.js';
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { Thread } from '../threading/thread/Thread.js';
-import { Globals } from '@btc-vision/motoswapcommon';
 
 import { Server } from './Server.js';
 
@@ -20,15 +20,6 @@ export class ServerThread extends Thread {
         void this.initApi();
     }
 
-    private async initApi() {
-        this.log(`Starting API on port ${Config.API.PORT}.`);
-
-        await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
-        await DBManagerInstance.connect();
-
-        await this.server.init(Config.API.PORT);
-    }
-
     protected async onMessage(m: ThreadMessageBase<MessageType>): Promise<void> {
         let data = m.data;
 
@@ -38,6 +29,15 @@ export class ServerThread extends Thread {
                 this.error(`Unknown thread message received. {Type: ${m.type}}`);
                 break;
         }
+    }
+
+    private async initApi() {
+        this.log(`Starting API on port ${Config.API.PORT}.`);
+
+        await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
+        await DBManagerInstance.connect();
+
+        await this.server.init(Config.API.PORT);
     }
 }
 

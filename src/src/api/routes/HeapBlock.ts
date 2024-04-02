@@ -19,10 +19,6 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
         );
     }
 
-    private onNewBlock(blockData: NewBlockSubscription): void {
-        this.log(`New block: ${blockData.blockHash}`);
-    }
-
     /**
      * GET /api/v1/heapBlock
      * @tag MotoSwap
@@ -46,5 +42,9 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
             let e = err as Error;
             this.error(e.stack);
         }
+    }
+
+    private onNewBlock(blockData: NewBlockSubscription): void {
+        this.log(`New block: ${blockData.blockHash}`);
     }
 }

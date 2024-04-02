@@ -21,7 +21,7 @@ export type VMRuntime = {
      * @returns `~lib/typedarray/Uint8Array`
      */
     getRequiredStorage(): Uint8Array;
-    
+
     /**
      * src/btc/exports/index/getModifiedStorage
      * @returns `~lib/typedarray/Uint8Array`

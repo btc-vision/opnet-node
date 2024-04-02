@@ -1,5 +1,5 @@
-import { MessagePort, parentPort } from 'worker_threads';
 import { Logger } from '@btc-vision/motoswapcommon';
+import { MessagePort, parentPort } from 'worker_threads';
 import { MessageType } from '../enum/MessageType.js';
 import { SetMessagePort } from '../interfaces/thread-messages/messages/SetMessagePort.js';
 import { ThreadMessageBase } from '../interfaces/thread-messages/ThreadMessageBase.js';
@@ -18,10 +18,6 @@ export abstract class Thread extends Logger implements IThread {
         super();
 
         void this.init();
-    }
-
-    private generateTaskId(): string {
-        return genRanHex(8);
     }
 
     protected async sendMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData | null> {
@@ -47,6 +43,18 @@ export abstract class Thread extends Logger implements IThread {
                 reject(e);
             }
         });
+    }
+
+    protected async init(): Promise<void> {
+        this.log(`Starting new thread.`);
+
+        this.registerEvents();
+    }
+
+    protected abstract onMessage(m: ThreadMessageBase<MessageType>): Promise<void>;
+
+    private generateTaskId(): string {
+        return genRanHex(8);
     }
 
     private setMessagePort(msg: SetMessagePort): void {
@@ -81,14 +89,6 @@ export abstract class Thread extends Logger implements IThread {
     private onThreadMessageError(m: any): void {
         this.error(`Thread message error {Details: ${m}}`);
     }
-
-    protected async init(): Promise<void> {
-        this.log(`Starting new thread.`);
-
-        this.registerEvents();
-    }
-
-    protected abstract onMessage(m: ThreadMessageBase<MessageType>): Promise<void>;
 
     private async onThreadResponse(m: ThreadMessageBase<MessageType>): Promise<void> {
         if (m !== null && m && m.taskId && !m.toServer) {

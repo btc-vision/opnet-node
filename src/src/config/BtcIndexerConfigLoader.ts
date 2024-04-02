@@ -1,14 +1,14 @@
-import { ConfigBase, ConfigManager, IConfig } from '@btc-vision/motoswapcommon';
+import { ConfigManager, IConfig } from '@btc-vision/motoswapcommon';
 import { IndexerStorageType } from '../vm/storage/types/IndexerStorageType.js';
-import { IBtcIndexerConfig } from './interfaces/IBtcIndexerConfig.js';
 import { BtcIndexerConfig } from './BtcIndexerConfig.js';
+import { IBtcIndexerConfig } from './interfaces/IBtcIndexerConfig.js';
 
 export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerConfig>> {
     private defaultConfig: Partial<IBtcIndexerConfig> = {
         INDEXER: {
             ENABLED: false,
-            STORAGE_TYPE: IndexerStorageType.MONGODB
-        }
+            STORAGE_TYPE: IndexerStorageType.MONGODB,
+        },
     };
 
     constructor(fullFileName: string) {
@@ -22,7 +22,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
     protected getDefaultConfig(): IConfig<IBtcIndexerConfig> {
         const config: IConfig<IBtcIndexerConfig> = {
             ...super.getDefaultConfig(),
-            ...this.defaultConfig
+            ...this.defaultConfig,
         };
 
         return config;
@@ -53,7 +53,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         this.config.INDEXER = {
             ...parsedConfig.INDEXER,
-            ...this.config.INDEXER
+            ...this.config.INDEXER,
         };
     }
 }

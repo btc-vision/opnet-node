@@ -1,8 +1,7 @@
 import { Binary } from 'mongodb';
-import { BaseModel } from '@btc-vision/motoswapdb';
-import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js'
+import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
 
-export class ContractPointerValue  {
+export class ContractPointerValue {
     public contractAddress: string;
     public pointer: Uint8Array;
     public value: Uint8Array;
@@ -17,7 +16,7 @@ export class ContractPointerValue  {
         const document: IContractPointerValueDocument = {
             contractAddress: this.contractAddress,
             value: new Binary(this.value),
-            pointer: new Binary(this.pointer)
+            pointer: new Binary(this.pointer),
         };
 
         return document;

@@ -1,6 +1,6 @@
+import { Logger } from '@btc-vision/motoswapcommon';
 import { Config } from '../config/Config.js';
 import { DBManagerInstance } from '../db/DBManager.js';
-import { Logger } from '@btc-vision/motoswapcommon';
 
 new (class BlockchainIndexerManager extends Logger {
     public readonly logColor: string = '#1553c7';

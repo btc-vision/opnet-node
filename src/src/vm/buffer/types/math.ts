@@ -17,8 +17,8 @@ export type u64 = bigint;
 export type Selector = number;
 
 export interface ABIRegistryItem {
-    name: string,
-    selector: Selector
+    name: string;
+    selector: Selector;
 }
 
 export type ContractABIMap = Set<Selector>;
