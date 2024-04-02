@@ -4,25 +4,21 @@ import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
 
-export class VMStorage extends Logger implements IVMStorageMethod {
+export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public readonly logColor: string = '#ff00ff';
 
-    constructor() {
+    protected constructor() {
         super();
     }
 
-    public async getStorage(
+    public abstract getStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
-    ): Promise<MemoryValue | null> {
-        return Buffer.from('');
-    }
+    ): Promise<MemoryValue | null>;
 
-    public async setStorage(
+    public abstract setStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
         value: MemoryValue,
-    ): Promise<void> {
-        return;
-    }
+    ): Promise<void>;
 }
