@@ -17,7 +17,7 @@ export class VMManager extends Logger {
     private readonly ZERO_LENGTH_EXTERNAL_REFERENCE_TABLE = Buffer.alloc(2);
 
     private readonly runtimeCode: string = fs
-        .readFileSync(`${__dirname}/../vm/runtime/index.mjs`)
+        .readFileSync(`${__dirname}/../vm/wasmRuntime/index.js`)
         .toString();
 
     private readonly vmStorage: VMStorage = new VMStorage();

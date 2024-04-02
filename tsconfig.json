@@ -29,7 +29,7 @@
 		"strictPropertyInitialization": true,
 		"alwaysStrict": true,
 		"moduleResolution": "node",
-		"allowJs": false,
+		"allowJs": true,
 		"incremental": true,
 		"allowSyntheticDefaultImports": true,
 		"outDir": "build"
