@@ -10,7 +10,7 @@ export class ContractKeyPointerRepository extends BaseRepository<IContractKeyPoi
         super(db);
     }
 
-    public async getByKeyHash(contractAddress: string,
+    public async getByContractAndKey(contractAddress: string,
         key: string,
         currentSession?: ClientSession): Promise<IContractKeyPointerDocument | null> {
         const criteria: Partial<IContractKeyPointerDocument> = {
