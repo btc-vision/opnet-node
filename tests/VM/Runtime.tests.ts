@@ -85,7 +85,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         expect(module).toBeDefined();
     });
 
-    it(`When I deploy a smart contract on the bitcoin network, it should have a valid address.`, async () => {
+    test(`When I deploy a smart contract on the bitcoin network, it should have a valid address.`, async () => {
         expect(mainContractViewSelectors).toBeDefined();
         expect(mainContractMethodSelectors).toBeDefined();
 
@@ -116,7 +116,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         expect(decodedResponse[0]).toBe(OWNER);
     });
 
-    it(`I should be able to interact with a readonly method in my contract.`, async () => {
+    test(`BSC should create new memory slots when required and be able to run any given method by their method selector.`, async () => {
         expect(mainContractViewSelectors).toBeDefined();
         expect(mainContractMethodSelectors).toBeDefined();
 
@@ -165,7 +165,14 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             logs: vmContext?.logs,
         });
 
+        expect(decodedRequiredStorage.size).toBe(1);
+        expect(decodedModifiedStorage.size).toBe(1);
+
         const balanceOfResponse = decodedResponse[0];
         expect(balanceOfResponse).toBe(0n);
     });
+
+    test(`BSC should be able to retrieve any storage key and value.`, async () => {});
+
+    test(`BSC should be able to return every storage slot used when evaluating a method.`, async () => {});
 });
