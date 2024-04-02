@@ -8,6 +8,7 @@ import logger from 'gulp-logger';
 import ts from 'gulp-typescript';
 
 const tsProject = ts.createProject('tsconfig.json');
+const tsProjectCJS = ts.createProject('tsconfig.cjs.json');
 
 function onError(e) {
     console.log('Errored', e);
@@ -29,6 +30,28 @@ async function build() {
             .pipe(tsProject())
             .on('error', onError)
             .pipe(gulp.dest('build'))
+            .on('end', async () => {
+                resolve();
+            });
+    });
+}
+
+async function buildCJS() {
+    return new Promise(async (resolve) => {
+        tsProject
+            .src()
+            .pipe(gulpcache())
+            .pipe(
+                logger({
+                    before: 'Starting...',
+                    after: 'Project compiled!',
+                    extname: '.js',
+                    showChange: true,
+                }),
+            )
+            .pipe(tsProjectCJS())
+            .on('error', onError)
+            .pipe(gulp.dest('cjs'))
             .on('end', async () => {
                 resolve();
             });
@@ -86,17 +109,16 @@ gulp.task('default', async () => {
     return true;
 });
 
+gulp.task('cjs', async () => {
+    await buildCJS().catch((e) => {});
+    await buildProtoYaml();
+
+    return true;
+});
+
 gulp.task('watch', () => {
     gulp.watch(
-        [
-            'src/**/**/*.ts',
-            'src/**/*.ts',
-            'src/**/*.js',
-            'src/*.ts',
-            'src/*.js',
-            'src/**/*.mjs',
-            'src/*.mjs',
-        ],
+        ['src/**/**/*.ts', 'src/**/*.ts', 'src/**/*.js', 'src/*.ts', 'src/*.js'],
         async (cb) => {
             await build().catch((e) => {
                 console.log('Errored 2', e);
