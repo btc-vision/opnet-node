@@ -1,6 +1,7 @@
 import { CacheStrategy } from '../../cache/enum/CacheStrategy.js';
 import { MONGO_CONNECTION_TYPE } from '../../db/credentials/MongoCredentials.js';
 import { DebugLevel } from '../../logger/enums/DebugLevel.js';
+import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';
 import { BitcoinNetwork } from '../enum/BitcoinNetwork.js';
 
 export interface DocsConfig {
@@ -29,6 +30,9 @@ export interface DataBaseConfig {
 
 export interface IndexerConfig {
     ENABLED: boolean;
+
+    STORAGE_TYPE: IndexerStorageType;
+    DATABASE_NAME: string;
 }
 
 export interface BlockchainConfig {

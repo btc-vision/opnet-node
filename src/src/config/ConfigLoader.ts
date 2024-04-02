@@ -1,13 +1,14 @@
 import fs from 'fs';
+import path from 'path';
 import toml from 'toml';
 import { CacheStrategy } from '../cache/enum/CacheStrategy.js';
 import { MONGO_CONNECTION_TYPE } from '../db/credentials/MongoCredentials.js';
 import { DebugLevel } from '../logger/enums/DebugLevel.js';
 import { Logger } from '../logger/Logger.js';
+import { IndexerStorageType } from '../vm/storage/types/IndexerStorageType.js';
 import { ConfigBase } from './ConfigBase.js';
 import { BitcoinNetwork } from './enum/BitcoinNetwork.js';
 import { IConfig } from './interfaces/IConfig.js';
-import path from 'path';
 import '../utils/Globals.js';
 
 export class ConfigManager extends Logger {
@@ -32,6 +33,8 @@ export class ConfigManager extends Logger {
         },
         INDEXER: {
             ENABLED: true,
+            STORAGE_TYPE: IndexerStorageType.MONGODB,
+            DATABASE_NAME: '',
         },
         DATABASE: {
             CONNECTION_TYPE: MONGO_CONNECTION_TYPE.TESTNET,
@@ -140,6 +143,19 @@ export class ConfigManager extends Logger {
         if (parsedConfig.INDEXER) {
             if (parsedConfig.INDEXER.ENABLED && typeof parsedConfig.INDEXER.ENABLED !== 'boolean') {
                 throw new Error(`Oops the property INDEXER.ENABLED is not a boolean.`);
+            }
+
+            if (
+                typeof parsedConfig.INDEXER.STORAGE_TYPE !== 'string' ||
+                IndexerStorageType[parsedConfig.INDEXER.STORAGE_TYPE] === undefined
+            ) {
+                throw new Error(
+                    `Oops the property INDEXER.STORAGE_TYPE is not a valid IndexerStorageType enum value.`,
+                );
+            }
+
+            if (typeof parsedConfig.INDEXER.DATABASE_NAME !== 'string') {
+                throw new Error(`Oops the property INDEXER.DATABASE_NAME is not a string.`);
             }
         }
 
