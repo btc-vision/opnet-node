@@ -14,7 +14,12 @@ export interface VMContext {
 
     result: Partial<EvaluatedResult> | null;
 
-    getStorage: (address: string, pointer: StoragePointer) => Promise<MemoryValue | null>;
+    getStorage: (
+        address: string,
+        pointer: StoragePointer,
+        defaultValue: MemoryValue | null,
+        setIfNotExit: boolean,
+    ) => Promise<MemoryValue | null>;
     setStorage: (address: string, pointer: StoragePointer, value: MemoryValue) => Promise<void>;
 
     contract: ContractEvaluator | null;

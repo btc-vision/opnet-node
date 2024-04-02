@@ -14,6 +14,8 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public abstract getStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
+        defaultValue: MemoryValue | null,
+        setIfNotExit: boolean,
     ): Promise<MemoryValue | null>;
 
     public abstract setStorage(

@@ -14,7 +14,7 @@ import {
     u16,
     u32,
     u8,
-} from './types/math';
+} from './types/math.js';
 
 export class BinaryReader {
     private buffer: DataView;

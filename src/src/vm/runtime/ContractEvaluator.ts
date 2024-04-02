@@ -22,6 +22,7 @@ export class ContractEvaluator {
     private persistentStorageState: BlockchainStorage = new Map();
 
     private contractRef: Number = 0;
+    private isProcessing: boolean = false;
 
     constructor(
         private readonly stack: VMContext,
@@ -38,8 +39,17 @@ export class ContractEvaluator {
         this.contractInstance = await this.instantiatedContract(this.stack.initialBytecode, {});
     }
 
-    public async getStorage(address: string, pointer: StoragePointer): Promise<MemoryValue | null> {
-        return this.stack.getStorage(address, pointer);
+    public async getStorage(
+        address: string,
+        pointer: StoragePointer,
+        defaultValueBuffer: MemoryValue | null,
+        setIfNotExit: boolean = true,
+    ): Promise<MemoryValue | null> {
+        if (setIfNotExit && defaultValueBuffer === null) {
+            throw new Error('Default value buffer is required');
+        }
+
+        return this.stack.getStorage(address, pointer, defaultValueBuffer, setIfNotExit);
     }
 
     public async setStorage(
@@ -88,15 +98,17 @@ export class ContractEvaluator {
             throw new Error('Contract not initialized');
         }
 
+        if (this.contractRef !== 0) {
+            throw new Error('Contract already initialized');
+        }
+
         this.persistentStorageState.clear();
 
         this.contractInstance.INIT(owner, contractAddress);
         this.contractRef = this.contractInstance.getContract();
 
         const requiredPersistentStorage = this.getCurrentStorageState();
-        const modifiedStorage = this.getMergedStorageState();
-
-        console.log('persistent', requiredPersistentStorage, modifiedStorage);
+        const modifiedStorage = this.getCurrentModifiedStorageState();
 
         await this.loadPersistentStorageState(requiredPersistentStorage, modifiedStorage);
     }
@@ -128,6 +140,7 @@ export class ContractEvaluator {
             for (let v of value) {
                 const defaultPointer: MemorySlotData<bigint> | undefined =
                     defaultPointerStorage.get(v);
+
                 if (defaultPointer === undefined || defaultPointer === null) {
                     throw new Error(
                         'Uninitialized pointer. Please initialize the memory pointer in the contract first.',
@@ -146,8 +159,15 @@ export class ContractEvaluator {
         pointer: MemorySlotPointer,
         defaultValue: MemorySlotData<bigint>,
     ): Promise<void> {
-        const rawData: Buffer = Buffer.from('0x' + pointer.toString(16), 'hex');
-        const value: Buffer | null = await this.getStorage(address, rawData);
+        const rawData: Buffer = Buffer.from(pointer.toString(16), 'hex');
+        const defaultValueBuffer: Buffer = Buffer.from(defaultValue.toString(16), 'hex');
+
+        const value: Buffer | null = await this.getStorage(
+            address,
+            rawData,
+            defaultValueBuffer,
+            true,
+        );
 
         const finalValue: bigint =
             value === null ? defaultValue : BigInt('0x' + value.toString('hex'));
@@ -166,18 +186,31 @@ export class ContractEvaluator {
         }
 
         const requiredStorage: Uint8Array = this.contractInstance.getRequiredStorage();
-        console.log(requiredStorage);
-
         const binaryReader = new BinaryReader(requiredStorage);
 
         return binaryReader.readRequestedStorage();
+    }
+
+    private getCurrentModifiedStorageState(): BlockchainStorage {
+        if (!this.contractInstance) {
+            throw new Error('Contract not initialized');
+        }
+
+        const storage: Uint8Array = this.contractInstance.getModifiedStorage();
+        const binaryReader = new BinaryReader(storage);
+
+        return binaryReader.readStorage();
     }
 
     public getContract(): Number {
         return this.contractRef;
     }
 
-    public async evaluateTransaction(): Promise<void> {
+    public async evaluate(
+        abi: Selector,
+        calldata: Uint8Array,
+        caller?: Address | null,
+    ): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
@@ -199,7 +232,27 @@ export class ContractEvaluator {
             throw new Error('Contract not initialized');
         }
 
-        return this.contractInstance.readMethod(abi, this.getContract(), calldata, caller);
+        if (this.isProcessing) {
+            throw new Error('Contract is already processing');
+        }
+
+        this.isProcessing = true;
+
+        try {
+            const resp = this.contractInstance.readMethod(
+                abi,
+                this.getContract(),
+                calldata,
+                caller,
+            );
+
+            this.isProcessing = false;
+
+            return resp;
+        } catch (e) {
+            this.isProcessing = false;
+            throw e;
+        }
     }
 
     public get wasm(): VMRuntime | null {

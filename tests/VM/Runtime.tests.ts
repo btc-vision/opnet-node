@@ -18,7 +18,10 @@ import { VMRuntime } from '../../src/src/vm/wasmRuntime/runDebug.js';
 import { TestConfig } from '../config/Config.js';
 
 describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
+    let CONTRACT_ADDRESS: string = 'bc1p3hnqcq7jq6k30ryv8lfzx3ruuvkwr7gu50xz4acweqv4a7sj44cq9jhmq5';
+
     const DEPLOYER_ADDRESS = BitcoinHelper.generateWallet();
+    const RANDOM_BLOCK_ID: bigint = 1073478347n;
 
     const abiCoder: ABICoder = new ABICoder();
     const vmManager: VMManager = new VMManager(TestConfig);
@@ -36,10 +39,11 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     let vmRuntime: VMRuntime | null = null;
     let contractRef: Number = 0;
 
-    let CONTRACT_ADDRESS: string = '';
+    //let CONTRACT_ADDRESS: string = '';
 
     beforeAll(async () => {
         await vmManager.init();
+        await vmManager.prepareBlock(RANDOM_BLOCK_ID);
 
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
         expect(contractBytecode).toBeDefined();
@@ -60,10 +64,14 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('VM runtime not found.');
         }
 
-        CONTRACT_ADDRESS = BitcoinHelper.generateNewContractAddress(
+        let REAL_CONTRACT_ADDRESS = BitcoinHelper.generateNewContractAddress(
             contractBytecode,
             DEPLOYER_ADDRESS.publicKey,
         );
+
+        if (!CONTRACT_ADDRESS) {
+            CONTRACT_ADDRESS = REAL_CONTRACT_ADDRESS;
+        }
 
         console.log(`Bitcoin Smart Contract will be deployed at: ${CONTRACT_ADDRESS} by ${OWNER}`);
 
@@ -90,6 +98,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     });
 
     afterAll(async () => {
+        await vmManager.terminateBlock();
         await vmManager.closeDatabase();
     });
 

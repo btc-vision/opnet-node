@@ -2,7 +2,7 @@ import { ConfigurableDBManager } from '@btc-vision/motoswapdb';
 import { ClientSession } from 'mongodb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
-import { ContractRepository } from '../../../db/repositories/ContractRepository.js';
+import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
 import { MemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
 import { VMStorage } from '../VMStorage.js';
@@ -11,7 +11,7 @@ export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
 
     private currentSession: ClientSession | null = null;
-    private repository: ContractRepository | null = null;
+    private repository: ContractPointerValueRepository | null = null;
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
@@ -26,7 +26,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Database not connected');
         }
 
-        this.repository = new ContractRepository(this.databaseManager.db);
+        this.repository = new ContractPointerValueRepository(this.databaseManager.db);
     }
 
     private async connectDatabase(): Promise<void> {
@@ -44,6 +44,7 @@ export class VMMongoStorage extends VMStorage {
         }
 
         this.currentSession = this.databaseManager.client.startSession();
+        this.currentSession.startTransaction();
     }
 
     public async terminateBlock(): Promise<void> {
@@ -79,9 +80,33 @@ export class VMMongoStorage extends VMStorage {
     public async getStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
+        defaultValue: MemoryValue | null = null,
+        setIfNotExit: boolean = true,
     ): Promise<MemoryValue | null> {
+        if (setIfNotExit && defaultValue === null) {
+            throw new Error('Default value buffer is required');
+        }
+
         if (!this.repository) {
             throw new Error('Repository not initialized');
+        }
+
+        if (!this.currentSession) {
+            throw new Error('Session not started');
+        }
+
+        this.log(
+            `Getting storage for address ${address} and pointer ${pointer.toString('hex')}...`,
+        );
+
+        const value = await this.repository.getByContractAndPointer(
+            address,
+            pointer,
+            this.currentSession,
+        );
+
+        if (setIfNotExit && value === null && defaultValue) {
+            await this.setStorage(address, pointer, defaultValue);
         }
 
         return null;
@@ -96,6 +121,19 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Repository not initialized');
         }
 
-        return;
+        if (!this.currentSession) {
+            throw new Error('Session not started');
+        }
+
+        this.log(
+            `Setting storage for address ${address} and pointer ${pointer.toString('hex')} to ${value.toString('hex')}...`,
+        );
+
+        return await this.repository.setByContractAndPointer(
+            address,
+            pointer,
+            value,
+            this.currentSession,
+        );
     }
 }
