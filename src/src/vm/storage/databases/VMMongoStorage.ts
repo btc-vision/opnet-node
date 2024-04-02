@@ -107,9 +107,28 @@ export class VMMongoStorage extends VMStorage {
 
         if (setIfNotExit && value === null && defaultValue) {
             await this.setStorage(address, pointer, defaultValue);
+
+            return defaultValue;
         }
 
-        return null;
+        if (!value) {
+            return defaultValue;
+        }
+
+        return this.addBytes(Buffer.from(value.value.buffer));
+    }
+
+    private addBytes(value: Buffer): MemoryValue {
+        if (value.length > 1) {
+            return value;
+        }
+
+        const length = value.length || 1;
+        const buffer = Buffer.alloc(length);
+
+        if (value.length) buffer.set(value, length);
+
+        return buffer;
     }
 
     public async setStorage(

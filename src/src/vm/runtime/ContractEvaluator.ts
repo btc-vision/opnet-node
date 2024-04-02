@@ -172,6 +172,8 @@ export class ContractEvaluator {
         const finalValue: bigint =
             value === null ? defaultValue : BigInt('0x' + value.toString('hex'));
 
+        console.log(value, finalValue);
+
         const pointerStorage: PointerStorage | undefined = this.persistentStorageState.get(address);
         if (!pointerStorage) {
             throw new Error(`Pointer storage ${address} not found`);
