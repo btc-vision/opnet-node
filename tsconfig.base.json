@@ -31,5 +31,5 @@
         "incremental": true,
         "allowSyntheticDefaultImports": true
     },
-    "include": ["src/**/*.ts", "src/*", "src/**/*.js", "src/*.ts", "src/*.js", "src/*.cjs"]
+    "include": ["src/**/*.ts", "src/*", "src/**/*.js", "src/*.ts", "src/*.js", "src/**/*.js", "src/*.cjs"]
 }

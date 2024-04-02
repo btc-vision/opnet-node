@@ -1,4 +1,4 @@
-import { ConfigurableDBManager } from '@btc-vision/motoswapdb/src/db/DBManager';
+import { ConfigurableDBManager } from '@btc-vision/motoswapdb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { MemoryValue } from '../types/MemoryValue.js';
