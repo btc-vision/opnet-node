@@ -3,9 +3,12 @@ import fs from 'fs';
 import { ok } from 'node:assert';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
+import { Config } from '../config/Config.js';
 import { Logger } from '../logger/Logger.js';
 import { Globals } from '../utils/Globals.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
+import { VMMongoStorage } from './storage/databases/VMMongoStorage.js';
+import { IndexerStorageType } from './storage/types/IndexerStorageType.js';
 import { VMStorage } from './storage/VMStorage.js';
 
 import { instantiate, VMRuntime } from './wasmRuntime/runDebug.js';
@@ -20,10 +23,19 @@ export class VMManager extends Logger {
         .readFileSync(`${__dirname}/../vm/runtime/index.js`)
         .toString();
 
-    private readonly vmStorage: VMStorage = new VMStorage();
+    private readonly vmStorage: VMStorage = this.getVMStorage();
 
     constructor() {
         super();
+    }
+
+    private getVMStorage(): VMStorage {
+        switch (Config.INDEXER.STORAGE_TYPE) {
+            case IndexerStorageType.MONGODB:
+                return new VMMongoStorage();
+            default:
+                throw new Error('Invalid VM Storage type.');
+        }
     }
 
     public fixBytecode(bytecodeBuffer: Buffer): void {
