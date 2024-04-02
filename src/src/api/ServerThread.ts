@@ -3,7 +3,7 @@ import { DBManagerInstance } from '../db/DBManager.js';
 import { MessageType } from '../threading/enum/MessageType.js';
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { Thread } from '../threading/thread/Thread.js';
-import { Globals } from '../utils/Globals.js';
+import { Globals } from '@btc-vision/motoswapcommon';
 
 import { Server } from './Server.js';
 
@@ -23,7 +23,7 @@ export class ServerThread extends Thread {
     private async initApi() {
         this.log(`Starting API on port ${Config.API.PORT}.`);
 
-        await DBManagerInstance.setup();
+        await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
         await DBManagerInstance.connect();
 
         await this.server.init(Config.API.PORT);

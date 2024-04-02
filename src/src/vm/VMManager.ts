@@ -3,8 +3,7 @@ import fs from 'fs';
 import { ok } from 'node:assert';
 import { brotliCompressSync, brotliDecompressSync } from 'node:zlib';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
-import { Logger } from '../logger/Logger.js';
-import { Globals } from '../utils/Globals.js';
+import { Logger, Globals } from '@btc-vision/motoswapcommon';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { VMStorage } from './storage/VMStorage.js';
 

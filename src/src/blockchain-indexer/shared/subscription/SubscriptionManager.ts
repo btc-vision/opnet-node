@@ -1,4 +1,4 @@
-import { Logger } from '../../../logger/Logger.js';
+import { Logger } from '@btc-vision/motoswapcommon';
 import { SubscriptionType } from '../enums/Subscriptions.js';
 import { PossibleSubscriptions, TypedNotification } from './PossibleSubscriptions.js';
 

@@ -1,8 +1,6 @@
 import { Worker } from 'worker_threads';
 import { Config } from './config/Config.js';
-import { Logger } from './logger/Logger.js';
-
-import { Globals } from './utils/Globals.js';
+import { Logger, Globals } from '@btc-vision/motoswapcommon';
 
 Globals.register();
 

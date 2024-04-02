@@ -1,7 +1,6 @@
 import fs from 'fs';
 import { MessageChannel, Worker } from 'worker_threads';
-import { Logger } from '../logger/Logger.js';
-import { UtilsConfigurations } from '../utils/UtilsConfigurations.js';
+import { Logger, UtilsConfigurations } from '@btc-vision/motoswapcommon';
 import { MessageType } from './enum/MessageType.js';
 import {
     LinkThreadMessage,

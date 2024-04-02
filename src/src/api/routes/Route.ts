@@ -1,5 +1,5 @@
 import { IHttpRequest, IHttpResponse, INanoexpressApp, MiddlewareRoute } from 'nanoexpress';
-import { Logger } from '../../logger/Logger.js';
+import { Logger } from '@btc-vision/motoswapcommon';
 import { Routes, RouteType } from '../enums/Routes.js';
 
 export abstract class Route<T extends Routes> extends Logger {

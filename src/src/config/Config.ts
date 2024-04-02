@@ -1,7 +1,9 @@
-import { ConfigBase } from './ConfigBase.js';
-import { ConfigManager } from './ConfigLoader.js';
+import { ConfigBase, ConfigManager } from '@btc-vision/motoswapcommon';
+import path from 'path';
 
-const configManager: ConfigManager = new ConfigManager();
+const configPath = path.join(__dirname, '../../', 'src/config/btc.conf');
+
+const configManager: ConfigManager<ConfigBase> = new ConfigManager(configPath);
 const config: ConfigBase = configManager.getConfigs();
 
 export const Config: ConfigBase = config;

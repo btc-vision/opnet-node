@@ -1,7 +1,7 @@
 import cors from 'cors';
 import nanoexpress, { IHttpRequest, IHttpResponse, INanoexpressApp, IWebSocket } from 'nanoexpress';
-import { Logger } from '../logger/Logger.js';
-import { Globals } from '../utils/Globals.js';
+import { Logger } from '@btc-vision/motoswapcommon';
+import { Globals } from '@btc-vision/motoswapcommon';
 import { DefinedRoutes } from './routes/DefinedRoutes.js';
 
 Globals.register();

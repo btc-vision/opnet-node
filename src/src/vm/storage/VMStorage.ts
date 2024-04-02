@@ -1,5 +1,5 @@
 import { BitcoinAddress } from '../../bitcoin/types/BitcoinAddress.js';
-import { Logger } from '../../logger/Logger.js';
+import { Logger } from '@btc-vision/motoswapcommon';
 import { MemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
 

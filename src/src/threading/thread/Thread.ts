@@ -1,5 +1,5 @@
 import { MessagePort, parentPort } from 'worker_threads';
-import { Logger } from '../../logger/Logger.js';
+import { Logger } from '@btc-vision/motoswapcommon';
 import { MessageType } from '../enum/MessageType.js';
 import { SetMessagePort } from '../interfaces/thread-messages/messages/SetMessagePort.js';
 import { ThreadMessageBase } from '../interfaces/thread-messages/ThreadMessageBase.js';

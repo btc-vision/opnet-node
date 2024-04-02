@@ -1,5 +1,5 @@
 import { Worker } from 'worker_threads';
-import { Logger } from '../logger/Logger.js';
+import { Logger } from '@btc-vision/motoswapcommon';
 import { MessageType } from '../threading/enum/MessageType.js';
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { Threader } from '../threading/Threader.js';

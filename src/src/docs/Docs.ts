@@ -8,8 +8,7 @@ import openapi from 'openapi-comment-parser';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import { Config } from '../config/Config.js';
-import { Logger } from '../logger/Logger.js';
-import { Globals } from '../utils/Globals.js';
+import { Logger, Globals } from '@btc-vision/motoswapcommon';
 
 Globals.register();
 
