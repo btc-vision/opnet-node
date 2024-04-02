@@ -83,10 +83,9 @@ export class VMManager extends Logger {
     }
 
     private getVMStorage(): VMStorage {
-        console.log(this.config);
         switch (this.config.INDEXER.STORAGE_TYPE) {
             case IndexerStorageType.MONGODB:
-                return new VMMongoStorage();
+                return new VMMongoStorage(this.config);
             default:
                 throw new Error('Invalid VM Storage type.');
         }

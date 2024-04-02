@@ -1,4 +1,4 @@
-import { IConfigTemplate } from '@btc-vision/motoswapcommon';
+import { IConfig, IConfigTemplate } from '@btc-vision/motoswapcommon';
 import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';
 
 export interface IndexerConfig {
@@ -7,6 +7,6 @@ export interface IndexerConfig {
     STORAGE_TYPE: IndexerStorageType;
 }
 
-export interface IBtcIndexerConfig extends IConfigTemplate {
+export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     INDEXER: IndexerConfig;
 }

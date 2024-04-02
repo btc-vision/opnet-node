@@ -1,11 +1,22 @@
+import { ConfigurableDBManager } from '@btc-vision/motoswapdb/src/db/DBManager';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
+import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { MemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
 import { VMStorage } from '../VMStorage.js';
 
 export class VMMongoStorage extends VMStorage {
-    constructor() {
+    private db: ConfigurableDBManager;
+
+    constructor(private readonly config: IBtcIndexerConfig) {
         super();
+
+        this.db = new ConfigurableDBManager(this.config);
+    }
+
+    public async init(): Promise<void> {
+        await this.db.setup(this.config.DATABASE.DATABASE_NAME);
+        await this.db.connect();
     }
 
     public async getStorage(

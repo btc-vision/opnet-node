@@ -11,6 +11,7 @@
 		"skipLibCheck": true,
 		"sourceMap": false,
 		"moduleDetection": "force",
+		"allowImportingTsExtensions": false,
 		"experimentalDecorators": true,
 		"lib": [
 			"es6",
@@ -34,5 +35,12 @@
 		"allowSyntheticDefaultImports": true,
 		"outDir": "build"
 	},
-	"include": ["src/**/*.ts", "src/*", "src/**/*.js", "src/*.ts", "src/*.js", "src/*.cjs"],
+	"include": [
+		"src/**/*.ts",
+		"src/*",
+		"src/**/*.js",
+		"src/*.ts",
+		"src/*.js",
+		"src/*.cjs"
+	]
 }
