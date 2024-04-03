@@ -281,7 +281,6 @@ export class ContractEvaluator {
 
     public clear(): void {
         this.currentStorageState.clear();
-        this.persistentStorageState.clear();
         this.currentRequiredStorage.clear();
     }
 
@@ -317,7 +316,6 @@ export class ContractEvaluator {
         }
 
         try {
-            this.currentStorageState.clear();
             this.contractInstance.purgeMemory();
 
             const toAllocate = this.writeCurrentStorageState();
@@ -343,6 +341,7 @@ export class ContractEvaluator {
                 requestedPersistentStorage,
             );
 
+            this.currentStorageState.clear();
             this.currentRequiredStorage.clear();
             this.currentRequiredStorage = requestedPersistentStorage;
 
@@ -357,9 +356,12 @@ export class ContractEvaluator {
             if (!sameStorage) {
                 return await this.evaluate(contractAddress, abi, isView, calldata, caller);
             } else {
+                console.log('CALL STORAGE ACCESS LIST ->', this.getMergedStorageState());
+
                 if (canWrite) {
                     await this.updateStorage();
                 }
+
                 this.clear();
 
                 return result;

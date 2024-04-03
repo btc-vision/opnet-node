@@ -67,12 +67,9 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             );
 
             await vmEvaluator.setupContract(OWNER, CONTRACT_ADDRESS);
-            console.log('Contract deployed.');
 
             decodedViewSelectors = vmEvaluator.getViewSelectors();
             decodedMethodSelectors = vmEvaluator.getMethodSelectors();
-
-            console.log('ABI ->', decodedViewSelectors, decodedMethodSelectors);
 
             expect(decodedViewSelectors.has(CONTRACT_ADDRESS)).toBeTruthy();
             expect(decodedMethodSelectors.has(CONTRACT_ADDRESS)).toBeTruthy();
@@ -156,8 +153,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const decodedResponse = abiCoder.decodeData(ownerValue, [ABIDataTypes.ADDRESS]);
-        console.log(decodedResponse);
-
         expect(decodedResponse[0]).toBe(OWNER);
     });
 
@@ -209,7 +204,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         expect(balanceOfResponse).toBe(0n);
     });
 
-    /*test(`BSC should be able to return every storage slot used when evaluating a method.`, async () => {
+    test(`BSC should be able to return every storage slot used when evaluating a method.`, async () => {
         expect(mainContractViewSelectors).toBeDefined();
         expect(mainContractMethodSelectors).toBeDefined();
 
@@ -261,6 +256,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const decodedResponse = abiCoder.decodeData(balanceValue, [ABIDataTypes.UINT256]);
         const balanceOfResponse = decodedResponse[0];
 
-        expect(balanceOfResponse).toBe(1n);
-    });*/
+        expect(balanceOfResponse).toBe(1n);*/
+    });
 });
