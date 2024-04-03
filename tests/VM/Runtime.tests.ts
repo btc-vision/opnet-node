@@ -42,7 +42,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
     let vmEvaluator: ContractEvaluator | null = null;
     let vmContext: VMContext | null = null;
-    let loaded: Promise<void> | null = null;
+
+    //let loaded: Promise<void> | null = null;
 
     async function load() {
         //loaded = new Promise<void>(async (resolve, reject) => {
