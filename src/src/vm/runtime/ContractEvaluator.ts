@@ -1,3 +1,4 @@
+import { ABICoder } from '../abi/ABICoder.js';
 import { BinaryReader } from '../buffer/BinaryReader.js';
 import { BinaryWriter } from '../buffer/BinaryWriter.js';
 import {
@@ -15,6 +16,8 @@ import { VMContext } from '../evaluated/EvaluatedContext.js';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { instantiate, VMRuntime } from '../wasmRuntime/runDebug.js';
+
+const abiCoder: ABICoder = new ABICoder();
 
 export class ContractEvaluator {
     private contractInstance: VMRuntime | null = null;
@@ -131,6 +134,7 @@ export class ContractEvaluator {
 
     private viewAbi: SelectorsMap = new Map();
     private methodAbi: MethodMap = new Map();
+    private writeMethods: MethodMap = new Map();
 
     private initializeContract: boolean = false;
 
@@ -152,6 +156,9 @@ export class ContractEvaluator {
 
         this.viewAbi = this.getViewABI();
         this.methodAbi = this.getMethodABI();
+        this.writeMethods = this.getWriteMethodABI();
+
+        console.log(this.writeMethods);
 
         const requiredPersistentStorage = this.getCurrentStorageState();
         const modifiedStorage = this.getCurrentModifiedStorageState();
@@ -169,6 +176,7 @@ export class ContractEvaluator {
         requestPersistentStorage: BlockchainRequestedStorage,
         modifiedStorage: BlockchainStorage,
         initialStorage: BlockchainStorage = this.persistentStorageState,
+        isView: boolean = false,
     ): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
@@ -207,18 +215,19 @@ export class ContractEvaluator {
                     );
                 }
 
-                loadedPromises.push(this.setStorageState(key, v, defaultPointer, storage));
+                loadedPromises.push(this.getStorageState(key, v, defaultPointer, storage, isView));
             }
         }
 
         await Promise.all(loadedPromises);
     }
 
-    private async setStorageState(
+    private async getStorageState(
         address: Address,
         pointer: MemorySlotPointer,
         defaultValue: MemorySlotData<bigint>,
         pointerStorage: PointerStorage,
+        isView: boolean,
     ): Promise<void> {
         const rawData: Buffer = Buffer.from(pointer.toString(16), 'hex');
         const defaultValueBuffer: Buffer = Buffer.from(defaultValue.toString(16), 'hex');
@@ -227,13 +236,24 @@ export class ContractEvaluator {
             address,
             rawData,
             defaultValueBuffer,
-            true,
+            !isView,
         );
 
         const finalValue: bigint =
             value === null ? defaultValue : BigInt('0x' + value.toString('hex'));
 
         pointerStorage.set(pointer, finalValue);
+    }
+
+    private async setStorageState(
+        address: Address,
+        pointer: MemorySlotPointer,
+        value: MemorySlotData<bigint>,
+    ): Promise<void> {
+        const rawData: Buffer = Buffer.from(pointer.toString(16), 'hex');
+        const valueBuffer: Buffer = Buffer.from(value.toString(16), 'hex');
+
+        await this.setStorage(address, rawData, valueBuffer);
     }
 
     private getCurrentStorageState(): BlockchainRequestedStorage {
@@ -269,6 +289,7 @@ export class ContractEvaluator {
     }
 
     public async evaluate(
+        contractAddress: Address,
         abi: Selector,
         isView: boolean,
         calldata: Uint8Array | null,
@@ -286,9 +307,16 @@ export class ContractEvaluator {
             throw new Error('Calldata is required for method call');
         }
 
+        const contract = this.methodAbi.get(contractAddress);
+
         const isInitialized = this.isInitialized();
         if (!isInitialized) {
             throw new Error('Contract not initialized');
+        }
+
+        const canWrite = this.canWrite(contractAddress, abi);
+        if (!isView && !canWrite) {
+            throw new Error('Method is not allowed to write');
         }
 
         try {
@@ -298,8 +326,10 @@ export class ContractEvaluator {
             const toAllocate = this.writeCurrentStorageState();
             this.contractInstance.loadStorage(toAllocate);
 
+            const hasSelectorInMethods = contract?.has(abi) ?? false;
+
             let result: Uint8Array;
-            if (!isView) {
+            if (hasSelectorInMethods) {
                 result = this.contractInstance.readMethod(
                     abi,
                     this.getContract(),
@@ -324,11 +354,12 @@ export class ContractEvaluator {
                 requiredStorageAfter,
                 modifiedStorage,
                 this.currentStorageState,
+                isView,
             );
 
             if (!sameStorage) {
                 console.log(`STORAGE SLOTS CHANGED. RELOADING...`);
-                await this.evaluate(abi, isView, calldata, caller);
+                await this.evaluate(contractAddress, abi, isView, calldata, caller);
             } else {
                 console.log(`LOADED ALL REQUIRED STORAGE SLOTS. THIS RESULT IS FINAL.`);
                 this.clear();
@@ -340,12 +371,26 @@ export class ContractEvaluator {
         }
     }
 
+    private canWrite(contractAddress: Address, abi: Selector): boolean {
+        const writeMethodContract = this.writeMethods.get(contractAddress);
+
+        if (!writeMethodContract) {
+            return false;
+        }
+
+        return writeMethodContract.has(abi);
+    }
+
     public getViewSelectors(): SelectorsMap {
         return this.viewAbi;
     }
 
     public getMethodSelectors(): MethodMap {
         return this.methodAbi;
+    }
+
+    public getWriteMethods(): MethodMap {
+        return this.writeMethods;
     }
 
     private getViewABI(): SelectorsMap {
@@ -370,6 +415,17 @@ export class ContractEvaluator {
         return abiDecoder.readMethodSelectorsMap();
     }
 
+    private getWriteMethodABI(): MethodMap {
+        if (!this.contractInstance) {
+            throw new Error('Contract not initialized');
+        }
+
+        const abi = this.contractInstance.getMethodABI();
+        const abiDecoder = new BinaryReader(abi);
+
+        return abiDecoder.readMethodSelectorsMap();
+    }
+
     public isInitialized(): boolean {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
@@ -379,6 +435,7 @@ export class ContractEvaluator {
     }
 
     public async execute(
+        address: Address,
         isView: boolean,
         abi: Selector,
         calldata: Uint8Array | null = null,
@@ -395,7 +452,7 @@ export class ContractEvaluator {
         this.isProcessing = true;
 
         try {
-            const resp = await this.evaluate(abi, isView, calldata, caller);
+            const resp = await this.evaluate(address, abi, isView, calldata, caller);
 
             this.isProcessing = false;
 

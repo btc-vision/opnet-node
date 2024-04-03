@@ -3,6 +3,7 @@ import 'jest';
 import fs from 'fs';
 import { BitcoinHelper } from '../../src/src/bitcoin/BitcoinHelper.js';
 import { ABICoder, ABIDataTypes } from '../../src/src/vm/abi/ABICoder.js';
+import { BinaryWriter } from '../../src/src/vm/buffer/BinaryWriter.js';
 import {
     ContractABIMap,
     MethodMap,
@@ -149,17 +150,18 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('Owner selector not found');
         }
 
-        const ownerValue = await vmEvaluator.execute(true, ownerSelector);
+        const ownerValue = await vmEvaluator.execute(CONTRACT_ADDRESS, true, ownerSelector);
         if (!ownerValue) {
             throw new Error('Owner value not found');
         }
 
         const decodedResponse = abiCoder.decodeData(ownerValue, [ABIDataTypes.ADDRESS]);
+        console.log(decodedResponse);
 
         expect(decodedResponse[0]).toBe(OWNER);
     });
 
-    /*test(`BSC should create new memory slots when required and be able to run any given method by their method selector.`, async () => {
+    test(`BSC should create new memory slots when required and be able to run any given method by their method selector.`, async () => {
         expect(mainContractViewSelectors).toBeDefined();
         expect(mainContractMethodSelectors).toBeDefined();
 
@@ -190,8 +192,12 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         const buffer = calldata.getBuffer();
 
-        //const ownerValue = vmRuntime.readMethod(balanceOfSelector, contractRef, buffer, null);
-        const balanceValue = await vmEvaluator.execute(true, balanceOfSelector, buffer);
+        const balanceValue = await vmEvaluator.execute(
+            CONTRACT_ADDRESS,
+            true,
+            balanceOfSelector,
+            buffer,
+        );
         if (!balanceValue) {
             throw new Error('Balance value not found');
         }
@@ -204,5 +210,5 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
     test(`BSC should be able to retrieve any storage key and value.`, async () => {});
 
-    test(`BSC should be able to return every storage slot used when evaluating a method.`, async () => {});*/
+    test(`BSC should be able to return every storage slot used when evaluating a method.`, async () => {});
 });

@@ -17,6 +17,7 @@ export type VMRuntime = {
 
     getViewABI(): Uint8Array;
     getMethodABI(): Uint8Array;
+    getWriteMethods(): Uint8Array;
 
     /**
      * src/btc/exports/index/getRequiredStorage
