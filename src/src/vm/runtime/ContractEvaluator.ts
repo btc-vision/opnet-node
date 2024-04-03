@@ -93,7 +93,6 @@ export class ContractEvaluator {
 
     private writeCurrentStorageState(): Uint8Array {
         const storage = this.getMergedStorageState();
-
         this.binaryWriter.writeStorage(storage);
 
         return this.binaryWriter.getBuffer();
@@ -158,8 +157,6 @@ export class ContractEvaluator {
         this.methodAbi = this.getMethodABI();
         this.writeMethods = this.getWriteMethodABI();
 
-        console.log(this.writeMethods);
-
         const requiredPersistentStorage = this.getCurrentStorageState();
         const modifiedStorage = this.getCurrentModifiedStorageState();
 
@@ -206,13 +203,15 @@ export class ContractEvaluator {
                     continue;
                 }
 
-                const defaultPointer: MemorySlotData<bigint> | undefined =
-                    defaultPointerStorage.get(v);
+                let defaultPointer: MemorySlotData<bigint> | undefined =
+                    defaultPointerStorage.get(v) || 0n;
 
                 if (defaultPointer === undefined || defaultPointer === null) {
                     throw new Error(
-                        'Uninitialized pointer. Please initialize the memory pointer in the contract first.',
+                        `Uninitialized pointer ${v}. Please initialize the memory pointer in the contract first.`,
                     );
+
+                    //defaultPointer = BigInt(0);
                 }
 
                 loadedPromises.push(this.getStorageState(key, v, defaultPointer, storage, isView));
@@ -239,8 +238,9 @@ export class ContractEvaluator {
             !isView,
         );
 
-        const finalValue: bigint =
-            value === null ? defaultValue : BigInt('0x' + value.toString('hex'));
+        const valHex = value?.toString('hex');
+
+        const finalValue: bigint = !valHex ? defaultValue : BigInt(`0x${valHex}`);
 
         pointerStorage.set(pointer, finalValue);
     }
@@ -340,28 +340,29 @@ export class ContractEvaluator {
                 result = this.contractInstance.readView(abi);
             }
 
-            const requiredStorageAfter = this.getCurrentStorageState();
+            const requestedPersistentStorage = this.getCurrentStorageState();
             const sameStorage = this.sameRequiredStorage(
                 this.currentRequiredStorage,
-                requiredStorageAfter,
+                requestedPersistentStorage,
             );
 
             this.currentRequiredStorage.clear();
-            this.currentRequiredStorage = requiredStorageAfter;
+            this.currentRequiredStorage = requestedPersistentStorage;
 
             const modifiedStorage = this.getCurrentModifiedStorageState();
             await this.loadPersistentStorageState(
-                requiredStorageAfter,
+                requestedPersistentStorage,
                 modifiedStorage,
                 this.currentStorageState,
                 isView,
             );
 
             if (!sameStorage) {
-                console.log(`STORAGE SLOTS CHANGED. RELOADING...`);
-                await this.evaluate(contractAddress, abi, isView, calldata, caller);
+                return await this.evaluate(contractAddress, abi, isView, calldata, caller);
             } else {
-                console.log(`LOADED ALL REQUIRED STORAGE SLOTS. THIS RESULT IS FINAL.`);
+                if (canWrite) {
+                    await this.updateStorage();
+                }
                 this.clear();
 
                 return result;
@@ -369,6 +370,18 @@ export class ContractEvaluator {
         } catch (e) {
             throw e;
         }
+    }
+
+    private async updateStorage(): Promise<void> {
+        const promises: Promise<void>[] = [];
+        for (const [key, value] of this.currentStorageState) {
+            for (const [k, v] of value) {
+                console.log(`Setting storage for ${key} and pointer ${k}...`);
+                promises.push(this.setStorageState(key, k, v));
+            }
+        }
+
+        await Promise.all(promises);
     }
 
     private canWrite(contractAddress: Address, abi: Selector): boolean {

@@ -198,6 +198,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             balanceOfSelector,
             buffer,
         );
+
         if (!balanceValue) {
             throw new Error('Balance value not found');
         }

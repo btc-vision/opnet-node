@@ -52,24 +52,15 @@ export class BinaryWriter {
     }
 
     public writeU256(bigIntValue: bigint): void {
-        // Step 2: Iterate over BigInt value in 64-bit (8 bytes) chunks
-        for (let i = 0n; i < 4n; i++) {
-            // Extract 64-bit (8-byte) chunk from the BigInt
-            const chunk = (bigIntValue >> (64n * i)) & BigInt('0xFFFFFFFFFFFFFFFF');
+        const byteArray = Buffer.from(bigIntValue.toString(16), 'hex');
 
-            // Step 3: Write the chunk to the DataView
-            // JavaScript's DataView does not support writing BigInt directly, so split into two 32-bit parts
-            const high = Number(chunk >> 32n);
-            const low = Number(chunk & BigInt('0xFFFFFFFF'));
-
-            // Write each part to the DataView
-            this.writeU32(high);
-            this.writeU32(low);
+        for (let i = 0; i < 32; i++) {
+            this.writeU8(byteArray[i] || 0);
         }
     }
 
-    public writeBytes(value: Uint8Array): void {
-        for (let i = 0; i < value.length; i++) {
+    public writeBytes(value: Uint8Array | Buffer): void {
+        for (let i = 0; i < value.byteLength; i++) {
             this.writeU8(value[i]);
         }
     }
