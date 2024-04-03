@@ -1,4 +1,4 @@
-import { ConfigurableDBManager } from '@btc-vision/motoswapdb';
+import { ConfigurableDBManager } from '@btc-vision/motoswapcommon';
 import { ClientSession } from 'mongodb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
@@ -39,11 +39,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async prepareNewBlock(): Promise<void> {
-        if (!this.databaseManager.client) {
-            throw new Error('Database not connected');
-        }
-
-        this.currentSession = this.databaseManager.client.startSession();
+        this.currentSession = await this.databaseManager.startSession();
         this.currentSession.startTransaction();
     }
 
