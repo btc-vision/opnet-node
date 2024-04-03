@@ -91,10 +91,6 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
-        this.log(
-            `Getting storage for address ${address} and pointer ${pointer.toString('hex')}...`,
-        );
-
         const value = await this.repository.getByContractAndPointer(
             address,
             pointer,
@@ -139,10 +135,6 @@ export class VMMongoStorage extends VMStorage {
         if (!this.currentSession) {
             throw new Error('Session not started');
         }
-
-        this.log(
-            `Setting storage for address ${address} and pointer ${pointer.toString('hex')} to ${value.toString('hex')}...`,
-        );
 
         return await this.repository.setByContractAndPointer(
             address,

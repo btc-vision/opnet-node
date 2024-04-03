@@ -66,7 +66,7 @@ export class ABICoder {
 
     private bigIntToUint8Array(bigIntValue: bigint, length: number): Uint8Array {
         const byteArray = new Uint8Array(length);
-        const buf = Buffer.from(bigIntValue.toString(16), 'hex');
+        const buf = Buffer.from(bigIntValue.toString(16).padStart(64, '0'), 'hex');
 
         for (let i = 0; i < length; i++) {
             byteArray[i] = buf[i] || 0;

@@ -356,7 +356,11 @@ export class ContractEvaluator {
             if (!sameStorage) {
                 return await this.evaluate(contractAddress, abi, isView, calldata, caller);
             } else {
-                console.log('CALL STORAGE ACCESS LIST ->', this.getMergedStorageState());
+                console.log(
+                    'CALL STORAGE ACCESS LIST ->',
+                    this.getMergedStorageState(),
+                    modifiedStorage,
+                );
 
                 if (canWrite) {
                     await this.updateStorage();

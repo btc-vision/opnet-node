@@ -52,7 +52,7 @@ export class BinaryWriter {
     }
 
     public writeU256(bigIntValue: bigint): void {
-        const byteArray = Buffer.from(bigIntValue.toString(16), 'hex');
+        const byteArray = Buffer.from(bigIntValue.toString(16).padStart(64, '0'), 'hex');
 
         for (let i = 0; i < 32; i++) {
             this.writeU8(byteArray[i] || 0);
