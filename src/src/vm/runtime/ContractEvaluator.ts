@@ -1,3 +1,4 @@
+import { BufferHelper } from '../../utils/BufferHelper.js';
 import { BinaryReader } from '../buffer/BinaryReader.js';
 import { BinaryWriter } from '../buffer/BinaryWriter.js';
 import {
@@ -72,7 +73,13 @@ export class ContractEvaluator {
         const mergedStorageState: BlockchainStorage = new Map();
 
         for (const [key, value] of this.persistentStorageState) {
-            mergedStorageState.set(key, value);
+            const newStorage: PointerStorage = new Map();
+
+            for (const [k, v] of value) {
+                newStorage.set(k, v);
+            }
+
+            mergedStorageState.set(key, newStorage);
         }
 
         for (const [key, value] of this.currentStorageState) {
@@ -82,6 +89,14 @@ export class ContractEvaluator {
                 for (const [k, v] of value) {
                     existingValue.set(k, v);
                 }
+            } else {
+                const newStorage: PointerStorage = new Map();
+
+                for (const [k, v] of value) {
+                    newStorage.set(k, v);
+                }
+
+                mergedStorageState.set(key, newStorage);
             }
         }
 
@@ -169,7 +184,7 @@ export class ContractEvaluator {
     private async loadPersistentStorageState(
         requestPersistentStorage: BlockchainRequestedStorage,
         modifiedStorage: BlockchainStorage,
-        initialStorage: BlockchainStorage = this.persistentStorageState,
+        initialStorage: BlockchainStorage,
         isView: boolean = false,
     ): Promise<void> {
         if (!this.contractInstance) {
@@ -225,19 +240,18 @@ export class ContractEvaluator {
         pointerStorage: PointerStorage,
         isView: boolean,
     ): Promise<void> {
-        const rawData: Buffer = Buffer.from(pointer.toString(16), 'hex');
-        const defaultValueBuffer: Buffer = Buffer.from(defaultValue.toString(16), 'hex');
+        const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
+        const defaultValueBuffer: MemoryValue = BufferHelper.valueToUint8Array(defaultValue);
 
-        const value: Buffer | null = await this.getStorage(
+        const value: MemoryValue | null = await this.getStorage(
             address,
             rawData,
             defaultValueBuffer,
             !isView,
         );
 
-        const valHex = value?.toString('hex');
-
-        const finalValue: bigint = !valHex ? defaultValue : BigInt(`0x${valHex}`);
+        const valHex = value ? BufferHelper.uint8ArrayToValue(value) : null;
+        const finalValue: bigint = valHex === null ? defaultValue : valHex;
 
         pointerStorage.set(pointer, finalValue);
     }
@@ -247,8 +261,8 @@ export class ContractEvaluator {
         pointer: MemorySlotPointer,
         value: MemorySlotData<bigint>,
     ): Promise<void> {
-        const rawData: Buffer = Buffer.from(pointer.toString(16), 'hex');
-        const valueBuffer: Buffer = Buffer.from(value.toString(16), 'hex');
+        const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
+        const valueBuffer: MemoryValue = BufferHelper.valueToUint8Array(value);
 
         await this.setStorage(address, rawData, valueBuffer);
     }
@@ -289,7 +303,8 @@ export class ContractEvaluator {
         abi: Selector,
         isView: boolean,
         calldata: Uint8Array | null,
-        caller?: Address | null,
+        caller: Address | null = null,
+        tries: number = 0,
     ): Promise<Uint8Array | undefined> {
         if (!this.initializeContract) {
             throw new Error('Contract not initialized');
@@ -317,9 +332,7 @@ export class ContractEvaluator {
 
         try {
             this.contractInstance.purgeMemory();
-
-            const toAllocate = this.writeCurrentStorageState();
-            this.contractInstance.loadStorage(toAllocate);
+            this.contractInstance.loadStorage(this.writeCurrentStorageState());
 
             const hasSelectorInMethods = contract?.has(abi) ?? false;
 
@@ -346,6 +359,7 @@ export class ContractEvaluator {
             this.currentRequiredStorage = requestedPersistentStorage;
 
             const modifiedStorage = this.getCurrentModifiedStorageState();
+
             await this.loadPersistentStorageState(
                 requestedPersistentStorage,
                 modifiedStorage,
@@ -354,16 +368,22 @@ export class ContractEvaluator {
             );
 
             if (!sameStorage) {
-                return await this.evaluate(contractAddress, abi, isView, calldata, caller);
-            } else {
-                console.log(
-                    'CALL STORAGE ACCESS LIST ->',
-                    this.getMergedStorageState(),
-                    modifiedStorage,
+                return await this.evaluate(
+                    contractAddress,
+                    abi,
+                    isView,
+                    calldata,
+                    caller,
+                    tries + 1,
                 );
-
+            } else {
                 if (canWrite) {
-                    await this.updateStorage();
+                    console.log(
+                        `FINAL CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
+                        modifiedStorage,
+                    );
+
+                    await this.updateStorage(modifiedStorage);
                 }
 
                 this.clear();
@@ -375,9 +395,9 @@ export class ContractEvaluator {
         }
     }
 
-    private async updateStorage(): Promise<void> {
+    private async updateStorage(modifiedStorage: BlockchainStorage): Promise<void> {
         const promises: Promise<void>[] = [];
-        for (const [key, value] of this.currentStorageState) {
+        for (const [key, value] of modifiedStorage) {
             for (const [k, v] of value) {
                 promises.push(this.setStorageState(key, k, v).catch(() => {}));
             }
@@ -435,7 +455,7 @@ export class ContractEvaluator {
             throw new Error('Contract not initialized');
         }
 
-        const abi = this.contractInstance.getMethodABI();
+        const abi = this.contractInstance.getWriteMethods();
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readMethodSelectorsMap();

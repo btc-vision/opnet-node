@@ -1,1 +1,1 @@
-export type StoragePointer = Buffer;
+export type StoragePointer = Uint8Array;

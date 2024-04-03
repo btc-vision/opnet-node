@@ -78,7 +78,7 @@ export class VMMongoStorage extends VMStorage {
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,
-    ): Promise<MemoryValue | null> {
+    ): Promise<Uint8Array | null> {
         if (setIfNotExit && defaultValue === null) {
             throw new Error('Default value buffer is required');
         }
@@ -107,18 +107,18 @@ export class VMMongoStorage extends VMStorage {
             return defaultValue;
         }
 
-        return this.addBytes(Buffer.from(value.value.buffer));
+        return this.addBytes(value.value);
     }
 
-    private addBytes(value: Buffer): MemoryValue {
+    private addBytes(value: MemoryValue): Uint8Array {
         if (value.length > 1) {
             return value;
         }
 
-        const length = value.length || 1;
-        const buffer = Buffer.alloc(length);
+        const length = Math.max(value.length, 32);
+        const buffer = new Uint8Array(length);
 
-        if (value.length) buffer.set(value, length);
+        if (value.length) buffer.set(value, 0);
 
         return buffer;
     }

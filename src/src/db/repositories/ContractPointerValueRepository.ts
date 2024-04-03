@@ -1,11 +1,12 @@
 import { BaseRepository } from '@btc-vision/motoswapcommon';
 import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
-import { BufferHelper } from '../../utils/BufferHelper.js';
+import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
+import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
 
 export interface IContractPointerValue {
-    pointer: Buffer;
-    value: Buffer;
+    pointer: StoragePointer;
+    value: MemoryValue;
 }
 
 export class ContractPointerValueRepository extends BaseRepository<IContractPointerValueDocument> {
@@ -17,11 +18,10 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
 
     public async getByContractAndPointer(
         contractAddress: string,
-        pointer: Buffer,
+        pointer: StoragePointer,
         currentSession?: ClientSession,
     ): Promise<IContractPointerValue | null> {
-        const bufA = BufferHelper.bufferToUint8Array(pointer);
-        const pointerToBinary = new Binary(bufA);
+        const pointerToBinary = new Binary(pointer);
 
         const criteria: Partial<Filter<IContractPointerValueDocument>> = {
             contractAddress: contractAddress,
@@ -34,20 +34,17 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         }
 
         return {
-            pointer: Buffer.from(results.pointer.buffer),
-            value: Buffer.from(results.value.buffer),
+            pointer: results.pointer.buffer,
+            value: results.value.buffer,
         };
     }
 
     public async setByContractAndPointer(
         contractAddress: string,
-        pointer: Buffer,
-        value: Buffer,
+        bufPointer: StoragePointer,
+        bufValue: MemoryValue,
         currentSession?: ClientSession,
     ): Promise<void> {
-        const bufPointer = BufferHelper.bufferToUint8Array(pointer);
-        const bufValue = BufferHelper.bufferToUint8Array(value);
-
         const pointerToBinary = new Binary(bufPointer);
         const valueToBinary = new Binary(bufValue);
 

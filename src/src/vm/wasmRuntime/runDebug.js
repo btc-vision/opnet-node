@@ -69,6 +69,10 @@ export async function instantiate(bytecode, imports = {}) {
                 // src/btc/exports/index/getMethodABI() => ~lib/typedarray/Uint8Array
                 return __liftTypedArray(Uint8Array, exports.getMethodABI() >>> 0);
             },
+            getWriteMethods() {
+                // src/btc/exports/index/getMethodABI() => ~lib/typedarray/Uint8Array
+                return __liftTypedArray(Uint8Array, exports.getWriteMethods() >>> 0);
+            },
             getRequiredStorage() {
                 // src/btc/exports/index/getRequiredStorage() => ~lib/typedarray/Uint8Array
                 return __liftTypedArray(Uint8Array, exports.getRequiredStorage() >>> 0);

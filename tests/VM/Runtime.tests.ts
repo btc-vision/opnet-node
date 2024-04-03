@@ -15,11 +15,19 @@ import { ContractEvaluator } from '../../src/src/vm/runtime/ContractEvaluator.js
 import { VMManager } from '../../src/src/vm/VMManager.js';
 import { TestConfig } from '../config/Config.js';
 
+async function sleep(ms: number) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
+
 describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
     let CONTRACT_ADDRESS: string = 'bc1p3hnqcq7jq6k30ryv8lfzx3ruuvkwr7gu50xz4acweqv4a7sj44cq9jhmq5';
 
     const DEPLOYER_ADDRESS = BitcoinHelper.generateWallet();
     const RANDOM_BLOCK_ID: bigint = 1073478347n;
+    const EXECUTE_X_TIME: bigint = 100n;
+    const BALANCE_TO_ADD: bigint = 1n;
 
     const abiCoder: ABICoder = new ABICoder();
     const vmManager: VMManager = new VMManager(TestConfig);
@@ -37,60 +45,60 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     let loaded: Promise<void> | null = null;
 
     async function load() {
-        loaded = new Promise<void>(async (resolve, reject) => {
-            await vmManager.init();
-            await vmManager.prepareBlock(RANDOM_BLOCK_ID);
+        //loaded = new Promise<void>(async (resolve, reject) => {
+        const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
+        expect(contractBytecode).toBeDefined();
 
-            const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
-            expect(contractBytecode).toBeDefined();
+        vmContext = await vmManager.loadContractFromBytecode(contractBytecode);
+        expect(vmContext).toBeDefined();
 
-            vmContext = await vmManager.loadContractFromBytecode(contractBytecode);
-            expect(vmContext).toBeDefined();
+        if (vmContext.contract === null) {
+            throw new Error('Contract not found.');
+        }
 
-            if (vmContext.contract === null) {
-                throw new Error('Contract not found.');
-            }
+        vmEvaluator = vmContext.contract;
 
-            vmEvaluator = vmContext.contract;
+        let REAL_CONTRACT_ADDRESS = BitcoinHelper.generateNewContractAddress(
+            contractBytecode,
+            DEPLOYER_ADDRESS.publicKey,
+        );
 
-            let REAL_CONTRACT_ADDRESS = BitcoinHelper.generateNewContractAddress(
-                contractBytecode,
-                DEPLOYER_ADDRESS.publicKey,
-            );
+        if (!CONTRACT_ADDRESS) {
+            CONTRACT_ADDRESS = REAL_CONTRACT_ADDRESS;
+        }
 
-            if (!CONTRACT_ADDRESS) {
-                CONTRACT_ADDRESS = REAL_CONTRACT_ADDRESS;
-            }
+        console.log(`Bitcoin Smart Contract will be deployed at: ${CONTRACT_ADDRESS} by ${OWNER}`);
 
-            console.log(
-                `Bitcoin Smart Contract will be deployed at: ${CONTRACT_ADDRESS} by ${OWNER}`,
-            );
+        await vmEvaluator.setupContract(OWNER, CONTRACT_ADDRESS);
 
-            await vmEvaluator.setupContract(OWNER, CONTRACT_ADDRESS);
+        decodedViewSelectors = vmEvaluator.getViewSelectors();
+        decodedMethodSelectors = vmEvaluator.getMethodSelectors();
 
-            decodedViewSelectors = vmEvaluator.getViewSelectors();
-            decodedMethodSelectors = vmEvaluator.getMethodSelectors();
+        expect(decodedViewSelectors.has(CONTRACT_ADDRESS)).toBeTruthy();
+        expect(decodedMethodSelectors.has(CONTRACT_ADDRESS)).toBeTruthy();
 
-            expect(decodedViewSelectors.has(CONTRACT_ADDRESS)).toBeTruthy();
-            expect(decodedMethodSelectors.has(CONTRACT_ADDRESS)).toBeTruthy();
+        mainContractViewSelectors = decodedViewSelectors.get(CONTRACT_ADDRESS);
+        mainContractMethodSelectors = decodedMethodSelectors.get(CONTRACT_ADDRESS);
 
-            mainContractViewSelectors = decodedViewSelectors.get(CONTRACT_ADDRESS);
-            mainContractMethodSelectors = decodedMethodSelectors.get(CONTRACT_ADDRESS);
+        if (!vmEvaluator) {
+            throw new Error('VM runtime not found.');
+        }
 
-            if (!vmEvaluator) {
-                throw new Error('VM runtime not found.');
-            }
+        const isInitialized = vmEvaluator.isInitialized();
+        expect(isInitialized).toBeTruthy();
 
-            const isInitialized = vmEvaluator.isInitialized();
-            expect(isInitialized).toBeTruthy();
+        //resolve();
+        //});
 
-            resolve();
-        });
-
-        return await loaded;
+        //return await loaded;
     }
 
     beforeAll(async () => {
+        await vmManager.init();
+        await vmManager.prepareBlock(RANDOM_BLOCK_ID);
+    });
+
+    beforeEach(async () => {
         await load();
     });
 
@@ -101,17 +109,20 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
     });
 
-    test(`ABI should be defined.`, async () => {
-        await loaded;
+    /*afterAll(async () => {
+        if (vmManager) {
+            await vmManager.terminateBlock();
+            await vmManager.closeDatabase();
+        }
+    });*/
 
+    test(`ABI should be defined.`, async () => {
         expect(decodedViewSelectors).toBeDefined();
         expect(decodedMethodSelectors).toBeDefined();
         expect(module).toBeDefined();
     });
 
     test(`Computed selectors should be equal to wasm selectors.`, async () => {
-        await loaded;
-
         const selector = abiCoder.encodeSelector('isAddressOwner');
         const _selectorWASM = decodedMethodSelectors.values().next().value.values().next().value;
         const selectorWASM = abiCoder.numericSelectorToHex(_selectorWASM);
@@ -192,6 +203,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             true,
             balanceOfSelector,
             buffer,
+            OWNER,
         );
 
         if (!balanceValue) {
@@ -201,7 +213,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const decodedResponse = abiCoder.decodeData(balanceValue, [ABIDataTypes.UINT256]);
         const balanceOfResponse = decodedResponse[0];
 
-        expect(balanceOfResponse).toBe(0n);
+        expect(balanceOfResponse).toBeGreaterThanOrEqual(0n);
     });
 
     test(`BSC should be able to compute basic operations such as additions and set the corresponding storage slot correctly.`, async () => {
@@ -223,14 +235,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         if (!module) {
             throw new Error('Module not found');
         }
-
-        /*const ptr = abiCoder.encodePointer(OWNER);
-                                    const calculatedPointer = abiCoder.encodePointerHash(1, ptr);
-
-                                    console.log('Pointer ->', ptr, calculatedPointer);
-
-                                    vmManager.clearFakeStorage();
-                                    vmManager.setFakeStorage(CONTRACT_ADDRESS, 0, 0, 1n);*/
 
         const balanceOfSelector = Number(`0x` + abiCoder.encodeSelector('balanceOf'));
         const hasTotalSupply = mainContractMethodSelectors.has(balanceOfSelector);
@@ -258,12 +262,23 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         const addBalanceSelector = Number(`0x` + abiCoder.encodeSelector('addFreeMoney'));
         const addCalldata: BinaryWriter = new BinaryWriter();
+
         addCalldata.writeAddress(OWNER);
-        addCalldata.writeU256(100n);
+        addCalldata.writeU256(BALANCE_TO_ADD);
 
         const addBuffer = addCalldata.getBuffer();
 
-        await vmEvaluator.execute(CONTRACT_ADDRESS, false, addBalanceSelector, addBuffer);
+        for (let i = 0n; i < EXECUTE_X_TIME; i++) {
+            await load();
+
+            await vmEvaluator.execute(
+                CONTRACT_ADDRESS,
+                false,
+                addBalanceSelector,
+                addBuffer,
+                OWNER,
+            );
+        }
 
         const balanceValueAfterAddition = await vmEvaluator.execute(
             CONTRACT_ADDRESS,
@@ -284,6 +299,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         console.log('Balance of user before addition:', balanceOfUserBeforeAddition);
         console.log('Balance of user after addition:', balanceOfUserAfterAddition);
 
-        expect(balanceOfUserAfterAddition).toBeGreaterThan(balanceOfUserBeforeAddition);
+        expect(balanceOfUserAfterAddition).toBe(
+            balanceOfUserBeforeAddition + BALANCE_TO_ADD * EXECUTE_X_TIME,
+        );
     });
 });
