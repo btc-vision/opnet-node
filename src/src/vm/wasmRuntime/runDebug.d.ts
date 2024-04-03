@@ -30,7 +30,13 @@ export type VMRuntime = {
      */
     getModifiedStorage(): Uint8Array;
 
+    growMemory(size: number): number;
+
     loadStorage(data: Uint8Array): void;
+
+    allocateMemory(size: number): number;
+
+    isInitialized(): boolean;
 
     purgeMemory(): void;
 };

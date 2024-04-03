@@ -56,6 +56,10 @@ export class ContractEvaluator {
         return this.stack.getStorage(address, pointer, defaultValueBuffer, setIfNotExit);
     }
 
+    public async rndPromise(): Promise<void> {
+        return await this.stack.rndPromise();
+    }
+
     public async setStorage(
         address: string,
         pointer: StoragePointer,
@@ -139,6 +143,8 @@ export class ContractEvaluator {
             throw new Error('Contract already initialized');
         }
 
+        await this.rndPromise();
+
         this.persistentStorageState.clear();
 
         this.contractInstance.INIT(owner, contractAddress);
@@ -157,7 +163,6 @@ export class ContractEvaluator {
         );
 
         this.initializeContract = true;
-        console.log('Contract initialized');
     }
 
     private async loadPersistentStorageState(
@@ -281,10 +286,17 @@ export class ContractEvaluator {
             throw new Error('Calldata is required for method call');
         }
 
+        const isInitialized = this.isInitialized();
+        if (!isInitialized) {
+            throw new Error('Contract not initialized');
+        }
+
         try {
             this.currentStorageState.clear();
             this.contractInstance.purgeMemory();
-            this.contractInstance.loadStorage(this.writeCurrentStorageState());
+
+            const toAllocate = this.writeCurrentStorageState();
+            this.contractInstance.loadStorage(toAllocate);
 
             let result: Uint8Array;
             if (!isView) {
@@ -356,6 +368,14 @@ export class ContractEvaluator {
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readMethodSelectorsMap();
+    }
+
+    public isInitialized(): boolean {
+        if (!this.contractInstance) {
+            throw new Error('Contract not initialized');
+        }
+
+        return this.contractInstance.isInitialized();
     }
 
     public async execute(

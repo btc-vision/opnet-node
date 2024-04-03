@@ -3,3 +3,5 @@ import { VMManager } from './VMManager.js';
 
 const vmManager = new VMManager(Config);
 void vmManager.init();
+
+//const vmTester = new VMTester(vmManager);

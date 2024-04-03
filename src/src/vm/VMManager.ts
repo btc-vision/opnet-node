@@ -49,6 +49,16 @@ export class VMManager extends Logger {
         await this.vmBitcoinBlock.terminate();
     }
 
+    // don't even question it ????????????????
+    private rndPromise(): Promise<void> {
+        // ??????????????
+        return new Promise<void>((resolve) => {
+            setTimeout(() => {
+                resolve();
+            }, 0);
+        });
+    }
+
     public async loadContractFromBytecode(contractBytecode: Buffer): Promise<VMContext> {
         const contextOptions: EvaluatedContext = {
             context: {
@@ -60,6 +70,8 @@ export class VMManager extends Logger {
 
                 getStorage: this.getStorage.bind(this),
                 setStorage: this.setStorage.bind(this),
+
+                rndPromise: this.rndPromise.bind(this),
 
                 ContractEvaluator: ContractEvaluator,
 
@@ -75,13 +87,14 @@ export class VMManager extends Logger {
             },
         };
 
-        const runtime = new ContractEvaluator(contextOptions.context, console);
+        /*const runtime = new ContractEvaluator(contextOptions.context, console);
         await runtime.init();
 
         contextOptions.context.contract = runtime;
 
-        return contextOptions.context;
-        /*const runtime: Script = this.createRuntimeVM();
+        return contextOptions.context;*/
+
+        const runtime: Script = this.createRuntimeVM();
 
         try {
             await runtime.runInNewContext(contextOptions, scriptRunningOptions);
@@ -89,7 +102,7 @@ export class VMManager extends Logger {
             console.log('Error:', error, contextOptions.context);
         }
 
-        return contextOptions.context;*/
+        return contextOptions.context;
     }
 
     private async setStorage(

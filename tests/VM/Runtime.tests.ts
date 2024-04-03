@@ -33,10 +33,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
     let vmEvaluator: ContractEvaluator | null = null;
     let vmContext: VMContext | null = null;
-
     let loaded: Promise<void> | null = null;
-
-    //let CONTRACT_ADDRESS: string = '';
 
     async function load() {
         loaded = new Promise<void>(async (resolve, reject) => {
@@ -82,15 +79,22 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             mainContractViewSelectors = decodedViewSelectors.get(CONTRACT_ADDRESS);
             mainContractMethodSelectors = decodedMethodSelectors.get(CONTRACT_ADDRESS);
 
+            if (!vmEvaluator) {
+                throw new Error('VM runtime not found.');
+            }
+
+            const isInitialized = vmEvaluator.isInitialized();
+            expect(isInitialized).toBeTruthy();
+
             resolve();
         });
 
         return await loaded;
     }
 
-    /*beforeAll(async () => {
+    beforeAll(async () => {
         await load();
-    });*/
+    });
 
     afterAll(async () => {
         if (vmManager) {
@@ -99,7 +103,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
     });
 
-    /*test(`ABI should be defined.`, async () => {
+    test(`ABI should be defined.`, async () => {
         await loaded;
 
         expect(decodedViewSelectors).toBeDefined();
@@ -115,10 +119,15 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const selectorWASM = abiCoder.numericSelectorToHex(_selectorWASM);
 
         expect(selector).toBe(selectorWASM);
-    });*/
+    });
 
     test(`When I deploy a smart contract on the bitcoin network, it should have a valid address.`, async () => {
-        await load();
+        if (!vmEvaluator) {
+            throw new Error('VM evaluator not found.');
+        }
+
+        const isInitialized = vmEvaluator.isInitialized();
+        expect(isInitialized).toBeTruthy();
 
         expect(mainContractViewSelectors).toBeDefined();
         expect(mainContractMethodSelectors).toBeDefined();
@@ -131,10 +140,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('ABI not found');
         }
 
-        if (!module) {
-            throw new Error('Module not found');
-        }
-
         if (!vmEvaluator) {
             throw new Error('VM evaluator not found.');
         }
@@ -143,8 +148,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         if (!ownerSelector) {
             throw new Error('Owner selector not found');
         }
-
-        console.log(vmEvaluator);
 
         const ownerValue = await vmEvaluator.execute(true, ownerSelector);
         if (!ownerValue) {
