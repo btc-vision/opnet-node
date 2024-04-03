@@ -1,4 +1,4 @@
-import { BaseRepository } from '@btc-vision/motoswapdb';
+import { BaseRepository } from '@btc-vision/motoswapcommon';
 import { Collection, Db } from 'mongodb';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
 
