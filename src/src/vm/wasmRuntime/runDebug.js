@@ -22,8 +22,6 @@ export async function instantiate(bytecode, imports = {}) {
                 console.log(text);
             },
         }),
-        
-        memory: new WebAssembly.Memory({ initial: 65536, maximum: 65536 }),
     };
     const { exports } = await WebAssembly.instantiate(module, adaptedImports);
     const memory = exports.memory || imports.env.memory;
@@ -83,6 +81,14 @@ export async function instantiate(bytecode, imports = {}) {
                 // src/btc/exports/index/loadStorage(~lib/typedarray/Uint8Array) => void
                 data = __lowerTypedArray(Uint8Array, 13, 0, data) || __notnull();
                 exports.loadStorage(data);
+            },
+            allocateMemory(size) {
+                // src/btc/exports/index/allocateMemory(usize) => usize
+                return exports.allocateMemory(size) >>> 0;
+            },
+            isInitialized() {
+                // src/btc/exports/index/isInitialized() => bool
+                return exports.isInitialized() != 0;
             },
         },
         exports,

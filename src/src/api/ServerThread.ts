@@ -25,7 +25,6 @@ export class ServerThread extends Thread {
 
         switch (m.type) {
             default:
-                console.log(m);
                 this.error(`Unknown thread message received. {Type: ${m.type}}`);
                 break;
         }

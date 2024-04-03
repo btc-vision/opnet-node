@@ -24,6 +24,8 @@ export interface VMContext {
 
     contract: ContractEvaluator | null;
 
+    rndPromise: () => Promise<void>;
+
     readonly ContractEvaluator: typeof ContractEvaluator;
 
     initialBytecode: Buffer;
