@@ -22,6 +22,8 @@ export class VMManager extends Logger {
     private readonly vmStorage: VMStorage;
     private readonly vmBitcoinBlock: VMBitcoinBlock;
 
+    private fakeStorage: Map<string, Map<string, MemoryValue>> = new Map();
+
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
 
@@ -119,7 +121,31 @@ export class VMManager extends Logger {
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,
     ): Promise<MemoryValue | null> {
+        const fakeStorage = this.fakeStorage.get(address);
+
+        if (fakeStorage) {
+            const value = fakeStorage.get(pointer.toString('hex'));
+            if (value) {
+                return value;
+            }
+        }
+
         return this.vmStorage.getStorage(address, pointer, defaultValue, setIfNotExit);
+    }
+
+    public setFakeStorage(address: string, pointer: StoragePointer, value: MemoryValue): void {
+        let fakeStorage = this.fakeStorage.get(address);
+
+        if (!fakeStorage) {
+            fakeStorage = new Map();
+            this.fakeStorage.set(address, fakeStorage);
+        }
+
+        fakeStorage.set(pointer.toString('hex'), value);
+    }
+
+    public clearFakeStorage(): void {
+        this.fakeStorage.clear();
     }
 
     private getVMStorage(): VMStorage {

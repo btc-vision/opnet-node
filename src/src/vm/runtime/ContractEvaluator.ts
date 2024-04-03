@@ -1,4 +1,3 @@
-import { ABICoder } from '../abi/ABICoder.js';
 import { BinaryReader } from '../buffer/BinaryReader.js';
 import { BinaryWriter } from '../buffer/BinaryWriter.js';
 import {
@@ -16,8 +15,6 @@ import { VMContext } from '../evaluated/EvaluatedContext.js';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { instantiate, VMRuntime } from '../wasmRuntime/runDebug.js';
-
-const abiCoder: ABICoder = new ABICoder();
 
 export class ContractEvaluator {
     private contractInstance: VMRuntime | null = null;
@@ -376,8 +373,7 @@ export class ContractEvaluator {
         const promises: Promise<void>[] = [];
         for (const [key, value] of this.currentStorageState) {
             for (const [k, v] of value) {
-                console.log(`Setting storage for ${key} and pointer ${k}...`);
-                promises.push(this.setStorageState(key, k, v));
+                promises.push(this.setStorageState(key, k, v).catch(() => {}));
             }
         }
 

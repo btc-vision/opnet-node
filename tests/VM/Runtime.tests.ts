@@ -24,7 +24,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     const abiCoder: ABICoder = new ABICoder();
     const vmManager: VMManager = new VMManager(TestConfig);
 
-    let OWNER = DEPLOYER_ADDRESS.address;
+    let OWNER: string = '13sBQqJdnAdc7v5tnX3ifYqAMoFX79VfLy'; //DEPLOYER_ADDRESS.address;
 
     let decodedViewSelectors: SelectorsMap;
     let decodedMethodSelectors: MethodMap;
@@ -209,7 +209,58 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         expect(balanceOfResponse).toBe(0n);
     });
 
-    test(`BSC should be able to retrieve any storage key and value.`, async () => {});
+    /*test(`BSC should be able to return every storage slot used when evaluating a method.`, async () => {
+        expect(mainContractViewSelectors).toBeDefined();
+        expect(mainContractMethodSelectors).toBeDefined();
 
-    test(`BSC should be able to return every storage slot used when evaluating a method.`, async () => {});
+        if (!vmEvaluator) {
+            throw new Error('VM runtime not found.');
+        }
+
+        if (!mainContractMethodSelectors) {
+            throw new Error('Method not found');
+        }
+
+        if (!mainContractViewSelectors) {
+            throw new Error('ABI not found');
+        }
+
+        if (!module) {
+            throw new Error('Module not found');
+        }
+
+        const ptr = abiCoder.encodePointer(OWNER);
+        const calculatedPointer = abiCoder.encodePointerHash(1, ptr);
+
+        console.log('Pointer ->', ptr, calculatedPointer);
+
+        /*vmManager.clearFakeStorage();
+        vmManager.setFakeStorage(CONTRACT_ADDRESS, 0, 0, 1n);
+
+        const balanceOfSelector = Number(`0x` + abiCoder.encodeSelector('balanceOf'));
+        const hasTotalSupply = mainContractMethodSelectors.has(balanceOfSelector);
+        if (!hasTotalSupply) {
+            throw new Error('balanceOf selector not found');
+        }
+
+        const calldata: BinaryWriter = new BinaryWriter();
+        calldata.writeAddress(OWNER);
+
+        const buffer = calldata.getBuffer();
+        const balanceValue = await vmEvaluator.execute(
+            CONTRACT_ADDRESS,
+            true,
+            balanceOfSelector,
+            buffer,
+        );
+
+        if (!balanceValue) {
+            throw new Error('Balance value not found');
+        }
+
+        const decodedResponse = abiCoder.decodeData(balanceValue, [ABIDataTypes.UINT256]);
+        const balanceOfResponse = decodedResponse[0];
+
+        expect(balanceOfResponse).toBe(1n);
+    });*/
 });
