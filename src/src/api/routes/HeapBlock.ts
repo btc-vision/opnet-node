@@ -2,7 +2,11 @@ import { IHttpRequest, IHttpResponse } from 'nanoexpress';
 import { SubscriptionType } from '../../blockchain-indexer/shared/enums/Subscriptions.js';
 import { NewBlockSubscription } from '../../blockchain-indexer/shared/interfaces/NewBlockSubscription.js';
 import { SharedSubscriptionManager } from '../../blockchain-indexer/shared/subscription/SharedSubscriptionManager.js';
+import { MessageType } from '../../threading/enum/MessageType.js';
+import { GetCurrentBlockMessage } from '../../threading/interfaces/thread-messages/messages/api/GetCurrentBlock.js';
+import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { Routes, RouteType } from '../enums/Routes.js';
+import { ServerThread } from '../ServerThread.js';
 import { Route } from './Route.js';
 
 export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
@@ -29,18 +33,35 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
      * @response default - Unexpected error
      * @responseContent {HeapBlock} 200.application/json
      */
-    protected onRequest(
+    protected async onRequest(
         req: IHttpRequest,
         res: IHttpResponse,
         next?: (err: Error | null | undefined, done: boolean | undefined) => unknown,
-    ): void {
-        try {
-            res.status(200);
+    ): Promise<void> {
+        const currentBlockMsg: GetCurrentBlockMessage = {
+            type: MessageType.GET_CURRENT_BLOCK,
+            data: {},
+        };
 
-            res.json({ api: 'is working!' });
+        const currentBlock = await ServerThread.sendMessageToThread(
+            ThreadTypes.BITCOIN_RPC,
+            currentBlockMsg,
+        );
+
+        try {
+            if (!currentBlock) {
+                res.status(400);
+                res.json({ error: 'Something went wrong.' });
+            } else {
+                res.status(200);
+                res.json(currentBlock);
+            }
         } catch (err: unknown) {
             let e = err as Error;
             this.error(e.stack);
+
+            res.status(500);
+            res.endWithoutBody();
         }
     }
 

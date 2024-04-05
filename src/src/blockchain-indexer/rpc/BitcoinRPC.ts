@@ -1,6 +1,7 @@
 import { BlockchainConfig, Logger } from '@btc-vision/motoswapcommon';
 import { RPCClient } from 'rpc-bitcoin';
 import { RPCIniOptions } from 'rpc-bitcoin/build/src/rpc.js';
+import { BasicBlockInfo } from './types/BasicBlockInfo.js';
 import { BitcoinChains, BlockchainInfo } from './types/BlockchainInfo.js';
 
 export class BitcoinRPC extends Logger {
@@ -9,10 +10,19 @@ export class BitcoinRPC extends Logger {
     private rpc: RPCClient | null = null;
 
     private blockchainInfo: BlockchainInfo | null = null;
-    private blockHeight: number = 0;
+    private currentBlockInfo: BasicBlockInfo | null = null;
 
     constructor() {
         super();
+
+        this.purgeCachedData();
+    }
+
+    private purgeCachedData(): void {
+        setInterval(() => {
+            this.blockchainInfo = null;
+            this.currentBlockInfo = null;
+        }, 12000);
     }
 
     public getRpcConfigFromBlockchainConfig(rpcInfo: BlockchainConfig): RPCIniOptions {
@@ -31,10 +41,25 @@ export class BitcoinRPC extends Logger {
 
         this.blockchainInfo = await this.rpc.getblockchaininfo();
         if (this.blockchainInfo) {
-            this.blockHeight = this.blockchainInfo.blocks;
+            this.currentBlockInfo = {
+                blockHeight: this.blockchainInfo.blocks,
+                blockHash: this.blockchainInfo.bestblockhash,
+            };
         }
 
         return this.blockchainInfo;
+    }
+
+    public async getBlockHeight(): Promise<BasicBlockInfo | null> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        if (!this.currentBlockInfo) {
+            await this.getChainInfo();
+        }
+
+        return this.currentBlockInfo;
     }
 
     private async testRPC(rpcInfo: BlockchainConfig): Promise<void> {

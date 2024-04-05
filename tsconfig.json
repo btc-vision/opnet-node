@@ -5,7 +5,7 @@
 
 		"declaration": true,
 		"noImplicitAny": true,
-		"removeComments": true,
+		"removeComments": false,
 		"suppressImplicitAnyIndexErrors": false,
 		"preserveConstEnums": true,
 		"resolveJsonModule": true,

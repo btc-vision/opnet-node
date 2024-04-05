@@ -1,9 +1,27 @@
-import { Globals, Logger } from '@btc-vision/motoswapcommon';
+import { Logger } from '@btc-vision/motoswapcommon';
 import cors from 'cors';
 import nanoexpress, { IHttpRequest, IHttpResponse, INanoexpressApp, IWebSocket } from 'nanoexpress';
 import { DefinedRoutes } from './routes/DefinedRoutes.js';
 
-Globals.register();
+//Globals.register();
+
+// @ts-ignore
+process.emit = function (name, data, ...args) {
+    console.log(`Event: ${name} - ${data}`);
+};
+
+process.emitWarning = (warning: string, ...args: any[]) => {
+    console.log(`emitWarning: ${warning}`);
+    if (args[0] === 'ExperimentalWarning') {
+        return;
+    }
+
+    if (args[0] && typeof args[0] === 'object' && args[0].type === 'ExperimentalWarning') {
+        return;
+    } else {
+        console.log(`dfsdfhdufhasdhf: ${warning}`);
+    }
+};
 
 export class Server extends Logger {
     public logColor: string = '#00fa9a';
@@ -17,7 +35,7 @@ export class Server extends Logger {
         super();
     }
 
-    public createServer(): void {
+    public async createServer(): Promise<void> {
         // ERROR HANDLING
         this.app.setErrorHandler(
             (_err: Error, _req: IHttpRequest, res: IHttpResponse): IHttpResponse => {
@@ -46,7 +64,7 @@ export class Server extends Logger {
         });
 
         //LISTEN
-        this.app.listen(this.serverPort);
+        await this.app.listen(this.serverPort);
         this.log(`Server listening on port ${this.serverPort}.`);
     }
 
@@ -55,7 +73,7 @@ export class Server extends Logger {
             this.serverPort = port;
         }
 
-        this.createServer();
+        await this.createServer();
     }
 
     private loadRoutes(): void {

@@ -10,12 +10,12 @@ import { Server } from './Server.js';
 
 Globals.register();
 
-export class ServerThread extends Thread<ThreadTypes.API> {
+class ServerThreadBase extends Thread<ThreadTypes.API> {
     public readonly threadType: ThreadTypes.API = ThreadTypes.API;
 
     public logColor: string = '#7fffd4';
 
-    private server: Server = new Server();
+    private readonly server: Server = new Server();
 
     constructor() {
         super();
@@ -45,7 +45,9 @@ export class ServerThread extends Thread<ThreadTypes.API> {
     protected async onLinkMessage(
         type: ThreadTypes,
         msg: ThreadMessageBase<MessageType>,
-    ): Promise<void> {}
+    ): Promise<void> {
+        console.log('onLinkMessage', type, msg);
+    }
 }
 
-new ServerThread();
+export const ServerThread = new ServerThreadBase();
