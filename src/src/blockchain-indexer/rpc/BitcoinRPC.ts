@@ -1,6 +1,6 @@
 import { BlockchainConfig, Logger } from '@btc-vision/motoswapcommon';
 import { RPCClient } from 'rpc-bitcoin';
-import { GetBlockFilterParams, GetBlockHeaderParams, GetBlockParams, GetBlockStatsParams, GetChainTxStatsParams, Height, RPCIniOptions } from 'rpc-bitcoin/build/src/rpc.js';
+import { Blockhash, GetBlockFilterParams, GetBlockHeaderParams, GetBlockParams, GetBlockStatsParams, GetChainTxStatsParams, GetMemPoolParams, GetTxOutParams, GetTxOutProofParams, Height, RPCIniOptions, TxId, Verbose } from 'rpc-bitcoin/build/src/rpc.js';
 import { BasicBlockInfo } from './types/BasicBlockInfo.js';
 import { BitcoinChains, BlockchainInfo } from './types/BlockchainInfo.js';
 import { BlockData, BlockDataWithTransactionData } from './types/BlockData.js';
@@ -9,6 +9,10 @@ import { BlockHeaderInfo } from './types/BlockHeaderInfo.js';
 import { BlockStats } from './types/BlockStats.js';
 import { ChainTipInfo } from './types/ChainTipInfo.js';
 import { ChainTxStats } from './types/ChainTxStats.js';
+import { MemPoolTransactionInfo } from './types/MemPoolTransactionInfo.js';
+import { MempoolInfo } from './types/MempoolInfo.js';
+import { TransactionOutputInfo } from './types/TransactionOutputInfo.js';
+import { TransactionOutputSetInfo } from './types/TransactionOutputSetInfo.js';
 
 export class BitcoinRPC extends Logger {
     public readonly logColor: string = '#fa9600';
@@ -254,7 +258,195 @@ export class BitcoinRPC extends Logger {
         return difficulty;
     }
 
+    public async getMempoolAncestors
+        (
+            txid: string,
+            verbose?: boolean
+        ): Promise<MemPoolTransactionInfo | string[]> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
 
+        const param: GetMemPoolParams = {
+            txid: txid,
+            verbose: verbose
+        };
+
+        const transactionInfo: MemPoolTransactionInfo = await this.rpc.getmempoolancestors(param);
+
+        return transactionInfo;
+    }
+
+    public async getMempoolDescendants
+        (
+            txid: string,
+            verbose?: boolean
+        ): Promise<MemPoolTransactionInfo | string[]> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: GetMemPoolParams = {
+            txid: txid,
+            verbose: verbose
+        };
+
+        const transactionInfo: MemPoolTransactionInfo = await this.rpc.getmempooldescendants(param);
+
+        return transactionInfo;
+    }
+
+    public async getMempoolEntry(txid: string): Promise<MemPoolTransactionInfo> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: TxId = {
+            txid: txid
+        };
+
+        const transactionInfo: MemPoolTransactionInfo = await this.rpc.getmempoolentry(param);
+
+        return transactionInfo;
+    }
+
+    public async getMempoolInfo(): Promise<MempoolInfo> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const mempoolInfo: MempoolInfo = await this.rpc.getmempoolinfo();
+
+        return mempoolInfo;
+    }
+
+    public async getRawMempool(verbose?: boolean): Promise<MempoolInfo | string[]> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: Verbose = {
+            verbose: verbose
+        };
+
+        const mempoolInfo: MempoolInfo = await this.rpc.getrawmempool(param);
+
+        return mempoolInfo;
+    }
+
+    public async getTxOut
+    (
+        txid: string,
+        voutNumber: number,
+        includeMempool?: boolean
+    ): Promise<TransactionOutputInfo> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: GetTxOutParams = {
+            n: voutNumber,
+            txid: txid,
+            include_mempool: includeMempool
+        };
+
+        const txOuputInfo: TransactionOutputInfo = await this.rpc.gettxout(param);
+
+        return txOuputInfo;
+    }
+
+    public async getTxOutProof
+        (
+            txids: string[],
+            blockHash?: string
+        ): Promise<string> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: GetTxOutProofParams = {
+            txids: txids,
+            blockhash: blockHash
+        };
+
+        const txOuputProof: string = await this.rpc.gettxoutproof(param);
+
+        return txOuputProof;
+    }
+
+    public async getTxOutSetInfo(): Promise<TransactionOutputSetInfo> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const txOuputSetInfo: TransactionOutputSetInfo = await this.rpc.gettxoutsetinfo();
+
+        return txOuputSetInfo;
+    }
+
+    public async preciousBlock(blockHash: string): Promise<void> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: Blockhash = {
+            blockhash: blockHash
+        };
+
+        await this.rpc.preciousblock(param);
+    }
+
+    public async pruneBlockChain(height: number): Promise<number> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: Height = {
+            height: height
+        };
+
+        const prunedHeight: number = await this.rpc.pruneblockchain(param);
+
+        return prunedHeight;
+    }
+
+    public async saveMempool(): Promise<void> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        await this.rpc.savemempool();
+    }
+
+    public async verifyChain(checkLevel?: number,
+        nblocks?: number): Promise<boolean> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: { checklevel?: number, nblocks?: number } = {
+            checklevel: checkLevel,
+            nblocks: nblocks
+        };
+
+        const checked: boolean = await this.rpc.verifychain(param);
+
+        return checked;
+    }
+
+    public async verifyTxOutProof(proof: string): Promise<string[]> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: {proof: string} = {
+            proof: proof
+        };
+
+        const proofs: string[] = await this.rpc.verifytxoutproof(param);
+
+        return proofs;
+    }
 
     private async testRPC(rpcInfo: BlockchainConfig): Promise<void> {
         try {
