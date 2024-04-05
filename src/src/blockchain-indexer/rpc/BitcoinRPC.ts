@@ -1,8 +1,14 @@
 import { BlockchainConfig, Logger } from '@btc-vision/motoswapcommon';
 import { RPCClient } from 'rpc-bitcoin';
-import { RPCIniOptions } from 'rpc-bitcoin/build/src/rpc.js';
+import { GetBlockFilterParams, GetBlockHeaderParams, GetBlockParams, GetBlockStatsParams, GetChainTxStatsParams, Height, RPCIniOptions } from 'rpc-bitcoin/build/src/rpc.js';
 import { BasicBlockInfo } from './types/BasicBlockInfo.js';
 import { BitcoinChains, BlockchainInfo } from './types/BlockchainInfo.js';
+import { BlockData, BlockDataWithTransactionData } from './types/BlockData.js';
+import { BlockFilterInfo } from './types/BlockFilterInfo.js';
+import { BlockHeaderInfo } from './types/BlockHeaderInfo.js';
+import { BlockStats } from './types/BlockStats.js';
+import { ChainTipInfo } from './types/ChainTipInfo.js';
+import { ChainTxStats } from './types/ChainTxStats.js';
 
 export class BitcoinRPC extends Logger {
     public readonly logColor: string = '#fa9600';
@@ -34,6 +40,96 @@ export class BitcoinRPC extends Logger {
         };
     }
 
+    public async getBestBlockHash(): Promise<string> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const bestBlockHash = await this.rpc.getbestblockhash();
+        return bestBlockHash;
+    }
+
+    public async getBlockAsHexString(blockHash: string): Promise<string | null> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: GetBlockParams = {
+            blockhash: blockHash,
+            verbosity: 0
+        };
+
+        const blockData: string = await this.rpc.getblock(param) as string;
+        return blockData == '' ? null : blockData;
+    }
+
+    public async getBlockInfoOnly(blockHash: string): Promise<BlockData> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: GetBlockParams = {
+            blockhash: blockHash,
+            verbosity: 1
+        };
+
+        const blockData: BlockData = await this.rpc.getblock(param);
+        return blockData;
+    }
+
+    public async getBlockInfoWithTransactionData(blockHash: string): Promise<BlockDataWithTransactionData> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: GetBlockParams = {
+            blockhash: blockHash,
+            verbosity: 2
+        };
+
+        const blockData: BlockDataWithTransactionData = await this.rpc.getblock(param);
+        return blockData;
+    }
+
+    public async getBlockCount(): Promise<number> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const blockCount: number = await this.rpc.getblockcount();
+        return blockCount;
+    }
+
+    public async getBlockFilter
+        (
+            blockHash: string,
+            filterType?: string
+        ): Promise<BlockFilterInfo> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+        const param: GetBlockFilterParams = {
+            blockhash: blockHash,
+            filtertype: filterType
+        };
+
+        const result: BlockFilterInfo = await this.rpc.getblockfilter(param);
+        return result;
+    }
+
+    public async getBlockHash(height: number): Promise<string> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: Height = {
+            height: height
+        };
+
+        const result: string = await this.rpc.getblockhash(param);
+        return result;
+    }
+
     public async getChainInfo(): Promise<BlockchainInfo | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
@@ -61,6 +157,104 @@ export class BitcoinRPC extends Logger {
 
         return this.currentBlockInfo;
     }
+
+    public async getBlockHeader
+        (
+            blockHash: string,
+            verbose?: boolean
+        ): Promise<BlockHeaderInfo | string> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: GetBlockHeaderParams = {
+            blockhash: blockHash,
+            verbose: verbose
+        };
+
+        const header: BlockHeaderInfo | string  = await this.rpc.getblockheader(param);
+        
+        return header;
+    }
+
+    public async getBlockStatsByHeight
+    (
+        height: number,
+        stats?: string[]
+    ): Promise<BlockStats> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: GetBlockStatsParams = {
+            hash_or_height: height,
+            stats: stats
+        };
+
+        const blockStats : BlockStats = await this.rpc.getblockstats(param);
+
+        return blockStats;
+    }
+
+    public async getBlockStatsByHash
+    (
+        blockHash: string,
+        stats?: string[]
+    ): Promise<BlockStats> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: GetBlockStatsParams = {
+            hash_or_height: blockHash,
+            stats: stats
+        };
+
+        const blockStats: BlockStats = await this.rpc.getblockstats(param);
+
+        return blockStats;
+    }
+
+    public async getChainTips(): Promise<ChainTipInfo[]> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const tips: ChainTipInfo[] = await this.rpc.getchaintips();
+
+        return tips;
+    }
+
+    public async getChainTxStats
+    (
+        nblocks?: number,
+        blockHash?: string
+    ): Promise<ChainTxStats> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const param: GetChainTxStatsParams = {
+            blockhash: blockHash,
+            nblocks: nblocks
+        };
+
+        const chainTxStats: ChainTxStats = await this.rpc.getchaintxstats(param);
+
+        return chainTxStats;
+    }
+
+    public async getDifficulty(): Promise<number> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const difficulty: number = await this.rpc.getdifficulty();
+
+        return difficulty;
+    }
+
+
 
     private async testRPC(rpcInfo: BlockchainConfig): Promise<void> {
         try {
