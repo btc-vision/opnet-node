@@ -30,6 +30,7 @@
         "asyncapi-validator": "^4.0.0",
         "babel-plugin-transform-import-meta": "^2.2.1",
         "bignumber.js": "^9.1.2",
+        "bitcoind-rpc": "^0.9.1",
         "bitcoinjs-lib": "^6.1.5",
         "bytenode": "^1.5.6",
         "chalk": "^5.3.0",

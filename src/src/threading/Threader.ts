@@ -36,7 +36,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
 
     private linkThreadTypes: ThreadTypes[] = [];
 
-    constructor(private readonly threadType: T) {
+    constructor(public readonly threadType: T) {
         super();
 
         const config: ThreaderConfigurations = ServicesConfigurations[threadType];
@@ -193,10 +193,6 @@ export class Threader<T extends ThreadTypes> extends Logger {
             if (thread) {
                 thread.postMessage(txMessage, [txMessage.data.port]);
             } else {
-                for (let thread of this.threads) {
-                    console.log(this.threadType, thread.threadId);
-                }
-
                 this.warn(
                     `Thread ${targetThreadId} of ${this.threadType}<->${txMessage.data.sourceThreadType} not found.`,
                 );
@@ -210,7 +206,12 @@ export class Threader<T extends ThreadTypes> extends Logger {
 
             if (!success) {
                 this.warn(`Thread not found in ${this.threadType} sending to parent.`);
-                parentPort?.postMessage(txMessage, [txMessage.data.port]);
+
+                try {
+                    parentPort?.postMessage(txMessage, [txMessage.data.port]);
+                } catch (e) {
+                    this.error(e);
+                }
             }
         }
     }

@@ -4,4 +4,5 @@ export enum ThreadTypes {
     API = `API`,
     DOCS = `DOCS`,
     VM = `VM`,
+    BITCOIN_RPC = `BITCOIN_RPC`,
 }

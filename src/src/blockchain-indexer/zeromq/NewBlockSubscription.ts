@@ -2,9 +2,9 @@ import { Config } from '../../config/Config.js';
 import { BitcoinZeroMQTopic } from './enums/BitcoinZeroMQTopic.js';
 import { ZeroMQ } from './ZeroMQ.js';
 
-export class NewBlockSubscription extends ZeroMQ<BitcoinZeroMQTopic.Everything> {
+export class NewBlockSubscription extends ZeroMQ<BitcoinZeroMQTopic.EVERYTHING> {
     constructor() {
-        const topic = BitcoinZeroMQTopic.Everything;
+        const topic = BitcoinZeroMQTopic.EVERYTHING;
         const zeroMQConfig = Config.ZERO_MQ[topic];
 
         if (!zeroMQConfig) {
@@ -15,6 +15,6 @@ export class NewBlockSubscription extends ZeroMQ<BitcoinZeroMQTopic.Everything> 
     }
 
     protected async onEvent(topic: string, message: Buffer): Promise<void> {
-        console.log('New block received');
+        console.log('New notification received', topic, message);
     }
 }

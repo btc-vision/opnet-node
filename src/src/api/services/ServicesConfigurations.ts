@@ -27,6 +27,11 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
 
     [ThreadTypes.ZERO_MQ]: {
         maxInstance: 1,
-        target: './src/blockchain-indexer/zeromq/ZeroMQThread.js',
+        target: './src/blockchain-indexer/zeromq/thread/ZeroMQThread.js',
+    },
+
+    [ThreadTypes.BITCOIN_RPC]: {
+        maxInstance: Config.RPC.THREADS,
+        target: './src/blockchain-indexer/rpc/thread/BitcoinRPCThread.js',
     },
 };

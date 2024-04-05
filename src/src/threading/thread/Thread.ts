@@ -21,7 +21,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     private messagePort: MessagePort | null = null;
     private tasks: Map<string, ThreadTaskCallback> = new Map<string, ThreadTaskCallback>();
 
-    private threadRelations: Partial<Record<ThreadTypes, Map<number, MessagePort>>> = {};
+    protected threadRelations: Partial<Record<ThreadTypes, Map<number, MessagePort>>> = {};
 
     protected constructor() {
         super();
@@ -93,8 +93,6 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     ): Promise<void>;*/
 
     private createInternalThreadLink(m: LinkThreadMessage<LinkType>): void {
-        this.log('Creating internal thread link...');
-
         const data = m.data;
         const linkType = data.type;
         const threadType = data.sourceThreadType;
@@ -108,13 +106,15 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 );
             }
 
+            const type = m.data.type;
+            const id = type === LinkType.TX ? data.sourceThreadId : data.targetThreadId;
             const relation = this.threadRelations[threadType] || new Map<number, MessagePort>();
-            relation.set(data.targetThreadId, data.port);
+
+            relation.set(id, data.port);
 
             this.threadRelations[threadType] = relation;
 
             this.createEvents(threadType, data.port);
-
             this.important(
                 `Thread link created. {ThreadType: ${this.threadType}, SourceThreadType: ${data.sourceThreadType}, LinkType: ${linkType}, ThreadId: ${data.targetThreadId}}`,
             );

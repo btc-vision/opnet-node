@@ -55,7 +55,7 @@ export class Core extends Logger {
     private onLinkThreadRequest(msg: LinkThreadRequestMessage, threadType: ThreadTypes): void {
         const data: LinkThreadRequestData = msg.data;
         data.mainTargetThreadType = threadType;
-        
+
         const targetThread = this.masterThreads[data.threadType];
 
         if (!targetThread) {
