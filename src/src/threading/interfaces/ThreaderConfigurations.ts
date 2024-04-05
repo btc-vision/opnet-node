@@ -1,4 +1,5 @@
 export interface ThreaderConfigurations {
     maxInstance: number;
-    target: string;
+    target?: string;
+    managerTarget?: string;
 }
