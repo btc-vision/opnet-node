@@ -1,5 +1,5 @@
+import { Logger } from '@btc-vision/motoswapcommon';
 import { IHttpRequest, IHttpResponse, INanoexpressApp, MiddlewareRoute } from 'nanoexpress';
-import { Logger } from '../../logger/Logger.js';
 import { Routes, RouteType } from '../enums/Routes.js';
 
 export abstract class Route<T extends Routes> extends Logger {
@@ -11,12 +11,6 @@ export abstract class Route<T extends Routes> extends Logger {
 
         this.initialize();
     }
-
-    protected abstract onRequest(
-        req: IHttpRequest,
-        res: IHttpResponse,
-        next?: (err: Error | null | undefined, done: boolean | undefined) => unknown,
-    ): INanoexpressApp | void;
 
     public getPath(): T {
         return this.routePath;
@@ -31,6 +25,12 @@ export abstract class Route<T extends Routes> extends Logger {
             handler: this.onRequest.bind(this),
         };
     }
+
+    protected abstract onRequest(
+        req: IHttpRequest,
+        res: IHttpResponse,
+        next?: (err: Error | null | undefined, done: boolean | undefined) => unknown,
+    ): INanoexpressApp | void;
 
     protected abstract initialize(): void;
 }

@@ -1,14 +1,19 @@
 import { Worker } from 'worker_threads';
-import { Logger } from '../logger/Logger.js';
 import { MessageType } from '../threading/enum/MessageType.js';
+import {
+    LinkThreadMessage,
+    LinkType,
+} from '../threading/interfaces/thread-messages/messages/LinkThreadMessage.js';
+import { LinkThreadRequestMessage } from '../threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import { ThreadManager } from '../threading/manager/ThreadManager.js';
+import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../threading/Threader.js';
-import { ServicesConfigurations } from './services/ServicesConfigurations.js';
 
-export class APIManager extends Logger {
+export class APIManager extends ThreadManager<ThreadTypes.API> {
     public logColor: string = '#bc00fa';
 
-    private apiThreads: Threader = new Threader(ServicesConfigurations.API);
+    protected readonly threadManager: Threader<ThreadTypes.API> = new Threader(ThreadTypes.API);
 
     constructor() {
         super();
@@ -16,12 +21,7 @@ export class APIManager extends Logger {
         void this.init();
     }
 
-    public async init(): Promise<void> {
-        this.registerEventsSubClasses();
-        await this.createThreads();
-    }
-
-    private async onGlobalMessage(
+    protected async onGlobalMessage(
         msg: ThreadMessageBase<MessageType>,
         _thread: Worker,
     ): Promise<void> {
@@ -33,13 +33,31 @@ export class APIManager extends Logger {
         }
     }
 
-    private registerEventsSubClasses(): void {
-        this.apiThreads.onGlobalMessage = this.onGlobalMessage.bind(this);
+    protected async createLinkBetweenThreads(): Promise<void> {}
+
+    protected async sendLinkToThreadsOfType(
+        threadType: ThreadTypes,
+        threadId: number,
+        message: LinkThreadMessage<LinkType>,
+    ): Promise<boolean> {
+        switch (threadType) {
+            default: {
+                return false;
+            }
+        }
     }
 
-    private async createThreads(): Promise<void> {
-        await this.apiThreads.createThreads();
+    protected async sendLinkMessageToThreadOfType(
+        threadType: ThreadTypes,
+        message: LinkThreadRequestMessage,
+    ): Promise<boolean> {
+        switch (threadType) {
+            default: {
+                return false;
+            }
+        }
     }
 }
 
-new APIManager();
+const apiManager = new APIManager();
+void apiManager.createThreads();

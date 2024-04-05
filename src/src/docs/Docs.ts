@@ -1,5 +1,6 @@
 // @ts-ignore
 import Generator from '@asyncapi/generator';
+import { Globals, Logger } from '@btc-vision/motoswapcommon';
 import AsyncApiValidator from 'asyncapi-validator';
 
 import express, { Express } from 'express';
@@ -8,8 +9,6 @@ import openapi from 'openapi-comment-parser';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import { Config } from '../config/Config.js';
-import { Logger } from '../logger/Logger.js';
-import { Globals } from '../utils/Globals.js';
 
 Globals.register();
 

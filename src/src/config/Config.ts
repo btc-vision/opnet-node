@@ -1,7 +1,8 @@
-import { ConfigBase } from './ConfigBase.js';
-import { ConfigManager } from './ConfigLoader.js';
+import path from 'path';
+import { BtcIndexerConfig } from './BtcIndexerConfig.js';
+import { BtcIndexerConfigManager } from './BtcIndexerConfigLoader.js';
 
-const configManager: ConfigManager = new ConfigManager();
-const config: ConfigBase = configManager.getConfigs();
+const configPath = path.join(__dirname, '../../../', 'src/config/btc.conf');
 
-export const Config: ConfigBase = config;
+const configManager: BtcIndexerConfigManager = new BtcIndexerConfigManager(configPath);
+export const Config: BtcIndexerConfig = configManager.getConfigs();

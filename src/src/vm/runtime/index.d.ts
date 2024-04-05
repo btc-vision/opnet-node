@@ -1,3 +1,5 @@
-import { EvaluatedContext } from '../evaluated/EvaluatedContext.js';
+import { EvaluatedContext, VMContext } from '../evaluated/EvaluatedContext.js';
 
-export declare const stack: EvaluatedContext;
+declare const context: EvaluatedContext;
+
+declare const stack: VMContext;

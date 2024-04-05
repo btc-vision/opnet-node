@@ -1,7 +1,7 @@
 import type { Config } from '@jest/types';
 import { BabelConfig } from 'ts-jest';
 
-const esModules = ['chalk', 'supports-color'].join('|');
+const esModules = ['chalk', 'supports-color', '@btc-vision/motoswapcommon', '@btc-vision/motoswapdb'].join('|');
 
 const babelConfig: BabelConfig = {
     presets: ['@babel/preset-env'],
@@ -24,7 +24,7 @@ const config: Config.InitialOptions = {
             },
         ],
     },
-    modulePathIgnorePatterns: ['packages', 'build', 'node_modules'],
+    modulePathIgnorePatterns: ['packages', 'build', 'node_modules', 'config', 'utils'],
     testMatch: [
         '<rootPath>/tests/**/*.test.ts',
         '<rootPath>/tests/*.test.ts',

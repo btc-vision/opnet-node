@@ -4,6 +4,8 @@ export type MemorySlotPointer = bigint;
 
 export type MemorySlotData<T> = T;
 export type PointerStorage = Map<MemorySlotPointer, MemorySlotData<bigint>>;
+export type BlockchainStorage = Map<Address, PointerStorage>;
+export type BlockchainRequestedStorage = Map<Address, Set<MemorySlotPointer>>;
 
 export type Address = string;
 export type i32 = number;
@@ -17,8 +19,8 @@ export type u64 = bigint;
 export type Selector = number;
 
 export interface ABIRegistryItem {
-    name: string,
-    selector: Selector
+    name: string;
+    selector: Selector;
 }
 
 export type ContractABIMap = Set<Selector>;
