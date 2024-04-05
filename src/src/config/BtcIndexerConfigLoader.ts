@@ -96,5 +96,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ...parsedConfig.RPC,
             ...this.config.RPC,
         };
+
+        this.config.BLOCKCHAIN = {
+            ...parsedConfig.BLOCKCHAIN,
+            ...this.config.BLOCKCHAIN,
+        };
     }
 }

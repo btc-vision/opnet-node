@@ -48,6 +48,7 @@
         "node-cache": "^5.1.2",
         "openapi-comment-parser": "^1.0.0",
         "protobufjs": "^7.2.6",
+        "rpc-bitcoin": "^2.0.0",
         "supports-color": "^9.4.0",
         "swagger-ui-express": "^5.0.0",
         "tiny-secp256k1": "^2.2.3",
