@@ -34,9 +34,9 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
      * @responseContent {HeapBlock} 200.application/json
      */
     protected async onRequest(
-        req: IHttpRequest,
+        _req: IHttpRequest,
         res: IHttpResponse,
-        next?: (err: Error | null | undefined, done: boolean | undefined) => unknown,
+        _next?: (err: Error | null | undefined, done: boolean | undefined) => unknown,
     ): Promise<void> {
         const currentBlockMsg: GetCurrentBlockMessage = {
             type: MessageType.GET_CURRENT_BLOCK,

@@ -1,27 +1,9 @@
-import { Logger } from '@btc-vision/motoswapcommon';
+import { Globals, Logger } from '@btc-vision/motoswapcommon';
 import cors from 'cors';
 import nanoexpress, { IHttpRequest, IHttpResponse, INanoexpressApp, IWebSocket } from 'nanoexpress';
 import { DefinedRoutes } from './routes/DefinedRoutes.js';
 
-//Globals.register();
-
-// @ts-ignore
-process.emit = function (name, data, ...args) {
-    console.log(`Event: ${name} - ${data}`);
-};
-
-process.emitWarning = (warning: string, ...args: any[]) => {
-    console.log(`emitWarning: ${warning}`);
-    if (args[0] === 'ExperimentalWarning') {
-        return;
-    }
-
-    if (args[0] && typeof args[0] === 'object' && args[0].type === 'ExperimentalWarning') {
-        return;
-    } else {
-        console.log(`dfsdfhdufhasdhf: ${warning}`);
-    }
-};
+Globals.register();
 
 export class Server extends Logger {
     public logColor: string = '#00fa9a';

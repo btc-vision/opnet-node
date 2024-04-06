@@ -1,3 +1,5 @@
+import { BitcoinVerbosity } from './BitcoinVerbosity.js';
+
 export interface FeesInfo {
     base: number;
     modified: number;
@@ -5,7 +7,7 @@ export interface FeesInfo {
     descendant: number;
 }
 
-export interface MemPoolTransactionInfo {
+export interface RawMemPoolTransactionInfo {
     vsize: number;
     weight: number;
     fee?: number;
@@ -25,3 +27,7 @@ export interface MemPoolTransactionInfo {
     bip125_replaceable: boolean;
     unbroadcast: boolean;
 }
+
+export type MemPoolTransactionInfo<V extends BitcoinVerbosity> = V extends BitcoinVerbosity.RAW
+    ? RawMemPoolTransactionInfo
+    : string[];
