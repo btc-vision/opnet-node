@@ -8,6 +8,7 @@ import {
     GetBlockStatsParams,
     GetChainTxStatsParams,
     GetMemPoolParams,
+    GetRawTransactionParams,
     GetTxOutParams,
     GetTxOutProofParams,
     Height,
@@ -15,7 +16,9 @@ import {
     TxId,
     Verbose,
 } from 'rpc-bitcoin/build/src/rpc.js';
+
 import { BasicBlockInfo } from './types/BasicBlockInfo.js';
+import { BitcoinRawTransactionParams, RawTransaction } from './types/BitcoinRawTransaction.js';
 import { BitcoinVerbosity } from './types/BitcoinVerbosity.js';
 import { BitcoinChains, BlockchainInfo } from './types/BlockchainInfo.js';
 import { BlockData, BlockDataWithTransactionData } from './types/BlockData.js';
@@ -25,7 +28,10 @@ import { BlockStats } from './types/BlockStats.js';
 import { ChainTipInfo } from './types/ChainTipInfo.js';
 import { ChainTxStats } from './types/ChainTxStats.js';
 import { MempoolInfo } from './types/MempoolInfo.js';
-import { MemPoolTransactionInfo } from './types/MemPoolTransactionInfo.js';
+import {
+    MemPoolTransactionInfo,
+    RawMemPoolTransactionInfo,
+} from './types/MemPoolTransactionInfo.js';
 import { TransactionOutputInfo } from './types/TransactionOutputInfo.js';
 import { TransactionOutputSetInfo } from './types/TransactionOutputSetInfo.js';
 
@@ -59,13 +65,17 @@ export class BitcoinRPC extends Logger {
         };
     }
 
-    public async getBestBlockHash(): Promise<string> {
+    public async getBestBlockHash(): Promise<string | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
         }
 
-        const bestBlockHash = await this.rpc.getbestblockhash();
-        return bestBlockHash;
+        const bestBlockHash = await this.rpc.getbestblockhash().catch((e) => {
+            this.error(`Error getting best block hash: ${e}`);
+            return '';
+        });
+
+        return bestBlockHash || null;
     }
 
     public async getBlockAsHexString(blockHash: string): Promise<string | null> {
@@ -75,7 +85,7 @@ export class BitcoinRPC extends Logger {
 
         const param: GetBlockParams = {
             blockhash: blockHash,
-            verbosity: 0,
+            verbosity: BitcoinVerbosity.NONE,
         };
 
         const blockData: string = await this.rpc.getblock(param).catch((e) => {
@@ -93,7 +103,7 @@ export class BitcoinRPC extends Logger {
 
         const param: GetBlockParams = {
             blockhash: blockHash,
-            verbosity: 1,
+            verbosity: BitcoinVerbosity.RAW,
         };
 
         const blockData: BlockData = await this.rpc.getblock(param).catch((e) => {
@@ -190,6 +200,30 @@ export class BitcoinRPC extends Logger {
         }
 
         return this.blockchainInfo;
+    }
+
+    public async getRawTransaction<V extends BitcoinVerbosity>(
+        parameters: BitcoinRawTransactionParams,
+    ): Promise<RawTransaction<V> | null> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const params: GetRawTransactionParams = {
+            txid: parameters.txId,
+            verbose: parameters.verbose !== BitcoinVerbosity.RAW,
+        };
+
+        if (parameters.blockHash) {
+            params.blockhash = parameters.blockHash;
+        }
+
+        const rawTx: RawTransaction<V> = await this.rpc.getrawtransaction(params).catch((e) => {
+            this.error(`Error getting raw transaction: ${e}`);
+            return null;
+        });
+
+        return rawTx || null;
     }
 
     public async getBlockHeight(): Promise<BasicBlockInfo | null> {
@@ -306,7 +340,6 @@ export class BitcoinRPC extends Logger {
         return difficulty || null;
     }
 
-    // convert everything like this.
     public async getMempoolAncestors<V extends BitcoinVerbosity>(
         txId: string,
         verbose?: V,
@@ -317,7 +350,7 @@ export class BitcoinRPC extends Logger {
 
         const param: GetMemPoolParams = {
             txid: txId,
-            verbose: verbose === BitcoinVerbosity.RAW,
+            verbose: verbose !== BitcoinVerbosity.RAW,
         };
 
         const transactionInfo: MemPoolTransactionInfo<V> = await this.rpc
@@ -330,25 +363,30 @@ export class BitcoinRPC extends Logger {
         return transactionInfo || null;
     }
 
-    public async getMempoolDescendants(
+    public async getMempoolDescendants<V extends BitcoinVerbosity>(
         txid: string,
-        verbose?: boolean,
-    ): Promise<MemPoolTransactionInfo | string[]> {
+        verbose?: V,
+    ): Promise<MemPoolTransactionInfo<V> | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
         }
 
         const param: GetMemPoolParams = {
             txid: txid,
-            verbose: verbose,
+            verbose: verbose !== BitcoinVerbosity.RAW,
         };
 
-        const transactionInfo: MemPoolTransactionInfo = await this.rpc.getmempooldescendants(param);
+        const transactionInfo: MemPoolTransactionInfo<V> = await this.rpc
+            .getmempooldescendants(param)
+            .catch((e) => {
+                this.error(`Error getting mempool descendants: ${e}`);
+                return null;
+            });
 
-        return transactionInfo;
+        return transactionInfo || null;
     }
 
-    public async getMempoolEntry(txid: string): Promise<MemPoolTransactionInfo> {
+    public async getMempoolEntry(txid: string): Promise<RawMemPoolTransactionInfo | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
         }
@@ -357,33 +395,48 @@ export class BitcoinRPC extends Logger {
             txid: txid,
         };
 
-        const transactionInfo: MemPoolTransactionInfo = await this.rpc.getmempoolentry(param);
+        const transactionInfo: RawMemPoolTransactionInfo = await this.rpc
+            .getmempoolentry(param)
+            .catch((e) => {
+                this.error(`Error getting mempool entry: ${e}`);
+                return null;
+            });
 
-        return transactionInfo;
+        return transactionInfo || null;
     }
 
-    public async getMempoolInfo(): Promise<MempoolInfo> {
+    public async getMempoolInfo(): Promise<MempoolInfo<BitcoinVerbosity.NONE> | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
         }
 
-        const mempoolInfo: MempoolInfo = await this.rpc.getmempoolinfo();
+        const mempoolInfo: MempoolInfo<BitcoinVerbosity.NONE> = await this.rpc
+            .getmempoolinfo()
+            .catch((e) => {
+                this.error(`Error getting mempool info: ${e}`);
+                return null;
+            });
 
-        return mempoolInfo;
+        return mempoolInfo || null;
     }
 
-    public async getRawMempool(verbose?: boolean): Promise<MempoolInfo | string[]> {
+    public async getRawMempool<V extends BitcoinVerbosity>(
+        verbose?: V,
+    ): Promise<MempoolInfo<V> | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
         }
 
         const param: Verbose = {
-            verbose: verbose,
+            verbose: verbose !== BitcoinVerbosity.RAW,
         };
 
-        const mempoolInfo: MempoolInfo = await this.rpc.getrawmempool(param);
+        const mempoolInfo: MempoolInfo<V> = await this.rpc.getrawmempool(param).catch((e) => {
+            this.error(`Error getting raw mempool: ${e}`);
+            return null;
+        });
 
-        return mempoolInfo;
+        return mempoolInfo || null;
     }
 
     public async getTxOut(
@@ -401,12 +454,15 @@ export class BitcoinRPC extends Logger {
             include_mempool: includeMempool,
         };
 
-        const txOuputInfo: TransactionOutputInfo = await this.rpc.gettxout(param);
+        const txOuputInfo: TransactionOutputInfo = await this.rpc.gettxout(param).catch((e) => {
+            this.error(`Error getting tx out: ${e}`);
+            return null;
+        });
 
-        return txOuputInfo;
+        return txOuputInfo || null;
     }
 
-    public async getTxOutProof(txids: string[], blockHash?: string): Promise<string> {
+    public async getTxOutProof(txids: string[], blockHash?: string): Promise<string | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
         }
@@ -416,19 +472,27 @@ export class BitcoinRPC extends Logger {
             blockhash: blockHash,
         };
 
-        const txOuputProof: string = await this.rpc.gettxoutproof(param);
+        const txOuputProof: string = await this.rpc.gettxoutproof(param).catch((e) => {
+            this.error(`Error getting tx out proof: ${e}`);
+            return '';
+        });
 
-        return txOuputProof;
+        return txOuputProof || null;
     }
 
-    public async getTxOutSetInfo(): Promise<TransactionOutputSetInfo> {
+    public async getTxOutSetInfo(): Promise<TransactionOutputSetInfo | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
         }
 
-        const txOuputSetInfo: TransactionOutputSetInfo = await this.rpc.gettxoutsetinfo();
+        const txOuputSetInfo: TransactionOutputSetInfo = await this.rpc
+            .gettxoutsetinfo()
+            .catch((e) => {
+                this.error(`Error getting tx out set info: ${e}`);
+                return null;
+            });
 
-        return txOuputSetInfo;
+        return txOuputSetInfo || null;
     }
 
     public async preciousBlock(blockHash: string): Promise<void> {
@@ -440,10 +504,12 @@ export class BitcoinRPC extends Logger {
             blockhash: blockHash,
         };
 
-        await this.rpc.preciousblock(param);
+        await this.rpc.preciousblock(param).catch((e) => {
+            this.error(`Error precious block: ${e}`);
+        });
     }
 
-    public async pruneBlockChain(height: number): Promise<number> {
+    public async pruneBlockChain(height: number): Promise<number | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
         }
@@ -452,9 +518,12 @@ export class BitcoinRPC extends Logger {
             height: height,
         };
 
-        const prunedHeight: number = await this.rpc.pruneblockchain(param);
+        const prunedHeight: number = await this.rpc.pruneblockchain(param).catch((e) => {
+            this.error(`Error pruning blockchain: ${e}`);
+            return 0;
+        });
 
-        return prunedHeight;
+        return prunedHeight || null;
     }
 
     public async saveMempool(): Promise<void> {
@@ -462,10 +531,12 @@ export class BitcoinRPC extends Logger {
             throw new Error('RPC not initialized');
         }
 
-        await this.rpc.savemempool();
+        await this.rpc.savemempool().catch((e) => {
+            this.error(`Error saving mempool: ${e}`);
+        });
     }
 
-    public async verifyChain(checkLevel?: number, nblocks?: number): Promise<boolean> {
+    public async verifyChain(checkLevel?: number, nblocks?: number): Promise<boolean | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
         }
@@ -475,12 +546,15 @@ export class BitcoinRPC extends Logger {
             nblocks: nblocks,
         };
 
-        const checked: boolean = await this.rpc.verifychain(param);
+        const checked: boolean = await this.rpc.verifychain(param).catch((e) => {
+            this.error(`Error verifying chain: ${e}`);
+            return false;
+        });
 
-        return checked;
+        return checked || null;
     }
 
-    public async verifyTxOutProof(proof: string): Promise<string[]> {
+    public async verifyTxOutProof(proof: string): Promise<string[] | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
         }
@@ -489,9 +563,12 @@ export class BitcoinRPC extends Logger {
             proof: proof,
         };
 
-        const proofs: string[] = await this.rpc.verifytxoutproof(param);
+        const proofs: string[] = await this.rpc.verifytxoutproof(param).catch((e) => {
+            this.error(`Error verifying tx out proof: ${e}`);
+            return [];
+        });
 
-        return proofs;
+        return proofs || null;
     }
 
     private async testRPC(rpcInfo: BlockchainConfig): Promise<void> {
@@ -507,6 +584,11 @@ export class BitcoinRPC extends Logger {
                 this.error('Chain is not mainnet. Please check your configuration.');
                 process.exit(1);
             } else if (BitcoinChains.TESTNET !== chain && rpcInfo.BITCOIND_NETWORK === 'testnet') {
+                this.error(
+                    `Chain is not testnet (currently: ${chain} !== ${BitcoinChains.TESTNET}). Please check your configuration.`,
+                );
+                process.exit(1);
+            } else if (BitcoinChains.REGTEST !== chain && rpcInfo.BITCOIND_NETWORK === 'regtest') {
                 this.error(
                     `Chain is not testnet (currently: ${chain} !== ${BitcoinChains.TESTNET}). Please check your configuration.`,
                 );
