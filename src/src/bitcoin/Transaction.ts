@@ -1,12 +1,14 @@
 import { Logger } from '@btc-vision/motoswapcommon';
+import { Buff } from '@cmdcode/buff-utils';
+
+import { Address, Signer, Tap, Tx, TxData } from '@cmdcode/tapscript';
+import { Networks } from '@cmdcode/tapscript/dist/types/schema/types.js';
 import * as bitcoin from 'bitcoinjs-lib';
-import { initEccLib, opcodes, payments, Psbt, script, Signer } from 'bitcoinjs-lib';
-import { tapTweakHash } from 'bitcoinjs-lib/src/payments/bip341.js';
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
-import { Taptree } from 'bitcoinjs-lib/src/types.js';
+import { initEccLib } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { BitcoinHelper } from './BitcoinHelper.js';
+import { ScriptPubKey } from '../blockchain-indexer/rpc/types/BitcoinRawTransaction.js';
+import { Config } from '../config/Config.js';
 
 initEccLib(ecc);
 
@@ -25,106 +27,230 @@ interface TweakOptions {
 
 export interface UTXOS {
     readonly txid: string;
-    readonly vout: number;
+    readonly vout: ScriptPubKey;
     readonly value: number;
 }
 
 export class BSCTransaction extends Logger {
     public readonly logColor: string = '#785def';
 
-    private readonly salt: ECPairInterface;
+    //private readonly salt: ECPairInterface;
+
+    private taprootAddress: string | null = null;
+    private taprootPublicKey: string | null = null;
+    private witness: string | null = null;
+
+    private tapleaf: string | null = null;
+
+    private script: (string | Uint8Array)[] = [];
+
+    private transaction: TxData | null = null;
+
+    private readonly tseckey: string;
+    private readonly tpubkey: string;
 
     constructor(
-        private readonly utxos: UTXOS[],
+        private readonly utxos: UTXOS,
         private readonly data: ITransaction,
+        private readonly salt: ECPairInterface,
         private readonly network: bitcoin.Network = bitcoin.networks.bitcoin,
     ) {
         super();
 
-        this.salt = BitcoinHelper.ECPair.makeRandom({ network });
-    }
-
-    private tweakSigner(signer: Signer, opts: TweakOptions = {}): Signer {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        let privateKey: Uint8Array | undefined = signer.privateKey!;
-        if (!privateKey) {
-            throw new Error('Private key is required for tweaking signer!');
-        }
-        if (signer.publicKey[0] === 3) {
-            privateKey = ecc.privateNegate(privateKey);
+        if (!this.salt.privateKey) {
+            throw new Error('Private key is required');
         }
 
-        const tweakedPrivateKey = ecc.privateAdd(
-            privateKey,
-            tapTweakHash(toXOnly(signer.publicKey), opts.tweakHash),
-        );
-        if (!tweakedPrivateKey) {
-            throw new Error('Invalid tweaked private key!');
+        //this.salt = BitcoinHelper.ECPair.makeRandom({ network: this.network });
+
+        const secKey = [this.salt.privateKey.toString('hex')]; //Tap.getSecKey(this.salt.privateKey);
+        const pubKey = [this.salt.publicKey.toString('hex')]; //Tap.getPubKey(this.salt.publicKey);
+
+        this.tseckey = secKey[0];
+        this.tpubkey = pubKey[0];
+
+        this.generate();
+        this.createTransaction();
+    }
+
+    private getTapleafSize(): number {
+        if (!this.tapleaf) {
+            throw new Error('Script must be created first.');
+        }
+        return this.tapleaf.length / 2;
+    }
+
+    private getCostBase(): number {
+        return 200;
+    }
+
+    private getPadding(): number {
+        return 333;
+    }
+
+    private getCostValue(customSatVb: number = 1, applyPadding = true) {
+        if (!this.tapleaf) {
+            throw new Error('Script must be created first.');
         }
 
-        return BitcoinHelper.ECPair.fromPrivateKey(Buffer.from(tweakedPrivateKey), {
-            network: opts.network,
+        const tapleafSize = this.getTapleafSize();
+        const totalVbytes = this.getCostBase() + tapleafSize / 2;
+
+        const totalCost = totalVbytes * customSatVb;
+
+        return applyPadding ? this.getPadding() + totalCost : totalCost;
+    }
+
+    private createTransaction(): void {
+        if (this.taprootAddress === null || this.taprootPublicKey === null) {
+            throw new Error('Taproot address is required');
+        }
+
+        const txId = this.utxos.txid;
+        const btcValue = BigInt(this.utxos.value * 100000000);
+
+        const cost: bigint = BigInt(this.getCostValue());
+        this.log(`This transaction will cost: ${cost}`);
+
+        const finalAmt = btcValue - cost;
+        if (finalAmt <= 0) {
+            throw new Error('Insufficient funds');
+        }
+
+        this.transaction = Tx.create({
+            vin: [
+                {
+                    // Use the txid of the funding transaction used to send the sats.
+                    txid: txId,
+                    // Specify the index value of the output that you are going to spend from.
+                    vout: 0,
+                    // Also include the value and script of that ouput.
+                    prevout: {
+                        // Feel free to change this if you sent a different amount.
+                        value: cost,
+                        // This is what our address looks like in script form.
+                        scriptPubKey: ['OP_1', this.taprootPublicKey],
+                    },
+                },
+            ],
+            vout: [
+                {
+                    // We are leaving behind 1000 sats as a fee to the miners.
+                    value: finalAmt,
+                    // This is the new script that we are locking our funds to.
+                    scriptPubKey: Address.toScriptPubKey(this.data.to), //this.taprootAddress,
+                },
+            ],
         });
     }
 
-    private async getTxInfo(deployer: ECPairInterface): Promise<bitcoin.Payment> {
-        const xOnly = toXOnly(this.salt.publicKey).toString('hex');
-        const deployerAddress = toXOnly(deployer.publicKey);
+    public signTransaction(): string {
+        if (!this.tapleaf) {
+            throw new Error('Tapleaf is required');
+        }
 
-        const hash = bitcoin.crypto.hash160(this.data.calldata);
-        const hash_script_asm = `OP_HASH160 ${hash.toString('hex')} OP_EQUALVERIFY ${xOnly} OP_CHECKSIG`;
+        if (!this.witness) {
+            throw new Error('Witness is required');
+        }
 
-        const hash_lock_script = script.fromASM(hash_script_asm);
-        const scriptTree: Taptree = [
-            {
-                output: hash_lock_script,
-            },
-            {
-                output: this.getCalldata(),
-            },
-        ];
+        if (!this.salt.privateKey) {
+            throw new Error('Private key is required');
+        }
 
-        return payments.p2tr({
-            internalPubkey: deployerAddress,
-            scriptTree,
-            network: this.network,
+        if (!this.transaction) {
+            throw new Error('Transaction is required');
+        }
+
+        if (!this.taprootPublicKey) {
+            throw new Error('Taproot public key is required');
+        }
+
+        const signer = Signer.taproot.sign(this.tseckey, this.transaction, 0, {
+            extension: this.tapleaf,
+            pubkey: this.taprootPublicKey,
+            throws: true,
         });
+
+        this.transaction.vin[0].witness = [signer, this.script, this.witness];
+
+        const isValid = Signer.taproot.verify(this.transaction, 0, {
+            pubkey: this.tpubkey,
+            throws: true,
+        });
+
+        if (!isValid) {
+            throw new Error('Invalid signature');
+        }
+
+        //console.log(JSON.stringify(this.transaction, null, 4));
+
+        return Tx.encode(this.transaction).hex;
     }
 
-    public async signTransaction(keypair: ECPairInterface): Promise<string> {
-        const signer = this.tweakSigner(keypair, { network: this.network });
+    private generate(): void {
+        //const xOnlySaltPubKey = toXOnly(this.salt.publicKey).toString('hex');
 
-        const txInfo = await this.getTxInfo(keypair);
-        console.log(txInfo);
+        this.getCalldata();
 
-        const psbt = new Psbt({ network: this.network });
-        psbt.addInput({
-            hash: this.utxos[0].txid,
-            index: this.utxos[0].vout,
-            witnessUtxo: { value: this.utxos[0].value, script: txInfo.output! },
-            tapInternalKey: toXOnly(keypair.publicKey),
-        });
+        this.tapleaf = Tap.encodeScript(this.script); //calldata.toString('hex');
+        console.log('calldata ->', this.tapleaf);
 
-        const dataScript = bitcoin.payments.embed({ data: [this.getCalldata()] });
-        psbt.addOutput({
-            script: dataScript.output!,
-            value: 0,
-        });
+        // Generate a tapkey that includes our leaf script. Also, create a merlke proof
+        // (cblock) that targets our leaf and proves its inclusion in the tapkey.
+        const [tpubkey, cblock] = Tap.getPubKey(this.tpubkey, { target: this.tapleaf });
 
-        psbt.signInput(0, signer);
-        psbt.finalizeAllInputs();
+        this.taprootPublicKey = tpubkey;
+        this.witness = cblock;
 
-        const tx = psbt.extractTransaction();
-        return tx.toHex();
+        // A taproot address is simply the tweaked public key, encoded in bech32 format.
+        this.taprootAddress = Address.p2tr.fromPubKey(tpubkey, this.getNetworkString());
     }
 
-    private getCalldata(): Buffer {
+    private getNetworkString(): Networks {
+        switch (Config.BLOCKCHAIN.BITCOIND_NETWORK.toLowerCase()) {
+            case 'regtest':
+                return 'regtest';
+            case 'testnet':
+                return 'testnet';
+            case 'mainnet':
+                return 'main';
+            case 'signet':
+                return 'signet';
+            default:
+                throw new Error('Invalid network');
+        }
+    }
+
+    private toUint8Array(buffer: Buffer): Uint8Array {
+        const array = new Uint8Array(buffer.byteLength);
+
+        for (let i = 0; i < buffer.byteLength; i++) {
+            array[i] = buffer[i];
+        }
+
+        return array;
+    }
+
+    private getCalldata(): void {
         if (!this.data.calldata) {
             throw new Error('Calldata is required');
         }
 
-        return bitcoin.script.compile([
+        this.script = [
+            this.tpubkey,
+            'OP_CHECKSIG',
+            'OP_0',
+            'OP_IF',
+            Buff.encode('bsc'),
+            '01',
+            new Uint8Array([1]),
+            '02',
+            'OP_0',
+            this.toUint8Array(this.data.calldata),
+            'OP_ENDIF',
+        ];
+
+        /*const test = bitcoin.script.compile([
             opcodes.OP_FALSE,
             opcodes.OP_IF,
             opcodes.OP_PUSHDATA1,
@@ -135,5 +261,7 @@ export class BSCTransaction extends Logger {
             Buffer.from(this.data.calldata),
             opcodes.OP_ENDIF,
         ]);
+
+        console.log(test.toString('hex'));*/
     }
 }

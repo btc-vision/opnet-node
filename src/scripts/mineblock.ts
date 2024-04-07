@@ -1,8 +1,4 @@
-import * as bitcoin from 'bitcoinjs-lib';
-import { BitcoinHelper } from '../src/bitcoin/BitcoinHelper.js';
 import { BSCTransaction, UTXOS } from '../src/bitcoin/Transaction.js';
-import { BitcoinRawTransactionParams } from '../src/blockchain-indexer/rpc/types/BitcoinRawTransaction.js';
-import { BitcoinVerbosity } from '../src/blockchain-indexer/rpc/types/BitcoinVerbosity.js';
 import { BitcoinCore } from './BitcoinCore.js';
 
 export class MineBlock extends BitcoinCore {
@@ -10,7 +6,7 @@ export class MineBlock extends BitcoinCore {
         super();
     }
 
-    protected async mineBlock(blockCount: number): Promise<void> {
+    /*protected async mineBlock(blockCount: number): Promise<void> {
         if (!this.walletAddress) throw new Error('Wallet address not set');
 
         const blocks = await this.bitcoinRPC.generateToAddress(
@@ -68,12 +64,65 @@ export class MineBlock extends BitcoinCore {
         await idkRndTx.signTransaction(rndWallet);
 
         console.log(idkRndTx);
+    }*/
+
+    protected async testTx(): Promise<void> {
+        if (!this.lastTx) {
+            throw new Error('No last transaction');
+        }
+
+        const firstVout = this.lastTx.vout[0];
+        if (!firstVout) {
+            throw new Error('No vout found');
+        }
+
+        const scriptPubKey = firstVout.scriptPubKey;
+        const voutValue = firstVout.value;
+
+        console.log(this.lastTx);
+
+        const utxos: UTXOS = {
+            txid: this.lastTx.txid,
+            vout: scriptPubKey,
+            value: voutValue,
+        };
+
+        const data = {
+            from: this.getWalletAddress(),
+            to: this.getWalletAddress(),
+            calldata: Buffer.from(
+                'adgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfas',
+            ),
+            fee: 0,
+        };
+
+        const keyPair = this.getKeyPair();
+        const tx: BSCTransaction = new BSCTransaction(utxos, data, keyPair, this.network);
+        const txData = tx.signTransaction();
+
+        this.log(`Transaction data: ${txData}`);
+
+        const rawTxParams = {
+            hexstring: txData,
+            maxfeerate: 1000000,
+        };
+
+        await this.mineBlock(100);
+
+        const txOut = await this.bitcoinRPC.sendRawTransaction(rawTxParams);
+        console.log(txOut);
     }
 
     public async init(): Promise<void> {
         await super.init();
 
-        await this.mineBlock(1);
+        await this.setWallet({
+            walletAddress: 'bcrt1qfqsr3m7vjxheghcvw4ks0fryqxfq8qzjf8fxes',
+            publicKey: '020373626d317ae8788ce3280b491068610d840c23ecb64c14075bbb9f670af52c',
+            privateKey: 'cRCiYAgCBrU7hSaJBRuPqKVYXQqM5CKXbMfWHb25X4FDAWJ8Ai92',
+        });
+
+        await this.testTx();
     }
 }
 
