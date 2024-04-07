@@ -10,7 +10,7 @@ initEccLib(ecc);
 const network = bitcoin.networks.bitcoin; // Use bitcoin.networks.testnet for testnet
 
 export class BitcoinHelper {
-    private static ECPair = ECPairFactory(ecc);
+    public static ECPair = ECPairFactory(ecc);
 
     public static generateNewContractAddress(bytecode: Buffer, deployerPublicKey: string): string {
         const hash_lock_keypair = BitcoinHelper.ECPair.makeRandom({ network });
@@ -36,11 +36,7 @@ export class BitcoinHelper {
             opcodes.OP_FALSE,
             opcodes.OP_IF,
             opcodes.OP_PUSHDATA1,
-            Buffer.from('ord'),
-            opcodes.OP_PUSHDATA1,
-            Buffer.from([1]),
-            opcodes.OP_PUSHDATA1,
-            Buffer.from('application/octet-stream'),
+            Buffer.from('bsc'),
             opcodes.OP_PUSHDATA1,
             Buffer.from([0]),
             opcodes.OP_PUSHDATA1,
@@ -87,5 +83,19 @@ export class BitcoinHelper {
             privateKey: keyPair.toWIF(),
             publicKey: keyPair.publicKey.toString('hex'),
         };
+    }
+
+    public static getWalletAddress(keypair: ECPairInterface): string {
+        const wallet = bitcoin.payments.p2pkh({ pubkey: keypair.publicKey });
+
+        if (!wallet.address) {
+            throw new Error('Failed to generate wallet');
+        }
+
+        return wallet.address;
+    }
+
+    public static generateRandomKeyPair(): ECPairInterface {
+        return BitcoinHelper.ECPair.makeRandom();
     }
 }

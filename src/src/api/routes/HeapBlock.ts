@@ -1,9 +1,9 @@
 import { IHttpRequest, IHttpResponse } from 'nanoexpress';
-import { SubscriptionType } from '../../blockchain-indexer/shared/enums/Subscriptions.js';
-import { NewBlockSubscription } from '../../blockchain-indexer/shared/interfaces/NewBlockSubscription.js';
-import { SharedSubscriptionManager } from '../../blockchain-indexer/shared/subscription/SharedSubscriptionManager.js';
+import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
-import { GetCurrentBlockMessage } from '../../threading/interfaces/thread-messages/messages/api/GetCurrentBlock.js';
+import { GetBlock } from '../../threading/interfaces/thread-messages/messages/api/GetBlock.js';
+import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { Routes, RouteType } from '../enums/Routes.js';
 import { ServerThread } from '../ServerThread.js';
@@ -15,12 +15,12 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
     }
 
     protected initialize(): void {
-        SharedSubscriptionManager.subscribe(
+        /*SharedSubscriptionManager.subscribe(
             SubscriptionType.NEW_BLOCK,
             (blockData: NewBlockSubscription) => {
                 this.onNewBlock(blockData);
             },
-        );
+        );*/
     }
 
     /**
@@ -38,9 +38,11 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
         res: IHttpResponse,
         _next?: (err: Error | null | undefined, done: boolean | undefined) => unknown,
     ): Promise<void> {
-        const currentBlockMsg: GetCurrentBlockMessage = {
-            type: MessageType.GET_CURRENT_BLOCK,
-            data: {},
+        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK> = {
+            type: MessageType.RPC_METHOD,
+            data: {
+                rpcMethod: BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK,
+            } as GetBlock,
         };
 
         const currentBlock = await ServerThread.sendMessageToThread(
@@ -65,7 +67,7 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
         }
     }
 
-    private onNewBlock(blockData: NewBlockSubscription): void {
+    /*private onNewBlock(blockData: NewBlockSubscription): void {
         this.log(`New block: ${blockData.blockHash}`);
-    }
+    }*/
 }

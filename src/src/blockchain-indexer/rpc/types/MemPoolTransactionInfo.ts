@@ -29,5 +29,5 @@ export interface RawMemPoolTransactionInfo {
 }
 
 export type MemPoolTransactionInfo<V extends BitcoinVerbosity> = V extends BitcoinVerbosity.RAW
-    ? RawMemPoolTransactionInfo
-    : string[];
+    ? string[]
+    : RawMemPoolTransactionInfo;

@@ -13,7 +13,7 @@ import { ThreadTaskCallback } from '../Threader.js';
 import { ThreadTypes } from './enums/ThreadTypes.js';
 import { IThread } from './interfaces/IThread.js';
 
-const genRanHex = (size: any) =>
+const genRanHex = (size: number) =>
     [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
 export abstract class Thread<T extends ThreadTypes> extends Logger implements IThread<T> {
@@ -35,7 +35,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     public async sendMessageToThread(
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<ThreadData> {
+    ): Promise<ThreadData | null> {
         const relation = this.threadRelations[threadType];
 
         if (relation) {
@@ -210,8 +210,8 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         }
     }
 
-    private onThreadMessageError(m: any): void {
-        this.error(`Thread message error {Details: ${m}}`);
+    private onThreadMessageError(err: Error): void {
+        this.error(`Thread message error {Details: ${err}}`);
     }
 
     private async onThreadResponse(m: ThreadMessageBase<MessageType>): Promise<void> {

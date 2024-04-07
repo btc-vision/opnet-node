@@ -4,6 +4,8 @@ process.on('uncaughtException', function (err) {
 
 import gulp from 'gulp';
 import gulpcache from 'gulp-cached';
+
+import eslint from 'gulp-eslint';
 import logger from 'gulp-logger';
 import ts from 'gulp-typescript';
 
@@ -18,6 +20,9 @@ async function build() {
         tsProject
             .src()
             .pipe(gulpcache())
+            .pipe(eslint())
+            //.pipe(eslint.format())
+            //.pipe(eslint.failAfterError())
             .pipe(
                 logger({
                     before: 'Starting...',

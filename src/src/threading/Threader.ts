@@ -1,6 +1,6 @@
 import { Logger, UtilsConfigurations } from '@btc-vision/motoswapcommon';
 import fs from 'fs';
-import { MessageChannel, MessagePort, parentPort, Worker } from 'worker_threads';
+import { MessageChannel, MessagePort, parentPort, Worker, WorkerOptions } from 'worker_threads';
 import { ServicesConfigurations } from '../api/services/ServicesConfigurations.js';
 import { MessageType } from './enum/MessageType.js';
 import {
@@ -321,7 +321,10 @@ export class Threader<T extends ThreadTypes> extends Logger {
                 setTimeout(() => {
                     if (!this.target) return;
 
-                    let workerOpts: any = { ...{}, ...UtilsConfigurations.WORKER_OPTIONS };
+                    let workerOpts: WorkerOptions = {
+                        ...{},
+                        ...UtilsConfigurations.WORKER_OPTIONS,
+                    };
 
                     workerOpts.name = `Thread ${i} - ${this.target
                         .split('/')
@@ -359,7 +362,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
                         this.onThreadMessage(thread, m);
                     });
 
-                    thread.on('exit', (e: any) => {
+                    thread.on('exit', (e: Error) => {
                         this.error(
                             `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${e}}`,
                         );
@@ -382,7 +385,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
                         }, 1000);
                     });
 
-                    thread.on('error', (e: any) => {
+                    thread.on('error', (e: Error) => {
                         fs.appendFileSync(
                             'threader.log',
                             `Thread #${i} errored. {Target: ${this.target} | Details -> ${e}}\n`,

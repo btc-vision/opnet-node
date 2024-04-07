@@ -1,4 +1,6 @@
-export interface MempoolInfo {
+import { BitcoinVerbosity } from './BitcoinVerbosity.js';
+
+export interface RawMempoolInfo {
     loaded: boolean;
     size: number;
     bytes: number;
@@ -8,3 +10,7 @@ export interface MempoolInfo {
     minrelaytxfee: number;
     unbroadcastcount: number;
 }
+
+export type MempoolInfo<V extends BitcoinVerbosity> = V extends BitcoinVerbosity.RAW
+    ? string
+    : RawMempoolInfo;
