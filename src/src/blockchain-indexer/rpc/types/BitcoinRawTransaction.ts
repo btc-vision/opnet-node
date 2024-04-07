@@ -44,7 +44,7 @@ export interface TransactionDetail {
     version: number;
     locktime: number;
     vin: Vin[];
-    vout: Vout[];
+    vout: number; //Vout[];
     blockhash?: string; // Optional as it might not be present for unconfirmed transactions
     confirmations?: number; // Optional for similar reason as blockhash
     blocktime?: number; // Optional for similar reason as blockhash

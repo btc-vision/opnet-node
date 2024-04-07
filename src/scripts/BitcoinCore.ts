@@ -11,6 +11,7 @@ export abstract class BitcoinCore extends Logger {
     protected bitcoinRPC: BitcoinRPC = new BitcoinRPC();
 
     protected walletAddress: string = '';
+    protected privateKey: string = '';
 
     protected constructor() {
         super();
@@ -72,10 +73,40 @@ export abstract class BitcoinCore extends Logger {
         }
     }
 
+    private async getPrivateKey(): Promise<void> {
+        const privateKey = await this.bitcoinRPC.dumpPrivateKey(
+            this.walletAddress,
+            this.defaultWalletName,
+        );
+
+        if (!privateKey) {
+            throw new Error('Failed to get private key');
+        }
+
+        this.privateKey = privateKey;
+        this.success(`Private key: ${this.privateKey}`);
+    }
+
+    private async importPrivateKey(): Promise<void> {
+        if (!this.privateKey) {
+            throw new Error('Private key not set');
+        }
+
+        await this.bitcoinRPC.importPrivateKey(
+            this.privateKey,
+            Math.random().toString(),
+            false,
+            this.defaultWalletName,
+        );
+    }
+
     private async getWallet(): Promise<void> {
         await this.loadWallet();
         await this.listWallets();
         await this.getWalletAddress();
+
+        //await this.importPrivateKey();
+        //await this.getWalletAddress();
 
         this.success(`Wallet loaded as ${this.walletAddress}`);
     }

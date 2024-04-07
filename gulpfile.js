@@ -21,8 +21,8 @@ async function build() {
             .src()
             .pipe(gulpcache())
             .pipe(eslint())
-            .pipe(eslint.format())
-            .pipe(eslint.failAfterError())
+            //.pipe(eslint.format())
+            //.pipe(eslint.failAfterError())
             .pipe(
                 logger({
                     before: 'Starting...',

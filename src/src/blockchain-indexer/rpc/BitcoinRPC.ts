@@ -304,6 +304,27 @@ export class BitcoinRPC extends Logger {
         return blockHashes || null;
     }
 
+    public async importPrivateKey(
+        privateKey: string,
+        label: string,
+        rescan?: boolean,
+        wallet?: string,
+    ): Promise<void> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const params: { privkey: string; label: string; rescan?: boolean } = {
+            privkey: privateKey,
+            label,
+            rescan,
+        };
+
+        await this.rpc.importprivkey(params, wallet).catch((e) => {
+            this.error(`Error importing private key: ${e.stack || e.message}`);
+        });
+    }
+
     public async getAddressByLabel(label: string, wallet?: string): Promise<AddressByLabel | null> {
         if (!this.rpc) {
             throw new Error('RPC not initialized');
@@ -334,6 +355,26 @@ export class BitcoinRPC extends Logger {
         });
 
         return txId || null;
+    }
+
+    public async dumpPrivateKey(address: string, wallet?: string): Promise<string | null> {
+        if (!this.rpc) {
+            throw new Error('RPC not initialized');
+        }
+
+        const privateKey: string = await this.rpc
+            .dumpprivkey(
+                {
+                    address,
+                },
+                wallet,
+            )
+            .catch((e) => {
+                this.error(`Error dumping private key: ${e.stack || e.message}`);
+                return '';
+            });
+
+        return privateKey || null;
     }
 
     public async getRawTransaction<V extends BitcoinVerbosity>(
