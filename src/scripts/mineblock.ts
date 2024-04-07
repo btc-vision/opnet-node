@@ -107,7 +107,7 @@ export class MineBlock extends BitcoinCore {
             maxfeerate: 1000000,
         };
 
-        await this.mineBlock(100);
+        //await this.mineBlock(100);
 
         const txOut = await this.bitcoinRPC.sendRawTransaction(rawTxParams);
         console.log(txOut);

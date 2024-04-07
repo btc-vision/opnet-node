@@ -63,11 +63,11 @@ export class BSCTransaction extends Logger {
 
         //this.salt = BitcoinHelper.ECPair.makeRandom({ network: this.network });
 
-        const secKey = Tap.getSecKey(this.salt.privateKey);
-        const pubKey = Tap.getPubKey(this.salt.publicKey);
+        const [tseckey] = Tap.getSecKey(this.salt.privateKey);
+        const [tpubkey] = Tap.getPubKey(this.salt.publicKey);
 
-        this.tseckey = secKey[0];
-        this.tpubkey = pubKey[0];
+        this.tseckey = tseckey;
+        this.tpubkey = tpubkey;
 
         this.generate();
         this.createTransaction();
@@ -171,7 +171,7 @@ export class BSCTransaction extends Logger {
             throws: true,
         });
 
-        this.transaction.vin[0].witness = [signer, this.script, this.witness];
+        this.transaction.vin[0].witness = [signer.raw, this.script, this.witness];
 
         const isValid = Signer.taproot.verify(this.transaction, 0, {
             pubkey: this.tpubkey,
@@ -184,7 +184,7 @@ export class BSCTransaction extends Logger {
 
         //console.log(JSON.stringify(this.transaction, null, 4));
 
-        return Tx.encode(this.transaction).hex;
+        return Tx.encode(this.transaction, false).hex;
     }
 
     private generate(): void {
