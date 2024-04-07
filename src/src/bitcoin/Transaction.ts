@@ -63,8 +63,8 @@ export class BSCTransaction extends Logger {
 
         //this.salt = BitcoinHelper.ECPair.makeRandom({ network: this.network });
 
-        const secKey = [this.salt.privateKey.toString('hex')]; //Tap.getSecKey(this.salt.privateKey);
-        const pubKey = [this.salt.publicKey.toString('hex')]; //Tap.getPubKey(this.salt.publicKey);
+        const secKey = Tap.getSecKey(this.salt.privateKey);
+        const pubKey = Tap.getPubKey(this.salt.publicKey);
 
         this.tseckey = secKey[0];
         this.tpubkey = pubKey[0];
@@ -88,7 +88,7 @@ export class BSCTransaction extends Logger {
         return 333;
     }
 
-    private getCostValue(customSatVb: number = 1, applyPadding = true) {
+    private getCostValue(customSatVb: number = 1, applyPadding = true): number {
         if (!this.tapleaf) {
             throw new Error('Script must be created first.');
         }
