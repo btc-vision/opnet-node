@@ -21,7 +21,7 @@
         "@btc-vision/motoswapcommon": "^1.0.14",
         "@btc-vision/motoswapdb": "^1.0.14",
         "@cmdcode/buff-utils": "^2.0.0",
-        "@cmdcode/crypto-utils": "^2.4.6",
+        "@cmdcode/crypto-utils": "^2.0.2",
         "@cmdcode/tapscript": "^1.4.6",
         "@jest/types": "^29.6.3",
         "@types/bignumber.js": "^5.0.0",
