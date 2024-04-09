@@ -24,6 +24,33 @@ export class BlockchainInformationRepository extends BaseRepository<IBlockchainI
         return result;
     }
 
+    public async updateCurrentBlockInProgress(
+        network: string,
+        blockInProgress: number,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IBlockchainInformationDocument>> = {
+            network: network,
+        };
+
+        const document: Partial<IBlockchainInformationDocument> = {
+            inProgressBlock: blockInProgress,
+        };
+
+        await this.updatePartial(criteria, document);
+    }
+
+    public async addBlockToRescanBlock(network: string, block: number): Promise<void> {
+        const criteria: Partial<Filter<IBlockchainInformationDocument>> = {
+            network: network,
+        };
+
+        const document: Partial<IBlockchainInformationDocument> = {
+            $push: { toRescanBlock: block },
+        };
+
+        await this.updatePartialWithFilter(criteria, document);
+    }
+
     protected override getCollection(): Collection<IBlockchainInformationDocument> {
         return this._db.collection('BlockchainInformation');
     }

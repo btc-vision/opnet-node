@@ -18,8 +18,8 @@
     "dependencies": {
         "@asyncapi/generator": "^1.17.13",
         "@asyncapi/html-template": "^2.2.1",
-        "@btc-vision/motoswapcommon": "^1.0.13",
-        "@btc-vision/motoswapdb": "^1.0.13",
+        "@btc-vision/motoswapcommon": "^1.0.14",
+        "@btc-vision/motoswapdb": "^1.0.14",
         "@cmdcode/buff-utils": "^2.0.0",
         "@cmdcode/crypto-utils": "^2.4.6",
         "@cmdcode/tapscript": "^1.4.6",

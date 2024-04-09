@@ -10,6 +10,7 @@ import { BlockDataWithTransactionData } from './rpc/types/BlockData.js';
 export class BlockProcessor {
     private rpcClient: BitcoinRPC;
     private blockchainInfoRepository: BlockchainInformationRepository;
+    private readonly network: string;
 
     constructor() {
         this.rpcClient = new BitcoinRPC();
@@ -19,11 +20,12 @@ export class BlockProcessor {
         }
 
         this.blockchainInfoRepository = new BlockchainInformationRepository(DBManagerInstance.db);
+        this.network = Config.BLOCKCHAIN.BITCOIND_NETWORK;
     }
 
     public async processBlocks(startBlockHeight: number = -1): Promise<void> {
         const blockchainInfo: IBlockchainInformationDocument =
-            await this.blockchainInfoRepository.getByNetwork(Config.BLOCKCHAIN.BITCOIND_NETWORK);
+            await this.blockchainInfoRepository.getByNetwork(this.network);
 
         // No forced start block height
         if (startBlockHeight === -1) {
@@ -37,17 +39,17 @@ export class BlockProcessor {
 
         // Process block either from the forced start height
         // or from the last in progress block saved in the database
-        let blockHeightInProgess: number =
+        let blockHeightInProgress: number =
             startBlockHeight !== -1 ? startBlockHeight : blockchainInfo.inProgressBlock;
         let chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
 
-        while (blockHeightInProgess < chainCurrentBlockHeight) {
-            const block = await this.getBlock(blockHeightInProgess);
+        while (blockHeightInProgress < chainCurrentBlockHeight) {
+            const block = await this.getBlock(blockHeightInProgress);
 
             await this.processBlock(block);
 
             chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
-            blockHeightInProgess++;
+            blockHeightInProgress++;
         }
     }
 
@@ -83,14 +85,26 @@ export class BlockProcessor {
 
         let result: boolean = false;
 
+        await this.blockchainInfoRepository.updateCurrentBlockInProgress(
+            this.network,
+            blockData.height,
+        );
+
         const session: ClientSession = await DBManagerInstance.startSession();
 
         try {
+            for (const transaction in blockData.tx) {
+            }
+
             await session.commitTransaction();
             result = true;
         } catch (e: unknown) {
             const error = e as Error;
             await session.abortTransaction();
+            await this.blockchainInfoRepository.addBlockToRescanBlock(
+                this.network,
+                blockData.height,
+            );
         } finally {
             await session.endSession();
         }
