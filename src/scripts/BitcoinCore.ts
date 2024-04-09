@@ -166,6 +166,19 @@ export abstract class BitcoinCore extends Logger {
         this.success(`Wallet loaded as ${this.walletAddress}`);
     }*/
 
+    protected async getTransactionFromHash(txHash: string): Promise<TransactionDetail | null> {
+        const params: BitcoinRawTransactionParams = {
+            txId: txHash,
+        };
+
+        const txInfo = await this.bitcoinRPC.getRawTransaction<BitcoinVerbosity.NONE>(params);
+        if (!txInfo) {
+            return null;
+        }
+
+        return txInfo;
+    }
+
     protected async mineBlock(blockCount: number): Promise<TransactionDetail> {
         const wallet = this.walletInformation?.walletAddress;
         if (!wallet) throw new Error('Wallet address not set');
@@ -222,7 +235,10 @@ export abstract class BitcoinCore extends Logger {
         await this.loadWallet();
 
         // we get UXTOs after loading the wallet
-        const lastTx = await this.mineBlock(1);
+        const lastTx = await this.getTransactionFromHash(
+            '84163ccedeb2b6dbe64528c987e6ace51792938fd9817860ac05092189c77b94',
+        ); //await this.mineBlock(1);
+
         if (!lastTx) throw new Error('Failed to get last transaction');
 
         this.lastTx = lastTx;

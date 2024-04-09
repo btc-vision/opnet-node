@@ -79,7 +79,7 @@ export class MineBlock extends BitcoinCore {
         const scriptPubKey = firstVout.scriptPubKey;
         const voutValue = firstVout.value;
 
-        console.log(this.lastTx);
+        console.dir(this.lastTx, { depth: null });
 
         const utxos: UTXOS = {
             txid: this.lastTx.txid,
