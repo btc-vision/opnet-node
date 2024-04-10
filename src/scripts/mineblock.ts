@@ -1,5 +1,9 @@
+import * as BitCore2 from 'bitcore-lib';
 import { BSCTransaction, UTXOS } from '../src/bitcoin/Transaction.js';
 import { BitcoinCore } from './BitcoinCore.js';
+
+// @ts-ignore
+const BitCore = BitCore2.default;
 
 export class MineBlock extends BitcoinCore {
     constructor() {
@@ -97,7 +101,18 @@ export class MineBlock extends BitcoinCore {
         };
 
         const keyPair = this.getKeyPair();
-        const tx: BSCTransaction = new BSCTransaction(utxos, data, keyPair, this.network);
+        const vout = this.lastTx.vout[0];
+        const script = new BitCore.Script(vout.scriptPubKey);
+        const unspent = new BitCore.Transaction.UnspentOutput({
+            //address: this.getWalletAddress()
+            txId: this.lastTx.txid,
+            outputIndex: 0,
+            script: script,
+            satoshis: vout.value * 100000000,
+        });
+        const uxtosArr: BitCore2.Transaction.UnspentOutput[] = [unspent];
+
+        const tx: BSCTransaction = new BSCTransaction(uxtosArr, data, keyPair, this.network);
         const txData = tx.signTransaction();
 
         this.log(`Transaction data: ${txData}`);
