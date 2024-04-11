@@ -20,11 +20,11 @@ export interface Vin {
 }
 
 export interface ScriptPubKey {
-    asm: string;
+    asm?: string;
     hex: string;
-    reqSigs: number;
-    type: string; // Consider enum if there are known, limited values for type
-    addresses: string[];
+    reqSigs?: number;
+    type?: string; // Consider enum if there are known, limited values for type
+    addresses?: string[];
 }
 
 export interface Vout {

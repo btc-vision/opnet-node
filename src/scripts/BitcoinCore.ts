@@ -63,17 +63,17 @@ export abstract class BitcoinCore extends Logger {
         }
     }
 
+    public async init(): Promise<void> {
+        this.log('Bitcoin core initializing...');
+
+        await this.bitcoinRPC.init(Config.BLOCKCHAIN);
+    }
+
     protected getKeyPair(): ECPairInterface {
         if (!this.walletInformation) throw new Error('Wallet information not set');
         if (!this.walletInformation.keypair) throw new Error('Keypair not set');
 
         return this.walletInformation.keypair;
-    }
-
-    protected getWalletAddress(): string {
-        if (!this.walletInformation) throw new Error('Wallet information not set');
-
-        return this.walletInformation.walletAddress;
     }
 
     /*protected async createDefaultWallet(): Promise<void> {
@@ -170,6 +170,12 @@ export abstract class BitcoinCore extends Logger {
         this.success(`Wallet loaded as ${this.walletAddress}`);
     }*/
 
+    protected getWalletAddress(): string {
+        if (!this.walletInformation) throw new Error('Wallet information not set');
+
+        return this.walletInformation.walletAddress;
+    }
+
     protected async getTransactionFromHash(txHash: string): Promise<TransactionDetail | null> {
         const params: BitcoinRawTransactionParams = {
             txId: txHash,
@@ -203,6 +209,42 @@ export abstract class BitcoinCore extends Logger {
         const blockHash = blocks[0];
         this.log(`Block hash: ${blockHash}`);
 
+        return this.getFundingTransactionFromBlockHash(blockHash);
+    }
+
+    protected async setWallet(walletInfo: RawWalletInformation): Promise<void> {
+        this.walletInformation = {
+            walletAddress: walletInfo.walletAddress,
+            publicKey: Buffer.from(walletInfo.publicKey, 'hex'),
+            privateKeyWIF: walletInfo.privateKey,
+
+            compressedAddress: null,
+            keypair: null,
+        };
+
+        await this.loadWallet();
+
+        //await this.mineBlock(100);
+
+        await this.mineBlock(1);
+
+        const lastTx = await this.getFundingTransactionFromBlockHash(
+            '24c0029a2f484e8fae467741a9d125bbdbdc97f12c44cb0f1d4307aee74bf6a4',
+        );
+
+        // we get UXTOs after loading the wallet
+        /*const lastTx = await this.getTransactionFromHash(
+            '7b1d3ae3cee88f377248907d9e5a8d70c4103b84c7405060d737e4edf387c6f3',
+        );*/
+
+        if (!lastTx) throw new Error('Failed to get last transaction');
+
+        this.lastTx = lastTx;
+    }
+
+    private async getFundingTransactionFromBlockHash(
+        blockHash: string,
+    ): Promise<TransactionDetail> {
         const blockData = await this.bitcoinRPC.getBlockInfoOnly(blockHash);
         if (!blockData) throw new Error('Failed to get block data');
 
@@ -222,34 +264,6 @@ export abstract class BitcoinCore extends Logger {
         return txInfo;
     }
 
-    protected getNetworkString(): string {
-        return Config.BLOCKCHAIN.BITCOIND_NETWORK.toLowerCase();
-    }
-
-    protected async setWallet(walletInfo: RawWalletInformation): Promise<void> {
-        this.walletInformation = {
-            walletAddress: walletInfo.walletAddress,
-            publicKey: Buffer.from(walletInfo.publicKey, 'hex'),
-            privateKeyWIF: walletInfo.privateKey,
-
-            compressedAddress: null,
-            keypair: null,
-        };
-
-        await this.loadWallet();
-
-        //await this.mineBlock(100);
-
-        // we get UXTOs after loading the wallet
-        const lastTx = await this.getTransactionFromHash(
-            '7b1d3ae3cee88f377248907d9e5a8d70c4103b84c7405060d737e4edf387c6f3',
-        ); //await this.mineBlock(1);
-
-        if (!lastTx) throw new Error('Failed to get last transaction');
-
-        this.lastTx = lastTx;
-    }
-
     private async loadWallet(): Promise<void> {
         this.log('Loading wallet...');
 
@@ -258,8 +272,8 @@ export abstract class BitcoinCore extends Logger {
         }
 
         const fromWIF = BitcoinHelper.fromWIF(this.walletInformation.privateKeyWIF, this.network);
-
         const pubKey = fromWIF.publicKey.toString('hex');
+
         if (pubKey !== this.walletInformation.publicKey.toString('hex')) {
             throw new Error(
                 `Public key mismatch ${pubKey} !== ${this.walletInformation.publicKey.toString('hex')}`,
@@ -281,11 +295,5 @@ export abstract class BitcoinCore extends Logger {
         this.success(
             `Wallet loaded as ${walletAddress} with uncompressed address ${this.walletInformation.walletAddress}`,
         );
-    }
-
-    public async init(): Promise<void> {
-        this.log('Bitcoin core initializing...');
-
-        await this.bitcoinRPC.init(Config.BLOCKCHAIN);
     }
 }

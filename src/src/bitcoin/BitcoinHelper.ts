@@ -1,12 +1,18 @@
 import * as bitcoin from 'bitcoinjs-lib';
-import { address, initEccLib, opcodes, payments, script } from 'bitcoinjs-lib';
+import { address, initEccLib, opcodes, payments, script, Signer } from 'bitcoinjs-lib';
 import { Network } from 'bitcoinjs-lib/src/networks.js';
+import { tapTweakHash } from 'bitcoinjs-lib/src/payments/bip341.js';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 import { Taptree } from 'bitcoinjs-lib/src/types.js';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 
 initEccLib(ecc);
+
+export interface TweakSettings {
+    network?: Network;
+    tweakHash?: Buffer;
+}
 
 export class BitcoinHelper {
     public static ECPair = ECPairFactory(ecc);
@@ -22,6 +28,28 @@ export class BitcoinHelper {
         });
 
         return this.generateContractAddressFromSalt(bytecode, deployer, hash_lock_keypair, network);
+    }
+
+    public static tweakSigner(signer: Signer, opts: TweakSettings = {}): Signer {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        let privateKey: Uint8Array | undefined = signer.privateKey!;
+        if (!privateKey) {
+            throw new Error('Private key is required for tweaking signer!');
+        }
+        if (signer.publicKey[0] === 3) {
+            privateKey = ecc.privateNegate(privateKey);
+        }
+
+        const tweakedPrivateKey = ecc.privateAdd(
+            privateKey,
+            tapTweakHash(toXOnly(signer.publicKey), opts.tweakHash),
+        );
+        if (!tweakedPrivateKey) {
+            throw new Error('Invalid tweaked private key!');
+        }
+
+        return BitcoinHelper.fromPrivateKey(Buffer.from(tweakedPrivateKey), opts.network);
     }
 
     public static fromWIF(
