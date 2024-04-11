@@ -224,12 +224,12 @@ export abstract class BitcoinCore extends Logger {
 
         await this.loadWallet();
 
-        //await this.mineBlock(100);
+        //await this.mineBlock(1);
 
-        await this.mineBlock(1);
+        //await this.mineBlock(1);
 
         const lastTx = await this.getFundingTransactionFromBlockHash(
-            '24c0029a2f484e8fae467741a9d125bbdbdc97f12c44cb0f1d4307aee74bf6a4',
+            '13fd40e6c4d00d55174b138e89fcdb4329e3cfe7424aa3a782f1c5da69a3ea0b',
         );
 
         // we get UXTOs after loading the wallet
@@ -242,7 +242,7 @@ export abstract class BitcoinCore extends Logger {
         this.lastTx = lastTx;
     }
 
-    private async getFundingTransactionFromBlockHash(
+    protected async getFundingTransactionFromBlockHash(
         blockHash: string,
     ): Promise<TransactionDetail> {
         const blockData = await this.bitcoinRPC.getBlockInfoOnly(blockHash);

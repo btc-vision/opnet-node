@@ -1,12 +1,24 @@
+import { BIP32Interface } from 'bip32';
 import { Transaction } from 'bitcoinjs-lib';
+import { BitcoinHelper } from '../src/bitcoin/BitcoinHelper.js';
 import { BSCTransaction, ITransaction } from '../src/bitcoin/Transaction.js';
 import { BSCSegwitTransaction } from '../src/bitcoin/TransactionP2PKH.js';
 import { Vout } from '../src/blockchain-indexer/rpc/types/BitcoinRawTransaction.js';
 import { BitcoinCore } from './BitcoinCore.js';
 
 export class MineBlock extends BitcoinCore {
+    private readonly rndSeedSelected: Buffer = this.rndSeed();
+    private readonly rndPubKey: BIP32Interface = BitcoinHelper.fromSeed(
+        Buffer.from(
+            'c60a9c3f4568a870fe4983ae56076a61b8bf17ebf9795841c3badb7b905f35f839438d8cc2a894f1b76c47a555e5675c942b06e34ebc627a08805187ac294e01',
+            'hex',
+        ),
+    );
+
     constructor() {
         super();
+
+        console.log(this.rndSeedSelected.toString('hex'));
     }
 
     public async init(): Promise<void> {
@@ -26,37 +38,32 @@ export class MineBlock extends BitcoinCore {
             throw new Error('No last transaction');
         }
 
-        const fundingTransaction: Transaction = await this.getFundingTransactionFromHash(
-            'db862b8e3708f86ff9204abd39f200d72c905207ba1048eab1e0ebc9a45aff9f',
+        const calldata = Buffer.from(
+            'adgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfas',
         );
 
-        const firstVout = fundingTransaction.outs[0];
-        if (!firstVout) {
-            throw new Error('No vout found');
-        }
+        const fundingTransaction = await this.getFundingTransaction(); //await this.sendFundsToTapWallet(calldata);
+        const vout: Vout = this.getVout(fundingTransaction);
 
-        const vout: Vout = {
-            value: firstVout.value / 100000000,
-            n: 0,
-            scriptPubKey: {
-                hex: firstVout.script.toString('hex'),
-            },
-        };
+        const tapAddr: string = BSCTransaction.generateTapAddress(
+            this.getKeyPair(),
+            calldata,
+            this.rndPubKey,
+            this.network,
+        );
 
         const voutValue = vout.value * 100000000;
         const data: ITransaction = {
             txid: fundingTransaction.getId(),
             vout: vout,
             from: this.getWalletAddress(),
-            to: this.getWalletAddress(),
-            calldata: Buffer.from(
-                'adgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfas',
-            ),
+            to: tapAddr,
+            calldata: calldata,
             value: BigInt(voutValue),
         };
 
         const keyPair = this.getKeyPair();
-        const tx: BSCTransaction = new BSCTransaction(data, keyPair, this.network);
+        const tx: BSCTransaction = new BSCTransaction(data, keyPair, this.rndPubKey, this.network);
         const txData = tx.signTransaction();
 
         if (!txData) {
@@ -76,31 +83,71 @@ export class MineBlock extends BitcoinCore {
         console.log(`Transaction out: ${txOut}`);
     }
 
-    private async sendFundsToTapWallet(): Promise<Transaction> {
-        if (!this.lastTx) {
-            throw new Error('No last transaction');
-        }
+    private rndSeed(): Buffer {
+        const buf = crypto.getRandomValues(new Uint8Array(64));
 
-        const firstVout = this.lastTx.vout[0];
+        return Buffer.from(buf);
+    }
+
+    private async getFundingTransaction(): Promise<Transaction> {
+        /*const txFromBlock = await this.getFundingTransactionFromBlockHash(
+            '13fd40e6c4d00d55174b138e89fcdb4329e3cfe7424aa3a782f1c5da69a3ea0b',
+        );*/
+
+        return await this.getFundingTransactionFromHash(
+            'f08371c9adedab435d434d0dc0060fc1ad4a249ad93774d30183e7f142cd7b16',
+        );
+    }
+
+    private getIndex(): number {
+        return 0;
+    }
+
+    private getVout(fundingTransaction: Transaction): Vout {
+        const firstVout = fundingTransaction.outs[this.getIndex()];
         if (!firstVout) {
             throw new Error('No vout found');
         }
 
-        const tapAddr: string = BSCTransaction.generateTapAddress(this.getKeyPair(), this.network);
+        return {
+            value: firstVout.value / 100000000,
+            n: this.getIndex(),
+            scriptPubKey: {
+                hex: firstVout.script.toString('hex'),
+            },
+        };
+    }
+
+    private async sendFundsToTapWallet(calldata: Buffer): Promise<Transaction> {
+        if (!this.lastTx) {
+            throw new Error('No last transaction');
+        }
+
+        const fundingTransaction = await this.getFundingTransaction();
+        const vout: Vout = this.getVout(fundingTransaction);
+
+        const tapAddr: string = BSCTransaction.generateTapAddress(
+            this.getKeyPair(),
+            calldata,
+            this.rndPubKey,
+            this.network,
+        );
+
         this.log(`Funding tap address: ${tapAddr}`);
 
-        const voutValue = firstVout.value;
+        const voutValue = vout.value * 100000000;
         const data: ITransaction = {
-            txid: this.lastTx.txid,
-            vout: firstVout,
+            txid: fundingTransaction.getId(),
+            vout: vout,
             from: this.getWalletAddress(),
             to: tapAddr,
-            value: BigInt(voutValue * 100000000),
+            value: BigInt(voutValue),
         };
 
         const tx: BSCSegwitTransaction = new BSCSegwitTransaction(
             data,
             this.getKeyPair(),
+            this.rndPubKey,
             this.network,
         );
 

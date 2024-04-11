@@ -35,7 +35,7 @@
         "bignumber.js": "^9.1.2",
         "bip84": "^0.2.7",
         "bitcoind-rpc": "^0.9.1",
-        "bitcoinjs-lib": "^6.1.5",
+        "bitcoinjs-lib": "github:btc-vision/bitcoinjs-lib",
         "bitcore-lib": "^10.0.28",
         "bytenode": "^1.5.6",
         "chalk": "^5.3.0",

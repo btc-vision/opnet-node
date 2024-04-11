@@ -1,11 +1,16 @@
+import { PsbtInput } from 'bip174/src/lib/interfaces.js';
+import * as BIP32Factory from 'bip32';
+import { BIP32Interface } from 'bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 import { address, initEccLib, opcodes, payments, script, Signer } from 'bitcoinjs-lib';
+import { varuint } from 'bitcoinjs-lib/src/bufferutils.js';
 import { Network } from 'bitcoinjs-lib/src/networks.js';
 import { tapTweakHash } from 'bitcoinjs-lib/src/payments/bip341.js';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 import { Taptree } from 'bitcoinjs-lib/src/types.js';
 import { ECPairFactory, ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
+import { TapLeafScript } from './Transaction.js';
 
 initEccLib(ecc);
 
@@ -16,6 +21,7 @@ export interface TweakSettings {
 
 export class BitcoinHelper {
     public static ECPair = ECPairFactory(ecc);
+    public static BIP32 = BIP32Factory;
 
     public static generateNewContractAddress(
         bytecode: Buffer,
@@ -30,6 +36,65 @@ export class BitcoinHelper {
         return this.generateContractAddressFromSalt(bytecode, deployer, hash_lock_keypair, network);
     }
 
+    public static buildLeafIndexFinalizer(
+        tapLeafScript: TapLeafScript,
+        leafIndex: number,
+    ): (
+        inputIndex: number,
+        _input: PsbtInput,
+        _tapLeafHashToFinalize?: Buffer,
+    ) => {
+        finalScriptWitness: Buffer | undefined;
+    } {
+        return (
+            inputIndex: number,
+            _input: PsbtInput,
+            _tapLeafHashToFinalize?: Buffer,
+        ): {
+            finalScriptWitness: Buffer | undefined;
+        } => {
+            try {
+                const scriptSolution = [Buffer.from([leafIndex]), Buffer.from([leafIndex])];
+                const witness = scriptSolution
+                    .concat(tapLeafScript.script)
+                    .concat(tapLeafScript.controlBlock);
+                return { finalScriptWitness: BitcoinHelper.witnessStackToScriptWitness(witness) };
+            } catch (err) {
+                throw new Error(`Can not finalize taproot input #${inputIndex}: ${err}`);
+            }
+        };
+    }
+
+    public static witnessStackToScriptWitness(witness: Buffer[]) {
+        let buffer = Buffer.allocUnsafe(0);
+
+        function writeSlice(slice: Buffer) {
+            buffer = Buffer.concat([buffer, Buffer.from(slice)]);
+        }
+
+        function writeVarInt(i: number) {
+            const currentLen = buffer.length;
+            const varintLen = varuint.encodingLength(i);
+
+            buffer = Buffer.concat([buffer, Buffer.allocUnsafe(varintLen)]);
+            varuint.encode(i, buffer, currentLen);
+        }
+
+        function writeVarSlice(slice: Buffer) {
+            writeVarInt(slice.length);
+            writeSlice(slice);
+        }
+
+        function writeVector(vector: Buffer[]) {
+            writeVarInt(vector.length);
+            vector.forEach(writeVarSlice);
+        }
+
+        writeVector(witness);
+
+        return buffer;
+    }
+
     public static tweakSigner(signer: Signer, opts: TweakSettings = {}): Signer {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
@@ -37,6 +102,7 @@ export class BitcoinHelper {
         if (!privateKey) {
             throw new Error('Private key is required for tweaking signer!');
         }
+
         if (signer.publicKey[0] === 3) {
             privateKey = ecc.privateNegate(privateKey);
         }
@@ -50,6 +116,39 @@ export class BitcoinHelper {
         }
 
         return BitcoinHelper.fromPrivateKey(Buffer.from(tweakedPrivateKey), opts.network);
+    }
+
+    public static fromSeed(seed: Buffer): BIP32Interface {
+        return BitcoinHelper.BIP32.fromSeed(seed);
+    }
+
+    public static compileData(calldata: Buffer): Buffer {
+        const size = Buffer.alloc(4);
+        size.writeUint32LE(calldata.byteLength, 0);
+
+        return script.compile([
+            opcodes.OP_NOP9,
+            opcodes.OP_DEPTH,
+            opcodes.OP_1,
+            opcodes.OP_NUMEQUAL,
+
+            opcodes.OP_IF,
+            opcodes.OP_DROP,
+
+            opcodes.OP_PUSHDATA1,
+            opcodes.OP_3,
+            Buffer.from('bsc'),
+
+            opcodes.OP_PUSHDATA4,
+            size,
+
+            Buffer.from(calldata),
+
+            opcodes.OP_NOP10,
+            opcodes.OP_ELSE,
+            opcodes.OP_TRUE,
+            opcodes.OP_ENDIF,
+        ]);
     }
 
     public static fromWIF(
