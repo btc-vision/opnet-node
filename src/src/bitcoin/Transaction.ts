@@ -1,52 +1,35 @@
 import { Logger } from '@btc-vision/motoswapcommon';
 import { Buff } from '@cmdcode/buff-utils';
 import * as Test from '@cmdcode/crypto-utils';
-import { Networks } from '@cmdcode/tapscript/dist/types/schema/types.js';
-import * as bitcoin from 'bitcoinjs-lib';
 import { initEccLib } from 'bitcoinjs-lib';
 
-import * as BitCore2 from 'bitcore-lib';
+import bitcore, { Transaction } from 'bitcore-lib';
 
 import { ECPairInterface } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { ScriptPubKey } from '../blockchain-indexer/rpc/types/BitcoinRawTransaction.js';
-import { Config } from '../config/Config.js';
 
 initEccLib(ecc);
-
-// @ts-ignore
-const BitCore = BitCore2.default;
 
 export interface ITransaction {
     readonly from: string;
     readonly to: string;
 
     readonly calldata: Buffer;
-    readonly fee: number;
-}
-
-interface TweakOptions {
-    readonly network?: bitcoin.Network;
-    readonly tweakHash?: Buffer;
-}
-
-export interface UTXOS {
-    readonly txid: string;
-    readonly vout: ScriptPubKey;
     readonly value: number;
+    readonly fee: number;
 }
 
 export class BSCTransaction extends Logger {
     public readonly logColor: string = '#785def';
     private readonly tseckey: string;
     private readonly pubkey: string;
-    private readonly transaction: BitCore2.Transaction = new BitCore.Transaction();
+    private readonly transaction: Transaction = new bitcore.Transaction();
 
     constructor(
-        private readonly utxos: BitCore2.Transaction.UnspentOutput[],
+        private readonly utxos: Transaction.UnspentOutput[],
         private readonly data: ITransaction,
         private readonly salt: ECPairInterface,
-        private readonly network: bitcoin.Network = bitcoin.networks.bitcoin,
+        //private readonly network: bitcoin.Network = bitcoin.networks.bitcoin,
     ) {
         super();
 
@@ -55,7 +38,7 @@ export class BSCTransaction extends Logger {
         }
 
         const seckey = Test.keys.get_seckey(this.salt.privateKey);
-        const pubkey = Test.keys.get_pubkey(seckey, true); //toXOnly(this.salt.publicKey).toString('hex');
+        const pubkey = Test.keys.get_pubkey(seckey, true);
 
         this.pubkey = pubkey.hex;
         this.tseckey = seckey.hex;
@@ -64,16 +47,34 @@ export class BSCTransaction extends Logger {
     }
 
     public signTransaction(): string {
-        return this.transaction.sign(this.tseckey).serialize();
+        this.transaction.sign(this.tseckey);
+        const verified = this.transaction.verify();
+
+        if (verified !== true) {
+            this.error(`Transaction verification failed: ${verified}`);
+        } else {
+            this.log(`Transaction verified.`);
+        }
+
+        return this.transaction.serialize({
+            disableDustOutputs: true,
+        });
     }
 
     private buildTransaction(): void {
-        const value = this.getCostValue() + 1000n;
+        if (!this.utxos[0].address) {
+            throw new Error('Address is required');
+        }
 
+        //const value = this.getCostValue() + 1000n;
         this.transaction.from(this.utxos);
-        this.transaction.to(this.data.to, 330);
-        this.transaction.change(this.data.from);
-        this.transaction.fee(Number(value));
+
+        this.transaction.to(this.data.to, bitcore.Transaction.DUST_AMOUNT);
+        this.transaction.change(this.utxos[0].address);
+        //this.transaction.addData(this.data.calldata);
+
+        console.log('fee', this.transaction.getFee(), this.transaction.outputs);
+        //this.transaction.fee(Number(value));
     }
 
     private getTapleafSize(): bigint {
@@ -101,7 +102,7 @@ export class BSCTransaction extends Logger {
         return applyPadding ? this.getPadding() + totalCost : totalCost;
     }
 
-    private getNetworkString(): Networks {
+    /*private getNetworkString(): Networks {
         switch (Config.BLOCKCHAIN.BITCOIND_NETWORK.toLowerCase()) {
             case 'regtest':
                 return 'regtest';
@@ -114,7 +115,7 @@ export class BSCTransaction extends Logger {
             default:
                 throw new Error('Invalid network');
         }
-    }
+    }*/
 
     private toUint8Array(buffer: Buffer): Uint8Array {
         const array = new Uint8Array(buffer.byteLength);

@@ -2,7 +2,6 @@
 	"compilerOptions": {
 		"module": "ESNext",
 		"target": "ESNext",
-
 		"declaration": true,
 		"noImplicitAny": true,
 		"removeComments": false,
@@ -34,7 +33,17 @@
 		"allowJs": true,
 		"incremental": true,
 		"allowSyntheticDefaultImports": true,
-		"outDir": "build"
+		"outDir": "build",
+		"typeRoots": [
+			"node_modules/@types"
+		]
 	},
-	"include": ["src/**/*.ts", "src/*", "src/**/*.js", "src/*.ts", "src/*.js", "src/*.cjs"]
+	"include": [
+		"src/**/*.ts",
+		"src/*",
+		"src/**/*.js",
+		"src/*.ts",
+		"src/*.js",
+		"src/*.cjs"
+	]
 }

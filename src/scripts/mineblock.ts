@@ -1,74 +1,11 @@
-import * as BitCore2 from 'bitcore-lib';
-import { BSCTransaction, UTXOS } from '../src/bitcoin/Transaction.js';
+import bitcore, { Script, Transaction } from 'bitcore-lib';
+import { BSCTransaction, ITransaction } from '../src/bitcoin/Transaction.js';
 import { BitcoinCore } from './BitcoinCore.js';
-
-// @ts-ignore
-const BitCore = BitCore2.default;
 
 export class MineBlock extends BitcoinCore {
     constructor() {
         super();
     }
-
-    /*protected async mineBlock(blockCount: number): Promise<void> {
-        if (!this.walletAddress) throw new Error('Wallet address not set');
-
-        const blocks = await this.bitcoinRPC.generateToAddress(
-            blockCount,
-            this.walletAddress,
-            this.defaultWalletName,
-        );
-
-        if (!blocks) {
-            throw new Error('Failed to mine block');
-        }
-
-        this.log(`Mined ${blocks.length} blocks`);
-
-        const blockHash = blocks[0];
-        this.log(`Block hash: ${blockHash}`);
-
-        const blockData = await this.bitcoinRPC.getBlockInfoOnly(blockHash);
-        if (!blockData) throw new Error('Failed to get block data');
-
-        const txs = blockData.tx;
-        if (!txs || !txs[0]) throw new Error('No transactions found in block');
-
-        const txHash = txs[0];
-        this.log(`Transaction hash: ${txHash}`);
-
-        const params: BitcoinRawTransactionParams = {
-            txId: txHash,
-        };
-
-        const txInfo = await this.bitcoinRPC.getRawTransaction<BitcoinVerbosity.NONE>(params);
-        if (!txInfo) throw new Error('Failed to get transaction info');
-
-        const utxos: UTXOS[] = [
-            {
-                txid: txInfo.txid,
-                vout: txInfo.vout,
-                value: 0,
-            },
-        ];
-
-        const rndWallet = BitcoinHelper.generateRandomKeyPair();
-
-        const idkRndTx = new BSCTransaction(
-            utxos,
-            {
-                from: this.walletAddress,
-                to: this.walletAddress,
-                calldata: Buffer.from('adgfssdfadssdfasdgfsdfasdfas'),
-                fee: 0,
-            },
-            bitcoin.networks.regtest,
-        );
-
-        await idkRndTx.signTransaction(rndWallet);
-
-        console.log(idkRndTx);
-    }*/
 
     protected async testTx(): Promise<void> {
         if (!this.lastTx) {
@@ -80,39 +17,37 @@ export class MineBlock extends BitcoinCore {
             throw new Error('No vout found');
         }
 
-        const scriptPubKey = firstVout.scriptPubKey;
         const voutValue = firstVout.value;
 
-        console.dir(this.lastTx, { depth: null });
-
-        const utxos: UTXOS = {
-            txid: this.lastTx.txid,
-            vout: scriptPubKey,
-            value: voutValue,
-        };
-
-        const data = {
+        const data: ITransaction = {
             from: this.getWalletAddress(),
             to: this.getWalletAddress(),
             calldata: Buffer.from(
                 'adgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfasadgfssdfadssdfasdgfsdfasdfas',
             ),
+            value: voutValue,
             fee: 0,
         };
 
         const keyPair = this.getKeyPair();
-        const vout = this.lastTx.vout[0];
-        const script = new BitCore.Script(vout.scriptPubKey);
-        const unspent = new BitCore.Transaction.UnspentOutput({
-            //address: this.getWalletAddress()
+        const script: Script = new bitcore.Script(firstVout.scriptPubKey.hex);
+
+        const addr: bitcore.Address = new bitcore.Address(
+            this.getWalletAddress(),
+            this.networkBitcore,
+        );
+
+        const unspent: Transaction.UnspentOutput = new bitcore.Transaction.UnspentOutput({
+            address: addr,
             txId: this.lastTx.txid,
             outputIndex: 0,
             script: script,
-            satoshis: vout.value * 100000000,
+            satoshis: voutValue * 100000000,
         });
-        const uxtosArr: BitCore2.Transaction.UnspentOutput[] = [unspent];
 
-        const tx: BSCTransaction = new BSCTransaction(uxtosArr, data, keyPair, this.network);
+        const uxtosArr: Transaction.UnspentOutput[] = [unspent];
+
+        const tx: BSCTransaction = new BSCTransaction(uxtosArr, data, keyPair);
         const txData = tx.signTransaction();
 
         this.log(`Transaction data: ${txData}`);
@@ -123,9 +58,10 @@ export class MineBlock extends BitcoinCore {
         };
 
         //await this.mineBlock(100);
+        this.log(`Sending raw transaction: ${rawTxParams.hexstring}`);
 
         const txOut = await this.bitcoinRPC.sendRawTransaction(rawTxParams);
-        console.log(txOut);
+        console.log(`Transaction out: ${txOut}`);
     }
 
     public async init(): Promise<void> {

@@ -1,11 +1,10 @@
 import { Logger } from '@btc-vision/motoswapcommon';
 
-// @ts-ignore
-import * as _BIP84 from 'bip84';
-
 import * as bitcoin from 'bitcoinjs-lib';
 import { Network } from 'bitcoinjs-lib/src/networks.js';
+import bitcore from 'bitcore-lib';
 import { ECPairInterface } from 'ecpair';
+
 import { BitcoinHelper } from '../src/bitcoin/BitcoinHelper.js';
 import { BitcoinRPC } from '../src/blockchain-indexer/rpc/BitcoinRPC.js';
 import {
@@ -39,6 +38,7 @@ export abstract class BitcoinCore extends Logger {
     protected walletInformation: WalletInformation | null = null;
 
     protected readonly network: Network;
+    protected readonly networkBitcore: bitcore.Network;
     protected lastTx: TransactionDetail | null = null;
 
     protected constructor() {
@@ -47,12 +47,16 @@ export abstract class BitcoinCore extends Logger {
         switch (Config.BLOCKCHAIN.BITCOIND_NETWORK) {
             case 'mainnet':
                 this.network = bitcoin.networks.bitcoin;
+                this.networkBitcore = bitcore.Networks.mainnet;
                 break;
             case 'testnet':
                 this.network = bitcoin.networks.testnet;
+                this.networkBitcore = bitcore.Networks.testnet;
                 break;
             case 'regtest':
                 this.network = bitcoin.networks.regtest;
+                bitcore.Networks.enableRegtest();
+                this.networkBitcore = bitcore.Networks.get('regtest');
                 break;
             default:
                 throw new Error('Invalid network');
@@ -234,9 +238,11 @@ export abstract class BitcoinCore extends Logger {
 
         await this.loadWallet();
 
+        //await this.mineBlock(100);
+
         // we get UXTOs after loading the wallet
         const lastTx = await this.getTransactionFromHash(
-            '84163ccedeb2b6dbe64528c987e6ace51792938fd9817860ac05092189c77b94',
+            '7b1d3ae3cee88f377248907d9e5a8d70c4103b84c7405060d737e4edf387c6f3',
         ); //await this.mineBlock(1);
 
         if (!lastTx) throw new Error('Failed to get last transaction');
