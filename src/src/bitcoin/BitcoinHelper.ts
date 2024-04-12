@@ -129,8 +129,6 @@ export class BitcoinHelper {
             opcodes.OP_ENDIF,
         ].flat();
 
-        console.log(dataChunks);
-
         const compiled = script.compile(asm);
         const decompiled = script.decompile(compiled);
 
