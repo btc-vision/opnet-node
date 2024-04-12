@@ -39,7 +39,6 @@ export abstract class BitcoinCore extends Logger {
 
     protected readonly network: Network;
     protected readonly networkBitcore: bitcore.Network;
-    protected lastTx: TransactionDetail | null = null;
 
     protected constructor() {
         super();
@@ -75,100 +74,6 @@ export abstract class BitcoinCore extends Logger {
 
         return this.walletInformation.keypair;
     }
-
-    /*protected async createDefaultWallet(): Promise<void> {
-        const params: CreateWalletParams = {
-            wallet_name: this.defaultWalletName,
-        };
-
-        const wallet = await this.bitcoinRPC.createWallet(params);
-        if (!wallet) {
-            throw new Error('Failed to create wallet');
-        }
-
-        this.log(`Created wallet: ${wallet}`);
-    }
-
-    protected async getNewAddress(): Promise<void> {
-        if (this.walletAddress) return;
-
-        const address = await this.bitcoinRPC.getNewAddress('', this.defaultWalletName);
-        if (!address) {
-            throw new Error('Failed to get new address');
-        }
-
-        this.walletAddress = address;
-    }
-
-    private async getWalletAddress(): Promise<void> {
-        if (this.walletAddress) return;
-
-        const address: AddressByLabel | null = await this.bitcoinRPC.getAddressByLabel(
-            '',
-            this.defaultWalletName,
-        );
-
-        if (!address) {
-            throw new Error('Failed to get new address');
-        }
-
-        this.walletAddress = Object.keys(address)[0];
-    }
-
-    private async listWallets(): Promise<void> {
-        const wallets = await this.bitcoinRPC.listWallets();
-        if (!wallets) {
-            throw new Error('Failed to list wallets');
-        }
-
-        this.log(`Found wallets: ${wallets.join(', ')}`);
-    }
-
-    private async loadWallet(): Promise<void> {
-        const wallet = await this.bitcoinRPC.loadWallet(this.defaultWalletName);
-
-        if (!wallet) {
-            return;
-        }
-    }
-
-    private async getPrivateKey(): Promise<void> {
-        const privateKey = await this.bitcoinRPC.dumpPrivateKey(
-            this.walletAddress,
-            this.defaultWalletName,
-        );
-
-        if (!privateKey) {
-            throw new Error('Failed to get private key');
-        }
-
-        this.privateKey = privateKey;
-        this.success(`Private key: ${this.privateKey}`);
-    }
-
-    private async importPrivateKey(): Promise<void> {
-        if (!this.privateKey) {
-            throw new Error('Private key not set');
-        }
-
-        await this.bitcoinRPC.importPrivateKey(
-            this.privateKey,
-            Math.random().toString(),
-            false,
-            this.defaultWalletName,
-        );
-    }
-
-    private async getWallet(): Promise<void> {
-        await this.loadWallet();
-        await this.listWallets();
-        await this.getWalletAddress();
-
-        //await this.importPrivateKey();
-        //await this.getWalletAddress();
-
-        this.success(`Wallet loaded as ${this.walletAddress}`);
-    }*/
 
     protected getWalletAddress(): string {
         if (!this.walletInformation) throw new Error('Wallet information not set');
@@ -228,18 +133,10 @@ export abstract class BitcoinCore extends Logger {
 
         //await this.mineBlock(1);
 
-        const lastTx = await this.getFundingTransactionFromBlockHash(
-            '13fd40e6c4d00d55174b138e89fcdb4329e3cfe7424aa3a782f1c5da69a3ea0b',
-        );
-
         // we get UXTOs after loading the wallet
         /*const lastTx = await this.getTransactionFromHash(
             '7b1d3ae3cee88f377248907d9e5a8d70c4103b84c7405060d737e4edf387c6f3',
         );*/
-
-        if (!lastTx) throw new Error('Failed to get last transaction');
-
-        this.lastTx = lastTx;
     }
 
     protected async getFundingTransactionFromBlockHash(

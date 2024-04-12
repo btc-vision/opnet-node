@@ -1,23 +1,12 @@
 import { Logger } from '@btc-vision/motoswapcommon';
 import { PsbtInput, PsbtOutput } from 'bip174/src/lib/interfaces.js';
-import { BIP32Interface } from 'bip32';
-import {
-    networks,
-    opcodes,
-    Payment,
-    payments,
-    Psbt,
-    script,
-    Signer,
-    Transaction,
-} from 'bitcoinjs-lib';
+import { networks, Payment, payments, Psbt, Signer, Transaction } from 'bitcoinjs-lib';
 import { Network } from 'bitcoinjs-lib/src/networks.js';
 import { TransactionInput } from 'bitcoinjs-lib/src/psbt.js';
-import { tapTreeToList, toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
+import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 
 import { ECPairInterface } from 'ecpair';
 import { Vout } from '../blockchain-indexer/rpc/types/BitcoinRawTransaction.js';
-import { BitcoinHelper, TweakSettings } from './BitcoinHelper.js';
 
 export interface TapLeafScript {
     leafVersion: number;
@@ -31,7 +20,6 @@ export interface UpdateInput {
 
 export interface ITransaction {
     readonly from: string;
-    readonly to: string;
 
     readonly calldata?: Buffer;
     readonly value: bigint;
@@ -54,12 +42,7 @@ export interface PsbtOutputExtendedScript extends PsbtOutput {
 
 export type PsbtOutputExtended = PsbtOutputExtendedAddress | PsbtOutputExtendedScript;
 
-interface ScriptTree {
-    output: Buffer;
-    version?: number;
-}
-
-export class BSCTransaction extends Logger {
+export abstract class BSCTransaction extends Logger {
     protected static readonly MINIMUM_DUST: bigint = 330n;
 
     public readonly logColor: string = '#785def';
@@ -70,19 +53,15 @@ export class BSCTransaction extends Logger {
 
     protected readonly outputs: PsbtOutputExtended[] = [];
 
-    protected readonly tweakedSigner: Signer;
-
     protected feeOutput: PsbtOutputExtended | null = null;
     protected signed: boolean = false;
 
     protected tapData: Payment | null = null;
+    protected scriptData: Payment | null = null;
 
-    protected tapLeafScript: TapLeafScript[] = [];
-
-    public constructor(
+    protected constructor(
         protected readonly data: ITransaction,
         protected readonly salt: ECPairInterface,
-        protected readonly rndPubKey: BIP32Interface,
         protected readonly network: Network = networks.bitcoin,
         protected readonly feeRate: number = 1,
     ) {
@@ -100,96 +79,21 @@ export class BSCTransaction extends Logger {
             throw new Error(`Value is less than the minimum dust`);
         }
 
-        this.generateTapAddress(this.data.calldata);
-        this.tweakedSigner = this.getTweakedSigner(this.getTweakerHash());
-
         this.transaction = new Psbt({
             network: this.network,
         });
-
-        this.buildTransaction();
     }
 
-    public static generateTapAddress(
-        salt: ECPairInterface,
-        calldata: Buffer,
-        rndPubKey: BIP32Interface,
-        network: Network,
-    ): string {
-        /*const tweakedSigner = BitcoinHelper.tweakSigner(salt, {
-            network,
-        });*/
-
-        const leaf = this.getLeafScript(salt);
-        const scriptTree = BSCTransaction.getScriptTree(calldata, leaf);
-
-        /*const addr = payments.p2tr({
-            internalPubkey: toXOnly(salt.publicKey),
-            network,
-            redeem: redeem,
-            scriptTree: scriptTree,
-        }).address;*/
-
-        const addr = payments.p2tr({
-            internalPubkey: toXOnly(rndPubKey.publicKey),
-            scriptTree,
-            network,
-        }).address;
-
-        if (!addr) {
-            throw new Error('Failed to generate tap address');
-        }
-
-        return addr;
-    }
-
-    private static getLeafScript(salt: ECPairInterface): Buffer {
-        return script.compile([toXOnly(salt.publicKey), opcodes.OP_CHECKSIG]);
-    }
-
-    private static getScriptTree(calldata: Buffer, leaf: Buffer): [ScriptTree, ScriptTree] {
-        return [
-            {
-                output: leaf,
-                version: 192,
-            },
-            {
-                output: BitcoinHelper.compileData(calldata),
-                version: 192,
-            },
-        ];
-    }
-
-    public signTransaction(): string | null {
+    public signTransaction(contractAddress: string = this.getScriptAddress()): string | null {
         if (this.signed) throw new Error('Transaction is already signed');
         this.signed = true;
 
-        const inputs: PsbtInputExtended[] = this.getInputs();
-        const outputs: PsbtOutputExtended[] = this.getOutputs();
+        this.buildTransaction(contractAddress);
 
-        this.transaction.setMaximumFeeRate(1000000);
-        this.transaction.addInputs(inputs);
+        const builtTx = this.internalBuildTransaction(this.transaction);
 
-        for (let i = 0; i < this.updateInputs.length; i++) {
-            this.transaction.updateInput(i, this.updateInputs[i]);
-        }
-
-        this.transaction.addOutputs(outputs);
-
-        try {
-            this.transaction.signAllInputs(this.getSignerKey());
-            this.transaction.finalizeAllInputs();
-
-            const usedFee = this.transaction.getFee();
-            this.log(`Transaction fee: ${usedFee} - ${this.transaction.getFeeRate()}`);
-
+        if (builtTx) {
             return this.transaction.extractTransaction(false).toHex();
-        } catch (e) {
-            const err: Error = e as Error;
-
-            this.error(
-                `Something went wrong while getting building the transaction: ${err.message}`,
-            );
         }
 
         return null;
@@ -197,6 +101,49 @@ export class BSCTransaction extends Logger {
 
     public getTransaction(): Transaction {
         return this.transaction.extractTransaction(false);
+    }
+
+    public abstract requestUTXO(): Promise<void>;
+
+    public getScriptAddress(): string {
+        if (!this.scriptData || !this.scriptData.address) {
+            throw new Error('Tap data is required');
+        }
+
+        return this.scriptData.address;
+    }
+
+    public getTapAddress(): string {
+        if (!this.tapData || !this.tapData.address) {
+            throw new Error('Tap data is required');
+        }
+
+        return this.tapData.address;
+    }
+
+    protected internalInit(): void {
+        this.verifyTapAddress();
+
+        //console.log(this.generateTapData(), this.generateScriptAddress());
+
+        this.scriptData = payments.p2tr(this.generateScriptAddress());
+        this.tapData = payments.p2tr(this.generateTapData());
+    }
+
+    protected abstract buildTransaction(to?: string): void;
+
+    protected generateScriptAddress(): Payment {
+        return {
+            internalPubkey: this.internalPubKeyToXOnly(),
+            network: this.network,
+        };
+    }
+
+    protected generateTapData(): Payment {
+        return {
+            internalPubkey: this.internalPubKeyToXOnly(),
+            network: this.network,
+        };
     }
 
     protected updateInput(input: UpdateInput): void {
@@ -207,12 +154,16 @@ export class BSCTransaction extends Logger {
         return BigInt(btc * 100000000);
     }
 
-    protected getTapAddress(): string {
-        if (!this.tapData || !this.tapData.address) {
-            throw new Error('Tap data is required');
+    protected getWitness(): Buffer {
+        if (!this.tapData || !this.tapData.witness) {
+            throw new Error('Witness is required');
         }
 
-        return this.tapData.address;
+        if (this.tapData.witness.length === 0) {
+            throw new Error('Witness is empty');
+        }
+
+        return this.tapData.witness[this.tapData.witness.length - 1];
     }
 
     protected getTapOutput(): Buffer {
@@ -236,19 +187,7 @@ export class BSCTransaction extends Logger {
         return outputs;
     }
 
-    protected getPubKeyXOnly(): Buffer {
-        return toXOnly(this.tweakedSigner.publicKey);
-    }
-
     protected verifyTapAddress(): void {
-        //const tapAddress = this.getTapAddress();
-
-        /*if (tapAddress.address !== this.data.from) {
-            throw new Error(
-                `The specified address is not equal to the generated taproot address. (Generated: ${tapAddress.address}, Specified: ${this.data.from})`,
-            );
-        }*/
-
         if (!this.data.vout.scriptPubKey) {
             throw new Error('Address is required');
         }
@@ -257,90 +196,12 @@ export class BSCTransaction extends Logger {
     protected setFeeOutput(output: PsbtOutputExtended): void {
         this.feeOutput = output;
 
-        const fee = this.getTransactionFee();
+        const fee = this.estimateTransactionFees();
         if (fee > BigInt(output.value)) {
             throw new Error('Insufficient funds');
         }
 
         this.feeOutput.value = this.feeOutput.value - Number(fee);
-    }
-
-    protected getWitness(): Buffer[] {
-        if (!this.tapData || !this.tapData.witness) {
-            throw new Error('Witness is required');
-        }
-
-        return this.tapData?.witness;
-    }
-
-    protected buildTransaction(): void {
-        this.verifyTapAddress();
-
-        if (!this.data.calldata) {
-            throw new Error('Calldata is required');
-        }
-
-        if (!this.tapData?.scriptTree) {
-            throw new Error('Script tree is required');
-        }
-
-        const input: PsbtInputExtended = {
-            hash: this.data.txid,
-            index: this.data.vout.n,
-            witnessUtxo: {
-                value: Number(this.data.value),
-                script: this.getTapOutput(),
-            },
-            //tapInternalKey: this.getTapPubKeyXOnly(),
-        };
-
-        /*if (this.data.calldata) {
-            input.tapMerkleRoot = this.getTweakerHash();
-        }*/
-
-        console.log('input', input);
-
-        const redeem = {
-            output: this.getTapOutput(),
-            redeemVersion: 192,
-        };
-
-        const witness = this.getWitness();
-        this.tapLeafScript = [
-            {
-                leafVersion: redeem.redeemVersion,
-                script: redeem.output,
-                controlBlock: witness![witness!.length - 1],
-            },
-        ];
-
-        const updateInput = {
-            tapLeafScript: this.tapLeafScript,
-        };
-
-        console.log('updateInput', updateInput);
-
-        this.addInput(input);
-        this.updateInput(updateInput);
-
-        const sendAmount: bigint = this.data.value - BSCTransaction.MINIMUM_DUST;
-        const leaf = BSCTransaction.getLeafScript(this.salt);
-        const leaves = tapTreeToList(BSCTransaction.getScriptTree(this.data.calldata, leaf));
-        console.log('leaves', leaves);
-
-        this.addOutput({
-            value: Number(BSCTransaction.MINIMUM_DUST),
-            address: this.data.to,
-            tapInternalKey: toXOnly(this.rndPubKey.publicKey), //this.getTapPubKeyXOnly(),
-            tapTree: {
-                leaves: leaves,
-            },
-        });
-
-        this.setFeeOutput({
-            value: Number(sendAmount),
-            address: this.data.from,
-        });
     }
 
     protected addInput(input: PsbtInputExtended): void {
@@ -351,79 +212,63 @@ export class BSCTransaction extends Logger {
         this.outputs.push(output);
     }
 
-    protected getSignerKey(): Signer {
-        return this.tweakedSigner;
+    protected abstract getSignerKey(): Signer;
+
+    protected internalPubKeyToXOnly(): Buffer {
+        return toXOnly(this.salt.publicKey);
     }
 
-    protected getTransactionFee(): bigint {
+    private internalBuildTransaction(transaction: Psbt): boolean {
+        const inputs: PsbtInputExtended[] = this.getInputs();
+        const outputs: PsbtOutputExtended[] = this.getOutputs();
+
+        transaction.setMaximumFeeRate(1000000);
+        transaction.addInputs(inputs);
+
+        for (let i = 0; i < this.updateInputs.length; i++) {
+            transaction.updateInput(i, this.updateInputs[i]);
+        }
+
+        transaction.addOutputs(outputs);
+
+        try {
+            transaction.signAllInputs(this.getSignerKey());
+            transaction.finalizeAllInputs();
+
+            const usedFee = transaction.getFee();
+            this.log(`Transaction fee: ${usedFee} - ${transaction.getFeeRate()}`);
+
+            return true;
+        } catch (e) {
+            const err: Error = e as Error;
+
+            this.error(
+                `Something went wrong while getting building the transaction: ${err.message}`,
+            );
+        }
+
+        return false;
+    }
+
+    private estimateTransactionFees(): bigint {
         const fakeTx = new Psbt({
             network: this.network,
         });
 
-        fakeTx.setMaximumFeeRate(1000000);
-        fakeTx.addInputs(this.getInputs());
+        const builtTx = this.internalBuildTransaction(fakeTx);
 
-        for (let i = 0; i < this.updateInputs.length; i++) {
-            fakeTx.updateInput(i, this.updateInputs[i]);
+        if (builtTx) {
+            const tx = fakeTx.extractTransaction(false);
+            const size = tx.virtualSize();
+            const fee: number = this.feeRate * size + 1;
+
+            this.log(`Transaction fee estimated to: ${fee} - ${fakeTx.getFeeRate()}`);
+
+            return BigInt(Math.ceil(fee));
+        } else {
+            throw new Error(
+                `Could not build transaction to estimate fee. Something went wrong while building the transaction.`,
+            );
         }
-
-        fakeTx.addOutputs(this.getOutputs());
-        fakeTx.signAllInputs(this.getSignerKey());
-
-        const leafIndexFinalizerFn = BitcoinHelper.buildLeafIndexFinalizer(
-            this.tapLeafScript[0],
-            0,
-        );
-
-        fakeTx.finalizeInput(0, leafIndexFinalizerFn);
-        fakeTx.finalizeAllInputs();
-
-        const tx = fakeTx.extractTransaction(false);
-        const size = tx.virtualSize();
-        const fee: number = this.feeRate * size + 1;
-
-        this.log(`Transaction fee estimated to: ${fee} - ${fakeTx.getFeeRate()}`);
-
-        return BigInt(Math.ceil(fee));
-    }
-
-    private getTweakerHash(): Buffer | undefined {
-        return this.tapData?.hash;
-    }
-
-    private generateTapAddress(calldata?: Buffer): void {
-        const txData: Payment = {
-            internalPubkey: this.getTapPubKeyXOnly(),
-            //pubkey: this.getPubKeyXOnly(),
-            network: this.network,
-        };
-
-        if (calldata) {
-            const leaf = BSCTransaction.getLeafScript(this.salt);
-            txData.redeem = {
-                output: leaf,
-                redeemVersion: 192,
-            };
-
-            txData.scriptTree = BSCTransaction.getScriptTree(calldata, leaf);
-        }
-
-        this.tapData = payments.p2tr(txData);
-    }
-
-    private getTapPubKeyXOnly(): Buffer {
-        return toXOnly(this.salt.publicKey);
-    }
-
-    private getTweakedSigner(_tweakHash?: Buffer): Signer {
-        const settings: TweakSettings = {
-            network: this.network,
-        };
-
-        /*if (tweakHash) {
-            settings.tweakHash = _tweakHash;
-        }*/
-
-        return BitcoinHelper.tweakSigner(this.salt, settings);
     }
 }

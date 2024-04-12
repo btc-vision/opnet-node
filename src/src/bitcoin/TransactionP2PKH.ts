@@ -1,4 +1,3 @@
-import { BIP32Interface } from 'bip32';
 import { networks, Signer } from 'bitcoinjs-lib';
 import { Network } from 'bitcoinjs-lib/src/networks.js';
 import { ECPairInterface } from 'ecpair';
@@ -8,16 +7,17 @@ export class BSCSegwitTransaction extends BSCTransaction {
     constructor(
         data: ITransaction,
         salt: ECPairInterface,
-        rndPubKey: BIP32Interface,
         network: Network = networks.bitcoin,
         feeRate: number = 1,
     ) {
-        super(data, salt, rndPubKey, network, feeRate);
+        super(data, salt, network, feeRate);
+
+        this.internalInit();
     }
 
-    protected override buildTransaction(): void {
-        this.verifyTapAddress();
+    public async requestUTXO(): Promise<void> {}
 
+    protected override buildTransaction(to: string): void {
         const input: PsbtInputExtended = {
             hash: this.data.txid,
             index: this.data.vout.n,
@@ -29,11 +29,11 @@ export class BSCSegwitTransaction extends BSCTransaction {
 
         this.addInput(input);
 
-        console.log('input 2', input);
+        console.log('Segwit input ->', input);
 
         this.setFeeOutput({
             value: Number(this.data.value),
-            address: this.data.to,
+            address: to,
         });
     }
 
