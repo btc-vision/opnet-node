@@ -1,8 +1,8 @@
-import { Transaction } from 'bitcoinjs-lib';
+import { address, Transaction } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
 import { BitcoinHelper } from '../src/bitcoin/BitcoinHelper.js';
 import { BSCTransactionScriptPath } from '../src/bitcoin/BSCTransactionScriptPath.js';
-import { ITransaction } from '../src/bitcoin/Transaction.js';
+import { ITransaction, ITransactionDataContractInteraction } from '../src/bitcoin/Transaction.js';
 import { BSCSegwitTransaction } from '../src/bitcoin/TransactionP2PKH.js';
 import { Vout } from '../src/blockchain-indexer/rpc/types/BitcoinRawTransaction.js';
 import { BitcoinCore } from './BitcoinCore.js';
@@ -20,12 +20,18 @@ export class MineBlock extends BitcoinCore {
     );
 
     private readonly tapAddress: string =
-        'bcrt1pus9guqnzv9gkz9f9r0cvadz3fxhsgj2hflauguu6rt8kkwa4zwgspus25x';
+        'bcrt1p0l7zv2lts55yf74h67mxxfapksy0lc524lamwlalajx722m07fds378u3h';
+
+    private readonly contractAddress: string =
+        'bcrt1p8yjs29f87g7qau9v6rwecxhcqj447c5jvfqp9xgaa8ua40w4mzmsvnqwvx'; // rnd for now
+
+    private readonly lastBlockHash: string =
+        '003de0dab1ab330bfb91eddb592172a64fe5a4f0d81bd3cf9c8ed97a3ef8fb39';
 
     private readonly lastTxHash: string =
-        '3942375184e4a73b0c142eea9e0263f4e3c33bccba94c53d1e0acf426824744b';
+        'f843ce568fcf58dc327b5f40f29a2b2a81953c2e6043b687089e71e5cf460050';
 
-    private readonly transactionIndex: number = 1;
+    private readonly transactionIndex: number = 0;
 
     constructor() {
         super();
@@ -41,7 +47,6 @@ export class MineBlock extends BitcoinCore {
         });
 
         //await this.fundTaprootTransaction();
-        //await this.fundScriptPathTransaction();
 
         await this.sendScriptPathTransaction();
     }
@@ -54,8 +59,10 @@ export class MineBlock extends BitcoinCore {
         const fundingTransaction = await this.getFundingTransaction(); //await this.sendFundsToTapWallet(calldata);
         const vout: Vout = this.getVout(fundingTransaction);
 
+        const contractSecret = address.fromBech32(this.contractAddress);
+
         const voutValue = vout.value * 100000000;
-        const data: ITransaction = {
+        const data: ITransactionDataContractInteraction = {
             txid: fundingTransaction.getId(),
             vout: vout,
             from: this.getWalletAddress(), // wallet address
@@ -63,6 +70,7 @@ export class MineBlock extends BitcoinCore {
             value: BigInt(voutValue),
 
             customSigner: this.rndPubKey,
+            contractSecret: contractSecret.data,
         };
 
         const keyPair = this.getKeyPair();
@@ -106,9 +114,7 @@ export class MineBlock extends BitcoinCore {
     }
 
     private async getFundingTransaction(): Promise<Transaction> {
-        const txFromBlock = await this.getFundingTransactionFromBlockHash(
-            '356f30796e102a5566a926d9748359986411822677b76af2a454a2fadd0f3626',
-        );
+        const txFromBlock = await this.getFundingTransactionFromBlockHash(this.lastBlockHash);
 
         const txHash: string = this.lastTxHash || txFromBlock.txid;
 

@@ -74,33 +74,43 @@ export class BitcoinHelper {
         return BitcoinHelper.ECPair.fromPrivateKey(privKey, { network });
     }
 
-    public static compileData(calldata: Buffer, pubKey: Buffer): Buffer {
+    public static compileData(
+        calldata: Buffer,
+        pubKey: Buffer,
+        originalPubKey: Buffer,
+        contract: Buffer,
+    ): Buffer {
         const size = Buffer.alloc(4);
         size.writeUint32LE(calldata.byteLength, 0);
 
         return script.compile([
             pubKey,
-            opcodes.OP_CHECKSIG,
+            opcodes.OP_CHECKSIGVERIFY,
 
-            /*opcodes.OP_NOP9,
-                                  opcodes.OP_DEPTH,
-                                  opcodes.OP_1,
-                                  opcodes.OP_NUMEQUAL,
+            opcodes.OP_HASH160,
+            bitcoin.crypto.hash160(originalPubKey),
+            opcodes.OP_EQUALVERIFY,
 
-                                  opcodes.OP_IF,
-                                  opcodes.OP_DROP,
+            opcodes.OP_DEPTH,
+            opcodes.OP_2,
+            opcodes.OP_NUMEQUAL,
+            opcodes.OP_IF,
 
-                                  opcodes.OP_PUSHDATA1,
-                                  opcodes.OP_3,
-                                  Buffer.from('bsc'),
+            opcodes.OP_HASH160,
+            bitcoin.crypto.hash160(Buffer.from(contract)),
+            opcodes.OP_EQUALVERIFY,
 
-                                  opcodes.OP_PUSHDATA4,
-                                  size,
+            opcodes.OP_PUSHDATA1,
+            opcodes.OP_3,
+            Buffer.from('bsc'),
 
-                                  Buffer.from(calldata),
+            opcodes.OP_PUSHDATA4,
+            size,
 
-                                  opcodes.OP_NOP10,
-                                  opcodes.OP_ENDIF,*/
+            Buffer.from(calldata),
+
+            opcodes.OP_RESERVED2,
+            opcodes.OP_ENDIF,
         ]);
     }
 

@@ -6,7 +6,12 @@ import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 import { Taptree } from 'bitcoinjs-lib/src/types.js';
 import { ECPairInterface } from 'ecpair';
 import { BitcoinHelper, TweakSettings } from './BitcoinHelper.js';
-import { BSCTransaction, ITransaction, PsbtInputExtended, TapLeafScript } from './Transaction.js';
+import {
+    BSCTransaction,
+    ITransactionDataContractInteraction,
+    PsbtInputExtended,
+    TapLeafScript,
+} from './Transaction.js';
 
 export class BSCTransactionScriptPath extends BSCTransaction {
     private targetScriptRedeem: Payment | null = null;
@@ -20,7 +25,7 @@ export class BSCTransactionScriptPath extends BSCTransaction {
     private tapLeafScript: TapLeafScript | null = null;
 
     public constructor(
-        data: ITransaction,
+        protected readonly data: ITransactionDataContractInteraction,
         salt: ECPairInterface,
         randomKeyPair: ECPairInterface,
         network: Network = networks.bitcoin,
@@ -32,10 +37,17 @@ export class BSCTransactionScriptPath extends BSCTransaction {
             throw new Error('Calldata is required');
         }
 
+        if (!this.data.contractSecret) {
+            throw new Error('Contract secret is required');
+        }
+
         this.compiledTargetScript = BitcoinHelper.compileData(
             this.data.calldata,
             toXOnly(randomKeyPair.publicKey),
+            this.internalPubKeyToXOnly(),
+            this.data.contractSecret,
         );
+
         this.scriptTree = this.getScriptTree();
 
         this.internalInit();
@@ -62,7 +74,7 @@ export class BSCTransactionScriptPath extends BSCTransaction {
     public async requestUTXO(): Promise<void> {}
 
     protected override buildTransaction(contractAddress: string = this.getScriptAddress()): void {
-        const selectedRedeem = this.data.customSigner
+        const selectedRedeem = !!this.data.customSigner
             ? this.targetScriptRedeem
             : this.leftOverFundsScriptRedeem;
 
@@ -116,28 +128,10 @@ export class BSCTransactionScriptPath extends BSCTransaction {
             return;
         }
 
+        this.log(`Signing transaction with custom signer`);
+
         transaction.signInput(0, this.data.customSigner);
-
-        const customFinalizer = (_inputIndex: number, input: PsbtInput) => {
-            if (!this.tapLeafScript) {
-                throw new Error('Tap leaf script is required');
-            }
-
-            if (!input.tapScriptSig) {
-                throw new Error('Tap script signature is required');
-            }
-
-            const scriptSolution = [input.tapScriptSig[0].signature];
-            const witness = scriptSolution
-                .concat(this.tapLeafScript.script)
-                .concat(this.tapLeafScript.controlBlock);
-
-            return {
-                finalScriptWitness: this.witnessStackToScriptWitness(witness),
-            };
-        };
-
-        transaction.finalizeInput(0, customFinalizer);
+        transaction.finalizeInput(0, this.customFinalizer);
     }
 
     protected getSignerKey(): Signer {
@@ -145,9 +139,7 @@ export class BSCTransactionScriptPath extends BSCTransaction {
             throw new Error('Tweaked signer is required');
         }
 
-        console.log('signer', this.data.customSigner ? this.data.customSigner : this.salt);
-
-        return this.data.customSigner ? this.data.customSigner : this.salt;
+        return this.salt;
     }
 
     protected override generateScriptAddress(): Payment {
@@ -159,7 +151,7 @@ export class BSCTransactionScriptPath extends BSCTransaction {
     }
 
     protected override generateTapData(): Payment {
-        const selectedRedeem = this.data.customSigner
+        const selectedRedeem = !!this.data.customSigner
             ? this.targetScriptRedeem
             : this.leftOverFundsScriptRedeem;
 
@@ -178,6 +170,34 @@ export class BSCTransactionScriptPath extends BSCTransaction {
             redeem: selectedRedeem,
         };
     }
+
+    private customFinalizer = (_inputIndex: number, input: PsbtInput) => {
+        if (!this.tapLeafScript) {
+            throw new Error('Tap leaf script is required');
+        }
+
+        if (!input.tapScriptSig) {
+            throw new Error('Tap script signature is required');
+        }
+
+        if (!this.data.contractSecret) {
+            throw new Error('Contract secret is required');
+        }
+
+        const scriptSolution = [
+            this.data.contractSecret,
+            this.internalPubKeyToXOnly(),
+            input.tapScriptSig[0].signature,
+        ];
+
+        const witness = scriptSolution
+            .concat(this.tapLeafScript.script)
+            .concat(this.tapLeafScript.controlBlock);
+
+        return {
+            finalScriptWitness: this.witnessStackToScriptWitness(witness),
+        };
+    };
 
     private witnessStackToScriptWitness(witness: Buffer[]) {
         let buffer = Buffer.allocUnsafe(0);
@@ -208,35 +228,6 @@ export class BSCTransactionScriptPath extends BSCTransaction {
 
         return buffer;
     }
-
-    /*private buildLeafIndexFinalizer(
-        tapLeafScript: TapLeafScript,
-        leafIndex: number,
-    ): (
-        inputIndex: number,
-        _input: PsbtInput,
-        _tapLeafHashToFinalize?: Buffer,
-    ) => {
-        finalScriptWitness: Buffer | undefined;
-    } {
-        return (
-            inputIndex: number,
-            _input: PsbtInput,
-            _tapLeafHashToFinalize?: Buffer,
-        ): {
-            finalScriptWitness: Buffer | undefined;
-        } => {
-            try {
-                const scriptSolution = [Buffer.from([leafIndex]), Buffer.from([leafIndex])];
-                const witness = scriptSolution
-                    .concat(tapLeafScript.script)
-                    .concat(tapLeafScript.controlBlock);
-                return { finalScriptWitness: this.witnessStackToScriptWitness(witness) };
-            } catch (err) {
-                throw new Error(`Can not finalize taproot input #${inputIndex}: ${err}`);
-            }
-        };
-    }*/
 
     private getTweakerHash(): Buffer | undefined {
         return this.tapData?.hash;

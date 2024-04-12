@@ -18,7 +18,7 @@ export interface UpdateInput {
     tapLeafScript: TapLeafScript[];
 }
 
-export interface ITransaction {
+export interface ITransactionData {
     readonly from: string;
 
     readonly calldata?: Buffer;
@@ -26,9 +26,20 @@ export interface ITransaction {
 
     readonly txid: string;
     readonly vout: Vout;
+}
+
+export interface ITransactionDataSewgit extends ITransactionData {}
+
+export interface ITransactionDataContractInteraction extends ITransactionData {
+    readonly contractSecret: Buffer;
 
     readonly customSigner?: Signer;
 }
+
+export type ITransaction =
+    | ITransactionData
+    | ITransactionDataContractInteraction
+    | ITransactionDataSewgit;
 
 export interface PsbtInputExtended extends PsbtInput, TransactionInput {}
 
