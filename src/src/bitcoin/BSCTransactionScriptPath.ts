@@ -192,13 +192,6 @@ export class BSCTransactionScriptPath extends BSCTransaction {
             input.tapScriptSig[0].signature,
         ];
 
-        console.log(
-            'sign',
-            scriptSolution[0].toString('hex'),
-            scriptSolution[1].toString('hex'),
-            scriptSolution[2].toString('hex'),
-        );
-
         const witness = scriptSolution
             .concat(this.tapLeafScript.script)
             .concat(this.tapLeafScript.controlBlock);

@@ -74,24 +74,34 @@ export class BitcoinHelper {
         return BitcoinHelper.ECPair.fromPrivateKey(privKey, { network });
     }
 
+    public static splitBufferIntoChunks(buffer: Buffer, chunkSize: number): Array<Buffer[]> {
+        const chunks: Array<Buffer[]> = [];
+        for (let i = 0; i < buffer.length; i += chunkSize) {
+            const dataLength = Math.min(chunkSize, buffer.length - i);
+            const buf = Buffer.alloc(3);
+
+            buf.writeUInt8(opcodes.OP_PUSHDATA2, 0);
+            buf.writeInt16LE(dataLength, 1);
+
+            const buf2 = Buffer.alloc(dataLength);
+            for (let j = 0; j < dataLength; j++) {
+                buf2.writeUInt8(buffer[i + j], j);
+            }
+
+            chunks.push([buf2]); //buf,
+        }
+
+        return chunks;
+    }
+
     public static compileData(
         calldata: Buffer,
         pubKey: Buffer,
         originalPubKey: Buffer,
         contract: Buffer,
     ): Buffer {
-        const size = Buffer.alloc(4);
-        size.writeUint32LE(calldata.byteLength, 0);
-
-        const firstPushDataBuffer: Buffer = Buffer.alloc(1 + 1 + 3);
-        firstPushDataBuffer.writeUint8(opcodes.OP_PUSHDATA1, 0);
-        firstPushDataBuffer.writeUint8(3, 1);
-        firstPushDataBuffer.write('bsc', 2, 3, 'utf-8');
-
-        const callDataBuffer = Buffer.alloc(1 + 4 + calldata.byteLength);
-        callDataBuffer.writeUint8(opcodes.OP_PUSHDATA4, 0);
-        callDataBuffer.writeUint32LE(calldata.byteLength, 1);
-        calldata.copy(callDataBuffer, 5);
+        const firstPushDataBuffer: Buffer = Buffer.from('bsc', 'utf-8');
+        const dataChunks = BitcoinHelper.splitBufferIntoChunks(calldata, 520);
 
         const asm = [
             pubKey,
@@ -108,22 +118,18 @@ export class BitcoinHelper {
             opcodes.OP_DEPTH,
             opcodes.OP_1,
             opcodes.OP_NUMEQUAL,
-
             opcodes.OP_IF,
 
-            opcodes.OP_1NEGATE, // TOP stack ITEM become -1
-
             firstPushDataBuffer,
-            callDataBuffer,
-
-            opcodes.OP_0, // 0 mark the end of the calldata.
-
-            opcodes.OP_ENDIF,
+            opcodes.OP_1NEGATE,
+            ...dataChunks,
 
             opcodes.OP_ELSE,
             opcodes.OP_1,
             opcodes.OP_ENDIF,
-        ];
+        ].flat();
+
+        console.log(dataChunks);
 
         const compiled = script.compile(asm);
         const decompiled = script.decompile(compiled);
