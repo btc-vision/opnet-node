@@ -26,6 +26,8 @@ export interface ITransaction {
 
     readonly txid: string;
     readonly vout: Vout;
+
+    readonly customSigner?: Signer;
 }
 
 export interface PsbtInputExtended extends PsbtInput, TransactionInput {}
@@ -124,7 +126,7 @@ export abstract class BSCTransaction extends Logger {
     protected internalInit(): void {
         this.verifyTapAddress();
 
-        //console.log(this.generateTapData(), this.generateScriptAddress());
+        console.log(this.generateTapData(), this.generateScriptAddress());
 
         this.scriptData = payments.p2tr(this.generateScriptAddress());
         this.tapData = payments.p2tr(this.generateTapData());
@@ -218,6 +220,11 @@ export abstract class BSCTransaction extends Logger {
         return toXOnly(this.salt.publicKey);
     }
 
+    protected signInputs(transaction: Psbt): void {
+        transaction.signAllInputs(this.getSignerKey());
+        transaction.finalizeAllInputs();
+    }
+
     private internalBuildTransaction(transaction: Psbt): boolean {
         const inputs: PsbtInputExtended[] = this.getInputs();
         const outputs: PsbtOutputExtended[] = this.getOutputs();
@@ -232,8 +239,7 @@ export abstract class BSCTransaction extends Logger {
         transaction.addOutputs(outputs);
 
         try {
-            transaction.signAllInputs(this.getSignerKey());
-            transaction.finalizeAllInputs();
+            this.signInputs(transaction);
 
             const usedFee = transaction.getFee();
             this.log(`Transaction fee: ${usedFee} - ${transaction.getFeeRate()}`);

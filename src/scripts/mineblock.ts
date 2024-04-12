@@ -1,5 +1,5 @@
-import { BIP32Interface } from 'bip32';
 import { Transaction } from 'bitcoinjs-lib';
+import { ECPairInterface } from 'ecpair';
 import { BitcoinHelper } from '../src/bitcoin/BitcoinHelper.js';
 import { BSCTransactionScriptPath } from '../src/bitcoin/BSCTransactionScriptPath.js';
 import { ITransaction } from '../src/bitcoin/Transaction.js';
@@ -8,19 +8,24 @@ import { Vout } from '../src/blockchain-indexer/rpc/types/BitcoinRawTransaction.
 import { BitcoinCore } from './BitcoinCore.js';
 
 export class MineBlock extends BitcoinCore {
+    private readonly oldSeed: Buffer = Buffer.from(
+        'c60a9c3f4568a870fe4983ae56076a61b8bf17ebf9795841c3badb7b905f35f839438d8cc2a894f1b76c47a555e5675c942b06e34ebc627a08805187ac294e01',
+        'hex',
+    );
+
     private readonly rndSeedSelected: Buffer = this.rndSeed();
-    private readonly rndPubKey: BIP32Interface = BitcoinHelper.fromSeed(
-        Buffer.from(
-            'c60a9c3f4568a870fe4983ae56076a61b8bf17ebf9795841c3badb7b905f35f839438d8cc2a894f1b76c47a555e5675c942b06e34ebc627a08805187ac294e01',
-            'hex',
-        ),
+    private readonly rndPubKey: ECPairInterface = BitcoinHelper.fromSeedKeyPair(
+        this.oldSeed !== null ? this.oldSeed : this.rndSeedSelected,
+        this.network,
     );
 
     private readonly tapAddress: string =
-        'bcrt1p7wmzcv060evlcq83pru44qa7az0777egpe0pc6f73ghmmlarzmdqk8ylem';
+        'bcrt1pus9guqnzv9gkz9f9r0cvadz3fxhsgj2hflauguu6rt8kkwa4zwgspus25x';
 
     private readonly lastTxHash: string =
         '3942375184e4a73b0c142eea9e0263f4e3c33bccba94c53d1e0acf426824744b';
+
+    private readonly transactionIndex: number = 1;
 
     constructor() {
         super();
@@ -56,18 +61,22 @@ export class MineBlock extends BitcoinCore {
             from: this.getWalletAddress(), // wallet address
             calldata: calldata,
             value: BigInt(voutValue),
+
+            customSigner: this.rndPubKey,
         };
 
         const keyPair = this.getKeyPair();
         const tx: BSCTransactionScriptPath = new BSCTransactionScriptPath(
             data,
             keyPair,
+            this.rndPubKey,
             this.network,
+            1,
         );
 
         const tapAddr = tx.getScriptAddress();
         if (this.tapAddress !== tapAddr) {
-            throw new Error('Tap address mismatch');
+            throw new Error(`Tap address mismatch! Want: ${this.tapAddress} - Got: ${tapAddr}`);
         }
 
         this.info(`Script address: ${tapAddr} - Tap address: ${tx.getTapAddress()}`);
@@ -107,7 +116,7 @@ export class MineBlock extends BitcoinCore {
     }
 
     private getIndex(): number {
-        return 0;
+        return this.transactionIndex;
     }
 
     private getVout(fundingTransaction: Transaction): Vout {
