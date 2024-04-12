@@ -260,7 +260,7 @@ export abstract class BSCTransaction extends Logger {
             const err: Error = e as Error;
 
             this.error(
-                `Something went wrong while getting building the transaction: ${err.message}`,
+                `[internalBuildTransaction] Something went wrong while getting building the transaction: ${err.stack}`,
             );
         }
 

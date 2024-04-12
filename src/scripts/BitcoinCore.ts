@@ -129,7 +129,7 @@ export abstract class BitcoinCore extends Logger {
 
         await this.loadWallet();
 
-        //await this.mineBlock(1);
+        //await this.mineBlock(50);
 
         //await this.mineBlock(1);
 

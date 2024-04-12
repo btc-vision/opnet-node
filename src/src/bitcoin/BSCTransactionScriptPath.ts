@@ -48,6 +48,8 @@ export class BSCTransactionScriptPath extends BSCTransaction {
             this.data.contractSecret,
         );
 
+        console.log(this.compiledTargetScript.toString('hex'));
+
         this.scriptTree = this.getScriptTree();
 
         this.internalInit();
@@ -189,6 +191,13 @@ export class BSCTransactionScriptPath extends BSCTransaction {
             this.internalPubKeyToXOnly(),
             input.tapScriptSig[0].signature,
         ];
+
+        console.log(
+            'sign',
+            scriptSolution[0].toString('hex'),
+            scriptSolution[1].toString('hex'),
+            scriptSolution[2].toString('hex'),
+        );
 
         const witness = scriptSolution
             .concat(this.tapLeafScript.script)

@@ -83,7 +83,17 @@ export class BitcoinHelper {
         const size = Buffer.alloc(4);
         size.writeUint32LE(calldata.byteLength, 0);
 
-        return script.compile([
+        const firstPushDataBuffer: Buffer = Buffer.alloc(1 + 1 + 3);
+        firstPushDataBuffer.writeUint8(opcodes.OP_PUSHDATA1, 0);
+        firstPushDataBuffer.writeUint8(3, 1);
+        firstPushDataBuffer.write('bsc', 2, 3, 'utf-8');
+
+        const callDataBuffer = Buffer.alloc(1 + 4 + calldata.byteLength);
+        callDataBuffer.writeUint8(opcodes.OP_PUSHDATA4, 0);
+        callDataBuffer.writeUint32LE(calldata.byteLength, 1);
+        calldata.copy(callDataBuffer, 5);
+
+        const asm = [
             pubKey,
             opcodes.OP_CHECKSIGVERIFY,
 
@@ -91,27 +101,38 @@ export class BitcoinHelper {
             bitcoin.crypto.hash160(originalPubKey),
             opcodes.OP_EQUALVERIFY,
 
-            opcodes.OP_DEPTH,
-            opcodes.OP_2,
-            opcodes.OP_NUMEQUAL,
-            opcodes.OP_IF,
-
             opcodes.OP_HASH160,
             bitcoin.crypto.hash160(Buffer.from(contract)),
             opcodes.OP_EQUALVERIFY,
 
-            opcodes.OP_PUSHDATA1,
-            opcodes.OP_3,
-            Buffer.from('bsc'),
+            opcodes.OP_DEPTH,
+            opcodes.OP_1,
+            opcodes.OP_NUMEQUAL,
 
-            opcodes.OP_PUSHDATA4,
-            size,
+            opcodes.OP_IF,
 
-            Buffer.from(calldata),
+            opcodes.OP_1NEGATE, // TOP stack ITEM become -1
 
-            opcodes.OP_RESERVED2,
+            firstPushDataBuffer,
+            callDataBuffer,
+
+            opcodes.OP_0, // 0 mark the end of the calldata.
+
             opcodes.OP_ENDIF,
-        ]);
+
+            opcodes.OP_ELSE,
+            opcodes.OP_1,
+            opcodes.OP_ENDIF,
+        ];
+
+        const compiled = script.compile(asm);
+        const decompiled = script.decompile(compiled);
+
+        if (!decompiled) {
+            throw new Error('Failed to decompile script??');
+        }
+
+        return compiled;
     }
 
     public static fromWIF(
