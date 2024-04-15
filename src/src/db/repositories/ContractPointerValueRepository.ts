@@ -1,26 +1,68 @@
-import { ClientSession, Collection, Db } from 'mongodb';
-import { BaseRepository } from '@btc-vision/motoswapdb';
+import { BaseRepository } from '@btc-vision/motoswapcommon';
+import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
+import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
+import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
-import { Binary } from 'mongodb';
 
-export class ContractPointerValueRepository {
-    public moduleName: string = 'ContractKeyPointerRepository';
-    public logColor: string = '#afeeee';
+export interface IContractPointerValue {
+    pointer: StoragePointer;
+    value: MemoryValue;
+}
+
+export class ContractPointerValueRepository extends BaseRepository<IContractPointerValueDocument> {
+    public readonly logColor: string = '#afeeee';
 
     constructor(db: Db) {
-        
+        super(db);
     }
 
     public async getByContractAndPointer(
         contractAddress: string,
-        pointer: Binary,
-        currentSession?: ClientSession
-    ): Promise<IContractPointerValueDocument | null> {
-        const criteria: Partial<IContractPointerValueDocument> = {
+        pointer: StoragePointer,
+        currentSession?: ClientSession,
+    ): Promise<IContractPointerValue | null> {
+        const pointerToBinary = new Binary(pointer);
+
+        const criteria: Partial<Filter<IContractPointerValueDocument>> = {
             contractAddress: contractAddress,
-            pointer: pointer
+            pointer: pointerToBinary,
         };
 
-        return null;
+        const results = await this.queryOne(criteria, currentSession);
+        if (results === null) {
+            return null;
+        }
+
+        return {
+            pointer: results.pointer.buffer,
+            value: results.value.buffer,
+        };
+    }
+
+    public async setByContractAndPointer(
+        contractAddress: string,
+        bufPointer: StoragePointer,
+        bufValue: MemoryValue,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const pointerToBinary = new Binary(bufPointer);
+        const valueToBinary = new Binary(bufValue);
+
+        const criteria: Partial<Filter<IContractPointerValueDocument>> = {
+            contractAddress: contractAddress,
+            pointer: pointerToBinary,
+        };
+
+        const update: Partial<IContractPointerValueDocument> = {
+            contractAddress: contractAddress,
+            pointer: pointerToBinary,
+            value: valueToBinary,
+        };
+
+        await this.updatePartial(criteria, update, currentSession);
+    }
+
+    protected override getCollection(): Collection<IContractPointerValueDocument> {
+        return this._db.collection('InternalPointers');
     }
 }

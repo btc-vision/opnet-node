@@ -4,6 +4,8 @@ process.on('uncaughtException', function (err) {
 
 import gulp from 'gulp';
 import gulpcache from 'gulp-cached';
+
+import eslint from 'gulp-eslint';
 import logger from 'gulp-logger';
 import ts from 'gulp-typescript';
 
@@ -18,6 +20,9 @@ async function build() {
         tsProject
             .src()
             .pipe(gulpcache())
+            .pipe(eslint())
+            //.pipe(eslint.format())
+            //.pipe(eslint.failAfterError())
             .pipe(
                 logger({
                     before: 'Starting...',
@@ -88,15 +93,7 @@ gulp.task('default', async () => {
 
 gulp.task('watch', () => {
     gulp.watch(
-        [
-            'src/**/**/*.ts',
-            'src/**/*.ts',
-            'src/**/*.js',
-            'src/*.ts',
-            'src/*.js',
-            'src/**/*.mjs',
-            'src/*.mjs',
-        ],
+        ['src/**/**/*.ts', 'src/**/*.ts', 'src/**/*.js', 'src/*.ts', 'src/*.js'],
         async (cb) => {
             await build().catch((e) => {
                 console.log('Errored 2', e);

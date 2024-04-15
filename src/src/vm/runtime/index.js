@@ -1,22 +1,21 @@
-/**
- * @type {EvaluatedContext}
- */
 const stack = context;
-
-stack.logs = [];
-stack.errors = [];
 
 const console = {
     log: (...args) => {
-        stack.logs.push(args.join(' '));
+        if (args.length === 1 && typeof args[0] !== 'string') {
+            stack.logs.push(args[0]);
+        } else {
+            stack.logs.push(args.join(' '));
+        }
     },
     error: (...args) => {
         stack.errors.push(args.join(' '));
     },
 };
 
+const contract = new stack.ContractEvaluator(stack, console);
 (async () => {
-    stack.contract = await stack.instantiate(stack.initialBytecode, {});
+    await contract.init();
 
-    console.log('Contract instantiated');
+    contract.export();
 })();

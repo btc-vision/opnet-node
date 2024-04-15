@@ -1,7 +1,7 @@
+import { IBaseDocument } from '@btc-vision/motoswapcommon';
 import { Binary } from 'mongodb';
-import { IBaseDocument } from '@btc-vision/motoswapdb';
 
-export interface IContractPointerValueDocument {
+export interface IContractPointerValueDocument extends IBaseDocument {
     readonly contractAddress: string;
     readonly pointer: Binary;
     readonly value: Binary;

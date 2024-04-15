@@ -1,5 +1,6 @@
 import { MessagePort } from 'worker_threads';
 import { MessageType } from '../../../enum/MessageType.js';
+import { ThreadTypes } from '../../../thread/enums/ThreadTypes.js';
 import { ThreadMessageBase } from '../ThreadMessageBase.js';
 
 export enum LinkType {
@@ -9,6 +10,15 @@ export enum LinkType {
 
 export interface LinkData<T extends LinkType> {
     readonly type: T;
+
+    readonly targetThreadType: ThreadTypes;
+    readonly sourceThreadType: ThreadTypes;
+
+    readonly targetThreadId: number;
+    readonly sourceThreadId: number;
+
+    readonly mainTargetThreadType: ThreadTypes | null;
+    readonly mainTargetThreadId: number | null;
 
     readonly port: MessagePort;
 }

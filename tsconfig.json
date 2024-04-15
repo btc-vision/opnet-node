@@ -1,16 +1,17 @@
 {
 	"compilerOptions": {
-		"module": "esnext",
+		"module": "ESNext",
+		"target": "ESNext",
 		"declaration": true,
-		"target": "esnext",
 		"noImplicitAny": true,
-		"removeComments": true,
+		"removeComments": false,
 		"suppressImplicitAnyIndexErrors": false,
 		"preserveConstEnums": true,
 		"resolveJsonModule": true,
 		"skipLibCheck": true,
 		"sourceMap": false,
 		"moduleDetection": "force",
+		"allowImportingTsExtensions": false,
 		"experimentalDecorators": true,
 		"lib": [
 			"es6",
@@ -32,7 +33,17 @@
 		"allowJs": true,
 		"incremental": true,
 		"allowSyntheticDefaultImports": true,
-		"outDir": "build"
+		"outDir": "build",
+		"typeRoots": [
+			"node_modules/@types"
+		]
 	},
-	"include": ["src/**/*.ts", "src/*", "src/**/*.js", "src/*.ts", "src/*.js", "src/*.cjs"],
+	"include": [
+		"src/**/*.ts",
+		"src/*",
+		"src/**/*.js",
+		"src/*.ts",
+		"src/*.js",
+		"src/*.cjs"
+	]
 }

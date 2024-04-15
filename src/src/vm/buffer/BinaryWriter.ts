@@ -1,8 +1,12 @@
+import { BufferHelper } from '../../utils/BufferHelper.js';
+import { BinaryReader } from './BinaryReader.js';
 import {
     Address,
     ADDRESS_BYTE_LENGTH,
+    BlockchainStorage,
     i32,
     MethodMap,
+    PointerStorage,
     PropertyABIMap,
     Selector,
     SelectorsMap,
@@ -10,16 +14,13 @@ import {
     u32,
     u64,
     u8,
-} from './types/math';
-import { BinaryReader } from './BinaryReader';
+} from './types/math.js';
 
 export class BinaryWriter {
     private currentOffset: u32 = 0;
     private buffer: DataView = new DataView(new ArrayBuffer(ADDRESS_BYTE_LENGTH));
 
-    constructor() {
-
-    }
+    constructor() {}
 
     public writeU8(value: u8): void {
         this.allocSafe(1);
@@ -52,24 +53,20 @@ export class BinaryWriter {
     }
 
     public writeU256(bigIntValue: bigint): void {
-        // Step 2: Iterate over BigInt value in 64-bit (8 bytes) chunks
-        for (let i = 0n; i < 4n; i++) {
-            // Extract 64-bit (8-byte) chunk from the BigInt
-            const chunk = (bigIntValue >> 64n * i) & BigInt('0xFFFFFFFFFFFFFFFF');
+        const bytesToHex = BufferHelper.valueToUint8Array(bigIntValue);
+        if (bytesToHex.byteLength !== 32) {
+            console.log('Invalid u256 value:', bytesToHex);
 
-            // Step 3: Write the chunk to the DataView
-            // JavaScript's DataView does not support writing BigInt directly, so split into two 32-bit parts
-            const high = Number(chunk >> 32n);
-            const low = Number(chunk & BigInt('0xFFFFFFFF'));
+            throw new Error(`Invalid u256 value: ${bigIntValue}`);
+        }
 
-            // Write each part to the DataView
-            this.writeU32(high);
-            this.writeU32(low);
+        for (let i = 0; i < bytesToHex.byteLength; i++) {
+            this.writeU8(bytesToHex[i]);
         }
     }
 
-    public writeBytes(value: Uint8Array): void {
-        for (let i = 0; i < value.length; i++) {
+    public writeBytes(value: Uint8Array | Buffer): void {
+        for (let i = 0; i < value.byteLength; i++) {
             this.writeU8(value[i]);
         }
     }
@@ -95,19 +92,23 @@ export class BinaryWriter {
     public writeViewSelectorMap(map: SelectorsMap): void {
         this.writeU16(map.size);
 
-        map.forEach((value: PropertyABIMap, key: string, _map: Map<string, PropertyABIMap>): void => {
-            this.writeAddress(key);
-            this.writeSelectors(value);
-        });
+        map.forEach(
+            (value: PropertyABIMap, key: string, _map: Map<string, PropertyABIMap>): void => {
+                this.writeAddress(key);
+                this.writeSelectors(value);
+            },
+        );
     }
 
     public writeMethodSelectorsMap(map: MethodMap): void {
         this.writeU16(map.size);
 
-        map.forEach((value: Set<Selector>, key: Address, _map: Map<Address, Set<Selector>>): void => {
-            this.writeAddress(key);
-            this.writeMethodSelectorMap(value);
-        });
+        map.forEach(
+            (value: Set<Selector>, key: Address, _map: Map<Address, Set<Selector>>): void => {
+                this.writeAddress(key);
+                this.writeMethodSelectorMap(value);
+            },
+        );
     }
 
     public getBuffer(): Uint8Array {
@@ -119,6 +120,41 @@ export class BinaryWriter {
         this.clear();
 
         return buf;
+    }
+
+    public reset(): void {
+        this.currentOffset = 0;
+
+        this.buffer = new DataView(new ArrayBuffer(4));
+    }
+
+    public writeStorage(storage: BlockchainStorage): void {
+        this.reset();
+        this.writeU32(storage.size);
+
+        const keys: Address[] = Array.from(storage.keys());
+        const values: PointerStorage[] = Array.from(storage.values());
+
+        for (let i: i32 = 0; i < keys.length; i++) {
+            const address: Address = keys[i];
+            const slots: Map<u64, u64> = values[i];
+
+            this.writeAddress(address);
+            this.writeU32(slots.size);
+
+            const slotKeys: u64[] = Array.from(slots.keys());
+            for (let j: i32 = 0; j < slotKeys.length; j++) {
+                const slot: u64 = slotKeys[j];
+                this.writeU256(slot);
+
+                const slotValue = slots.get(slot);
+                if (slotValue === undefined || slotValue === null) {
+                    throw new Error(`Slot value not found.`);
+                }
+
+                this.writeU256(slotValue);
+            }
+        }
     }
 
     public toBytesReader(): BinaryReader {

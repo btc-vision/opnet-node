@@ -1,1 +1,1 @@
-export type MemoryValue = Buffer;
+export type MemoryValue = Uint8Array;

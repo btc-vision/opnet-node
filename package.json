@@ -9,35 +9,30 @@
         "start": "cd build && node index",
         "build": "gulp",
         "test": "jest --runInBand",
-        "submodules": "git submodule update --init --remote",
-        "installNanoexpress": "cd ./packages/nanoexpress && npm i && cd ../../",
-        "setup": "npm run submodules && npm run installNanoexpress && npm i && npm run build"
+        "setup": "npm i && npm run build"
     },
     "author": "FAB",
-    "license": "UNLICENSED",
+    "license": "LICENSE.md",
     "dependencies": {
         "@asyncapi/generator": "^1.17.13",
         "@asyncapi/html-template": "^2.2.1",
-        "@btc-vision/motoswapcommon": "^1.0.6",
-        "@btc-vision/motoswapdb": "^1.0.2",
+        "@btc-vision/bsi-common": "^1.0.14",
+        "@btc-vision/bsi-db": "^1.0.14",
         "@jest/types": "^29.6.3",
         "@types/bignumber.js": "^5.0.0",
         "@types/cors": "^2.8.17",
         "@types/debug": "^4.1.12",
         "@types/jest": "^29.5.12",
-        "@types/mongo-sanitize": "^1.0.3",
         "@types/swagger-ui-express": "^4.1.6",
         "asyncapi-validator": "^4.0.0",
         "babel-plugin-transform-import-meta": "^2.2.1",
-        "bignumber.js": "^9.1.2",
-        "bitcoinjs-lib": "^6.1.5",
-        "bytenode": "^1.5.6",
+        "bitcoinjs-lib": "github:btc-vision/bitcoinjs-lib",
         "chalk": "^5.3.0",
         "cors": "^2.8.5",
-        "ecpair": "^2.1.0",
         "eslint-plugin-openapi": "^0.0.4",
         "gulp": "^4.0.2",
         "gulp-cached": "^1.1.1",
+        "gulp-eslint": "^6.0.0",
         "gulp-logger": "^0.0.2",
         "gulp-typescript": "^6.0.0-alpha.1",
         "json-as-xlsx": "^2.5.6",
@@ -49,18 +44,17 @@
         "protobufjs": "^7.2.6",
         "supports-color": "^9.4.0",
         "swagger-ui-express": "^5.0.0",
-        "tiny-secp256k1": "^2.2.3",
         "toml": "^3.0.0",
-        "ts-jest": "^29.1.2"
+        "ts-jest": "^29.1.2",
+        "zeromq": "^6.0.0-beta.19"
     },
     "devDependencies": {
         "@babel/preset-env": "^7.24.3",
-        "@types/json2xls": "^0.0.0",
         "@types/node": "^20.11.30",
         "eslint": "^8.57.0",
         "jest": "^29.7.0",
         "prettier": "3.2.5",
         "typescript": "^5.4.3",
-        "typescript-eslint": "^7.4.0"
+        "typescript-eslint": "^7.5.0"
     }
 }

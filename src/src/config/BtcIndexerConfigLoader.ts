@@ -1,14 +1,17 @@
-import { ConfigBase, ConfigManager, IConfig } from '@btc-vision/motoswapcommon';
+import { ConfigManager, IConfig } from '@btc-vision/motoswapcommon';
+import { BitcoinZeroMQTopic } from '../blockchain-indexer/zeromq/enums/BitcoinZeroMQTopic.js';
 import { IndexerStorageType } from '../vm/storage/types/IndexerStorageType.js';
-import { IBtcIndexerConfig } from './interfaces/IBtcIndexerConfig.js';
 import { BtcIndexerConfig } from './BtcIndexerConfig.js';
+import { IBtcIndexerConfig } from './interfaces/IBtcIndexerConfig.js';
 
 export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerConfig>> {
     private defaultConfig: Partial<IBtcIndexerConfig> = {
         INDEXER: {
             ENABLED: false,
-            STORAGE_TYPE: IndexerStorageType.MONGODB
-        }
+            STORAGE_TYPE: IndexerStorageType.MONGODB,
+        },
+
+        ZERO_MQ: {},
     };
 
     constructor(fullFileName: string) {
@@ -22,7 +25,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
     protected getDefaultConfig(): IConfig<IBtcIndexerConfig> {
         const config: IConfig<IBtcIndexerConfig> = {
             ...super.getDefaultConfig(),
-            ...this.defaultConfig
+            ...this.defaultConfig,
         };
 
         return config;
@@ -45,6 +48,34 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 );
             }
         }
+
+        if (parsedConfig.ZERO_MQ) {
+            for (const topic in parsedConfig.ZERO_MQ) {
+                const subTopic = topic as BitcoinZeroMQTopic;
+                const zeroMQConfig = parsedConfig.ZERO_MQ[subTopic];
+
+                if (typeof zeroMQConfig !== 'object') {
+                    throw new Error(`Oops the property ZERO_MQ.${topic} is not an object.`);
+                }
+
+                if (!zeroMQConfig.ADDRESS || typeof zeroMQConfig.ADDRESS !== 'string') {
+                    throw new Error(`Oops the property ZERO_MQ.${topic}.ADDRESS is not a string.`);
+                }
+
+                if (!zeroMQConfig.PORT || typeof zeroMQConfig.PORT !== 'number') {
+                    throw new Error(`Oops the property ZERO_MQ.${topic}.PORT is not a string.`);
+                }
+            }
+        }
+
+        if (parsedConfig.RPC) {
+            if (
+                parsedConfig.RPC.THREADS === undefined ||
+                typeof parsedConfig.RPC.THREADS !== 'number'
+            ) {
+                throw new Error(`Oops the property RPC.ENABLED is not a boolean.`);
+            }
+        }
     }
 
     protected override parsePartialConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
@@ -53,7 +84,22 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         this.config.INDEXER = {
             ...parsedConfig.INDEXER,
-            ...this.config.INDEXER
+            ...this.config.INDEXER,
+        };
+
+        this.config.ZERO_MQ = {
+            ...parsedConfig.ZERO_MQ,
+            ...this.config.ZERO_MQ,
+        };
+
+        this.config.RPC = {
+            ...parsedConfig.RPC,
+            ...this.config.RPC,
+        };
+
+        this.config.BLOCKCHAIN = {
+            ...parsedConfig.BLOCKCHAIN,
+            ...this.config.BLOCKCHAIN,
         };
     }
 }

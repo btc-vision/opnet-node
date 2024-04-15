@@ -146,3 +146,4 @@ build
 
 fixdb/
 /.vs
+/.idea/inspectionProfiles/Project_Default.xml
