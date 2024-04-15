@@ -1,3 +1,3 @@
-import { IBaseDocument } from '@btc-vision/motoswapcommon';
+import { IBaseDocument } from '@btc-vision/bsi-common';
 
 export interface IContractDocument extends IBaseDocument {}

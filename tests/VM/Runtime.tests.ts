@@ -1,7 +1,9 @@
 import 'jest';
+import { EcKeyPair } from '@btc-vision/bsi-transaction/build/bitcoin/eckeypair/EcKeyPair.js';
+import { BSIContractScriptBuilder } from '@btc-vision/bsi-transaction/build/bitcoin/script/builders/BSIContractScriptBuilder.js';
+import { networks } from 'bitcoinjs-lib';
 
 import fs from 'fs';
-import { BitcoinHelper } from '../../src/src/bitcoin/BitcoinHelper.js';
 import { ABICoder, ABIDataTypes } from '../../src/src/vm/abi/ABICoder.js';
 import { BinaryWriter } from '../../src/src/vm/buffer/BinaryWriter.js';
 import {
@@ -24,7 +26,7 @@ async function sleep(ms: number) {
 describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
     let CONTRACT_ADDRESS: string = 'bc1p3hnqcq7jq6k30ryv8lfzx3ruuvkwr7gu50xz4acweqv4a7sj44cq9jhmq5';
 
-    const DEPLOYER_ADDRESS = BitcoinHelper.generateWallet();
+    const DEPLOYER_ADDRESS = EcKeyPair.generateRandomKeyPair(networks.regtest);
     const RANDOM_BLOCK_ID: bigint = 1073478347n;
     const EXECUTE_X_TIME: bigint = 100n;
     const BALANCE_TO_ADD: bigint = 1n;
@@ -43,10 +45,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     let vmEvaluator: ContractEvaluator | null = null;
     let vmContext: VMContext | null = null;
 
-    //let loaded: Promise<void> | null = null;
-
     async function load() {
-        //loaded = new Promise<void>(async (resolve, reject) => {
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
         expect(contractBytecode).toBeDefined();
 
@@ -59,9 +58,12 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         vmEvaluator = vmContext.contract;
 
-        let REAL_CONTRACT_ADDRESS = BitcoinHelper.generateNewContractAddress(
+        const scriptGenerator = new BSIContractScriptBuilder();
+        const REAL_CONTRACT_ADDRESS = scriptGenerator.getContractAddress(
             contractBytecode,
-            DEPLOYER_ADDRESS.publicKey,
+            DEPLOYER_ADDRESS,
+            DEPLOYER_ADDRESS,
+            networks.regtest,
         );
 
         if (!CONTRACT_ADDRESS) {
@@ -87,11 +89,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         const isInitialized = vmEvaluator.isInitialized();
         expect(isInitialized).toBeTruthy();
-
-        //resolve();
-        //});
-
-        //return await loaded;
     }
 
     beforeAll(async () => {
@@ -109,13 +106,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             await vmManager.closeDatabase();
         }
     });
-
-    /*afterAll(async () => {
-        if (vmManager) {
-            await vmManager.terminateBlock();
-            await vmManager.closeDatabase();
-        }
-    });*/
 
     test(`ABI should be defined.`, async () => {
         expect(decodedViewSelectors).toBeDefined();

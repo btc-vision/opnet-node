@@ -1,11 +1,10 @@
+import { BitcoinRPC, BlockDataWithTransactionData } from '@btc-vision/bsi-bitcoin-rpc';
+import { BlockchainInfo } from '@btc-vision/bsi-bitcoin-rpc/build/rpc/types/BlockchainInfo.js';
 import { ClientSession } from 'mongodb';
 import { Config } from '../config/Config.js';
 import { DBManagerInstance } from '../db/DBManager.js';
 import { IBlockchainInformationDocument } from '../db/documents/interfaces/IBlockchainInformationDocument.js';
 import { BlockchainInformationRepository } from '../db/repositories/BlockchainInformationRepository.js';
-import { BitcoinRPC } from './rpc/BitcoinRPC.js';
-import { BlockchainInfo } from './rpc/types/BlockchainInfo.js';
-import { BlockDataWithTransactionData } from './rpc/types/BlockData.js';
 
 export class BlockProcessor {
     private rpcClient: BitcoinRPC;

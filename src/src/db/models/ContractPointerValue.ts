@@ -1,6 +1,6 @@
 import { Binary } from 'mongodb';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
-import { BaseModel } from '@btc-vision/motoswapcommon';
+import { BaseModel } from '@btc-vision/bsi-common';
 
 export class ContractPointerValue extends BaseModel {
     public contractAddress: string;

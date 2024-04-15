@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/motoswapcommon';
+import { Logger } from '@btc-vision/bsi-common';
 import { IHttpRequest, IHttpResponse, INanoexpressApp, MiddlewareRoute } from 'nanoexpress';
 import { Routes, RouteType } from '../enums/Routes.js';
 

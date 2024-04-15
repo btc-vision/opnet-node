@@ -1,4 +1,4 @@
-import { Globals } from '@btc-vision/motoswapcommon';
+import { Globals } from '@btc-vision/bsi-common';
 import { Config } from '../config/Config.js';
 import { DBManagerInstance } from '../db/DBManager.js';
 import { MessageType } from '../threading/enum/MessageType.js';

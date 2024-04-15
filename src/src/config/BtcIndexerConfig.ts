@@ -1,4 +1,4 @@
-import { ConfigBase, IConfig } from '@btc-vision/motoswapcommon';
+import { ConfigBase, IConfig } from '@btc-vision/bsi-common';
 import {
     IBtcIndexerConfig,
     IndexerConfig,

@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/motoswapcommon';
+import { Logger } from '@btc-vision/bsi-common';
 import { parentPort, Worker } from 'worker_threads';
 import { MessageType } from '../enum/MessageType.js';
 import {

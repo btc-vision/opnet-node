@@ -1,6 +1,6 @@
 // @ts-ignore
 import Generator from '@asyncapi/generator';
-import { Globals, Logger } from '@btc-vision/motoswapcommon';
+import { Globals, Logger } from '@btc-vision/bsi-common';
 import AsyncApiValidator from 'asyncapi-validator';
 
 import express, { Express } from 'express';

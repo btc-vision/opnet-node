@@ -1,4 +1,4 @@
-import { Globals, Logger } from '@btc-vision/motoswapcommon';
+import { Globals, Logger } from '@btc-vision/bsi-common';
 import cors from 'cors';
 import nanoexpress, {
     IHttpRequest,

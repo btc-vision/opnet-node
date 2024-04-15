@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/motoswapcommon';
+import { Logger } from '@btc-vision/bsi-common';
 import zmq from 'zeromq';
 import { MessageType } from '../../threading/enum/MessageType.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
