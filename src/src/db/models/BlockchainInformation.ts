@@ -1,4 +1,4 @@
-import { BaseModel } from '@btc-vision/motoswapcommon';
+import { BaseModel } from '@btc-vision/bsi-common';
 import { IBlockchainInformationDocument } from '../documents/interfaces/IBlockchainInformationDocument.js';
 
 export class BlockchainInformation extends BaseModel {

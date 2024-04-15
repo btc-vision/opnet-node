@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/motoswapcommon';
+import { Logger } from '@btc-vision/bsi-common';
 import { SubscriptionType } from '../enums/Subscriptions.js';
 import { PossibleSubscriptions, TypedNotification } from './PossibleSubscriptions.js';
 

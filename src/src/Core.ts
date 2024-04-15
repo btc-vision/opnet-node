@@ -1,4 +1,4 @@
-import { Globals, Logger } from '@btc-vision/motoswapcommon';
+import { Globals, Logger } from '@btc-vision/bsi-common';
 import { Worker } from 'worker_threads';
 import { ServicesConfigurations } from './api/services/ServicesConfigurations.js';
 import { Config } from './config/Config.js';

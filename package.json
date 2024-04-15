@@ -16,8 +16,10 @@
     "dependencies": {
         "@asyncapi/generator": "^1.17.13",
         "@asyncapi/html-template": "^2.2.1",
+        "@btc-vision/bsi-bitcoin-rpc": "^1.0.0",
         "@btc-vision/bsi-common": "^1.0.14",
         "@btc-vision/bsi-db": "^1.0.14",
+        "@btc-vision/bsi-transaction": "^1.0.0",
         "@jest/types": "^29.6.3",
         "@types/bignumber.js": "^5.0.0",
         "@types/cors": "^2.8.17",

@@ -1,5 +1,5 @@
 import 'jest';
-import { BitcoinNetwork, BlockchainConfig } from '@btc-vision/motoswapcommon';
+import { BitcoinNetwork, BlockchainConfig } from '@btc-vision/bsi-common';
 
 import { BitcoinRPC } from '../../src/src/blockchain-indexer/rpc/BitcoinRPC.js';
 

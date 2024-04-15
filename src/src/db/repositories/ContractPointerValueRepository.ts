@@ -1,4 +1,4 @@
-import { BaseRepository } from '@btc-vision/motoswapcommon';
+import { BaseRepository } from '@btc-vision/bsi-common';
 import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
 import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';

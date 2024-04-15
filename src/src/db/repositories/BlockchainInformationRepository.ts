@@ -1,4 +1,4 @@
-import { BaseRepository } from '@btc-vision/motoswapcommon';
+import { BaseRepository } from '@btc-vision/bsi-common';
 import { Collection, Db, Filter } from 'mongodb';
 import { IBlockchainInformationDocument } from '../documents/interfaces/IBlockchainInformationDocument.js';
 import { BlockchainInformation } from '../models/BlockchainInformation.js';

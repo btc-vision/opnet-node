@@ -1,9 +1,9 @@
+import { BitcoinRawTransactionParams } from '@btc-vision/bsi-bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import { GetTransaction } from '../../../threading/interfaces/thread-messages/messages/api/GetTransaction.js';
 import { RPCMessage } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { BitcoinRawTransactionParams } from '../../rpc/types/BitcoinRawTransaction.js';
 import { BitcoinZeroMQTopic } from '../enums/BitcoinZeroMQTopic.js';
 import { ZeroMQ } from '../ZeroMQ.js';
 

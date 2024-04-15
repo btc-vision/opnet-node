@@ -1,4 +1,4 @@
-import { IBaseDocument } from '@btc-vision/motoswapcommon';
+import { IBaseDocument } from '@btc-vision/bsi-common';
 
 export interface IBlockchainInformationDocument extends IBaseDocument {
     network: string;
