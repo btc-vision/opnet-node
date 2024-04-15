@@ -1,13 +1,13 @@
 import type { Config } from '@jest/types';
 import { BabelConfig } from 'ts-jest';
 
-const esModules = ['chalk', 'supports-color', '@btc-vision/motoswapcommon', '@btc-vision/motoswapdb'].join('|');
+const esModules = ['chalk', 'supports-color', '@btc-vision/bsi-common', '@btc-vision/bsi-db'].join(
+    '|',
+);
 
 const babelConfig: BabelConfig = {
     presets: ['@babel/preset-env'],
-    plugins: [
-        ["babel-plugin-transform-import-meta", { "module": "ES6" }]
-    ]
+    plugins: [['babel-plugin-transform-import-meta', { module: 'ES6' }]],
 };
 
 // @ts-ignore

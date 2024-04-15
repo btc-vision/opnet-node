@@ -1,4 +1,4 @@
-import { Logger, UtilsConfigurations } from '@btc-vision/motoswapcommon';
+import { Logger, UtilsConfigurations } from '@btc-vision/bsi-common';
 import fs from 'fs';
 import { MessageChannel, MessagePort, parentPort, Worker, WorkerOptions } from 'worker_threads';
 import { ServicesConfigurations } from '../api/services/ServicesConfigurations.js';

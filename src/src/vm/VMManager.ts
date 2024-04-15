@@ -1,4 +1,4 @@
-import { Globals, Logger } from '@btc-vision/motoswapcommon';
+import { Globals, Logger } from '@btc-vision/bsi-common';
 import fs from 'fs';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
@@ -49,16 +49,6 @@ export class VMManager extends Logger {
         await this.vmBitcoinBlock.terminate();
     }
 
-    // don't even question it ????????????????
-    private rndPromise(): Promise<void> {
-        // ??????????????
-        return new Promise<void>((resolve) => {
-            setTimeout(() => {
-                resolve();
-            }, 0);
-        });
-    }
-
     public async loadContractFromBytecode(contractBytecode: Buffer): Promise<VMContext> {
         const contextOptions: EvaluatedContext = {
             context: {
@@ -105,6 +95,16 @@ export class VMManager extends Logger {
         return contextOptions.context;
     }
 
+    // don't even question it ????????????????
+    private rndPromise(): Promise<void> {
+        // ??????????????
+        return new Promise<void>((resolve) => {
+            setTimeout(() => {
+                resolve();
+            }, 0);
+        });
+    }
+
     private async setStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
@@ -114,7 +114,7 @@ export class VMManager extends Logger {
     }
 
     private async getStorage(
-        address: string,
+        address: BitcoinAddress,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,

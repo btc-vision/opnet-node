@@ -1,4 +1,4 @@
-import { BlockchainConfig, IConfig, IConfigTemplate } from '@btc-vision/motoswapcommon';
+import { BlockchainConfig, IConfig, IConfigTemplate } from '@btc-vision/bsi-common';
 import { BitcoinZeroMQTopic } from '../../blockchain-indexer/zeromq/enums/BitcoinZeroMQTopic.js';
 import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';
 

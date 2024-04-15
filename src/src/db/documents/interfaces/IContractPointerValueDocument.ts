@@ -1,4 +1,4 @@
-import { IBaseDocument } from '@btc-vision/motoswapcommon';
+import { IBaseDocument } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 
 export interface IContractPointerValueDocument extends IBaseDocument {

@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/motoswapcommon';
+import { Logger } from '@btc-vision/bsi-common';
 import { VMStorage } from './storage/VMStorage.js';
 
 export class VMBitcoinBlock extends Logger {
