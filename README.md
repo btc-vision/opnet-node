@@ -65,4 +65,4 @@ Before launching the indexer, configure the environment variables and settings a
 
 ## License
 
-View the licence by clicking [here](https://github.com/btc-vision/bsi/blob/main/LICENCE.md).
+View the licence by clicking [here](https://github.com/btc-vision/bsi/blob/main/LICENSE.md).
