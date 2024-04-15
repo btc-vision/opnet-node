@@ -55,7 +55,7 @@ export class Core extends Logger {
     private onLinkThreadRequest(msg: LinkThreadRequestMessage, threadType: ThreadTypes): void {
         const data: LinkThreadRequestData = msg.data;
         data.mainTargetThreadType = threadType;
-        
+
         const targetThread = this.masterThreads[data.threadType];
 
         if (!targetThread) {
@@ -122,11 +122,11 @@ export class Core extends Logger {
                 resolve();
             });
 
-            thread.on('exit', (e: any) => {
+            thread.on('exit', (e: Error) => {
                 this.error(`Thread #${i} died. {ExitCode -> ${e}}`);
             });
 
-            thread.on('error', (e: any) => {
+            thread.on('error', (e: Error) => {
                 this.error(`Thread #${i} errored. {Details: ${e.stack}}`);
             });
 

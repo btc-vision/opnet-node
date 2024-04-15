@@ -1,6 +1,12 @@
 import { Globals, Logger } from '@btc-vision/motoswapcommon';
 import cors from 'cors';
-import nanoexpress, { IHttpRequest, IHttpResponse, INanoexpressApp, IWebSocket } from 'nanoexpress';
+import nanoexpress, {
+    IHttpRequest,
+    IHttpResponse,
+    INanoexpressApp,
+    IWebSocket,
+    MiddlewareRoute,
+} from 'nanoexpress';
 import { DefinedRoutes } from './routes/DefinedRoutes.js';
 
 Globals.register();
@@ -17,7 +23,7 @@ export class Server extends Logger {
         super();
     }
 
-    public createServer(): void {
+    public async createServer(): Promise<void> {
         // ERROR HANDLING
         this.app.setErrorHandler(
             (_err: Error, _req: IHttpRequest, res: IHttpResponse): IHttpResponse => {
@@ -46,7 +52,7 @@ export class Server extends Logger {
         });
 
         //LISTEN
-        this.app.listen(this.serverPort);
+        await this.app.listen(this.serverPort);
         this.log(`Server listening on port ${this.serverPort}.`);
     }
 
@@ -55,7 +61,7 @@ export class Server extends Logger {
             this.serverPort = port;
         }
 
-        this.createServer();
+        await this.createServer();
     }
 
     private loadRoutes(): void {
@@ -65,18 +71,18 @@ export class Server extends Logger {
 
             this.log(`Loading route: ${path} (${routeData.type})`);
 
-            this.app[routeData.type](path, routeData.handler as any);
+            this.app[routeData.type](path, routeData.handler as unknown as MiddlewareRoute);
         }
     }
 
     /**
      * Handles new websocket connections.
-     * @param req The request
+     * @param _req The request
      * @param res The response
      * @private
      * @async
      */
-    private async onNewWebsocketConnection(req: IHttpRequest, res: IHttpResponse): Promise<void> {
+    private async onNewWebsocketConnection(_req: IHttpRequest, res: IHttpResponse): Promise<void> {
         this.log('New websocket connection detected');
 
         // @ts-ignore
@@ -94,7 +100,11 @@ export class Server extends Logger {
         });
     }
 
-    private async handleAny(req: IHttpRequest, res: IHttpResponse, next: any): Promise<void> {
+    private async handleAny(
+        _req: IHttpRequest,
+        res: IHttpResponse,
+        next: (err?: Error | null | undefined, done?: boolean | undefined) => void,
+    ): Promise<void> {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
         res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');

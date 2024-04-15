@@ -1,8 +1,12 @@
 import { IHttpRequest, IHttpResponse } from 'nanoexpress';
-import { SubscriptionType } from '../../blockchain-indexer/shared/enums/Subscriptions.js';
-import { NewBlockSubscription } from '../../blockchain-indexer/shared/interfaces/NewBlockSubscription.js';
-import { SharedSubscriptionManager } from '../../blockchain-indexer/shared/subscription/SharedSubscriptionManager.js';
+import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { MessageType } from '../../threading/enum/MessageType.js';
+import { GetBlock } from '../../threading/interfaces/thread-messages/messages/api/GetBlock.js';
+import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+
+import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { Routes, RouteType } from '../enums/Routes.js';
+import { ServerThread } from '../ServerThread.js';
 import { Route } from './Route.js';
 
 export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
@@ -11,12 +15,12 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
     }
 
     protected initialize(): void {
-        SharedSubscriptionManager.subscribe(
+        /*SharedSubscriptionManager.subscribe(
             SubscriptionType.NEW_BLOCK,
             (blockData: NewBlockSubscription) => {
                 this.onNewBlock(blockData);
             },
-        );
+        );*/
     }
 
     /**
@@ -29,22 +33,41 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
      * @response default - Unexpected error
      * @responseContent {HeapBlock} 200.application/json
      */
-    protected onRequest(
-        req: IHttpRequest,
+    protected async onRequest(
+        _req: IHttpRequest,
         res: IHttpResponse,
-        next?: (err: Error | null | undefined, done: boolean | undefined) => unknown,
-    ): void {
-        try {
-            res.status(200);
+        _next?: (err: Error | null | undefined, done: boolean | undefined) => unknown,
+    ): Promise<void> {
+        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK> = {
+            type: MessageType.RPC_METHOD,
+            data: {
+                rpcMethod: BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK,
+            } as GetBlock,
+        };
 
-            res.json({ api: 'is working!' });
+        const currentBlock = await ServerThread.sendMessageToThread(
+            ThreadTypes.BITCOIN_RPC,
+            currentBlockMsg,
+        );
+
+        try {
+            if (!currentBlock) {
+                res.status(400);
+                res.json({ error: 'Something went wrong.' });
+            } else {
+                res.status(200);
+                res.json(currentBlock);
+            }
         } catch (err: unknown) {
             let e = err as Error;
             this.error(e.stack);
+
+            res.status(500);
+            res.endWithoutBody();
         }
     }
 
-    private onNewBlock(blockData: NewBlockSubscription): void {
+    /*private onNewBlock(blockData: NewBlockSubscription): void {
         this.log(`New block: ${blockData.blockHash}`);
-    }
+    }*/
 }

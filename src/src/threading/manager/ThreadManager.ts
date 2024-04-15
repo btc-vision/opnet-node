@@ -71,14 +71,22 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
         }
     }
 
-    private async onLinkThread(msg: LinkThreadMessage<LinkType>): Promise<void> {
+    public async onLinkThread(msg: LinkThreadMessage<LinkType>): Promise<void> {
         const targetThreadType = msg.data.targetThreadType;
         const targetThreadId = msg.data.targetThreadId;
+
+        if (this.threadManager.threadType !== targetThreadType) {
+            return;
+        }
 
         await this.threadManager.onThreadSetLinkPort(targetThreadType, targetThreadId, msg);
     }
 
-    private async onLinkThreadRequest(msg: LinkThreadRequestMessage): Promise<void> {
+    public async onLinkThreadRequest(msg: LinkThreadRequestMessage): Promise<void> {
+        if (this.threadManager.threadType !== msg.data.threadType) {
+            return;
+        }
+
         await this.threadManager.onCreateLinkThreadRequest(msg);
     }
 

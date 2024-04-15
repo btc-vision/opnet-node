@@ -20,11 +20,12 @@ class VMThread extends Thread<ThreadTypes.VM> {
         await this.vmManager.init();
     }
 
-    protected async onMessage(_message: any): Promise<void> {}
+    protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
-    protected onLinkMessage(type: ThreadTypes, m: ThreadMessageBase<MessageType>): Promise<void> {
-        return Promise.resolve(undefined);
-    }
+    protected async onLinkMessage(
+        type: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<void> {}
 }
 
 new VMThread();

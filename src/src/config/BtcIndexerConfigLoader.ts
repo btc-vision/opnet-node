@@ -51,12 +51,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         if (parsedConfig.ZERO_MQ) {
             for (const topic in parsedConfig.ZERO_MQ) {
-                if (!Object.values(IndexerStorageType).includes(topic as IndexerStorageType)) {
-                    throw new Error(
-                        `Oops the property ZERO_MQ.${topic} is not a valid IndexerStorageType enum value.`,
-                    );
-                }
-
                 const subTopic = topic as BitcoinZeroMQTopic;
                 const zeroMQConfig = parsedConfig.ZERO_MQ[subTopic];
 
@@ -68,9 +62,18 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                     throw new Error(`Oops the property ZERO_MQ.${topic}.ADDRESS is not a string.`);
                 }
 
-                if (!zeroMQConfig.PORT || typeof zeroMQConfig.PORT !== 'string') {
+                if (!zeroMQConfig.PORT || typeof zeroMQConfig.PORT !== 'number') {
                     throw new Error(`Oops the property ZERO_MQ.${topic}.PORT is not a string.`);
                 }
+            }
+        }
+
+        if (parsedConfig.RPC) {
+            if (
+                parsedConfig.RPC.THREADS === undefined ||
+                typeof parsedConfig.RPC.THREADS !== 'number'
+            ) {
+                throw new Error(`Oops the property RPC.ENABLED is not a boolean.`);
             }
         }
     }
@@ -87,6 +90,16 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         this.config.ZERO_MQ = {
             ...parsedConfig.ZERO_MQ,
             ...this.config.ZERO_MQ,
+        };
+
+        this.config.RPC = {
+            ...parsedConfig.RPC,
+            ...this.config.RPC,
+        };
+
+        this.config.BLOCKCHAIN = {
+            ...parsedConfig.BLOCKCHAIN,
+            ...this.config.BLOCKCHAIN,
         };
     }
 }

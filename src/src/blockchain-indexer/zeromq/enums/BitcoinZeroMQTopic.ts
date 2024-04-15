@@ -1,7 +1,8 @@
 export enum BitcoinZeroMQTopic {
-    RawBlock = 'rawblock',
-    RawTx = 'rawtxn',
-    HashTx = 'hashtx',
-    HashBlock = 'hashblock',
-    Everything = 'everything',
+    HASHTX = 'HASHTX',
+    RAWTX = 'RAWTX',
+    HASHBLOCK = 'HASHBLOCK',
+    RAWBLOCK = 'RAWBLOCK',
+    SEQUENCE = 'SEQUENCE',
+    EVERYTHING = 'EVERYTHING',
 }
