@@ -38,6 +38,8 @@ To get started with the BSI-Indexer, follow these setup instructions:
 
 - Node.js version 20.x or higher
 - npm (Node Package Manager)
+- Bitcoin Node (Latest version)
+- MongoDB 6.1
 - Docker (optional, for container-based deployment)
 
 ### Installation
