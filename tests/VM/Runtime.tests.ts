@@ -2,6 +2,7 @@ import 'jest';
 import { EcKeyPair } from '@btc-vision/bsi-transaction/build/bitcoin/eckeypair/EcKeyPair.js';
 import { BSIContractScriptBuilder } from '@btc-vision/bsi-transaction/build/bitcoin/script/builders/BSIContractScriptBuilder.js';
 import { networks } from 'bitcoinjs-lib';
+import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 
 import fs from 'fs';
 import { ABICoder, ABIDataTypes } from '../../src/src/vm/abi/ABICoder.js';
@@ -58,13 +59,13 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         vmEvaluator = vmContext.contract;
 
-        const scriptGenerator = new BSIContractScriptBuilder();
-        const REAL_CONTRACT_ADDRESS = scriptGenerator.getContractAddress(
-            contractBytecode,
-            DEPLOYER_ADDRESS,
-            DEPLOYER_ADDRESS,
+        const scriptGenerator = new BSIContractScriptBuilder(
+            toXOnly(DEPLOYER_ADDRESS.publicKey),
+            toXOnly(DEPLOYER_ADDRESS.publicKey),
             networks.regtest,
         );
+
+        const REAL_CONTRACT_ADDRESS = scriptGenerator.getContractAddress(contractBytecode);
 
         if (!CONTRACT_ADDRESS) {
             CONTRACT_ADDRESS = REAL_CONTRACT_ADDRESS;

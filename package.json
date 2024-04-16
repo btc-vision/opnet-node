@@ -11,12 +11,12 @@
         "test": "jest --runInBand",
         "setup": "npm i && npm run build"
     },
-    "author": "FAB",
-    "license": "LICENSE.md",
+    "author": "BlobMaster41",
+    "license": "LICENSE.MD",
     "dependencies": {
         "@asyncapi/generator": "^1.17.13",
         "@asyncapi/html-template": "^2.2.1",
-        "@btc-vision/bsi-bitcoin-rpc": "^1.0.0",
+        "@btc-vision/bsi-bitcoin-rpc": "^1.0.1",
         "@btc-vision/bsi-common": "^1.0.14",
         "@btc-vision/bsi-db": "^1.0.14",
         "@btc-vision/bsi-transaction": "^1.0.0",
