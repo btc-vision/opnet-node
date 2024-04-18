@@ -138,9 +138,9 @@ export class BlockProcessor {
                 const scriptArray: string[] = tapScript.toString().split(' ');
 
                 if (this.validateMagicNumber(scriptArray)) {
-                    const senderSignature: string = scriptArray[1];
-                    const from: string = scriptArray[5];
-                    const to: string = scriptArray[9];
+                    const tweakedPublicKey: string = scriptArray[1];
+                    const originalPublicKey: string = scriptArray[5];
+                    const contract: string = scriptArray[9];
                     const callData: string = '';
 
                     let i: number = 18;
