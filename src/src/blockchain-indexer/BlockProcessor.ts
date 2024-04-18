@@ -34,16 +34,6 @@ export class BlockProcessor {
         const blockchainInfo: IBlockchainInformationDocument =
             await this.blockchainInfoRepository.getByNetwork(this.network);
 
-        // No forced start block height
-        if (startBlockHeight === -1) {
-            // Check for block to rescan
-            for (const rescanHeight of blockchainInfo.toRescanBlock) {
-                const block = await this.getBlock(rescanHeight);
-
-                await this.processBlock(block);
-            }
-        }
-
         // Process block either from the forced start height
         // or from the last in progress block saved in the database
         let blockHeightInProgress: number =
@@ -108,10 +98,6 @@ export class BlockProcessor {
         } catch (e: unknown) {
             const error = e as Error;
             await session.abortTransaction();
-            await this.blockchainInfoRepository.addBlockToRescanBlock(
-                this.network,
-                blockData.height,
-            );
         } finally {
             await session.endSession();
         }
@@ -151,7 +137,7 @@ export class BlockProcessor {
 
                 const scriptArray: string[] = tapScript.toString().split(' ');
 
-                if (this.validateSignature(scriptArray)) {
+                if (this.validateMagicNumber(scriptArray)) {
                     const senderSignature: string = scriptArray[1];
                     const from: string = scriptArray[5];
                     const to: string = scriptArray[9];
@@ -195,25 +181,9 @@ export class BlockProcessor {
         }
     }
 
-    private validateSignature(scriptArray: string[]): boolean {
+    private validateMagicNumber(scriptArray: string[]): boolean {
         return (
-            scriptArray.length >= 21 &&
-            scriptArray[0] === '32' &&
-            scriptArray[2] === 'OP_CHECKSIGVERIFY' &&
-            scriptArray[3] === 'OP_HASH160' &&
-            scriptArray[4] === '20' &&
-            scriptArray[6] === 'OP_EQUALVERIFY' &&
-            scriptArray[7] === 'OP_HASH160' &&
-            scriptArray[8] === '20' &&
-            scriptArray[10] === 'OP_EQUALVERIFY' &&
-            scriptArray[11] === 'OP_DEPTH' &&
-            scriptArray[12] === 'OP_1' &&
-            scriptArray[13] === 'OP_NUMEQUAL' &&
-            scriptArray[14] === 'OP_IF' &&
-            scriptArray[15] === '3' &&
-            scriptArray[16] === '0x627363' &&
-            scriptArray[17] === 'OP_1NEGATE' &&
-            scriptArray[18] === 'OP_PUSHDATA2'
+            scriptArray.length >= 21 && scriptArray[15] === '3' && scriptArray[16] === '0x627363'
         );
     }
 
