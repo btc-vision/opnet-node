@@ -1,6 +1,5 @@
 import 'jest';
-import { EcKeyPair } from '@btc-vision/bsi-transaction/build/bitcoin/eckeypair/EcKeyPair.js';
-import { BSIContractScriptBuilder } from '@btc-vision/bsi-transaction/build/bitcoin/script/builders/BSIContractScriptBuilder.js';
+import { EcKeyPair } from '@btc-vision/bsi-transaction';
 import { networks } from 'bitcoinjs-lib';
 
 import fs from 'fs';
@@ -49,7 +48,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
         expect(contractBytecode).toBeDefined();
 
-        vmContext = await vmManager.loadContractFromBytecode(contractBytecode);
+        vmContext = await vmManager.loadContractFromBytecode(CONTRACT_ADDRESS, contractBytecode);
         expect(vmContext).toBeDefined();
 
         if (vmContext.contract === null) {
@@ -58,8 +57,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         vmEvaluator = vmContext.contract;
 
-        const scriptGenerator = new BSIContractScriptBuilder();
-        const REAL_CONTRACT_ADDRESS = scriptGenerator.getContractAddress(
+        //const scriptGenerator = new BSIContractScriptBuilder();
+        /*const REAL_CONTRACT_ADDRESS = scriptGenerator.getContractAddress(
             contractBytecode,
             DEPLOYER_ADDRESS,
             DEPLOYER_ADDRESS,
@@ -68,7 +67,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         if (!CONTRACT_ADDRESS) {
             CONTRACT_ADDRESS = REAL_CONTRACT_ADDRESS;
-        }
+        }*/
 
         console.log(`Bitcoin Smart Contract will be deployed at: ${CONTRACT_ADDRESS} by ${OWNER}`);
 
@@ -189,13 +188,13 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         const buffer = calldata.getBuffer();
 
-        const balanceValue = await vmEvaluator.execute(
-            CONTRACT_ADDRESS,
-            true,
-            balanceOfSelector,
-            buffer,
-            OWNER,
-        );
+        const balanceValue = await vmEvaluator
+            .execute(CONTRACT_ADDRESS, true, balanceOfSelector, buffer, OWNER)
+            .catch((e) => {
+                expect(e).toBeUndefined();
+
+                vmManager.revertBlock();
+            });
 
         if (!balanceValue) {
             throw new Error('Balance value not found');
@@ -237,12 +236,13 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         calldata.writeAddress(OWNER);
 
         const buffer = calldata.getBuffer();
-        const balanceValue = await vmEvaluator.execute(
-            CONTRACT_ADDRESS,
-            true,
-            balanceOfSelector,
-            buffer,
-        );
+        const balanceValue = await vmEvaluator
+            .execute(CONTRACT_ADDRESS, true, balanceOfSelector, buffer)
+            .catch((e) => {
+                expect(e).toBeUndefined();
+
+                vmManager.revertBlock();
+            });
 
         if (!balanceValue) {
             throw new Error('Balance value not found');
@@ -262,21 +262,22 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         for (let i = 0n; i < EXECUTE_X_TIME; i++) {
             await load();
 
-            await vmEvaluator.execute(
-                CONTRACT_ADDRESS,
-                false,
-                addBalanceSelector,
-                addBuffer,
-                OWNER,
-            );
+            await vmEvaluator
+                .execute(CONTRACT_ADDRESS, false, addBalanceSelector, addBuffer, OWNER)
+                .catch((e) => {
+                    expect(e).toBeUndefined();
+
+                    vmManager.revertBlock();
+                });
         }
 
-        const balanceValueAfterAddition = await vmEvaluator.execute(
-            CONTRACT_ADDRESS,
-            true,
-            balanceOfSelector,
-            buffer,
-        );
+        const balanceValueAfterAddition = await vmEvaluator
+            .execute(CONTRACT_ADDRESS, true, balanceOfSelector, buffer)
+            .catch((e) => {
+                expect(e).toBeUndefined();
+
+                vmManager.revertBlock();
+            });
 
         if (!balanceValueAfterAddition) {
             throw new Error('Balance value not found');

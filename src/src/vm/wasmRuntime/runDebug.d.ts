@@ -16,6 +16,7 @@ export type VMRuntime = {
     readView(method: Selector, contract?: Number | null): Uint8Array;
 
     getViewABI(): Uint8Array;
+    getEvents(): Uint8Array;
     getMethodABI(): Uint8Array;
     getWriteMethods(): Uint8Array;
 
