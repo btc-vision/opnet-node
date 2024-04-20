@@ -1,4 +1,4 @@
-export const ADDRESS_BYTE_LENGTH: number = 62;
+export const ADDRESS_BYTE_LENGTH: number = 64;
 
 export type MemorySlotPointer = bigint;
 

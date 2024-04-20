@@ -186,21 +186,19 @@ export class ContractEvaluator {
 
         const modifiedStorage = this.getCurrentModifiedStorageState();
 
-        await this.loadPersistentStorageState(
-            requestedPersistentStorage,
-            modifiedStorage,
-            this.currentStorageState,
-            isView,
-        );
-
         if (!sameStorage) {
             console.log(
                 `TEMP CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
                 modifiedStorage,
             );
 
-            //this.lastModifiedStorage = modifiedStorage;
-
+            await this.loadPersistentStorageState(
+                requestedPersistentStorage,
+                modifiedStorage,
+                this.currentStorageState,
+                isView,
+            );
+            
             return await this.evaluate(
                 contractAddress,
                 abi,
@@ -381,7 +379,7 @@ export class ContractEvaluator {
             }
 
             const defaultPointerStorage = modifiedStorage.get(key);
-            if (!defaultPointerStorage) {
+            if (defaultPointerStorage === undefined) {
                 throw new Error(
                     `Uninitialized contract ${key} found. Please initialize the contract first.`,
                 );

@@ -20,12 +20,22 @@ async function sleep(ms: number) {
     });
 }
 
-describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
-    let CONTRACT_ADDRESS: string = 'bc1p3hnqcq7jq6k30ryv8lfzx3ruuvkwr7gu50xz4acweqv4a7sj44cq9jhmq5';
+function generateRndAddress(length: number = 60): string {
+    const characters = 'abcdef0123456789';
+    let result = 'bc1p';
 
-    //const DEPLOYER_ADDRESS = EcKeyPair.generateRandomKeyPair(networks.regtest);
+    for (let i = 0; i < length; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+
+    return result;
+}
+
+describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
+    let CONTRACT_ADDRESS: string = generateRndAddress();
+
     const RANDOM_BLOCK_ID: bigint = 1073478347n;
-    const EXECUTE_X_TIME: bigint = 100n;
+    const EXECUTE_X_TIME: bigint = 1n;
     const BALANCE_TO_ADD: bigint = 1n;
 
     const abiCoder: ABICoder = new ABICoder();
