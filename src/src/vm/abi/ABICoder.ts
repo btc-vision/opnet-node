@@ -55,38 +55,32 @@ export class ABICoder {
 
     public encodePointer(key: string): bigint {
         const hash = this.sha256(key);
-        const finalBuffer = Buffer.alloc(32);
-        const selector = hash.slice(0, 32); // 32 bytes
+        const finalBuffer = Buffer.alloc(BufferHelper.EXPECTED_BUFFER_LENGTH);
+        const selector = hash.slice(0, BufferHelper.EXPECTED_BUFFER_LENGTH); // 32 bytes
 
-        for (let i = 0; i < 32; i++) {
+        for (let i = 0; i < BufferHelper.EXPECTED_BUFFER_LENGTH; i++) {
             finalBuffer[i] = selector[i];
         }
 
         return BigInt('0x' + finalBuffer.toString('hex'));
     }
 
-    private bigIntToUint8Array(bigIntValue: bigint, length: number): Uint8Array {
-        const byteArray = new Uint8Array(length);
-        const buf = BufferHelper.valueToUint8Array(bigIntValue);
-
-        for (let i = 0; i < length; i++) {
-            byteArray[i] = buf[i] || 0;
-        }
-
-        return byteArray;
-    }
-
     public encodePointerHash(pointer: number, sub: bigint): Uint8Array {
-        const finalBuffer = new Uint8Array(34); // 32 bytes for `sub` + 2 bytes for `pointer`
+        const finalBuffer = new Uint8Array(BufferHelper.EXPECTED_BUFFER_LENGTH + 2); // 32 bytes for `sub` + 2 bytes for `pointer`
         // Encode pointer
         finalBuffer[0] = pointer & 0xff;
         finalBuffer[1] = (pointer >> 8) & 0xff;
 
         // Convert `sub` to Uint8Array and append it
-        const subKey = this.bigIntToUint8Array(sub, 32); // Assuming a function to convert BigInt to Uint8Array of fixed size
+        const subKey = this.bigIntToUint8Array(sub, BufferHelper.EXPECTED_BUFFER_LENGTH); // Assuming a function to convert BigInt to Uint8Array of fixed size
         finalBuffer.set(subKey, 2);
 
-        return this.sha256(finalBuffer).slice(0, 32);
+        const hashed = this.sha256(finalBuffer);
+        if (hashed.byteLength !== BufferHelper.EXPECTED_BUFFER_LENGTH) {
+            throw new Error('Invalid hash length');
+        }
+
+        return hashed;
     }
 
     public encodeSelector(selectorIdentifier: string): string {
@@ -99,6 +93,17 @@ export class ABICoder {
 
     public numericSelectorToHex(selector: number): string {
         return selector.toString(16);
+    }
+
+    private bigIntToUint8Array(bigIntValue: bigint, length: number): Uint8Array {
+        const byteArray = new Uint8Array(length);
+        const buf = BufferHelper.valueToUint8Array(bigIntValue);
+
+        for (let i = 0; i < length; i++) {
+            byteArray[i] = buf[i] || 0;
+        }
+
+        return byteArray;
     }
 
     private sha256(buffer: Buffer | string | Uint8Array): Buffer {

@@ -1,5 +1,6 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
+import { BufferHelper } from '../../utils/BufferHelper.js';
 import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
@@ -34,8 +35,8 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         }
 
         return {
-            pointer: results.pointer.buffer,
-            value: results.value.buffer,
+            pointer: BufferHelper.bufferToUint8Array(results.pointer.value()),
+            value: BufferHelper.bufferToUint8Array(results.value.value()),
         };
     }
 

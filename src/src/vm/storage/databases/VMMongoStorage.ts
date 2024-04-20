@@ -3,6 +3,7 @@ import { ClientSession } from 'mongodb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
+import { BufferHelper } from '../../../utils/BufferHelper.js';
 import { MemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
 import { VMStorage } from '../VMStorage.js';
@@ -29,11 +30,6 @@ export class VMMongoStorage extends VMStorage {
         this.repository = new ContractPointerValueRepository(this.databaseManager.db);
     }
 
-    private async connectDatabase(): Promise<void> {
-        await this.databaseManager.setup(this.config.DATABASE.DATABASE_NAME);
-        await this.databaseManager.connect();
-    }
-
     public async close(): Promise<void> {
         await this.databaseManager.close();
     }
@@ -51,16 +47,6 @@ export class VMMongoStorage extends VMStorage {
         await this.currentSession.commitTransaction();
 
         await this.terminateSession();
-    }
-
-    private async terminateSession(): Promise<void> {
-        if (!this.currentSession) {
-            throw new Error('Session not started');
-        }
-
-        await this.currentSession.endSession();
-
-        this.currentSession = null;
     }
 
     public async revertChanges(): Promise<void> {
@@ -97,6 +83,10 @@ export class VMMongoStorage extends VMStorage {
             this.currentSession,
         );
 
+        if (Buffer.isBuffer(value)) {
+            throw new Error('The value returned was not an Uint8Array!');
+        }
+
         if (setIfNotExit && value === null && defaultValue) {
             await this.setStorage(address, pointer, defaultValue);
 
@@ -108,19 +98,6 @@ export class VMMongoStorage extends VMStorage {
         }
 
         return this.addBytes(value.value);
-    }
-
-    private addBytes(value: MemoryValue): Uint8Array {
-        if (value.length > 1) {
-            return value;
-        }
-
-        const length = Math.max(value.length, 32);
-        const buffer = new Uint8Array(length);
-
-        if (value.length) buffer.set(value, 0);
-
-        return buffer;
     }
 
     public async setStorage(
@@ -142,5 +119,39 @@ export class VMMongoStorage extends VMStorage {
             value,
             this.currentSession,
         );
+    }
+
+    private async connectDatabase(): Promise<void> {
+        await this.databaseManager.setup(this.config.DATABASE.DATABASE_NAME);
+        await this.databaseManager.connect();
+    }
+
+    private async terminateSession(): Promise<void> {
+        if (!this.currentSession) {
+            throw new Error('Session not started');
+        }
+
+        await this.currentSession.endSession();
+
+        this.currentSession = null;
+    }
+
+    private addBytes(value: MemoryValue): Uint8Array {
+        if (value.byteLength > BufferHelper.EXPECTED_BUFFER_LENGTH) {
+            throw new Error(
+                `Invalid value length ${value.byteLength} for storage. Expected ${BufferHelper.EXPECTED_BUFFER_LENGTH} bytes.`,
+            );
+        }
+
+        if (value.byteLength === BufferHelper.EXPECTED_BUFFER_LENGTH) {
+            return value;
+        }
+
+        const length = Math.max(value.byteLength, BufferHelper.EXPECTED_BUFFER_LENGTH);
+        const buffer = new Uint8Array(length);
+
+        if (value.byteLength) buffer.set(value, 0);
+
+        return buffer;
     }
 }

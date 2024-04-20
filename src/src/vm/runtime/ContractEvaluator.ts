@@ -84,7 +84,7 @@ export class ContractEvaluator {
         return this.stack.logs;
     }
 
-    public async setupContract(owner: string, contractAddress: string): Promise<void> {
+    public async setupContract(owner: Address, contractAddress: Address): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
@@ -111,6 +111,15 @@ export class ContractEvaluator {
             requiredPersistentStorage,
             modifiedStorage,
             this.persistentStorageState,
+        );
+
+        console.log(
+            `INITIAL STATE FOR ${contractAddress}`,
+            this.methodAbi,
+            this.writeMethods,
+            this.viewAbi,
+            this.persistentStorageState,
+            modifiedStorage,
         );
 
         this.initializeContract = true;
@@ -198,7 +207,7 @@ export class ContractEvaluator {
                 this.currentStorageState,
                 isView,
             );
-            
+
             return await this.evaluate(
                 contractAddress,
                 abi,
@@ -339,7 +348,7 @@ export class ContractEvaluator {
         for (const [key, value] of requiredStorageBefore) {
             const valueAfter = requiredStorageAfter.get(key);
 
-            if (!valueAfter) {
+            if (valueAfter === undefined) {
                 return false;
             }
 
@@ -426,6 +435,13 @@ export class ContractEvaluator {
             !isView,
         );
 
+        console.log(
+            `Getting storage for ${address} -> ${pointer} ->`,
+            value,
+            'default ->',
+            defaultValueBuffer,
+        );
+
         const valHex = value ? BufferHelper.uint8ArrayToValue(value) : null;
         const finalValue: bigint = valHex === null ? defaultValue : valHex;
 
@@ -439,6 +455,8 @@ export class ContractEvaluator {
     ): Promise<void> {
         const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
         const valueBuffer: MemoryValue = BufferHelper.valueToUint8Array(value);
+
+        console.log(`Setting storage for ${address} -> ${pointer} ->`, value);
 
         await this.setStorage(address, rawData, valueBuffer);
     }

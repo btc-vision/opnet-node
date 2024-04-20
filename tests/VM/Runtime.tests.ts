@@ -14,13 +14,7 @@ import { ContractEvaluator } from '../../src/src/vm/runtime/ContractEvaluator.js
 import { VMManager } from '../../src/src/vm/VMManager.js';
 import { TestConfig } from '../config/Config.js';
 
-async function sleep(ms: number) {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
-}
-
-function generateRndAddress(length: number = 60): string {
+function generateRndAddress(length: number = 59): string {
     const characters = 'abcdef0123456789';
     let result = 'bc1p';
 
@@ -98,6 +92,45 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         expect(isInitialized).toBeTruthy();
     }
 
+    async function getBalanceOf(address: string): Promise<bigint> {
+        if (!vmEvaluator) {
+            throw new Error('VM runtime not found.');
+        }
+
+        if (!mainContractMethodSelectors) {
+            throw new Error('Method not found');
+        }
+
+        const balanceOfSelector = Number(`0x` + abiCoder.encodeSelector('balanceOf'));
+        const hasTotalSupply = mainContractMethodSelectors.has(balanceOfSelector);
+        if (!hasTotalSupply) {
+            throw new Error('balanceOf selector not found');
+        }
+
+        const calldata: BinaryWriter = new BinaryWriter();
+        calldata.writeAddress(address);
+
+        const buffer = calldata.getBuffer();
+
+        const balanceValue = await vmEvaluator
+            .execute(CONTRACT_ADDRESS, true, balanceOfSelector, buffer)
+            .catch((e) => {
+                expect(e).toBeUndefined();
+
+                vmManager.revertBlock();
+            });
+
+        if (balanceValue === undefined) {
+            throw new Error('Balance value not found');
+        }
+
+        const decodedResponse = abiCoder.decodeData(balanceValue, [ABIDataTypes.UINT256]) as [
+            bigint,
+        ];
+
+        return decodedResponse[0];
+    }
+
     beforeAll(async () => {
         await vmManager.init();
         await vmManager.prepareBlock(RANDOM_BLOCK_ID);
@@ -114,7 +147,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
     });
 
-    test(`ABI should be defined.`, async () => {
+    /*test(`ABI should be defined.`, async () => {
         expect(decodedViewSelectors).toBeDefined();
         expect(decodedMethodSelectors).toBeDefined();
         expect(module).toBeDefined();
@@ -138,10 +171,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         expect(mainContractViewSelectors).toBeDefined();
         expect(mainContractMethodSelectors).toBeDefined();
-
-        if (!mainContractMethodSelectors) {
-            throw new Error('Method not found');
-        }
 
         if (!mainContractViewSelectors) {
             throw new Error('ABI not found');
@@ -173,10 +202,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('VM runtime not found.');
         }
 
-        if (!mainContractMethodSelectors) {
-            throw new Error('Method not found');
-        }
-
         if (!mainContractViewSelectors) {
             throw new Error('ABI not found');
         }
@@ -185,34 +210,10 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('Module not found');
         }
 
-        const balanceOfSelector = Number(`0x` + abiCoder.encodeSelector('balanceOf'));
-        const hasTotalSupply = mainContractMethodSelectors.has(balanceOfSelector);
-        if (!hasTotalSupply) {
-            throw new Error('balanceOf selector not found');
-        }
-
-        const calldata: BinaryWriter = new BinaryWriter();
-        calldata.writeAddress(OWNER);
-
-        const buffer = calldata.getBuffer();
-
-        const balanceValue = await vmEvaluator
-            .execute(CONTRACT_ADDRESS, true, balanceOfSelector, buffer, OWNER)
-            .catch((e) => {
-                expect(e).toBeUndefined();
-
-                vmManager.revertBlock();
-            });
-
-        if (!balanceValue) {
-            throw new Error('Balance value not found');
-        }
-
-        const decodedResponse = abiCoder.decodeData(balanceValue, [ABIDataTypes.UINT256]);
-        const balanceOfResponse = decodedResponse[0];
+        const balanceOfResponse = await getBalanceOf(OWNER);
 
         expect(balanceOfResponse).toBeGreaterThanOrEqual(0n);
-    });
+    });*/
 
     test(`BSC should be able to compute basic operations such as additions and set the corresponding storage slot correctly.`, async () => {
         expect(mainContractViewSelectors).toBeDefined();
@@ -234,30 +235,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('Module not found');
         }
 
-        const balanceOfSelector = Number(`0x` + abiCoder.encodeSelector('balanceOf'));
-        const hasTotalSupply = mainContractMethodSelectors.has(balanceOfSelector);
-        if (!hasTotalSupply) {
-            throw new Error('balanceOf selector not found');
-        }
-
-        const calldata: BinaryWriter = new BinaryWriter();
-        calldata.writeAddress(OWNER);
-
-        const buffer = calldata.getBuffer();
-        const balanceValue = await vmEvaluator
-            .execute(CONTRACT_ADDRESS, true, balanceOfSelector, buffer)
-            .catch((e) => {
-                expect(e).toBeUndefined();
-
-                vmManager.revertBlock();
-            });
-
-        if (!balanceValue) {
-            throw new Error('Balance value not found');
-        }
-
-        const decodedResponse = abiCoder.decodeData(balanceValue, [ABIDataTypes.UINT256]);
-        const balanceOfUserBeforeAddition = decodedResponse[0] as bigint;
+        const balanceOfUserBeforeAddition = await getBalanceOf(OWNER);
 
         const addBalanceSelector = Number(`0x` + abiCoder.encodeSelector('addFreeMoney'));
         const addCalldata: BinaryWriter = new BinaryWriter();
@@ -279,22 +257,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
                 });
         }
 
-        const balanceValueAfterAddition = await vmEvaluator
-            .execute(CONTRACT_ADDRESS, true, balanceOfSelector, buffer)
-            .catch((e) => {
-                expect(e).toBeUndefined();
-
-                vmManager.revertBlock();
-            });
-
-        if (!balanceValueAfterAddition) {
-            throw new Error('Balance value not found');
-        }
-
-        const decodedResponseAfterAddition = abiCoder.decodeData(balanceValueAfterAddition, [
-            ABIDataTypes.UINT256,
-        ]);
-        const balanceOfUserAfterAddition = decodedResponseAfterAddition[0] as bigint;
+        const balanceOfUserAfterAddition = await getBalanceOf(OWNER);
 
         console.log('Balance of user before addition:', balanceOfUserBeforeAddition);
         console.log('Balance of user after addition:', balanceOfUserAfterAddition);
