@@ -194,6 +194,13 @@ export class ContractEvaluator {
         );
 
         if (!sameStorage) {
+            console.log(
+                `TEMP CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
+                modifiedStorage,
+            );
+
+            //this.lastModifiedStorage = modifiedStorage;
+
             return await this.evaluate(
                 contractAddress,
                 abi,
@@ -204,22 +211,21 @@ export class ContractEvaluator {
             ).catch((e: Error) => {
                 throw e;
             });
-        } else {
-            if (canWrite) {
-                /*console.log(
-                    `FINAL CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
-                    modifiedStorage,
-                );*/
+        } else if (canWrite) {
+            console.log(
+                `FINAL CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
+                //this.lastModifiedStorage,
+                modifiedStorage,
+            );
 
-                await this.updateStorage(modifiedStorage).catch((e: Error) => {
-                    throw e;
-                });
-            }
-
-            this.clear();
-
-            return result;
+            await this.updateStorage(modifiedStorage).catch((e: Error) => {
+                throw e;
+            });
         }
+
+        this.clear();
+
+        return result;
     }
 
     public getViewSelectors(): SelectorsMap {

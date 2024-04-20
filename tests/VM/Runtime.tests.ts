@@ -1,6 +1,4 @@
 import 'jest';
-import { EcKeyPair } from '@btc-vision/bsi-transaction';
-import { networks } from 'bitcoinjs-lib';
 
 import fs from 'fs';
 import { ABICoder, ABIDataTypes } from '../../src/src/vm/abi/ABICoder.js';
@@ -25,7 +23,7 @@ async function sleep(ms: number) {
 describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
     let CONTRACT_ADDRESS: string = 'bc1p3hnqcq7jq6k30ryv8lfzx3ruuvkwr7gu50xz4acweqv4a7sj44cq9jhmq5';
 
-    const DEPLOYER_ADDRESS = EcKeyPair.generateRandomKeyPair(networks.regtest);
+    //const DEPLOYER_ADDRESS = EcKeyPair.generateRandomKeyPair(networks.regtest);
     const RANDOM_BLOCK_ID: bigint = 1073478347n;
     const EXECUTE_X_TIME: bigint = 100n;
     const BALANCE_TO_ADD: bigint = 1n;
