@@ -11,8 +11,8 @@
         "test": "jest --runInBand",
         "setup": "npm i && npm run build"
     },
-    "author": "FAB",
-    "license": "LICENSE.md",
+    "author": "BlobMaster41",
+    "license": "LICENSE.MD",
     "dependencies": {
         "@asyncapi/generator": "^1.17.13",
         "@asyncapi/html-template": "^2.2.1",
