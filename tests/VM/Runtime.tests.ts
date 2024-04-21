@@ -14,7 +14,7 @@ import { ContractEvaluator } from '../../src/src/vm/runtime/ContractEvaluator.js
 import { VMManager } from '../../src/src/vm/VMManager.js';
 import { TestConfig } from '../config/Config.js';
 
-function generateRndAddress(length: number = 59): string {
+function generateRndAddress(length: number = 60): string {
     const characters = 'abcdef0123456789';
     let result = 'bc1p';
 
@@ -29,8 +29,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     let CONTRACT_ADDRESS: string = generateRndAddress();
 
     const RANDOM_BLOCK_ID: bigint = 1073478347n;
-    const EXECUTE_X_TIME: bigint = 1n;
-    const BALANCE_TO_ADD: bigint = 1n;
+    const EXECUTE_X_TIME: bigint = 2n;
+    const BALANCE_TO_ADD: bigint = 10n;
 
     const abiCoder: ABICoder = new ABICoder();
     const vmManager: VMManager = new VMManager(TestConfig);
@@ -147,7 +147,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
     });
 
-    /*test(`ABI should be defined.`, async () => {
+    test(`ABI should be defined.`, async () => {
         expect(decodedViewSelectors).toBeDefined();
         expect(decodedMethodSelectors).toBeDefined();
         expect(module).toBeDefined();
@@ -213,7 +213,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const balanceOfResponse = await getBalanceOf(OWNER);
 
         expect(balanceOfResponse).toBeGreaterThanOrEqual(0n);
-    });*/
+    });
 
     test(`BSC should be able to compute basic operations such as additions and set the corresponding storage slot correctly.`, async () => {
         expect(mainContractViewSelectors).toBeDefined();

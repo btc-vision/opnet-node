@@ -63,7 +63,7 @@ export class VMMongoStorage extends VMStorage {
         address: BitcoinAddress,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
-        setIfNotExit: boolean = true,
+        setIfNotExit: boolean = false,
     ): Promise<Uint8Array | null> {
         if (setIfNotExit && defaultValue === null) {
             throw new Error('Default value buffer is required');
@@ -113,12 +113,11 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
-        return await this.repository.setByContractAndPointer(
-            address,
-            pointer,
-            value,
-            this.currentSession,
-        );
+        await this.repository.setByContractAndPointer(address, pointer, value, this.currentSession);
+
+        // verify integrity
+        //const newValue = await this.getStorage(address, pointer);
+        //console.log(`New value`, newValue, value);
     }
 
     private async connectDatabase(): Promise<void> {

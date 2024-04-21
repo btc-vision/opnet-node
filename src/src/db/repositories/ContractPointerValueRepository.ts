@@ -1,6 +1,7 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
 import { BufferHelper } from '../../utils/BufferHelper.js';
+import { Address } from '../../vm/buffer/types/math.js';
 import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
@@ -18,7 +19,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     }
 
     public async getByContractAndPointer(
-        contractAddress: string,
+        contractAddress: Address,
         pointer: StoragePointer,
         currentSession?: ClientSession,
     ): Promise<IContractPointerValue | null> {
@@ -41,7 +42,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     }
 
     public async setByContractAndPointer(
-        contractAddress: string,
+        contractAddress: Address,
         bufPointer: StoragePointer,
         bufValue: MemoryValue,
         currentSession?: ClientSession,

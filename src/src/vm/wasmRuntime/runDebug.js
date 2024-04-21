@@ -85,6 +85,10 @@ export async function instantiate(bytecode, imports = {}) {
                 // src/btc/exports/index/getModifiedStorage() => ~lib/typedarray/Uint8Array
                 return __liftTypedArray(Uint8Array, exports.getModifiedStorage() >>> 0);
             },
+            initializeStorage() {
+                // src/btc/exports/index/initializeStorage() => ~lib/typedarray/Uint8Array
+                return __liftTypedArray(Uint8Array, exports.initializeStorage() >>> 0);
+            },
             loadStorage(data) {
                 // src/btc/exports/index/loadStorage(~lib/typedarray/Uint8Array) => void
                 data = __lowerTypedArray(Uint8Array, 13, 0, data) || __notnull();

@@ -32,6 +32,12 @@ export type VMRuntime = {
      */
     getModifiedStorage(): Uint8Array;
 
+    /**
+     * src/btc/exports/index/initializeStorage
+     * @returns `~lib/typedarray/Uint8Array`
+     */
+    initializeStorage(): Uint8Array;
+
     growMemory(size: number): number;
 
     loadStorage(data: Uint8Array): void;
