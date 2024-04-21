@@ -185,6 +185,15 @@ export class BinaryWriter {
         this.writeSelector(selector);
     }
 
+    private getChecksum(): u32 {
+        let checksum: u32 = 0;
+        for (let i = 0; i < this.buffer.byteLength; i++) {
+            checksum += this.buffer.getUint8(i);
+        }
+
+        return checksum % 2 ** 32;
+    }
+
     private writeMethodSelectorMap(value: Set<Selector>): void {
         this.writeU16(value.size);
 
@@ -202,10 +211,17 @@ export class BinaryWriter {
     }
 
     private fromAddress(value: Address): Uint8Array {
-        const bytes: Uint8Array = new Uint8Array(ADDRESS_BYTE_LENGTH);
+        if (value.length > ADDRESS_BYTE_LENGTH) {
+            throw new Error('Address is too long');
+        }
 
+        const bytes: Uint8Array = new Uint8Array(ADDRESS_BYTE_LENGTH);
         for (let i: i32 = 0; i < value.length; i++) {
             bytes[i] = value.charCodeAt(i);
+        }
+
+        for (let i: u8 = value.length; i < ADDRESS_BYTE_LENGTH; i++) {
+            bytes[i] = 0;
         }
 
         return bytes;

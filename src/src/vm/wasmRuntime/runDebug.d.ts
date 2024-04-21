@@ -16,6 +16,7 @@ export type VMRuntime = {
     readView(method: Selector, contract?: Number | null): Uint8Array;
 
     getViewABI(): Uint8Array;
+    getEvents(): Uint8Array;
     getMethodABI(): Uint8Array;
     getWriteMethods(): Uint8Array;
 
@@ -30,6 +31,12 @@ export type VMRuntime = {
      * @returns `~lib/typedarray/Uint8Array`
      */
     getModifiedStorage(): Uint8Array;
+
+    /**
+     * src/btc/exports/index/initializeStorage
+     * @returns `~lib/typedarray/Uint8Array`
+     */
+    initializeStorage(): Uint8Array;
 
     growMemory(size: number): number;
 
