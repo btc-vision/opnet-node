@@ -115,6 +115,8 @@ export class ContractEvaluator {
             this.persistentStorageState,
         );
 
+        console.log('INITIAL', requiredPersistentStorage, initialStorage, modifiedStorage);
+
         this.initializeContract = true;
     }
 
@@ -246,19 +248,21 @@ export class ContractEvaluator {
         const initialStorage = this.getDefaultInitialStorage();
 
         if (!sameStorage) {
-            /*console.log(
-                `TEMP CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
-                modifiedStorage,
-                initialStorage,
-                requestedPersistentStorage,
-            );*/
-
+            this.persistentStorageState.clear();
             await this.loadPersistentStorageState(
                 requestedPersistentStorage,
                 initialStorage,
                 modifiedStorage,
-                this.currentStorageState,
+                this.persistentStorageState,
                 isView,
+            );
+
+            console.log(
+                `TEMP CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
+                modifiedStorage,
+                initialStorage,
+                requestedPersistentStorage,
+                this.currentStorageState,
             );
 
             return await this.evaluate(
@@ -343,6 +347,8 @@ export class ContractEvaluator {
         }
 
         const storage = this.getMergedStorageState();
+        console.log('WRITE STORAGE', storage);
+
         this.binaryWriter.writeStorage(storage);
 
         const buf: Uint8Array = this.binaryWriter.getBuffer();
@@ -452,6 +458,8 @@ export class ContractEvaluator {
             defaultValueBuffer,
             !isView,
         );
+
+        console.log(`GET STORAGE`, address, pointer, value, defaultValue);
 
         const valHex = value ? BufferHelper.uint8ArrayToValue(value) : null;
         const finalValue: bigint = valHex === null ? defaultValue : valHex;
