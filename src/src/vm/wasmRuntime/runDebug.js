@@ -65,6 +65,10 @@ export async function instantiate(bytecode, imports = {}) {
                 // src/btc/exports/index/getViewABI() => ~lib/typedarray/Uint8Array
                 return __liftTypedArray(Uint8Array, exports.getViewABI() >>> 0);
             },
+            getEvents() {
+                // src/btc/exports/index/getEvents() => ~lib/typedarray/Uint8Array
+                return __liftTypedArray(Uint8Array, exports.getEvents() >>> 0);
+            },
             getMethodABI() {
                 // src/btc/exports/index/getMethodABI() => ~lib/typedarray/Uint8Array
                 return __liftTypedArray(Uint8Array, exports.getMethodABI() >>> 0);
@@ -80,6 +84,10 @@ export async function instantiate(bytecode, imports = {}) {
             getModifiedStorage() {
                 // src/btc/exports/index/getModifiedStorage() => ~lib/typedarray/Uint8Array
                 return __liftTypedArray(Uint8Array, exports.getModifiedStorage() >>> 0);
+            },
+            initializeStorage() {
+                // src/btc/exports/index/initializeStorage() => ~lib/typedarray/Uint8Array
+                return __liftTypedArray(Uint8Array, exports.initializeStorage() >>> 0);
             },
             loadStorage(data) {
                 // src/btc/exports/index/loadStorage(~lib/typedarray/Uint8Array) => void

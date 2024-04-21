@@ -1,7 +1,5 @@
 import { Context } from 'node:vm';
 
-// @ts-ignore
-import * as wasm from '../../config/runDebug.js';
 import { ContractEvaluator } from '../runtime/ContractEvaluator.js';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 
@@ -23,6 +21,7 @@ export interface VMContext {
     setStorage: (address: string, pointer: StoragePointer, value: MemoryValue) => Promise<void>;
 
     contract: ContractEvaluator | null;
+    contractAddress: string;
 
     rndPromise: () => Promise<void>;
 

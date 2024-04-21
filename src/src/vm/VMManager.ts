@@ -49,7 +49,10 @@ export class VMManager extends Logger {
         await this.vmBitcoinBlock.terminate();
     }
 
-    public async loadContractFromBytecode(contractBytecode: Buffer): Promise<VMContext> {
+    public async loadContractFromBytecode(
+        contractAddress: string,
+        contractBytecode: Buffer,
+    ): Promise<VMContext> {
         const contextOptions: EvaluatedContext = {
             context: {
                 logs: [],
@@ -66,6 +69,7 @@ export class VMManager extends Logger {
                 ContractEvaluator: ContractEvaluator,
 
                 initialBytecode: contractBytecode,
+                contractAddress: contractAddress,
             },
         };
 
