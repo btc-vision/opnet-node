@@ -18,12 +18,9 @@ const genRanHex = (size: number) =>
 
 export abstract class Thread<T extends ThreadTypes> extends Logger implements IThread<T> {
     public abstract readonly threadType: T;
-
+    protected threadRelations: Partial<Record<ThreadTypes, Map<number, MessagePort>>> = {};
     private messagePort: MessagePort | null = null;
     private tasks: Map<string, ThreadTaskCallback> = new Map<string, ThreadTaskCallback>();
-
-    protected threadRelations: Partial<Record<ThreadTypes, Map<number, MessagePort>>> = {};
-
     private availableThreads: Partial<Record<ThreadTypes, number>> = {};
 
     protected constructor() {
@@ -52,20 +49,6 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         }
 
         return null;
-    }
-
-    private getNextAvailableThread(threadType: ThreadTypes): number {
-        let threadId = this.availableThreads[threadType] || 0;
-
-        this.availableThreads[threadType] = threadId + 1;
-
-        const relation = this.threadRelations[threadType];
-        const length = relation ? relation.size : 0;
-
-        const keys = relation ? Array.from(relation.keys()) : [];
-        this.availableThreads[threadType] = threadId >= length ? 0 : threadId;
-
-        return keys[threadId] || 0;
     }
 
     protected async sendMessage(
@@ -103,9 +86,48 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
     protected abstract onMessage(m: ThreadMessageBase<MessageType>): Promise<void>;
 
+    protected async onLinkMessageInternal(
+        type: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<void | ThreadData> {
+        switch (m.type) {
+            case MessageType.THREAD_RESPONSE: {
+                await this.onThreadResponse(m);
+                break;
+            }
+            default: {
+                return await this.onLinkMessage(type, m);
+            }
+        }
+    }
+
+    protected abstract onLinkMessage(
+        type: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<void | ThreadData>;
+
+    private getNextAvailableThread(threadType: ThreadTypes): number {
+        let threadId = this.availableThreads[threadType] || 0;
+
+        this.availableThreads[threadType] = threadId + 1;
+
+        const relation = this.threadRelations[threadType];
+        const length = relation ? relation.size : 0;
+
+        const keys = relation ? Array.from(relation.keys()) : [];
+        this.availableThreads[threadType] = threadId >= length ? 0 : threadId;
+
+        return keys[threadId] || 0;
+    }
+    
     private generateTaskId(): string {
         return genRanHex(8);
     }
+
+    /*protected abstract createLinkBetweenThreads(
+        threadType: ThreadTypes,
+        m: LinkThreadMessage<LinkType>,
+    ): Promise<void>;*/
 
     private setMessagePort(msg: SetMessagePort): void {
         this.messagePort = msg.data;
@@ -131,11 +153,6 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 break;
         }
     }
-
-    /*protected abstract createLinkBetweenThreads(
-        threadType: ThreadTypes,
-        m: LinkThreadMessage<LinkType>,
-    ): Promise<void>;*/
 
     private createInternalThreadLink(m: LinkThreadMessage<LinkType>): void {
         const data = m.data;
@@ -165,26 +182,6 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
             );
         }
     }
-
-    protected async onLinkMessageInternal(
-        type: ThreadTypes,
-        m: ThreadMessageBase<MessageType>,
-    ): Promise<void | ThreadData> {
-        switch (m.type) {
-            case MessageType.THREAD_RESPONSE: {
-                await this.onThreadResponse(m);
-                break;
-            }
-            default: {
-                return await this.onLinkMessage(type, m);
-            }
-        }
-    }
-
-    protected abstract onLinkMessage(
-        type: ThreadTypes,
-        m: ThreadMessageBase<MessageType>,
-    ): Promise<void | ThreadData>;
 
     private createEvents(threadType: ThreadTypes, messagePort: MessagePort): void {
         messagePort.on('message', async (m: ThreadMessageBase<MessageType>) => {
