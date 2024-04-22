@@ -7,8 +7,9 @@ import { Logger } from '@btc-vision/bsi-common';
 import { Config } from '../../config/Config.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
 import { BlockchainInformationRepository } from '../../db/repositories/BlockchainInformationRepository.js';
+import { Block } from './block/Block.js';
 
-export class BlockIndexer extends Logger {
+export class BlockchainIndexer extends Logger {
     public readonly logColor: string = '#00ff00';
 
     private readonly network: string;
@@ -84,8 +85,9 @@ export class BlockIndexer extends Logger {
         return await this.rpcClient.getBlockInfoWithTransactionData(blockHash);
     }
 
-    private async processBlock(block: BlockDataWithTransactionData): Promise<void> {
-        this.log(`Processing block ${block.height}...`);
+    private async processBlock(blockData: BlockDataWithTransactionData): Promise<void> {
+        const block: Block = new Block(blockData);
+        await block.process();
 
         console.log(block);
     }

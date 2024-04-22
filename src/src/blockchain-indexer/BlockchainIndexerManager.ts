@@ -9,7 +9,7 @@ import { LinkThreadRequestMessage } from '../threading/interfaces/thread-message
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../threading/thread/Thread.js';
-import { BlockIndexer } from './processor/BlockIndexer.js';
+import { BlockchainIndexer } from './processor/BlockchainIndexer.js';
 import { BitcoinRPCThreadManager } from './rpc/BitcoinRPCThreadManager.js';
 import { ZeroMQThreadManager } from './zeromq/ZeroMQThreadManager.js';
 
@@ -20,7 +20,7 @@ class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
     public readonly zeroMQThreads: ZeroMQThreadManager = new ZeroMQThreadManager();
     public readonly bitcoinRPCThreads: BitcoinRPCThreadManager = new BitcoinRPCThreadManager();
 
-    private readonly blockIndexer: BlockIndexer = new BlockIndexer();
+    private readonly blockIndexer: BlockchainIndexer = new BlockchainIndexer();
 
     constructor() {
         super();
