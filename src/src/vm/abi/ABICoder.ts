@@ -11,6 +11,7 @@ export enum ABIDataTypes {
     STRING = 'STRING',
     BYTES32 = 'BYTES32',
     UINT256 = 'UINT256',
+    TUPLE = 'TUPLE',
 }
 
 export class ABICoder {
@@ -46,6 +47,9 @@ export class ABICoder {
                     break;
                 case ABIDataTypes.UINT256:
                     result.push(byteReader.readU256());
+                    break;
+                case ABIDataTypes.TUPLE: // very basic for now, only contains uint256
+                    result.push(byteReader.readTuple());
                     break;
             }
         }
