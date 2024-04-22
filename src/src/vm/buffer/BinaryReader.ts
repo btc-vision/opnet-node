@@ -2,7 +2,6 @@ import {
     ABIRegistryItem,
     Address,
     ADDRESS_BYTE_LENGTH,
-    BlockchainRequestedStorage,
     ContractABIMap,
     f32,
     i32,
@@ -93,6 +92,17 @@ export class BinaryReader {
         return selectors;
     }
 
+    public readTuple(): bigint[] {
+        const length = this.readU32();
+        const result: bigint[] = new Array<bigint>(length);
+
+        for (let i = 0; i < length; i++) {
+            result[i] = this.readU256();
+        }
+
+        return result;
+    }
+
     public readU8(): u8 {
         this.verifyEnd(this.currentOffset + 1);
 
@@ -141,27 +151,6 @@ export class BinaryReader {
             }
 
             storage.set(address, subPointerStorage);
-        }
-
-        return storage;
-    }
-
-    public readRequestedStorage(): BlockchainRequestedStorage {
-        const storage: Map<Address, Set<bigint>> = new Map();
-        const size: u32 = this.readU32();
-
-        for (let i: u32 = 0; i < size; i++) {
-            const address: Address = this.readAddress();
-            const length: u32 = this.readU32();
-
-            const pointers: Set<bigint> = new Set();
-            for (let j: u32 = 0; j < length; j++) {
-                const keyPointer: bigint = this.readU256();
-
-                pointers.add(keyPointer);
-            }
-
-            storage.set(address, pointers);
         }
 
         return storage;

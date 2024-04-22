@@ -5,7 +5,6 @@ export type MemorySlotPointer = bigint;
 export type MemorySlotData<T> = T;
 export type PointerStorage = Map<MemorySlotPointer, MemorySlotData<bigint>>;
 export type BlockchainStorage = Map<Address, PointerStorage>;
-export type BlockchainRequestedStorage = Map<Address, Set<MemorySlotPointer>>;
 
 export type Address = string;
 export type i32 = number;

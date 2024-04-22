@@ -157,6 +157,14 @@ export class BinaryWriter {
         }
     }
 
+    public writeTuple(values: bigint[]): void {
+        this.writeU32(values.length);
+
+        for (let i = 0; i < values.length; i++) {
+            this.writeU256(values[i]);
+        }
+    }
+
     public toBytesReader(): BinaryReader {
         return new BinaryReader(this.getBuffer());
     }

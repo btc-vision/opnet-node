@@ -3,7 +3,6 @@ import { BinaryReader } from '../buffer/BinaryReader.js';
 import { BinaryWriter } from '../buffer/BinaryWriter.js';
 import {
     Address,
-    BlockchainRequestedStorage,
     BlockchainStorage,
     MemorySlotData,
     MemorySlotPointer,
@@ -22,9 +21,7 @@ export class ContractEvaluator {
     private binaryWriter: BinaryWriter = new BinaryWriter();
 
     private currentStorageState: BlockchainStorage = new Map();
-    private persistentStorageState: BlockchainStorage = new Map();
-
-    private currentRequiredStorage: BlockchainRequestedStorage = new Map();
+    private originalStorageState: BlockchainStorage = new Map();
 
     private contractRef: Number = 0;
     private isProcessing: boolean = false;
@@ -32,6 +29,8 @@ export class ContractEvaluator {
     private methodAbi: MethodMap = new Map();
     private writeMethods: MethodMap = new Map();
     private initializeContract: boolean = false;
+
+    private readonly enableTracing: boolean = false;
 
     constructor(
         private readonly stack: VMContext,
@@ -80,10 +79,6 @@ export class ContractEvaluator {
         return this.stack.setStorage(address, pointer, value);
     }
 
-    public getLogs(): string[] {
-        return this.stack.logs;
-    }
-
     public async setupContract(owner: Address, contractAddress: Address): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
@@ -95,8 +90,6 @@ export class ContractEvaluator {
 
         await this.rndPromise();
 
-        this.persistentStorageState.clear();
-
         this.contractInstance.INIT(owner, contractAddress);
         this.contractRef = this.contractInstance.getContract();
 
@@ -104,18 +97,7 @@ export class ContractEvaluator {
         this.methodAbi = this.getMethodABI();
         this.writeMethods = this.getWriteMethodABI();
 
-        const requiredPersistentStorage = this.getCurrentStorageState();
-        const modifiedStorage = this.getCurrentModifiedStorageState();
-        const initialStorage = this.getDefaultInitialStorage();
-
-        await this.loadPersistentStorageState(
-            requiredPersistentStorage,
-            initialStorage,
-            modifiedStorage,
-            this.persistentStorageState,
-        );
-
-        console.log('INITIAL', requiredPersistentStorage, initialStorage, modifiedStorage);
+        this.originalStorageState = this.getDefaultInitialStorage();
 
         this.initializeContract = true;
     }
@@ -126,7 +108,6 @@ export class ContractEvaluator {
 
     public clear(): void {
         this.currentStorageState.clear();
-        this.currentRequiredStorage.clear();
     }
 
     public getViewSelectors(): SelectorsMap {
@@ -166,11 +147,23 @@ export class ContractEvaluator {
 
         this.isProcessing = true;
 
+        // We restore the original storage state before executing the method.
+        await this.restoreOriginalStorageState();
+
+        const canWrite = this.canWrite(address, abi);
+        if (!isView && !canWrite) {
+            throw new Error('Method is not allowed to write');
+        }
+
         try {
-            const resp = await this.evaluate(address, abi, isView, calldata, caller).catch(
-                (e: Error) => {
-                    throw e;
-                },
+            // We execute the method.
+            const resp: Uint8Array | undefined = await this.evaluate(
+                address,
+                abi,
+                isView,
+                calldata,
+                caller,
+                canWrite,
             );
 
             this.isProcessing = false;
@@ -186,12 +179,28 @@ export class ContractEvaluator {
         this.stack.contract = this;
     }
 
+    private async restoreOriginalStorageState(): Promise<void> {
+        // We clear the current storage state, this make sure that we are not using any previous storage state.
+        this.clear();
+
+        /** We update persistent storage state in case we want to do future call on the same contract instance. */
+
+        // The current persistent default storage is the same as the original storage state.
+        this.currentStorageState = await this.getCurrentStorageStates(this.originalStorageState);
+
+        if (this.enableTracing) {
+            console.log('RESTORED INITIAL', this.currentStorageState);
+        }
+    }
+
+    // TODO: Move all these function parameter into an object
     private async evaluate(
         contractAddress: Address,
         abi: Selector,
         isView: boolean,
         calldata: Uint8Array | null,
         caller: Address | null = null,
+        canWrite: boolean,
         tries: number = 0,
     ): Promise<Uint8Array | undefined> {
         if (!this.initializeContract) {
@@ -207,63 +216,93 @@ export class ContractEvaluator {
         }
 
         const contract = this.methodAbi.get(contractAddress);
-
         const isInitialized = this.isInitialized();
+
         if (!isInitialized) {
             throw new Error('Contract not initialized');
-        }
-
-        const canWrite = this.canWrite(contractAddress, abi);
-        if (!isView && !canWrite) {
-            throw new Error('Method is not allowed to write');
         }
 
         this.writeCurrentStorageState();
 
         const hasSelectorInMethods = contract?.has(abi) ?? false;
 
-        let result: Uint8Array;
-        if (hasSelectorInMethods) {
-            result = this.contractInstance.readMethod(
-                abi,
-                this.getContract(),
-                calldata as Uint8Array,
-                caller,
-            );
-        } else {
-            result = this.contractInstance.readView(abi);
+        let result: Uint8Array | undefined = undefined;
+        let error: Error | undefined = undefined;
+        try {
+            if (hasSelectorInMethods) {
+                result = this.contractInstance.readMethod(
+                    abi,
+                    this.getContract(),
+                    calldata as Uint8Array,
+                    caller,
+                );
+            } else {
+                result = this.contractInstance.readView(abi);
+            }
+        } catch (e) {
+            error = e as Error;
         }
 
-        const requestedPersistentStorage = this.getCurrentStorageState();
-        const sameStorage = this.sameRequiredStorage(
-            this.currentRequiredStorage,
-            requestedPersistentStorage,
-        );
+        const initialStorage: BlockchainStorage = this.getDefaultInitialStorage();
+        const sameStorage: boolean = this.isStorageRequiredTheSame(initialStorage);
 
-        this.currentStorageState.clear();
-        this.currentRequiredStorage.clear();
-        this.currentRequiredStorage = requestedPersistentStorage;
+        if (!result && sameStorage) {
+            throw error;
+        }
 
-        const modifiedStorage = this.getCurrentModifiedStorageState();
-        const initialStorage = this.getDefaultInitialStorage();
+        this.currentStorageState = await this.getCurrentStorageStates(initialStorage);
 
-        if (!sameStorage) {
-            this.persistentStorageState.clear();
-            await this.loadPersistentStorageState(
-                requestedPersistentStorage,
-                initialStorage,
-                modifiedStorage,
-                this.persistentStorageState,
+        if (!result) {
+            return await this.evaluate(
+                contractAddress,
+                abi,
                 isView,
+                calldata,
+                caller,
+                canWrite,
+                tries + 1,
             );
+        }
 
-            console.log(
-                `TEMP CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
-                modifiedStorage,
-                initialStorage,
-                requestedPersistentStorage,
-                this.currentStorageState,
-            );
+        return await this.evaluateTransaction(
+            result,
+            initialStorage,
+            sameStorage,
+            contractAddress,
+            abi,
+            isView,
+            calldata,
+            caller,
+            canWrite,
+            tries,
+        );
+    }
+
+    // TODO: Move all these function parameter into an object
+    private async evaluateTransaction(
+        result: Uint8Array,
+        initialStorage: BlockchainStorage,
+        sameStorage: boolean,
+        contractAddress: Address,
+        abi: Selector,
+        isView: boolean,
+        calldata: Uint8Array | null,
+        caller: Address | null = null,
+        canWrite: boolean,
+        tries: number,
+    ): Promise<Uint8Array | undefined> {
+        const modifiedStorage: BlockchainStorage = this.getCurrentModifiedStorageState();
+        if (!sameStorage) {
+            if (this.enableTracing) {
+                console.log(
+                    `TEMP CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) -> initialStorage:`,
+                    initialStorage,
+                    'currentState:',
+                    this.currentStorageState,
+                    'modified storage:',
+                    modifiedStorage,
+                );
+            }
 
             return await this.evaluate(
                 contractAddress,
@@ -271,31 +310,24 @@ export class ContractEvaluator {
                 isView,
                 calldata,
                 caller,
+                canWrite,
                 tries + 1,
-            ).catch((e: Error) => {
-                throw e;
-            });
-        } else if (canWrite) {
-            console.log(
-                `FINAL CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
-                modifiedStorage,
-                initialStorage,
-                requestedPersistentStorage,
             );
+        } else if (canWrite) {
+            if (this.enableTracing) {
+                console.log(
+                    `FINAL CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) -> initialStorage:`,
+                    initialStorage,
+                    'currentState:',
+                    this.currentStorageState,
+                    'modified storage:',
+                    modifiedStorage,
+                );
+            }
 
             await this.updateStorage(modifiedStorage).catch((e: Error) => {
                 throw e;
             });
-
-            /** We update persistent storage state in case we want to do future call on the same contract instance. */
-            this.persistentStorageState.clear();
-            await this.loadPersistentStorageState(
-                requestedPersistentStorage,
-                initialStorage,
-                modifiedStorage,
-                this.persistentStorageState,
-                isView,
-            );
         }
 
         this.clear();
@@ -307,7 +339,7 @@ export class ContractEvaluator {
         return instantiate(bytecode, state);
     }
 
-    private getMergedStorageState(): BlockchainStorage {
+    /*private getMergedStorageState(): BlockchainStorage {
         const mergedStorageState: BlockchainStorage = new Map();
 
         for (const [key, value] of this.persistentStorageState) {
@@ -339,17 +371,18 @@ export class ContractEvaluator {
         }
 
         return mergedStorageState;
-    }
+    }*/
 
     private writeCurrentStorageState(): void {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const storage = this.getMergedStorageState();
-        console.log('WRITE STORAGE', storage);
+        this.binaryWriter.writeStorage(this.currentStorageState);
 
-        this.binaryWriter.writeStorage(storage);
+        if (this.enableTracing) {
+            console.log('WRITING CURRENT STORAGE STATE', this.currentStorageState);
+        }
 
         const buf: Uint8Array = this.binaryWriter.getBuffer();
 
@@ -357,15 +390,32 @@ export class ContractEvaluator {
         this.contractInstance.loadStorage(buf);
     }
 
-    private sameRequiredStorage(
-        requiredStorageBefore: BlockchainRequestedStorage,
-        requiredStorageAfter: BlockchainRequestedStorage,
-    ): boolean {
-        if (requiredStorageBefore.size !== requiredStorageAfter.size) {
+    private hasSameKeysMap(map1: Map<unknown, unknown>, map2: Map<unknown, unknown>): boolean {
+        if (map1.size !== map2.size) {
             return false;
         }
 
-        for (const [key, value] of requiredStorageBefore) {
+        for (const [key] of map1) {
+            if (!map2.has(key)) {
+                return false;
+            }
+        }
+
+        for (const [key] of map2) {
+            if (!map1.has(key)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private isStorageRequiredTheSame(requiredStorageAfter: BlockchainStorage): boolean {
+        if (this.currentStorageState.size !== requiredStorageAfter.size) {
+            return false;
+        }
+
+        for (const [key, value] of this.currentStorageState) {
             const valueAfter = requiredStorageAfter.get(key);
 
             if (valueAfter === undefined) {
@@ -376,70 +426,53 @@ export class ContractEvaluator {
                 return false;
             }
 
-            for (const v of value) {
-                if (!valueAfter.has(v)) {
-                    return false;
-                }
+            if (!this.hasSameKeysMap(value, valueAfter)) {
+                return false;
+            }
+        }
+
+        for (const [key, value] of requiredStorageAfter) {
+            const valueAfter = this.currentStorageState.get(key);
+
+            if (valueAfter === undefined) {
+                return false;
+            }
+
+            if (value.size !== valueAfter.size) {
+                return false;
+            }
+
+            if (!this.hasSameKeysMap(value, valueAfter)) {
+                return false;
             }
         }
 
         return true;
     }
 
-    private async loadPersistentStorageState(
-        requestPersistentStorage: BlockchainRequestedStorage,
+    private async getCurrentStorageStates(
         defaultStorage: BlockchainStorage,
-        modifiedStorage: BlockchainStorage,
-        initialStorage: BlockchainStorage,
         isView: boolean = false,
-    ): Promise<void> {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
-        if (initialStorage.size !== 0) {
-            throw new Error('Persistent storage already loaded');
-        }
-
+    ): Promise<BlockchainStorage> {
+        const currentStorage: BlockchainStorage = new Map();
         const loadedPromises: Promise<void>[] = [];
-        for (const [key, value] of requestPersistentStorage) {
-            const storage: PointerStorage = initialStorage.get(key) || new Map();
-            //const storageModified: PointerStorage = modifiedStorage.get(key) || new Map();
-            if (!initialStorage.has(key)) {
-                initialStorage.set(key, storage);
+
+        // We iterate over all the requested contract storage slots
+        for (let [key, value] of defaultStorage) {
+            const storage: PointerStorage = new Map();
+
+            // We iterate over all the storage keys and get the current value
+            for (let [k, v] of value) {
+                // We get the current value of the storage slot
+                loadedPromises.push(this.getStorageState(key, k, v, storage, isView));
             }
 
-            const defaultPointerStorage = defaultStorage.get(key);
-            if (defaultPointerStorage === undefined) {
-                /*throw new Error(
-                    `Uninitialized contract ${key} found. Please initialize the contract first.`,
-                );*/
-
-                continue;
-            }
-
-            for (let v of value) {
-                const hasValue = storage.has(v);
-                if (hasValue) {
-                    continue;
-                }
-
-                let defaultPointer: MemorySlotData<bigint> | undefined =
-                    defaultPointerStorage.get(v) || 0n;
-
-                if (defaultPointer === undefined || defaultPointer === null) {
-                    throw new Error(
-                        `Uninitialized pointer ${v}. Please initialize the memory pointer in the contract first.`,
-                    );
-
-                    //defaultPointer = BigInt(0);
-                }
-
-                loadedPromises.push(this.getStorageState(key, v, defaultPointer, storage, isView));
-            }
+            currentStorage.set(key, storage);
         }
 
         await Promise.all(loadedPromises);
+
+        return currentStorage;
     }
 
     private async getStorageState(
@@ -459,8 +492,6 @@ export class ContractEvaluator {
             !isView,
         );
 
-        console.log(`GET STORAGE`, address, pointer, value, defaultValue);
-
         const valHex = value ? BufferHelper.uint8ArrayToValue(value) : null;
         const finalValue: bigint = valHex === null ? defaultValue : valHex;
 
@@ -476,17 +507,6 @@ export class ContractEvaluator {
         const valueBuffer: MemoryValue = BufferHelper.valueToUint8Array(value);
 
         await this.setStorage(address, rawData, valueBuffer);
-    }
-
-    private getCurrentStorageState(): BlockchainRequestedStorage {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
-        const requiredStorage: Uint8Array = this.contractInstance.getRequiredStorage();
-        const binaryReader = new BinaryReader(requiredStorage);
-
-        return binaryReader.readRequestedStorage();
     }
 
     private getCurrentModifiedStorageState(): BlockchainStorage {
@@ -508,7 +528,24 @@ export class ContractEvaluator {
         const storage: Uint8Array = this.contractInstance.initializeStorage();
         const binaryReader = new BinaryReader(storage);
 
-        return binaryReader.readStorage();
+        const resp = binaryReader.readStorage();
+
+        if (this.originalStorageState.size !== 0) {
+            // we must merge the original storage state with the new one
+            for (const [key, value] of this.originalStorageState) {
+                const newStorage: PointerStorage = resp.get(key) || new Map();
+
+                for (const [k, v] of value) {
+                    if (!newStorage.has(k)) {
+                        newStorage.set(k, v);
+                    }
+                }
+
+                resp.set(key, newStorage);
+            }
+        }
+
+        return resp;
     }
 
     private async updateStorage(modifiedStorage: BlockchainStorage): Promise<void> {
