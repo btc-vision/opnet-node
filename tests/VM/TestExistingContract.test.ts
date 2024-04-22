@@ -27,7 +27,7 @@ function generateRndAddress(length: number = 60): string {
 describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
     const ANY_CONTRACT_ADDRESS: string =
         'bc1pba71319e93c577db3cb24ea3d31098e6a1276dea18166a02354f0ba20f78';
-    const ANY_OWNER: string = '13sBQqJdnAdc7v5tnX3ifYqAMoFX79VfLya';
+    const ANY_OWNER: string = '13sBQqJdnAdc7v5tnX3ifYqAMoFX79VfLy';
 
     const RANDOM_BLOCK_ID: bigint = 1073478347n;
     const EXECUTE_X_TIME: bigint = 10n;
@@ -277,8 +277,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const balanceOfResponse = await getBalanceOf(ANY_OWNER);
-        console.log(`Balance of ${ANY_OWNER}:`, balanceOfResponse);
-
         expect(balanceOfResponse).toBeGreaterThanOrEqual(0n);
     });
 
@@ -302,10 +300,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const balanceOfUserAfterAddition = res[1];
-
-        console.log('Balance of user before addition:', balanceOfUserBeforeAddition);
-        console.log('Balance of user after addition:', balanceOfUserAfterAddition);
-
         expect(balanceOfUserAfterAddition).toBe(
             balanceOfUserBeforeAddition + BALANCE_TO_ADD * EXECUTE_X_TIME,
         );
@@ -339,7 +333,10 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
 
         const existingSupply = await getTotalSupply();
 
+        const balanceOfAddressABefore = await getBalanceOf(ANY_ADDRESS_A);
         await giveMoneyTo(ANY_ADDRESS_A, AMOUNT_TO_GIVE_TO_ADDRESS_A, true);
+
+        const balanceOfAddressBBefore = await getBalanceOf(ANY_ADDRESS_B);
         await giveMoneyTo(ANY_ADDRESS_B, AMOUNT_TO_GIVE_TO_ADDRESS_B, true);
 
         // Verify numerous arithmetic operations
@@ -387,10 +384,10 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const expectedTotalSupply =
             AMOUNT_TO_GIVE_TO_ADDRESS_A + AMOUNT_TO_GIVE_TO_ADDRESS_B + existingSupply;
 
-        expect(balanceOfAddressA).toBe(AMOUNT_TO_GIVE_TO_ADDRESS_A);
-        expect(balanceOfAddressB).toBe(AMOUNT_TO_GIVE_TO_ADDRESS_B);
+        expect(balanceOfAddressA - balanceOfAddressABefore).toBe(AMOUNT_TO_GIVE_TO_ADDRESS_A);
+        expect(balanceOfAddressB - balanceOfAddressBBefore).toBe(AMOUNT_TO_GIVE_TO_ADDRESS_B);
 
-        expect(balanceAMinusBalanceB).toBe(
+        expect(balanceAMinusBalanceB - (balanceOfAddressABefore - balanceOfAddressBBefore)).toBe(
             AMOUNT_TO_GIVE_TO_ADDRESS_A - AMOUNT_TO_GIVE_TO_ADDRESS_B,
         );
 
