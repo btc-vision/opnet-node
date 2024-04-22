@@ -34,8 +34,6 @@ class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
 
         this.bitcoinRPCThreads.sendLinkToZeroMQThread = this.sendLinkToZeroMQThread.bind(this);
 
-        this.blockIndexer.sendMessageToThread = this.sendMessageToThread.bind(this);
-
         void this.init();
     }
 
