@@ -50,6 +50,8 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
             currentBlockMsg,
         );
 
+        console.log(currentBlock);
+
         try {
             if (!currentBlock) {
                 res.status(400);
