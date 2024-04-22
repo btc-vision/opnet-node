@@ -119,7 +119,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
         return keys[threadId] || 0;
     }
-    
+
     private generateTaskId(): string {
         return genRanHex(8);
     }

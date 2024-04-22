@@ -6,6 +6,7 @@ import {
 } from '../../threading/interfaces/thread-messages/messages/LinkThreadMessage.js';
 import { LinkThreadRequestMessage } from '../../threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { ThreadManager } from '../../threading/manager/ThreadManager.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../../threading/Threader.js';
@@ -23,6 +24,24 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
         void this.init();
     }
 
+    public sendLinkToZeroMQThread(message: LinkThreadMessage<LinkType>): void {
+        throw new Error('Method not implemented.');
+    }
+
+    public sendMessageToZeroMQThread(_message: LinkThreadRequestMessage): void {
+        throw new Error('Method not implemented.');
+    }
+
+    public onGlobalMessage(msg: ThreadMessageBase<MessageType>, thread: Worker): Promise<void> {
+        throw new Error('Method not implemented.');
+    }
+
+    public async dispatchMessageToThread(
+        message: ThreadMessageBase<MessageType>,
+    ): Promise<ThreadData | null> {
+        return await this.threadManager.execute(message);
+    }
+
     protected async sendLinkToThreadsOfType(
         threadType: ThreadTypes,
         threadId: number,
@@ -36,14 +55,6 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
                 return false;
             }
         }
-    }
-
-    public sendLinkToZeroMQThread(message: LinkThreadMessage<LinkType>): void {
-        throw new Error('Method not implemented.');
-    }
-
-    public sendMessageToZeroMQThread(_message: LinkThreadRequestMessage): void {
-        throw new Error('Method not implemented.');
     }
 
     protected async sendLinkMessageToThreadOfType(
@@ -64,9 +75,5 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
     protected async createLinkBetweenThreads(): Promise<void> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.ZERO_MQ);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
-    }
-
-    public onGlobalMessage(msg: ThreadMessageBase<MessageType>, thread: Worker): Promise<void> {
-        throw new Error('Method not implemented.');
     }
 }

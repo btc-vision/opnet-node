@@ -1,8 +1,3 @@
-import { ClientSession } from 'mongodb';
-import { Config } from '../config/Config.js';
-import { DBManagerInstance } from '../db/DBManager.js';
-import { IBlockchainInformationDocument } from '../db/documents/interfaces/IBlockchainInformationDocument.js';
-import { BlockchainInformationRepository } from '../db/repositories/BlockchainInformationRepository.js';
 import {
     BitcoinRPC,
     BlockchainInfo,
@@ -10,11 +5,17 @@ import {
     TransactionData,
 } from '@btc-vision/bsi-bitcoin-rpc';
 import pkg from 'bitcore-lib';
+import { ClientSession } from 'mongodb';
+import { Config } from '../config/Config.js';
+import { DBManagerInstance } from '../db/DBManager.js';
+import { IBlockchainInformationDocument } from '../db/documents/interfaces/IBlockchainInformationDocument.js';
+import { BlockchainInformationRepository } from '../db/repositories/BlockchainInformationRepository.js';
+
 const { Script } = pkg;
 
 class TransactionDetail {}
 
-export class BlockProcessor {
+export class BlockProcessor2 {
     private rpcClient: BitcoinRPC;
     private blockchainInfoRepository: BlockchainInformationRepository;
     private readonly network: string;
