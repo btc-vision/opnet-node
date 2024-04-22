@@ -328,8 +328,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const ANY_ADDRESS_A: string = '13sBQqJdnAdc7v5tnX3ifYqAMoFX79VfLc';
         const ANY_ADDRESS_B: string = '13sBQqJdnAdc7v5tnX3ifYqAMoFX79VfLb';
 
-        const AMOUNT_TO_GIVE_TO_ADDRESS_A: bigint = 20n;
-        const AMOUNT_TO_GIVE_TO_ADDRESS_B: bigint = 10n;
+        const AMOUNT_TO_GIVE_TO_ADDRESS_A: bigint = 300000000000000000000000000000000000n;
+        const AMOUNT_TO_GIVE_TO_ADDRESS_B: bigint = 100000000000000000000000000000000000n;
 
         const existingSupply = await getTotalSupply();
 
@@ -372,11 +372,11 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const decodedResponse = abiCoder.decodeData(result, [ABIDataTypes.TUPLE]) as [
-            [bigint, bigint, bigint, bigint],
+            [bigint, bigint, bigint, bigint, bigint],
         ];
 
         expect(decodedResponse.length).toBe(1);
-        expect(decodedResponse[0].length).toBe(4);
+        expect(decodedResponse[0].length).toBe(5);
 
         const [balanceOfAddressA, balanceOfAddressB, balanceAMinusBalanceB, balanceOfContract] =
             decodedResponse[0];

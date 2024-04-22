@@ -377,11 +377,11 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const decodedResponse = abiCoder.decodeData(result, [ABIDataTypes.TUPLE]) as [
-            [bigint, bigint, bigint, bigint],
+            [bigint, bigint, bigint, bigint, bigint],
         ];
 
         expect(decodedResponse.length).toBe(1);
-        expect(decodedResponse[0].length).toBe(4);
+        expect(decodedResponse[0].length).toBe(5);
 
         const [balanceOfAddressA, balanceOfAddressB, balanceAMinusBalanceB, balanceOfContract] =
             decodedResponse[0];
