@@ -89,7 +89,7 @@ export class BlockchainIndexer extends Logger {
         const block: Block = new Block(blockData);
         await block.process();
 
-        console.log(block);
+        //console.log(block);
     }
 
     private async getChainCurrentBlockHeight(): Promise<number> {

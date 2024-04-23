@@ -1,6 +1,6 @@
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
-import { PossibleOpNetTransactions } from '../PossibleOpNetTransactions.js';
+import { PossibleOpNetTransactions, TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
 
 export class TransactionFactory {
@@ -11,13 +11,13 @@ export class TransactionFactory {
         data: TransactionData,
         blockHash: string,
     ): Transaction<OPNetTransactionTypes> {
-        const parser: OPNetTransactionTypes = this.getTransactionType(data);
-        const transactionObj = PossibleOpNetTransactions[parser];
-
-        return transactionObj.parse(data, blockHash);
+        const parser: TransactionInformation = this.getTransactionType(data);
+        const transactionObj = PossibleOpNetTransactions[parser.type];
+        
+        return transactionObj.parse(data, parser.vInIndex, blockHash);
     }
 
-    protected getTransactionType(data: TransactionData): OPNetTransactionTypes {
+    protected getTransactionType(data: TransactionData): TransactionInformation {
         for (let _transactionType in PossibleOpNetTransactions) {
             const transactionType = _transactionType as unknown as OPNetTransactionTypes;
 
@@ -27,10 +27,9 @@ export class TransactionFactory {
             }
 
             const transactionObj = PossibleOpNetTransactions[transactionType];
-
             const isTransactionOfType = transactionObj.isTransaction(data);
-            if (transactionType !== transactionType) {
-                throw new Error(`Failed to verify that transaction has a valid type`);
+            if (!isTransactionOfType) {
+                continue;
             }
 
             if (isTransactionOfType) {
@@ -39,6 +38,9 @@ export class TransactionFactory {
         }
 
         /** Fallback to generic transaction */
-        return this.genericTransactionType;
+        return {
+            type: this.genericTransactionType,
+            vInIndex: 0,
+        };
     }
 }

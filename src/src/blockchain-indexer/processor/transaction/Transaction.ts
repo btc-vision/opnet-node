@@ -1,8 +1,11 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
+import { script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
 import { TransactionOutput } from './inputs/TransactionOutput.js';
+
+const OPNet_MAGIC: Buffer = Buffer.from('bsi', 'utf-8');
 
 export abstract class Transaction<T extends OPNetTransactionTypes> {
     public abstract readonly transactionType: T;
@@ -33,13 +36,20 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     protected readonly transactionHashBuffer: Buffer;
     protected readonly transactionHash: string;
 
-    protected constructor(rawTransactionData: TransactionData, blockHash: string) {
+    protected readonly vInputIndex: number;
+
+    protected constructor(
+        rawTransactionData: TransactionData,
+        vInputIndex: number,
+        blockHash: string,
+    ) {
         if (rawTransactionData.blockhash && rawTransactionData.blockhash !== blockHash) {
             throw new Error(
                 `Block hash mismatch: ${rawTransactionData.blockhash} !== ${blockHash}`,
             );
         }
 
+        this.vInputIndex = vInputIndex;
         this.txid = rawTransactionData.txid;
 
         this.transactionHash = rawTransactionData.hash;
@@ -91,6 +101,89 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this.transactionHashBuffer;
     }
 
+    protected static getDataChecksum(data: Array<Buffer | number>): Buffer {
+        let checksum: number[] = [];
+
+        for (let i = 0; i < data.length; i++) {
+            if (typeof data[i] === 'number') {
+                checksum.push(data[i] as number);
+            }
+        }
+
+        return Buffer.from(checksum);
+    }
+
+    protected static verifyChecksum(
+        scriptData: (number | Buffer)[],
+        typeChecksum: Buffer,
+    ): boolean {
+        const checksum: Buffer = this.getDataChecksum(scriptData);
+
+        return checksum.equals(typeChecksum);
+    }
+
+    protected static _is(data: TransactionData, typeChecksum: Buffer): number {
+        let isCorrectType: number = -1;
+
+        for (let y = 0; y < data.vin.length; y++) {
+            const vIn = data.vin[y];
+            const witnesses = vIn.txinwitness;
+
+            for (let i = 0; i < witnesses.length; i++) {
+                const witness = witnesses[i];
+                const raw = Buffer.from(witness, 'hex');
+
+                const decodedScript = script.decompile(raw);
+                if (!decodedScript) continue;
+
+                const includeMagic = this.dataIncludeOPNetMagic(decodedScript);
+                if (!includeMagic) continue;
+
+                if (this.verifyChecksum(decodedScript, typeChecksum)) {
+                    isCorrectType = y;
+                    break;
+                }
+            }
+        }
+
+        return isCorrectType;
+    }
+
+    protected static dataIncludeOPNetMagic(data: Array<Buffer | number>): boolean {
+        return data.some((value) => {
+            if (typeof value === 'number') {
+                return false;
+            }
+
+            const buffer: Buffer = Buffer.isBuffer(value) ? value : Buffer.from(value);
+            if (buffer.byteLength !== OPNet_MAGIC.byteLength) {
+                return false;
+            }
+
+            return buffer.equals(OPNet_MAGIC);
+        });
+    }
+
+    protected getWitnessWithMagic(
+        vIndex: number = this.vInputIndex,
+    ): Array<Buffer | number> | undefined {
+        const vIn = this.inputs[vIndex];
+        const witnesses = vIn.transactionInWitness;
+
+        for (let i = 0; i < witnesses.length; i++) {
+            const witness = witnesses[i];
+            const raw = Buffer.from(witness, 'hex');
+
+            const decodedScript = script.decompile(raw);
+            if (!decodedScript) continue;
+
+            const includeMagic = Transaction.dataIncludeOPNetMagic(decodedScript);
+            if (!includeMagic) continue;
+
+            return decodedScript;
+        }
+    }
+
     protected parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         this.parseInputs(vIn);
         this.parseOutputs(vOuts);
@@ -119,16 +212,4 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     private rndBigInt(min: number, max: number): bigint {
         return BigInt(Math.floor(Math.random() * (max - min + 1) + min));
     }
-
-    // To know how much a transaction spent in fees, we need to calculate the difference between the inputs and outputs
-    /*protected calculateMinerFees(): void {
-        this._miningFee =
-            this.inputs.reduce((acc: bigint, input: TransactionInput) => {
-                return acc + input.value;
-            }, 0n) - this.outputs.reduce((acc, output) => acc + output.value, 0n);
-    }*/
-
-    /*public get fee(): bigint {
-        return this.inputs.reduce((acc, input) => acc + input.value, 0n) - this.outputs.reduce((acc, output) => acc + output.value, 0n);
-    }*/
 }

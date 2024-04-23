@@ -70,7 +70,7 @@ class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
         this.log('Starting block indexer...');
         setTimeout(() => {
             void this.blockIndexer.start();
-        }, 2000);
+        }, 500);
     }
 
     protected async onLinkMessage(

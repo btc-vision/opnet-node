@@ -23,7 +23,7 @@ export class Block extends Logger {
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
     private readonly transactionSorter: TransactionSorter = new TransactionSorter();
 
-    constructor(rawBlockData: BlockDataWithTransactionData) {
+    constructor(protected readonly rawBlockData: BlockDataWithTransactionData) {
         super();
 
         this.header = new BlockHeader(rawBlockData);
