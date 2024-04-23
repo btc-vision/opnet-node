@@ -1,6 +1,7 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { EcKeyPair } from '@btc-vision/bsi-transaction';
 import bitcoin, { opcodes } from 'bitcoinjs-lib';
+import { ECPairInterface } from 'ecpair';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
@@ -11,7 +12,7 @@ interface DeploymentWitnessData {
     deployerPubKeyHash: Buffer;
 
     contractSaltPubKey: Buffer;
-    contractSaltHash: EcKeyPair;
+    contractSaltHash: Buffer;
 
     bytecode: Buffer;
 }
@@ -44,13 +45,29 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         DeploymentTransaction.getType();
 
     protected contractBytecode: Buffer | undefined;
-    protected contractSalt: EcKeyPair | undefined;
-    protected ownerPubKey: Buffer | undefined;
-    protected contractSaltPubKey: Buffer | undefined;
-    protected contractSeed: Buffer | undefined;
+    protected contractSaltHash: Buffer | undefined;
 
-    constructor(rawTransactionData: TransactionData, vInputIndex: number, blockHash: string) {
-        super(rawTransactionData, vInputIndex, blockHash);
+    protected deployerPubKey: Buffer | undefined;
+    protected deployerPubKeyHash: Buffer | undefined;
+
+    protected contractSigner: ECPairInterface | undefined;
+    protected contractVirtualAddress: Buffer | undefined;
+
+    constructor(
+        rawTransactionData: TransactionData,
+        vInputIndex: number,
+        blockHash: string,
+        network: bitcoin.networks.Network,
+    ) {
+        super(rawTransactionData, vInputIndex, blockHash, network);
+    }
+
+    public get routingAddress(): string {
+        if (!this.contractVirtualAddress) {
+            throw new Error('Contract virtual address not found');
+        }
+
+        return '0x' + this.contractVirtualAddress.toString('hex');
     }
 
     public static is(data: TransactionData): TransactionInformation | undefined {
@@ -65,15 +82,15 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         };
     }
 
-    public static getContractAddress(
+    public static getContractSeed(
         deployerPubKey: Buffer,
         bytecode: Buffer,
         saltHash: Buffer,
     ): Buffer {
-        const sha256OfBytecode: Buffer = bitcoin.crypto.sha256(bytecode);
+        const sha256OfBytecode: Buffer = bitcoin.crypto.hash256(bytecode);
         const buf: Buffer = Buffer.concat([deployerPubKey, saltHash, sha256OfBytecode]);
 
-        return bitcoin.crypto.sha256(buf);
+        return bitcoin.crypto.hash256(buf);
     }
 
     private static getType(): OPNetTransactionTypes.Deployment {
@@ -82,8 +99,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
     protected parseTransaction(vIn: VIn[], vOuts: VOut[]) {
         super.parseTransaction(vIn, vOuts);
-
-        console.log(`Parsing deployment transaction ${this.txid}`);
 
         const inputOPNetWitnessTransactions = this.getInputWitnessTransactions();
         if (inputOPNetWitnessTransactions.length === 0) {
@@ -112,22 +127,75 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             );
         }
 
-        console.log(`Deployment witness data:`, deploymentWitnessData);
+        this.contractBytecode = deploymentWitnessData.bytecode;
 
         const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
+        const originalSalt = Buffer.from(witnesses[0], 'hex');
+        const deployerPubKey = Buffer.from(witnesses[1], 'hex');
 
-        const deployerPubKeyXOnly = witnesses[0];
-        const originalSalt = witnesses[1];
-        
-        const contractSaltSignature = witnesses[2];
-        const deployerSignature = witnesses[3];
+        /** Verify witness data */
+        const hashDeployerPubKey = bitcoin.crypto.hash160(deployerPubKey);
+        if (!hashDeployerPubKey.equals(deploymentWitnessData.deployerPubKeyHash)) {
+            throw new Error(
+                `Invalid deployer public key hash found in deployment transaction. Expected ${deploymentWitnessData.deployerPubKeyHash.toString(
+                    'hex',
+                )} but got ${hashDeployerPubKey.toString('hex')}`,
+            );
+        }
 
-        console.log(deploymentWitnessData, {
-            originalSalt,
-            deployerPubKeyXOnly,
-            contractSaltSignature,
-            deployerSignature,
-        });
+        this.deployerPubKeyHash = hashDeployerPubKey;
+        this.deployerPubKey = deployerPubKey;
+
+        /** Verify contract salt */
+        const hashOriginalSalt: Buffer = bitcoin.crypto.hash256(originalSalt);
+        if (!hashOriginalSalt.equals(deploymentWitnessData.contractSaltHash)) {
+            throw new Error(
+                `Invalid contract salt hash found in deployment transaction. Expected ${deploymentWitnessData.contractSaltHash.toString(
+                    'hex',
+                )} but got ${hashOriginalSalt.toString('hex')}`,
+            );
+        }
+
+        this.contractSaltHash = hashOriginalSalt;
+
+        /** Restore contract seed/address */
+        this.contractVirtualAddress = DeploymentTransaction.getContractSeed(
+            deployerPubKey,
+            this.contractBytecode,
+            hashOriginalSalt,
+        );
+
+        this.contractSigner = EcKeyPair.fromSeedKeyPair(this.contractVirtualAddress, this.network);
+
+        /** TODO: Verify signatures, OPTIONAL */
+
+        /** When deploying a contract, the FIRST output should always be the contract tapscript witness */
+        const witnessOutput = this.outputs[0];
+        const scriptPubKey = witnessOutput.scriptPubKey;
+
+        if (scriptPubKey.type !== 'witness_v1_taproot') {
+            throw new Error('Invalid scriptPubKey type for contract witness output');
+        }
+
+        if (!scriptPubKey.address) {
+            throw new Error('No address found for contract witness output');
+        }
+
+        // We set fees sent to the contract as burned fees
+        this._burnedFee = this.decimalOutputToBigInt(witnessOutput.value);
+        console.log(
+            `Burned ${this._burnedFee} sat to deploy contract at ${scriptPubKey.address}! Contract virtual routing address: ${this.routingAddress}`,
+        );
+
+        /** Decompress if needed */
+        this.decompressBytecode();
+
+        console.log(this);
+    }
+
+    /** We must check if the bytecode was compressed using GZIP. If so, we must decompress it. */
+    private decompressBytecode(): void {
+        this.contractBytecode = this.decompressData(this.contractBytecode);
     }
 
     private getDeploymentWitnessData(

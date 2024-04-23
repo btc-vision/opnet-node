@@ -1,4 +1,5 @@
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
+import bitcoin from 'bitcoinjs-lib';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { Transaction } from './Transaction.js';
 import { DeploymentTransaction } from './transactions/DeploymentTransaction.js';
@@ -9,6 +10,7 @@ export type OPNetTransactionByType<T extends OPNetTransactionTypes> = (
     data: TransactionData,
     vIndexIn: number,
     blockHash: string,
+    network: bitcoin.networks.Network,
 ) => Transaction<T>;
 
 export interface TransactionInformation {

@@ -1,6 +1,7 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
-import { script } from 'bitcoinjs-lib';
+import bitcoin, { script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
+import * as zlib from 'zlib';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
 import { TransactionOutput } from './inputs/TransactionOutput.js';
@@ -37,11 +38,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     protected readonly transactionHash: string;
 
     protected readonly vInputIndex: number;
+    protected wasCompressed: boolean = false;
 
     protected constructor(
         rawTransactionData: TransactionData,
         vInputIndex: number,
         blockHash: string,
+        protected readonly network: bitcoin.networks.Network,
     ) {
         if (rawTransactionData.blockhash && rawTransactionData.blockhash !== blockHash) {
             throw new Error(
@@ -162,6 +165,25 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             return buffer.equals(OPNet_MAGIC);
         });
+    }
+
+    protected decompressData(buffer: Buffer | undefined): Buffer {
+        if (!buffer) {
+            throw new Error('Buffer is undefined. Can not decompress.');
+        }
+
+        const zlibHeader = buffer.slice(0, 2);
+        if (zlibHeader.equals(Buffer.from([0x1f, 0x8b]))) {
+            buffer = zlib.unzipSync(buffer);
+
+            this.wasCompressed = true;
+        }
+
+        return buffer;
+    }
+
+    protected decimalOutputToBigInt(output: number): bigint {
+        return BigInt(output * 100000000);
     }
 
     protected getWitnessWithMagic(

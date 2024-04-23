@@ -1,4 +1,5 @@
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
+import bitcoin from 'bitcoinjs-lib';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { PossibleOpNetTransactions, TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
@@ -10,11 +11,12 @@ export class TransactionFactory {
     public parseTransaction(
         data: TransactionData,
         blockHash: string,
+        network: bitcoin.networks.Network,
     ): Transaction<OPNetTransactionTypes> {
         const parser: TransactionInformation = this.getTransactionType(data);
         const transactionObj = PossibleOpNetTransactions[parser.type];
-        
-        return transactionObj.parse(data, parser.vInIndex, blockHash);
+
+        return transactionObj.parse(data, parser.vInIndex, blockHash, network);
     }
 
     protected getTransactionType(data: TransactionData): TransactionInformation {

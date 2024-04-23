@@ -4,6 +4,7 @@ import {
     BlockDataWithTransactionData,
 } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
+import bitcoin from 'bitcoinjs-lib';
 import { Config } from '../../config/Config.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
 import { BlockchainInformationRepository } from '../../db/repositories/BlockchainInformationRepository.js';
@@ -15,10 +16,26 @@ export class BlockchainIndexer extends Logger {
     private readonly network: string;
     private readonly rpcClient: BitcoinRPC = new BitcoinRPC();
 
+    private readonly bitcoinNetwork: bitcoin.networks.Network;
+
     constructor() {
         super();
 
         this.network = Config.BLOCKCHAIN.BITCOIND_NETWORK;
+
+        switch (this.network) {
+            case 'mainnet':
+                this.bitcoinNetwork = bitcoin.networks.bitcoin;
+                break;
+            case 'testnet':
+                this.bitcoinNetwork = bitcoin.networks.testnet;
+                break;
+            case 'regtest':
+                this.bitcoinNetwork = bitcoin.networks.regtest;
+                break;
+            default:
+                throw new Error(`Invalid network ${this.network}`);
+        }
     }
 
     private _blockchainInfoRepository: BlockchainInformationRepository | undefined;
@@ -86,10 +103,8 @@ export class BlockchainIndexer extends Logger {
     }
 
     private async processBlock(blockData: BlockDataWithTransactionData): Promise<void> {
-        const block: Block = new Block(blockData);
+        const block: Block = new Block(blockData, this.bitcoinNetwork);
         await block.process();
-
-        //console.log(block);
     }
 
     private async getChainCurrentBlockHeight(): Promise<number> {

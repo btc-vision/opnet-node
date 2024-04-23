@@ -1,5 +1,5 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
-import { opcodes } from 'bitcoinjs-lib';
+import bitcoin, { opcodes } from 'bitcoinjs-lib';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
@@ -30,8 +30,13 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
     public readonly transactionType: OPNetTransactionTypes.Interaction =
         InteractionTransaction.getType();
 
-    constructor(rawTransactionData: TransactionData, vIndexIn: number, blockHash: string) {
-        super(rawTransactionData, vIndexIn, blockHash);
+    constructor(
+        rawTransactionData: TransactionData,
+        vIndexIn: number,
+        blockHash: string,
+        network: bitcoin.networks.Network,
+    ) {
+        super(rawTransactionData, vIndexIn, blockHash, network);
     }
 
     public static is(data: TransactionData): TransactionInformation | undefined {

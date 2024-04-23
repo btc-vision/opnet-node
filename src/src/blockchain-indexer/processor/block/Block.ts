@@ -1,5 +1,6 @@
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
+import bitcoin from 'bitcoinjs-lib';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
 import { TransactionSorter } from '../transaction/transaction-sorter/TransactionSorter.js';
@@ -23,7 +24,10 @@ export class Block extends Logger {
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
     private readonly transactionSorter: TransactionSorter = new TransactionSorter();
 
-    constructor(protected readonly rawBlockData: BlockDataWithTransactionData) {
+    constructor(
+        protected readonly rawBlockData: BlockDataWithTransactionData,
+        protected readonly network: bitcoin.networks.Network,
+    ) {
         super();
 
         this.header = new BlockHeader(rawBlockData);
@@ -105,6 +109,7 @@ export class Block extends Logger {
                 const transaction = this.transactionFactory.parseTransaction(
                     rawTransactionData,
                     this.hash,
+                    this.network,
                 );
 
                 this.transactions.push(transaction);

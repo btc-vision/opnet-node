@@ -45,7 +45,7 @@ export class BlockchainInformationRepository extends BaseRepository<IBlockchainI
         // TODO - Add default values from configs
         return {
             network: network,
-            inProgressBlock: 297,
+            inProgressBlock: 303,
         };
     }
 }
