@@ -169,6 +169,14 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
         /** TODO: Verify signatures, OPTIONAL */
 
+        /** We must verify the contract address */
+        const inputTxId = this.inputs[this.vInputIndex].originalTransactionId;
+        if (!inputTxId) {
+            throw new Error(
+                `No input transaction id found for deployment transaction ${this.txid}`,
+            );
+        }
+
         /** When deploying a contract, the FIRST output should always be the contract tapscript witness */
         const witnessOutput = this.outputs[0];
         const scriptPubKey = witnessOutput.scriptPubKey;

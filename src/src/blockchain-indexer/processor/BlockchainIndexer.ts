@@ -8,6 +8,7 @@ import bitcoin from 'bitcoinjs-lib';
 import { Config } from '../../config/Config.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
 import { BlockchainInformationRepository } from '../../db/repositories/BlockchainInformationRepository.js';
+import { VMManager } from '../../vm/VMManager.js';
 import { Block } from './block/Block.js';
 
 export class BlockchainIndexer extends Logger {
@@ -17,6 +18,8 @@ export class BlockchainIndexer extends Logger {
     private readonly rpcClient: BitcoinRPC = new BitcoinRPC();
 
     private readonly bitcoinNetwork: bitcoin.networks.Network;
+
+    private readonly vmManager: VMManager = new VMManager(Config);
 
     constructor() {
         super();
@@ -56,6 +59,8 @@ export class BlockchainIndexer extends Logger {
         this._blockchainInfoRepository = new BlockchainInformationRepository(DBManagerInstance.db);
 
         await this.rpcClient.init(Config.BLOCKCHAIN);
+        await this.vmManager.init();
+
         await this.safeProcessBlocks();
     }
 
@@ -64,6 +69,8 @@ export class BlockchainIndexer extends Logger {
             await this.processBlocks();
         } catch (e) {
             this.error(e);
+
+            await this.vmManager.revertBlock();
         }
 
         setTimeout(() => this.safeProcessBlocks(), 10000);
@@ -92,6 +99,19 @@ export class BlockchainIndexer extends Logger {
         }
     }
 
+    private async processBlock(blockData: BlockDataWithTransactionData): Promise<void> {
+        await this.vmManager.prepareBlock(BigInt(blockData.height));
+
+        // Deserialize the block.
+        const block: Block = new Block(blockData, this.bitcoinNetwork);
+        await block.process();
+
+        // Execute the block.
+        // ... not implemented yet.
+
+        await this.vmManager.terminateBlock();
+    }
+
     private async getBlock(blockHeight: number): Promise<BlockDataWithTransactionData | null> {
         const blockHash: string | null = await this.rpcClient.getBlockHash(blockHeight);
 
@@ -100,11 +120,6 @@ export class BlockchainIndexer extends Logger {
         }
 
         return await this.rpcClient.getBlockInfoWithTransactionData(blockHash);
-    }
-
-    private async processBlock(blockData: BlockDataWithTransactionData): Promise<void> {
-        const block: Block = new Block(blockData, this.bitcoinNetwork);
-        await block.process();
     }
 
     private async getChainCurrentBlockHeight(): Promise<number> {
