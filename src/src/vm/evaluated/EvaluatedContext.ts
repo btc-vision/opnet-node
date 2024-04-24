@@ -4,13 +4,10 @@ import { ContractEvaluator } from '../runtime/ContractEvaluator.js';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 
 import { StoragePointer } from '../storage/types/StoragePointer.js';
-import { EvaluatedResult } from './EvaluatedResult.js';
 
 export interface VMContext {
     logs: string[];
     errors: string[];
-
-    result: Partial<EvaluatedResult> | null;
 
     getStorage: (
         address: string,

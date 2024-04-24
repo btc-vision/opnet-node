@@ -1,3 +1,6 @@
+import { NetEvent } from '../events/NetEvent.js';
+
 export interface EvaluatedResult {
-    data: Buffer;
+    result: Uint8Array | undefined;
+    events: NetEvent[] | undefined;
 }

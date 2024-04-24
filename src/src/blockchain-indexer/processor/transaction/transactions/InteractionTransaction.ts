@@ -40,15 +40,10 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
     public readonly transactionType: OPNetTransactionTypes.Interaction =
         InteractionTransaction.getType();
-
-    protected calldata: Buffer | undefined;
-
     protected senderPubKeyHash: Buffer | undefined;
     protected senderPubKey: Buffer | undefined;
-
     protected contractSecretHash: Buffer | undefined;
     protected contractSecret: Buffer | undefined;
-
     protected interactionPubKey: Buffer | undefined;
 
     constructor(
@@ -58,6 +53,25 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         network: bitcoin.networks.Network,
     ) {
         super(rawTransactionData, vIndexIn, blockHash, network);
+    }
+
+    protected _calldata: Buffer | undefined;
+
+    public get calldata(): Buffer {
+        if (!this._calldata) {
+            throw new Error(`No calldata found for transaction ${this.txid}`);
+        }
+
+        const newCalldata = Buffer.alloc(this._calldata.byteLength);
+        this._calldata?.copy(newCalldata);
+
+        return newCalldata;
+    }
+
+    protected _contractAddress: string | undefined;
+
+    public get contractAddress(): string {
+        return this._contractAddress as string;
     }
 
     public static is(data: TransactionData): TransactionInformation | undefined {
@@ -108,7 +122,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             );
         }
 
-        this.calldata = interactionWitnessData.calldata;
+        this._calldata = interactionWitnessData.calldata;
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
         const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
@@ -159,6 +173,13 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             );
         }
 
+        const outputAddress = outputWitness.scriptPubKey.address;
+        if (!outputAddress) {
+            throw new Error(`No address found for contract witness output`);
+        }
+
+        this._contractAddress = outputAddress;
+
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
 
@@ -203,7 +224,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
     /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */
     private decompressCalldata(): void {
-        this.calldata = this.decompressData(this.calldata);
+        this._calldata = this.decompressData(this._calldata);
     }
 
     private getInteractionWitnessData(

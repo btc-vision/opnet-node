@@ -12,6 +12,10 @@ export class VMBitcoinBlock extends Logger {
         super();
     }
 
+    public get height(): bigint {
+        return this.blockId;
+    }
+
     public async prepare(blockId: bigint): Promise<void> {
         if (this.isPrepared) {
             throw new Error(`The block ${this.blockId} is already prepared`);

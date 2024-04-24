@@ -1,6 +1,7 @@
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
+import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
@@ -164,6 +165,8 @@ export class Block extends Logger {
         vmManager: VMManager,
     ): Promise<void> {
         try {
+            const outputTransaction: EvaluatedResult = await vmManager.executeTransaction(this.height, transaction);
+            console.log('Output Transaction:', outputTransaction);
         } catch (e) {
             const error: Error = e as Error;
 
