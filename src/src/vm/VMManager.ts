@@ -118,8 +118,6 @@ export class VMManager extends Logger {
             throw new Error(`Contract ${contractAddress} not found.`);
         }
 
-        console.log('Contract Information:', contractInformation);
-
         const vmContext: VMContext | null = await this.loadContractFromBytecode(
             contractAddress,
             contractInformation.bytecode,
@@ -135,9 +133,9 @@ export class VMManager extends Logger {
         }
 
         // We use pub the pub key as the deployer address.
-        const contractDeployer: string = contractInformation.deployerPubKey.toString('hex');
-        if (contractDeployer.length < ADDRESS_BYTE_LENGTH) {
-            throw new Error(`Invalid contract deployer ${contractDeployer}`);
+        const contractDeployer: string = contractInformation.deployerAddress;
+        if (!contractDeployer || contractDeployer.length < ADDRESS_BYTE_LENGTH) {
+            throw new Error(`Invalid contract deployer "${contractDeployer}"`);
         }
 
         await vmEvaluator.setupContract(contractDeployer, contractAddress);
@@ -171,9 +169,15 @@ export class VMManager extends Logger {
             isView,
             selector,
             calldata,
+            interactionTransaction.from,
         );
-        
+
         if (!result) {
+            throw new Error('Execution Reverted.');
+        }
+
+        const resultValue: Uint8Array | undefined = result.result;
+        if (!resultValue) {
             throw new Error('Execution Reverted.');
         }
 

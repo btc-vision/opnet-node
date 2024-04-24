@@ -78,6 +78,16 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.computedIndexingHash = this.computeHashForTransaction();
     }
 
+    protected _from: string | undefined;
+
+    public get from(): string {
+        if (!this._from) {
+            throw new Error(`No sender address found for transaction ${this.txid}`);
+        }
+
+        return this._from;
+    }
+
     // Position of transaction in the block
     protected _index: number = 0;
 

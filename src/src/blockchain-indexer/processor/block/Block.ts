@@ -165,8 +165,14 @@ export class Block extends Logger {
         vmManager: VMManager,
     ): Promise<void> {
         try {
-            const outputTransaction: EvaluatedResult = await vmManager.executeTransaction(this.height, transaction);
-            console.log('Output Transaction:', outputTransaction);
+            const outputTransaction: EvaluatedResult = await vmManager.executeTransaction(
+                this.height,
+                transaction,
+            );
+
+            this.log('Output Transaction:', outputTransaction);
+
+            /** We must create a transaction receipt. */
         } catch (e) {
             const error: Error = e as Error;
 

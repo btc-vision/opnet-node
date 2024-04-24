@@ -16,6 +16,7 @@ export class ContractInformation {
         public readonly contractSeed: Buffer,
         public readonly contractSaltHash: Buffer,
         public readonly burnedFee: bigint,
+        public readonly deployerAddress: BitcoinAddress,
     ) {}
 
     public static fromDocument(contractDocument: IContractDocument): ContractInformation {
@@ -59,6 +60,7 @@ export class ContractInformation {
             contractSeedBuffer,
             contractSaltHashBuffer,
             this.fromDecimal128(contractDocument.burnedFee),
+            contractDocument.deployerAddress,
         );
     }
 
@@ -98,6 +100,7 @@ export class ContractInformation {
             transaction.contractSeed,
             transaction.contractSaltHash,
             transaction.burnedFee,
+            transaction.from,
         );
     }
 
@@ -118,6 +121,7 @@ export class ContractInformation {
             contractSeed: new Binary(this.contractSeed),
             contractSaltHash: new Binary(this.contractSaltHash),
             burnedFee: this.toDecimal128(this.burnedFee),
+            deployerAddress: this.deployerAddress,
         };
     }
 

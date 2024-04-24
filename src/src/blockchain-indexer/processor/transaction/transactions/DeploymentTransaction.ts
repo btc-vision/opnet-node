@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { EcKeyPair } from '@btc-vision/bsi-transaction';
-import bitcoin, { opcodes } from 'bitcoinjs-lib';
+import bitcoin, { opcodes, payments } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
@@ -201,6 +201,14 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         this.contractAddress = originalContractAddress;
 
         this.setBurnedFee(outputWitness);
+
+        // We get the sender address
+        const { address } = payments.p2tr({ pubkey: deployerPubKey, network: this.network });
+        if (!address) {
+            throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
+        }
+
+        this._from = address as string;
 
         /** Decompress contract bytecode if needed */
         this.decompressBytecode();

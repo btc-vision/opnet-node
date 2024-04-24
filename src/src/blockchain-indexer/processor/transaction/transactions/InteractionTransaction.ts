@@ -1,5 +1,5 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
-import bitcoin, { address, opcodes } from 'bitcoinjs-lib';
+import bitcoin, { address, opcodes, payments } from 'bitcoinjs-lib';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
@@ -40,6 +40,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
     public readonly transactionType: OPNetTransactionTypes.Interaction =
         InteractionTransaction.getType();
+
     protected senderPubKeyHash: Buffer | undefined;
     protected senderPubKey: Buffer | undefined;
     protected contractSecretHash: Buffer | undefined;
@@ -143,6 +144,13 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
                 )} but got ${senderPubKey.toString('hex')}`,
             );
         }
+
+        const { address } = payments.p2tr({ pubkey: senderPubKey, network: this.network });
+        if(!address) {
+            throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
+        }
+
+        this._from = address as string;
 
         this.senderPubKeyHash = interactionWitnessData.senderPubKeyHash160;
         this.senderPubKey = interactionWitnessData.senderPubKey;
