@@ -1,8 +1,10 @@
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { ClientSession } from 'mongodb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
+import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
+import { ContractRepository } from '../../../db/repositories/ContractRepository.js';
 import { BufferHelper } from '../../../utils/BufferHelper.js';
 import { MemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
@@ -11,8 +13,9 @@ import { VMStorage } from '../VMStorage.js';
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
 
-    private currentSession: ClientSession | null = null;
-    private repository: ContractPointerValueRepository | null = null;
+    private currentSession: ClientSession | undefined;
+    private pointerRepository: ContractPointerValueRepository | undefined;
+    private contractRepository: ContractRepository | undefined;
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
@@ -27,7 +30,8 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Database not connected');
         }
 
-        this.repository = new ContractPointerValueRepository(this.databaseManager.db);
+        this.pointerRepository = new ContractPointerValueRepository(this.databaseManager.db);
+        this.contractRepository = new ContractRepository(this.databaseManager.db);
     }
 
     public async close(): Promise<void> {
@@ -69,7 +73,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Default value buffer is required');
         }
 
-        if (!this.repository) {
+        if (!this.pointerRepository) {
             throw new Error('Repository not initialized');
         }
 
@@ -77,7 +81,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
-        const value = await this.repository.getByContractAndPointer(
+        const value = await this.pointerRepository.getByContractAndPointer(
             address,
             pointer,
             this.currentSession,
@@ -105,7 +109,7 @@ export class VMMongoStorage extends VMStorage {
         pointer: StoragePointer,
         value: MemoryValue,
     ): Promise<void> {
-        if (!this.repository) {
+        if (!this.pointerRepository) {
             throw new Error('Repository not initialized');
         }
 
@@ -113,11 +117,56 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
-        await this.repository.setByContractAndPointer(address, pointer, value, this.currentSession);
+        await this.pointerRepository.setByContractAndPointer(
+            address,
+            pointer,
+            value,
+            this.currentSession,
+        );
 
         // verify integrity
         //const newValue = await this.getStorage(address, pointer);
         //console.log(`New value`, newValue, value);
+    }
+
+    public async setContractAt(contractData: ContractInformation): Promise<void> {
+        if (!this.contractRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        if (!this.currentSession) {
+            throw new Error('Session not started');
+        }
+
+        await this.contractRepository.setContract(contractData, this.currentSession);
+    }
+
+    public async getContractAt(
+        contractAddress: BitcoinAddress,
+    ): Promise<ContractInformation | null> {
+        if (!this.contractRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        return await this.contractRepository.getContract(contractAddress, this.currentSession);
+    }
+
+    public async getContractAtVirtualAddress(
+        virtualAddress: string,
+    ): Promise<ContractInformation | null> {
+        if (!this.contractRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        return await this.contractRepository.getContractAtVirtualAddress(virtualAddress);
+    }
+
+    public async hasContractAt(contractAddress: BitcoinAddress): Promise<boolean> {
+        if (!this.contractRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        return await this.contractRepository.hasContract(contractAddress);
     }
 
     private async connectDatabase(): Promise<void> {
@@ -132,7 +181,7 @@ export class VMMongoStorage extends VMStorage {
 
         await this.currentSession.endSession();
 
-        this.currentSession = null;
+        this.currentSession = undefined;
     }
 
     private addBytes(value: MemoryValue): Uint8Array {

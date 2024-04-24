@@ -50,15 +50,15 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
     public contractAddress: string | undefined;
 
-    protected bytecode: Buffer | undefined;
+    public bytecode: Buffer | undefined;
 
-    protected contractSaltHash: Buffer | undefined;
-    protected contractSeed: Buffer | undefined;
+    public contractSaltHash: Buffer | undefined;
+    public contractSeed: Buffer | undefined;
 
-    protected deployerPubKey: Buffer | undefined;
-    protected deployerPubKeyHash: Buffer | undefined;
+    public deployerPubKey: Buffer | undefined;
+    public deployerPubKeyHash: Buffer | undefined;
 
-    protected contractSigner: ECPairInterface | undefined;
+    public contractSigner: ECPairInterface | undefined;
     protected contractVirtualAddress: Buffer | undefined;
 
     constructor(
@@ -70,7 +70,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         super(rawTransactionData, vInputIndex, blockHash, network);
     }
 
-    public get routingAddress(): string {
+    public get virtualAddress(): string {
         if (!this.contractVirtualAddress) {
             throw new Error('Contract virtual address not found');
         }

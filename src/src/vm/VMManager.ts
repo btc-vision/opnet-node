@@ -2,6 +2,7 @@ import { Globals, Logger } from '@btc-vision/bsi-common';
 import fs from 'fs';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
+import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
@@ -94,6 +95,7 @@ export class VMManager extends Logger {
     }
 
     public async deployContract(
+        blockHeight: bigint,
         contractDeploymentTransaction: DeploymentTransaction,
     ): Promise<void> {
         if (!contractDeploymentTransaction.contractAddress) {
@@ -102,6 +104,22 @@ export class VMManager extends Logger {
 
         this.warn(`Attempting to deploy contract ${contractDeploymentTransaction.contractAddress}`);
         console.log(contractDeploymentTransaction);
+
+        const contractInformation: ContractInformation = ContractInformation.fromTransaction(
+            blockHeight,
+            contractDeploymentTransaction,
+        );
+
+        // We must verify that there is no contract already deployed at this address
+        const hasContractDeployedAtAddress: boolean = await this.vmStorage.hasContractAt(
+            contractInformation.contractAddress,
+        );
+
+        if (!hasContractDeployedAtAddress) {
+            await this.vmStorage.setContractAt(contractInformation);
+        } else {
+            throw new Error('Contract already deployed at address');
+        }
     }
 
     // don't even question it ????????????????

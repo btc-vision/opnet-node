@@ -34,11 +34,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public readonly computedIndexingHash: Buffer;
 
-    protected readonly transactionHashBuffer: Buffer;
-    protected readonly transactionHash: string;
+    public wasCompressed: boolean = false;
 
+    protected readonly transactionHashBuffer: Buffer;
+
+    protected readonly transactionHash: string;
     protected readonly vInputIndex: number;
-    protected wasCompressed: boolean = false;
 
     protected constructor(
         rawTransactionData: TransactionData,

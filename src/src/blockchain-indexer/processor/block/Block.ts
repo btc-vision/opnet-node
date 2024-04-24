@@ -179,7 +179,7 @@ export class Block extends Logger {
         vmManager: VMManager,
     ): Promise<void> {
         try {
-            await vmManager.deployContract(transaction);
+            await vmManager.deployContract(this.height, transaction);
         } catch (e) {
             const error: Error = e as Error;
 
