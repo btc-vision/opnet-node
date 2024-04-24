@@ -229,7 +229,7 @@ export class VMManager extends Logger {
         return new Promise<void>((resolve) => {
             setTimeout(() => {
                 resolve();
-            }, 0);
+            }, 2);
         });
     }
 

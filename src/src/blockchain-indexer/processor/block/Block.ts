@@ -170,7 +170,7 @@ export class Block extends Logger {
                 transaction,
             );
 
-            this.log('Output Transaction:', outputTransaction);
+            console.log('Result ->', outputTransaction);
 
             /** We must create a transaction receipt. */
         } catch (e) {

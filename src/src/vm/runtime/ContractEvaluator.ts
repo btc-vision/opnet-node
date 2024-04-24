@@ -83,7 +83,7 @@ export class ContractEvaluator {
 
     public async setupContract(owner: Address, contractAddress: Address): Promise<void> {
         if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
+            throw new Error('No contract instance');
         }
 
         if (this.contractRef !== 0) {
