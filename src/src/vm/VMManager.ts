@@ -1,9 +1,10 @@
-import { Globals, Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import fs from 'fs';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import { Config } from '../config/Config.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
@@ -102,8 +103,11 @@ export class VMManager extends Logger {
             throw new Error('Contract address not found');
         }
 
-        this.warn(`Attempting to deploy contract ${contractDeploymentTransaction.contractAddress}`);
-        console.log(contractDeploymentTransaction);
+        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            this.debugBright(
+                `Attempting to deploy contract ${contractDeploymentTransaction.contractAddress}`,
+            );
+        }
 
         const contractInformation: ContractInformation = ContractInformation.fromTransaction(
             blockHeight,
@@ -119,6 +123,10 @@ export class VMManager extends Logger {
             await this.vmStorage.setContractAt(contractInformation);
         } else {
             throw new Error('Contract already deployed at address');
+        }
+
+        if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            this.info(`Contract ${contractInformation.contractAddress} deployed.`);
         }
     }
 

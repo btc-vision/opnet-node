@@ -123,7 +123,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
         /** Contract should ALWAYS have ONLY ONE input witness transaction */
         const scriptData = this.getWitnessWithMagic();
-
         if (!scriptData) {
             throw new Error(`No script data found for deployment transaction ${this.txid}`);
         }

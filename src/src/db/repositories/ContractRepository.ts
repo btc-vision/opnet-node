@@ -57,6 +57,6 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
     }
 
     protected override getCollection(): Collection<IContractDocument> {
-        return this._db.collection('Internal');
+        return this._db.collection('Contracts');
     }
 }

@@ -8,8 +8,8 @@ export interface IContractDocument extends IBaseDocument {
     readonly virtualAddress: string;
     readonly bytecode: Binary;
     readonly wasCompressed: boolean;
-    readonly transactionId: string;
-    readonly hash: string;
+    readonly deployedTransactionId: string;
+    readonly deployedTransactionHash: string;
     readonly deployerPubKey: Binary;
     readonly contractSeed: Binary;
     readonly contractSaltHash: Binary;
