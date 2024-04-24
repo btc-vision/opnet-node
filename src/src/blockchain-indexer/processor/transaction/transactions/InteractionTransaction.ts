@@ -170,9 +170,11 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             );
         }
 
+        /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
 
-        console.log(interactionWitnessData);
+        /** Decompress calldata if needed */
+        this.decompressCalldata();
     }
 
     /**
