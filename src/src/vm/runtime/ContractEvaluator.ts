@@ -32,7 +32,7 @@ export class ContractEvaluator {
     private writeMethods: MethodMap = new Map();
     private initializeContract: boolean = false;
 
-    private readonly enableTracing: boolean = false;
+    private readonly enableTracing: boolean = true;
 
     constructor(
         private readonly stack: VMContext,

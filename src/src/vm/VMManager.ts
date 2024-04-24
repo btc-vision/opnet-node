@@ -151,9 +151,11 @@ export class VMManager extends Logger {
 
         // Get the function selector
         const calldata: Buffer = interactionTransaction.calldata;
-        const functionSelector: Buffer = calldata.slice(0, 4);
 
-        const selector: Selector = functionSelector.readUInt32BE(0);
+        const finalBuffer: Buffer = Buffer.alloc(calldata.byteLength - 4);
+        calldata.copy(finalBuffer, 0, 4, calldata.byteLength);
+
+        const selector: Selector = calldata.readUInt32BE(0);
         const isView: boolean = vmEvaluator.isViewMethod(selector);
         if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debugBright(
@@ -168,7 +170,7 @@ export class VMManager extends Logger {
             contractAddress,
             isView,
             selector,
-            calldata,
+            finalBuffer,
             interactionTransaction.from,
         );
 
