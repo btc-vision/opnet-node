@@ -48,7 +48,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public readonly transactionType: OPNetTransactionTypes.Deployment =
         DeploymentTransaction.getType();
 
-    protected compressedBytecode: Buffer | undefined;
     protected bytecode: Buffer | undefined;
 
     protected contractSaltHash: Buffer | undefined;
@@ -104,7 +103,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         return OPNetTransactionTypes.Deployment;
     }
 
-    protected parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
+    public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         super.parseTransaction(vIn, vOuts);
 
         const inputOPNetWitnessTransactions = this.getInputWitnessTransactions();
@@ -134,7 +133,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             );
         }
 
-        this.compressedBytecode = deploymentWitnessData.bytecode;
+        this.bytecode = deploymentWitnessData.bytecode;
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
         const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
@@ -178,7 +177,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         /** Restore contract seed/address */
         this.contractVirtualAddress = DeploymentTransaction.getContractSeed(
             deployerPubKey,
-            this.compressedBytecode,
+            this.bytecode,
             hashOriginalSalt,
         );
 
@@ -208,13 +207,13 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         if (!this.deployerPubKey) throw new Error('Deployer public key not found');
         if (!this.contractSigner) throw new Error('Contract signer not found');
         if (!this.contractSeed) throw new Error('Contract seed not found');
-        if (!this.compressedBytecode) throw new Error('Compressed bytecode not found');
+        if (!this.bytecode) throw new Error('Compressed bytecode not found');
 
         const params: ContractAddressVerificationParams = {
             deployerPubKeyXOnly: this.deployerPubKey,
             contractSaltPubKey: this.contractSigner.publicKey,
             originalSalt: this.contractSeed,
-            bytecode: this.compressedBytecode,
+            bytecode: this.bytecode,
             network: this.network,
         };
 
@@ -228,7 +227,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
     /** We must check if the bytecode was compressed using GZIP. If so, we must decompress it. */
     private decompressBytecode(): void {
-        this.bytecode = this.decompressData(this.compressedBytecode);
+        this.bytecode = this.decompressData(this.bytecode);
     }
 
     private getDeploymentWitnessData(

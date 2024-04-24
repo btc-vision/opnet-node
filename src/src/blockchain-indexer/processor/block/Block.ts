@@ -99,6 +99,8 @@ export class Block extends Logger {
         this.transactions = this.transactionSorter.sortTransactions(this.transactions);
 
         // Then, we must verify interaction transactions
+
+        console.log(this.transactions[this.transactions.length - 1]);
     }
 
     private ensureNotProcessed(): void {
@@ -126,13 +128,16 @@ export class Block extends Logger {
         this.erroredTransactions.clear();
         this.revertedTransactions.clear();
 
-        for (const rawTransactionData of this.rawBlockData.tx) {
+        for (let i = 0; i < this.rawBlockData.tx.length; i++) {
+            const rawTransactionData = this.rawBlockData.tx[i];
+
             try {
                 const transaction = this.transactionFactory.parseTransaction(
                     rawTransactionData,
                     this.hash,
                     this.network,
                 );
+                transaction.originalIndex = i;
 
                 this.transactions.push(transaction);
             } catch (e) {

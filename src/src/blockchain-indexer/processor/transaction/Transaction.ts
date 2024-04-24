@@ -75,7 +75,27 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.time = rawTransactionData.time;
 
         this.computedIndexingHash = this.computeHashForTransaction();
-        this.parseTransaction(rawTransactionData.vin, rawTransactionData.vout);
+    }
+
+    // Position of transaction in the block
+    protected _index: number = 0;
+
+    public get index(): number {
+        return this._index;
+    }
+
+    public set index(index: number) {
+        this._index = index;
+    }
+
+    protected _originalIndex: number = 0;
+
+    public get originalIndex(): number {
+        return this._originalIndex;
+    }
+
+    public set originalIndex(index: number) {
+        this._originalIndex = index;
     }
 
     protected _burnedFee: bigint = this.rndBigInt(0, 1000);
@@ -160,6 +180,11 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         });
     }
 
+    public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
+        this.parseInputs(vIn);
+        this.parseOutputs(vOuts);
+    }
+
     protected decompressData(buffer: Buffer | undefined): Buffer {
         if (!buffer) {
             throw new Error('Buffer is undefined. Can not decompress.');
@@ -173,10 +198,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
 
         return buffer;
-    }
-
-    protected decimalOutputToBigInt(output: number): bigint {
-        return BigInt(output * 100000000);
     }
 
     protected getWitnessOutput(originalContractAddress: string): TransactionOutput {
@@ -207,7 +228,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
 
         // We set fees sent to the target witness as burned fees
-        this._burnedFee = this.decimalOutputToBigInt(witnessOutput.value);
+        this._burnedFee = witnessOutput.value;
     }
 
     protected getWitnessWithMagic(
@@ -228,11 +249,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             return decodedScript;
         }
-    }
-
-    protected parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
-        this.parseInputs(vIn);
-        this.parseOutputs(vOuts);
     }
 
     protected parseInputs(vIn: VIn[]): void {

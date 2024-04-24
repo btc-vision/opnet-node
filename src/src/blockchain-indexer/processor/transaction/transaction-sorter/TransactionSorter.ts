@@ -41,7 +41,12 @@ export class TransactionSorter {
         // Topological sort respecting transaction dependencies
         const sortedTransactions = this.topologicalSort(nonBlockRewards, graph);
 
-        return sortedBlockRewards.concat(sortedTransactions);
+        const result = sortedBlockRewards.concat(sortedTransactions);
+        for(let i = 0; i < result.length; i++) {
+            result[i].index = i;
+        }
+
+        return result;
     }
 
     private isRBF(transaction: Transaction<OPNetTransactionTypes>): boolean {

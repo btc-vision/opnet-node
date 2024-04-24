@@ -47,7 +47,6 @@ export class TapscriptVerificator {
         };
 
         const tx: Payment = payments.p2tr(transactionData);
-
         return tx.address;
     }
 }

@@ -41,9 +41,6 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
     public readonly transactionType: OPNetTransactionTypes.Interaction =
         InteractionTransaction.getType();
 
-    protected contractVirtualAddress: Buffer | undefined;
-
-    protected compressedCalldata: Buffer | undefined;
     protected calldata: Buffer | undefined;
 
     protected senderPubKeyHash: Buffer | undefined;
@@ -63,14 +60,6 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         super(rawTransactionData, vIndexIn, blockHash, network);
     }
 
-    public get routingAddress(): string {
-        if (!this.contractVirtualAddress) {
-            throw new Error('Contract virtual address not found');
-        }
-
-        return '0x' + this.contractVirtualAddress.toString('hex');
-    }
-
     public static is(data: TransactionData): TransactionInformation | undefined {
         const vIndex = this._is(data, this.LEGACY_INTERACTION);
 
@@ -88,7 +77,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         return OPNetTransactionTypes.Interaction;
     }
 
-    protected parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
+    public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         super.parseTransaction(vIn, vOuts);
 
         const inputOPNetWitnessTransactions = this.getInputWitnessTransactions();
@@ -119,7 +108,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             );
         }
 
-        this.compressedCalldata = interactionWitnessData.calldata;
+        this.calldata = interactionWitnessData.calldata;
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
         const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
@@ -214,7 +203,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
     /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */
     private decompressCalldata(): void {
-        this.calldata = this.decompressData(this.compressedCalldata);
+        this.calldata = this.decompressData(this.calldata);
     }
 
     private getInteractionWitnessData(

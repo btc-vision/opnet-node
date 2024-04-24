@@ -16,7 +16,10 @@ export class TransactionFactory {
         const parser: TransactionInformation = this.getTransactionType(data);
         const transactionObj = PossibleOpNetTransactions[parser.type];
 
-        return transactionObj.parse(data, parser.vInIndex, blockHash, network);
+        const tx = transactionObj.parse(data, parser.vInIndex, blockHash, network);
+        tx.parseTransaction(data.vin, data.vout);
+
+        return tx;
     }
 
     protected getTransactionType(data: TransactionData): TransactionInformation {

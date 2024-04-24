@@ -20,6 +20,7 @@ export class BlockchainIndexer extends Logger {
     private readonly bitcoinNetwork: bitcoin.networks.Network;
 
     private readonly vmManager: VMManager = new VMManager(Config);
+    private readonly processOnlyOneBlock: boolean = true;
 
     constructor() {
         super();
@@ -73,6 +74,10 @@ export class BlockchainIndexer extends Logger {
             await this.vmManager.revertBlock();
         }
 
+        if (this.processOnlyOneBlock) {
+            return;
+        }
+
         setTimeout(() => this.safeProcessBlocks(), 10000);
     }
 
@@ -95,7 +100,13 @@ export class BlockchainIndexer extends Logger {
             await this.processBlock(block);
 
             chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
+
+            // TODO: Update the inProgressBlock in the database.
             blockHeightInProgress++;
+
+            if (this.processOnlyOneBlock) {
+                break;
+            }
         }
     }
 
