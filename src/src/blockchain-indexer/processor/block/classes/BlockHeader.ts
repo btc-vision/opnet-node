@@ -2,7 +2,7 @@ import { BlockDataWithTransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 
 export class BlockHeader {
     public readonly hash: string;
-    public readonly height: number;
+    public readonly height: bigint;
 
     public readonly confirmations: number;
 
@@ -28,7 +28,7 @@ export class BlockHeader {
 
     constructor(rawBlockData: BlockDataWithTransactionData) {
         this.hash = rawBlockData.hash;
-        this.height = rawBlockData.height;
+        this.height = BigInt(rawBlockData.height);
         this.confirmations = rawBlockData.confirmations;
         this.version = rawBlockData.version;
         this.versionHex = rawBlockData.versionHex;

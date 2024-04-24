@@ -48,6 +48,8 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public readonly transactionType: OPNetTransactionTypes.Deployment =
         DeploymentTransaction.getType();
 
+    public contractAddress: string | undefined;
+
     protected bytecode: Buffer | undefined;
 
     protected contractSaltHash: Buffer | undefined;
@@ -196,6 +198,8 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         /** We regenerate the contract address and verify it */
         const originalContractAddress: string = this.getOriginalContractAddress();
         const outputWitness: TransactionOutput = this.getWitnessOutput(originalContractAddress);
+
+        this.contractAddress = originalContractAddress;
 
         this.setBurnedFee(outputWitness);
 

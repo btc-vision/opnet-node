@@ -2,6 +2,7 @@ import { Globals, Logger } from '@btc-vision/bsi-common';
 import fs from 'fs';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
+import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
@@ -81,13 +82,6 @@ export class VMManager extends Logger {
             },
         };
 
-        /*const runtime = new ContractEvaluator(contextOptions.context, console);
-        await runtime.init();
-
-        contextOptions.context.contract = runtime;
-
-        return contextOptions.context;*/
-
         const runtime: Script = this.createRuntimeVM();
 
         try {
@@ -97,6 +91,17 @@ export class VMManager extends Logger {
         }
 
         return contextOptions.context;
+    }
+
+    public async deployContract(
+        contractDeploymentTransaction: DeploymentTransaction,
+    ): Promise<void> {
+        if (!contractDeploymentTransaction.contractAddress) {
+            throw new Error('Contract address not found');
+        }
+
+        this.warn(`Attempting to deploy contract ${contractDeploymentTransaction.contractAddress}`);
+        console.log(contractDeploymentTransaction);
     }
 
     // don't even question it ????????????????

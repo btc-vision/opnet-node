@@ -69,9 +69,7 @@ export class BlockchainIndexer extends Logger {
         try {
             await this.processBlocks();
         } catch (e) {
-            this.error(e);
-
-            await this.vmManager.revertBlock();
+            this.panic(`Error processing blocks: ${e}`);
         }
 
         if (this.processOnlyOneBlock) {
@@ -111,16 +109,13 @@ export class BlockchainIndexer extends Logger {
     }
 
     private async processBlock(blockData: BlockDataWithTransactionData): Promise<void> {
-        await this.vmManager.prepareBlock(BigInt(blockData.height));
+        const block: Block = new Block(blockData, this.bitcoinNetwork);
 
         // Deserialize the block.
-        const block: Block = new Block(blockData, this.bitcoinNetwork);
-        await block.process();
+        block.deserialize();
 
         // Execute the block.
-        // ... not implemented yet.
-
-        await this.vmManager.terminateBlock();
+        await block.execute(this.vmManager);
     }
 
     private async getBlock(blockHeight: number): Promise<BlockDataWithTransactionData | null> {

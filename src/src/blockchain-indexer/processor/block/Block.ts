@@ -1,10 +1,12 @@
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
+import { VMManager } from '../../../vm/VMManager.js';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
 import { TransactionSorter } from '../transaction/transaction-sorter/TransactionSorter.js';
 import { Transaction } from '../transaction/Transaction.js';
+import { DeploymentTransaction } from '../transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../transaction/transactions/InteractionTransaction.js';
 import { BlockHeader } from './classes/BlockHeader.js';
 
@@ -19,10 +21,16 @@ export class Block extends Logger {
     protected readonly erroredTransactions: Set<TransactionData> = new Set();
 
     // Allow us to keep track of reverted transactions
-    protected readonly revertedTransactions: Set<InteractionTransaction> = new Set();
+    protected readonly revertedTransactions: Map<
+        InteractionTransaction | DeploymentTransaction,
+        Error
+    > = new Map();
 
     // Ensure that the block is processed only once
     protected processed: boolean = false;
+
+    // Ensure that the block is executed once
+    protected executed: boolean = false;
 
     // Private
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
@@ -42,7 +50,7 @@ export class Block extends Logger {
         return this.header.hash;
     }
 
-    public get height(): number {
+    public get height(): bigint {
         return this.header.height;
     }
 
@@ -74,8 +82,8 @@ export class Block extends Logger {
         return this.header.medianTime;
     }
 
-    /** Main processing method to process correctly bitcoin blocks */
-    public async process(): Promise<void> {
+    /** Block Processing */
+    public deserialize(): void {
         this.ensureNotProcessed();
 
         this.info(`Processing block ${this.hash} at height ${this.height}`);
@@ -97,10 +105,88 @@ export class Block extends Logger {
 
         // Then, we can sort the transactions by their priority
         this.transactions = this.transactionSorter.sortTransactions(this.transactions);
+    }
 
-        // Then, we must verify interaction transactions
+    /** Block Execution */
+    public async execute(vmManager: VMManager): Promise<void> {
+        this.ensureNotExecuted();
 
-        console.log(this.transactions[this.transactions.length - 1]);
+        // Prepare the vm for the block execution
+        await vmManager.prepareBlock(this.height);
+
+        try {
+            // Execute each transaction of the block.
+            await this.executeTransactions(vmManager);
+        } catch (e) {
+            const error: Error = e as Error;
+            this.error(`Something went wrong while executing the block: ${error.message}`);
+
+            await vmManager.revertBlock();
+        } finally {
+            // We terminate the execution of the block
+            await vmManager.terminateBlock();
+        }
+    }
+
+    /** Transactions Execution */
+    protected async executeTransactions(vmManager: VMManager): Promise<void> {
+        this.log(`Executing ${this.transactions.length} transactions.`);
+
+        for (const _transaction of this.transactions) {
+            switch (_transaction.transactionType) {
+                case OPNetTransactionTypes.Interaction: {
+                    const interactionTransaction = _transaction as InteractionTransaction;
+
+                    await this.executeInteractionTransaction(interactionTransaction, vmManager);
+                    break;
+                }
+                case OPNetTransactionTypes.Deployment: {
+                    const deploymentTransaction = _transaction as DeploymentTransaction;
+
+                    await this.executeDeploymentTransaction(deploymentTransaction, vmManager);
+                    break;
+                }
+                case OPNetTransactionTypes.Generic: {
+                    break;
+                }
+                default: {
+                    throw new Error(
+                        `Unsupported transaction type: ${_transaction.transactionType}`,
+                    );
+                }
+            }
+        }
+    }
+
+    /** We execute interaction transactions with this method */
+    protected async executeInteractionTransaction(
+        transaction: InteractionTransaction,
+        vmManager: VMManager,
+    ): Promise<void> {
+        try {
+        } catch (e) {
+            const error: Error = e as Error;
+
+            this.error(`Failed to execute transaction ${transaction.hash}: ${error.message}`);
+
+            this.revertedTransactions.set(transaction, error);
+        }
+    }
+
+    /** We execute deployment transactions with this method */
+    protected async executeDeploymentTransaction(
+        transaction: DeploymentTransaction,
+        vmManager: VMManager,
+    ): Promise<void> {
+        try {
+            await vmManager.deployContract(transaction);
+        } catch (e) {
+            const error: Error = e as Error;
+
+            this.error(`Failed to deploy contract ${transaction.hash}: ${error.message}`);
+
+            this.revertedTransactions.set(transaction, error);
+        }
     }
 
     private ensureNotProcessed(): void {
@@ -111,13 +197,12 @@ export class Block extends Logger {
         this.processed = true;
     }
 
-    private pushInteractionTransactionToReverted(
-        transaction: InteractionTransaction,
-        reason: Error,
-    ): void {
-        this.revertedTransactions.add(transaction);
+    private ensureNotExecuted(): void {
+        if (this.executed) {
+            throw new Error('Block already executed');
+        }
 
-        this.error(`Failed to verify transaction ${transaction.hash}: ${reason.message}`);
+        this.executed = true;
     }
 
     private createTransactions(): void {
