@@ -5,6 +5,7 @@ import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionType
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
 import { TransactionSorter } from '../transaction/transaction-sorter/TransactionSorter.js';
 import { Transaction } from '../transaction/Transaction.js';
+import { InteractionTransaction } from '../transaction/transactions/InteractionTransaction.js';
 import { BlockHeader } from './classes/BlockHeader.js';
 
 export class Block extends Logger {
@@ -16,6 +17,9 @@ export class Block extends Logger {
 
     // Allow us to keep track of errored transactions
     protected readonly erroredTransactions: Set<TransactionData> = new Set();
+
+    // Allow us to keep track of reverted transactions
+    protected readonly revertedTransactions: Set<InteractionTransaction> = new Set();
 
     // Ensure that the block is processed only once
     protected processed: boolean = false;
@@ -85,8 +89,16 @@ export class Block extends Logger {
             );
         }
 
+        if (this.revertedTransactions.size > 0) {
+            this.error(
+                `Reverted ${this.revertedTransactions.size} transactions. Proceed with caution. This may lead to bad indexing.`,
+            );
+        }
+
         // Then, we can sort the transactions by their priority
         this.transactions = this.transactionSorter.sortTransactions(this.transactions);
+
+        // Then, we must verify interaction transactions
     }
 
     private ensureNotProcessed(): void {
@@ -97,12 +109,22 @@ export class Block extends Logger {
         this.processed = true;
     }
 
+    private pushInteractionTransactionToReverted(
+        transaction: InteractionTransaction,
+        reason: Error,
+    ): void {
+        this.revertedTransactions.add(transaction);
+
+        this.error(`Failed to verify transaction ${transaction.hash}: ${reason.message}`);
+    }
+
     private createTransactions(): void {
         if (this.transactions.length > 0) {
             throw new Error('Transactions are already created');
         }
 
         this.erroredTransactions.clear();
+        this.revertedTransactions.clear();
 
         for (const rawTransactionData of this.rawBlockData.tx) {
             try {

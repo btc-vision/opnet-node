@@ -4,8 +4,13 @@ import bitcoin, { opcodes } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
+import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
+import {
+    ContractAddressVerificationParams,
+    TapscriptVerificator,
+} from '../verification/TapscriptVerificator.js';
 
 interface DeploymentWitnessData {
     deployerPubKey: Buffer;
@@ -20,7 +25,6 @@ interface DeploymentWitnessData {
 export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Deployment> {
     public static LEGACY_DEPLOYMENT_SCRIPT: Buffer = Buffer.from([
         opcodes.OP_CHECKSIGVERIFY,
-
         opcodes.OP_CHECKSIGVERIFY,
 
         opcodes.OP_HASH160,
@@ -44,8 +48,11 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public readonly transactionType: OPNetTransactionTypes.Deployment =
         DeploymentTransaction.getType();
 
-    protected contractBytecode: Buffer | undefined;
+    protected compressedBytecode: Buffer | undefined;
+    protected bytecode: Buffer | undefined;
+
     protected contractSaltHash: Buffer | undefined;
+    protected contractSeed: Buffer | undefined;
 
     protected deployerPubKey: Buffer | undefined;
     protected deployerPubKeyHash: Buffer | undefined;
@@ -97,7 +104,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         return OPNetTransactionTypes.Deployment;
     }
 
-    protected parseTransaction(vIn: VIn[], vOuts: VOut[]) {
+    protected parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         super.parseTransaction(vIn, vOuts);
 
         const inputOPNetWitnessTransactions = this.getInputWitnessTransactions();
@@ -113,7 +120,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             );
         }
 
-        const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
+        /** Contract should ALWAYS have ONLY ONE input witness transaction */
         const scriptData = this.getWitnessWithMagic();
 
         if (!scriptData) {
@@ -127,8 +134,9 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             );
         }
 
-        this.contractBytecode = deploymentWitnessData.bytecode;
+        this.compressedBytecode = deploymentWitnessData.bytecode;
 
+        const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
         const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
         const originalSalt = Buffer.from(witnesses[0], 'hex');
         const deployerPubKey = Buffer.from(witnesses[1], 'hex');
@@ -143,8 +151,17 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             );
         }
 
+        if (!deployerPubKey.equals(deploymentWitnessData.deployerPubKey)) {
+            throw new Error(
+                `Invalid deployer public key found in deployment transaction. Expected ${deploymentWitnessData.deployerPubKey.toString(
+                    'hex',
+                )} but got ${deployerPubKey.toString('hex')}`,
+            );
+        }
+
         this.deployerPubKeyHash = hashDeployerPubKey;
         this.deployerPubKey = deployerPubKey;
+        this.contractSeed = originalSalt;
 
         /** Verify contract salt */
         const hashOriginalSalt: Buffer = bitcoin.crypto.hash256(originalSalt);
@@ -161,13 +178,13 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         /** Restore contract seed/address */
         this.contractVirtualAddress = DeploymentTransaction.getContractSeed(
             deployerPubKey,
-            this.contractBytecode,
+            this.compressedBytecode,
             hashOriginalSalt,
         );
 
         this.contractSigner = EcKeyPair.fromSeedKeyPair(this.contractVirtualAddress, this.network);
 
-        /** TODO: Verify signatures, OPTIONAL */
+        /** TODO: Verify signatures, OPTIONAL, bitcoin-core job is supposed to handle that already. */
 
         /** We must verify the contract address */
         const inputTxId = this.inputs[this.vInputIndex].originalTransactionId;
@@ -177,33 +194,41 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             );
         }
 
-        /** When deploying a contract, the FIRST output should always be the contract tapscript witness */
-        const witnessOutput = this.outputs[0];
-        const scriptPubKey = witnessOutput.scriptPubKey;
+        /** We regenerate the contract address and verify it */
+        const originalContractAddress: string = this.getOriginalContractAddress();
+        const outputWitness: TransactionOutput = this.getWitnessOutput(originalContractAddress);
 
-        if (scriptPubKey.type !== 'witness_v1_taproot') {
-            throw new Error('Invalid scriptPubKey type for contract witness output');
-        }
+        this.setBurnedFee(outputWitness);
 
-        if (!scriptPubKey.address) {
-            throw new Error('No address found for contract witness output');
-        }
-
-        // We set fees sent to the contract as burned fees
-        this._burnedFee = this.decimalOutputToBigInt(witnessOutput.value);
-        console.log(
-            `Burned ${this._burnedFee} sat to deploy contract at ${scriptPubKey.address}! Contract virtual routing address: ${this.routingAddress}`,
-        );
-
-        /** Decompress if needed */
+        /** Decompress contract bytecode if needed */
         this.decompressBytecode();
+    }
 
-        console.log(this);
+    private getOriginalContractAddress(): string {
+        if (!this.deployerPubKey) throw new Error('Deployer public key not found');
+        if (!this.contractSigner) throw new Error('Contract signer not found');
+        if (!this.contractSeed) throw new Error('Contract seed not found');
+        if (!this.compressedBytecode) throw new Error('Compressed bytecode not found');
+
+        const params: ContractAddressVerificationParams = {
+            deployerPubKeyXOnly: this.deployerPubKey,
+            contractSaltPubKey: this.contractSigner.publicKey,
+            originalSalt: this.contractSeed,
+            bytecode: this.compressedBytecode,
+            network: this.network,
+        };
+
+        const tapContractAddress: string | undefined =
+            TapscriptVerificator.getContractAddress(params);
+
+        if (!tapContractAddress) throw new Error(`Unable to verify original contract address`);
+
+        return tapContractAddress;
     }
 
     /** We must check if the bytecode was compressed using GZIP. If so, we must decompress it. */
     private decompressBytecode(): void {
-        this.contractBytecode = this.decompressData(this.contractBytecode);
+        this.bytecode = this.decompressData(this.compressedBytecode);
     }
 
     private getDeploymentWitnessData(
@@ -279,23 +304,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             return;
         }
 
-        let contractBytecode: Buffer | undefined = undefined;
-        for (let i = 0; i < scriptData.length; i++) {
-            if (scriptData[i] === opcodes.OP_ELSE) {
-                break;
-            }
-
-            if (Buffer.isBuffer(scriptData[i])) {
-                if (!contractBytecode) {
-                    contractBytecode = scriptData[i] as Buffer;
-                } else {
-                    contractBytecode = Buffer.concat([contractBytecode, scriptData[i] as Buffer]);
-                }
-            } else {
-                throw new Error(`Invalid contract bytecode found in deployment transaction.`);
-            }
-        }
-
+        const contractBytecode: Buffer | undefined = this.getDataFromWitness(scriptData);
         if (!contractBytecode) {
             throw new Error(`No contract bytecode found in deployment transaction.`);
         }
@@ -313,6 +322,4 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     private getInputWitnessTransactions(): TransactionInput[] {
         return [this.inputs[this.vInputIndex]];
     }
-
-    //private getDeploymentTransactionInput(): TransactionInput {}
 }

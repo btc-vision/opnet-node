@@ -1,5 +1,5 @@
-import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
-import bitcoin, { script } from 'bitcoinjs-lib';
+import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
+import bitcoin, { opcodes, script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
 import * as zlib from 'zlib';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
@@ -83,13 +83,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     // This represent OP_NET burned fees, priority fees, THIS IS NOT MINING FEES
     public get burnedFee(): bigint {
         return this._burnedFee; //+ this.rndBigInt(0, 1000);
-    }
-
-    protected _miningFee: bigint = 0n;
-
-    // Don't use for sorting, use burnedFee instead
-    public get miningFee(): bigint {
-        return this._miningFee;
     }
 
     public get transactionId(): string {
@@ -186,6 +179,37 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return BigInt(output * 100000000);
     }
 
+    protected getWitnessOutput(originalContractAddress: string): TransactionOutput {
+        const contractOutput = this.outputs.find((output): boolean => {
+            if (output.scriptPubKey.address) {
+                return output.scriptPubKey.address === originalContractAddress;
+            }
+
+            return false;
+        });
+
+        if (!contractOutput) {
+            throw new Error(`Could not find the requested output for ${originalContractAddress}`);
+        }
+
+        return contractOutput;
+    }
+
+    protected setBurnedFee(witnessOutput: TransactionOutput): void {
+        const scriptPubKey: ScriptPubKey = witnessOutput.scriptPubKey;
+
+        if (scriptPubKey.type !== 'witness_v1_taproot') {
+            throw new Error('Invalid scriptPubKey type for contract witness output');
+        }
+
+        if (!scriptPubKey.address) {
+            throw new Error('No address found for contract witness output');
+        }
+
+        // We set fees sent to the target witness as burned fees
+        this._burnedFee = this.decimalOutputToBigInt(witnessOutput.value);
+    }
+
     protected getWitnessWithMagic(
         vIndex: number = this.vInputIndex,
     ): Array<Buffer | number> | undefined {
@@ -221,6 +245,27 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         for (let i = 0; i < vOuts.length; i++) {
             this.outputs.push(new TransactionOutput(vOuts[i]));
         }
+    }
+
+    protected getDataFromWitness(scriptData: Array<number | Buffer>): Buffer | undefined {
+        let contractBytecode: Buffer | undefined = undefined;
+        for (let i = 0; i < scriptData.length; i++) {
+            if (scriptData[i] === opcodes.OP_ELSE) {
+                break;
+            }
+
+            if (Buffer.isBuffer(scriptData[i])) {
+                if (!contractBytecode) {
+                    contractBytecode = scriptData[i] as Buffer;
+                } else {
+                    contractBytecode = Buffer.concat([contractBytecode, scriptData[i] as Buffer]);
+                }
+            } else {
+                throw new Error(`Invalid contract bytecode found in deployment transaction.`);
+            }
+        }
+
+        return contractBytecode;
     }
 
     private computeHashForTransaction(): Buffer {
