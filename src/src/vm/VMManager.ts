@@ -146,7 +146,9 @@ export class VMManager extends Logger {
         }
 
         if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            this.debugBright(`Executing transaction for contract ${contractAddress}`);
+            this.debugBright(
+                `Executing transaction ${interactionTransaction.txid} for contract ${contractAddress}`,
+            );
         }
 
         // Get the function selector
