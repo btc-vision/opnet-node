@@ -2,6 +2,7 @@ import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoi
 import bitcoin, { opcodes, script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
 import * as zlib from 'zlib';
+import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
 import { TransactionOutput } from './inputs/TransactionOutput.js';
@@ -76,6 +77,26 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.time = rawTransactionData.time;
 
         this.computedIndexingHash = this.computeHashForTransaction();
+    }
+
+    protected _revert: Error | undefined;
+
+    public get revert(): Error | undefined {
+        return this._revert;
+    }
+
+    public set revert(error: Error) {
+        this._revert = error;
+    }
+
+    protected _receipt: EvaluatedResult | undefined;
+
+    public get receipt(): EvaluatedResult | undefined {
+        return this._receipt;
+    }
+
+    public set receipt(receipt: EvaluatedResult) {
+        this._receipt = receipt;
     }
 
     protected _from: string | undefined;

@@ -1,7 +1,6 @@
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
-import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
@@ -20,12 +19,6 @@ export class Block extends Logger {
 
     // Allow us to keep track of errored transactions
     protected readonly erroredTransactions: Set<TransactionData> = new Set();
-
-    // Allow us to keep track of reverted transactions
-    protected readonly revertedTransactions: Map<
-        InteractionTransaction | DeploymentTransaction,
-        Error
-    > = new Map();
 
     // Ensure that the block is processed only once
     protected processed: boolean = false;
@@ -98,12 +91,6 @@ export class Block extends Logger {
             );
         }
 
-        if (this.revertedTransactions.size > 0) {
-            this.error(
-                `Reverted ${this.revertedTransactions.size} transactions. Proceed with caution. This may lead to bad indexing.`,
-            );
-        }
-
         // Then, we can sort the transactions by their priority
         this.transactions = this.transactionSorter.sortTransactions(this.transactions);
     }
@@ -127,6 +114,8 @@ export class Block extends Logger {
             // We terminate the execution of the block
             await vmManager.terminateBlock();
         }
+
+        console.log('Block executed', this.transactions);
     }
 
     /** Transactions Execution */
@@ -165,20 +154,14 @@ export class Block extends Logger {
         vmManager: VMManager,
     ): Promise<void> {
         try {
-            const outputTransaction: EvaluatedResult = await vmManager.executeTransaction(
-                this.height,
-                transaction,
-            );
-
-            console.log('Result ->', outputTransaction);
-
             /** We must create a transaction receipt. */
+            transaction.receipt = await vmManager.executeTransaction(this.height, transaction);
         } catch (e) {
             const error: Error = e as Error;
 
             this.error(`Failed to execute transaction ${transaction.hash}: ${error.message}`);
 
-            this.revertedTransactions.set(transaction, error);
+            transaction.revert = error;
         }
     }
 
@@ -194,7 +177,7 @@ export class Block extends Logger {
 
             this.error(`Failed to deploy contract ${transaction.hash}: ${error.message}`);
 
-            this.revertedTransactions.set(transaction, error);
+            transaction.revert = error;
         }
     }
 
@@ -220,7 +203,6 @@ export class Block extends Logger {
         }
 
         this.erroredTransactions.clear();
-        this.revertedTransactions.clear();
 
         for (let i = 0; i < this.rawBlockData.tx.length; i++) {
             const rawTransactionData = this.rawBlockData.tx[i];
