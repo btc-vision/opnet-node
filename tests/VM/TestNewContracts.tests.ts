@@ -158,6 +158,14 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         addCalldata.writeU256(amount);
 
         const addBuffer = addCalldata.getBuffer();
+
+        console.log(
+            'selector',
+            addBalanceSelector.toString(16),
+            'addBuffer:',
+            Buffer.from(addBuffer).toString('hex'),
+        );
+
         await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, false, addBalanceSelector, addBuffer, address)
             .catch((e) => {

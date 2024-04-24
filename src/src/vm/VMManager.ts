@@ -155,7 +155,7 @@ export class VMManager extends Logger {
         const calldata: Buffer = interactionTransaction.calldata;
         const functionSelector: Buffer = calldata.slice(0, 4);
 
-        const selector: Selector = functionSelector.readUInt32LE(0);
+        const selector: Selector = functionSelector.readUInt32BE(0);
         const isView: boolean = vmEvaluator.isViewMethod(selector);
         if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debugBright(
@@ -172,6 +172,7 @@ export class VMManager extends Logger {
             selector,
             calldata,
         );
+        
         if (!result) {
             throw new Error('Execution Reverted.');
         }
