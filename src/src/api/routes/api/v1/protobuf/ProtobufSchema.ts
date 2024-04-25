@@ -1,7 +1,9 @@
-import { IHttpRequest, IHttpResponse } from 'nanoexpress';
-import { Routes, RouteType } from '../enums/Routes.js';
-import { Schema } from '../protobuf/Schema.js';
-import { Route } from './Route.js';
+import { Request } from 'hyper-express/types/components/http/Request.js';
+import { Response } from 'hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Routes, RouteType } from '../../../../enums/Routes.js';
+import { Schema } from '../../../../protobuf/Schema.js';
+import { Route } from '../../../Route.js';
 
 export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA> {
     constructor() {
@@ -22,11 +24,7 @@ export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA> {
      * @response default - Unexpected error
      * @responseContent {string} 200.plain/text
      */
-    protected onRequest(
-        req: IHttpRequest,
-        res: IHttpResponse,
-        next?: (err: Error | null | undefined, done: boolean | undefined) => unknown,
-    ): void {
+    protected onRequest(_req: Request, res: Response, _next?: MiddlewareNext): void {
         let response: string | null = Schema.schema || null;
 
         if (response === null || !response) {
