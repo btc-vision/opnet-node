@@ -536,7 +536,7 @@ export class VMManager extends Logger {
 
             if (valueFromDB.lastSeenAt === 0n) {
                 // Default value.
-                await this.setStorage(address, pointer, valueFromDB.value);
+                //await this.setStorage(address, pointer, valueFromDB.value);
 
                 return valueFromDB.value;
             } else {

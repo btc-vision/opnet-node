@@ -41,7 +41,7 @@ export class VMBitcoinBlock extends Logger {
             throw new Error(`Block ${this.blockId} is not valid`);
         }
 
-        this.log(`Reverting block ${this.blockId}...`);
+        this.error(`Reverting block ${this.blockId}...`);
 
         this.reset();
         await this.vmStorage.revertChanges();

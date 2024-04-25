@@ -85,5 +85,5 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
 
     public abstract updateValues(address: string, val: Map<K, V>): void;
 
-    protected abstract getValues(): [Buffer, Buffer][];
+    public abstract getValues(): [Buffer, Buffer][];
 }

@@ -202,7 +202,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         return hash.digest();
     }
 
-    protected getValues(): [Buffer, Buffer][] {
+    public getValues(): [Buffer, Buffer][] {
         const entries: [Buffer, Buffer][] = [];
 
         for (const [address, map] of this.values.entries()) {
