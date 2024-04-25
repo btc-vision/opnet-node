@@ -1,5 +1,4 @@
 import { Globals, Logger } from '@btc-vision/bsi-common';
-import cors from 'cors';
 import HyperExpress, { MiddlewareHandler } from 'hyper-express';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
@@ -44,7 +43,7 @@ export class Server extends Logger {
         // ERROR HANDLING
         this.app.set_error_handler(this.globalErrorHandler.bind(this));
 
-        this.app.use(cors());
+        //this.app.use(cors());
         this.app.use(this.handleAny.bind(this));
 
         // GET
@@ -122,7 +121,7 @@ export class Server extends Logger {
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
         res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
 
-        res.setHeader('Protocol', 'RSNet Official');
+        res.setHeader('Protocol', 'OpNet Official');
         res.setHeader('Version', '1');
 
         res.removeHeader('uWebSockets');
