@@ -26,6 +26,10 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
         return StandardMerkleTree.verify(root, type, value, proof);
     }
 
+    public size(): number {
+        return this.values.size;
+    }
+
     public validate(): void {
         if (!this.tree) {
             throw new Error('Merkle tree not generated');
@@ -63,7 +67,7 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
 
     public abstract getValuesWithProofs(address: string): Map<K, [V, string[]]>;
 
-    public abstract getEverythingWithProofs(): Map<string, Map<K, [V, string[]]>>;
+    public abstract getEverythingWithProofs(): Map<string, Map<K, [V, string[]]>> | undefined;
 
     public freeze(): void {
         this.generateTree();

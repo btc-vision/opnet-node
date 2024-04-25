@@ -168,12 +168,11 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         return proofs;
     }
 
-    public getEverythingWithProofs(): Map<
-        string,
-        Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>
-    > {
+    public getEverythingWithProofs():
+        | Map<string, Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>>
+        | undefined {
         if (!this.tree) {
-            throw new Error('Merkle tree not generated');
+            return;
         }
 
         this.validate();

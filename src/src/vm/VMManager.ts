@@ -455,6 +455,9 @@ export class VMManager extends Logger {
         }
 
         const stateChanges = this.blockState.getEverythingWithProofs();
+
+        /** Nothing to save. */
+        if (!stateChanges) return;
         for (const [address, val] of stateChanges.entries()) {
             for (const [key, value] of val.entries()) {
                 if (!value[0]) {

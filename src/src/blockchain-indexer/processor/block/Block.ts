@@ -219,8 +219,9 @@ export class Block extends Logger {
             // Execute each transaction of the block.
             await this.executeTransactions(vmManager);
 
-            let states: EvaluatedStates = await vmManager.updateEvaluatedStates();
-            if (states) {
+            /** We must update the evaluated states, if there were no changes, then we mark the block as empty. */
+            const states: EvaluatedStates = await vmManager.updateEvaluatedStates();
+            if (states && states.storage && states.storage.size()) {
                 await this.processBlockStates(states, vmManager);
             } else {
                 await this.onEmptyBlock(vmManager);
