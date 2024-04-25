@@ -76,6 +76,12 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(`Oops the property RPC.ENABLED is not a boolean.`);
             }
         }
+
+        if(parsedConfig.OP_NET) {
+            if(parsedConfig.OP_NET.ENABLED_AT_BLOCK === undefined || typeof parsedConfig.OP_NET.ENABLED_AT_BLOCK !== 'number') {
+                throw new Error(`Oops the property OP_NET.ENABLED_AT_BLOCK is not a number.`);
+            }
+        }
     }
 
     protected override parsePartialConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
@@ -101,5 +107,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ...parsedConfig.BLOCKCHAIN,
             ...this.config.BLOCKCHAIN,
         };
+
+        this.config.OP_NET = {
+            ...parsedConfig.OP_NET,
+            ...this.config.OP_NET,
+        }
     }
 }

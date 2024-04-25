@@ -3,16 +3,24 @@ import fs from 'fs';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
+import {
+    BlockHeaderBlockDocument,
+    BlockHeaderChecksumProof,
+} from '../blockchain-indexer/processor/block/interfaces/IBlockHeaderBlockDocument.js';
+import { ZERO_HASH } from '../blockchain-indexer/processor/block/interfaces/ZeroValue.js';
+import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { Config } from '../config/Config.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
+import { BlockRootStates } from '../db/interfaces/BlockRootStates.js';
 import { BufferHelper } from '../utils/BufferHelper.js';
 import { ADDRESS_BYTE_LENGTH, Selector } from './buffer/types/math.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
+import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
 import { VMMongoStorage } from './storage/databases/VMMongoStorage.js';
 import { IndexerStorageType } from './storage/types/IndexerStorageType.js';
@@ -23,10 +31,6 @@ import { VMBitcoinBlock } from './VMBitcoinBlock.js';
 
 Globals.register();
 
-export interface EvaluatedStates {
-    storage: StateMerkleTree;
-}
-
 export class VMManager extends Logger {
     private readonly runtimeCode: string = fs
         .readFileSync(`${__dirname}/../../../build/src/vm/runtime/index.js`)
@@ -36,6 +40,8 @@ export class VMManager extends Logger {
     private readonly vmBitcoinBlock: VMBitcoinBlock;
 
     private blockState: StateMerkleTree | undefined;
+
+    private cachedBlockStates: Map<bigint, BlockRootStates> = new Map();
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
@@ -50,9 +56,12 @@ export class VMManager extends Logger {
 
     public async closeDatabase(): Promise<void> {
         await this.vmStorage.close();
+        this.clear();
     }
 
     public async prepareBlock(blockId: bigint): Promise<void> {
+        this.clear();
+
         await this.vmBitcoinBlock.prepare(blockId);
 
         this.blockState = new StateMerkleTree();
@@ -60,17 +69,22 @@ export class VMManager extends Logger {
 
     public async revertBlock(): Promise<void> {
         await this.vmBitcoinBlock.revert();
-
-        this.blockState = undefined;
+        this.clear();
     }
 
     public async terminateBlock(block?: Block): Promise<void> {
         // TODO: Save block data
-        if (block) {
-            console.log('WE MUST SAVE THIS BLOCK!');
+        try {
+            if (block !== undefined) {
+                await this.saveBlock(block);
+            }
+
+            await this.vmBitcoinBlock.terminate();
+        } catch (e) {
+            await this.vmBitcoinBlock.revert();
         }
 
-        await this.vmBitcoinBlock.terminate();
+        this.clear();
     }
 
     public async loadContractFromBytecode(
@@ -133,7 +147,7 @@ export class VMManager extends Logger {
         }
 
         // TODO: Add a caching layer for this.
-        const contractInformation: ContractInformation | null =
+        const contractInformation: ContractInformation | undefined =
             await this.vmStorage.getContractAt(contractAddress);
 
         if (!contractInformation) {
@@ -222,6 +236,116 @@ export class VMManager extends Logger {
         return result;
     }
 
+    public async validateBlockChecksum(blockHeader: BlockHeaderBlockDocument): Promise<boolean> {
+        if (!blockHeader.checksumRoot) {
+            throw new Error('Block checksum not found');
+        }
+
+        const prevBlockHash: string = blockHeader.previousBlockHash;
+        const blockHeight: bigint = BufferHelper.fromDecimal128(blockHeader.height);
+        const blockReceipt: string = blockHeader.receiptRoot;
+        const blockStorage: string = blockHeader.storageRoot;
+        const blockHash: string = blockHeader.hash;
+        const blockMerkelRoot: string = blockHeader.merkleRoot;
+        const checksumRoot: string = blockHeader.checksumRoot;
+        const proofs: BlockHeaderChecksumProof = blockHeader.checksumProofs;
+
+        if (!blockHeight || !blockReceipt || !blockStorage || !blockHash || !blockMerkelRoot) {
+            throw new Error('Block data not found');
+        }
+
+        const previousBlockChecksum: string | undefined =
+            await this.getPreviousBlockChecksumOfHeight(blockHeight);
+
+        if (!previousBlockChecksum) {
+            throw new Error('Previous block checksum not found');
+        }
+
+        /** We must validate the block checksum */
+        const prevHashProof = this.getProofForIndex(proofs, 0);
+        const hasValidPrevHash: boolean = ChecksumMerkle.verify(
+            checksumRoot,
+            ChecksumMerkle.TREE_TYPE,
+            [0, BufferHelper.hexToUint8Array(prevBlockHash)],
+            prevHashProof,
+        );
+
+        const prevChecksumProof = this.getProofForIndex(proofs, 1);
+        const hasValidPrevChecksum: boolean = ChecksumMerkle.verify(
+            checksumRoot,
+            ChecksumMerkle.TREE_TYPE,
+            [1, BufferHelper.hexToUint8Array(previousBlockChecksum)],
+            prevChecksumProof,
+        );
+
+        const blockHashProof = this.getProofForIndex(proofs, 2);
+        const hasValidBlockHash: boolean = ChecksumMerkle.verify(
+            checksumRoot,
+            ChecksumMerkle.TREE_TYPE,
+            [2, BufferHelper.hexToUint8Array(blockHash)],
+            blockHashProof,
+        );
+
+        const blockMerkelRootProof = this.getProofForIndex(proofs, 3);
+        const hasValidBlockMerkelRoot: boolean = ChecksumMerkle.verify(
+            checksumRoot,
+            ChecksumMerkle.TREE_TYPE,
+            [3, BufferHelper.hexToUint8Array(blockMerkelRoot)],
+            blockMerkelRootProof,
+        );
+
+        const blockStorageProof = this.getProofForIndex(proofs, 4);
+        const hasValidBlockStorage: boolean = ChecksumMerkle.verify(
+            checksumRoot,
+            ChecksumMerkle.TREE_TYPE,
+            [4, BufferHelper.hexToUint8Array(blockStorage)],
+            blockStorageProof,
+        );
+
+        const blockReceiptProof = this.getProofForIndex(proofs, 5);
+        const hasValidBlockReceipt: boolean = ChecksumMerkle.verify(
+            checksumRoot,
+            ChecksumMerkle.TREE_TYPE,
+            [5, BufferHelper.hexToUint8Array(blockReceipt)],
+            blockReceiptProof,
+        );
+
+        const isBlockValid: boolean =
+            hasValidPrevHash &&
+            hasValidPrevChecksum &&
+            hasValidBlockHash &&
+            hasValidBlockMerkelRoot &&
+            hasValidBlockStorage &&
+            hasValidBlockReceipt;
+        if (!isBlockValid) {
+            this.error(
+                `Block was altered. Block height: ${blockHeight} - Block hash: ${blockHash} - Checksum root: ${checksumRoot} (PrevHash: ${hasValidPrevHash}, PrevChecksum: ${hasValidPrevChecksum}, BlockHash: ${hasValidBlockHash}, BlockMerkelRoot: ${hasValidBlockMerkelRoot}, BlockStorage: ${hasValidBlockStorage}, BlockReceipt: ${hasValidBlockReceipt})`,
+            );
+        }
+
+        return isBlockValid;
+    }
+
+    public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string | undefined> {
+        const newBlockHeight: bigint = height - 1n;
+        if (newBlockHeight <= BigInt(Config.OP_NET.ENABLED_AT_BLOCK)) {
+            return ZERO_HASH;
+        }
+
+        const blockRootStates: BlockHeaderBlockDocument | undefined =
+            await this.getBlockHeader(newBlockHeight);
+
+        if (!blockRootStates) {
+            return;
+        }
+
+        if (!blockRootStates.checksumRoot) {
+            throw new Error('Invalid previous block checksum.');
+        }
+
+        return blockRootStates.checksumRoot;
+    }
+
     public async deployContract(
         blockHeight: bigint,
         contractDeploymentTransaction: DeploymentTransaction,
@@ -278,6 +402,52 @@ export class VMManager extends Logger {
         return states;
     }
 
+    private getProofForIndex(proofs: BlockHeaderChecksumProof, index: number): string[] {
+        for (const proof of proofs) {
+            if (proof[0] === index) {
+                return proof[1];
+            }
+        }
+
+        throw new Error(`Proof not found for index ${index}`);
+    }
+
+    private async saveBlock(block: Block): Promise<void> {
+        if (block.height !== this.vmBitcoinBlock.height) {
+            throw new Error('Block height mismatch');
+        }
+
+        await this.saveBlockHeader(block);
+    }
+
+    private async saveBlockHeader(block: Block): Promise<void> {
+        await this.vmStorage.saveBlockHeader(block.getBlockHeaderDocument());
+    }
+
+    private clear(): void {
+        this.blockState = undefined;
+        this.cachedBlockStates.clear();
+    }
+
+    private async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
+        if (this.cachedBlockStates.has(height)) {
+            return this.cachedBlockStates.get(height);
+        }
+
+        const blockRootStates: BlockRootStates | undefined =
+            await this.vmStorage.getBlockRootStates(height);
+
+        if (blockRootStates) {
+            this.cachedBlockStates.set(height, blockRootStates);
+        }
+
+        return blockRootStates;
+    }
+
+    private async getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined> {
+        return await this.vmStorage.getBlockHeader(height);
+    }
+
     /** We must save the final state changes to the storage */
     private async saveBlockStateChanges(): Promise<void> {
         if (!this.blockState) {
@@ -330,8 +500,6 @@ export class VMManager extends Logger {
         const valueBigInt: bigint = BufferHelper.uint8ArrayToValue(value);
 
         this.blockState.updateValue(address, pointerBigInt, valueBigInt);
-
-        //return this.vmStorage.setStorage(address, pointer, value);
     }
 
     /** We must verify that the storage is correct */
@@ -399,6 +567,7 @@ export class VMManager extends Logger {
             memoryValue.lastSeenAt,
         );
 
+        /** TODO: Add auto repair */
         if (!isValid) {
             this.error(
                 `[DATA CORRUPTED] Proofs not valid for ${pointer} at ${address}. Data corrupted. Please reindex your indexer from scratch.`,
@@ -435,6 +604,15 @@ export class VMManager extends Logger {
                 StateMerkleTree.TREE_TYPE,
                 [encodedPointer, value],
                 proofs,
+            );
+        }
+
+        /** We must get the block root states */
+        const blockRootStates: BlockRootStates | undefined =
+            await this.getBlockRootStates(blockHeight);
+        if (!blockRootStates) {
+            throw new Error(
+                `Block root states not found for block ${blockHeight}. DATA CORRUPTED.`,
             );
         }
 
