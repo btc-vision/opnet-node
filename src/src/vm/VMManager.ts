@@ -2,6 +2,7 @@ import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import fs from 'fs';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
+import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
@@ -20,6 +21,10 @@ import { VMBitcoinBlock } from './VMBitcoinBlock.js';
 
 Globals.register();
 
+export interface EvaluatedStates {
+    storage: StateMerkleTree;
+}
+
 export class VMManager extends Logger {
     private readonly runtimeCode: string = fs
         .readFileSync(`${__dirname}/../../../build/src/vm/runtime/index.js`)
@@ -27,6 +32,8 @@ export class VMManager extends Logger {
 
     private readonly vmStorage: VMStorage;
     private readonly vmBitcoinBlock: VMBitcoinBlock;
+
+    private blockState: StateMerkleTree | undefined;
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
@@ -45,14 +52,21 @@ export class VMManager extends Logger {
 
     public async prepareBlock(blockId: bigint): Promise<void> {
         await this.vmBitcoinBlock.prepare(blockId);
+
+        this.blockState = new StateMerkleTree();
     }
 
     public async revertBlock(): Promise<void> {
         await this.vmBitcoinBlock.revert();
+
+        this.blockState = undefined;
     }
 
-    public async terminateBlock(): Promise<void> {
+    public async terminateBlock(): Promise<EvaluatedStates> {
+        const states: EvaluatedStates = this.getEvaluatedStates();
         await this.vmBitcoinBlock.terminate();
+
+        return states;
     }
 
     public async loadContractFromBytecode(
@@ -103,6 +117,10 @@ export class VMManager extends Logger {
     ): Promise<EvaluatedResult> {
         if (this.vmBitcoinBlock.height !== blockHeight) {
             throw new Error('Block height mismatch');
+        }
+
+        if (!this.blockState) {
+            throw new Error('Block state not found');
         }
 
         const contractAddress: BitcoinAddress = interactionTransaction.contractAddress;
@@ -185,6 +203,16 @@ export class VMManager extends Logger {
             throw new Error('Execution Reverted.');
         }
 
+        for (const [contract, val] of result.changedStorage) {
+            if (contract !== contractAddress) {
+                throw new Error(
+                    `Possible attack detected: Contract ${contract} tried to change storage of ${contractAddress}`,
+                );
+            }
+
+            this.blockState.updateValues(contract, val);
+        }
+
         return result;
     }
 
@@ -225,6 +253,22 @@ export class VMManager extends Logger {
         if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
             this.info(`Contract ${contractInformation.contractAddress} deployed.`);
         }
+    }
+
+    private getEvaluatedStates(): EvaluatedStates {
+        if (!this.blockState) {
+            throw new Error('Block state not found');
+        }
+
+        this.blockState.generateTree();
+
+        const states: EvaluatedStates = {
+            storage: this.blockState,
+        };
+
+        this.blockState = undefined;
+
+        return states;
     }
 
     // don't even question it ????????????????

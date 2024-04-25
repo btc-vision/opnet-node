@@ -1,7 +1,7 @@
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
-import { VMManager } from '../../../vm/VMManager.js';
+import { EvaluatedStates, VMManager } from '../../../vm/VMManager.js';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
 import { TransactionSorter } from '../transaction/transaction-sorter/TransactionSorter.js';
@@ -102,6 +102,7 @@ export class Block extends Logger {
         // Prepare the vm for the block execution
         await vmManager.prepareBlock(this.height);
 
+        let states: EvaluatedStates | undefined;
         try {
             // Execute each transaction of the block.
             await this.executeTransactions(vmManager);
@@ -112,10 +113,20 @@ export class Block extends Logger {
             await vmManager.revertBlock();
         } finally {
             // We terminate the execution of the block
-            await vmManager.terminateBlock();
+            states = await vmManager.terminateBlock();
         }
 
-        console.log('Block executed', this.transactions);
+        if (!states) {
+            throw new Error('Block have no states');
+        }
+
+        const storageTree = states.storage;
+        if (!storageTree) {
+            throw new Error('Storage tree not found');
+        }
+
+        const proofs = storageTree.getProofs();
+        console.log(`Block storage proofs`, proofs);
     }
 
     /** Transactions Execution */
@@ -156,6 +167,8 @@ export class Block extends Logger {
         try {
             /** We must create a transaction receipt. */
             transaction.receipt = await vmManager.executeTransaction(this.height, transaction);
+
+            console.log(transaction.receipt);
         } catch (e) {
             const error: Error = e as Error;
 

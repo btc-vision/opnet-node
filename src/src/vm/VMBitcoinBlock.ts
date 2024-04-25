@@ -5,7 +5,6 @@ export class VMBitcoinBlock extends Logger {
     public readonly logColor: string = '#ddff00';
 
     private isPrepared: boolean = false;
-
     private blockId: bigint = 0n;
 
     constructor(private readonly vmStorage: VMStorage) {
@@ -61,6 +60,8 @@ export class VMBitcoinBlock extends Logger {
 
         this.reset();
         await this.vmStorage.terminateBlock();
+
+        return;
     }
 
     private reset(): void {

@@ -32,7 +32,7 @@ export class ContractEvaluator {
     private writeMethods: MethodMap = new Map();
     private initializeContract: boolean = false;
 
-    private readonly enableTracing: boolean = true;
+    private readonly enableTracing: boolean = false;
 
     constructor(
         private readonly stack: VMContext,
@@ -333,6 +333,7 @@ export class ContractEvaluator {
 
         const events = this.getEvents();
         return {
+            changedStorage: modifiedStorage,
             result: result,
             events: events,
         };

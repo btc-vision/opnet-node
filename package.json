@@ -21,6 +21,7 @@
         "@btc-vision/bsi-db": "^1.0.0",
         "@btc-vision/bsi-transaction": "^1.0.8",
         "@jest/types": "^29.6.3",
+        "@openzeppelin/merkle-tree": "github:btc-vision/merkle-tree-sha256",
         "@types/bignumber.js": "^5.0.0",
         "@types/bitcore-lib": "github:btc-vision/BitcoreLibTypes",
         "@types/cors": "^2.8.17",
