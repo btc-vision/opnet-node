@@ -27,9 +27,9 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
 
     /**
      * GET /api/v1/block/heapBlock
-     * @tag MotoSwap
-     * @summary Get the current heap block of MotoSwap
-     * @description Get the current heap block of MotoSwap (the block that is currently being processed)
+     * @tag OpNet
+     * @summary Get the current heap block of OpNet
+     * @description Get the current heap block of OpNet (the block that is currently being processed)
      * @response 200 - Return the current heap block of the Bitcoin blockchain.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error

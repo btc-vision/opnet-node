@@ -19,6 +19,8 @@ const spec = openapi({
         '../api/Server.js',
         '../../components/schemas/_index.yaml',
         '../api/routes/*',
+        '../api/routes/api/**',
+        '../api/routes/api/**/*',
     ], //
     verbose: true,
     throwLevel: 'on',
@@ -39,7 +41,7 @@ export class Docs extends Logger {
     public async generateAsyncApi(): Promise<void> {
         fs.rmSync('./asyncapi', { recursive: true, force: true });
 
-        let path2 = path.resolve(__dirname, '../../components/motoswap.yaml');
+        let path2 = path.resolve(__dirname, '../../components/opnet.yaml');
         await AsyncApiValidator.fromSource(path2).catch((e) => {
             this.error(`AsyncAPI validation failed. {Details: ${e.stack}}`);
         });

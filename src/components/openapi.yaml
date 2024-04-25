@@ -1,15 +1,15 @@
 openapi: 3.0.0
 
 info:
-  title: MotoSwap RPC API
-  description: This document is the official API documentation of MotoSwap RPC.
+  title: OpNet RPC API
+  description: This document is the official API documentation of OpNet JSON-RPC.
   version: 1.0.0
   pointerResolutionBasePath: "/"
   swagger: 2.0
   basePath: "/"
 tags:
   - name: "Websocket"
-    description: "MotoSwap websocket configuration related endpoints."
+    description: "OpNet websocket configuration related endpoints."
 components:
   securitySchemes:
     BearerAuth:
@@ -22,7 +22,7 @@ components:
 servers:
   - url: http://localhost:9001
     description: Sandbox server
-  - url: https://testnet.motoswap.io
+  - url: https://testnet.opnet.io
     description: MotoSwap Testnet Server
-  - url: https://prod.motoswap.io
-    description: MotoSwap Prod Server
+  - url: https://prod.opnet.io
+    description: OpNet Prod Server
