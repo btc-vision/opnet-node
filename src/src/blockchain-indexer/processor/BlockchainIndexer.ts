@@ -20,7 +20,7 @@ export class BlockchainIndexer extends Logger {
     private readonly bitcoinNetwork: bitcoin.networks.Network;
 
     private readonly vmManager: VMManager = new VMManager(Config);
-    private readonly processOnlyOneBlock: boolean = false;
+    private readonly processOnlyOneBlock: boolean = true;
 
     constructor() {
         super();

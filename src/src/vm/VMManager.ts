@@ -658,7 +658,9 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        this.log(`Validating block ${height}...`);
+        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            this.debug(`Validating block ${height} headers...`);
+        }
 
         return this.validateBlockChecksum(blockHeaders);
     }
