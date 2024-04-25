@@ -78,7 +78,6 @@ export class ChecksumMerkle {
             throw new Error('Checksum Merkle tree already generated');
         }
 
-        console.log(this.values);
         this.tree = StandardMerkleTree.of<[number, Uint8Array]>(
             this.values,
             ChecksumMerkle.TREE_TYPE,

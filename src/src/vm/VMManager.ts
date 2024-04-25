@@ -328,7 +328,7 @@ export class VMManager extends Logger {
 
     public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string | undefined> {
         const newBlockHeight: bigint = height - 1n;
-        if (newBlockHeight <= BigInt(Config.OP_NET.ENABLED_AT_BLOCK)) {
+        if (newBlockHeight < BigInt(Config.OP_NET.ENABLED_AT_BLOCK)) {
             return ZERO_HASH;
         }
 
@@ -610,14 +610,20 @@ export class VMManager extends Logger {
         /** We must get the block root states */
         const blockRootStates: BlockRootStates | undefined =
             await this.getBlockRootStates(blockHeight);
+
         if (!blockRootStates) {
             throw new Error(
                 `Block root states not found for block ${blockHeight}. DATA CORRUPTED.`,
             );
         }
 
-        // TODO: Verify the proofs from the database.
-        throw new Error('Not implemented verify proof from database.');
+        // We must verify the proofs from the block root states.
+        return StateMerkleTree.verify(
+            blockRootStates.storageRoot,
+            StateMerkleTree.TREE_TYPE,
+            [encodedPointer, value],
+            proofs,
+        );
     }
 
     private getVMStorage(): VMStorage {
