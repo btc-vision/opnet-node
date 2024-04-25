@@ -20,7 +20,7 @@ export class BlockchainIndexer extends Logger {
     private readonly bitcoinNetwork: bitcoin.networks.Network;
 
     private readonly vmManager: VMManager = new VMManager(Config);
-    private readonly processOnlyOneBlock: boolean = true;
+    private readonly processOnlyOneBlock: boolean = false;
 
     constructor() {
         super();
@@ -114,11 +114,8 @@ export class BlockchainIndexer extends Logger {
         // Deserialize the block.
         block.deserialize();
 
-        // Execute the block.
+        // Execute the block and save the changes.
         await block.execute(this.vmManager);
-
-        // Save the block in the database.
-        console.log(block.storageProofs);
     }
 
     private async getBlock(blockHeight: number): Promise<BlockDataWithTransactionData | null> {
