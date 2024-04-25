@@ -42,6 +42,7 @@ export class VMManager extends Logger {
     private blockState: StateMerkleTree | undefined;
 
     private cachedBlockStates: Map<bigint, BlockRootStates> = new Map();
+    private verifiedBlockHeights: Map<bigint, Promise<boolean>> = new Map();
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
@@ -236,6 +237,7 @@ export class VMManager extends Logger {
         return result;
     }
 
+    /** TODO: Move this method to an other class and use this method when synchronizing block headers once PoA is implemented. */
     public async validateBlockChecksum(blockHeader: BlockHeaderBlockDocument): Promise<boolean> {
         if (!blockHeader.checksumRoot) {
             throw new Error('Block checksum not found');
@@ -427,6 +429,7 @@ export class VMManager extends Logger {
     private clear(): void {
         this.blockState = undefined;
         this.cachedBlockStates.clear();
+        this.verifiedBlockHeights.clear();
     }
 
     private async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
@@ -611,22 +614,53 @@ export class VMManager extends Logger {
         }
 
         /** We must get the block root states */
-        const blockRootStates: BlockRootStates | undefined =
-            await this.getBlockRootStates(blockHeight);
+        const blockHeaders: BlockHeaderBlockDocument | undefined =
+            await this.getBlockHeader(blockHeight);
 
-        if (!blockRootStates) {
+        if (!blockHeaders) {
             throw new Error(
                 `Block root states not found for block ${blockHeight}. DATA CORRUPTED.`,
             );
         }
 
+        const isVerifiedBlock: boolean = await this.verifyBlockAtHeight(blockHeight, blockHeaders);
+        if (!isVerifiedBlock) {
+            throw new Error(`Block ${blockHeight} have altered headers. DATA CORRUPTED.`);
+        }
+
         // We must verify the proofs from the block root states.
         return StateMerkleTree.verify(
-            blockRootStates.storageRoot,
+            blockHeaders.storageRoot,
             StateMerkleTree.TREE_TYPE,
             [encodedPointer, value],
             proofs,
         );
+    }
+
+    private async verifyBlockAtHeight(
+        blockHeight: bigint,
+        blockHeaders: BlockHeaderBlockDocument,
+    ): Promise<boolean> {
+        const verifiedHeight: Promise<boolean> =
+            this.verifiedBlockHeights.get(blockHeight) ||
+            this._verifyBlockAtHeight(blockHeight, blockHeaders);
+        this.verifiedBlockHeights.set(blockHeight, verifiedHeight);
+
+        return await verifiedHeight;
+    }
+
+    /** We verify that the block did not get altered at the given height. */
+    private async _verifyBlockAtHeight(
+        height: bigint,
+        blockHeaders: BlockHeaderBlockDocument,
+    ): Promise<boolean> {
+        if (height !== BufferHelper.fromDecimal128(blockHeaders.height)) {
+            throw new Error('Block height mismatch');
+        }
+
+        this.log(`Validating block ${height}...`);
+
+        return this.validateBlockChecksum(blockHeaders);
     }
 
     private getVMStorage(): VMStorage {
