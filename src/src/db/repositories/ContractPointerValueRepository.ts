@@ -23,6 +23,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     public async getByContractAndPointer(
         contractAddress: Address,
         pointer: StoragePointer,
+        height?: bigint,
         currentSession?: ClientSession,
     ): Promise<IContractPointerValue | null> {
         const pointerToBinary = new Binary(pointer);
@@ -30,6 +31,11 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             contractAddress: contractAddress,
             pointer: pointerToBinary,
         };
+
+        if (height) {
+            /** Allow block to be rescanned */
+            criteria.lastSeenAt = { $lt: BufferHelper.toDecimal128(height) };
+        }
 
         const results = await this.queryOne(criteria, currentSession);
         if (results === null) {
@@ -63,6 +69,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         const criteria: Partial<Filter<IContractPointerValueDocument>> = {
             contractAddress: contractAddress,
             pointer: pointerToBinary,
+            lastSeenAt: BufferHelper.toDecimal128(lastSeenAt),
         };
 
         const update: Partial<IContractPointerValueDocument> = {

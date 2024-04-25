@@ -20,7 +20,7 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
     public static verify(
         root: string,
         type: [string, string],
-        value: Buffer[],
+        value: Buffer[] | Uint8Array[],
         proof: string[],
     ): boolean {
         return StandardMerkleTree.verify(root, type, value, proof);
@@ -37,6 +37,10 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
     public abstract getValue(address: string, key: K): V | undefined;
 
     public abstract getValueWithProofs(address: string, key: K): [V, string[]] | undefined;
+
+    public hasTree(): boolean {
+        return !!this.tree;
+    }
 
     public generateTree(regeneratedIfValueChanged: boolean = true): void {
         if (this.frozen) {
@@ -58,6 +62,7 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
     }
 
     public abstract getValuesWithProofs(address: string): Map<K, [V, string[]]>;
+
     public abstract getEverythingWithProofs(): Map<string, Map<K, [V, string[]]>>;
 
     public freeze(): void {

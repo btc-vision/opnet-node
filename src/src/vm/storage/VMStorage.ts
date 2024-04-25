@@ -17,6 +17,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         pointer: StoragePointer,
         defaultValue: MemoryValue | null,
         setIfNotExit: boolean,
+        height?: bigint,
     ): Promise<ProvenMemoryValue | null>;
 
     public abstract setStorage(

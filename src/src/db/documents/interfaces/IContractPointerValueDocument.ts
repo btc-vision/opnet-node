@@ -7,5 +7,5 @@ export interface IContractPointerValueDocument extends IBaseDocument {
     readonly value: Binary;
 
     readonly proofs: string[];
-    readonly lastSeenAt: Decimal128;
+    lastSeenAt: Decimal128;
 }

@@ -356,6 +356,7 @@ export class VMManager extends Logger {
                 pointer,
                 defaultValue,
                 setIfNotExit,
+                this.vmBitcoinBlock.height,
             );
 
             if (!valueFromDB) {
@@ -365,7 +366,7 @@ export class VMManager extends Logger {
             if (valueFromDB.lastSeenAt === 0n) {
                 // Default value.
                 await this.setStorage(address, pointer, valueFromDB.value);
-                
+
                 return valueFromDB.value;
             } else {
                 memoryValue = {
@@ -382,7 +383,63 @@ export class VMManager extends Logger {
             };
         }
 
+        if (memoryValue.proofs.length === 0) {
+            this.error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
+
+            throw new Error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
+        }
+
+        const encodedPointer = this.blockState.encodePointerBuffer(address, pointer);
+
+        // We must verify the proofs.
+        const isValid: boolean = await this.verifyProofs(
+            encodedPointer,
+            memoryValue.value,
+            memoryValue.proofs,
+            memoryValue.lastSeenAt,
+        );
+
+        if (!isValid) {
+            this.error(
+                `[DATA CORRUPTED] Proofs not valid for ${pointer} at ${address}. Data corrupted. Please reindex your indexer from scratch.`,
+            );
+
+            throw new Error(
+                `[DATA CORRUPTED] Proofs not valid for ${pointer} at ${address}. MUST REINDEX FROM SCRATCH.`,
+            );
+        }
+
         return memoryValue?.value || null;
+    }
+
+    private async verifyProofs(
+        encodedPointer: Buffer,
+        value: MemoryValue,
+        proofs: string[],
+        blockHeight: bigint,
+    ): Promise<boolean> {
+        if (blockHeight === this.vmBitcoinBlock.height) {
+            if (!this.blockState) {
+                throw new Error('Block state not found');
+            }
+
+            if (!this.blockState.hasTree()) {
+                throw new Error(
+                    `Tried to verify the value of a state without a valid tree. Block height: ${blockHeight} - Current height: ${this.vmBitcoinBlock.height} (Have this block been saved already?)`,
+                );
+            }
+
+            // Same block.
+            return StateMerkleTree.verify(
+                this.blockState.root,
+                StateMerkleTree.TREE_TYPE,
+                [encodedPointer, value],
+                proofs,
+            );
+        }
+
+        // TODO: Verify the proofs from the database.
+        throw new Error('Not implemented verify proof from database.');
     }
 
     private getVMStorage(): VMStorage {

@@ -96,7 +96,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
 
     public getValue(address: string, key: MemorySlotPointer): MemorySlotData<bigint> | undefined {
         if (!this.values.has(address)) {
-            return undefined;
+            return;
         }
 
         const map = this.values.get(address);
@@ -112,7 +112,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         key: MemorySlotPointer,
     ): [MemorySlotData<bigint>, string[]] | undefined {
         if (!this.tree) {
-            throw new Error('Merkle tree not generated');
+            return;
         }
 
         this.validate();
@@ -191,6 +191,18 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         return proofs;
     }
 
+    public encodePointer(contract: string, pointer: bigint): Buffer {
+        return this.encodePointerBuffer(contract, BufferHelper.pointerToUint8Array(pointer));
+    }
+
+    public encodePointerBuffer(contract: string, pointer: Uint8Array | Buffer): Buffer {
+        const hash = crypto.createHash('sha256');
+        hash.update(contract);
+        hash.update(pointer);
+
+        return hash.digest();
+    }
+
     protected getValues(): [Buffer, Buffer][] {
         const entries: [Buffer, Buffer][] = [];
 
@@ -210,13 +222,5 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         if (!this.values.has(address)) {
             this.values.set(address, new Map());
         }
-    }
-
-    private encodePointer(contract: string, pointer: bigint): Buffer {
-        const hash = crypto.createHash('sha256');
-        hash.update(contract);
-        hash.update(BufferHelper.pointerToUint8Array(pointer));
-
-        return hash.digest();
     }
 }
