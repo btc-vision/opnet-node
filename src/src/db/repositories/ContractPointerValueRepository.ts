@@ -9,6 +9,8 @@ import { IContractPointerValueDocument } from '../documents/interfaces/IContract
 export interface IContractPointerValue {
     pointer: StoragePointer;
     value: MemoryValue;
+    proofs: string[];
+    lastSeenAt: bigint;
 }
 
 export class ContractPointerValueRepository extends BaseRepository<IContractPointerValueDocument> {
@@ -24,7 +26,6 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         currentSession?: ClientSession,
     ): Promise<IContractPointerValue | null> {
         const pointerToBinary = new Binary(pointer);
-
         const criteria: Partial<Filter<IContractPointerValueDocument>> = {
             contractAddress: contractAddress,
             pointer: pointerToBinary,
@@ -35,9 +36,16 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             return null;
         }
 
+        if (!results.pointer || !results.value || !results.proofs || !results.lastSeenAt) {
+            this.error(`[DATABASE CORRUPTION.] Invalid pointer value.`);
+            throw new Error(`[DATABASE CORRUPTION.] Invalid pointer value.`);
+        }
+
         return {
             pointer: BufferHelper.bufferToUint8Array(results.pointer.value()),
             value: BufferHelper.bufferToUint8Array(results.value.value()),
+            proofs: results.proofs,
+            lastSeenAt: BufferHelper.fromDecimal128(results.lastSeenAt),
         };
     }
 
@@ -45,6 +53,8 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         contractAddress: Address,
         bufPointer: StoragePointer,
         bufValue: MemoryValue,
+        proofs: string[],
+        lastSeenAt: bigint,
         currentSession?: ClientSession,
     ): Promise<void> {
         const pointerToBinary = new Binary(bufPointer);
@@ -59,6 +69,8 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             contractAddress: contractAddress,
             pointer: pointerToBinary,
             value: valueToBinary,
+            proofs: proofs,
+            lastSeenAt: BufferHelper.toDecimal128(lastSeenAt),
         };
 
         await this.updatePartial(criteria, update, currentSession);

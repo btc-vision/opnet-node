@@ -2,19 +2,21 @@ import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import fs from 'fs';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
+import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { Config } from '../config/Config.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
+import { BufferHelper } from '../utils/BufferHelper.js';
 import { ADDRESS_BYTE_LENGTH, Selector } from './buffer/types/math.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
 import { VMMongoStorage } from './storage/databases/VMMongoStorage.js';
 import { IndexerStorageType } from './storage/types/IndexerStorageType.js';
-import { MemoryValue } from './storage/types/MemoryValue.js';
+import { MemoryValue, ProvenMemoryValue } from './storage/types/MemoryValue.js';
 import { StoragePointer } from './storage/types/StoragePointer.js';
 import { VMStorage } from './storage/VMStorage.js';
 import { VMBitcoinBlock } from './VMBitcoinBlock.js';
@@ -62,11 +64,13 @@ export class VMManager extends Logger {
         this.blockState = undefined;
     }
 
-    public async terminateBlock(): Promise<EvaluatedStates> {
-        const states: EvaluatedStates = this.getEvaluatedStates();
-        await this.vmBitcoinBlock.terminate();
+    public async terminateBlock(block?: Block): Promise<void> {
+        // TODO: Save block data
+        if (block) {
+            console.log('WE MUST SAVE THIS BLOCK!');
+        }
 
-        return states;
+        await this.vmBitcoinBlock.terminate();
     }
 
     public async loadContractFromBytecode(
@@ -213,6 +217,8 @@ export class VMManager extends Logger {
             this.blockState.updateValues(contract, val);
         }
 
+        this.blockState.generateTree();
+
         return result;
     }
 
@@ -255,20 +261,48 @@ export class VMManager extends Logger {
         }
     }
 
-    private getEvaluatedStates(): EvaluatedStates {
+    public async updateEvaluatedStates(): Promise<EvaluatedStates> {
         if (!this.blockState) {
             throw new Error('Block state not found');
         }
 
-        this.blockState.generateTree();
+        this.blockState.freeze();
+
+        await this.saveBlockStateChanges();
 
         const states: EvaluatedStates = {
             storage: this.blockState,
         };
 
         this.blockState = undefined;
-
         return states;
+    }
+
+    /** We must save the final state changes to the storage */
+    private async saveBlockStateChanges(): Promise<void> {
+        if (!this.blockState) {
+            throw new Error('Block state not found');
+        }
+
+        const stateChanges = this.blockState.getEverythingWithProofs();
+        for (const [address, val] of stateChanges.entries()) {
+            for (const [key, value] of val.entries()) {
+                if (!value[0]) {
+                    throw new Error('Value not found. Cannot save changes.');
+                }
+
+                const pointer: StoragePointer = BufferHelper.pointerToUint8Array(key);
+                const data: MemoryValue = BufferHelper.valueToUint8Array(value[0]);
+
+                await this.vmStorage.setStorage(
+                    address,
+                    pointer,
+                    data,
+                    value[1],
+                    this.vmBitcoinBlock.height,
+                );
+            }
+        }
     }
 
     // don't even question it ????????????????
@@ -281,21 +315,74 @@ export class VMManager extends Logger {
         });
     }
 
+    /** We must ENSURE that NOTHING get modified EVEN during the execution of the block. This is performance costly but required. */
     private async setStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
         value: MemoryValue,
     ): Promise<void> {
-        return this.vmStorage.setStorage(address, pointer, value);
+        /** We must internally change the corresponding storage */
+        if (!this.blockState) {
+            throw new Error('Block state not found');
+        }
+
+        const pointerBigInt: bigint = BufferHelper.uint8ArrayToPointer(pointer);
+        const valueBigInt: bigint = BufferHelper.uint8ArrayToValue(value);
+
+        this.blockState.updateValue(address, pointerBigInt, valueBigInt);
+
+        //return this.vmStorage.setStorage(address, pointer, value);
     }
 
+    /** We must verify that the storage is correct */
     private async getStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,
     ): Promise<MemoryValue | null> {
-        return this.vmStorage.getStorage(address, pointer, defaultValue, setIfNotExit);
+        /** We must check if we have the value in the current block state */
+        if (!this.blockState) {
+            throw new Error('Block state not found');
+        }
+
+        const pointerBigInt: bigint = BufferHelper.uint8ArrayToPointer(pointer);
+        const valueBigInt = this.blockState.getValueWithProofs(address, pointerBigInt);
+
+        let memoryValue: ProvenMemoryValue | null;
+        if (!valueBigInt) {
+            const valueFromDB = await this.vmStorage.getStorage(
+                address,
+                pointer,
+                defaultValue,
+                setIfNotExit,
+            );
+
+            if (!valueFromDB) {
+                return null;
+            }
+
+            if (valueFromDB.lastSeenAt === 0n) {
+                // Default value.
+                await this.setStorage(address, pointer, valueFromDB.value);
+                
+                return valueFromDB.value;
+            } else {
+                memoryValue = {
+                    value: valueFromDB.value,
+                    proofs: valueFromDB.proofs,
+                    lastSeenAt: valueFromDB.lastSeenAt,
+                };
+            }
+        } else {
+            memoryValue = {
+                value: BufferHelper.valueToUint8Array(valueBigInt[0]),
+                proofs: valueBigInt[1],
+                lastSeenAt: this.vmBitcoinBlock.height,
+            };
+        }
+
+        return memoryValue?.value || null;
     }
 
     private getVMStorage(): VMStorage {

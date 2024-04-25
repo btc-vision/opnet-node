@@ -1,3 +1,4 @@
+import { Decimal128 } from 'mongodb';
 import { MemorySlotPointer } from '../vm/buffer/types/math.js';
 
 export class BufferHelper {
@@ -34,6 +35,14 @@ export class BufferHelper {
         } else {
             throw new Error('Buffer is not defined');
         }
+    }
+
+    public static fromDecimal128(value: Decimal128): bigint {
+        return BigInt(value.toString());
+    }
+
+    public static toDecimal128(value: bigint): Decimal128 {
+        return Decimal128.fromString(value.toString());
     }
 
     public static pointerToUint8Array(pointer: MemorySlotPointer): Uint8Array {

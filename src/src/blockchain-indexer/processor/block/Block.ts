@@ -1,6 +1,7 @@
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
+import { Address, MemorySlotPointer } from '../../../vm/buffer/types/math.js';
 import { EvaluatedStates, VMManager } from '../../../vm/VMManager.js';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
@@ -30,6 +31,9 @@ export class Block extends Logger {
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
     private readonly transactionSorter: TransactionSorter = new TransactionSorter();
 
+    #_storageRoot: string | undefined;
+    #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
+
     constructor(
         protected readonly rawBlockData: BlockDataWithTransactionData,
         protected readonly network: bitcoin.networks.Network,
@@ -39,6 +43,12 @@ export class Block extends Logger {
         this.header = new BlockHeader(rawBlockData);
     }
 
+    private _reverted: boolean = false;
+
+    public get reverted(): boolean {
+        return this._reverted;
+    }
+
     /** Block Getters */
     public get hash(): string {
         return this.header.hash;
@@ -46,6 +56,22 @@ export class Block extends Logger {
 
     public get height(): bigint {
         return this.header.height;
+    }
+
+    public get storageRoot(): string {
+        if (!this.#_storageRoot) {
+            throw new Error('Storage root not found');
+        }
+
+        return this.#_storageRoot;
+    }
+
+    public get storageProofs(): Map<Address, Map<MemorySlotPointer, string[]>> {
+        if (!this.#_storageProofs) {
+            throw new Error('Storage proofs not found');
+        }
+
+        return this.#_storageProofs;
     }
 
     public get confirmations(): number {
@@ -106,27 +132,58 @@ export class Block extends Logger {
         try {
             // Execute each transaction of the block.
             await this.executeTransactions(vmManager);
+
+            states = await vmManager.updateEvaluatedStates();
         } catch (e) {
             const error: Error = e as Error;
             this.error(`Something went wrong while executing the block: ${error.message}`);
 
-            await vmManager.revertBlock();
+            await this.revertBlock(vmManager);
         } finally {
             // We terminate the execution of the block
-            states = await vmManager.terminateBlock();
+            if (states) {
+                await this.processBlockStates(states, vmManager);
+            } else {
+                await this.onEmptyBlock(vmManager);
+            }
         }
+    }
 
-        if (!states) {
-            throw new Error('Block have no states');
+    protected async onEmptyBlock(vmManager: VMManager): Promise<void> {
+        this.info(`Block ${this.hash} has no states, nothing changed.`);
+
+        this.#_storageRoot = '0x0000000000000000000000000000000000000000000000000000000000000000';
+        this.#_storageProofs = new Map();
+
+        await vmManager.terminateBlock(this);
+    }
+
+    /** Block States Processing */
+    protected async processBlockStates(
+        states: EvaluatedStates,
+        vmManager: VMManager,
+    ): Promise<void> {
+        try {
+            if (!states) {
+                throw new Error('Block have no states');
+            }
+
+            const storageTree = states.storage;
+            if (!storageTree) {
+                throw new Error('Storage tree not found');
+            }
+
+            const proofs = storageTree.getProofs();
+            this.#_storageRoot = storageTree.root;
+            this.#_storageProofs = proofs;
+        } catch (e) {
+            const error: Error = e as Error;
+            this.error(`Something went wrong while executing the block: ${error.message}`);
+
+            await this.revertBlock(vmManager);
+        } finally {
+            await vmManager.terminateBlock(this);
         }
-
-        const storageTree = states.storage;
-        if (!storageTree) {
-            throw new Error('Storage tree not found');
-        }
-
-        const proofs = storageTree.getProofs();
-        console.log(`Block storage proofs`, proofs);
     }
 
     /** Transactions Execution */
@@ -167,11 +224,8 @@ export class Block extends Logger {
         try {
             /** We must create a transaction receipt. */
             transaction.receipt = await vmManager.executeTransaction(this.height, transaction);
-
-            console.log(transaction.receipt);
         } catch (e) {
             const error: Error = e as Error;
-
             this.error(`Failed to execute transaction ${transaction.hash}: ${error.message}`);
 
             transaction.revert = error;
@@ -187,11 +241,16 @@ export class Block extends Logger {
             await vmManager.deployContract(this.height, transaction);
         } catch (e) {
             const error: Error = e as Error;
-
             this.error(`Failed to deploy contract ${transaction.hash}: ${error.message}`);
 
             transaction.revert = error;
         }
+    }
+
+    private async revertBlock(vmManager: VMManager): Promise<void> {
+        this._reverted = true;
+
+        await vmManager.revertBlock();
     }
 
     private ensureNotProcessed(): void {
@@ -238,5 +297,8 @@ export class Block extends Logger {
                 this.erroredTransactions.add(rawTransactionData);
             }
         }
+
+        // Free up some memory, we don't need the raw transaction data anymore
+        this.rawBlockData.tx = [];
     }
 }

@@ -6,7 +6,7 @@ import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.
 import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
 import { ContractRepository } from '../../../db/repositories/ContractRepository.js';
 import { BufferHelper } from '../../../utils/BufferHelper.js';
-import { MemoryValue } from '../types/MemoryValue.js';
+import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
 import { VMStorage } from '../VMStorage.js';
 
@@ -68,7 +68,7 @@ export class VMMongoStorage extends VMStorage {
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = false,
-    ): Promise<Uint8Array | null> {
+    ): Promise<ProvenMemoryValue | null> {
         if (setIfNotExit && defaultValue === null) {
             throw new Error('Default value buffer is required');
         }
@@ -91,23 +91,31 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('The value returned was not an Uint8Array!');
         }
 
-        if (setIfNotExit && value === null && defaultValue) {
-            await this.setStorage(address, pointer, defaultValue);
-
-            return defaultValue;
+        if (setIfNotExit && !value && defaultValue) {
+            return {
+                value: this.addBytes(defaultValue),
+                proofs: [],
+                lastSeenAt: BigInt(0),
+            }
         }
 
-        if (!value) {
-            return defaultValue;
+        if(!value) {
+            return null;
         }
 
-        return this.addBytes(value.value);
+        return {
+            value: value.value,
+            proofs: value.proofs,
+            lastSeenAt: value.lastSeenAt,
+        }
     }
 
     public async setStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
         value: MemoryValue,
+        proofs: string[],
+        lastSeenAt: bigint,
     ): Promise<void> {
         if (!this.pointerRepository) {
             throw new Error('Repository not initialized');
@@ -121,12 +129,10 @@ export class VMMongoStorage extends VMStorage {
             address,
             pointer,
             value,
+            proofs,
+            lastSeenAt,
             this.currentSession,
         );
-
-        // verify integrity
-        //const newValue = await this.getStorage(address, pointer);
-        //console.log(`New value`, newValue, value);
     }
 
     public async setContractAt(contractData: ContractInformation): Promise<void> {

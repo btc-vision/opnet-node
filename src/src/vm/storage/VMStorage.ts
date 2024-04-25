@@ -2,7 +2,7 @@ import { Logger } from '@btc-vision/bsi-common';
 import { BitcoinAddress } from '../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
-import { MemoryValue } from './types/MemoryValue.js';
+import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
 
 export abstract class VMStorage extends Logger implements IVMStorageMethod {
@@ -17,12 +17,14 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         pointer: StoragePointer,
         defaultValue: MemoryValue | null,
         setIfNotExit: boolean,
-    ): Promise<MemoryValue | null>;
+    ): Promise<ProvenMemoryValue | null>;
 
     public abstract setStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
         value: MemoryValue,
+        proofs: string[],
+        lastSeenAt: bigint,
     ): Promise<void>;
 
     public abstract hasContractAt(address: BitcoinAddress): Promise<boolean>;

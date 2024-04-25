@@ -116,6 +116,9 @@ export class BlockchainIndexer extends Logger {
 
         // Execute the block.
         await block.execute(this.vmManager);
+
+        // Save the block in the database.
+        console.log(block.storageProofs);
     }
 
     private async getBlock(blockHeight: number): Promise<BlockDataWithTransactionData | null> {

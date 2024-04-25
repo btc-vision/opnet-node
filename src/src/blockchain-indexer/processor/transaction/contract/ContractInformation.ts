@@ -1,6 +1,7 @@
-import { Binary, Decimal128 } from 'mongodb';
+import { Binary } from 'mongodb';
 import { BitcoinAddress } from '../../../../bitcoin/types/BitcoinAddress.js';
 import { IContractDocument } from '../../../../db/documents/interfaces/IContractDocument.js';
+import { BufferHelper } from '../../../../utils/BufferHelper.js';
 import { DeploymentTransaction } from '../transactions/DeploymentTransaction.js';
 
 export class ContractInformation {
@@ -49,7 +50,7 @@ export class ContractInformation {
         }
 
         return new ContractInformation(
-            this.fromDecimal128(contractDocument.blockHeight),
+            BufferHelper.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
             contractDocument.virtualAddress,
             bytecodeBuffer,
@@ -59,7 +60,7 @@ export class ContractInformation {
             deployerPubKeyBuffer,
             contractSeedBuffer,
             contractSaltHashBuffer,
-            this.fromDecimal128(contractDocument.burnedFee),
+            BufferHelper.fromDecimal128(contractDocument.burnedFee),
             contractDocument.deployerAddress,
         );
     }
@@ -104,13 +105,9 @@ export class ContractInformation {
         );
     }
 
-    private static fromDecimal128(value: Decimal128): bigint {
-        return BigInt(value.toString());
-    }
-
     public toDocument(): IContractDocument {
         return {
-            blockHeight: this.toDecimal128(this.blockHeight),
+            blockHeight: BufferHelper.toDecimal128(this.blockHeight),
             contractAddress: this.contractAddress,
             virtualAddress: this.virtualAddress,
             bytecode: new Binary(this.bytecode),
@@ -120,12 +117,8 @@ export class ContractInformation {
             deployerPubKey: new Binary(this.deployerPubKey),
             contractSeed: new Binary(this.contractSeed),
             contractSaltHash: new Binary(this.contractSaltHash),
-            burnedFee: this.toDecimal128(this.burnedFee),
+            burnedFee: BufferHelper.toDecimal128(this.burnedFee),
             deployerAddress: this.deployerAddress,
         };
-    }
-
-    private toDecimal128(value: bigint): Decimal128 {
-        return Decimal128.fromString(value.toString());
     }
 }
