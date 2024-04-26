@@ -24,10 +24,10 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
     public async getContract(
         contractAddress: string,
         currentSession?: ClientSession | undefined,
-    ): Promise<ContractInformation | null> {
+    ): Promise<ContractInformation | undefined> {
         const contract = await this.queryOne({ contractAddress }, currentSession);
         if (!contract) {
-            return null;
+            return;
         }
 
         return ContractInformation.fromDocument(contract);
@@ -47,10 +47,10 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
     public async getContractAtVirtualAddress(
         virtualAddress: string,
         currentSession?: ClientSession | undefined,
-    ): Promise<ContractInformation | null> {
+    ): Promise<ContractInformation | undefined> {
         const contract = await this.queryOne({ virtualAddress }, currentSession);
         if (!contract) {
-            return null;
+            return;
         }
 
         return ContractInformation.fromDocument(contract);

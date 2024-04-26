@@ -1,7 +1,10 @@
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
-import { EvaluatedStates, VMManager } from '../../../vm/VMManager.js';
+import { BufferHelper } from '../../../utils/BufferHelper.js';
+import { Address, MemorySlotPointer } from '../../../vm/buffer/types/math.js';
+import { EvaluatedStates } from '../../../vm/evaluated/EvaluatedStates.js';
+import { VMManager } from '../../../vm/VMManager.js';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
 import { TransactionSorter } from '../transaction/transaction-sorter/TransactionSorter.js';
@@ -9,6 +12,12 @@ import { Transaction } from '../transaction/Transaction.js';
 import { DeploymentTransaction } from '../transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../transaction/transactions/InteractionTransaction.js';
 import { BlockHeader } from './classes/BlockHeader.js';
+import {
+    BlockHeaderBlockDocument,
+    BlockHeaderChecksumProof,
+} from './interfaces/IBlockHeaderBlockDocument.js';
+import { ZERO_HASH } from './interfaces/ZeroValue.js';
+import { ChecksumMerkle } from './merkle/ChecksumMerkle.js';
 
 export class Block extends Logger {
     // Block Header
@@ -30,6 +39,17 @@ export class Block extends Logger {
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
     private readonly transactionSorter: TransactionSorter = new TransactionSorter();
 
+    #_storageRoot: string | undefined;
+    #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
+
+    #_receiptRoot: string | undefined;
+    #_receiptProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
+
+    #_checksumMerkle: ChecksumMerkle = new ChecksumMerkle();
+    #_checksumProofs: BlockHeaderChecksumProof | undefined;
+
+    #_previousBlockChecksum: string | undefined;
+
     constructor(
         protected readonly rawBlockData: BlockDataWithTransactionData,
         protected readonly network: bitcoin.networks.Network,
@@ -39,6 +59,12 @@ export class Block extends Logger {
         this.header = new BlockHeader(rawBlockData);
     }
 
+    private _reverted: boolean = false;
+
+    public get reverted(): boolean {
+        return this._reverted;
+    }
+
     /** Block Getters */
     public get hash(): string {
         return this.header.hash;
@@ -46,6 +72,50 @@ export class Block extends Logger {
 
     public get height(): bigint {
         return this.header.height;
+    }
+
+    public get previousBlockChecksum(): string {
+        if (!this.#_previousBlockChecksum) {
+            throw new Error('Previous block checksum not found');
+        }
+
+        return this.#_previousBlockChecksum;
+    }
+
+    public get previousBlockHash(): string {
+        return this.header.previousBlockHash;
+    }
+
+    public get receiptRoot(): string {
+        if (this.#_receiptRoot === undefined) {
+            throw new Error('Receipt root not found');
+        }
+
+        return this.#_receiptRoot;
+    }
+
+    public get receiptProofs(): Map<Address, Map<MemorySlotPointer, string[]>> {
+        if (!this.#_receiptProofs) {
+            throw new Error('Storage proofs not found');
+        }
+
+        return this.#_receiptProofs;
+    }
+
+    public get storageRoot(): string {
+        if (!this.#_storageRoot) {
+            throw new Error('Storage root not found');
+        }
+
+        return this.#_storageRoot;
+    }
+
+    public get storageProofs(): Map<Address, Map<MemorySlotPointer, string[]>> {
+        if (!this.#_storageProofs) {
+            throw new Error('Storage proofs not found');
+        }
+
+        return this.#_storageProofs;
     }
 
     public get confirmations(): number {
@@ -76,6 +146,49 @@ export class Block extends Logger {
         return this.header.medianTime;
     }
 
+    public get checksumRoot(): string {
+        return this.#_checksumMerkle.root;
+    }
+
+    public get checksumProofs(): BlockHeaderChecksumProof {
+        if (!this.#_checksumProofs) {
+            throw new Error(
+                'Checksum proofs are not calculated yet. Please deserialize the block first.',
+            );
+        }
+
+        return this.#_checksumProofs;
+    }
+
+    public getBlockHeaderDocument(): BlockHeaderBlockDocument {
+        return {
+            checksumRoot: this.checksumRoot,
+            checksumProofs: this.checksumProofs,
+
+            bits: this.header.bits,
+            nonce: this.header.nonce,
+
+            previousBlockHash: this.header.previousBlockHash,
+            previousBlockChecksum: this.previousBlockChecksum,
+
+            receiptRoot: this.receiptRoot,
+
+            txCount: this.header.nTx,
+            hash: this.header.hash,
+            height: BufferHelper.toDecimal128(this.height),
+
+            storageRoot: this.storageRoot,
+
+            strippedSize: this.header.strippedSize,
+            version: this.version,
+            size: this.size,
+            weight: this.weight,
+            merkleRoot: this.merkleRoot,
+            time: this.time,
+            medianTime: this.medianTime,
+        };
+    }
+
     /** Block Processing */
     public deserialize(): void {
         this.ensureNotProcessed();
@@ -102,31 +215,67 @@ export class Block extends Logger {
         // Prepare the vm for the block execution
         await vmManager.prepareBlock(this.height);
 
-        let states: EvaluatedStates | undefined;
         try {
             // Execute each transaction of the block.
             await this.executeTransactions(vmManager);
+
+            /** We must update the evaluated states, if there were no changes, then we mark the block as empty. */
+            const states: EvaluatedStates = await vmManager.updateEvaluatedStates();
+            if (states && states.storage && states.storage.size()) {
+                await this.processBlockStates(states, vmManager);
+            } else {
+                await this.onEmptyBlock(vmManager);
+            }
         } catch (e) {
             const error: Error = e as Error;
-            this.error(`Something went wrong while executing the block: ${error.message}`);
+            this.error(`Something went wrong while executing the block: ${error.stack}`);
 
-            await vmManager.revertBlock();
-        } finally {
-            // We terminate the execution of the block
-            states = await vmManager.terminateBlock();
+            await this.revertBlock(vmManager);
         }
+    }
 
-        if (!states) {
-            throw new Error('Block have no states');
+    protected async onEmptyBlock(vmManager: VMManager): Promise<void> {
+        this.info(`Block ${this.hash} has no states, nothing changed.`);
+
+        this.#_storageRoot = ZERO_HASH;
+        this.#_storageProofs = new Map();
+
+        this.#_receiptRoot = ZERO_HASH;
+        this.#_receiptProofs = new Map();
+
+        await this.signBlock(vmManager);
+    }
+
+    /** Block States Processing */
+    protected async processBlockStates(
+        states: EvaluatedStates,
+        vmManager: VMManager,
+    ): Promise<void> {
+        try {
+            if (!states) {
+                throw new Error('Block have no states');
+            }
+
+            const storageTree = states.storage;
+            if (!storageTree) {
+                throw new Error('Storage tree not found');
+            }
+
+            const proofs = storageTree.getProofs();
+            this.#_storageRoot = storageTree.root;
+            this.#_storageProofs = proofs;
+
+            // TODO: Implement receipt tree
+            this.#_receiptRoot = ZERO_HASH;
+            this.#_receiptProofs = new Map();
+
+            await this.signBlock(vmManager);
+        } catch (e) {
+            const error: Error = e as Error;
+            this.error(`Something went wrong while executing the block: ${error.stack}`);
+
+            await this.revertBlock(vmManager);
         }
-
-        const storageTree = states.storage;
-        if (!storageTree) {
-            throw new Error('Storage tree not found');
-        }
-
-        const proofs = storageTree.getProofs();
-        console.log(`Block storage proofs`, proofs);
     }
 
     /** Transactions Execution */
@@ -167,12 +316,9 @@ export class Block extends Logger {
         try {
             /** We must create a transaction receipt. */
             transaction.receipt = await vmManager.executeTransaction(this.height, transaction);
-
-            console.log(transaction.receipt);
         } catch (e) {
             const error: Error = e as Error;
-
-            this.error(`Failed to execute transaction ${transaction.hash}: ${error.message}`);
+            this.error(`Failed to execute transaction ${transaction.hash}: ${error.stack}`);
 
             transaction.revert = error;
         }
@@ -187,11 +333,42 @@ export class Block extends Logger {
             await vmManager.deployContract(this.height, transaction);
         } catch (e) {
             const error: Error = e as Error;
-
             this.error(`Failed to deploy contract ${transaction.hash}: ${error.message}`);
 
             transaction.revert = error;
         }
+    }
+
+    private async signBlock(vmManager: VMManager): Promise<void> {
+        /** We must fetch the previous block checksum */
+        const previousBlockChecksum: string | undefined =
+            await vmManager.getPreviousBlockChecksumOfHeight(this.height);
+        if (!previousBlockChecksum) {
+            throw new Error(
+                `[DATA CORRUPTED] The previous block checksum of block ${this.height} is not found.`,
+            );
+        }
+
+        this.#_previousBlockChecksum = previousBlockChecksum;
+
+        this.#_checksumMerkle.setBlockData(
+            this.header.previousBlockHash,
+            this.#_previousBlockChecksum,
+            this.hash,
+            this.merkleRoot,
+            this.storageRoot,
+            this.receiptRoot,
+        );
+
+        this.#_checksumProofs = this.#_checksumMerkle.getProofs();
+
+        await vmManager.terminateBlock(this);
+    }
+
+    private async revertBlock(vmManager: VMManager): Promise<void> {
+        this._reverted = true;
+
+        await vmManager.revertBlock();
     }
 
     private ensureNotProcessed(): void {
@@ -238,5 +415,8 @@ export class Block extends Logger {
                 this.erroredTransactions.add(rawTransactionData);
             }
         }
+
+        // Free up some memory, we don't need the raw transaction data anymore
+        this.rawBlockData.tx = [];
     }
 }

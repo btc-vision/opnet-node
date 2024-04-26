@@ -19,9 +19,14 @@ export interface RPCConfig {
     THREADS: number;
 }
 
+export interface OPNetConfig {
+    ENABLED_AT_BLOCK: number;
+}
+
 export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     INDEXER: IndexerConfig;
     ZERO_MQ: ZeroMQConfig;
     RPC: RPCConfig;
+    OP_NET: OPNetConfig;
     BLOCKCHAIN: BlockchainConfig;
 }

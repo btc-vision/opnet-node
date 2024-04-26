@@ -1,12 +1,15 @@
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { ClientSession } from 'mongodb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
+import { BlockHeaderBlockDocument } from '../../../blockchain-indexer/processor/block/interfaces/IBlockHeaderBlockDocument.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
+import { BlockRootStates } from '../../../db/interfaces/BlockRootStates.js';
+import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
 import { ContractRepository } from '../../../db/repositories/ContractRepository.js';
 import { BufferHelper } from '../../../utils/BufferHelper.js';
-import { MemoryValue } from '../types/MemoryValue.js';
+import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
 import { VMStorage } from '../VMStorage.js';
 
@@ -16,6 +19,7 @@ export class VMMongoStorage extends VMStorage {
     private currentSession: ClientSession | undefined;
     private pointerRepository: ContractPointerValueRepository | undefined;
     private contractRepository: ContractRepository | undefined;
+    private blockRepository: BlockRepository | undefined;
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
@@ -32,6 +36,7 @@ export class VMMongoStorage extends VMStorage {
 
         this.pointerRepository = new ContractPointerValueRepository(this.databaseManager.db);
         this.contractRepository = new ContractRepository(this.databaseManager.db);
+        this.blockRepository = new BlockRepository(this.databaseManager.db);
     }
 
     public async close(): Promise<void> {
@@ -68,7 +73,8 @@ export class VMMongoStorage extends VMStorage {
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = false,
-    ): Promise<Uint8Array | null> {
+        height?: bigint,
+    ): Promise<ProvenMemoryValue | null> {
         if (setIfNotExit && defaultValue === null) {
             throw new Error('Default value buffer is required');
         }
@@ -84,6 +90,7 @@ export class VMMongoStorage extends VMStorage {
         const value = await this.pointerRepository.getByContractAndPointer(
             address,
             pointer,
+            height,
             this.currentSession,
         );
 
@@ -91,23 +98,31 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('The value returned was not an Uint8Array!');
         }
 
-        if (setIfNotExit && value === null && defaultValue) {
-            await this.setStorage(address, pointer, defaultValue);
-
-            return defaultValue;
+        if (setIfNotExit && !value && defaultValue) {
+            return {
+                value: this.addBytes(defaultValue),
+                proofs: [],
+                lastSeenAt: BigInt(0),
+            };
         }
 
         if (!value) {
-            return defaultValue;
+            return null;
         }
 
-        return this.addBytes(value.value);
+        return {
+            value: value.value,
+            proofs: value.proofs,
+            lastSeenAt: value.lastSeenAt,
+        };
     }
 
     public async setStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
         value: MemoryValue,
+        proofs: string[],
+        lastSeenAt: bigint,
     ): Promise<void> {
         if (!this.pointerRepository) {
             throw new Error('Repository not initialized');
@@ -121,12 +136,18 @@ export class VMMongoStorage extends VMStorage {
             address,
             pointer,
             value,
+            proofs,
+            lastSeenAt,
             this.currentSession,
         );
+    }
 
-        // verify integrity
-        //const newValue = await this.getStorage(address, pointer);
-        //console.log(`New value`, newValue, value);
+    public async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
+        if (!this.blockRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        return await this.blockRepository.getBlockRootStates(height, this.currentSession);
     }
 
     public async setContractAt(contractData: ContractInformation): Promise<void> {
@@ -143,7 +164,7 @@ export class VMMongoStorage extends VMStorage {
 
     public async getContractAt(
         contractAddress: BitcoinAddress,
-    ): Promise<ContractInformation | null> {
+    ): Promise<ContractInformation | undefined> {
         if (!this.contractRepository) {
             throw new Error('Repository not initialized');
         }
@@ -151,9 +172,17 @@ export class VMMongoStorage extends VMStorage {
         return await this.contractRepository.getContract(contractAddress, this.currentSession);
     }
 
+    public async saveBlockHeader(blockHeader: BlockHeaderBlockDocument): Promise<void> {
+        if (!this.blockRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        await this.blockRepository.saveBlockHeader(blockHeader, this.currentSession);
+    }
+
     public async getContractAtVirtualAddress(
         virtualAddress: string,
-    ): Promise<ContractInformation | null> {
+    ): Promise<ContractInformation | undefined> {
         if (!this.contractRepository) {
             throw new Error('Repository not initialized');
         }
@@ -167,6 +196,14 @@ export class VMMongoStorage extends VMStorage {
         }
 
         return await this.contractRepository.hasContract(contractAddress);
+    }
+
+    public async getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined> {
+        if (!this.blockRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        return await this.blockRepository.getBlockHeader(height, this.currentSession);
     }
 
     private async connectDatabase(): Promise<void> {

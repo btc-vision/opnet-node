@@ -114,7 +114,7 @@ export class BlockchainIndexer extends Logger {
         // Deserialize the block.
         block.deserialize();
 
-        // Execute the block.
+        // Execute the block and save the changes.
         await block.execute(this.vmManager);
     }
 

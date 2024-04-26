@@ -15,6 +15,7 @@ export interface VMContext {
         defaultValue: MemoryValue | null,
         setIfNotExit: boolean,
     ) => Promise<MemoryValue | null>;
+
     setStorage: (address: string, pointer: StoragePointer, value: MemoryValue) => Promise<void>;
 
     contract: ContractEvaluator | null;

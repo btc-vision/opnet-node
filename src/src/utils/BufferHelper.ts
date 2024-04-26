@@ -1,3 +1,4 @@
+import { Decimal128 } from 'mongodb';
 import { MemorySlotPointer } from '../vm/buffer/types/math.js';
 
 export class BufferHelper {
@@ -22,18 +23,35 @@ export class BufferHelper {
     public static uint8ArrayToHex(input: Uint8Array): string {
         return Buffer.from(input, 0, input.byteLength).toString('hex');
     }
-
+    
     public static hexToUint8Array(input: string): Uint8Array {
+        if (input.startsWith('0x')) {
+            input = input.substr(2);
+        }
+
         if (input.length % 2 !== 0) {
             input = '0' + input;
         }
 
-        if (typeof Buffer !== 'undefined') {
-            const buf = Buffer.from(input, 'hex');
-            return new Uint8Array(buf, 0, buf.byteLength);
-        } else {
-            throw new Error('Buffer is not defined');
+        const length = input.length / 2;
+        const buffer = new Uint8Array(length);
+
+        for (let i = 0; i < length; i++) {
+            buffer[i] = parseInt(input.substr(i * 2, 2), 16);
         }
+
+        return buffer;
+
+        //const buf = Buffer.from(input, 'hex');
+        //return new Uint8Array(buf, 0, buf.byteLength);
+    }
+
+    public static fromDecimal128(value: Decimal128): bigint {
+        return BigInt(value.toString());
+    }
+
+    public static toDecimal128(value: bigint): Decimal128 {
+        return Decimal128.fromString(value.toString());
     }
 
     public static pointerToUint8Array(pointer: MemorySlotPointer): Uint8Array {
