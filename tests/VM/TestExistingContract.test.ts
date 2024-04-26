@@ -26,7 +26,8 @@ function generateRndAddress(length: number = 60): string {
 
 describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
     const ANY_CONTRACT_ADDRESS: string =
-        'bc1pba71319e93c577db3cb24ea3d31098e6a1276dea18166a02354f0ba20f78';
+        'bc1pba71319e93c577db3cb24ea3d31098e6a1276dea18166a02354f0ba20f78'; // generateRndAddress();
+
     const ANY_OWNER: string = '13sBQqJdnAdc7v5tnX3ifYqAMoFX79VfLy';
 
     const RANDOM_BLOCK_ID: bigint = 1073478347n;
@@ -116,6 +117,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('Balance value not found');
         }
 
+        vmManager.updateBlockValuesFromResult(balanceValue, ANY_CONTRACT_ADDRESS);
+
         const decodedResponse = abiCoder.decodeData(balanceValue.result, [
             ABIDataTypes.UINT256,
         ]) as [bigint];
@@ -153,13 +156,16 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         addCalldata.writeU256(amount);
 
         const addBuffer = addCalldata.getBuffer();
-        await vmEvaluator
+        const result = await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, false, addBalanceSelector, addBuffer, address)
             .catch((e) => {
                 expect(e).toBeUndefined();
 
                 vmManager.revertBlock();
             });
+
+        if (!result) throw new Error('Result not found');
+        vmManager.updateBlockValuesFromResult(result, ANY_CONTRACT_ADDRESS);
 
         const balanceOfUserAfterAddition = await getBalanceOf(address);
 
@@ -193,6 +199,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('Total supply value not found');
         }
 
+        vmManager.updateBlockValuesFromResult(totalSupplyValue, ANY_CONTRACT_ADDRESS);
+
         const decodedResponse = abiCoder.decodeData(totalSupplyValue.result, [
             ABIDataTypes.UINT256,
         ]) as [bigint];
@@ -207,12 +215,9 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         await load();
     });
 
-    beforeEach(async () => {
-        //await load();
-    });
-
     afterAll(async () => {
         if (vmManager) {
+            await vmManager.updateEvaluatedStates();
             await vmManager.terminateBlock();
             await vmManager.closeDatabase();
         }

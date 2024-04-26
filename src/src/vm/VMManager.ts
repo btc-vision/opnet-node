@@ -138,10 +138,6 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        if (!this.blockState) {
-            throw new Error('Block state not found');
-        }
-
         const contractAddress: BitcoinAddress = interactionTransaction.contractAddress;
         if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
@@ -217,6 +213,19 @@ export class VMManager extends Logger {
             throw new Error('Execution Reverted.');
         }
 
+        this.updateBlockValuesFromResult(result, contractAddress);
+
+        return result;
+    }
+
+    public updateBlockValuesFromResult(
+        result: EvaluatedResult,
+        contractAddress: BitcoinAddress,
+    ): void {
+        if (!this.blockState) {
+            throw new Error('Block state not found');
+        }
+
         const resultValue: Uint8Array | undefined = result.result;
         if (!resultValue) {
             throw new Error('Execution Reverted.');
@@ -233,8 +242,6 @@ export class VMManager extends Logger {
         }
 
         this.blockState.generateTree();
-
-        return result;
     }
 
     /** TODO: Move this method to an other class and use this method when synchronizing block headers once PoA is implemented. */

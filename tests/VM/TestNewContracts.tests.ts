@@ -1,5 +1,4 @@
 import 'jest';
-
 import fs from 'fs';
 import { ABICoder, ABIDataTypes } from '../../src/src/vm/abi/ABICoder.js';
 import { BinaryWriter } from '../../src/src/vm/buffer/BinaryWriter.js';
@@ -25,13 +24,8 @@ function generateRndAddress(length: number = 60): string {
     return result;
 }
 
-// @ts-ignore
-BigInt.prototype.toJSON = function () {
-    return this.toString();
-};
-
 describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
-    const ANY_CONTRACT_ADDRESS: string = generateRndAddress(); //'bc1pba71319e93c577db3cb24ea3d31098e6a1276dea18166a02354f0ba20f78';
+    const ANY_CONTRACT_ADDRESS: string = generateRndAddress();
     const ANY_OWNER: string = '13sBQqJdnAdc7v5tnX3ifYqAMoFX79VfLy';
 
     const RANDOM_BLOCK_ID: bigint = 1073478347n;
@@ -117,9 +111,11 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
                 vmManager.revertBlock();
             });
 
-        if (balanceValue === undefined || !balanceValue.result) {
+        if (balanceValue === undefined || balanceValue.result === undefined) {
             throw new Error('Balance value not found');
         }
+
+        vmManager.updateBlockValuesFromResult(balanceValue, ANY_CONTRACT_ADDRESS);
 
         const decodedResponse = abiCoder.decodeData(balanceValue.result, [
             ABIDataTypes.UINT256,
@@ -158,21 +154,16 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         addCalldata.writeU256(amount);
 
         const addBuffer = addCalldata.getBuffer();
-
-        console.log(
-            'selector',
-            addBalanceSelector.toString(16),
-            'addBuffer:',
-            Buffer.from(addBuffer).toString('hex'),
-        );
-
-        await vmEvaluator
+        const result = await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, false, addBalanceSelector, addBuffer, address)
             .catch((e) => {
                 expect(e).toBeUndefined();
 
                 vmManager.revertBlock();
             });
+
+        if (!result) throw new Error('Result not found');
+        vmManager.updateBlockValuesFromResult(result, ANY_CONTRACT_ADDRESS);
 
         const balanceOfUserAfterAddition = await getBalanceOf(address);
 
@@ -202,9 +193,11 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
                 vmManager.revertBlock();
             });
 
-        if (totalSupplyValue === undefined || !totalSupplyValue.result) {
+        if (totalSupplyValue === undefined || totalSupplyValue.result === undefined) {
             throw new Error('Total supply value not found');
         }
+
+        vmManager.updateBlockValuesFromResult(totalSupplyValue, ANY_CONTRACT_ADDRESS);
 
         const decodedResponse = abiCoder.decodeData(totalSupplyValue.result, [
             ABIDataTypes.UINT256,
@@ -220,12 +213,9 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         await load();
     });
 
-    beforeEach(async () => {
-        //await load();
-    });
-
     afterAll(async () => {
         if (vmManager) {
+            await vmManager.updateEvaluatedStates();
             await vmManager.terminateBlock();
             await vmManager.closeDatabase();
         }
@@ -346,8 +336,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const ANY_ADDRESS_A: string = '13sBQqJdnAdc7v5tnX3ifYqAMoFX79VfLc';
         const ANY_ADDRESS_B: string = '13sBQqJdnAdc7v5tnX3ifYqAMoFX79VfLb';
 
-        const AMOUNT_TO_GIVE_TO_ADDRESS_A: bigint = 20n;
-        const AMOUNT_TO_GIVE_TO_ADDRESS_B: bigint = 10n;
+        const AMOUNT_TO_GIVE_TO_ADDRESS_A: bigint = 300000000000000000000000000000000000n;
+        const AMOUNT_TO_GIVE_TO_ADDRESS_B: bigint = 100000000000000000000000000000000000n;
 
         const existingSupply = await getTotalSupply();
 
