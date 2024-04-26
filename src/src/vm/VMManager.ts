@@ -3,19 +3,21 @@ import fs from 'fs';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
-import {
-    BlockHeaderBlockDocument,
-    BlockHeaderChecksumProof,
-} from '../db/interfaces/IBlockHeaderBlockDocument.js';
-import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
+import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
+import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { Config } from '../config/Config.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { BlockRootStates } from '../db/interfaces/BlockRootStates.js';
+import {
+    BlockHeaderBlockDocument,
+    BlockHeaderChecksumProof,
+} from '../db/interfaces/IBlockHeaderBlockDocument.js';
+import { ITransactionDocument } from '../db/interfaces/ITransactionDocument.js';
 import { BufferHelper } from '../utils/BufferHelper.js';
 import { ADDRESS_BYTE_LENGTH, Selector } from './buffer/types/math.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
@@ -86,6 +88,17 @@ export class VMManager extends Logger {
         }
 
         this.clear();
+    }
+
+    public async saveTransaction(
+        blockHeight: bigint,
+        transaction: ITransactionDocument<OPNetTransactionTypes>,
+    ): Promise<void> {
+        if (this.vmBitcoinBlock.height !== blockHeight) {
+            throw new Error('Block height mismatch');
+        }
+
+        await this.vmStorage.saveTransaction(transaction);
     }
 
     public async loadContractFromBytecode(
@@ -379,7 +392,9 @@ export class VMManager extends Logger {
         );
 
         // We must verify that there is no contract already deployed at this address
-        const hasContractDeployedAtAddress: boolean = await this.vmStorage.hasContractAt(
+        await this.vmStorage.setContractAt(contractInformation);
+
+        /*const hasContractDeployedAtAddress: boolean = await this.vmStorage.hasContractAt(
             contractInformation.contractAddress,
         );
 
@@ -387,7 +402,7 @@ export class VMManager extends Logger {
             await this.vmStorage.setContractAt(contractInformation);
         } else {
             throw new Error('Contract already deployed at address');
-        }
+        }*/
 
         if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
             this.info(`Contract ${contractInformation.contractAddress} deployed.`);

@@ -362,7 +362,19 @@ export class Block extends Logger {
 
         this.#_checksumProofs = this.#_checksumMerkle.getProofs();
 
+        // And finally, we can save the transactions
+        await this.saveTransactions(vmManager);
+
         await vmManager.terminateBlock(this);
+    }
+
+    private async saveTransactions(vmManager: VMManager): Promise<void> {
+        const promises: Promise<void>[] = [];
+        for (const transaction of this.transactions) {
+            promises.push(vmManager.saveTransaction(this.height, transaction.toDocument()));
+        }
+
+        await Promise.all(promises);
     }
 
     private async revertBlock(vmManager: VMManager): Promise<void> {

@@ -22,9 +22,7 @@ export class TransactionRepository extends BaseRepository<
             id: transactionData.id,
             blockHeight: transactionData.blockHeight,
         };
-
-        console.log('Saving transaction', transactionData, criteria);
-
+        
         await this.updatePartial(criteria, transactionData, currentSession);
     }
 

@@ -2,12 +2,15 @@ import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { ClientSession } from 'mongodb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
+import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { BlockRootStates } from '../../../db/interfaces/BlockRootStates.js';
 import { BlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
 import { ContractRepository } from '../../../db/repositories/ContractRepository.js';
+import { TransactionRepository } from '../../../db/repositories/TransactionRepository.js';
 import { BufferHelper } from '../../../utils/BufferHelper.js';
 import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
@@ -20,6 +23,7 @@ export class VMMongoStorage extends VMStorage {
     private pointerRepository: ContractPointerValueRepository | undefined;
     private contractRepository: ContractRepository | undefined;
     private blockRepository: BlockRepository | undefined;
+    private transactionRepository: TransactionRepository | undefined;
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
@@ -37,6 +41,7 @@ export class VMMongoStorage extends VMStorage {
         this.pointerRepository = new ContractPointerValueRepository(this.databaseManager.db);
         this.contractRepository = new ContractRepository(this.databaseManager.db);
         this.blockRepository = new BlockRepository(this.databaseManager.db);
+        this.transactionRepository = new TransactionRepository(this.databaseManager.db);
     }
 
     public async close(): Promise<void> {
@@ -115,6 +120,20 @@ export class VMMongoStorage extends VMStorage {
             proofs: value.proofs,
             lastSeenAt: value.lastSeenAt,
         };
+    }
+
+    public async saveTransaction(
+        transaction: ITransactionDocument<OPNetTransactionTypes>,
+    ): Promise<void> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        if (!this.currentSession) {
+            throw new Error('Session not started');
+        }
+
+        await this.transactionRepository.saveTransaction(transaction, this.currentSession);
     }
 
     public async setStorage(

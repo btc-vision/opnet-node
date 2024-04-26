@@ -96,6 +96,10 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
     }
 
     public toDocument(): InteractionTransactionDocument {
+        const receiptData = this.receipt;
+        const events = receiptData?.events || [];
+        const receipt = receiptData?.result;
+
         return {
             ...super.toDocument(),
             from: this.from,
@@ -105,6 +109,9 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             senderPubKeyHash: new Binary(this.senderPubKeyHash),
             contractSecret: new Binary(this.contractSecret),
             interactionPubKey: new Binary(this.interactionPubKey),
+
+            receipt: receipt ? new Binary(receipt) : undefined,
+            events: events,
         };
     }
 
