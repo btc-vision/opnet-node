@@ -2,6 +2,7 @@ import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { EcKeyPair } from '@btc-vision/bsi-transaction';
 import bitcoin, { opcodes, payments } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
+import { DeploymentTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
@@ -65,9 +66,10 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         rawTransactionData: TransactionData,
         vInputIndex: number,
         blockHash: string,
+        blockHeight: bigint,
         network: bitcoin.networks.Network,
     ) {
-        super(rawTransactionData, vInputIndex, blockHash, network);
+        super(rawTransactionData, vInputIndex, blockHash, blockHeight, network);
     }
 
     public get virtualAddress(): string {
@@ -103,6 +105,16 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
     private static getType(): OPNetTransactionTypes.Deployment {
         return OPNetTransactionTypes.Deployment;
+    }
+
+    public toDocument(): DeploymentTransactionDocument {
+        if (!this.contractAddress) throw new Error('Contract address not found');
+
+        return {
+            ...super.toDocument(),
+            from: this.from,
+            contractAddress: this.contractAddress,
+        };
     }
 
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {

@@ -2,6 +2,8 @@ import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoi
 import bitcoin, { opcodes, script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
 import * as zlib from 'zlib';
+import { TransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
+import { BufferHelper } from '../../../utils/BufferHelper.js';
 import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
@@ -46,6 +48,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         rawTransactionData: TransactionData,
         vInputIndex: number,
         blockHash: string,
+        public readonly blockHeight: bigint,
         protected readonly network: bitcoin.networks.Network,
     ) {
         if (rawTransactionData.blockhash && rawTransactionData.blockhash !== blockHash) {
@@ -210,6 +213,19 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             return buffer.equals(OPNet_MAGIC);
         });
+    }
+
+    public toDocument(): TransactionDocument<T> {
+        return {
+            id: this.txid,
+            hash: this.hash,
+            blockHeight: BufferHelper.toDecimal128(this.blockHeight),
+
+            index: this.index,
+            burnedBitcoin: BufferHelper.toDecimal128(this.burnedFee),
+
+            OPNetType: this.transactionType,
+        }
     }
 
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {

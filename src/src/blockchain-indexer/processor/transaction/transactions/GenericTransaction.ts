@@ -11,9 +11,10 @@ export class GenericTransaction extends Transaction<OPNetTransactionTypes.Generi
         rawTransactionData: TransactionData,
         vIndexIn: number,
         blockHash: string,
+        blockHeight: bigint,
         network: bitcoin.networks.Network,
     ) {
-        super(rawTransactionData, vIndexIn, blockHash, network);
+        super(rawTransactionData, vIndexIn, blockHash, blockHeight, network);
     }
 
     public static is(data: TransactionData): TransactionInformation | undefined {

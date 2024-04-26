@@ -6,8 +6,8 @@ import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
-} from '../blockchain-indexer/processor/block/interfaces/IBlockHeaderBlockDocument.js';
-import { ZERO_HASH } from '../blockchain-indexer/processor/block/interfaces/ZeroValue.js';
+} from '../db/interfaces/IBlockHeaderBlockDocument.js';
+import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';

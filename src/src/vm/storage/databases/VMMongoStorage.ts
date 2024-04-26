@@ -1,10 +1,10 @@
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { ClientSession } from 'mongodb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
-import { BlockHeaderBlockDocument } from '../../../blockchain-indexer/processor/block/interfaces/IBlockHeaderBlockDocument.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { BlockRootStates } from '../../../db/interfaces/BlockRootStates.js';
+import { BlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
 import { ContractRepository } from '../../../db/repositories/ContractRepository.js';

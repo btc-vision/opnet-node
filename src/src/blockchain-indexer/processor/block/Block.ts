@@ -1,6 +1,10 @@
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
+import {
+    BlockHeaderBlockDocument,
+    BlockHeaderChecksumProof,
+} from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { BufferHelper } from '../../../utils/BufferHelper.js';
 import { Address, MemorySlotPointer } from '../../../vm/buffer/types/math.js';
 import { EvaluatedStates } from '../../../vm/evaluated/EvaluatedStates.js';
@@ -12,12 +16,8 @@ import { Transaction } from '../transaction/Transaction.js';
 import { DeploymentTransaction } from '../transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../transaction/transactions/InteractionTransaction.js';
 import { BlockHeader } from './classes/BlockHeader.js';
-import {
-    BlockHeaderBlockDocument,
-    BlockHeaderChecksumProof,
-} from './interfaces/IBlockHeaderBlockDocument.js';
-import { ZERO_HASH } from './interfaces/ZeroValue.js';
 import { ChecksumMerkle } from './merkle/ChecksumMerkle.js';
+import { ZERO_HASH } from './types/ZeroValue.js';
 
 export class Block extends Logger {
     // Block Header
@@ -401,6 +401,7 @@ export class Block extends Logger {
                 const transaction = this.transactionFactory.parseTransaction(
                     rawTransactionData,
                     this.hash,
+                    this.height,
                     this.network,
                 );
                 transaction.originalIndex = i;

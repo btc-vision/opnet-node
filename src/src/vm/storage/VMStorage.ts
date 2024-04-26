@@ -1,6 +1,6 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { BitcoinAddress } from '../../bitcoin/types/BitcoinAddress.js';
-import { BlockHeaderBlockDocument } from '../../blockchain-indexer/processor/block/interfaces/IBlockHeaderBlockDocument.js';
+import { BlockHeaderBlockDocument } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { BlockRootStates } from '../../db/interfaces/BlockRootStates.js';
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
