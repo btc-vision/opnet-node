@@ -35,6 +35,8 @@ export interface InteractionTransactionDocument
     readonly contractSecret: Binary;
     readonly interactionPubKey: Binary;
 
+    readonly wasCompressed: boolean;
+
     readonly events: NetEvent[];
     readonly receipt?: Binary;
 }

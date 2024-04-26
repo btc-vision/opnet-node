@@ -110,6 +110,8 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             contractSecret: new Binary(this.contractSecret),
             interactionPubKey: new Binary(this.interactionPubKey),
 
+            wasCompressed: this.wasCompressed,
+
             receipt: receipt ? new Binary(receipt) : undefined,
             events: events,
         };
