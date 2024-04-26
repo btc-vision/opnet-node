@@ -9,6 +9,7 @@ import { LinkThreadRequestMessage } from '../threading/interfaces/thread-message
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../threading/thread/Thread.js';
+import { BlockchainIndexer } from './processor/BlockchainIndexer.js';
 import { BitcoinRPCThreadManager } from './rpc/BitcoinRPCThreadManager.js';
 import { ZeroMQThreadManager } from './zeromq/ZeroMQThreadManager.js';
 
@@ -18,6 +19,8 @@ class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
 
     public readonly zeroMQThreads: ZeroMQThreadManager = new ZeroMQThreadManager();
     public readonly bitcoinRPCThreads: BitcoinRPCThreadManager = new BitcoinRPCThreadManager();
+
+    private readonly blockIndexer: BlockchainIndexer = new BlockchainIndexer();
 
     constructor() {
         super();
@@ -33,8 +36,6 @@ class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
 
         void this.init();
     }
-
-    protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     public sendLinkToZeroMQThread(message: LinkThreadMessage<LinkType>): void {
         void this.zeroMQThreads.onLinkThread(message);
@@ -52,6 +53,8 @@ class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
         void this.bitcoinRPCThreads.onLinkThreadRequest(_message);
     }
 
+    protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
+
     protected async init(): Promise<void> {
         this.log(`Starting up blockchain indexer manager...`);
 
@@ -63,12 +66,31 @@ class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
 
         this.important('Creating threads for bitcoin-rpc...');
         await this.bitcoinRPCThreads.createThreads();
+
+        this.log('Starting block indexer...');
+        setTimeout(() => {
+            void this.blockIndexer.start();
+        }, 500);
     }
 
     protected async onLinkMessage(
         type: ThreadTypes,
         msg: ThreadMessageBase<MessageType>,
     ): Promise<void> {}
+
+    /*private async sendMessageToThreadMaster(
+        _threadType: ThreadTypes,
+        _m: ThreadMessageBase<MessageType>,
+    ): Promise<ThreadData | null> {
+        switch (_threadType) {
+            case ThreadTypes.BITCOIN_RPC: {
+                return await this.bitcoinRPCThreads.dispatchMessageToThread(_m);
+            }
+            default: {
+                return null;
+            }
+        }
+    }*/
 }
 
 new BlockchainIndexerManager();

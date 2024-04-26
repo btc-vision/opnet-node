@@ -15,9 +15,8 @@ export class BlockchainInformationRepository extends BaseRepository<IBlockchainI
         };
 
         const result: IBlockchainInformationDocument | null = await this.queryOne(criteria);
-
         if (result === null) {
-            throw new Error('Error Network type not found');
+            return this.createDefault(network);
         }
 
         return result;
@@ -40,5 +39,13 @@ export class BlockchainInformationRepository extends BaseRepository<IBlockchainI
 
     protected override getCollection(): Collection<IBlockchainInformationDocument> {
         return this._db.collection('BlockchainInformation');
+    }
+
+    private createDefault(network: string): IBlockchainInformationDocument {
+        // TODO - Add default values from configs
+        return {
+            network: network,
+            inProgressBlock: 319, // 303 for deployment
+        };
     }
 }

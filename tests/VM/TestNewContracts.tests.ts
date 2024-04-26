@@ -58,7 +58,12 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             ANY_CONTRACT_ADDRESS,
             contractBytecode,
         );
+
         expect(vmContext).toBeDefined();
+
+        if (!vmContext) {
+            throw new Error('VM context not found.');
+        }
 
         if (vmContext.contract === null) {
             throw new Error('Contract not found.');
@@ -112,13 +117,13 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
                 vmManager.revertBlock();
             });
 
-        if (balanceValue === undefined) {
+        if (balanceValue === undefined || !balanceValue.result) {
             throw new Error('Balance value not found');
         }
 
-        const decodedResponse = abiCoder.decodeData(balanceValue, [ABIDataTypes.UINT256]) as [
-            bigint,
-        ];
+        const decodedResponse = abiCoder.decodeData(balanceValue.result, [
+            ABIDataTypes.UINT256,
+        ]) as [bigint];
 
         return decodedResponse[0];
     }
@@ -153,6 +158,14 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         addCalldata.writeU256(amount);
 
         const addBuffer = addCalldata.getBuffer();
+
+        console.log(
+            'selector',
+            addBalanceSelector.toString(16),
+            'addBuffer:',
+            Buffer.from(addBuffer).toString('hex'),
+        );
+
         await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, false, addBalanceSelector, addBuffer, address)
             .catch((e) => {
@@ -189,13 +202,13 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
                 vmManager.revertBlock();
             });
 
-        if (totalSupplyValue === undefined) {
+        if (totalSupplyValue === undefined || !totalSupplyValue.result) {
             throw new Error('Total supply value not found');
         }
 
-        const decodedResponse = abiCoder.decodeData(totalSupplyValue, [ABIDataTypes.UINT256]) as [
-            bigint,
-        ];
+        const decodedResponse = abiCoder.decodeData(totalSupplyValue.result, [
+            ABIDataTypes.UINT256,
+        ]) as [bigint];
 
         return decodedResponse[0];
     }
@@ -257,11 +270,11 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const ownerValue = await vmEvaluator.execute(ANY_CONTRACT_ADDRESS, true, ownerSelector);
-        if (!ownerValue) {
+        if (!ownerValue || !ownerValue.result) {
             throw new Error('Owner value not found');
         }
 
-        const decodedResponse = abiCoder.decodeData(ownerValue, [ABIDataTypes.ADDRESS]);
+        const decodedResponse = abiCoder.decodeData(ownerValue.result, [ABIDataTypes.ADDRESS]);
         expect(decodedResponse[0]).toBe(ANY_OWNER);
     });
 
@@ -372,11 +385,11 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
                 vmManager.revertBlock();
             });
 
-        if (!result) {
+        if (!result || !result.result) {
             throw new Error('Result not found for testMethodMultipleAddresses');
         }
 
-        const decodedResponse = abiCoder.decodeData(result, [ABIDataTypes.TUPLE]) as [
+        const decodedResponse = abiCoder.decodeData(result.result, [ABIDataTypes.TUPLE]) as [
             [bigint, bigint, bigint, bigint, bigint],
         ];
 

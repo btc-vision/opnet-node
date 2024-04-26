@@ -5,6 +5,8 @@ process.on('uncaughtException', function (err) {
 import gulp from 'gulp';
 import gulpcache from 'gulp-cached';
 
+import clean from 'gulp-clean';
+
 import eslint from 'gulp-eslint';
 import logger from 'gulp-logger';
 import ts from 'gulp-typescript';
@@ -34,6 +36,16 @@ async function build() {
             .pipe(tsProject())
             .on('error', onError)
             .pipe(gulp.dest('build'))
+            .on('end', async () => {
+                resolve();
+            });
+    });
+}
+
+async function cleanFiles() {
+    return new Promise(async (resolve) => {
+        gulp.src('./build/src', { read: false })
+            .pipe(clean())
             .on('end', async () => {
                 resolve();
             });
@@ -89,6 +101,10 @@ gulp.task('default', async () => {
     await buildProtoYaml();
 
     return true;
+});
+
+gulp.task(`clean`, async () => {
+    await cleanFiles();
 });
 
 gulp.task('watch', () => {

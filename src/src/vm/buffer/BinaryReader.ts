@@ -1,3 +1,4 @@
+import { NetEvent } from '../events/NetEvent.js';
 import {
     ABIRegistryItem,
     Address,
@@ -28,6 +29,32 @@ export class BinaryReader {
         this.buffer = new DataView(bytes.buffer);
 
         this.currentOffset = 0;
+    }
+
+    public readEvents(): NetEvent[] {
+        const events: NetEvent[] = [];
+        const length = this.readU32();
+
+        for (let i = 0; i < length; i++) {
+            const event = this.readEvent();
+
+            events.push(event);
+        }
+
+        return events;
+    }
+
+    public readEvent(): NetEvent {
+        const eventType = this.readStringWithLength();
+        const eventData = this.readBytesWithLength();
+
+        return new NetEvent(eventType, eventData);
+    }
+
+    public readBytesWithLength(): Uint8Array {
+        const length = this.readU32();
+
+        return this.readBytes(length);
     }
 
     public readSelectors(): PropertyABIMap {

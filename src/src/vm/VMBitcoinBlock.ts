@@ -11,19 +11,22 @@ export class VMBitcoinBlock extends Logger {
         super();
     }
 
-    public async prepare(blockId: bigint): Promise<void> {
-        this.blockId = blockId;
+    public get height(): bigint {
+        return this.blockId;
+    }
 
+    public async prepare(blockId: bigint): Promise<void> {
         if (this.isPrepared) {
-            throw new Error(`Block ${this.blockId} is already prepared`);
+            throw new Error(`The block ${this.blockId} is already prepared`);
         }
+
+        this.blockId = blockId;
 
         if (this.blockId === 0n) {
             throw new Error(`Block ${this.blockId} is not valid`);
         }
 
         this.log(`Preparing block ${this.blockId}...`);
-
         await this.vmStorage.prepareNewBlock();
 
         this.isPrepared = true;
@@ -40,6 +43,7 @@ export class VMBitcoinBlock extends Logger {
 
         this.log(`Reverting block ${this.blockId}...`);
 
+        this.reset();
         await this.vmStorage.revertChanges();
     }
 
@@ -54,9 +58,15 @@ export class VMBitcoinBlock extends Logger {
 
         this.log(`Terminating block ${this.blockId}...`);
 
+        this.reset();
         await this.vmStorage.terminateBlock();
 
-        this.blockId = 0n;
+        return;
+    }
+
+    private reset(): void {
         this.isPrepared = false;
+
+        this.blockId = 0n;
     }
 }

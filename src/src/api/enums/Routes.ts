@@ -1,5 +1,5 @@
 export enum Routes {
-    HEAP_BLOCK = 'heapBlock',
+    HEAP_BLOCK = 'block/heapBlock',
     PROTOBUF_SCHEMA = 'protobuf/schema',
 }
 
@@ -11,4 +11,7 @@ export enum RouteType {
     PATCH = 'patch',
     OPTIONS = 'options',
     USE = 'use',
+    UPGRADE = 'upgrade',
+    ALL = 'all',
+    CONNECT = 'connect',
 }

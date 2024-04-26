@@ -1,13 +1,15 @@
-import { IHttpRequest, IHttpResponse } from 'nanoexpress';
-import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { MessageType } from '../../threading/enum/MessageType.js';
-import { GetBlock } from '../../threading/interfaces/thread-messages/messages/api/GetBlock.js';
-import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+import { Request } from 'hyper-express/types/components/http/Request.js';
+import { Response } from 'hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { MessageType } from '../../../../../threading/enum/MessageType.js';
+import { GetBlock } from '../../../../../threading/interfaces/thread-messages/messages/api/GetBlock.js';
+import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 
-import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
-import { Routes, RouteType } from '../enums/Routes.js';
-import { ServerThread } from '../ServerThread.js';
-import { Route } from './Route.js';
+import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
+import { Routes, RouteType } from '../../../../enums/Routes.js';
+import { ServerThread } from '../../../../ServerThread.js';
+import { Route } from '../../../Route.js';
 
 export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
     constructor() {
@@ -24,20 +26,16 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
     }
 
     /**
-     * GET /api/v1/heapBlock
-     * @tag MotoSwap
-     * @summary Get the current heap block of MotoSwap
-     * @description Get the current heap block of MotoSwap (the block that is currently being processed)
+     * GET /api/v1/block/heapBlock
+     * @tag OpNet
+     * @summary Get the current heap block of OpNet
+     * @description Get the current heap block of OpNet (the block that is currently being processed)
      * @response 200 - Return the current heap block of the Bitcoin blockchain.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
      * @responseContent {HeapBlock} 200.application/json
      */
-    protected async onRequest(
-        _req: IHttpRequest,
-        res: IHttpResponse,
-        _next?: (err: Error | null | undefined, done: boolean | undefined) => unknown,
-    ): Promise<void> {
+    protected async onRequest(_req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK> = {
             type: MessageType.RPC_METHOD,
             data: {
@@ -63,11 +61,7 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
             this.error(e.stack);
 
             res.status(500);
-            res.endWithoutBody();
+            res.end();
         }
     }
-
-    /*private onNewBlock(blockData: NewBlockSubscription): void {
-        this.log(`New block: ${blockData.blockHash}`);
-    }*/
 }

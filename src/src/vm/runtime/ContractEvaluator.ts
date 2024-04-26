@@ -12,6 +12,8 @@ import {
     SelectorsMap,
 } from '../buffer/types/math.js';
 import { VMContext } from '../evaluated/EvaluatedContext.js';
+import { EvaluatedResult } from '../evaluated/EvaluatedResult.js';
+import { NetEvent } from '../events/NetEvent.js';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { instantiate, VMRuntime } from '../wasmRuntime/runDebug.js';
@@ -81,7 +83,7 @@ export class ContractEvaluator {
 
     public async setupContract(owner: Address, contractAddress: Address): Promise<void> {
         if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
+            throw new Error('No contract instance');
         }
 
         if (this.contractRef !== 0) {
@@ -130,13 +132,30 @@ export class ContractEvaluator {
         return this.contractInstance.isInitialized();
     }
 
+    public isViewMethod(abi: Selector): boolean {
+        const methodAbi = this.viewAbi.get(this.stack.contractAddress);
+
+        if (!methodAbi) {
+            throw new Error(`Contract has no methods`);
+        }
+
+        const values = methodAbi.values();
+        for (const value of values) {
+            if (value === abi) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public async execute(
         address: Address,
         isView: boolean,
         abi: Selector,
         calldata: Uint8Array | null = null,
         caller: Address | null = null,
-    ): Promise<Uint8Array | undefined> {
+    ): Promise<EvaluatedResult> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
@@ -155,12 +174,15 @@ export class ContractEvaluator {
             throw new Error('Method is not allowed to write');
         }
 
+        if (!calldata && !isView) {
+            throw new Error('Calldata is required for method call');
+        }
+
         try {
             // We execute the method.
-            const resp: Uint8Array | undefined = await this.evaluate(
+            const resp: EvaluatedResult | undefined = await this.evaluate(
                 address,
                 abi,
-                isView,
                 calldata,
                 caller,
                 canWrite,
@@ -197,22 +219,17 @@ export class ContractEvaluator {
     private async evaluate(
         contractAddress: Address,
         abi: Selector,
-        isView: boolean,
         calldata: Uint8Array | null,
         caller: Address | null = null,
         canWrite: boolean,
         tries: number = 0,
-    ): Promise<Uint8Array | undefined> {
+    ): Promise<EvaluatedResult> {
         if (!this.initializeContract) {
             throw new Error('Contract not initialized');
         }
 
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
-        }
-
-        if (!calldata && !isView) {
-            throw new Error('Calldata is required for method call');
         }
 
         const contract = this.methodAbi.get(contractAddress);
@@ -253,15 +270,7 @@ export class ContractEvaluator {
         this.currentStorageState = await this.getCurrentStorageStates(initialStorage);
 
         if (!result) {
-            return await this.evaluate(
-                contractAddress,
-                abi,
-                isView,
-                calldata,
-                caller,
-                canWrite,
-                tries + 1,
-            );
+            return await this.evaluate(contractAddress, abi, calldata, caller, canWrite, tries + 1);
         }
 
         return await this.evaluateTransaction(
@@ -270,7 +279,6 @@ export class ContractEvaluator {
             sameStorage,
             contractAddress,
             abi,
-            isView,
             calldata,
             caller,
             canWrite,
@@ -285,12 +293,11 @@ export class ContractEvaluator {
         sameStorage: boolean,
         contractAddress: Address,
         abi: Selector,
-        isView: boolean,
         calldata: Uint8Array | null,
         caller: Address | null = null,
         canWrite: boolean,
         tries: number,
-    ): Promise<Uint8Array | undefined> {
+    ): Promise<EvaluatedResult> {
         const modifiedStorage: BlockchainStorage = this.getCurrentModifiedStorageState();
         if (!sameStorage) {
             if (this.enableTracing) {
@@ -304,15 +311,7 @@ export class ContractEvaluator {
                 );
             }
 
-            return await this.evaluate(
-                contractAddress,
-                abi,
-                isView,
-                calldata,
-                caller,
-                canWrite,
-                tries + 1,
-            );
+            return await this.evaluate(contractAddress, abi, calldata, caller, canWrite, tries + 1);
         } else if (canWrite) {
             if (this.enableTracing) {
                 console.log(
@@ -332,7 +331,23 @@ export class ContractEvaluator {
 
         this.clear();
 
-        return result;
+        const events = this.getEvents();
+        return {
+            changedStorage: modifiedStorage,
+            result: result,
+            events: events,
+        };
+    }
+
+    private getEvents(): NetEvent[] {
+        if (!this.contractInstance) {
+            throw new Error('Contract not initialized');
+        }
+
+        const abi = this.contractInstance.getEvents();
+        const abiDecoder = new BinaryReader(abi);
+
+        return abiDecoder.readEvents();
     }
 
     private async instantiatedContract(bytecode: Buffer, state: {}): Promise<VMRuntime> {
