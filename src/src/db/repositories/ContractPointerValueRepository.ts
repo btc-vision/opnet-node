@@ -37,7 +37,13 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             criteria.lastSeenAt = { $lt: BufferHelper.toDecimal128(height) };
         }
 
-        const results = await this.queryOne(criteria, currentSession);
+        /** Sorting is VERY important. */
+        const results: IContractPointerValueDocument | null = await this.queryOne(
+            criteria,
+            currentSession,
+            { lastSeenAt: -1 },
+        );
+
         if (results === null) {
             return null;
         }

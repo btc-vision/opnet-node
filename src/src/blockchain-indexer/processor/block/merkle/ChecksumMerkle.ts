@@ -1,6 +1,6 @@
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 import { BufferHelper } from '../../../../utils/BufferHelper.js';
-import { BlockHeaderChecksumProof } from '../interfaces/IBlockHeaderBlockDocument.js';
+import { BlockHeaderChecksumProof } from '../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 
 export class ChecksumMerkle {
     public static TREE_TYPE: [string, string] = ['uint8', 'bytes32'];

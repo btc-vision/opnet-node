@@ -32,4 +32,4 @@ export interface BlockHeaderBlockDocument {
     medianTime: Date;
 }
 
-export type IBlockHeaderBlockDocument = IBaseDocument & BlockHeaderBlockDocument;
+export type IBlockHeaderBlockDocument = BlockHeaderBlockDocument & IBaseDocument;

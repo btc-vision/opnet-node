@@ -13,6 +13,5 @@ export interface IContractDocument extends IBaseDocument {
     readonly deployerPubKey: Binary;
     readonly contractSeed: Binary;
     readonly contractSaltHash: Binary;
-    readonly burnedFee: Decimal128;
     readonly deployerAddress: BitcoinAddress;
 }

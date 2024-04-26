@@ -3,7 +3,7 @@ import { ClientSession, Collection, Db, Filter } from 'mongodb';
 import {
     BlockHeaderBlockDocument,
     IBlockHeaderBlockDocument,
-} from '../../blockchain-indexer/processor/block/interfaces/IBlockHeaderBlockDocument.js';
+} from '../interfaces/IBlockHeaderBlockDocument.js';
 import { BufferHelper } from '../../utils/BufferHelper.js';
 import { BlockRootStates } from '../interfaces/BlockRootStates.js';
 

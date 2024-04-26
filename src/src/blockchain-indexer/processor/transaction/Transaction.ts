@@ -1,13 +1,18 @@
 import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import bitcoin, { opcodes, script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
+import { Binary } from 'mongodb';
 import * as zlib from 'zlib';
+import { TransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
+import { BufferHelper } from '../../../utils/BufferHelper.js';
 import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
 import { TransactionOutput } from './inputs/TransactionOutput.js';
 
 const OPNet_MAGIC: Buffer = Buffer.from('bsi', 'utf-8');
+
+const textEncoder = new TextEncoder();
 
 export abstract class Transaction<T extends OPNetTransactionTypes> {
     public abstract readonly transactionType: T;
@@ -46,6 +51,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         rawTransactionData: TransactionData,
         vInputIndex: number,
         blockHash: string,
+        public readonly blockHeight: bigint,
         protected readonly network: bitcoin.networks.Network,
     ) {
         if (rawTransactionData.blockhash && rawTransactionData.blockhash !== blockHash) {
@@ -89,6 +95,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._revert = error;
     }
 
+    public get revertBuffer(): Uint8Array | undefined {
+        if (!this._revert) {
+            return;
+        }
+
+        return textEncoder.encode(this._revert.message);
+    }
+
     protected _receipt: EvaluatedResult | undefined;
 
     public get receipt(): EvaluatedResult | undefined {
@@ -130,7 +144,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._originalIndex = index;
     }
 
-    protected _burnedFee: bigint = this.rndBigInt(0, 1000);
+    protected _burnedFee: bigint = 0n;
 
     // This represent OP_NET burned fees, priority fees, THIS IS NOT MINING FEES
     public get burnedFee(): bigint {
@@ -210,6 +224,27 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             return buffer.equals(OPNet_MAGIC);
         });
+    }
+
+    public toDocument(): TransactionDocument<T> {
+        const revertData: Uint8Array | undefined = this.revertBuffer;
+        const outputDocuments = this.outputs.map((output) => output.toDocument());
+
+        return {
+            id: this.txid,
+            hash: this.hash,
+            blockHeight: BufferHelper.toDecimal128(this.blockHeight),
+
+            index: this.index,
+            burnedBitcoin: BufferHelper.toDecimal128(this.burnedFee),
+
+            inputs: this.inputs,
+            outputs: outputDocuments,
+
+            OPNetType: this.transactionType,
+
+            revert: revertData ? new Binary(revertData) : undefined,
+        };
     }
 
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {

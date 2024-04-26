@@ -11,12 +11,13 @@ export class TransactionFactory {
     public parseTransaction(
         data: TransactionData,
         blockHash: string,
+        blockHeight: bigint,
         network: bitcoin.networks.Network,
     ): Transaction<OPNetTransactionTypes> {
         const parser: TransactionInformation = this.getTransactionType(data);
         const transactionObj = PossibleOpNetTransactions[parser.type];
 
-        const tx = transactionObj.parse(data, parser.vInIndex, blockHash, network);
+        const tx = transactionObj.parse(data, parser.vInIndex, blockHash, blockHeight, network);
         tx.parseTransaction(data.vin, data.vout);
 
         return tx;

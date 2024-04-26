@@ -117,7 +117,6 @@ export class ContractInformation {
             deployerPubKey: new Binary(this.deployerPubKey),
             contractSeed: new Binary(this.contractSeed),
             contractSaltHash: new Binary(this.contractSaltHash),
-            burnedFee: BufferHelper.toDecimal128(this.burnedFee),
             deployerAddress: this.deployerAddress,
         };
     }

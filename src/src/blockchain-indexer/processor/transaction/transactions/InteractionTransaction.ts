@@ -1,5 +1,7 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import bitcoin, { address, opcodes, payments } from 'bitcoinjs-lib';
+import { Binary } from 'mongodb';
+import { InteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
@@ -51,9 +53,10 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         rawTransactionData: TransactionData,
         vIndexIn: number,
         blockHash: string,
+        blockHeight: bigint,
         network: bitcoin.networks.Network,
     ) {
-        super(rawTransactionData, vIndexIn, blockHash, network);
+        super(rawTransactionData, vIndexIn, blockHash, blockHeight, network);
     }
 
     protected _calldata: Buffer | undefined;
@@ -90,6 +93,28 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
     private static getType(): OPNetTransactionTypes.Interaction {
         return OPNetTransactionTypes.Interaction;
+    }
+
+    public toDocument(): InteractionTransactionDocument {
+        const receiptData = this.receipt;
+        const events = receiptData?.events || [];
+        const receipt = receiptData?.result;
+
+        return {
+            ...super.toDocument(),
+            from: this.from,
+            contractAddress: this.contractAddress,
+
+            calldata: new Binary(this.calldata),
+            senderPubKeyHash: new Binary(this.senderPubKeyHash),
+            contractSecret: new Binary(this.contractSecret),
+            interactionPubKey: new Binary(this.interactionPubKey),
+
+            wasCompressed: this.wasCompressed,
+
+            receipt: receipt ? new Binary(receipt) : undefined,
+            events: events,
+        };
     }
 
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
@@ -146,7 +171,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         }
 
         const { address } = payments.p2tr({ pubkey: senderPubKey, network: this.network });
-        if(!address) {
+        if (!address) {
             throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
         }
 

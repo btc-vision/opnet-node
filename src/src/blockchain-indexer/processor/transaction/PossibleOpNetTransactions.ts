@@ -10,6 +10,7 @@ export type OPNetTransactionByType<T extends OPNetTransactionTypes> = (
     data: TransactionData,
     vIndexIn: number,
     blockHash: string,
+    blockHeight: bigint,
     network: bitcoin.networks.Network,
 ) => Transaction<T>;
 
