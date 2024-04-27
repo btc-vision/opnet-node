@@ -36,6 +36,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
             VERIFY_INTEGRITY_ON_STARTUP: false,
+            DISABLE_SCANNED_BLOCK_STORAGE_CHECK: true,
             MODE: OPNetIndexerMode.ARCHIVE,
         },
     };
