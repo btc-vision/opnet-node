@@ -138,7 +138,7 @@ export class BlockchainIndexer extends Logger {
                 Config.OP_NET.REINDEX = false;
             }
 
-            this.success(`Indexer synchronized. Network block height: ${chainCurrentBlockHeight}.`);
+            this.success(`Indexer synchronized. Network height at: ${chainCurrentBlockHeight}.`);
         } else {
             await this.processBlocks(blockHeightInProgress);
         }
