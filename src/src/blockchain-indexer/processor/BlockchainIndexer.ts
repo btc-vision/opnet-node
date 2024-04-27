@@ -112,14 +112,18 @@ export class BlockchainIndexer extends Logger {
                 throw new Error(`Error fetching block ${blockHeightInProgress}.`);
             }
 
+            const processStartTime = Date.now();
             const processed: boolean = await this.processBlock(block);
             if (!processed) {
                 this.fatalFailure = true;
                 throw new Error(`Error processing block ${blockHeightInProgress}.`);
             }
 
+            const processEndTime = Date.now();
             if (Config.DEBUG_LEVEL > DebugLevel.INFO) {
-                this.success(`Block ${blockHeightInProgress} processed successfully.`);
+                this.success(
+                    `Block ${blockHeightInProgress} processed successfully. Took ${processEndTime - processStartTime}ms.`,
+                );
             }
 
             blockHeightInProgress++;
