@@ -122,7 +122,6 @@ export class BlockchainIndexer extends Logger {
                 this.success(`Block ${blockHeightInProgress} processed successfully.`);
             }
 
-            chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
             blockHeightInProgress++;
 
             if (this.processOnlyOneBlock) {
@@ -133,8 +132,15 @@ export class BlockchainIndexer extends Logger {
             await this.updateBlockchainInfo(blockHeightInProgress);
         }
 
-        if (Config.OP_NET.REINDEX) {
-            Config.OP_NET.REINDEX = false;
+        chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
+        if (blockHeightInProgress > chainCurrentBlockHeight) {
+            if (Config.OP_NET.REINDEX) {
+                Config.OP_NET.REINDEX = false;
+            }
+
+            this.success(`Indexer synchronized. Network block height: ${chainCurrentBlockHeight}.`);
+        } else {
+            await this.processBlocks(blockHeightInProgress);
         }
     }
 
