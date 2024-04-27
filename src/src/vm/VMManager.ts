@@ -152,7 +152,7 @@ export class VMManager extends Logger {
         }
 
         const contractAddress: BitcoinAddress = interactionTransaction.contractAddress;
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
         }
 
@@ -191,7 +191,7 @@ export class VMManager extends Logger {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debugBright(
                 `Executing transaction ${interactionTransaction.txid} for contract ${contractAddress}`,
             );
@@ -680,7 +680,7 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Validating block ${height} headers...`);
         }
 

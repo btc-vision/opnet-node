@@ -1,4 +1,5 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Logger } from '@btc-vision/bsi-common';
+import { Config } from '../config/Config.js';
 import { VMStorage } from './storage/VMStorage.js';
 
 export class VMBitcoinBlock extends Logger {
@@ -26,7 +27,10 @@ export class VMBitcoinBlock extends Logger {
             throw new Error(`Block ${this.blockId} is not valid`);
         }
 
-        this.log(`Preparing block ${this.blockId}...`);
+        if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
+            this.log(`Preparing block ${this.blockId}...`);
+        }
+
         await this.vmStorage.prepareNewBlock();
 
         this.isPrepared = true;
@@ -56,7 +60,9 @@ export class VMBitcoinBlock extends Logger {
             throw new Error(`Block ${this.blockId} is not valid`);
         }
 
-        this.log(`Terminating block ${this.blockId}...`);
+        if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
+            this.log(`Terminating block ${this.blockId}...`);
+        }
 
         this.reset();
         await this.vmStorage.terminateBlock();

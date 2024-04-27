@@ -1,6 +1,7 @@
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
-import { Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
+import { Config } from '../../../config/Config.js';
 import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
@@ -193,7 +194,9 @@ export class Block extends Logger {
     public deserialize(): void {
         this.ensureNotProcessed();
 
-        this.info(`Processing block ${this.hash} at height ${this.height}`);
+        if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            this.info(`Processing block ${this.hash} at height ${this.height}`);
+        }
 
         // First, we have to create transaction object corresponding to the transactions types in the block
         this.createTransactions();
@@ -209,7 +212,7 @@ export class Block extends Logger {
     }
 
     /** Block Execution */
-    public async execute(vmManager: VMManager): Promise<void> {
+    public async execute(vmManager: VMManager): Promise<boolean> {
         this.ensureNotExecuted();
 
         // Prepare the vm for the block execution
@@ -226,11 +229,15 @@ export class Block extends Logger {
             } else {
                 await this.onEmptyBlock(vmManager);
             }
+
+            return true;
         } catch (e) {
             const error: Error = e as Error;
             this.error(`Something went wrong while executing the block: ${error.stack}`);
 
             await this.revertBlock(vmManager);
+
+            return false;
         }
     }
 
