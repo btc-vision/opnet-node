@@ -1,9 +1,4 @@
-import { BitcoinRawTransactionParams } from '@btc-vision/bsi-bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
-import { MessageType } from '../../../threading/enum/MessageType.js';
-import { GetTransaction } from '../../../threading/interfaces/thread-messages/messages/api/GetTransaction.js';
-import { RPCMessage } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
-import { BitcoinRPCThreadMessageType } from '../../rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { BitcoinZeroMQTopic } from '../enums/BitcoinZeroMQTopic.js';
 import { ZeroMQ } from '../ZeroMQ.js';
 
@@ -20,7 +15,7 @@ export class NewTxSubscription extends ZeroMQ<BitcoinZeroMQTopic.HASHTX> {
     }
 
     protected async onEvent(topic: string, message: Buffer): Promise<void> {
-        if (topic !== BitcoinZeroMQTopic.HASHTX.toLowerCase()) {
+        /*if (topic !== BitcoinZeroMQTopic.HASHTX.toLowerCase()) {
             throw new Error(`Invalid topic ${topic}`);
         }
 
@@ -37,9 +32,8 @@ export class NewTxSubscription extends ZeroMQ<BitcoinZeroMQTopic.HASHTX> {
                 rpcMethod: BitcoinRPCThreadMessageType.GET_TX,
                 data: params,
             } as GetTransaction,
-        };
-
-        const something = await this.requestRPCMethod(testMsg);
+        };*/
+        //const something = await this.requestRPCMethod(testMsg);
         //console.log(JSON.stringify(something, null, 4));
     }
 }

@@ -13,6 +13,8 @@ export abstract class ZeroMQ<T extends BitcoinZeroMQTopic> extends Logger {
 
     protected socket: zmq.Subscriber = new zmq.Subscriber();
 
+    private readonly enabled: boolean = false;
+
     protected constructor(
         private readonly address: string,
         private readonly port: string,
@@ -23,17 +25,17 @@ export abstract class ZeroMQ<T extends BitcoinZeroMQTopic> extends Logger {
         this.createConnection();
     }
 
-    protected async requestRPCMethod<T extends BitcoinRPCThreadMessageType>(
-        m: RPCMessage<T>,
-    ): Promise<ThreadData | null> {
-        return await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, m);
-    }
-
     public async sendMessageToThread(
         _threadType: ThreadTypes,
         _m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData | null> {
         throw new Error('Method not implemented.');
+    }
+
+    protected async requestRPCMethod<T extends BitcoinRPCThreadMessageType>(
+        m: RPCMessage<T>,
+    ): Promise<ThreadData | null> {
+        return await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, m);
     }
 
     protected abstract onEvent(topic: BitcoinZeroMQTopic, message: Buffer): Promise<void>;
@@ -51,6 +53,8 @@ export abstract class ZeroMQ<T extends BitcoinZeroMQTopic> extends Logger {
     }
 
     private createConnection(): void {
+        if (!this.enabled) return;
+
         this.socket.connect(`tcp://${this.address}:${this.port}`);
 
         const topic = this.topic === BitcoinZeroMQTopic.EVERYTHING ? '' : this.topic;
