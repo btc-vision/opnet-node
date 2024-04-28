@@ -118,6 +118,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
     }
 
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
+        console.log(vOuts);
         super.parseTransaction(vIn, vOuts);
 
         const inputOPNetWitnessTransactions = this.getInputWitnessTransactions();

@@ -429,7 +429,7 @@ export class Block extends Logger {
             } catch (e) {
                 const error: Error = e as Error;
                 this.error(
-                    `Failed to parse transaction ${rawTransactionData.hash}: ${error.message}`,
+                    `Failed to parse transaction ${rawTransactionData.txid}: ${error.stack}`,
                 );
 
                 this.erroredTransactions.add(rawTransactionData);

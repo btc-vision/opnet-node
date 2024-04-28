@@ -1,5 +1,6 @@
 import { ScriptPubKey } from '@btc-vision/bsi-bitcoin-rpc';
 import { VOut } from '@btc-vision/bsi-bitcoin-rpc/src/rpc/types/BlockData.js';
+import BigNumber from 'bignumber.js';
 import { script } from 'bitcoinjs-lib';
 import { Decimal128 } from 'mongodb';
 
@@ -39,8 +40,12 @@ export class TransactionOutput {
             },
         };
     }
-
+    
     private convertValue(value: number): bigint {
-        return BigInt(value * 1e8);
+        // Safe conversion from decimal float to bigint 8 decimal places
+        let bigNumber: BigNumber = new BigNumber(value.toString());
+        bigNumber = bigNumber.multipliedBy('100000000').decimalPlaces(0);
+
+        return BigInt(bigNumber.toString());
     }
 }
