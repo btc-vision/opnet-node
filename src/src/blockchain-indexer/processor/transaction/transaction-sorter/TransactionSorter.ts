@@ -52,8 +52,54 @@ export class TransactionSorter {
 
         // Sort groups by total burned fee
         const sortedGroups = this.sortGroupsByBurnedFees(groups);
+        const finalSortedGroups = sortedGroups.map((group) =>
+            this.sortTransactionsWithinGroup(group),
+        );
 
-        return blockRewards.concat(sortedGroups.flat());
+        return blockRewards.concat(finalSortedGroups.flat());
+    }
+
+    private sortTransactionsWithinGroup(
+        group: Transaction<OPNetTransactionTypes>[],
+    ): Transaction<OPNetTransactionTypes>[] {
+        const txMap = new Map<string, Transaction<OPNetTransactionTypes>>();
+
+        // Map each transaction by its ID for quick access
+        group.forEach((tx) => txMap.set(tx.transactionId, tx));
+
+        const sortedTransactions: Transaction<OPNetTransactionTypes>[] = [];
+        const visited = new Set<string>();
+
+        // Ensure all transactions maintain the correct order based on dependencies
+        group.forEach((tx) => {
+            if (!visited.has(tx.transactionId)) {
+                this.resolveDependencies(tx, txMap, sortedTransactions, visited);
+            }
+        });
+
+        return sortedTransactions;
+    }
+
+    private resolveDependencies(
+        tx: Transaction<OPNetTransactionTypes>,
+        txMap: Map<string, Transaction<OPNetTransactionTypes>>,
+        sortedTransactions: Transaction<OPNetTransactionTypes>[],
+        visited: Set<string>,
+    ): void {
+        visited.add(tx.transactionId);
+
+        // Recursively resolve dependencies for each input
+        tx.inputs.forEach((input) => {
+            if (input.originalTransactionId === undefined) return;
+
+            const hasMap = txMap.get(input.originalTransactionId);
+            if (hasMap && !visited.has(input.originalTransactionId)) {
+                this.resolveDependencies(hasMap, txMap, sortedTransactions, visited);
+            }
+        });
+
+        // Add the transaction to the sorted list
+        sortedTransactions.push(tx);
     }
 
     private concatenateHashes(group: Transaction<OPNetTransactionTypes>[]): Buffer {
