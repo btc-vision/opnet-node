@@ -5,7 +5,7 @@ import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurations } = {
     [ThreadTypes.API]: {
         maxInstance: Config.API.THREADS,
-        managerTarget: './src/api/ApiManager.js',
+        managerTarget: './src/api/APIManager.js',
         target: './src/api/ServerThread.js',
     },
 
