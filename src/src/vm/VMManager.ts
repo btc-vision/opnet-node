@@ -6,8 +6,9 @@ import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
+import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
-import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import { MAX_HASH, ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
@@ -41,6 +42,7 @@ export class VMManager extends Logger {
     private readonly vmBitcoinBlock: VMBitcoinBlock;
 
     private blockState: StateMerkleTree | undefined;
+    private receiptState: ReceiptMerkleTree | undefined;
 
     private cachedBlockHeader: Map<bigint, BlockHeaderBlockDocument> = new Map();
     private verifiedBlockHeights: Map<bigint, Promise<boolean>> = new Map();
@@ -69,6 +71,7 @@ export class VMManager extends Logger {
         await this.vmBitcoinBlock.prepare(blockId);
 
         this.blockState = new StateMerkleTree();
+        this.receiptState = new ReceiptMerkleTree();
     }
 
     public async revertBlock(): Promise<void> {
@@ -227,7 +230,12 @@ export class VMManager extends Logger {
             throw new Error('Execution Reverted.');
         }
 
-        this.updateBlockValuesFromResult(result, contractAddress);
+        this.updateBlockValuesFromResult(
+            result,
+            contractAddress,
+            Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+            interactionTransaction.transactionId,
+        );
 
         return result;
     }
@@ -236,9 +244,14 @@ export class VMManager extends Logger {
         result: EvaluatedResult,
         contractAddress: BitcoinAddress,
         disableStorageCheck: boolean = Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+        transactionId?: string,
     ): void {
         if (!this.blockState) {
             throw new Error('Block state not found');
+        }
+
+        if (!this.receiptState) {
+            throw new Error('Receipt state not found');
         }
 
         const resultValue: Uint8Array | undefined = result.result;
@@ -254,6 +267,10 @@ export class VMManager extends Logger {
             }
 
             this.blockState.updateValues(contract, val);
+        }
+
+        if (transactionId && result.result) {
+            this.receiptState.updateValue(contractAddress, transactionId, result.result);
         }
 
         if (!disableStorageCheck) {
@@ -408,16 +425,43 @@ export class VMManager extends Logger {
             throw new Error('Block state not found');
         }
 
+        if (!this.receiptState) {
+            throw new Error('Receipt state not found');
+        }
+
+        await this.updateReceiptState();
+
         this.blockState.freeze();
 
         await this.saveBlockStateChanges();
 
         const states: EvaluatedStates = {
             storage: this.blockState,
+            receipts: this.receiptState,
         };
 
         this.blockState = undefined;
+        this.receiptState = undefined;
+
         return states;
+    }
+
+    private async updateReceiptState(): Promise<void> {
+        if (!this.receiptState) {
+            throw new Error('Receipt state not found');
+        }
+
+        const lastChecksum: string | undefined = await this.getPreviousBlockChecksumOfHeight(
+            this.vmBitcoinBlock.height,
+        );
+
+        if (lastChecksum) {
+            this.receiptState.updateValue(MAX_HASH, MAX_HASH, Buffer.from(lastChecksum, 'hex'));
+        } else {
+            this.receiptState.updateValue(MAX_HASH, MAX_HASH, Buffer.alloc(0));
+        }
+
+        this.receiptState.freeze();
     }
 
     private async getContractInformation(
@@ -466,6 +510,8 @@ export class VMManager extends Logger {
 
     private clear(): void {
         this.blockState = undefined;
+        this.receiptState = undefined;
+
         this.cachedBlockHeader.clear();
         this.verifiedBlockHeights.clear();
         this.contractCache.clear();
@@ -496,10 +542,10 @@ export class VMManager extends Logger {
 
         /** Nothing to save. */
         if (!stateChanges) return;
+
         for (const [address, val] of stateChanges.entries()) {
             for (const [key, value] of val.entries()) {
                 if (value[0] === undefined || value[0] === null) {
-                    console.log(value);
                     throw new Error(
                         `Value (${value[0]}) not found in state changes. Key ${key.toString()}`,
                     );

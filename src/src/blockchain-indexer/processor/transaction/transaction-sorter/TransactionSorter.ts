@@ -56,7 +56,13 @@ export class TransactionSorter {
             this.sortTransactionsWithinGroup(group),
         );
 
-        return blockRewards.concat(finalSortedGroups.flat());
+        // We set the index of each transaction in the final list
+        const finalList = blockRewards.concat(finalSortedGroups.flat());
+        for (let i = 0; i < finalList.length; i++) {
+            finalList[i].index = i;
+        }
+
+        return finalList;
     }
 
     private sortTransactionsWithinGroup(

@@ -44,7 +44,7 @@ export class Block extends Logger {
     #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
 
     #_receiptRoot: string | undefined;
-    #_receiptProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
+    #_receiptProofs: Map<Address, Map<string, string[]>> | undefined;
 
     #_checksumMerkle: ChecksumMerkle = new ChecksumMerkle();
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
@@ -95,7 +95,7 @@ export class Block extends Logger {
         return this.#_receiptRoot;
     }
 
-    public get receiptProofs(): Map<Address, Map<MemorySlotPointer, string[]>> {
+    public get receiptProofs(): Map<Address, Map<string, string[]>> {
         if (!this.#_receiptProofs) {
             throw new Error('Storage proofs not found');
         }
@@ -270,9 +270,9 @@ export class Block extends Logger {
             this.#_storageRoot = storageTree.root;
             this.#_storageProofs = proofs;
 
-            // TODO: Implement receipt tree
-            this.#_receiptRoot = ZERO_HASH;
-            this.#_receiptProofs = new Map();
+            const proofsReceipt = states.receipts.getProofs();
+            this.#_receiptRoot = states.receipts.root;
+            this.#_receiptProofs = proofsReceipt;
 
             await this.signBlock(vmManager);
         } catch (e) {
@@ -346,10 +346,35 @@ export class Block extends Logger {
         }
     }
 
+    private assignReceiptProofsToTransactions(): void {
+        if (!this.#_receiptProofs) {
+            throw new Error('Receipt proofs not found');
+        }
+
+        for (const transaction of this.transactions) {
+            if (transaction.transactionType === OPNetTransactionTypes.Interaction) {
+                const interactionTransaction = transaction as InteractionTransaction;
+                const contractProofs = this.#_receiptProofs.get(
+                    interactionTransaction.contractAddress,
+                );
+
+                if (!contractProofs) {
+                    throw new Error('Contract proofs not found');
+                }
+
+                const proofs = contractProofs.get(interactionTransaction.transactionId);
+                interactionTransaction.setReceiptProofs(proofs);
+            }
+        }
+    }
+
     private async signBlock(vmManager: VMManager): Promise<void> {
+        this.assignReceiptProofsToTransactions();
+
         /** We must fetch the previous block checksum */
         const previousBlockChecksum: string | undefined =
             await vmManager.getPreviousBlockChecksumOfHeight(this.height);
+
         if (!previousBlockChecksum) {
             throw new Error(
                 `[DATA CORRUPTED] The previous block checksum of block ${this.height} is not found.`,
