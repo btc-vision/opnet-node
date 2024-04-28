@@ -1,13 +1,14 @@
 import 'jest';
-import fs from 'fs';
-import { ABICoder, ABIDataTypes } from '../../src/src/vm/abi/ABICoder.js';
-import { BinaryWriter } from '../../src/src/vm/buffer/BinaryWriter.js';
 import {
+    ABICoder,
+    ABIDataTypes,
+    BinaryWriter,
     ContractABIMap,
     MethodMap,
     PropertyABIMap,
     SelectorsMap,
-} from '../../src/src/vm/buffer/types/math.js';
+} from '@btc-vision/bsi-binary';
+import fs from 'fs';
 import { VMContext } from '../../src/src/vm/evaluated/EvaluatedContext.js';
 import { ContractEvaluator } from '../../src/src/vm/runtime/ContractEvaluator.js';
 import { VMManager } from '../../src/src/vm/VMManager.js';
@@ -26,7 +27,7 @@ function generateRndAddress(length: number = 60): string {
 
 describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () => {
     const ANY_CONTRACT_ADDRESS: string =
-        'bc1pba71319e93c577db3cb24ea3d31098e6a1276dea18166a02354f0ba20f78'; // generateRndAddress();
+        'bc1p442922d62defabdd0fa6b3b25d565c9a7aabf1def5cf038e0d12c3e931f0'; // generateRndAddress();
 
     const ANY_OWNER: string = '13sBQqJdnAdc7v5tnX3ifYqAMoFX79VfLy';
 
@@ -117,7 +118,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('Balance value not found');
         }
 
-        vmManager.updateBlockValuesFromResult(balanceValue, ANY_CONTRACT_ADDRESS);
+        vmManager.updateBlockValuesFromResult(balanceValue, ANY_CONTRACT_ADDRESS, false);
 
         const decodedResponse = abiCoder.decodeData(balanceValue.result, [
             ABIDataTypes.UINT256,
@@ -165,7 +166,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             });
 
         if (!result) throw new Error('Result not found');
-        vmManager.updateBlockValuesFromResult(result, ANY_CONTRACT_ADDRESS);
+        vmManager.updateBlockValuesFromResult(result, ANY_CONTRACT_ADDRESS, false);
 
         const balanceOfUserAfterAddition = await getBalanceOf(address);
 
@@ -199,7 +200,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('Total supply value not found');
         }
 
-        vmManager.updateBlockValuesFromResult(totalSupplyValue, ANY_CONTRACT_ADDRESS);
+        vmManager.updateBlockValuesFromResult(totalSupplyValue, ANY_CONTRACT_ADDRESS, false);
 
         const decodedResponse = abiCoder.decodeData(totalSupplyValue.result, [
             ABIDataTypes.UINT256,

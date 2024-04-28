@@ -1,19 +1,19 @@
-import { BufferHelper } from '../../utils/BufferHelper.js';
-import { BinaryReader } from '../buffer/BinaryReader.js';
-import { BinaryWriter } from '../buffer/BinaryWriter.js';
 import {
     Address,
+    BinaryReader,
+    BinaryWriter,
     BlockchainStorage,
+    BufferHelper,
     MemorySlotData,
     MemorySlotPointer,
     MethodMap,
+    NetEvent,
     PointerStorage,
     Selector,
     SelectorsMap,
-} from '../buffer/types/math.js';
+} from '@btc-vision/bsi-binary';
 import { VMContext } from '../evaluated/EvaluatedContext.js';
 import { EvaluatedResult } from '../evaluated/EvaluatedResult.js';
-import { NetEvent } from '../events/NetEvent.js';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { instantiate, VMRuntime } from '../wasmRuntime/runDebug.js';

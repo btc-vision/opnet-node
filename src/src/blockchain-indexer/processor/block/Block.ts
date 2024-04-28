@@ -1,13 +1,13 @@
+import { Address, MemorySlotPointer } from '@btc-vision/bsi-binary';
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
+import { DataConverter } from '@btc-vision/bsi-db';
 import bitcoin from 'bitcoinjs-lib';
 import { Config } from '../../../config/Config.js';
 import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { BufferHelper } from '../../../utils/BufferHelper.js';
-import { Address, MemorySlotPointer } from '../../../vm/buffer/types/math.js';
 import { EvaluatedStates } from '../../../vm/evaluated/EvaluatedStates.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
@@ -176,7 +176,7 @@ export class Block extends Logger {
 
             txCount: this.header.nTx,
             hash: this.header.hash,
-            height: BufferHelper.toDecimal128(this.height),
+            height: DataConverter.toDecimal128(this.height),
 
             storageRoot: this.storageRoot,
 

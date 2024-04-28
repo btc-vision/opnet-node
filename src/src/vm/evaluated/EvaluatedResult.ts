@@ -1,5 +1,4 @@
-import { BlockchainStorage } from '../buffer/types/math.js';
-import { NetEvent } from '../events/NetEvent.js';
+import { BlockchainStorage, NetEvent } from '@btc-vision/bsi-binary';
 
 export interface EvaluatedResult {
     changedStorage: BlockchainStorage;

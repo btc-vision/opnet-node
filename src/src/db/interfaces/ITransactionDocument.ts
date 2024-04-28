@@ -1,9 +1,9 @@
+import { NetEvent } from '@btc-vision/bsi-binary';
 import { IBaseDocument } from '@btc-vision/bsi-common';
 import { Binary, Decimal128 } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { ITransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
-import { NetEvent } from '../../vm/events/NetEvent.js';
 
 export interface TransactionDocument<T extends OPNetTransactionTypes> {
     readonly id: string;

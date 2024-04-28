@@ -1,4 +1,6 @@
+import { ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
+import { DataConverter } from '@btc-vision/bsi-db';
 import fs from 'fs';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
@@ -17,8 +19,6 @@ import {
     BlockHeaderChecksumProof,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../db/interfaces/ITransactionDocument.js';
-import { BufferHelper } from '../utils/BufferHelper.js';
-import { ADDRESS_BYTE_LENGTH, Selector } from './buffer/types/math.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
@@ -235,6 +235,7 @@ export class VMManager extends Logger {
     public updateBlockValuesFromResult(
         result: EvaluatedResult,
         contractAddress: BitcoinAddress,
+        disableStorageCheck: boolean = Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
     ): void {
         if (!this.blockState) {
             throw new Error('Block state not found');
@@ -255,7 +256,7 @@ export class VMManager extends Logger {
             this.blockState.updateValues(contract, val);
         }
 
-        if (!Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK) {
+        if (!disableStorageCheck) {
             this.blockState.generateTree();
         }
     }
@@ -267,7 +268,7 @@ export class VMManager extends Logger {
         }
 
         const prevBlockHash: string = blockHeader.previousBlockHash;
-        const blockHeight: bigint = BufferHelper.fromDecimal128(blockHeader.height);
+        const blockHeight: bigint = DataConverter.fromDecimal128(blockHeader.height);
         const blockReceipt: string = blockHeader.receiptRoot;
         const blockStorage: string = blockHeader.storageRoot;
         const blockHash: string = blockHeader.hash;
@@ -694,7 +695,7 @@ export class VMManager extends Logger {
         height: bigint,
         blockHeaders: BlockHeaderBlockDocument,
     ): Promise<boolean> {
-        if (height !== BufferHelper.fromDecimal128(blockHeaders.height)) {
+        if (height !== DataConverter.fromDecimal128(blockHeaders.height)) {
             throw new Error('Block height mismatch');
         }
 

@@ -1,6 +1,6 @@
+import { BufferHelper } from '@btc-vision/bsi-binary';
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 import { BlockHeaderChecksumProof } from '../../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { BufferHelper } from '../../../../utils/BufferHelper.js';
 
 export class ChecksumMerkle {
     public static TREE_TYPE: [string, string] = ['uint8', 'bytes32'];

@@ -1,10 +1,10 @@
 import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
+import { DataConverter } from '@btc-vision/bsi-db';
 import bitcoin, { opcodes, script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
 import { Binary } from 'mongodb';
 import * as zlib from 'zlib';
 import { TransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
-import { BufferHelper } from '../../../utils/BufferHelper.js';
 import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
@@ -233,10 +233,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return {
             id: this.txid,
             hash: this.hash,
-            blockHeight: BufferHelper.toDecimal128(this.blockHeight),
+            blockHeight: DataConverter.toDecimal128(this.blockHeight),
 
             index: this.index,
-            burnedBitcoin: BufferHelper.toDecimal128(this.burnedFee),
+            burnedBitcoin: DataConverter.toDecimal128(this.burnedFee),
 
             inputs: this.inputs,
             outputs: outputDocuments,

@@ -1,7 +1,7 @@
+import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { BitcoinAddress } from '../../../../bitcoin/types/BitcoinAddress.js';
 import { IContractDocument } from '../../../../db/documents/interfaces/IContractDocument.js';
-import { BufferHelper } from '../../../../utils/BufferHelper.js';
 import { DeploymentTransaction } from '../transactions/DeploymentTransaction.js';
 
 export class ContractInformation {
@@ -50,7 +50,7 @@ export class ContractInformation {
         }
 
         return new ContractInformation(
-            BufferHelper.fromDecimal128(contractDocument.blockHeight),
+            DataConverter.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
             contractDocument.virtualAddress,
             bytecodeBuffer,
@@ -60,7 +60,7 @@ export class ContractInformation {
             deployerPubKeyBuffer,
             contractSeedBuffer,
             contractSaltHashBuffer,
-            BufferHelper.fromDecimal128(contractDocument.burnedFee),
+            DataConverter.fromDecimal128(contractDocument.burnedFee),
             contractDocument.deployerAddress,
         );
     }
@@ -107,7 +107,7 @@ export class ContractInformation {
 
     public toDocument(): IContractDocument {
         return {
-            blockHeight: BufferHelper.toDecimal128(this.blockHeight),
+            blockHeight: DataConverter.toDecimal128(this.blockHeight),
             contractAddress: this.contractAddress,
             virtualAddress: this.virtualAddress,
             bytecode: new Binary(this.bytecode),

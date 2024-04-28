@@ -1,3 +1,4 @@
+import { BufferHelper } from '@btc-vision/bsi-binary';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { ClientSession } from 'mongodb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
@@ -11,7 +12,6 @@ import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
 import { ContractRepository } from '../../../db/repositories/ContractRepository.js';
 import { TransactionRepository } from '../../../db/repositories/TransactionRepository.js';
-import { BufferHelper } from '../../../utils/BufferHelper.js';
 import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
 import { VMStorage } from '../VMStorage.js';
