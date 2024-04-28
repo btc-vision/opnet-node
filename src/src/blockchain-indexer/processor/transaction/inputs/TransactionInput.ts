@@ -16,6 +16,6 @@ export class TransactionInput {
         this.scriptSignature = data.scriptSig;
 
         this.sequenceId = data.sequence;
-        this.transactionInWitness = data.txinwitness;
+        this.transactionInWitness = data.txinwitness || [];
     }
 }

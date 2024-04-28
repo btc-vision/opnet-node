@@ -191,7 +191,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             const vIn = data.vin[y];
             const witnesses = vIn.txinwitness;
 
-            console.log('witnesses', vIn);
+            if (!witnesses) {
+                continue;
+            }
 
             for (let i = 0; i < witnesses.length; i++) {
                 const witness = witnesses[i];
