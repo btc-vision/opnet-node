@@ -9,89 +9,96 @@ import { Transaction } from '../Transaction.js';
  * Transaction with the same fee will get stored via a tie-breaking hash.
  */
 export class TransactionSorter {
-    constructor() {}
-
     public sortTransactions(
         transactions: Transaction<OPNetTransactionTypes>[],
     ): Transaction<OPNetTransactionTypes>[] {
-        // Separate block rewards
+        // Build dependency groups
         const blockRewards = transactions.filter((t) =>
             t.inputs.some((input) => input.originalTransactionId === undefined),
         );
+
         const nonBlockRewards = transactions.filter((t) =>
             t.inputs.every((input) => input.originalTransactionId !== undefined),
         );
 
-        // Sort block rewards by burned fee
-        const sortedBlockRewards = blockRewards.sort((a, b) => Number(a.burnedFee - b.burnedFee));
+        // Build dependency groups for non-block rewards
+        const groups: Transaction<OPNetTransactionTypes>[][] = [];
+        const visited = new Set<string>();
 
-        // Dependency graph for transactions
-        const graph: Map<string, Transaction<OPNetTransactionTypes>[]> = new Map();
-        transactions.forEach((tx) => {
-            tx.inputs.forEach((input) => {
-                if (input.originalTransactionId) {
-                    if (!graph.has(input.originalTransactionId)) {
-                        graph.set(input.originalTransactionId, []);
-                    }
-                    graph.get(input.originalTransactionId)!.push(tx);
+        for (const transaction of nonBlockRewards) {
+            if (!visited.has(transaction.transactionId)) {
+                const group = [];
+                let currentTransaction = transaction;
+                let dependencies = this.findDependencies(
+                    nonBlockRewards,
+                    currentTransaction.transactionId,
+                );
+
+                while (dependencies.length > 0) {
+                    group.push(currentTransaction);
+                    visited.add(currentTransaction.transactionId);
+                    currentTransaction = dependencies.pop()!;
+                    dependencies = this.findDependencies(
+                        nonBlockRewards,
+                        currentTransaction.transactionId,
+                    );
                 }
-            });
-        });
 
-        // Topological sort respecting transaction dependencies
-        const sortedTransactions = this.topologicalSort(nonBlockRewards, graph);
-
-        const result = sortedBlockRewards.concat(sortedTransactions);
-        for (let i = 0; i < result.length; i++) {
-            result[i].index = i;
+                group.push(currentTransaction);
+                visited.add(currentTransaction.transactionId);
+                groups.push(group);
+            }
         }
 
-        //console.dir(result, { depth: null, colors: true });
+        // Sort groups by total burned fee
+        const sortedGroups = this.sortGroupsByBurnedFees(groups);
 
-        return result;
+        return blockRewards.concat(sortedGroups.flat());
     }
 
-    private isRBF(transaction: Transaction<OPNetTransactionTypes>): boolean {
-        return transaction.inputs.some((input) => input.sequenceId < 0xfffffffe);
+    private concatenateHashes(group: Transaction<OPNetTransactionTypes>[]): Buffer {
+        // Concatenate all computedIndexingHash buffers of a group into a single buffer
+        return Buffer.concat(group.map((tx) => tx.computedIndexingHash));
     }
 
-    private topologicalSort(
+    private compareHashLists(
+        a: Transaction<OPNetTransactionTypes>[],
+        b: Transaction<OPNetTransactionTypes>[],
+    ): number {
+        // Concatenate hashes for both groups
+        const concatHashA = this.concatenateHashes(a);
+        const concatHashB = this.concatenateHashes(b);
+
+        // Compare the concatenated hashes
+        return Buffer.compare(concatHashA, concatHashB);
+    }
+
+    private calculateTotalBurnedFees(group: Transaction<OPNetTransactionTypes>[]): bigint {
+        return group.reduce((acc, transaction) => acc + transaction.burnedFee, 0n);
+    }
+
+    private findDependencies(
         transactions: Transaction<OPNetTransactionTypes>[],
-        graph: Map<string, Transaction<OPNetTransactionTypes>[]>,
+        txid: string,
     ): Transaction<OPNetTransactionTypes>[] {
-        const sorted: Transaction<OPNetTransactionTypes>[] = [];
-        const visited: Set<string> = new Set();
+        return transactions.filter((tx) =>
+            tx.inputs.some((input) => input.originalTransactionId === txid),
+        );
+    }
 
-        const visit = (tx: Transaction<OPNetTransactionTypes>) => {
-            const txId = tx.transactionId;
-            if (visited.has(txId)) return;
-            visited.add(txId);
-
-            const dependents = graph.get(txId);
-            if (dependents) {
-                dependents.forEach((dependentTx) => visit(dependentTx));
+    private sortGroupsByBurnedFees(
+        groups: Transaction<OPNetTransactionTypes>[][],
+    ): Transaction<OPNetTransactionTypes>[][] {
+        return groups.sort((a, b) => {
+            const totalA = this.calculateTotalBurnedFees(a);
+            const totalB = this.calculateTotalBurnedFees(b);
+            if (totalA < totalB) {
+                return 1; // For descending order, return 1 if A is less than B
+            } else if (totalA > totalB) {
+                return -1; // For descending order, return -1 if A is greater than B
+            } else {
+                return this.compareHashLists(a, b);
             }
-
-            sorted.push(tx);
-        };
-
-        transactions = transactions.sort((a, b) => {
-            const feeDiff = Number(b.burnedFee - a.burnedFee);
-            if (feeDiff !== 0) return feeDiff;
-
-            // TODO: Verify that we need to handle RBF transactions
-            /*if (this.isRBF(a) && !this.isRBF(b)) {
-                return -1;
-            } else if (!this.isRBF(a) && this.isRBF(b)) {
-                return 1;
-            }*/
-
-            // Resolve ties using the hash of (transactionHash + blockHash)
-            return Buffer.compare(a.computedIndexingHash, b.computedIndexingHash);
         });
-
-        transactions.forEach((tx) => visit(tx));
-
-        return sorted.reverse();
     }
 }
