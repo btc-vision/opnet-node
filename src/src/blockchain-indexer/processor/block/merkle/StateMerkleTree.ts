@@ -23,7 +23,6 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
                 const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
 
                 const proof: string[] = this.tree.getProof([pointer, valueAsBuffer]);
-
                 if (!proof || !proof.length) {
                     throw new Error(`Proof not found for ${pointer.toString('hex')}`);
                 }

@@ -359,7 +359,8 @@ export class Block extends Logger {
                 );
 
                 if (!contractProofs) {
-                    throw new Error('Contract proofs not found');
+                    // Transaction reverted.
+                    continue;
                 }
 
                 const proofs = contractProofs.get(interactionTransaction.transactionId);

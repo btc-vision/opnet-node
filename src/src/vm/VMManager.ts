@@ -8,7 +8,11 @@ import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
-import { MAX_HASH, ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import {
+    MAX_HASH,
+    MAX_MINUS_ONE,
+    ZERO_HASH,
+} from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
@@ -461,6 +465,7 @@ export class VMManager extends Logger {
             this.receiptState.updateValue(MAX_HASH, MAX_HASH, Buffer.alloc(0));
         }
 
+        this.receiptState.updateValue(MAX_MINUS_ONE, MAX_MINUS_ONE, Buffer.from([1])); // version
         this.receiptState.freeze();
     }
 

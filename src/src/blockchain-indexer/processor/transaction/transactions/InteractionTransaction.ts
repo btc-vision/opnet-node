@@ -102,7 +102,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         const events = receiptData?.events || [];
         const receipt = receiptData?.result;
 
-        const receiptProofs = this.proofsToBinary(this.receiptProofs || []);
+        const receiptProofs: string[] = this.receiptProofs || [];
 
         return {
             ...super.toDocument(),
@@ -226,10 +226,6 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
         /** Decompress calldata if needed */
         this.decompressCalldata();
-    }
-
-    private proofsToBinary(proofs: string[]): Binary[] {
-        return proofs.map((proof) => new Binary(Buffer.from(proof, 'hex')));
     }
 
     /**

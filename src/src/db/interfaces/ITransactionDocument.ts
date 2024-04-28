@@ -39,7 +39,7 @@ export interface InteractionTransactionDocument
 
     readonly events: NetEvent[];
     readonly receipt?: Binary;
-    readonly receiptProofs?: Binary[];
+    readonly receiptProofs?: string[];
 }
 
 export type ITransactionDocument<T extends OPNetTransactionTypes> = TransactionDocument<T> &
