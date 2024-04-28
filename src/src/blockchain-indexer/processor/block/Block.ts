@@ -242,8 +242,6 @@ export class Block extends Logger {
     }
 
     protected async onEmptyBlock(vmManager: VMManager): Promise<void> {
-        this.info(`Block ${this.hash} has no states, nothing changed.`);
-
         this.#_storageRoot = ZERO_HASH;
         this.#_storageProofs = new Map();
 
@@ -287,7 +285,9 @@ export class Block extends Logger {
 
     /** Transactions Execution */
     protected async executeTransactions(vmManager: VMManager): Promise<void> {
-        this.log(`Executing ${this.transactions.length} transactions.`);
+        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            this.log(`Executing ${this.transactions.length} transactions.`);
+        }
 
         for (const _transaction of this.transactions) {
             switch (_transaction.transactionType) {
