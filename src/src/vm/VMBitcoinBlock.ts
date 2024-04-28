@@ -23,9 +23,9 @@ export class VMBitcoinBlock extends Logger {
 
         this.blockId = blockId;
 
-        if (this.blockId === 0n) {
-            throw new Error(`Block ${this.blockId} is not valid`);
-        }
+        //if (this.blockId === 0n) {
+        //    throw new Error(`Block ${this.blockId} is not valid`);
+        //}
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
             this.log(`Preparing block ${this.blockId}...`);
@@ -41,9 +41,9 @@ export class VMBitcoinBlock extends Logger {
             throw new Error(`Block ${this.blockId} is not prepared`);
         }
 
-        if (this.blockId === 0n) {
-            throw new Error(`Block ${this.blockId} is not valid`);
-        }
+        //if (this.blockId === 0n) {
+        //    throw new Error(`Block ${this.blockId} is not valid`);
+        //}
 
         this.error(`Reverting block ${this.blockId}...`);
 
@@ -56,9 +56,9 @@ export class VMBitcoinBlock extends Logger {
             throw new Error(`Block ${this.blockId} is not prepared`);
         }
 
-        if (this.blockId === 0n) {
-            throw new Error(`Block ${this.blockId} is not valid`);
-        }
+        //if (this.blockId === 0n) {
+        //    throw new Error(`Block ${this.blockId} is not valid`);
+        //}
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
             this.log(`Terminating block ${this.blockId}...`);
