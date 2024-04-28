@@ -20,7 +20,7 @@ export class BlockchainIndexer extends Logger {
     private readonly bitcoinNetwork: bitcoin.networks.Network;
 
     private readonly vmManager: VMManager = new VMManager(Config);
-    private readonly processOnlyOneBlock: boolean = true;
+    private readonly processOnlyOneBlock: boolean = false;
 
     private fatalFailure: boolean = false;
 
@@ -143,7 +143,7 @@ export class BlockchainIndexer extends Logger {
             }
 
             this.success(`Indexer synchronized. Network height at: ${chainCurrentBlockHeight}.`);
-        } else {
+        } else if (!this.processOnlyOneBlock) {
             await this.processBlocks(blockHeightInProgress);
         }
     }
