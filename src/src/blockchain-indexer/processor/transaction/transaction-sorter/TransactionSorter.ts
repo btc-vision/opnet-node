@@ -42,9 +42,11 @@ export class TransactionSorter {
         const sortedTransactions = this.topologicalSort(nonBlockRewards, graph);
 
         const result = sortedBlockRewards.concat(sortedTransactions);
-        for(let i = 0; i < result.length; i++) {
+        for (let i = 0; i < result.length; i++) {
             result[i].index = i;
         }
+
+        //console.dir(result, { depth: null, colors: true });
 
         return result;
     }

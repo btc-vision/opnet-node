@@ -118,7 +118,6 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
     }
 
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
-        console.log(vOuts);
         super.parseTransaction(vIn, vOuts);
 
         const inputOPNetWitnessTransactions = this.getInputWitnessTransactions();
@@ -137,7 +136,6 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
         /** As we only support one contract interaction per transaction, we can safely assume that the first element is the one we are looking for. */
         const scriptData = this.getWitnessWithMagic();
-
         if (!scriptData) {
             throw new Error(`No script data found for deployment transaction ${this.txid}`);
         }

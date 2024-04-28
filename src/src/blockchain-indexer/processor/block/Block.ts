@@ -325,7 +325,7 @@ export class Block extends Logger {
             transaction.receipt = await vmManager.executeTransaction(this.height, transaction);
         } catch (e) {
             const error: Error = e as Error;
-            this.error(`Failed to execute transaction ${transaction.hash}: ${error.stack}`);
+            this.error(`Failed to execute transaction ${transaction.txid}: ${error.stack}`);
 
             transaction.revert = error;
         }
@@ -340,7 +340,7 @@ export class Block extends Logger {
             await vmManager.deployContract(this.height, transaction);
         } catch (e) {
             const error: Error = e as Error;
-            this.error(`Failed to deploy contract ${transaction.hash}: ${error.message}`);
+            this.error(`Failed to deploy contract ${transaction.txid}: ${error.message}`);
 
             transaction.revert = error;
         }

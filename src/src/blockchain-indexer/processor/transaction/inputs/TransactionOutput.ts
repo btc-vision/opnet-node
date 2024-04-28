@@ -40,7 +40,7 @@ export class TransactionOutput {
             },
         };
     }
-    
+
     private convertValue(value: number): bigint {
         // Safe conversion from decimal float to bigint 8 decimal places
         let bigNumber: BigNumber = new BigNumber(value.toString());
