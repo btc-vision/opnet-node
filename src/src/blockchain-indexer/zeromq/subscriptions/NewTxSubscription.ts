@@ -40,6 +40,6 @@ export class NewTxSubscription extends ZeroMQ<BitcoinZeroMQTopic.HASHTX> {
         };
 
         const something = await this.requestRPCMethod(testMsg);
-        console.log(JSON.stringify(something, null, 4));
+        //console.log(JSON.stringify(something, null, 4));
     }
 }

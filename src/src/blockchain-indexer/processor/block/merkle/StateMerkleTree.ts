@@ -1,6 +1,5 @@
+import { Address, BufferHelper, MemorySlotData, MemorySlotPointer } from '@btc-vision/bsi-binary';
 import crypto from 'crypto';
-import { BufferHelper } from '../../../../utils/BufferHelper.js';
-import { Address, MemorySlotData, MemorySlotPointer } from '../../../../vm/buffer/types/math.js';
 import { MerkleTree } from './MerkleTree.js';
 
 export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotData<bigint>> {

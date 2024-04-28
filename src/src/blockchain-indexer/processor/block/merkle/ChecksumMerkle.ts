@@ -1,5 +1,5 @@
+import { BufferHelper } from '@btc-vision/bsi-binary';
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
-import { BufferHelper } from '../../../../utils/BufferHelper.js';
 import { BlockHeaderChecksumProof } from '../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 
 export class ChecksumMerkle {
@@ -81,6 +81,9 @@ export class ChecksumMerkle {
         this.tree = StandardMerkleTree.of<[number, Uint8Array]>(
             this.values,
             ChecksumMerkle.TREE_TYPE,
+            {
+                sortLeaves: true,
+            },
         );
     }
 }

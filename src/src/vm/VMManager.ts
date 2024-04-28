@@ -1,4 +1,6 @@
+import { ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
+import { DataConverter } from '@btc-vision/bsi-db';
 import fs from 'fs';
 import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
@@ -12,14 +14,11 @@ import { DeploymentTransaction } from '../blockchain-indexer/processor/transacti
 import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { Config } from '../config/Config.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
-import { BlockRootStates } from '../db/interfaces/BlockRootStates.js';
 import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../db/interfaces/ITransactionDocument.js';
-import { BufferHelper } from '../utils/BufferHelper.js';
-import { ADDRESS_BYTE_LENGTH, Selector } from './buffer/types/math.js';
 import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
@@ -43,14 +42,16 @@ export class VMManager extends Logger {
 
     private blockState: StateMerkleTree | undefined;
 
-    private cachedBlockStates: Map<bigint, BlockRootStates> = new Map();
+    private cachedBlockHeader: Map<bigint, BlockHeaderBlockDocument> = new Map();
     private verifiedBlockHeights: Map<bigint, Promise<boolean>> = new Map();
+    private contractCache: Map<string, ContractInformation> = new Map();
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
 
         this.vmStorage = this.getVMStorage();
         this.vmBitcoinBlock = new VMBitcoinBlock(this.vmStorage);
+        this.contractCache = new Map();
     }
 
     public async init(): Promise<void> {
@@ -152,13 +153,13 @@ export class VMManager extends Logger {
         }
 
         const contractAddress: BitcoinAddress = interactionTransaction.contractAddress;
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
         }
 
         // TODO: Add a caching layer for this.
         const contractInformation: ContractInformation | undefined =
-            await this.vmStorage.getContractAt(contractAddress);
+            await this.getContractInformation(contractAddress);
 
         if (!contractInformation) {
             throw new Error(`Contract ${contractAddress} not found.`);
@@ -191,7 +192,7 @@ export class VMManager extends Logger {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debugBright(
                 `Executing transaction ${interactionTransaction.txid} for contract ${contractAddress}`,
             );
@@ -234,6 +235,7 @@ export class VMManager extends Logger {
     public updateBlockValuesFromResult(
         result: EvaluatedResult,
         contractAddress: BitcoinAddress,
+        disableStorageCheck: boolean = Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
     ): void {
         if (!this.blockState) {
             throw new Error('Block state not found');
@@ -254,7 +256,9 @@ export class VMManager extends Logger {
             this.blockState.updateValues(contract, val);
         }
 
-        this.blockState.generateTree();
+        if (!disableStorageCheck) {
+            this.blockState.generateTree();
+        }
     }
 
     /** TODO: Move this method to an other class and use this method when synchronizing block headers once PoA is implemented. */
@@ -264,7 +268,7 @@ export class VMManager extends Logger {
         }
 
         const prevBlockHash: string = blockHeader.previousBlockHash;
-        const blockHeight: bigint = BufferHelper.fromDecimal128(blockHeader.height);
+        const blockHeight: bigint = DataConverter.fromDecimal128(blockHeader.height);
         const blockReceipt: string = blockHeader.receiptRoot;
         const blockStorage: string = blockHeader.storageRoot;
         const blockHash: string = blockHeader.hash;
@@ -391,18 +395,8 @@ export class VMManager extends Logger {
             contractDeploymentTransaction,
         );
 
-        // We must verify that there is no contract already deployed at this address
-        await this.vmStorage.setContractAt(contractInformation);
-
-        /*const hasContractDeployedAtAddress: boolean = await this.vmStorage.hasContractAt(
-            contractInformation.contractAddress,
-        );
-
-        if (!hasContractDeployedAtAddress) {
-            await this.vmStorage.setContractAt(contractInformation);
-        } else {
-            throw new Error('Contract already deployed at address');
-        }*/
+        // We must save the contract information
+        await this.setContractAt(contractInformation);
 
         if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
             this.info(`Contract ${contractInformation.contractAddress} deployed.`);
@@ -424,6 +418,28 @@ export class VMManager extends Logger {
 
         this.blockState = undefined;
         return states;
+    }
+
+    private async getContractInformation(
+        contractAddress: BitcoinAddress,
+    ): Promise<ContractInformation | undefined> {
+        if (this.contractCache.has(contractAddress)) {
+            return this.contractCache.get(contractAddress);
+        }
+
+        const contractInformation: ContractInformation | undefined =
+            await this.vmStorage.getContractAt(contractAddress);
+
+        if (contractInformation) {
+            this.contractCache.set(contractAddress, contractInformation);
+        }
+
+        return contractInformation;
+    }
+
+    private async setContractAt(contractData: ContractInformation): Promise<void> {
+        this.contractCache.set(contractData.contractAddress, contractData);
+        await this.vmStorage.setContractAt(contractData);
     }
 
     private getProofForIndex(proofs: BlockHeaderChecksumProof, index: number): string[] {
@@ -450,27 +466,24 @@ export class VMManager extends Logger {
 
     private clear(): void {
         this.blockState = undefined;
-        this.cachedBlockStates.clear();
+        this.cachedBlockHeader.clear();
         this.verifiedBlockHeights.clear();
-    }
-
-    private async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
-        if (this.cachedBlockStates.has(height)) {
-            return this.cachedBlockStates.get(height);
-        }
-
-        const blockRootStates: BlockRootStates | undefined =
-            await this.vmStorage.getBlockRootStates(height);
-
-        if (blockRootStates) {
-            this.cachedBlockStates.set(height, blockRootStates);
-        }
-
-        return blockRootStates;
+        this.contractCache.clear();
     }
 
     private async getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined> {
-        return await this.vmStorage.getBlockHeader(height);
+        if (this.cachedBlockHeader.has(height)) {
+            return this.cachedBlockHeader.get(height);
+        }
+
+        const blockHeader: BlockHeaderBlockDocument | undefined =
+            await this.vmStorage.getBlockHeader(height);
+
+        if (blockHeader) {
+            this.cachedBlockHeader.set(height, blockHeader);
+        }
+
+        return blockHeader;
     }
 
     /** We must save the final state changes to the storage */
@@ -485,8 +498,11 @@ export class VMManager extends Logger {
         if (!stateChanges) return;
         for (const [address, val] of stateChanges.entries()) {
             for (const [key, value] of val.entries()) {
-                if (!value[0]) {
-                    throw new Error('Value not found. Cannot save changes.');
+                if (value[0] === undefined || value[0] === null) {
+                    console.log(value);
+                    throw new Error(
+                        `Value (${value[0]}) not found in state changes. Key ${key.toString()}`,
+                    );
                 }
 
                 const pointer: StoragePointer = BufferHelper.pointerToUint8Array(key);
@@ -620,19 +636,21 @@ export class VMManager extends Logger {
                 throw new Error('Block state not found');
             }
 
-            if (!this.blockState.hasTree()) {
+            if (!Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK && !this.blockState.hasTree()) {
                 throw new Error(
                     `Tried to verify the value of a state without a valid tree. Block height: ${blockHeight} - Current height: ${this.vmBitcoinBlock.height} (Have this block been saved already?)`,
                 );
             }
 
             // Same block.
-            return StateMerkleTree.verify(
-                this.blockState.root,
-                StateMerkleTree.TREE_TYPE,
-                [encodedPointer, value],
-                proofs,
-            );
+            return Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK
+                ? true
+                : StateMerkleTree.verify(
+                      this.blockState.root,
+                      StateMerkleTree.TREE_TYPE,
+                      [encodedPointer, value],
+                      proofs,
+                  );
         }
 
         /** We must get the block root states */
@@ -666,6 +684,7 @@ export class VMManager extends Logger {
         const verifiedHeight: Promise<boolean> =
             this.verifiedBlockHeights.get(blockHeight) ||
             this._verifyBlockAtHeight(blockHeight, blockHeaders);
+
         this.verifiedBlockHeights.set(blockHeight, verifiedHeight);
 
         return await verifiedHeight;
@@ -676,11 +695,11 @@ export class VMManager extends Logger {
         height: bigint,
         blockHeaders: BlockHeaderBlockDocument,
     ): Promise<boolean> {
-        if (height !== BufferHelper.fromDecimal128(blockHeaders.height)) {
+        if (height !== DataConverter.fromDecimal128(blockHeaders.height)) {
             throw new Error('Block height mismatch');
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Validating block ${height} headers...`);
         }
 

@@ -1,11 +1,11 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
+import { DataConverter } from '@btc-vision/bsi-db';
 import { ClientSession, Collection, Db, Filter } from 'mongodb';
+import { BlockRootStates } from '../interfaces/BlockRootStates.js';
 import {
     BlockHeaderBlockDocument,
     IBlockHeaderBlockDocument,
 } from '../interfaces/IBlockHeaderBlockDocument.js';
-import { BufferHelper } from '../../utils/BufferHelper.js';
-import { BlockRootStates } from '../interfaces/BlockRootStates.js';
 
 export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
     public readonly logColor: string = '#afeeee';
@@ -19,7 +19,7 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         currentSession?: ClientSession,
     ): Promise<IBlockHeaderBlockDocument | undefined> {
         const criteria: Partial<Filter<IBlockHeaderBlockDocument>> = {
-            height: BufferHelper.toDecimal128(height),
+            height: DataConverter.toDecimal128(height),
         };
 
         const result: IBlockHeaderBlockDocument | null = await this.queryOne(

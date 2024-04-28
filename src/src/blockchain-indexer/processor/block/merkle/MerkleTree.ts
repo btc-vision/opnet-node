@@ -60,7 +60,9 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
         }
 
         const values = this.getValues();
-        this.tree = StandardMerkleTree.of<[Buffer, Buffer]>(values, this.treeType);
+        this.tree = StandardMerkleTree.of<[Buffer, Buffer]>(values, this.treeType, {
+            sortLeaves: true,
+        });
 
         this.valueChanged = false;
     }

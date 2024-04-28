@@ -3,7 +3,7 @@ import {
     BlockchainInfo,
     BlockDataWithTransactionData,
 } from '@btc-vision/bsi-bitcoin-rpc';
-import { Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
 import { Config } from '../../config/Config.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
@@ -21,6 +21,8 @@ export class BlockchainIndexer extends Logger {
 
     private readonly vmManager: VMManager = new VMManager(Config);
     private readonly processOnlyOneBlock: boolean = false;
+
+    private fatalFailure: boolean = false;
 
     constructor() {
         super();
@@ -66,6 +68,11 @@ export class BlockchainIndexer extends Logger {
     }
 
     private async safeProcessBlocks(): Promise<void> {
+        if (this.fatalFailure) {
+            this.panic('Fatal failure detected, exiting...');
+            return;
+        }
+
         try {
             await this.processBlocks();
         } catch (e) {
@@ -79,14 +86,24 @@ export class BlockchainIndexer extends Logger {
         setTimeout(() => this.safeProcessBlocks(), 10000);
     }
 
-    private async processBlocks(startBlockHeight: number = -1): Promise<void> {
+    private async getCurrentProcessBlockHeight(startBlockHeight: number): Promise<number> {
+        if (Config.OP_NET.REINDEX) {
+            if (Config.OP_NET.REINDEX_FROM_BLOCK) {
+                return Config.OP_NET.REINDEX_FROM_BLOCK;
+            }
+
+            return Config.OP_NET.ENABLED_AT_BLOCK;
+        }
+
         const blockchainInfo = await this.blockchainInfoRepository.getByNetwork(this.network);
 
         // Process block either from the forced start height
         // or from the last in progress block saved in the database
-        let blockHeightInProgress =
-            startBlockHeight !== -1 ? startBlockHeight : blockchainInfo.inProgressBlock;
+        return startBlockHeight !== -1 ? startBlockHeight : blockchainInfo.inProgressBlock;
+    }
 
+    private async processBlocks(startBlockHeight: number = -1): Promise<void> {
+        let blockHeightInProgress = await this.getCurrentProcessBlockHeight(startBlockHeight);
         let chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
 
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
@@ -95,27 +112,54 @@ export class BlockchainIndexer extends Logger {
                 throw new Error(`Error fetching block ${blockHeightInProgress}.`);
             }
 
-            await this.processBlock(block);
+            const processStartTime = Date.now();
+            const processed: boolean = await this.processBlock(block);
+            if (!processed) {
+                this.fatalFailure = true;
+                throw new Error(`Error processing block ${blockHeightInProgress}.`);
+            }
 
-            chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
+            const processEndTime = Date.now();
+            if (Config.DEBUG_LEVEL > DebugLevel.INFO) {
+                this.success(
+                    `Block ${blockHeightInProgress} processed successfully. Took ${processEndTime - processStartTime}ms.`,
+                );
+            }
 
-            // TODO: Update the inProgressBlock in the database.
             blockHeightInProgress++;
 
             if (this.processOnlyOneBlock) {
                 break;
             }
+
+            // We update the block we just processed
+            await this.updateBlockchainInfo(blockHeightInProgress);
+        }
+
+        chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
+        if (blockHeightInProgress > chainCurrentBlockHeight) {
+            if (Config.OP_NET.REINDEX) {
+                Config.OP_NET.REINDEX = false;
+            }
+
+            this.success(`Indexer synchronized. Network height at: ${chainCurrentBlockHeight}.`);
+        } else {
+            await this.processBlocks(blockHeightInProgress);
         }
     }
 
-    private async processBlock(blockData: BlockDataWithTransactionData): Promise<void> {
+    private async updateBlockchainInfo(blockHeight: number): Promise<void> {
+        await this.blockchainInfoRepository.updateCurrentBlockInProgress(this.network, blockHeight);
+    }
+
+    private async processBlock(blockData: BlockDataWithTransactionData): Promise<boolean> {
         const block: Block = new Block(blockData, this.bitcoinNetwork);
 
         // Deserialize the block.
         block.deserialize();
 
         // Execute the block and save the changes.
-        await block.execute(this.vmManager);
+        return await block.execute(this.vmManager);
     }
 
     private async getBlock(blockHeight: number): Promise<BlockDataWithTransactionData | null> {

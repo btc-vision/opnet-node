@@ -1,5 +1,6 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { Collection, Db, Filter } from 'mongodb';
+import { Config } from '../../config/Config.js';
 import { IBlockchainInformationDocument } from '../documents/interfaces/IBlockchainInformationDocument.js';
 
 export class BlockchainInformationRepository extends BaseRepository<IBlockchainInformationDocument> {
@@ -45,7 +46,7 @@ export class BlockchainInformationRepository extends BaseRepository<IBlockchainI
         // TODO - Add default values from configs
         return {
             network: network,
-            inProgressBlock: 1, // 303 for deployment, 319 first tx, 320 multiple txs, 348 - 8 tx.
+            inProgressBlock: Config.OP_NET.ENABLED_AT_BLOCK, // 303 for deployment, 319 first tx, 320 multiple txs, 348 - 8 tx.
         };
     }
 }

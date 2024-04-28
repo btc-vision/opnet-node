@@ -1,7 +1,7 @@
+import { Address, BufferHelper } from '@btc-vision/bsi-binary';
 import { BaseRepository } from '@btc-vision/bsi-common';
+import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
-import { BufferHelper } from '../../utils/BufferHelper.js';
-import { Address } from '../../vm/buffer/types/math.js';
 import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
@@ -34,7 +34,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
 
         if (height) {
             /** Allow block to be rescanned */
-            criteria.lastSeenAt = { $lt: BufferHelper.toDecimal128(height) };
+            criteria.lastSeenAt = { $lt: DataConverter.toDecimal128(height) };
         }
 
         /** Sorting is VERY important. */
@@ -57,7 +57,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             pointer: BufferHelper.bufferToUint8Array(results.pointer.value()),
             value: BufferHelper.bufferToUint8Array(results.value.value()),
             proofs: results.proofs,
-            lastSeenAt: BufferHelper.fromDecimal128(results.lastSeenAt),
+            lastSeenAt: DataConverter.fromDecimal128(results.lastSeenAt),
         };
     }
 
@@ -75,7 +75,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         const criteria: Partial<Filter<IContractPointerValueDocument>> = {
             contractAddress: contractAddress,
             pointer: pointerToBinary,
-            lastSeenAt: BufferHelper.toDecimal128(lastSeenAt),
+            lastSeenAt: DataConverter.toDecimal128(lastSeenAt),
         };
 
         const update: Partial<IContractPointerValueDocument> = {
@@ -83,7 +83,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             pointer: pointerToBinary,
             value: valueToBinary,
             proofs: proofs,
-            lastSeenAt: BufferHelper.toDecimal128(lastSeenAt),
+            lastSeenAt: DataConverter.toDecimal128(lastSeenAt),
         };
 
         await this.updatePartial(criteria, update, currentSession);

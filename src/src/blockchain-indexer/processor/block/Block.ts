@@ -1,12 +1,13 @@
+import { Address, MemorySlotPointer } from '@btc-vision/bsi-binary';
 import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
-import { Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Logger } from '@btc-vision/bsi-common';
+import { DataConverter } from '@btc-vision/bsi-db';
 import bitcoin from 'bitcoinjs-lib';
+import { Config } from '../../../config/Config.js';
 import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { BufferHelper } from '../../../utils/BufferHelper.js';
-import { Address, MemorySlotPointer } from '../../../vm/buffer/types/math.js';
 import { EvaluatedStates } from '../../../vm/evaluated/EvaluatedStates.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
@@ -175,7 +176,7 @@ export class Block extends Logger {
 
             txCount: this.header.nTx,
             hash: this.header.hash,
-            height: BufferHelper.toDecimal128(this.height),
+            height: DataConverter.toDecimal128(this.height),
 
             storageRoot: this.storageRoot,
 
@@ -193,7 +194,9 @@ export class Block extends Logger {
     public deserialize(): void {
         this.ensureNotProcessed();
 
-        this.info(`Processing block ${this.hash} at height ${this.height}`);
+        if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            this.info(`Processing block ${this.hash} at height ${this.height}`);
+        }
 
         // First, we have to create transaction object corresponding to the transactions types in the block
         this.createTransactions();
@@ -209,7 +212,7 @@ export class Block extends Logger {
     }
 
     /** Block Execution */
-    public async execute(vmManager: VMManager): Promise<void> {
+    public async execute(vmManager: VMManager): Promise<boolean> {
         this.ensureNotExecuted();
 
         // Prepare the vm for the block execution
@@ -226,11 +229,15 @@ export class Block extends Logger {
             } else {
                 await this.onEmptyBlock(vmManager);
             }
+
+            return true;
         } catch (e) {
             const error: Error = e as Error;
             this.error(`Something went wrong while executing the block: ${error.stack}`);
 
             await this.revertBlock(vmManager);
+
+            return false;
         }
     }
 
