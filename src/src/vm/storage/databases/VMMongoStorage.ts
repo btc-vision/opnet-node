@@ -49,6 +49,10 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async prepareNewBlock(): Promise<void> {
+        if (this.currentSession) {
+            throw new Error('Session already started');
+        }
+
         this.currentSession = await this.databaseManager.startSession();
         this.currentSession.startTransaction();
     }
