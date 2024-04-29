@@ -12,6 +12,8 @@ export class TransactionSorter {
     public sortTransactions(
         transactions: Transaction<OPNetTransactionTypes>[],
     ): Transaction<OPNetTransactionTypes>[] {
+        const initialLength = transactions.length;
+
         // Build dependency groups
         const blockRewards = transactions.filter((t) =>
             t.inputs.some((input) => input.originalTransactionId === undefined),
@@ -60,6 +62,12 @@ export class TransactionSorter {
         const finalList = blockRewards.concat(finalSortedGroups.flat());
         for (let i = 0; i < finalList.length; i++) {
             finalList[i].index = i;
+        }
+
+        if (finalList.length !== initialLength) {
+            throw new Error(
+                `Transaction count changed during sorting. This should never happen. Transaction count was ${initialLength} before sorting and ${finalList.length} after sorting.`,
+            );
         }
 
         return finalList;

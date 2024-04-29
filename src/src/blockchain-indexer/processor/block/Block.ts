@@ -194,10 +194,6 @@ export class Block extends Logger {
     public deserialize(): void {
         this.ensureNotProcessed();
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
-            this.info(`Processing block ${this.hash} at height ${this.height}`);
-        }
-
         // First, we have to create transaction object corresponding to the transactions types in the block
         this.createTransactions();
 
@@ -207,8 +203,16 @@ export class Block extends Logger {
             );
         }
 
+        console.log(`This block have ${this.transactions.length} transactions before sorting`);
+
         // Then, we can sort the transactions by their priority
         this.transactions = this.transactionSorter.sortTransactions(this.transactions);
+
+        if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            this.info(
+                `Processing block ${this.hash} containing ${this.transactions.length} transaction(s) at height ${this.height}`,
+            );
+        }
     }
 
     /** Block Execution */
