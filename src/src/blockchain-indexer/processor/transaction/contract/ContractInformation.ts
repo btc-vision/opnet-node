@@ -47,7 +47,7 @@ export class ContractInformation {
         } else {
             contractSaltHashBuffer = Buffer.from(contractDocument.contractSaltHash.buffer);
         }
-        
+
         return new ContractInformation(
             DataConverter.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
