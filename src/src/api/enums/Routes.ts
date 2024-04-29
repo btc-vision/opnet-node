@@ -1,6 +1,7 @@
 export enum Routes {
     HEAP_BLOCK = 'block/heapBlock',
     PROTOBUF_SCHEMA = 'protobuf/schema',
+    BLOCK = 'block',
 }
 
 export enum RouteType {

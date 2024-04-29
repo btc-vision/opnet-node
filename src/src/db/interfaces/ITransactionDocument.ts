@@ -5,19 +5,28 @@ import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transa
 import { TransactionInput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { ITransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 
-export interface TransactionDocument<T extends OPNetTransactionTypes> {
+export interface TransactionDocumentBase<T extends OPNetTransactionTypes> {
     readonly id: string;
     readonly hash: string;
-    readonly blockHeight: Decimal128;
-    readonly index: number; // Mark the order of the transaction in the block
-    readonly burnedBitcoin: Decimal128;
 
-    readonly revert: Binary | undefined;
+    readonly index: number; // Mark the order of the transaction in the block
+
+    readonly blockHeight: Decimal128 | string;
+    readonly burnedBitcoin: Decimal128 | string;
+    readonly revert: Binary | undefined | string;
 
     readonly inputs: TransactionInput[];
     readonly outputs: ITransactionOutput[];
 
     readonly OPNetType: T;
+}
+
+export interface TransactionDocument<T extends OPNetTransactionTypes>
+    extends TransactionDocumentBase<T> {
+    readonly blockHeight: Decimal128;
+    readonly burnedBitcoin: Decimal128;
+
+    readonly revert: Binary | undefined;
 }
 
 type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocument<T> & {

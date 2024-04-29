@@ -6,8 +6,12 @@ import { ContractInformation } from '../../../blockchain-indexer/processor/trans
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { Config } from '../../../config/Config.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
+import { BlockWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { BlockRootStates } from '../../../db/interfaces/BlockRootStates.js';
-import { BlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import {
+    BlockHeaderAPIBlockDocument,
+    BlockHeaderBlockDocument,
+} from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
@@ -26,8 +30,12 @@ export class VMMongoStorage extends VMStorage {
     private blockRepository: BlockRepository | undefined;
     private transactionRepository: TransactionRepository | undefined;
 
+    private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
+
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
+
+        this.startCache();
 
         this.databaseManager = new ConfigurableDBManager(this.config);
     }
@@ -43,6 +51,56 @@ export class VMMongoStorage extends VMStorage {
         this.contractRepository = new ContractRepository(this.databaseManager.db);
         this.blockRepository = new BlockRepository(this.databaseManager.db);
         this.transactionRepository = new TransactionRepository(this.databaseManager.db);
+    }
+
+    public async getLatestBlock(): Promise<BlockHeaderAPIBlockDocument> {
+        if (!this.blockRepository) {
+            throw new Error('Block header repository not initialized');
+        }
+
+        if (this.cachedLatestBlock) {
+            return this.cachedLatestBlock;
+        }
+
+        const latestBlock = await this.blockRepository.getLatestBlock();
+        if (!latestBlock) {
+            throw new Error('No latest block found');
+        }
+
+        this.cachedLatestBlock = this.convertBlockHeaderToBlockHeaderDocument(latestBlock);
+
+        return this.cachedLatestBlock;
+    }
+
+    public async getBlockTransactions(
+        height: -1 | bigint = -1,
+    ): Promise<BlockWithTransactions | undefined> {
+        if (!this.blockRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        let block =
+            height === -1
+                ? await this.blockRepository.getLatestBlock()
+                : await this.blockRepository.getBlockHeader(height, this.currentSession);
+
+        if (!block) {
+            return undefined;
+        }
+
+        const transactions = await this.transactionRepository.getTransactionsByBlockHash(
+            block.height,
+            this.currentSession,
+        );
+
+        return {
+            block: this.convertBlockHeaderToBlockHeaderDocument(block),
+            transactions,
+        };
     }
 
     public async close(): Promise<void> {
@@ -273,6 +331,41 @@ export class VMMongoStorage extends VMStorage {
         }
 
         return await this.blockRepository.getBlockHeader(height, this.currentSession);
+    }
+
+    private startCache(): void {
+        setInterval(() => {
+            this.clearCache();
+        }, 1000);
+    }
+
+    private clearCache(): void {
+        this.cachedLatestBlock = undefined;
+    }
+
+    private convertBlockHeaderToBlockHeaderDocument(
+        blockHeader: BlockHeaderBlockDocument,
+    ): BlockHeaderAPIBlockDocument {
+        return {
+            hash: blockHeader.hash,
+            height: blockHeader.height.toString(),
+            time: blockHeader.time.getTime(),
+            version: blockHeader.version,
+            bits: blockHeader.bits,
+            nonce: blockHeader.nonce,
+            previousBlockHash: blockHeader.previousBlockHash,
+            merkleRoot: blockHeader.merkleRoot,
+            txCount: blockHeader.txCount,
+            size: blockHeader.size,
+            weight: blockHeader.weight,
+            strippedSize: blockHeader.strippedSize,
+            storageRoot: blockHeader.storageRoot,
+            receiptRoot: blockHeader.receiptRoot,
+            checksumProofs: blockHeader.checksumProofs,
+            medianTime: blockHeader.medianTime.getTime(),
+            previousBlockChecksum: blockHeader.previousBlockChecksum,
+            checksumRoot: blockHeader.checksumRoot,
+        };
     }
 
     private async connectDatabase(): Promise<void> {

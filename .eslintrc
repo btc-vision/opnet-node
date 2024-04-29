@@ -10,5 +10,8 @@
         "@typescript-eslint/no-explicit-any": [
             "error"
         ]
-    }
+    },
+    "extends": [
+        "plugin:openapi/recommended"
+    ]
 }

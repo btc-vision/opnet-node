@@ -1,7 +1,7 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
-import { ClientSession, Collection, Db, Filter } from 'mongodb';
+import { ClientSession, Collection, Db, Decimal128, Filter, Sort } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { ITransactionDocument } from '../interfaces/ITransactionDocument.js';
+import { ITransactionDocument, TransactionDocument } from '../interfaces/ITransactionDocument.js';
 
 export class TransactionRepository extends BaseRepository<
     ITransactionDocument<OPNetTransactionTypes>
@@ -47,6 +47,19 @@ export class TransactionRepository extends BaseRepository<
         });
 
         await this.bulkWrite(bulkWriteOperations, currentSession);
+    }
+
+    public async getTransactionsByBlockHash(
+        height: Decimal128,
+        currentSession?: ClientSession,
+    ): Promise<TransactionDocument<OPNetTransactionTypes>[]> {
+        const criteria: Partial<TransactionDocument<OPNetTransactionTypes>> = {
+            blockHeight: height,
+        };
+
+        const sort: Sort = { index: 1 };
+
+        return await this.getAll(criteria, currentSession, sort);
     }
 
     protected override getCollection(): Collection<ITransactionDocument<OPNetTransactionTypes>> {

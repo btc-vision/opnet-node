@@ -1,17 +1,14 @@
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { MessageType } from '../../../../../threading/enum/MessageType.js';
-import { GetBlock } from '../../../../../threading/interfaces/thread-messages/messages/api/GetBlock.js';
-import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
-
-import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
+import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
-import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 
-export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
+export class HeapBlockRoute extends Route<
+    Routes.HEAP_BLOCK,
+    BlockHeaderAPIBlockDocument | undefined
+> {
     constructor() {
         super(Routes.HEAP_BLOCK, RouteType.GET);
     }
@@ -36,7 +33,7 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
      * @responseContent {HeapBlock} 200.application/json
      */
     protected async onRequest(_req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
-        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK> = {
+        /*const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK> = {
             type: MessageType.RPC_METHOD,
             data: {
                 rpcMethod: BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK,
@@ -62,6 +59,28 @@ export class HeapBlockRoute extends Route<Routes.HEAP_BLOCK> {
 
             res.status(500);
             res.end();
+        }*/
+
+        try {
+            const data = await this.getData();
+
+            if (data) {
+                res.status(200);
+                res.json(data);
+            } else {
+                res.status(400);
+                res.json({ error: 'Could not fetch latest block header. Is this node synced?' });
+            }
+        } catch (err) {
+            this.handleDefaultError(res, err as Error);
         }
+    }
+
+    protected async getData(): Promise<BlockHeaderAPIBlockDocument | undefined> {
+        if (!this.storage) {
+            throw new Error('Storage not initialized');
+        }
+
+        return this.storage.getLatestBlock();
     }
 }

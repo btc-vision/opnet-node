@@ -4,6 +4,9 @@ import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Router } from 'hyper-express/types/components/router/Router.js';
+import { Config } from '../config/Config.js';
+import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
+import { VMStorage } from '../vm/storage/VMStorage.js';
 
 import { DefinedRoutes } from './routes/DefinedRoutes.js';
 
@@ -35,11 +38,15 @@ export class Server extends Logger {
     private serverPort: number = 0;
     private app: HyperExpress.Server = new HyperExpress.Server();
 
+    private readonly storage: VMStorage = new VMMongoStorage(Config);
+
     constructor() {
         super();
     }
 
     public async createServer(): Promise<void> {
+        await this.storage.init();
+
         // ERROR HANDLING
         this.app.set_error_handler(this.globalErrorHandler.bind(this));
 
@@ -69,8 +76,10 @@ export class Server extends Logger {
         await this.createServer();
     }
 
-    private globalErrorHandler(request: Request, response: Response, error: Error): void {
+    private globalErrorHandler(_request: Request, response: Response, _error: Error): void {
         response.status(500);
+
+        this.error(`API Error: ${_error.stack}`);
 
         response.json({
             error: 'Something went wrong.',
@@ -79,7 +88,7 @@ export class Server extends Logger {
 
     private loadRoutes(): void {
         for (const route of Object.values(DefinedRoutes)) {
-            const routeData = route.getRoute();
+            const routeData = route.getRoute(this.storage);
             const path = `${this.apiPrefix}/${route.getPath()}`;
 
             this.log(`Loading route: ${path} (${routeData.type})`);

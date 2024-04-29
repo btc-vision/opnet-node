@@ -5,7 +5,7 @@ import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { Schema } from '../../../../protobuf/Schema.js';
 import { Route } from '../../../Route.js';
 
-export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA> {
+export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA, string | null> {
     constructor() {
         super(Routes.PROTOBUF_SCHEMA, RouteType.GET);
     }
@@ -25,7 +25,7 @@ export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA> {
      * @responseContent {string} 200.plain/text
      */
     protected onRequest(_req: Request, res: Response, _next?: MiddlewareNext): void {
-        let response: string | null = Schema.schema || null;
+        let response: string | null = this.getData();
 
         if (response === null || !response) {
             res.status(404);
@@ -33,5 +33,9 @@ export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA> {
         } else {
             res.send(response);
         }
+    }
+
+    protected getData(): string | null {
+        return Schema.schema || null;
     }
 }

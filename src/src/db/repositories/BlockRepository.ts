@@ -14,6 +14,25 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         super(db);
     }
 
+    public async getLatestBlock(
+        currentSession?: ClientSession,
+    ): Promise<IBlockHeaderBlockDocument | undefined> {
+        const criteria: Partial<Filter<IBlockHeaderBlockDocument>> = {};
+        const result: IBlockHeaderBlockDocument | null = await this.queryOne(
+            criteria,
+            currentSession,
+            {
+                height: -1,
+            },
+        );
+
+        if (result === null) {
+            return;
+        }
+
+        return result;
+    }
+
     public async getBlockHeader(
         height: bigint,
         currentSession?: ClientSession,

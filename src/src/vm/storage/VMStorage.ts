@@ -2,8 +2,12 @@ import { Logger } from '@btc-vision/bsi-common';
 import { BitcoinAddress } from '../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { BlockWithTransactions } from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { BlockRootStates } from '../../db/interfaces/BlockRootStates.js';
-import { BlockHeaderBlockDocument } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
+import {
+    BlockHeaderAPIBlockDocument,
+    BlockHeaderBlockDocument,
+} from '../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
@@ -72,4 +76,10 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public abstract init(): Promise<void>;
 
     public abstract close(): Promise<void>;
+
+    public abstract getLatestBlock(): Promise<BlockHeaderAPIBlockDocument | undefined>;
+
+    public abstract getBlockTransactions(
+        height: bigint | -1,
+    ): Promise<BlockWithTransactions | undefined>;
 }
