@@ -22,6 +22,9 @@ export interface RPCConfig {
 }
 
 export interface OPNetConfig {
+    readonly TRANSACTIONS_THREADS: number;
+    readonly TRANSACTIONS_MAXIMUM_CONCURRENT: number;
+
     readonly ENABLED_AT_BLOCK: number;
 
     REINDEX: boolean;

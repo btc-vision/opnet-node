@@ -22,8 +22,31 @@ export class TransactionRepository extends BaseRepository<
             id: transactionData.id,
             blockHeight: transactionData.blockHeight,
         };
-        
+
         await this.updatePartial(criteria, transactionData, currentSession);
+    }
+
+    public async saveTransactions(
+        transactions: ITransactionDocument<OPNetTransactionTypes>[],
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const bulkWriteOperations = transactions.map((transaction) => {
+            return {
+                updateOne: {
+                    filter: {
+                        hash: transaction.hash,
+                        id: transaction.id,
+                        blockHeight: transaction.blockHeight,
+                    },
+                    update: {
+                        $set: transaction,
+                    },
+                    upsert: true,
+                },
+            };
+        });
+
+        await this.bulkWrite(bulkWriteOperations, currentSession);
     }
 
     protected override getCollection(): Collection<ITransactionDocument<OPNetTransactionTypes>> {

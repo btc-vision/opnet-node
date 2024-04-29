@@ -32,6 +32,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         OP_NET: {
+            TRANSACTIONS_THREADS: 4,
+            TRANSACTIONS_MAXIMUM_CONCURRENT: 100,
             ENABLED_AT_BLOCK: 0,
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
@@ -138,6 +140,22 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             if (!(parsedConfig.OP_NET.MODE in OPNetIndexerMode)) {
                 throw new Error(
                     `Oops the property OP_NET.MODE is not a valid OPNetIndexerMode enum value.`,
+                );
+            }
+
+            if (
+                parsedConfig.OP_NET.TRANSACTIONS_THREADS === undefined ||
+                typeof parsedConfig.OP_NET.TRANSACTIONS_THREADS !== 'number'
+            ) {
+                throw new Error(`Oops the property OP_NET.TRANSACTIONS_THREADS is not a number.`);
+            }
+
+            if (
+                parsedConfig.OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT === undefined ||
+                typeof parsedConfig.OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT is not a number.`,
                 );
             }
         }

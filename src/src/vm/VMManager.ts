@@ -121,6 +121,17 @@ export class VMManager extends Logger {
         await this.vmStorage.saveTransaction(transaction);
     }
 
+    public async saveTransactions(
+        blockHeight: bigint,
+        transaction: ITransactionDocument<OPNetTransactionTypes>[],
+    ): Promise<void> {
+        if (this.vmBitcoinBlock.height !== blockHeight) {
+            throw new Error('Block height mismatch');
+        }
+
+        await this.vmStorage.saveTransactions(transaction);
+    }
+
     public async loadContractFromBytecode(
         contractAddress: string,
         contractBytecode: Buffer,

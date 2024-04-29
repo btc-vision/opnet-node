@@ -157,6 +157,20 @@ export class VMMongoStorage extends VMStorage {
         await this.transactionRepository.saveTransaction(transaction, this.currentSession);
     }
 
+    public async saveTransactions(
+        transactions: ITransactionDocument<OPNetTransactionTypes>[],
+    ): Promise<void> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        if (!this.currentSession) {
+            throw new Error('Session not started');
+        }
+
+        await this.transactionRepository.saveTransactions(transactions, this.currentSession);
+    }
+
     public async setStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,

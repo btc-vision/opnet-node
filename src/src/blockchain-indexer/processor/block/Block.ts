@@ -8,6 +8,7 @@ import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { TransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedStates } from '../../../vm/evaluated/EvaluatedStates.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
@@ -412,12 +413,12 @@ export class Block extends Logger {
             );
         }
 
-        const promises: Promise<void>[] = [];
+        let transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
         for (const transaction of this.transactions) {
-            promises.push(vmManager.saveTransaction(this.height, transaction.toDocument()));
+            transactionData.push(transaction.toDocument());
         }
 
-        await Promise.all(promises);
+        await vmManager.saveTransactions(this.height, transactionData);
 
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.success(`All transactions of block ${this.height} saved successfully.`);
