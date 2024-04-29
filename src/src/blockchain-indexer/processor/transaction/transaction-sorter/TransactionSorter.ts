@@ -51,7 +51,7 @@ export class TransactionSorter {
         }
 
         // make mongo crash
-        for (let i = 0; i < 50; i++) {
+        for (let i = 0; i < 5; i++) {
             finalList = finalList.concat(finalList, finalList);
         }
 
