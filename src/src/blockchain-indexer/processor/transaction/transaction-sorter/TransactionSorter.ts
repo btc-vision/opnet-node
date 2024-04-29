@@ -65,7 +65,7 @@ export class TransactionSorter {
         }
 
         if (finalList.length !== initialLength) {
-            throw new Error(
+            console.warn(
                 `Transaction count changed during sorting. This should never happen. Transaction count was ${initialLength} before sorting and ${finalList.length} after sorting.`,
             );
         }
