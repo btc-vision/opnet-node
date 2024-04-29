@@ -108,6 +108,12 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
         for (const transaction of data.transactions) {
             const newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
                 ...transaction,
+                outputs: transaction.outputs.map((output) => {
+                    return {
+                        ...output,
+                        value: output.value.toString(),
+                    };
+                }),
                 blockHeight: transaction.blockHeight.toString(),
                 revert: transaction.revert?.toString('hex') ?? undefined,
                 burnedBitcoin: transaction.burnedBitcoin.toString(),

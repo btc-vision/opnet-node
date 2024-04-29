@@ -2,8 +2,14 @@ import { NetEvent } from '@btc-vision/bsi-binary';
 import { IBaseDocument } from '@btc-vision/bsi-common';
 import { Binary, Decimal128 } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { TransactionInput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
-import { ITransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import {
+    APIDocumentInput,
+    TransactionInput,
+} from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
+import {
+    APIDocumentOutput,
+    ITransactionOutput,
+} from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 
 export interface TransactionDocumentBase<T extends OPNetTransactionTypes> {
     readonly id: string;
@@ -15,8 +21,8 @@ export interface TransactionDocumentBase<T extends OPNetTransactionTypes> {
     readonly burnedBitcoin: Decimal128 | string;
     readonly revert: Binary | undefined | string;
 
-    readonly inputs: TransactionInput[];
-    readonly outputs: ITransactionOutput[];
+    readonly inputs: TransactionInput[] | APIDocumentInput[];
+    readonly outputs: ITransactionOutput[] | APIDocumentOutput[];
 
     readonly OPNetType: T;
 }

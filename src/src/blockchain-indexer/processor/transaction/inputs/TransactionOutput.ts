@@ -4,14 +4,22 @@ import BigNumber from 'bignumber.js';
 import { script } from 'bitcoinjs-lib';
 import { Decimal128 } from 'mongodb';
 
-export interface ITransactionOutput {
-    readonly value: Decimal128;
+export interface ITransactionOutputBase {
+    readonly value: Decimal128 | string;
     readonly index: number;
     readonly scriptPubKey: {
         hex: string;
         addresses?: string[];
         address?: string;
     };
+}
+
+export interface ITransactionOutput extends ITransactionOutputBase {
+    readonly value: Decimal128;
+}
+
+export interface APIDocumentOutput extends ITransactionOutputBase {
+    readonly value: string;
 }
 
 export class TransactionOutput {
