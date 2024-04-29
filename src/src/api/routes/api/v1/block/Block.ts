@@ -164,6 +164,8 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
                 burnedBitcoin: transaction.burnedBitcoin.toString(),
                 _id: undefined,
                 blockHeight: undefined,
+                deployedTransactionHash: undefined,
+                deployedTransactionId: undefined,
             };
 
             delete newTx._id;
@@ -175,15 +177,20 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
 
                 const contractData = await this.getContractData(
                     txDeployment.contractAddress,
-                    BigInt(data.block.height),
+                    BigInt(data.block.height) + 1n,
                 );
                 if (contractData) {
                     newTx = {
                         ...newTx,
                         ...contractData,
+                        deployedTransactionHash: undefined,
+                        deployedTransactionId: undefined,
                     };
                 }
             }
+
+            delete newTx.deployedTransactionId;
+            delete newTx.deployedTransactionHash;
 
             transactions.push(newTx);
         }

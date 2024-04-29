@@ -11,6 +11,8 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     readonly revert: string | undefined;
 
     blockHeight: undefined;
+    deployedTransactionHash: undefined;
+    deployedTransactionId: undefined;
 
     _id: undefined;
 }
