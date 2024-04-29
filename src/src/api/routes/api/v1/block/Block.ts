@@ -172,9 +172,9 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
                         ...contractData,
                     };
                 }
-
-                transactions.push(newTx);
             }
+
+            transactions.push(newTx);
         }
 
         return {
