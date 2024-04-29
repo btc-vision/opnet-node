@@ -575,6 +575,11 @@ export class VMManager extends Logger {
         /** Nothing to save. */
         if (!stateChanges) return;
 
+        let storageToUpdate: Map<
+            BitcoinAddress,
+            Map<StoragePointer, [MemoryValue, string[]]>
+        > = new Map();
+
         for (const [address, val] of stateChanges.entries()) {
             for (const [key, value] of val.entries()) {
                 if (value[0] === undefined || value[0] === null) {
@@ -586,14 +591,25 @@ export class VMManager extends Logger {
                 const pointer: StoragePointer = BufferHelper.pointerToUint8Array(key);
                 const data: MemoryValue = BufferHelper.valueToUint8Array(value[0]);
 
-                await this.vmStorage.setStorage(
+                /*await this.vmStorage.setStorage(
                     address,
                     pointer,
                     data,
                     value[1],
                     this.vmBitcoinBlock.height,
-                );
+                );*/
+
+                const storage = storageToUpdate.get(address) || new Map();
+                if (!storageToUpdate.has(address)) {
+                    storageToUpdate.set(address, storage);
+                }
+
+                storage.set(pointer, [data, value[1]]);
             }
+        }
+
+        if (storageToUpdate.size) {
+            await this.vmStorage.setStoragePointers(storageToUpdate, this.vmBitcoinBlock.height);
         }
     }
 

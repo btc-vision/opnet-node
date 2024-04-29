@@ -196,6 +196,21 @@ export class VMMongoStorage extends VMStorage {
         );
     }
 
+    public async setStoragePointers(
+        storage: Map<BitcoinAddress, Map<StoragePointer, [MemoryValue, string[]]>>,
+        lastSeenAt: bigint,
+    ): Promise<void> {
+        if (!this.pointerRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        if (!this.currentSession) {
+            throw new Error('Session not started');
+        }
+
+        await this.pointerRepository.setStoragePointers(storage, lastSeenAt, this.currentSession);
+    }
+
     public async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');

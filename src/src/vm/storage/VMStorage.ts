@@ -32,6 +32,11 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         lastSeenAt: bigint,
     ): Promise<void>;
 
+    public abstract setStoragePointers(
+        storage: Map<BitcoinAddress, Map<StoragePointer, [MemoryValue, string[]]>>,
+        lastSeenAt: bigint,
+    ): Promise<void>;
+
     public abstract hasContractAt(address: BitcoinAddress): Promise<boolean>;
 
     public abstract getContractAt(
