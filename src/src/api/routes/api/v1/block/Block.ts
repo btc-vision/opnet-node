@@ -11,8 +11,10 @@ import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { Route } from '../../../Route.js';
 
 export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransactions | undefined> {
-    private cachedBlocks: Map<bigint | -1, BlockHeaderAPIDocumentWithTransactions> = new Map();
+    private cachedBlocks: Map<bigint, BlockHeaderAPIDocumentWithTransactions> = new Map();
     private maxCacheSize: number = 100;
+
+    private currentBlockData: BlockHeaderAPIDocumentWithTransactions | undefined;
 
     constructor() {
         super(Routes.BLOCK, RouteType.GET);
@@ -22,6 +24,10 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
         setInterval(() => {
             this.purgeCache();
         }, 60000);
+
+        setInterval(() => {
+            this.currentBlockData = undefined;
+        }, 1000);
     }
 
     /**
@@ -57,7 +63,7 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
     protected async getData(
         height: bigint | -1 = -1,
     ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
-        const cachedData = this.cachedBlocks.get(height);
+        const cachedData = this.getCachedData(height);
         if (cachedData) return cachedData;
 
         if (!this.storage) {
@@ -68,16 +74,25 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
         if (!transactions) return undefined;
 
         const data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
-        this.setToCache(height, data);
+        if (height !== -1) this.setToCache(height, data);
+        else this.currentBlockData = data;
 
         return data;
+    }
+
+    private getCachedData(height: bigint | -1): BlockHeaderAPIDocumentWithTransactions | undefined {
+        if (height === -1) {
+            return this.currentBlockData;
+        }
+
+        return this.cachedBlocks.get(height);
     }
 
     private purgeCache() {
         this.cachedBlocks.clear();
     }
 
-    private setToCache(height: bigint | -1, data: BlockHeaderAPIDocumentWithTransactions) {
+    private setToCache(height: bigint, data: BlockHeaderAPIDocumentWithTransactions) {
         if (this.cachedBlocks.size >= this.maxCacheSize) {
             this.purgeCache();
         }
