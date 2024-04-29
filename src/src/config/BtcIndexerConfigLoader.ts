@@ -144,14 +144,14 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
-                parsedConfig.OP_NET.TRANSACTIONS_THREADS === undefined ||
+                parsedConfig.OP_NET.TRANSACTIONS_THREADS !== undefined &&
                 typeof parsedConfig.OP_NET.TRANSACTIONS_THREADS !== 'number'
             ) {
                 throw new Error(`Oops the property OP_NET.TRANSACTIONS_THREADS is not a number.`);
             }
 
             if (
-                parsedConfig.OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT === undefined ||
+                parsedConfig.OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT !== undefined &&
                 typeof parsedConfig.OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT !== 'number'
             ) {
                 throw new Error(
