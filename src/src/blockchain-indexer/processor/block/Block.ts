@@ -204,8 +204,6 @@ export class Block extends Logger {
             );
         }
 
-        console.log(`This block have ${this.transactions.length} transactions before sorting`);
-
         // Then, we can sort the transactions by their priority
         this.transactions = this.transactionSorter.sortTransactions(this.transactions);
 
