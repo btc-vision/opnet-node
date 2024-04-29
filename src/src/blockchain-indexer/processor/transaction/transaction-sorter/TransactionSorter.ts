@@ -14,7 +14,7 @@ export class TransactionSorter {
     ): Transaction<OPNetTransactionTypes>[] {
         const initialLength = transactions.length;
 
-        // Build dependency groups
+        // Filter block rewards and non-block rewards
         const blockRewards = transactions.filter((t) =>
             t.inputs.some((input) => input.originalTransactionId === undefined),
         );
@@ -23,118 +23,76 @@ export class TransactionSorter {
             t.inputs.every((input) => input.originalTransactionId !== undefined),
         );
 
+        // Initialize the final list with block rewards since they have no dependencies
+        const finalList: Transaction<OPNetTransactionTypes>[] = [...blockRewards];
+
         // Build dependency groups for non-block rewards
-        const groups: Transaction<OPNetTransactionTypes>[][] = [];
-        const visited = new Set<string>();
+        const groups: Transaction<OPNetTransactionTypes>[][] = this.buildGroups(nonBlockRewards);
 
-        for (const transaction of nonBlockRewards) {
-            if (!visited.has(transaction.transactionId)) {
-                const group = [];
-                let currentTransaction = transaction;
-                let dependencies = this.findDependencies(
-                    nonBlockRewards,
-                    currentTransaction.transactionId,
-                );
-
-                while (dependencies.length > 0) {
-                    group.push(currentTransaction);
-                    visited.add(currentTransaction.transactionId);
-                    currentTransaction = dependencies.pop()!;
-                    dependencies = this.findDependencies(
-                        nonBlockRewards,
-                        currentTransaction.transactionId,
-                    );
-                }
-
-                group.push(currentTransaction);
-                visited.add(currentTransaction.transactionId);
-                groups.push(group);
-            }
-        }
-
-        // Sort groups by total burned fee
+        // Sort groups by total burned fee and flatten into the final list
         const sortedGroups = this.sortGroupsByBurnedFees(groups);
-        const finalSortedGroups = sortedGroups.map((group) =>
-            this.sortTransactionsWithinGroup(group),
-        );
+        for (let i = 0; i < sortedGroups.length; i++) {
+            const group = sortedGroups[i];
+            //const totalGroupBurnedFee = this.calculateTotalBurnedFees(group);
 
-        // We set the index of each transaction in the final list
-        const finalList = blockRewards.concat(finalSortedGroups.flat());
-        for (let i = 0; i < finalList.length; i++) {
-            finalList[i].index = i;
+            //console.log(`Group ${i} has total burned fee: ${totalGroupBurnedFee}`);
+            this.sortTransactionsWithinGroup(group, finalList);
         }
+
+        // Ensure the index of each transaction in the final list
+        finalList.forEach((tx, index) => {
+            tx.index = index;
+        });
 
         if (finalList.length !== initialLength) {
             throw new Error(
-                `Transaction count changed during sorting. This should never happen. Transaction count was ${initialLength} before sorting and ${finalList.length} after sorting.`,
+                `Transaction count changed during sorting. Expected ${initialLength}, got ${finalList.length}.`,
             );
         }
 
         return finalList;
     }
 
-    private sortTransactionsWithinGroup(
-        group: Transaction<OPNetTransactionTypes>[],
-    ): Transaction<OPNetTransactionTypes>[] {
-        const txMap = new Map<string, Transaction<OPNetTransactionTypes>>();
-
-        // Map each transaction by its ID for quick access
-        group.forEach((tx) => txMap.set(tx.transactionId, tx));
-
-        const sortedTransactions: Transaction<OPNetTransactionTypes>[] = [];
+    private buildGroups(
+        transactions: Transaction<OPNetTransactionTypes>[],
+    ): Transaction<OPNetTransactionTypes>[][] {
+        const groups: Transaction<OPNetTransactionTypes>[][] = [];
         const visited = new Set<string>();
 
-        // Ensure all transactions maintain the correct order based on dependencies
-        group.forEach((tx) => {
+        transactions.forEach((tx) => {
             if (!visited.has(tx.transactionId)) {
-                this.resolveDependencies(tx, txMap, sortedTransactions, visited);
+                const group: Transaction<OPNetTransactionTypes>[] = [];
+                this.collectGroup(tx, transactions, group, visited);
+                groups.push(group);
             }
         });
 
-        return sortedTransactions;
+        return groups;
     }
 
-    private resolveDependencies(
+    private collectGroup(
         tx: Transaction<OPNetTransactionTypes>,
-        txMap: Map<string, Transaction<OPNetTransactionTypes>>,
-        sortedTransactions: Transaction<OPNetTransactionTypes>[],
+        allTransactions: Transaction<OPNetTransactionTypes>[],
+        group: Transaction<OPNetTransactionTypes>[],
         visited: Set<string>,
     ): void {
+        if (visited.has(tx.transactionId)) return;
+
         visited.add(tx.transactionId);
+        group.push(tx);
+        const dependencies = this.findDependencies(allTransactions, tx.transactionId);
+        dependencies.forEach((dep) => this.collectGroup(dep, allTransactions, group, visited));
+    }
 
-        // Recursively resolve dependencies for each input
-        tx.inputs.forEach((input) => {
-            if (input.originalTransactionId === undefined) return;
-
-            const hasMap = txMap.get(input.originalTransactionId);
-            if (hasMap && !visited.has(input.originalTransactionId)) {
-                this.resolveDependencies(hasMap, txMap, sortedTransactions, visited);
+    private sortTransactionsWithinGroup(
+        group: Transaction<OPNetTransactionTypes>[],
+        finalList: Transaction<OPNetTransactionTypes>[],
+    ): void {
+        group.forEach((tx) => {
+            if (!finalList.includes(tx)) {
+                finalList.push(tx);
             }
         });
-
-        // Add the transaction to the sorted list
-        sortedTransactions.push(tx);
-    }
-
-    private concatenateHashes(group: Transaction<OPNetTransactionTypes>[]): Buffer {
-        // Concatenate all computedIndexingHash buffers of a group into a single buffer
-        return Buffer.concat(group.map((tx) => tx.computedIndexingHash));
-    }
-
-    private compareHashLists(
-        a: Transaction<OPNetTransactionTypes>[],
-        b: Transaction<OPNetTransactionTypes>[],
-    ): number {
-        // Concatenate hashes for both groups
-        const concatHashA = this.concatenateHashes(a);
-        const concatHashB = this.concatenateHashes(b);
-
-        // Compare the concatenated hashes
-        return Buffer.compare(concatHashA, concatHashB);
-    }
-
-    private calculateTotalBurnedFees(group: Transaction<OPNetTransactionTypes>[]): bigint {
-        return group.reduce((acc, transaction) => acc + transaction.burnedFee, 0n);
     }
 
     private findDependencies(
@@ -152,6 +110,7 @@ export class TransactionSorter {
         return groups.sort((a, b) => {
             const totalA = this.calculateTotalBurnedFees(a);
             const totalB = this.calculateTotalBurnedFees(b);
+
             if (totalA < totalB) {
                 return 1; // For descending order, return 1 if A is less than B
             } else if (totalA > totalB) {
@@ -160,5 +119,22 @@ export class TransactionSorter {
                 return this.compareHashLists(a, b);
             }
         });
+    }
+
+    private calculateTotalBurnedFees(group: Transaction<OPNetTransactionTypes>[]): bigint {
+        return group.reduce((acc, tx) => acc + tx.burnedFee, 0n);
+    }
+
+    private compareHashLists(
+        a: Transaction<OPNetTransactionTypes>[],
+        b: Transaction<OPNetTransactionTypes>[],
+    ): number {
+        const concatHashA = this.concatenateHashes(a);
+        const concatHashB = this.concatenateHashes(b);
+        return Buffer.compare(concatHashA, concatHashB);
+    }
+
+    private concatenateHashes(group: Transaction<OPNetTransactionTypes>[]): Buffer {
+        return Buffer.concat(group.map((tx) => tx.computedIndexingHash));
     }
 }
