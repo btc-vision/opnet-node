@@ -5,13 +5,13 @@ info:
   version: '1.0.0'
 servers:
   production:
-    url: wss://opnet.io/api/v1/ws
+    url: wss://opnet.org/api/v1/ws
     protocol: wss
     description: This is the official OpNet Live Websocket Server
     security:
       - apiKey: [ ]
   testnet:
-    url: wss://testnet.opnet.io/api/v1/ws
+    url: wss://testnet.opnet.org/api/v1/ws
     protocol: wss
     description: This is the official OpNet Testnet Live Websocket Server
     security:

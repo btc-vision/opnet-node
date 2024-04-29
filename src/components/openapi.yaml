@@ -22,7 +22,7 @@ components:
 servers:
   - url: http://localhost:9001
     description: Sandbox server
-  - url: https://testnet.opnet.io
-    description: MotoSwap Testnet Server
-  - url: https://prod.opnet.io
+  - url: https://api.btcsc.io
+    description: OpNet Testnet Server
+  - url: https://api.opnet.org
     description: OpNet Prod Server
