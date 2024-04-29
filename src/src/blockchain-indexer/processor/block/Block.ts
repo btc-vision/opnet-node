@@ -406,12 +406,22 @@ export class Block extends Logger {
     }
 
     private async saveTransactions(vmManager: VMManager): Promise<void> {
+        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+            this.debug(
+                `Block ${this.height} signed successfully. Checksum root: ${this.checksumRoot}. Saving ${this.transactions.length} transactions.`,
+            );
+        }
+
         const promises: Promise<void>[] = [];
         for (const transaction of this.transactions) {
             promises.push(vmManager.saveTransaction(this.height, transaction.toDocument()));
         }
 
         await Promise.all(promises);
+
+        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+            this.success(`All transactions of block ${this.height} saved successfully.`);
+        }
     }
 
     private async revertBlock(vmManager: VMManager): Promise<void> {

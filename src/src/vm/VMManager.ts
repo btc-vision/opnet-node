@@ -70,6 +70,10 @@ export class VMManager extends Logger {
     }
 
     public async prepareBlock(blockId: bigint): Promise<void> {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.debug(`Preparing block ${blockId}...`);
+        }
+
         this.clear();
 
         await this.vmBitcoinBlock.prepare(blockId);
@@ -79,11 +83,19 @@ export class VMManager extends Logger {
     }
 
     public async revertBlock(): Promise<void> {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.debug(`Reverting block ${this.vmBitcoinBlock.height}...`);
+        }
+
         await this.vmBitcoinBlock.revert();
         this.clear();
     }
 
     public async terminateBlock(block?: Block): Promise<void> {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.debug(`Terminating block ${this.vmBitcoinBlock.height}...`);
+        }
+
         // TODO: Save block data
         try {
             if (block !== undefined) {
@@ -502,6 +514,10 @@ export class VMManager extends Logger {
     }
 
     private async saveBlock(block: Block): Promise<void> {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.debug(`Saving block ${block.height}...`);
+        }
+
         if (block.height !== this.vmBitcoinBlock.height) {
             throw new Error('Block height mismatch');
         }

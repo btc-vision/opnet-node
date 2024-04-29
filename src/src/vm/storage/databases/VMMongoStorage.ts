@@ -1,9 +1,10 @@
 import { BufferHelper } from '@btc-vision/bsi-binary';
-import { ConfigurableDBManager } from '@btc-vision/bsi-common';
+import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession } from 'mongodb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { Config } from '../../../config/Config.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { BlockRootStates } from '../../../db/interfaces/BlockRootStates.js';
 import { BlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
@@ -45,10 +46,18 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async close(): Promise<void> {
+        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+            this.debug('Closing database');
+        }
+
         await this.databaseManager.close();
     }
 
     public async prepareNewBlock(): Promise<void> {
+        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+            this.debug('Preparing new block');
+        }
+
         if (this.currentSession) {
             throw new Error('Session already started');
         }
@@ -58,6 +67,10 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async terminateBlock(): Promise<void> {
+        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+            this.debug('Terminating block');
+        }
+
         if (!this.currentSession) {
             throw new Error('Session not started');
         }
@@ -68,6 +81,10 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async revertChanges(): Promise<void> {
+        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+            this.debug('Reverting changes');
+        }
+
         if (!this.currentSession) {
             throw new Error('Session not started');
         }
@@ -237,6 +254,10 @@ export class VMMongoStorage extends VMStorage {
     private async terminateSession(): Promise<void> {
         if (!this.currentSession) {
             throw new Error('Session not started');
+        }
+
+        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+            this.debug('Terminating session');
         }
 
         await this.currentSession.endSession();
