@@ -41,7 +41,7 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
      * GET /api/v1/block
      * @tag OpNet
      * @summary Get a block and its transactions by height.
-     * @queryParam {number} [height] - The height of the block to fetch.
+     * @queryParam {integer} [height] - The height of the block to fetch.
      * @description Get the requested block and its transactions.
      * @response 200 - Return the requested block and its transactions.
      * @response 400 - Something went wrong.
