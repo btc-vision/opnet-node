@@ -494,13 +494,14 @@ export class VMManager extends Logger {
 
     private async getContractInformation(
         contractAddress: BitcoinAddress,
+        height: bigint = this.vmBitcoinBlock.height,
     ): Promise<ContractInformation | undefined> {
         if (this.contractCache.has(contractAddress)) {
             return this.contractCache.get(contractAddress);
         }
 
         const contractInformation: ContractInformation | undefined =
-            await this.vmStorage.getContractAt(contractAddress);
+            await this.vmStorage.getContractAt(contractAddress, height);
 
         if (contractInformation) {
             this.contractCache.set(contractAddress, contractInformation);

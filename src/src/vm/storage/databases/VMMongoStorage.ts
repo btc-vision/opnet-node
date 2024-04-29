@@ -291,12 +291,13 @@ export class VMMongoStorage extends VMStorage {
 
     public async getContractAt(
         contractAddress: BitcoinAddress,
+        height: bigint,
     ): Promise<ContractInformation | undefined> {
         if (!this.contractRepository) {
             throw new Error('Repository not initialized');
         }
 
-        return await this.contractRepository.getContract(contractAddress, this.currentSession);
+        return await this.contractRepository.getContract(contractAddress, height, this.currentSession);
     }
 
     public async saveBlockHeader(blockHeader: BlockHeaderBlockDocument): Promise<void> {

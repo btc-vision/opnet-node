@@ -45,6 +45,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
 
     public abstract getContractAt(
         address: BitcoinAddress,
+        height: bigint,
     ): Promise<ContractInformation | undefined>;
 
     public abstract saveTransaction(

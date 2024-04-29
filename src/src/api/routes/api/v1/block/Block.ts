@@ -1,6 +1,7 @@
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Binary } from 'mongodb';
 import { ContractInformation } from '../../../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
@@ -108,13 +109,16 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
 
     private async getContractData(
         contractAddress: string,
+        height: bigint,
     ): Promise<IContractAPIDocument | undefined> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
 
-        const transactions: ContractInformation | undefined =
-            await this.storage.getContractAt(contractAddress);
+        const transactions: ContractInformation | undefined = await this.storage.getContractAt(
+            contractAddress,
+            height,
+        );
 
         if (!transactions) return undefined;
 
@@ -144,6 +148,10 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
         const transactions: TransactionDocumentForAPI<OPNetTransactionTypes>[] = [];
 
         for (const transaction of data.transactions) {
+            const revert = transaction.revert
+                ? Binary.createFromHexString(transaction.revert.toString('hex'))
+                : undefined;
+
             let newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
                 ...transaction,
                 outputs: transaction.outputs.map((output) => {
@@ -152,7 +160,7 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
                         value: output.value.toString(),
                     };
                 }),
-                revert: transaction.revert?.toString('hex') ?? undefined,
+                revert: revert?.toString('base64'),
                 burnedBitcoin: transaction.burnedBitcoin.toString(),
                 _id: undefined,
                 blockHeight: undefined,
@@ -165,7 +173,10 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
                 const txDeployment =
                     newTx as unknown as TransactionDocument<OPNetTransactionTypes> as DeploymentTransactionDocument;
 
-                const contractData = await this.getContractData(txDeployment.contractAddress);
+                const contractData = await this.getContractData(
+                    txDeployment.contractAddress,
+                    BigInt(data.block.height),
+                );
                 if (contractData) {
                     newTx = {
                         ...newTx,

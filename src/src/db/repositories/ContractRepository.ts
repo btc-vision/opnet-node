@@ -1,4 +1,5 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
+import { DataConverter } from '@btc-vision/bsi-db';
 import { ClientSession, Collection, Db, Filter, FindOptions } from 'mongodb';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
@@ -23,9 +24,16 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
 
     public async getContract(
         contractAddress: string,
+        height: bigint,
         currentSession?: ClientSession | undefined,
     ): Promise<ContractInformation | undefined> {
-        const contract = await this.queryOne({ contractAddress }, currentSession);
+        const contract = await this.queryOne(
+            {
+                contractAddress,
+                blockHeight: { $lt: DataConverter.toDecimal128(height) },
+            },
+            currentSession,
+        );
         if (!contract) {
             return;
         }
