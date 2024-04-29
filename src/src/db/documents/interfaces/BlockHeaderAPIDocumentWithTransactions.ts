@@ -11,6 +11,8 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     readonly burnedBitcoin: string;
 
     readonly revert: string | undefined;
+
+    _id: undefined;
 }
 
 export interface BlockHeaderAPIDocumentWithTransactions extends BlockHeaderAPIBlockDocument {

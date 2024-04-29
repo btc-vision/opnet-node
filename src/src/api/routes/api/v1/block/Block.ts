@@ -117,7 +117,10 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
                 blockHeight: transaction.blockHeight.toString(),
                 revert: transaction.revert?.toString('hex') ?? undefined,
                 burnedBitcoin: transaction.burnedBitcoin.toString(),
+                _id: undefined,
             };
+
+            delete newTx._id;
 
             transactions.push(newTx);
         }
