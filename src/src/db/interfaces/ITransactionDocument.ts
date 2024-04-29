@@ -17,7 +17,7 @@ export interface TransactionDocumentBase<T extends OPNetTransactionTypes> {
 
     readonly index: number; // Mark the order of the transaction in the block
 
-    readonly blockHeight: Decimal128 | string;
+    readonly blockHeight: Decimal128 | string | undefined;
     readonly burnedBitcoin: Decimal128 | string;
     readonly revert: Binary | undefined | string;
 

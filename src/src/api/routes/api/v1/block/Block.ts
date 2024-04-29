@@ -114,13 +114,14 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
                         value: output.value.toString(),
                     };
                 }),
-                blockHeight: transaction.blockHeight.toString(),
                 revert: transaction.revert?.toString('hex') ?? undefined,
                 burnedBitcoin: transaction.burnedBitcoin.toString(),
                 _id: undefined,
+                blockHeight: undefined,
             };
 
             delete newTx._id;
+            delete newTx.blockHeight;
 
             transactions.push(newTx);
         }

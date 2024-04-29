@@ -7,10 +7,10 @@ import {
 
 export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     extends TransactionDocumentBase<T> {
-    readonly blockHeight: string;
     readonly burnedBitcoin: string;
-
     readonly revert: string | undefined;
+
+    blockHeight: undefined;
 
     _id: undefined;
 }
