@@ -24,7 +24,7 @@ export class TransactionSorter {
         );
 
         // Initialize the final list with block rewards since they have no dependencies
-        let finalList: Transaction<OPNetTransactionTypes>[] = [...blockRewards];
+        const finalList: Transaction<OPNetTransactionTypes>[] = [...blockRewards];
 
         // Build dependency groups for non-block rewards
         const groups: Transaction<OPNetTransactionTypes>[][] = this.buildGroups(nonBlockRewards);
