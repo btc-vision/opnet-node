@@ -28,6 +28,8 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         height?: bigint,
     ): Promise<ProvenMemoryValue | null>;
 
+    public abstract terminate(): Promise<void>;
+
     public abstract setStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,

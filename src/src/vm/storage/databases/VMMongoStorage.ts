@@ -57,6 +57,18 @@ export class VMMongoStorage extends VMStorage {
         this.databaseManager = new ConfigurableDBManager(this.config);
     }
 
+    public async terminate(): Promise<void> {
+        for (let action of this.writeTransactions.values()) {
+            await Promise.all(action);
+        }
+
+        for (let session of this.waitingCommits.values()) {
+            await session;
+        }
+
+        await this.updateBlockHeight();
+    }
+
     public async init(): Promise<void> {
         await this.connectDatabase();
 
@@ -533,7 +545,7 @@ export class VMMongoStorage extends VMStorage {
             await this.updateBlockHeight();
 
             this.startCache();
-        }, 1000);
+        }, 2000);
     }
 
     private async updateBlockHeight(): Promise<void> {

@@ -27,6 +27,7 @@ export class BlockchainIndexer extends Logger {
         new Map();
 
     private fatalFailure: boolean = false;
+    private currentBlockInProcess: Promise<void> | undefined;
 
     constructor() {
         super();
@@ -46,6 +47,8 @@ export class BlockchainIndexer extends Logger {
             default:
                 throw new Error(`Invalid network ${this.network}`);
         }
+
+        this.listenEvents();
     }
 
     private _blockchainInfoRepository: BlockchainInformationRepository | undefined;
@@ -71,6 +74,40 @@ export class BlockchainIndexer extends Logger {
         await this.safeProcessBlocks();
     }
 
+    private listenEvents(): void {
+        let called = false;
+        process.on('SIGINT', async () => {
+            if (!called) {
+                called = true;
+                await this.terminateAllActions();
+            }
+        });
+
+        process.on('SIGQUIT', async () => {
+            if (!called) {
+                called = true;
+                await this.terminateAllActions();
+            }
+        });
+
+        process.on('SIGTERM', async () => {
+            if (!called) {
+                called = true;
+                await this.terminateAllActions();
+            }
+        });
+    }
+
+    private async terminateAllActions(): Promise<void> {
+        this.info('Terminating all actions...');
+        this.fatalFailure = true;
+
+        await this.currentBlockInProcess;
+        await this.vmManager.terminate();
+
+        process.exit(0);
+    }
+
     private async safeProcessBlocks(): Promise<void> {
         if (this.fatalFailure) {
             this.panic('Fatal failure detected, exiting...');
@@ -78,7 +115,9 @@ export class BlockchainIndexer extends Logger {
         }
 
         try {
-            await this.processBlocks();
+            this.currentBlockInProcess = this.processBlocks();
+
+            await this.currentBlockInProcess;
         } catch (e) {
             this.panic(`Error processing blocks: ${e}`);
         }

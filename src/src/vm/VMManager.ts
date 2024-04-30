@@ -66,6 +66,10 @@ export class VMManager extends Logger {
         await this.vmStorage.init();
     }
 
+    public async terminate(): Promise<void> {
+        await this.vmStorage.terminate();
+    }
+
     public async closeDatabase(): Promise<void> {
         await this.vmStorage.close();
         this.clear();
