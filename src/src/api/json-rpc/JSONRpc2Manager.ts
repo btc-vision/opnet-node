@@ -58,6 +58,7 @@ export class JSONRpc2Manager extends Logger {
 
             const method: JSONRpcMethods = requestData.method as JSONRpcMethods;
             const result = await this.router.requestResponse(method, params);
+
             if (typeof result === 'undefined') {
                 this.sendInternalError(res);
                 return;

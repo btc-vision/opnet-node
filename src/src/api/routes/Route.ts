@@ -46,7 +46,7 @@ export abstract class Route<
     public abstract getData(params: JSONRpc2RequestParams<R>): Promise<U> | U;
 
     public getDataRPC(
-        params: JSONRpc2RequestParams<R>,
+        _params: JSONRpc2RequestParams<R>,
     ): Promise<JSONRpc2ResultData<R> | undefined> | JSONRpc2ResultData<R> | undefined {
         throw new Error('Method not implemented.');
     }

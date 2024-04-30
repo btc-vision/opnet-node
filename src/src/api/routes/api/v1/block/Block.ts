@@ -58,8 +58,8 @@ export class Block extends Route<
     }
 
     public async getDataRPC(params: BlockByIdParams): Promise<BlockByIdResult | undefined> {
-        const data = this.getData(params);
-        if (!data) throw `Block not found at given height.`;
+        const data = await this.getData(params);
+        if (!data) throw new Error(`Block not found at given height.`);
 
         return data;
     }

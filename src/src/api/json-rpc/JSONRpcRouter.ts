@@ -36,10 +36,8 @@ export class JSONRpcRouter {
         }
 
         try {
-            const result = (await route.getData(params)) as
-                | JSONRpc2ResultData<T>
-                | undefined
-                | null;
+            const result = await route.getDataRPC(params);
+            console.log(result);
 
             return {
                 result: result ?? null,
@@ -48,7 +46,7 @@ export class JSONRpcRouter {
             const error = err as Error;
             const errorResult: JSONRpcResultError<T> = {
                 code: JSONRPCErrorCode.APPLICATION_ERROR,
-                message: error.message,
+                message: typeof err === 'string' ? err : error.message,
             };
 
             return {
