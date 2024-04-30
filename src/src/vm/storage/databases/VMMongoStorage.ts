@@ -27,12 +27,16 @@ export class VMMongoStorage extends VMStorage {
     private currentSession: ClientSession | undefined;
     private transactionSession: ClientSession | undefined;
 
+    private waitingTransactionSessions: ClientSession[] = [];
+    private waitingCommits: Map<ClientSession, Promise<void>> = new Map();
+
     private pointerRepository: ContractPointerValueRepository | undefined;
     private contractRepository: ContractRepository | undefined;
     private blockRepository: BlockRepository | undefined;
     private transactionRepository: TransactionRepository | undefined;
 
     private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
+    private maxTransactionSessions: number = 10;
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
@@ -122,14 +126,15 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session already started');
         }
 
-        if (this.transactionSession) {
-            throw new Error('Transaction session already started');
-        }
-
-        const sessions = [this.databaseManager.startSession(), this.databaseManager.startSession()];
+        const sessions: Promise<ClientSession>[] = [
+            this.databaseManager.startSession(),
+            this.databaseManager.startSession(),
+        ];
 
         this.currentSession = await sessions[0];
         this.transactionSession = await sessions[1];
+
+        await this.pushTransactionSession(this.transactionSession);
 
         this.currentSession.startTransaction();
         this.transactionSession.startTransaction();
@@ -148,10 +153,15 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction session not started');
         }
 
-        const commitPromises: Promise<void>[] = [
-            this.currentSession.commitTransaction(),
-            this.transactionSession.commitTransaction(),
-        ];
+        const commitPromises: Promise<void>[] = [this.currentSession.commitTransaction()];
+
+        void this.commitTransactionSession(this.transactionSession).catch(async (error) => {
+            console.log(
+                `[REVERT 10 BLOCK NEEDED] SOMETHING WENT WRONG COMMITTING TRANSACTION: ${error}`,
+            );
+
+            await Promise.all([this.abortTransactionSession(), this.revertChanges]);
+        });
 
         await Promise.all(commitPromises);
 
@@ -363,6 +373,60 @@ export class VMMongoStorage extends VMStorage {
         return await this.blockRepository.getBlockHeader(height);
     }
 
+    private async abortTransactionSession(): Promise<void> {
+        for (const [_session, promise] of this.waitingCommits) {
+            await promise;
+        }
+
+        for (const session of this.waitingTransactionSessions) {
+            await session.abortTransaction();
+            await session.endSession();
+        }
+
+        this.waitingCommits.clear();
+        this.waitingTransactionSessions = [];
+    }
+
+    private async commitTransactionSession(session: ClientSession): Promise<void> {
+        const promise: Promise<void> = session.commitTransaction();
+        this.waitingCommits.set(session, promise);
+
+        await promise;
+        this.waitingCommits.delete(session);
+
+        await this.terminateTransactionSession(session);
+    }
+
+    private async pushTransactionSession(session: ClientSession): Promise<void> {
+        if (this.waitingTransactionSessions.length > this.maxTransactionSessions) {
+            const lastSession = this.waitingTransactionSessions.shift();
+            if (!lastSession) throw new Error('Session not found');
+
+            await this.terminateTransactionSession(lastSession);
+        }
+
+        this.waitingTransactionSessions.push(session);
+    }
+
+    private async terminateTransactionSession(session: ClientSession): Promise<void> {
+        // remove session from waiting list
+        const index = this.waitingTransactionSessions.indexOf(session);
+        if (index !== -1) {
+            this.waitingTransactionSessions.splice(index, 1);
+        }
+
+        this.log(
+            `Terminating transaction session. Currently ${this.waitingTransactionSessions.length} sessions.`,
+        );
+
+        const pendingCommit = this.waitingCommits.get(session);
+        if (pendingCommit) {
+            await pendingCommit;
+        }
+
+        await session.endSession();
+    }
+
     private startCache(): void {
         setInterval(() => {
             this.clearCache();
@@ -416,11 +480,7 @@ export class VMMongoStorage extends VMStorage {
             this.debug('Terminating session');
         }
 
-        const promiseTerminate: Promise<void>[] = [
-            this.currentSession.endSession(),
-            this.transactionSession.endSession(),
-        ];
-
+        const promiseTerminate: Promise<void>[] = [this.currentSession.endSession()];
         await Promise.all(promiseTerminate);
 
         this.currentSession = undefined;
