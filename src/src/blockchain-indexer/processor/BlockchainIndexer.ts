@@ -106,8 +106,20 @@ export class BlockchainIndexer extends Logger {
         let blockHeightInProgress = await this.getCurrentProcessBlockHeight(startBlockHeight);
         let chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
 
+        let nextBlockData: Promise<BlockDataWithTransactionData | null> | null = null;
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
-            const block = await this.getBlock(blockHeightInProgress);
+            /*if(blockHeightInProgress + 1 <= chainCurrentBlockHeight) {
+                nextBlockData = this.getBlock(blockHeightInProgress + 1);
+            }*/
+
+            const getBlockDataTimingStart = Date.now();
+            let block: BlockDataWithTransactionData | null;
+            /*if(nextBlockData) {
+                block = await nextBlockData;
+            } else {*/
+            block = await this.getBlock(blockHeightInProgress);
+            //}
+
             if (!block) {
                 throw new Error(`Error fetching block ${blockHeightInProgress}.`);
             }
@@ -122,7 +134,7 @@ export class BlockchainIndexer extends Logger {
             const processEndTime = Date.now();
             if (Config.DEBUG_LEVEL > DebugLevel.INFO) {
                 this.success(
-                    `Block ${blockHeightInProgress} processed successfully. Took ${processEndTime - processStartTime}ms. {Transactions: ${processed.header.nTx} | Time to execute transactions: ${processed.timeForTransactionExecution}ms | Time for state update: ${processed.timeForStateUpdate}ms | Time for block processing: ${processed.timeForBlockProcessing}ms}`,
+                    `Block ${blockHeightInProgress} processed successfully. Took ${processEndTime - processStartTime}ms. {Transactions: ${processed.header.nTx} | Time to fetch data: ${processStartTime - getBlockDataTimingStart}ms | Time to execute transactions: ${processed.timeForTransactionExecution}ms | Time for state update: ${processed.timeForStateUpdate}ms | Time for block processing: ${processed.timeForBlockProcessing}ms}`,
                 );
             }
 
