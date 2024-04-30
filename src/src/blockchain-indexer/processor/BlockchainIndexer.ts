@@ -113,8 +113,8 @@ export class BlockchainIndexer extends Logger {
             }
 
             const processStartTime = Date.now();
-            const processed: boolean = await this.processBlock(block);
-            if (!processed) {
+            const processed: Block | null = await this.processBlock(block);
+            if (processed === null) {
                 this.fatalFailure = true;
                 throw new Error(`Error processing block ${blockHeightInProgress}.`);
             }
@@ -122,7 +122,7 @@ export class BlockchainIndexer extends Logger {
             const processEndTime = Date.now();
             if (Config.DEBUG_LEVEL > DebugLevel.INFO) {
                 this.success(
-                    `Block ${blockHeightInProgress} processed successfully. Took ${processEndTime - processStartTime}ms.`,
+                    `Block ${blockHeightInProgress} processed successfully. Took ${processEndTime - processStartTime}ms. {Transactions: ${processed.header.nTx} | Time to execute transactions: ${processed.timeForTransactionExecution}ms | Time for state update: ${processed.timeForStateUpdate}ms | Time for block processing: ${processed.timeForBlockProcessing}ms}`,
                 );
             }
 
@@ -152,14 +152,17 @@ export class BlockchainIndexer extends Logger {
         await this.blockchainInfoRepository.updateCurrentBlockInProgress(this.network, blockHeight);
     }
 
-    private async processBlock(blockData: BlockDataWithTransactionData): Promise<boolean> {
+    private async processBlock(blockData: BlockDataWithTransactionData): Promise<Block | null> {
         const block: Block = new Block(blockData, this.bitcoinNetwork);
 
         // Deserialize the block.
         block.deserialize();
 
         // Execute the block and save the changes.
-        return await block.execute(this.vmManager);
+        const success = await block.execute(this.vmManager);
+
+        if (success) return block;
+        else return null;
     }
 
     private async getBlock(blockHeight: number): Promise<BlockDataWithTransactionData | null> {
