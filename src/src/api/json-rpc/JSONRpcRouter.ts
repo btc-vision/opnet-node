@@ -44,10 +44,11 @@ export class JSONRpcRouter {
             return {
                 result: result ?? null,
             };
-        } catch (error) {
+        } catch (err) {
+            const error = err as Error;
             const errorResult: JSONRpcResultError<T> = {
                 code: JSONRPCErrorCode.APPLICATION_ERROR,
-                message: `Something went wrong executing method ${method}`,
+                message: error.message,
             };
 
             return {

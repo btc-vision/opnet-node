@@ -32,7 +32,10 @@ export class HeapBlockRoute extends Route<
     }
 
     public async getDataRPC(params: BlockByIdParams): Promise<BlockHeadersByIdResult | undefined> {
-        return this.getData(params);
+        const data = this.getData(params);
+        if (!data) throw `Block not found at given height.`;
+
+        return data;
     }
 
     protected initialize(): void {}
