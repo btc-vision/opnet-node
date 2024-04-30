@@ -209,7 +209,7 @@ export class BlockchainIndexer extends Logger {
             const processEndTime = Date.now();
             if (Config.DEBUG_LEVEL > DebugLevel.INFO) {
                 this.info(
-                    `Block ${blockHeightInProgress} processed successfully. Took ${processEndTime - processStartTime}ms. {Transactions: ${processed.header.nTx} | Time to fetch data: ${processStartTime - getBlockDataTimingStart}ms | Time to execute transactions: ${processed.timeForTransactionExecution}ms | Time for state update: ${processed.timeForStateUpdate}ms | Time for block processing: ${processed.timeForBlockProcessing}ms | Time for generic transaction saving: ${processed.timeForGenericTransactions}ms)`,
+                    `Block ${blockHeightInProgress} processed successfully. {Transaction(s): ${processed.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processed.timeForTransactionExecution}ms | State update: ${processed.timeForStateUpdate}ms | Block processing: ${processed.timeForBlockProcessing}ms | Generic transaction saving: ${processed.timeForGenericTransactions}ms | Took ${processEndTime - processStartTime}ms})`,
                 );
             }
 
