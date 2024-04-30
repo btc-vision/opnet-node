@@ -107,28 +107,27 @@ export class BlockchainIndexer extends Logger {
     }
 
     private prefetchBlocks(blockHeightInProgress: number, chainCurrentBlockHeight: number): void {
-        if (blockHeightInProgress + 1 >= chainCurrentBlockHeight) {
-            return;
-        }
+        for (let i = 1; i <= this.maximumPrefetchBlocks; i++) {
+            const nextBlockId = blockHeightInProgress + i;
 
-        for (
-            let i = blockHeightInProgress + 1;
-            i <= blockHeightInProgress + this.maximumPrefetchBlocks;
-            i++
-        ) {
-            if (blockHeightInProgress + i >= chainCurrentBlockHeight) {
+            if (nextBlockId > chainCurrentBlockHeight) {
                 break;
             }
 
-            if (this.prefetchedBlocks.has(i)) {
+            const currentPrefetchBlockSize = this.prefetchedBlocks.size;
+            if (currentPrefetchBlockSize > this.maximumPrefetchBlocks) {
+                break;
+            }
+
+            if (this.prefetchedBlocks.has(nextBlockId)) {
                 continue;
             }
 
-            if (Config.DEBUG_LEVEL > DebugLevel.INFO) {
-                this.info(`Prefetching block ${i}`);
+            if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
+                this.debug(`!!!!!!!!! ------ Prefetching block ${nextBlockId} ------ !!!!!!!!!`);
             }
 
-            this.prefetchedBlocks.set(i, this.getBlock(i));
+            this.prefetchedBlocks.set(nextBlockId, this.getBlock(nextBlockId));
         }
     }
 
@@ -136,9 +135,10 @@ export class BlockchainIndexer extends Logger {
         blockHeight: number,
         chainCurrentBlockHeight: number,
     ): Promise<BlockDataWithTransactionData | null> {
+        this.prefetchBlocks(blockHeight, chainCurrentBlockHeight);
+
         const block: Promise<BlockDataWithTransactionData | null> =
             this.prefetchedBlocks.get(blockHeight) || this.getBlock(blockHeight);
-        this.prefetchBlocks(blockHeight, chainCurrentBlockHeight);
 
         this.prefetchedBlocks.delete(blockHeight);
 
