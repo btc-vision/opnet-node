@@ -217,7 +217,7 @@ export class Block extends Logger {
         // Then, we can sort the transactions by their priority
         this.transactions = this.transactionSorter.sortTransactions(this.transactions);
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.info(
                 `Processing block ${this.hash} containing ${this.transactions.length} transaction(s) at height ${this.height}`,
             );
