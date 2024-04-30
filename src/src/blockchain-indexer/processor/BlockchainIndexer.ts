@@ -22,6 +22,10 @@ export class BlockchainIndexer extends Logger {
     private readonly vmManager: VMManager = new VMManager(Config);
     private readonly processOnlyOneBlock: boolean = false;
 
+    private readonly maximumPrefetchBlocks: number = 5;
+    private readonly prefetchedBlocks: Map<number, Promise<BlockDataWithTransactionData | null>> =
+        new Map();
+
     private fatalFailure: boolean = false;
 
     constructor() {
@@ -102,23 +106,55 @@ export class BlockchainIndexer extends Logger {
         return startBlockHeight !== -1 ? startBlockHeight : blockchainInfo.inProgressBlock;
     }
 
+    private prefetchBlocks(blockHeightInProgress: number, chainCurrentBlockHeight: number): void {
+        if (blockHeightInProgress + 1 >= chainCurrentBlockHeight) {
+            return;
+        }
+
+        for (
+            let i = blockHeightInProgress + 1;
+            i <= blockHeightInProgress + this.maximumPrefetchBlocks;
+            i++
+        ) {
+            if (blockHeightInProgress + i >= chainCurrentBlockHeight) {
+                break;
+            }
+
+            if (this.prefetchedBlocks.has(i)) {
+                continue;
+            }
+
+            if (Config.DEBUG_LEVEL > DebugLevel.INFO) {
+                this.info(`Prefetching block ${i}`);
+            }
+
+            this.prefetchedBlocks.set(i, this.getBlock(i));
+        }
+    }
+
+    private async getBlockFromPrefetch(
+        blockHeight: number,
+        chainCurrentBlockHeight: number,
+    ): Promise<BlockDataWithTransactionData | null> {
+        const block: Promise<BlockDataWithTransactionData | null> =
+            this.prefetchedBlocks.get(blockHeight) || this.getBlock(blockHeight);
+        this.prefetchBlocks(blockHeight, chainCurrentBlockHeight);
+
+        this.prefetchedBlocks.delete(blockHeight);
+
+        return block;
+    }
+
     private async processBlocks(startBlockHeight: number = -1): Promise<void> {
         let blockHeightInProgress = await this.getCurrentProcessBlockHeight(startBlockHeight);
         let chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
 
-        let nextBlockData: Promise<BlockDataWithTransactionData | null> | null = null;
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
-            /*if(blockHeightInProgress + 1 <= chainCurrentBlockHeight) {
-                nextBlockData = this.getBlock(blockHeightInProgress + 1);
-            }*/
-
             const getBlockDataTimingStart = Date.now();
-            let block: BlockDataWithTransactionData | null;
-            /*if(nextBlockData) {
-                block = await nextBlockData;
-            } else {*/
-            block = await this.getBlock(blockHeightInProgress);
-            //}
+            const block = await this.getBlockFromPrefetch(
+                blockHeightInProgress,
+                chainCurrentBlockHeight,
+            );
 
             if (!block) {
                 throw new Error(`Error fetching block ${blockHeightInProgress}.`);
