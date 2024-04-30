@@ -68,11 +68,11 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
 
     public abstract setContractAt(contractData: ContractInformation): Promise<void>;
 
-    public abstract prepareNewBlock(): Promise<void>;
+    public abstract prepareNewBlock(blockId: bigint): Promise<void>;
 
-    public abstract terminateBlock(): Promise<void>;
+    public abstract terminateBlock(blockId: bigint): Promise<void>;
 
-    public abstract revertChanges(): Promise<void>;
+    public abstract revertChanges(blockId: bigint): Promise<void>;
 
     public abstract init(): Promise<void>;
 

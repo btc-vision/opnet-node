@@ -179,9 +179,6 @@ export class BlockchainIndexer extends Logger {
             if (this.processOnlyOneBlock) {
                 break;
             }
-
-            // We update the block we just processed
-            await this.updateBlockchainInfo(blockHeightInProgress);
         }
 
         chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
@@ -194,10 +191,6 @@ export class BlockchainIndexer extends Logger {
         } else if (!this.processOnlyOneBlock) {
             await this.processBlocks(blockHeightInProgress);
         }
-    }
-
-    private async updateBlockchainInfo(blockHeight: number): Promise<void> {
-        await this.blockchainInfoRepository.updateCurrentBlockInProgress(this.network, blockHeight);
     }
 
     private async processBlock(
