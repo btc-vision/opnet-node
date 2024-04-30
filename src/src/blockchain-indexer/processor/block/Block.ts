@@ -309,10 +309,6 @@ export class Block extends Logger {
 
     /** Transactions Execution */
     protected async executeTransactions(vmManager: VMManager): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            this.log(`Executing ${this.transactions.length} transactions.`);
-        }
-
         const separatedTransactions = this.separateGenericTransactions();
 
         const promises: Promise<void>[] = [
