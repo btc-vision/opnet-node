@@ -25,6 +25,8 @@ export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
 
     private currentSession: ClientSession | undefined;
+    private transactionSession: ClientSession | undefined;
+
     private pointerRepository: ContractPointerValueRepository | undefined;
     private contractRepository: ContractRepository | undefined;
     private blockRepository: BlockRepository | undefined;
@@ -120,8 +122,17 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session already started');
         }
 
-        this.currentSession = await this.databaseManager.startSession();
+        if (this.transactionSession) {
+            throw new Error('Transaction session already started');
+        }
+
+        const sessions = [this.databaseManager.startSession(), this.databaseManager.startSession()];
+
+        this.currentSession = await sessions[0];
+        this.transactionSession = await sessions[1];
+
         this.currentSession.startTransaction();
+        this.transactionSession.startTransaction();
     }
 
     public async terminateBlock(): Promise<void> {
@@ -133,7 +144,16 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
-        await this.currentSession.commitTransaction();
+        if (!this.transactionSession) {
+            throw new Error('Transaction session not started');
+        }
+
+        const commitPromises: Promise<void>[] = [
+            this.currentSession.commitTransaction(),
+            this.transactionSession.commitTransaction(),
+        ];
+
+        await Promise.all(commitPromises);
 
         await this.terminateSession();
     }
@@ -147,7 +167,12 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
+        if (!this.transactionSession) {
+            throw new Error('Transaction session not started');
+        }
+
         await this.currentSession.abortTransaction();
+        await this.transactionSession.abortTransaction();
 
         await this.terminateSession();
     }
@@ -175,7 +200,7 @@ export class VMMongoStorage extends VMStorage {
             address,
             pointer,
             height,
-            this.currentSession,
+            //this.currentSession,
         );
 
         if (Buffer.isBuffer(value)) {
@@ -208,11 +233,11 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
 
-        if (!this.currentSession) {
+        if (!this.transactionSession) {
             throw new Error('Session not started');
         }
 
-        await this.transactionRepository.saveTransaction(transaction, this.currentSession);
+        await this.transactionRepository.saveTransaction(transaction, this.transactionSession);
     }
 
     public async saveTransactions(
@@ -222,11 +247,11 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
 
-        if (!this.currentSession) {
+        if (!this.transactionSession) {
             throw new Error('Session not started');
         }
 
-        await this.transactionRepository.saveTransactions(transactions, this.currentSession);
+        await this.transactionRepository.saveTransactions(transactions, this.transactionSession);
     }
 
     public async setStorage(
@@ -297,7 +322,11 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Repository not initialized');
         }
 
-        return await this.contractRepository.getContract(contractAddress, height, this.currentSession);
+        return await this.contractRepository.getContract(
+            contractAddress,
+            height,
+            this.currentSession,
+        );
     }
 
     public async saveBlockHeader(blockHeader: BlockHeaderBlockDocument): Promise<void> {
@@ -331,7 +360,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Repository not initialized');
         }
 
-        return await this.blockRepository.getBlockHeader(height, this.currentSession);
+        return await this.blockRepository.getBlockHeader(height);
     }
 
     private startCache(): void {
@@ -379,13 +408,23 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
+        if (!this.transactionSession) {
+            throw new Error('Transaction session not started');
+        }
+
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Terminating session');
         }
 
-        await this.currentSession.endSession();
+        const promiseTerminate: Promise<void>[] = [
+            this.currentSession.endSession(),
+            this.transactionSession.endSession(),
+        ];
+
+        await Promise.all(promiseTerminate);
 
         this.currentSession = undefined;
+        this.transactionSession = undefined;
     }
 
     private addBytes(value: MemoryValue): Uint8Array {

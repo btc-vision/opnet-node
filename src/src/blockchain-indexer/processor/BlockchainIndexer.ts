@@ -161,7 +161,7 @@ export class BlockchainIndexer extends Logger {
             }
 
             const processStartTime = Date.now();
-            const processed: Block | null = await this.processBlock(block);
+            const processed: Block | null = await this.processBlock(block, this.vmManager);
             if (processed === null) {
                 this.fatalFailure = true;
                 throw new Error(`Error processing block ${blockHeightInProgress}.`);
@@ -170,7 +170,7 @@ export class BlockchainIndexer extends Logger {
             const processEndTime = Date.now();
             if (Config.DEBUG_LEVEL > DebugLevel.INFO) {
                 this.success(
-                    `Block ${blockHeightInProgress} processed successfully. Took ${processEndTime - processStartTime}ms. {Transactions: ${processed.header.nTx} | Time to fetch data: ${processStartTime - getBlockDataTimingStart}ms | Time to execute transactions: ${processed.timeForTransactionExecution}ms | Time for state update: ${processed.timeForStateUpdate}ms | Time for block processing: ${processed.timeForBlockProcessing}ms}`,
+                    `Block ${blockHeightInProgress} processed successfully. Took ${processEndTime - processStartTime}ms. {Transactions: ${processed.header.nTx} | Time to fetch data: ${processStartTime - getBlockDataTimingStart}ms | Time to execute transactions: ${processed.timeForTransactionExecution}ms | Time for state update: ${processed.timeForStateUpdate}ms | Time for block processing: ${processed.timeForBlockProcessing}ms | Time for generic transaction saving: ${processed.timeForGenericTransactions}ms)`,
                 );
             }
 
@@ -200,17 +200,29 @@ export class BlockchainIndexer extends Logger {
         await this.blockchainInfoRepository.updateCurrentBlockInProgress(this.network, blockHeight);
     }
 
-    private async processBlock(blockData: BlockDataWithTransactionData): Promise<Block | null> {
+    private async processBlock(
+        blockData: BlockDataWithTransactionData,
+        chosenManager: VMManager,
+    ): Promise<Block | null> {
         const block: Block = new Block(blockData, this.bitcoinNetwork);
 
         // Deserialize the block.
         block.deserialize();
 
         // Execute the block and save the changes.
-        const success = await block.execute(this.vmManager);
+        const success = await block.execute(chosenManager);
+        if (!success) {
+            return null;
+        }
 
-        if (success) return block;
-        else return null;
+        // We must write the block to the database before returning it.
+        const finalized = await block.finalizeBlock(chosenManager);
+
+        if (finalized) {
+            return block;
+        } else {
+            return null;
+        }
     }
 
     private async getBlock(blockHeight: number): Promise<BlockDataWithTransactionData | null> {
