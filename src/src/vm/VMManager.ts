@@ -131,7 +131,7 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        await this.vmStorage.saveTransactions(transaction);
+        await this.vmStorage.saveTransactions(blockHeight, transaction);
     }
 
     public async loadContractFromBytecode(

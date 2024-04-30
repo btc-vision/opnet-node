@@ -40,7 +40,10 @@ export class VMMongoStorage extends VMStorage {
     private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
     private maxTransactionSessions: number = 10;
 
-    private committedTransactions: bigint[] = [];
+    private committedTransactions: Set<bigint> = new Set<bigint>();
+    private writeTransactions: Map<bigint, Promise<void>[]> = new Map<bigint, Promise<void>[]>();
+
+    private startedBlockIds: Set<bigint> = new Set<bigint>();
 
     private readonly network: string;
 
@@ -143,6 +146,8 @@ export class VMMongoStorage extends VMStorage {
             this.databaseManager.startSession(),
         ];
 
+        this.startedBlockIds.add(blockId);
+
         this.currentSession = await sessions[0];
         this.transactionSession = await sessions[1];
 
@@ -166,19 +171,7 @@ export class VMMongoStorage extends VMStorage {
         }
 
         const commitPromises: Promise<void>[] = [this.currentSession.commitTransaction()];
-
-        void this.commitTransactionSession(this.transactionSession, blockId).catch(
-            async (error) => {
-                console.log(
-                    `[REVERT 10 BLOCK NEEDED] SOMETHING WENT WRONG COMMITTING TRANSACTION: ${error}`,
-                );
-
-                await Promise.all([
-                    this.abortTransactionSession(blockId),
-                    this.revertChanges(blockId),
-                ]);
-            },
-        );
+        void this.fakeWaitCommit(this.transactionSession, blockId);
 
         await Promise.all(commitPromises);
 
@@ -271,6 +264,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async saveTransactions(
+        blockHeight: bigint,
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void> {
         if (!this.transactionRepository) {
@@ -281,7 +275,14 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
-        await this.transactionRepository.saveTransactions(transactions, this.transactionSession);
+        const promise = this.transactionRepository.saveTransactions(
+            transactions,
+            this.transactionSession,
+        );
+        const data = this.writeTransactions.get(blockHeight) || [];
+        data.push(promise);
+
+        this.writeTransactions.set(blockHeight, data);
     }
 
     public async setStorage(
@@ -393,30 +394,57 @@ export class VMMongoStorage extends VMStorage {
         return await this.blockRepository.getBlockHeader(height);
     }
 
+    private async fakeWaitCommit(
+        transactionSession: ClientSession,
+        blockId: bigint,
+    ): Promise<void> {
+        const promise = this.commitTransactionSession(transactionSession, blockId).catch(
+            async (error) => {
+                console.log(
+                    `[REVERT 10 BLOCK NEEDED] SOMETHING WENT WRONG COMMITTING TRANSACTION: ${error}`,
+                );
+
+                await Promise.all([
+                    this.abortTransactionSession(blockId),
+                    this.revertChanges(blockId),
+                ]);
+            },
+        );
+
+        this.waitingCommits.set(blockId, promise);
+
+        await promise;
+
+        this.waitingCommits.delete(blockId);
+    }
+
     private smallestBigIntInArray(arr: bigint[]): bigint {
         return arr.reduce((acc, val) => (val < acc ? val : acc), arr[0]);
     }
 
     private async updateCurrentBlockId(n: bigint): Promise<void> {
-        this.committedTransactions.push(n);
+        this.committedTransactions.add(n);
+    }
 
-        const smallestBlockInCommittedTransactions = this.smallestBigIntInArray(
-            this.committedTransactions,
-        );
+    private async commitUntilBlockId(i: bigint): Promise<void> {
+        while (this.committedTransactions.has(i)) {
+            if (!this.committedTransactions.has(i)) {
+                break;
+            }
 
-        this.committedTransactions = this.committedTransactions.filter(
-            (blockId) => blockId > smallestBlockInCommittedTransactions,
-        );
+            this.startedBlockIds.delete(i);
+            this.committedTransactions.delete(i);
 
-        console.log(smallestBlockInCommittedTransactions, this.committedTransactions);
+            let blockId: number = 0;
+            if (i > 0) {
+                blockId = Number(i);
+            }
 
-        let blockId: number = 0;
-        if (smallestBlockInCommittedTransactions > 0) {
-            blockId = Number(smallestBlockInCommittedTransactions);
+            // We update the block we just processed
+            await this.updateBlockchainInfo(blockId + 1);
+
+            i++;
         }
-
-        // We update the block we just processed
-        await this.updateBlockchainInfo(blockId + 1);
     }
 
     private async updateBlockchainInfo(blockHeight: number): Promise<void> {
@@ -447,8 +475,12 @@ export class VMMongoStorage extends VMStorage {
     }
 
     private async commitTransactionSession(session: ClientSession, blockId: bigint): Promise<void> {
-        const promise: Promise<void> = session.commitTransaction();
-        this.waitingCommits.set(blockId, promise);
+        const promiseSaves = this.writeTransactions.get(blockId) || [];
+        if (promiseSaves) {
+            await Promise.all(promiseSaves);
+        }
+
+        await session.commitTransaction();
 
         await this.terminateTransactionSession(session, blockId);
 
@@ -456,13 +488,28 @@ export class VMMongoStorage extends VMStorage {
         await this.updateCurrentBlockId(blockId);
     }
 
+    private async sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
     private async pushTransactionSession(session: ClientSession, blockId: bigint): Promise<void> {
         if (this.waitingTransactionSessions.length > this.maxTransactionSessions) {
             const lastSession = this.waitingTransactionSessions.shift();
             if (!lastSession) throw new Error('Session not found');
 
-            this.info(`Too many transaction sessions. Waiting for a session to be committed.`);
-            await this.terminateTransactionSession(lastSession.session, lastSession.blockId);
+            this.warn(`Too many transaction sessions. Waiting for a session to be committed.`);
+
+            const waitingSave = this.writeTransactions.get(lastSession.blockId);
+            if (waitingSave) {
+                await Promise.all(waitingSave);
+            }
+
+            const pendingCommit = this.waitingCommits.get(lastSession.blockId);
+            if (pendingCommit) {
+                await pendingCommit;
+
+                this.waitingCommits.delete(blockId);
+            }
         }
 
         this.waitingTransactionSessions.push({
@@ -483,20 +530,23 @@ export class VMMongoStorage extends VMStorage {
 
         this.waitingTransactionSessions.splice(index, 1);
 
-        const pendingCommit = this.waitingCommits.get(blockId);
-        if (pendingCommit) {
-            await pendingCommit;
-        }
-
         await session.endSession();
-
-        this.waitingCommits.delete(blockId);
     }
 
     private startCache(): void {
-        setInterval(() => {
+        setTimeout(async () => {
             this.clearCache();
+            await this.updateBlockHeight();
+
+            this.startCache();
         }, 1000);
+    }
+
+    private async updateBlockHeight(): Promise<void> {
+        const v = Array.from(this.startedBlockIds.values());
+        const smallestBlockInCommittedTransactions = this.smallestBigIntInArray(v);
+
+        await this.commitUntilBlockId(smallestBlockInCommittedTransactions);
     }
 
     private clearCache(): void {
