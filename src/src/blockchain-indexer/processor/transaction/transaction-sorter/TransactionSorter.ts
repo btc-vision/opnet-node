@@ -36,7 +36,7 @@ export class TransactionSorter {
             //const totalGroupBurnedFee = this.calculateTotalBurnedFees(group);
 
             //console.log(`Group ${i} has total burned fee: ${totalGroupBurnedFee}`);
-            this.sortTransactionsWithinGroup(group, finalList);
+            this.verifyDuplicatedTransactionsAndPushToFinalList(group, finalList);
         }
 
         // Ensure the index of each transaction in the final list
@@ -84,7 +84,8 @@ export class TransactionSorter {
         dependencies.forEach((dep) => this.collectGroup(dep, allTransactions, group, visited));
     }
 
-    private sortTransactionsWithinGroup(
+    // Optional to avoid duplicated transactions
+    private verifyDuplicatedTransactionsAndPushToFinalList(
         group: Transaction<OPNetTransactionTypes>[],
         finalList: Transaction<OPNetTransactionTypes>[],
     ): void {

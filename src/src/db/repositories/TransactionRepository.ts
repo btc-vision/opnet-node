@@ -35,7 +35,6 @@ export class TransactionRepository extends BaseRepository<
                 updateOne: {
                     filter: {
                         hash: transaction.hash,
-                        id: transaction.id,
                         blockHeight: transaction.blockHeight,
                     },
                     update: {

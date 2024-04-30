@@ -34,6 +34,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         OP_NET: {
             TRANSACTIONS_THREADS: 4,
             TRANSACTIONS_MAXIMUM_CONCURRENT: 100,
+
             ENABLED_AT_BLOCK: 0,
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
@@ -52,12 +53,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
     }
 
     protected getDefaultConfig(): IConfig<IBtcIndexerConfig> {
-        const config: IConfig<IBtcIndexerConfig> = {
+        return {
             ...super.getDefaultConfig(),
             ...this.defaultConfig,
         };
-
-        return config;
     }
 
     protected override verifyConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {

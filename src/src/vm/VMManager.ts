@@ -1,4 +1,4 @@
-import { ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-vision/bsi-binary';
+import { Address, ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import fs from 'fs';
@@ -52,6 +52,8 @@ export class VMManager extends Logger {
     private verifiedBlockHeights: Map<bigint, Promise<boolean>> = new Map();
     private contractCache: Map<string, ContractInformation> = new Map();
 
+    private vmEvaluators: Map<Address, Promise<ContractEvaluator>> = new Map();
+
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
 
@@ -62,6 +64,10 @@ export class VMManager extends Logger {
 
     public async init(): Promise<void> {
         await this.vmStorage.init();
+    }
+
+    public async terminate(): Promise<void> {
+        await this.vmStorage.terminate();
     }
 
     public async closeDatabase(): Promise<void> {
@@ -91,7 +97,7 @@ export class VMManager extends Logger {
         this.clear();
     }
 
-    public async terminateBlock(block?: Block): Promise<void> {
+    public async terminateBlock(block: Block): Promise<void> {
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Terminating block ${this.vmBitcoinBlock.height}...`);
         }
@@ -100,10 +106,14 @@ export class VMManager extends Logger {
         try {
             if (block !== undefined) {
                 await this.saveBlock(block);
+            } else {
+                throw new Error('Block not found');
             }
 
             await this.vmBitcoinBlock.terminate();
         } catch (e) {
+            console.log('Error:', e);
+
             await this.vmBitcoinBlock.revert();
         }
 
@@ -129,7 +139,7 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        await this.vmStorage.saveTransactions(transaction);
+        await this.vmStorage.saveTransactions(blockHeight, transaction);
     }
 
     public async loadContractFromBytecode(
@@ -178,6 +188,7 @@ export class VMManager extends Logger {
         blockHeight: bigint,
         interactionTransaction: InteractionTransaction,
     ): Promise<EvaluatedResult> {
+        const start = Date.now();
         if (this.vmBitcoinBlock.height !== blockHeight) {
             throw new Error('Block height mismatch');
         }
@@ -187,46 +198,15 @@ export class VMManager extends Logger {
             this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
         }
 
-        // TODO: Add a caching layer for this.
-        const contractInformation: ContractInformation | undefined =
-            await this.getContractInformation(contractAddress);
-
-        if (!contractInformation) {
-            throw new Error(`Contract ${contractAddress} not found.`);
-        }
-
-        const vmContext: VMContext | null = await this.loadContractFromBytecode(
-            contractAddress,
-            contractInformation.bytecode,
-        );
-
-        if (!vmContext) {
-            throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
-        }
-
-        const vmEvaluator = vmContext.contract;
-        if (!vmEvaluator) {
-            throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
-        }
-
-        // We use pub the pub key as the deployer address.
-        const contractDeployer: string = contractInformation.deployerAddress;
-        if (!contractDeployer || contractDeployer.length < ADDRESS_BYTE_LENGTH) {
-            throw new Error(`Invalid contract deployer "${contractDeployer}"`);
-        }
-
-        await vmEvaluator.setupContract(contractDeployer, contractAddress);
-
+        // Get the contract evaluator
+        const vmEvaluator: ContractEvaluator = await this.getVMEvaluatorFromCache(contractAddress);
         const isInitialized: boolean = vmEvaluator.isInitialized();
         if (!isInitialized) {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.debugBright(
-                `Executing transaction ${interactionTransaction.txid} for contract ${contractAddress}`,
-            );
-        }
+        // Trace the execution time
+        const startBeforeExecution = Date.now();
 
         // Get the function selector
         const calldata: Buffer = interactionTransaction.calldata;
@@ -236,7 +216,7 @@ export class VMManager extends Logger {
 
         const selector: Selector = calldata.readUInt32BE(0);
         const isView: boolean = vmEvaluator.isViewMethod(selector);
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debugBright(
                 `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${contractAddress} at block ${blockHeight} with calldata ${calldata.toString(
                     'hex',
@@ -263,6 +243,12 @@ export class VMManager extends Logger {
             Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
             interactionTransaction.transactionId,
         );
+
+        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            this.debug(
+                `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute)`,
+            );
+        }
 
         return result;
     }
@@ -473,6 +459,53 @@ export class VMManager extends Logger {
         return states;
     }
 
+    private async getVMEvaluator(contractAddress: Address): Promise<ContractEvaluator> {
+        // TODO: Add a caching layer for this.
+        const contractInformation: ContractInformation | undefined =
+            await this.getContractInformation(contractAddress);
+
+        if (!contractInformation) {
+            throw new Error(`Contract ${contractAddress} not found.`);
+        }
+
+        const vmContext: VMContext | null = await this.loadContractFromBytecode(
+            contractAddress,
+            contractInformation.bytecode,
+        );
+
+        if (!vmContext) {
+            throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
+        }
+
+        const vmEvaluator = vmContext.contract;
+        if (!vmEvaluator) {
+            throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
+        }
+
+        // We use pub the pub key as the deployer address.
+        const contractDeployer: string = contractInformation.deployerAddress;
+        if (!contractDeployer || contractDeployer.length < ADDRESS_BYTE_LENGTH) {
+            throw new Error(`Invalid contract deployer "${contractDeployer}"`);
+        }
+
+        await vmEvaluator.setupContract(contractDeployer, contractAddress);
+
+        return vmEvaluator;
+    }
+
+    private async getVMEvaluatorFromCache(contractAddress: Address): Promise<ContractEvaluator> {
+        const vmEvaluator: Promise<ContractEvaluator> | undefined =
+            this.vmEvaluators.get(contractAddress);
+        if (vmEvaluator) {
+            return vmEvaluator;
+        }
+
+        const newVmEvaluator = this.getVMEvaluator(contractAddress);
+        this.vmEvaluators.set(contractAddress, newVmEvaluator);
+
+        return newVmEvaluator;
+    }
+
     private async updateReceiptState(): Promise<void> {
         if (!this.receiptState) {
             throw new Error('Receipt state not found');
@@ -548,6 +581,7 @@ export class VMManager extends Logger {
         this.cachedBlockHeader.clear();
         this.verifiedBlockHeights.clear();
         this.contractCache.clear();
+        this.vmEvaluators.clear();
     }
 
     private async getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined> {

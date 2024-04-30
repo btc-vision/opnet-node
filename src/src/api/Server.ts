@@ -125,7 +125,7 @@ export class Server extends Logger {
         });
     }
 
-    private async handleAny(_req: Request, res: Response, next: MiddlewareNext): Promise<void> {
+    private async handleAny(_req: Request, res: Response, _next: MiddlewareNext): Promise<void> {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
         res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
@@ -135,8 +135,9 @@ export class Server extends Logger {
 
         res.removeHeader('uWebSockets');
 
-        if (typeof next === 'function') {
-            next();
-        }
+        // I disabled this because for some reason it's calling the next method twice?
+        /*if (typeof next === 'function') {
+            console.log('next', next);
+        }*/
     }
 }

@@ -2,6 +2,7 @@ export enum Routes {
     HEAP_BLOCK = 'block/heapBlock',
     PROTOBUF_SCHEMA = 'protobuf/schema',
     BLOCK = 'block',
+    JSON_RPC = 'json-rpc',
 }
 
 export enum RouteType {

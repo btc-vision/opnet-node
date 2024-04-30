@@ -13,6 +13,7 @@ import {
     BlockHeaderBlockDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
+import { BlockchainInformationRepository } from '../../../db/repositories/BlockchainInformationRepository.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
 import { ContractRepository } from '../../../db/repositories/ContractRepository.js';
@@ -25,19 +26,47 @@ export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
 
     private currentSession: ClientSession | undefined;
+    private transactionSession: ClientSession | undefined;
+
+    private waitingTransactionSessions: { blockId: bigint; session: ClientSession }[] = [];
+    private waitingCommits: Map<bigint, Promise<void>> = new Map();
+
     private pointerRepository: ContractPointerValueRepository | undefined;
     private contractRepository: ContractRepository | undefined;
     private blockRepository: BlockRepository | undefined;
     private transactionRepository: TransactionRepository | undefined;
+    private blockchainInfoRepository: BlockchainInformationRepository | undefined;
 
     private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
+    private maxTransactionSessions: number = 10;
+
+    private committedTransactions: Set<bigint> = new Set<bigint>();
+    private writeTransactions: Map<bigint, Promise<void>[]> = new Map<bigint, Promise<void>[]>();
+
+    private startedBlockIds: Set<bigint> = new Set<bigint>();
+
+    private readonly network: string;
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
 
+        this.network = Config.BLOCKCHAIN.BITCOIND_NETWORK;
+
         this.startCache();
 
         this.databaseManager = new ConfigurableDBManager(this.config);
+    }
+
+    public async terminate(): Promise<void> {
+        for (let action of this.writeTransactions.values()) {
+            await Promise.all(action);
+        }
+
+        for (let session of this.waitingCommits.values()) {
+            await session;
+        }
+
+        await this.updateBlockHeight();
     }
 
     public async init(): Promise<void> {
@@ -51,6 +80,10 @@ export class VMMongoStorage extends VMStorage {
         this.contractRepository = new ContractRepository(this.databaseManager.db);
         this.blockRepository = new BlockRepository(this.databaseManager.db);
         this.transactionRepository = new TransactionRepository(this.databaseManager.db);
+
+        this.blockchainInfoRepository = new BlockchainInformationRepository(
+            this.databaseManager.db,
+        );
     }
 
     public async getLatestBlock(): Promise<BlockHeaderAPIBlockDocument> {
@@ -111,7 +144,7 @@ export class VMMongoStorage extends VMStorage {
         await this.databaseManager.close();
     }
 
-    public async prepareNewBlock(): Promise<void> {
+    public async prepareNewBlock(blockId: bigint): Promise<void> {
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Preparing new block');
         }
@@ -120,11 +153,23 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session already started');
         }
 
-        this.currentSession = await this.databaseManager.startSession();
+        const sessions: Promise<ClientSession>[] = [
+            this.databaseManager.startSession(),
+            this.databaseManager.startSession(),
+        ];
+
+        this.startedBlockIds.add(blockId);
+
+        this.currentSession = await sessions[0];
+        this.transactionSession = await sessions[1];
+
+        await this.pushTransactionSession(this.transactionSession, blockId);
+
         this.currentSession.startTransaction();
+        this.transactionSession.startTransaction();
     }
 
-    public async terminateBlock(): Promise<void> {
+    public async terminateBlock(blockId: bigint): Promise<void> {
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Terminating block');
         }
@@ -133,12 +178,19 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
-        await this.currentSession.commitTransaction();
+        if (!this.transactionSession) {
+            throw new Error('Transaction session not started');
+        }
+
+        const commitPromises: Promise<void>[] = [this.currentSession.commitTransaction()];
+        void this.fakeWaitCommit(this.transactionSession, blockId);
+
+        await Promise.all(commitPromises);
 
         await this.terminateSession();
     }
 
-    public async revertChanges(): Promise<void> {
+    public async revertChanges(blockId: bigint): Promise<void> {
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Reverting changes');
         }
@@ -147,9 +199,17 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
+        if (!this.transactionSession) {
+            throw new Error('Transaction session not started');
+        }
+
         await this.currentSession.abortTransaction();
+        await this.transactionSession.abortTransaction();
 
         await this.terminateSession();
+
+        // We revert the blocks that we might not have committed
+        await this.updateCurrentBlockId(blockId - BigInt(this.maxTransactionSessions));
     }
 
     public async getStorage(
@@ -175,7 +235,7 @@ export class VMMongoStorage extends VMStorage {
             address,
             pointer,
             height,
-            this.currentSession,
+            //this.currentSession,
         );
 
         if (Buffer.isBuffer(value)) {
@@ -208,25 +268,33 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
 
-        if (!this.currentSession) {
+        if (!this.transactionSession) {
             throw new Error('Session not started');
         }
 
-        await this.transactionRepository.saveTransaction(transaction, this.currentSession);
+        await this.transactionRepository.saveTransaction(transaction, this.transactionSession);
     }
 
     public async saveTransactions(
+        blockHeight: bigint,
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void> {
         if (!this.transactionRepository) {
             throw new Error('Transaction repository not initialized');
         }
 
-        if (!this.currentSession) {
+        if (!this.transactionSession) {
             throw new Error('Session not started');
         }
 
-        await this.transactionRepository.saveTransactions(transactions, this.currentSession);
+        const promise = this.transactionRepository.saveTransactions(
+            transactions,
+            this.transactionSession,
+        );
+        const data = this.writeTransactions.get(blockHeight) || [];
+        data.push(promise);
+
+        this.writeTransactions.set(blockHeight, data);
     }
 
     public async setStorage(
@@ -297,7 +365,11 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Repository not initialized');
         }
 
-        return await this.contractRepository.getContract(contractAddress, height, this.currentSession);
+        return await this.contractRepository.getContract(
+            contractAddress,
+            height,
+            this.currentSession,
+        );
     }
 
     public async saveBlockHeader(blockHeader: BlockHeaderBlockDocument): Promise<void> {
@@ -331,13 +403,156 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Repository not initialized');
         }
 
-        return await this.blockRepository.getBlockHeader(height, this.currentSession);
+        return await this.blockRepository.getBlockHeader(height);
+    }
+
+    private async fakeWaitCommit(
+        transactionSession: ClientSession,
+        blockId: bigint,
+    ): Promise<void> {
+        const promise = this.commitTransactionSession(transactionSession, blockId).catch(
+            async (error) => {
+                console.log(
+                    `[REVERT 10 BLOCK NEEDED] SOMETHING WENT WRONG COMMITTING TRANSACTION: ${error}`,
+                );
+
+                await Promise.all([
+                    this.abortTransactionSession(blockId),
+                    this.revertChanges(blockId),
+                ]);
+            },
+        );
+
+        this.waitingCommits.set(blockId, promise);
+
+        await promise;
+
+        this.waitingCommits.delete(blockId);
+    }
+
+    private smallestBigIntInArray(arr: bigint[]): bigint {
+        return arr.reduce((acc, val) => (val < acc ? val : acc), arr[0]);
+    }
+
+    private async updateCurrentBlockId(n: bigint): Promise<void> {
+        this.committedTransactions.add(n);
+    }
+
+    private async commitUntilBlockId(i: bigint): Promise<void> {
+        while (this.committedTransactions.has(i)) {
+            if (!this.committedTransactions.has(i)) {
+                break;
+            }
+
+            this.startedBlockIds.delete(i);
+            this.committedTransactions.delete(i);
+
+            let blockId: number = 0;
+            if (i > 0) {
+                blockId = Number(i);
+            }
+
+            // We update the block we just processed
+            await this.updateBlockchainInfo(blockId + 1);
+
+            i++;
+        }
+    }
+
+    private async updateBlockchainInfo(blockHeight: number): Promise<void> {
+        if (!this.blockchainInfoRepository) {
+            throw new Error('Blockchain information repository not initialized');
+        }
+
+        await this.blockchainInfoRepository.updateCurrentBlockInProgress(this.network, blockHeight);
+    }
+
+    private async abortTransactionSession(revertFromBlockId: bigint): Promise<void> {
+        for (const sessionData of this.waitingTransactionSessions) {
+            const session = sessionData.session;
+            const blockId = sessionData.blockId;
+
+            const commitPromise = this.waitingCommits.get(blockId);
+            if (blockId >= revertFromBlockId) {
+                await session.abortTransaction();
+                await session.endSession();
+            } else {
+                if (commitPromise) await commitPromise;
+                await session.endSession();
+            }
+        }
+
+        this.waitingCommits.clear();
+        this.waitingTransactionSessions = [];
+    }
+
+    private async commitTransactionSession(session: ClientSession, blockId: bigint): Promise<void> {
+        const promiseSaves = this.writeTransactions.get(blockId) || [];
+        if (promiseSaves) {
+            await Promise.all(promiseSaves);
+        }
+
+        await session.commitTransaction();
+
+        await this.terminateTransactionSession(session, blockId);
+
+        // We revert the blocks that we might not have committed
+        await this.updateCurrentBlockId(blockId);
+    }
+
+    private async pushTransactionSession(session: ClientSession, blockId: bigint): Promise<void> {
+        if (this.waitingTransactionSessions.length > this.maxTransactionSessions) {
+            const lastSession = this.waitingTransactionSessions[0];
+            if (!lastSession) throw new Error('Session not found');
+
+            this.warn(`Too many transaction sessions. Waiting for a session to be committed.`);
+
+            const waitingSave = this.writeTransactions.get(lastSession.blockId);
+            if (waitingSave) {
+                await Promise.all(waitingSave);
+            }
+
+            const pendingCommit = this.waitingCommits.get(lastSession.blockId);
+            if (pendingCommit) {
+                await pendingCommit;
+            }
+        }
+
+        this.waitingTransactionSessions.push({
+            session,
+            blockId,
+        });
+    }
+
+    private async terminateTransactionSession(
+        session: ClientSession,
+        blockId: bigint,
+    ): Promise<void> {
+        // remove session from waiting list
+        const index = this.waitingTransactionSessions.findIndex((s) => s.session === session);
+        if (index === -1) {
+            throw new Error(`Session not found for block ${blockId}`);
+        }
+
+        this.waitingTransactionSessions.splice(index, 1);
+
+        await session.endSession();
     }
 
     private startCache(): void {
-        setInterval(() => {
+        setTimeout(async () => {
             this.clearCache();
-        }, 1000);
+            await this.updateBlockHeight();
+
+            this.startCache();
+        }, 2000);
+    }
+
+    private async updateBlockHeight(): Promise<void> {
+        const v = Array.from(this.startedBlockIds.values());
+        const smallestBlockInCommittedTransactions = this.smallestBigIntInArray(v);
+
+        await this.commitUntilBlockId(smallestBlockInCommittedTransactions);
     }
 
     private clearCache(): void {
@@ -379,13 +594,19 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
+        if (!this.transactionSession) {
+            throw new Error('Transaction session not started');
+        }
+
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Terminating session');
         }
 
-        await this.currentSession.endSession();
+        const promiseTerminate: Promise<void>[] = [this.currentSession.endSession()];
+        await Promise.all(promiseTerminate);
 
         this.currentSession = undefined;
+        this.transactionSession = undefined;
     }
 
     private addBytes(value: MemoryValue): Uint8Array {

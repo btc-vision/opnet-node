@@ -31,7 +31,7 @@ export class VMBitcoinBlock extends Logger {
             this.log(`Preparing block ${this.blockId}...`);
         }
 
-        await this.vmStorage.prepareNewBlock();
+        await this.vmStorage.prepareNewBlock(blockId);
 
         this.isPrepared = true;
     }
@@ -47,8 +47,10 @@ export class VMBitcoinBlock extends Logger {
 
         this.error(`Reverting block ${this.blockId}...`);
 
+        const blockId = this.blockId;
         this.reset();
-        await this.vmStorage.revertChanges();
+
+        await this.vmStorage.revertChanges(blockId);
     }
 
     public async terminate(): Promise<void> {
@@ -64,8 +66,10 @@ export class VMBitcoinBlock extends Logger {
             this.log(`Terminating block ${this.blockId}...`);
         }
 
+        const blockId = this.blockId;
         this.reset();
-        await this.vmStorage.terminateBlock();
+
+        await this.vmStorage.terminateBlock(blockId);
 
         return;
     }

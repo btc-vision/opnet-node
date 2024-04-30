@@ -25,6 +25,11 @@ export class Block extends Logger {
     // Block Header
     public readonly header: BlockHeader;
 
+    public timeForTransactionExecution: number = 0;
+    public timeForStateUpdate: number = 0;
+    public timeForBlockProcessing: number = 0;
+    public timeForGenericTransactions: number = 0;
+
     // We create an array here instead of a map to be able to sort the transactions by their order in the block
     protected transactions: Transaction<OPNetTransactionTypes>[] = [];
 
@@ -41,6 +46,9 @@ export class Block extends Logger {
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
     private readonly transactionSorter: TransactionSorter = new TransactionSorter();
 
+    private genericTransactions: Transaction<OPNetTransactionTypes>[] = [];
+    private opnetTransactions: Transaction<OPNetTransactionTypes>[] = [];
+
     #_storageRoot: string | undefined;
     #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
 
@@ -48,9 +56,11 @@ export class Block extends Logger {
     #_receiptProofs: Map<Address, Map<string, string[]>> | undefined;
 
     #_checksumMerkle: ChecksumMerkle = new ChecksumMerkle();
-    #_checksumProofs: BlockHeaderChecksumProof | undefined;
 
+    #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
+
+    private saveGenericTransactionPromise: Promise<void> | undefined;
 
     constructor(
         protected readonly rawBlockData: BlockDataWithTransactionData,
@@ -207,11 +217,15 @@ export class Block extends Logger {
         // Then, we can sort the transactions by their priority
         this.transactions = this.transactionSorter.sortTransactions(this.transactions);
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.info(
                 `Processing block ${this.hash} containing ${this.transactions.length} transaction(s) at height ${this.height}`,
             );
         }
+
+        const separatedTransactions = this.separateGenericTransactions();
+        this.genericTransactions = separatedTransactions.genericTransactions;
+        this.opnetTransactions = separatedTransactions.opnetTransactions;
     }
 
     /** Block Execution */
@@ -222,16 +236,57 @@ export class Block extends Logger {
         await vmManager.prepareBlock(this.height);
 
         try {
+            this.saveGenericTransactionPromise = this.saveGenericTransactions(vmManager);
+
+            const timeBeforeExecution = Date.now();
+
             // Execute each transaction of the block.
             await this.executeTransactions(vmManager);
 
+            const timeAfterExecution = Date.now();
+            this.timeForTransactionExecution = timeAfterExecution - timeBeforeExecution;
+
             /** We must update the evaluated states, if there were no changes, then we mark the block as empty. */
             const states: EvaluatedStates = await vmManager.updateEvaluatedStates();
+            const updatedStatesAfterExecution = Date.now();
+            this.timeForStateUpdate = updatedStatesAfterExecution - timeAfterExecution;
+
             if (states && states.storage && states.storage.size()) {
                 await this.processBlockStates(states, vmManager);
             } else {
                 await this.onEmptyBlock(vmManager);
             }
+
+            const timeAfterBlockProcessing = Date.now();
+            this.timeForBlockProcessing = timeAfterBlockProcessing - updatedStatesAfterExecution;
+
+            const timeAfterGenericTransactions = Date.now();
+            this.timeForGenericTransactions =
+                timeAfterGenericTransactions - timeAfterBlockProcessing;
+
+            return true;
+        } catch (e) {
+            // We must wait for this resolve before reverting.
+            await this.saveGenericTransactionPromise;
+
+            const error: Error = e as Error;
+            this.error(`Something went wrong while executing the block: ${error.stack}`);
+
+            await this.revertBlock(vmManager);
+
+            return false;
+        }
+    }
+
+    public async finalizeBlock(vmManager: VMManager): Promise<boolean> {
+        try {
+            // And finally, we can save the transactions
+            await this.saveOPNetTransactions(vmManager);
+
+            // We must wait for the generic transactions to be saved before finalizing the block
+            await this.saveGenericTransactionPromise;
+
+            await vmManager.terminateBlock(this);
 
             return true;
         } catch (e) {
@@ -288,34 +343,12 @@ export class Block extends Logger {
 
     /** Transactions Execution */
     protected async executeTransactions(vmManager: VMManager): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            this.log(`Executing ${this.transactions.length} transactions.`);
-        }
+        const promises: Promise<void>[] = [
+            this.executeThreadedGenericTransactions(this.genericTransactions, vmManager),
+            this.executeOPNetTransactions(this.opnetTransactions, vmManager),
+        ];
 
-        for (const _transaction of this.transactions) {
-            switch (_transaction.transactionType) {
-                case OPNetTransactionTypes.Interaction: {
-                    const interactionTransaction = _transaction as InteractionTransaction;
-
-                    await this.executeInteractionTransaction(interactionTransaction, vmManager);
-                    break;
-                }
-                case OPNetTransactionTypes.Deployment: {
-                    const deploymentTransaction = _transaction as DeploymentTransaction;
-
-                    await this.executeDeploymentTransaction(deploymentTransaction, vmManager);
-                    break;
-                }
-                case OPNetTransactionTypes.Generic: {
-                    break;
-                }
-                default: {
-                    throw new Error(
-                        `Unsupported transaction type: ${_transaction.transactionType}`,
-                    );
-                }
-            }
-        }
+        await Promise.all(promises);
     }
 
     /** We execute interaction transactions with this method */
@@ -346,6 +379,69 @@ export class Block extends Logger {
             this.error(`Failed to deploy contract ${transaction.txid}: ${error.message}`);
 
             transaction.revert = error;
+        }
+    }
+
+    private async executeThreadedGenericTransactions(
+        transactions: Transaction<OPNetTransactionTypes>[],
+        vmManager: VMManager,
+    ): Promise<void> {
+        const groups = this.divideIntoSubArray(
+            Config.OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT,
+            transactions,
+        );
+
+        for (const group of groups) {
+            const promises: Promise<void>[] = [];
+            for (const transaction of group) {
+                promises.push(this.executeOPNetSingleTransaction(transaction, vmManager));
+            }
+
+            await Promise.all(promises);
+        }
+    }
+
+    private divideIntoSubArray<T>(size: number, array: T[]): T[][] {
+        const result: T[][] = [];
+        for (let i = 0; i < array.length; i += size) {
+            result.push(array.slice(i, i + size));
+        }
+
+        return result;
+    }
+
+    private async executeOPNetTransactions(
+        transactions: Transaction<OPNetTransactionTypes>[],
+        vmManager: VMManager,
+    ): Promise<void> {
+        for (const transaction of transactions) {
+            await this.executeOPNetSingleTransaction(transaction, vmManager);
+        }
+    }
+
+    private async executeOPNetSingleTransaction(
+        _transaction: Transaction<OPNetTransactionTypes>,
+        vmManager: VMManager,
+    ): Promise<void> {
+        switch (_transaction.transactionType) {
+            case OPNetTransactionTypes.Interaction: {
+                const interactionTransaction = _transaction as InteractionTransaction;
+
+                await this.executeInteractionTransaction(interactionTransaction, vmManager);
+                break;
+            }
+            case OPNetTransactionTypes.Deployment: {
+                const deploymentTransaction = _transaction as DeploymentTransaction;
+
+                await this.executeDeploymentTransaction(deploymentTransaction, vmManager);
+                break;
+            }
+            case OPNetTransactionTypes.Generic: {
+                break;
+            }
+            default: {
+                throw new Error(`Unsupported transaction type: ${_transaction.transactionType}`);
+            }
         }
     }
 
@@ -398,28 +494,42 @@ export class Block extends Logger {
 
         this.#_checksumProofs = this.#_checksumMerkle.getProofs();
 
-        // And finally, we can save the transactions
-        await this.saveTransactions(vmManager);
-
-        await vmManager.terminateBlock(this);
-    }
-
-    private async saveTransactions(vmManager: VMManager): Promise<void> {
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug(
                 `Block ${this.height} signed successfully. Checksum root: ${this.checksumRoot}. Saving ${this.transactions.length} transactions.`,
             );
         }
+    }
 
-        let transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
-        for (const transaction of this.transactions) {
-            transactionData.push(transaction.toDocument());
+    private async saveOPNetTransactions(vmManager: VMManager): Promise<void> {
+        if (this.opnetTransactions.length) {
+            const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
+            for (const transaction of this.opnetTransactions) {
+                transactionData.push(transaction.toDocument());
+            }
+
+            await vmManager.saveTransactions(this.height, transactionData);
+
+            if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+                this.success(`All OPNet transactions of block ${this.height} saved successfully.`);
+            }
         }
+    }
 
-        await vmManager.saveTransactions(this.height, transactionData);
+    private async saveGenericTransactions(vmManager: VMManager): Promise<void> {
+        if (this.genericTransactions.length) {
+            const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
+            for (const transaction of this.genericTransactions) {
+                transactionData.push(transaction.toDocument());
+            }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
-            this.success(`All transactions of block ${this.height} saved successfully.`);
+            await vmManager.saveTransactions(this.height, transactionData);
+
+            if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+                this.success(
+                    `All generic transactions of block ${this.height} saved successfully.`,
+                );
+            }
         }
     }
 
@@ -443,6 +553,21 @@ export class Block extends Logger {
         }
 
         this.executed = true;
+    }
+
+    private separateGenericTransactions(): {
+        genericTransactions: Transaction<OPNetTransactionTypes>[];
+        opnetTransactions: Transaction<OPNetTransactionTypes>[];
+    } {
+        const genericTransactions = this.transactions
+            .filter((transaction) => transaction.transactionType === OPNetTransactionTypes.Generic)
+            .sort((a, b) => a.index - b.index);
+
+        const nonGenericTransactions = this.transactions
+            .filter((transaction) => transaction.transactionType !== OPNetTransactionTypes.Generic)
+            .sort((a, b) => a.index - b.index);
+
+        return { genericTransactions, opnetTransactions: nonGenericTransactions };
     }
 
     private createTransactions(): void {

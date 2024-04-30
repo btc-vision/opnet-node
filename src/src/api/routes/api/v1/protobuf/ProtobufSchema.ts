@@ -2,12 +2,23 @@ import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
+import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
+import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/BlockByIdParams.js';
+import { BlockHeadersByIdResult } from '../../../../json-rpc/types/interfaces/results/BlockHeadersByIdResult.js';
 import { Schema } from '../../../../protobuf/Schema.js';
 import { Route } from '../../../Route.js';
 
-export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA, string | null> {
+export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA, JSONRpcMethods, string | null> {
     constructor() {
         super(Routes.PROTOBUF_SCHEMA, RouteType.GET);
+    }
+
+    public getData(): string | null {
+        return Schema.schema || null;
+    }
+
+    public async getDataRPC(_params: BlockByIdParams): Promise<BlockHeadersByIdResult | undefined> {
+        throw new Error('Method not implemented.');
     }
 
     protected initialize(): void {}
@@ -33,9 +44,5 @@ export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA, string | null>
         } else {
             res.send(response);
         }
-    }
-
-    protected getData(): string | null {
-        return Schema.schema || null;
     }
 }

@@ -3,24 +3,42 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
+import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
+import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/BlockByIdParams.js';
+import { BlockHeadersById } from '../../../../json-rpc/types/interfaces/params/BlockHeadersById.js';
+import { BlockHeadersByIdResult } from '../../../../json-rpc/types/interfaces/results/BlockHeadersByIdResult.js';
 import { Route } from '../../../Route.js';
+import { SafeMath } from '../../../safe/SafeMath.js';
 
 export class HeapBlockRoute extends Route<
     Routes.HEAP_BLOCK,
-    BlockHeaderAPIBlockDocument | undefined
+    JSONRpcMethods.BLOCK_HEIGHT_BY_ID,
+    BlockHeadersByIdResult | undefined
 > {
     constructor() {
         super(Routes.HEAP_BLOCK, RouteType.GET);
     }
 
-    protected initialize(): void {
-        /*SharedSubscriptionManager.subscribe(
-            SubscriptionType.NEW_BLOCK,
-            (blockData: NewBlockSubscription) => {
-                this.onNewBlock(blockData);
-            },
-        );*/
+    public async getData(
+        _params: BlockHeadersById,
+    ): Promise<BlockHeaderAPIBlockDocument | undefined> {
+        if (!this.storage) {
+            throw new Error('Storage not initialized');
+        }
+
+        const height = SafeMath.getParameterAsBigInt(_params);
+
+        return this.storage.getLatestBlock();
     }
+
+    public async getDataRPC(params: BlockByIdParams): Promise<BlockHeadersByIdResult | undefined> {
+        const data = await this.getData(params);
+        if (!data) throw new Error(`Block not found at given height.`);
+
+        return data;
+    }
+
+    protected initialize(): void {}
 
     /**
      * GET /api/v1/block/heapBlock
@@ -62,7 +80,10 @@ export class HeapBlockRoute extends Route<
         }*/
 
         try {
-            const data = await this.getData();
+            const height = _req.query.height as string | undefined;
+            const bigintHeight = height ? BigInt(height) : -1;
+
+            const data = await this.getData({ height: bigintHeight });
 
             if (data) {
                 res.status(200);
@@ -74,13 +95,5 @@ export class HeapBlockRoute extends Route<
         } catch (err) {
             this.handleDefaultError(res, err as Error);
         }
-    }
-
-    protected async getData(): Promise<BlockHeaderAPIBlockDocument | undefined> {
-        if (!this.storage) {
-            throw new Error('Storage not initialized');
-        }
-
-        return this.storage.getLatestBlock();
     }
 }
