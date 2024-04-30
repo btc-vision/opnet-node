@@ -235,7 +235,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         const outputDocuments = this.outputs.map((output) => output.toDocument());
 
         return {
-            id: this.txid,
+            id: this.transactionId,
             hash: this.hash,
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
 
