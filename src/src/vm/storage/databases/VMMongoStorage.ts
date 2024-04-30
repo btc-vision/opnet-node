@@ -408,6 +408,8 @@ export class VMMongoStorage extends VMStorage {
             (blockId) => blockId > smallestBlockInCommittedTransactions,
         );
 
+        console.log(smallestBlockInCommittedTransactions, this.committedTransactions);
+
         let blockId: number = 0;
         if (smallestBlockInCommittedTransactions > 0) {
             blockId = Number(smallestBlockInCommittedTransactions);
