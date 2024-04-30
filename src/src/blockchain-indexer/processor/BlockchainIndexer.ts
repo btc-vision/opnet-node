@@ -22,7 +22,7 @@ export class BlockchainIndexer extends Logger {
     private readonly vmManager: VMManager = new VMManager(Config);
     private readonly processOnlyOneBlock: boolean = false;
 
-    private readonly maximumPrefetchBlocks: number = 5;
+    private readonly maximumPrefetchBlocks: number = 10;
     private readonly prefetchedBlocks: Map<number, Promise<BlockDataWithTransactionData | null>> =
         new Map();
 
