@@ -15,9 +15,17 @@ import {
     TransactionDocument,
 } from '../../../../../db/interfaces/ITransactionDocument.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
+import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
+import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/BlockByIdParams.js';
+import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/BlockByIdResult.js';
 import { Route } from '../../../Route.js';
+import { SafeMath } from '../../../safe/SafeMath.js';
 
-export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransactions | undefined> {
+export class Block extends Route<
+    Routes.BLOCK,
+    JSONRpcMethods.BLOCK_BY_ID,
+    BlockHeaderAPIDocumentWithTransactions | undefined
+> {
     private cachedBlocks: Map<bigint, BlockHeaderAPIDocumentWithTransactions> = new Map();
     private maxCacheSize: number = 100;
 
@@ -25,6 +33,32 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
 
     constructor() {
         super(Routes.BLOCK, RouteType.GET);
+    }
+
+    public async getData(
+        params: BlockByIdParams,
+    ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
+        const height = SafeMath.getParameterAsBigInt(params);
+
+        const cachedData = this.getCachedData(height);
+        if (cachedData) return cachedData;
+
+        if (!this.storage) {
+            throw new Error('Storage not initialized');
+        }
+
+        const transactions = await this.storage.getBlockTransactions(height);
+        if (!transactions) return undefined;
+
+        const data = await this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
+        if (height !== -1) this.setToCache(height, data);
+        else this.currentBlockData = data;
+
+        return data;
+    }
+
+    public async getDataRPC(params: BlockByIdParams): Promise<BlockByIdResult | undefined> {
+        return this.getData(params);
     }
 
     protected initialize(): void {
@@ -53,7 +87,7 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
             const height = _req.query.height as string | undefined;
             const bigintHeight = height ? BigInt(height) : -1;
 
-            const data = await this.getData(bigintHeight);
+            const data = await this.getData({ height: bigintHeight });
 
             if (data) {
                 res.status(200);
@@ -67,24 +101,21 @@ export class Block extends Route<Routes.BLOCK, BlockHeaderAPIDocumentWithTransac
         }
     }
 
-    protected async getData(
-        height: bigint | -1 = -1,
-    ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
-        const cachedData = this.getCachedData(height);
-        if (cachedData) return cachedData;
+    private getBlockHeight(params: BlockByIdParams): bigint | -1 {
+        const isArray = Array.isArray(params);
 
-        if (!this.storage) {
-            throw new Error('Storage not initialized');
+        let height;
+        if (isArray) {
+            height = params[0];
+        } else {
+            height = params.height;
         }
 
-        const transactions = await this.storage.getBlockTransactions(height);
-        if (!transactions) return undefined;
+        if (height == -1) {
+            return -1;
+        }
 
-        const data = await this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
-        if (height !== -1) this.setToCache(height, data);
-        else this.currentBlockData = data;
-
-        return data;
+        return BigInt(height);
     }
 
     private getCachedData(height: bigint | -1): BlockHeaderAPIDocumentWithTransactions | undefined {
