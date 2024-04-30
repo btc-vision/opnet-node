@@ -488,13 +488,9 @@ export class VMMongoStorage extends VMStorage {
         await this.updateCurrentBlockId(blockId);
     }
 
-    private async sleep(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
     private async pushTransactionSession(session: ClientSession, blockId: bigint): Promise<void> {
         if (this.waitingTransactionSessions.length > this.maxTransactionSessions) {
-            const lastSession = this.waitingTransactionSessions.shift();
+            const lastSession = this.waitingTransactionSessions[0];
             if (!lastSession) throw new Error('Session not found');
 
             this.warn(`Too many transaction sessions. Waiting for a session to be committed.`);
@@ -507,8 +503,6 @@ export class VMMongoStorage extends VMStorage {
             const pendingCommit = this.waitingCommits.get(lastSession.blockId);
             if (pendingCommit) {
                 await pendingCommit;
-
-                this.waitingCommits.delete(blockId);
             }
         }
 
