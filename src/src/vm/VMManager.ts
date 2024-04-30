@@ -97,7 +97,7 @@ export class VMManager extends Logger {
         this.clear();
     }
 
-    public async terminateBlock(block?: Block): Promise<void> {
+    public async terminateBlock(block: Block): Promise<void> {
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Terminating block ${this.vmBitcoinBlock.height}...`);
         }
@@ -106,10 +106,14 @@ export class VMManager extends Logger {
         try {
             if (block !== undefined) {
                 await this.saveBlock(block);
+            } else {
+                throw new Error('Block not found');
             }
 
             await this.vmBitcoinBlock.terminate();
         } catch (e) {
+            console.log('Error:', e);
+
             await this.vmBitcoinBlock.revert();
         }
 
