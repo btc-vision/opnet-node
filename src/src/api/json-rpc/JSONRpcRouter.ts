@@ -37,7 +37,6 @@ export class JSONRpcRouter {
 
         try {
             const result = await route.getDataRPC(params);
-            console.log(result);
 
             return {
                 result: result ?? null,

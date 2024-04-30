@@ -50,8 +50,8 @@ export class JSONRpc2Manager extends Logger {
 
             const params: JSONRpc2RequestParams<JSONRpcMethods> =
                 requestData.params as JSONRpc2RequestParams<JSONRpcMethods>;
-            if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
-                this.info(
+            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.debugBright(
                     `JSON-RPC requested method: ${requestData.method} - ${JSON.stringify(params)}`,
                 );
             }
