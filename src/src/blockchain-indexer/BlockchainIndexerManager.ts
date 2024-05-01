@@ -20,7 +20,7 @@ class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
     public readonly zeroMQThreads: ZeroMQThreadManager = new ZeroMQThreadManager();
     public readonly bitcoinRPCThreads: BitcoinRPCThreadManager = new BitcoinRPCThreadManager();
 
-    private readonly blockIndexer: BlockchainIndexer = new BlockchainIndexer();
+    private readonly blockIndexer: BlockchainIndexer = new BlockchainIndexer(Config);
 
     constructor() {
         super();

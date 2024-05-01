@@ -4,7 +4,6 @@ import { ClientSession } from 'mongodb';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { Config } from '../../../config/Config.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { BlockWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { BlockRootStates } from '../../../db/interfaces/BlockRootStates.js';
@@ -38,7 +37,7 @@ export class VMMongoStorage extends VMStorage {
     private blockchainInfoRepository: BlockchainInformationRepository | undefined;
 
     private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
-    private maxTransactionSessions: number = 10;
+    private readonly maxTransactionSessions: number;
 
     private committedTransactions: Set<bigint> = new Set<bigint>();
     private writeTransactions: Map<bigint, Promise<void>[]> = new Map<bigint, Promise<void>[]>();
@@ -50,7 +49,8 @@ export class VMMongoStorage extends VMStorage {
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
 
-        this.network = Config.BLOCKCHAIN.BITCOIND_NETWORK;
+        this.network = config.BLOCKCHAIN.BITCOIND_NETWORK;
+        this.maxTransactionSessions = config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS;
 
         this.startCache();
 
@@ -137,7 +137,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async close(): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Closing database');
         }
 
@@ -145,7 +145,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async prepareNewBlock(blockId: bigint): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Preparing new block');
         }
 
@@ -170,7 +170,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async terminateBlock(blockId: bigint): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Terminating block');
         }
 
@@ -191,7 +191,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async revertChanges(blockId: bigint): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Reverting changes');
         }
 
@@ -598,7 +598,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction session not started');
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Terminating session');
         }
 
