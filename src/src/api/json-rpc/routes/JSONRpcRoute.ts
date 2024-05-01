@@ -8,12 +8,12 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     [JSONRpcMethods.BLOCK_BY_NUMBER]: Routes.LATEST_BLOCK,
 
     /** Block Headers */
-    [JSONRpcMethods.GET_BLOCK_HEADER_BY_HASH]: Routes.BLOCK_BY_HASH,
-    [JSONRpcMethods.GET_BLOCK_HEADER_BY_NUMBER]: Routes.BLOCK_BY_ID,
+    [JSONRpcMethods.GET_BLOCK_HEADER_BY_HASH]: Routes.NOT_IMPLEMENTED,
+    [JSONRpcMethods.GET_BLOCK_HEADER_BY_NUMBER]: Routes.NOT_IMPLEMENTED,
 
     /** Blocks */
-    [JSONRpcMethods.GET_BLOCK_BY_HASH]: Routes.NOT_IMPLEMENTED,
-    [JSONRpcMethods.GET_BLOCK_BY_NUMBER]: Routes.NOT_IMPLEMENTED,
+    [JSONRpcMethods.GET_BLOCK_BY_HASH]: Routes.BLOCK_BY_HASH,
+    [JSONRpcMethods.GET_BLOCK_BY_NUMBER]: Routes.BLOCK_BY_ID,
 
     /** Transactions */
     [JSONRpcMethods.GET_TRANSACTION_BY_HASH]: Routes.NOT_IMPLEMENTED,
