@@ -1,8 +1,7 @@
 import { JSONRpcMethods } from '../../enums/JSONRpcMethods.js';
 import { JSONRpcParams } from '../JSONRpcParams.js';
 
-export interface BlockByIdParamsAsObject
-    extends JSONRpcParams<JSONRpcMethods.GET_BLOCK_HEADER_BY_NUMBER> {
+export interface BlockByIdParamsAsObject extends JSONRpcParams<JSONRpcMethods.GET_BLOCK_BY_NUMBER> {
     readonly height: bigint | -1 | string;
     readonly sendTransactions?: boolean;
 }

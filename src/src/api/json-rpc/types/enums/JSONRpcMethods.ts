@@ -2,10 +2,6 @@ export enum JSONRpcMethods {
     /** Get Block Current Height */
     BLOCK_BY_NUMBER = 'btc_blockNumber',
 
-    /** Block Headers */
-    GET_BLOCK_HEADER_BY_HASH = 'btc_getBlockHeaderByHash',
-    GET_BLOCK_HEADER_BY_NUMBER = 'btc_getBlockHeaderByNumber',
-
     /** Blocks */
     GET_BLOCK_BY_HASH = 'btc_getBlockByHash',
     GET_BLOCK_BY_NUMBER = 'btc_getBlockByNumber',
