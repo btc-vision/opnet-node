@@ -22,7 +22,9 @@ export class LatestBlock extends Route<
 
         const latestBlock = await this.storage.getLatestBlock();
 
-        return latestBlock?.height;
+        return {
+            height: latestBlock?.height || '0',
+        };
     }
 
     public async getDataRPC(): Promise<BlockByNumberResult | undefined> {
@@ -42,7 +44,7 @@ export class LatestBlock extends Route<
      * @response 200 - Return the current heap block of the Bitcoin blockchain.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
-     * @responseContent {HeapBlock} 200.application/json
+     * @responseContent {{height: string}} 200.application/json
      */
     protected async onRequest(_req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         /*const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK> = {
