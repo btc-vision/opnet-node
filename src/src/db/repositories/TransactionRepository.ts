@@ -95,7 +95,7 @@ export class TransactionRepository extends BaseRepository<
         );
 
         const results: BalanceOfOutputTransactionFromDB[] = await aggregatedDocument.toArray();
-        const balance: Decimal128 = results?.[0]?.value ?? Decimal128.fromString('0');
+        const balance: Decimal128 = results?.[0]?.balance ?? Decimal128.fromString('0');
 
         return DataConverter.fromDecimal128(balance);
     }

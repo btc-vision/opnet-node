@@ -3,7 +3,7 @@ import { Decimal128, Document } from 'mongodb';
 import { UTXOSAggregation } from './UTXOSAggregation.js';
 
 export interface BalanceOfOutputTransactionFromDB {
-    readonly value: Decimal128;
+    readonly balance: Decimal128;
 }
 
 export class BalanceOfAggregation extends UTXOSAggregation {
@@ -16,9 +16,9 @@ export class BalanceOfAggregation extends UTXOSAggregation {
 
         aggregation.push({
             $group: {
-                _id: null,
+                _id: 0,
                 balance: {
-                    $sum: '$outputs.value',
+                    $sum: '$value',
                 },
             },
         });
