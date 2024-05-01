@@ -482,7 +482,7 @@ export class VMManager extends Logger {
 
         // We use pub the pub key as the deployer address.
         const contractDeployer: string = contractInformation.deployerAddress;
-        if (!contractDeployer || contractDeployer.length < ADDRESS_BYTE_LENGTH) {
+        if (!contractDeployer || contractDeployer.length > ADDRESS_BYTE_LENGTH) {
             throw new Error(`Invalid contract deployer "${contractDeployer}"`);
         }
 
