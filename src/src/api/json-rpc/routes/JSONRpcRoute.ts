@@ -21,13 +21,13 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     [JSONRpcMethods.SIMULATE_TRANSACTION]: Routes.NOT_IMPLEMENTED,
 
     /** Historical */
-    [JSONRpcMethods.GET_UXTOS]: Routes.NOT_IMPLEMENTED,
+    [JSONRpcMethods.GET_UTXOS]: Routes.UTXOS,
 
     /** State Methods */
     [JSONRpcMethods.GET_TRANSACTION_RECEIPT]: Routes.NOT_IMPLEMENTED,
     [JSONRpcMethods.GET_CODE]: Routes.NOT_IMPLEMENTED,
     [JSONRpcMethods.GET_STORAGE_AT]: Routes.NOT_IMPLEMENTED,
-    [JSONRpcMethods.GET_BALANCE]: Routes.NOT_IMPLEMENTED,
+    [JSONRpcMethods.GET_BALANCE]: Routes.GET_BALANCE,
     [JSONRpcMethods.CALL]: Routes.NOT_IMPLEMENTED,
 
     /** Vaults */

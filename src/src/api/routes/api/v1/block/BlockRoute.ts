@@ -45,23 +45,6 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         params: BlockByIdParams | BlockByHashParams,
     ): Promise<BlockByIdResult | undefined>;
 
-    public getParameterAsBoolean(params: BlockByIdParams | BlockByHashParams): boolean {
-        const isArray = Array.isArray(params);
-
-        let includeTransactions;
-        if (isArray) {
-            includeTransactions = params.shift();
-
-            if (typeof includeTransactions !== 'boolean') {
-                includeTransactions = false;
-            }
-        } else {
-            includeTransactions = params.sendTransactions ?? false;
-        }
-
-        return includeTransactions;
-    }
-
     protected initialize(): void {
         setInterval(() => {
             this.purgeCache();
@@ -155,6 +138,23 @@ export abstract class BlockRoute<T extends Routes> extends Route<
             ...data.block,
             transactions,
         };
+    }
+
+    protected getParameterAsBoolean(params: BlockByIdParams | BlockByHashParams): boolean {
+        const isArray = Array.isArray(params);
+
+        let includeTransactions;
+        if (isArray) {
+            includeTransactions = params.shift();
+
+            if (typeof includeTransactions !== 'boolean') {
+                includeTransactions = false;
+            }
+        } else {
+            includeTransactions = params.sendTransactions ?? false;
+        }
+
+        return includeTransactions;
     }
 
     private purgeCache() {

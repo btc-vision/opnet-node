@@ -1,5 +1,7 @@
 import { Routes } from '../enums/Routes.js';
 import { JSONRpcMethods } from '../json-rpc/types/enums/JSONRpcMethods.js';
+import { GetBalanceRoute } from './api/v1/address/GetBalanceRoute.js';
+import { UTXOsRoute } from './api/v1/address/UTXOsRoute.js';
 import { BlockByHash } from './api/v1/block/BlockByHash.js';
 import { BlockById } from './api/v1/block/BlockById.js';
 import { LatestBlock } from './api/v1/block/LatestBlock.js';
@@ -15,4 +17,6 @@ export const DefinedRoutes: { [key in Routes]: Route<key, JSONRpcMethods, unknow
     [Routes.BLOCK_BY_HASH]: new BlockByHash(),
     [Routes.JSON_RPC]: new JSONRpc(),
     [Routes.NOT_IMPLEMENTED]: new NotImplemented(),
+    [Routes.UTXOS]: new UTXOsRoute(),
+    [Routes.GET_BALANCE]: new GetBalanceRoute(),
 };

@@ -16,7 +16,7 @@ export enum JSONRpcMethods {
     SIMULATE_TRANSACTION = 'btc_simulateTransaction',
 
     /** Historical */
-    GET_UXTOS = 'btc_getUXTOS',
+    GET_UTXOS = 'btc_getUTXOs',
 
     /** State Methods */
     GET_TRANSACTION_RECEIPT = 'btc_getTransactionReceipt',

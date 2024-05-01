@@ -1,9 +1,15 @@
 export enum Routes {
+    /** Block */
+    LATEST_BLOCK = 'block/latest',
+
     BLOCK_BY_HASH = 'block/by-hash',
     BLOCK_BY_ID = 'block/by-id',
 
-    LATEST_BLOCK = 'block/latest',
+    /** Address */
+    UTXOS = 'address/utxos',
+    GET_BALANCE = 'address/get-balance',
 
+    /** Other */
     PROTOBUF_SCHEMA = 'protobuf/schema',
     JSON_RPC = 'json-rpc',
 

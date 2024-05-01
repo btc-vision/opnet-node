@@ -11,7 +11,7 @@ export type SafeBigInt = -1 | bigint;
 export type SafeString = string | null;
 
 export class SafeMath {
-    public static getParameterAsBigInt(
+    public static getParameterAsBigIntForBlock(
         params: BlockByIdParamsAsObject | BlockByIdParamsAsArray,
     ): SafeBigInt {
         const isArray = Array.isArray(params);
@@ -34,7 +34,7 @@ export class SafeMath {
         return BigInt(height);
     }
 
-    public static getParameterAsString(
+    public static getParameterAsStringForBlock(
         params: BlockByHashParamsAsObject | BlockByHashParamsAsArray,
     ): SafeString {
         const isArray = Array.isArray(params);

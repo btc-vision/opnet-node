@@ -20,7 +20,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
             throw new Error('Storage not initialized');
         }
 
-        const blockHash = SafeMath.getParameterAsString(params);
+        const blockHash = SafeMath.getParameterAsStringForBlock(params);
         const includeTransactions: boolean = this.getParameterAsBoolean(params);
         if (!blockHash) {
             throw new Error('Block hash not provided');

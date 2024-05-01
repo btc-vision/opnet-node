@@ -19,7 +19,7 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
     public async getData(
         params: BlockByIdParams,
     ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
-        const height: SafeBigInt = SafeMath.getParameterAsBigInt(params);
+        const height: SafeBigInt = SafeMath.getParameterAsBigIntForBlock(params);
         const includeTransactions: boolean = this.getParameterAsBoolean(params);
 
         const cachedData = this.getCachedData(height);

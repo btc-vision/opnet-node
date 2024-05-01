@@ -1,6 +1,7 @@
 import { BufferHelper } from '@btc-vision/bsi-binary';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession } from 'mongodb';
+import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/UTXOsOutputTransactions.js';
 import { SafeBigInt } from '../../../api/routes/safe/SafeMath.js';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
@@ -415,6 +416,25 @@ export class VMMongoStorage extends VMStorage {
         }
 
         return await this.blockRepository.getBlockHeader(height);
+    }
+
+    public async getUTXOs(
+        address: BitcoinAddress,
+        optimize: boolean = false,
+    ): Promise<UTXOsOutputTransactions> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        return await this.transactionRepository.getWalletUnspentUTXOS(address, optimize);
+    }
+
+    public async getBalanceOf(address: BitcoinAddress): Promise<bigint | undefined> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        return await this.transactionRepository.getBalanceOf(address);
     }
 
     private async fakeWaitCommit(
