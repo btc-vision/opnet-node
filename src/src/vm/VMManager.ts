@@ -214,7 +214,7 @@ export class VMManager extends Logger {
 
         const selector: Selector = calldata.readUInt32BE(0);
         const isView: boolean = vmEvaluator.isViewMethod(selector);
-        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
             this.debugBright(
                 `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${contractAddress} at block ${blockHeight} with calldata ${calldata.toString(
                     'hex',
