@@ -29,6 +29,8 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
             throw new Error('Storage not initialized');
         }
 
+        console.log(includeTransactions);
+
         const transactions: BlockWithTransactions | undefined =
             await this.storage.getBlockTransactions(height, undefined, includeTransactions);
         if (!transactions) return undefined;

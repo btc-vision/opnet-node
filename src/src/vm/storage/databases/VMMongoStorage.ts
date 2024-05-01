@@ -111,7 +111,7 @@ export class VMMongoStorage extends VMStorage {
     public async getBlockTransactions(
         height: SafeBigInt = -1,
         hash?: string,
-        includeTransactions: boolean = false,
+        includeTransactions?: boolean,
     ): Promise<BlockWithTransactions | undefined> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
@@ -135,12 +135,10 @@ export class VMMongoStorage extends VMStorage {
             return undefined;
         }
 
-        const transactions = includeTransactions
-            ? await this.transactionRepository.getTransactionsByBlockHash(
-                  block.height,
-                  this.currentSession,
-              )
-            : [];
+        const transactions =
+            includeTransactions === true
+                ? await this.transactionRepository.getTransactionsByBlockHash(block.height)
+                : [];
 
         return {
             block: this.convertBlockHeaderToBlockHeaderDocument(block),
