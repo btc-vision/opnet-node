@@ -23,7 +23,17 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
         const includeTransactions: boolean = this.getParameterAsBoolean(params);
 
         const cachedData = this.getCachedData(height);
-        if (cachedData) return cachedData;
+        if (cachedData) {
+            if (!includeTransactions && cachedData.transactions.length !== 0) {
+                return {
+                    ...cachedData,
+                    transactions: [],
+                };
+            } else if (includeTransactions && cachedData.transactions.length === 0) {
+            } else {
+                return cachedData;
+            }
+        }
 
         if (!this.storage) {
             throw new Error('Storage not initialized');
@@ -66,7 +76,7 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
             const height = req.query.height as string | undefined;
             const bigintHeight = height ? BigInt(height) : -1;
 
-            const sendTransactions = req.query.sendTransactions as boolean | undefined;
+            const sendTransactions = req.query.sendTransactions === 'true';
             const data = await this.getData({
                 height: bigintHeight,
                 sendTransactions: sendTransactions,

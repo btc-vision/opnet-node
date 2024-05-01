@@ -27,7 +27,17 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
         }
 
         const cachedData = this.getCachedData(blockHash);
-        if (cachedData) return cachedData;
+        if (cachedData) {
+            if (!includeTransactions && cachedData.transactions.length !== 0) {
+                return {
+                    ...cachedData,
+                    transactions: [],
+                };
+            } else if (includeTransactions && cachedData.transactions.length === 0) {
+            } else {
+                return cachedData;
+            }
+        }
 
         if (!this.storage) {
             throw new Error('Storage not initialized');
@@ -38,6 +48,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
             blockHash,
             includeTransactions,
         );
+
         if (!transactions) return undefined;
 
         const data = await this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
@@ -75,8 +86,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
                 return;
             }
 
-            const sendTransactions = req.query.sendTransactions as boolean | undefined;
-
+            const sendTransactions = req.query.sendTransactions === 'true';
             const data = await this.getData({
                 blockHash: hash,
                 sendTransactions: sendTransactions,
