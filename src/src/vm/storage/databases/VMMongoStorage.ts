@@ -1,6 +1,7 @@
 import { BufferHelper } from '@btc-vision/bsi-binary';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession } from 'mongodb';
+import { SafeBigInt } from '../../../api/routes/safe/SafeMath.js';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
@@ -10,6 +11,7 @@ import { BlockRootStates } from '../../../db/interfaces/BlockRootStates.js';
 import {
     BlockHeaderAPIBlockDocument,
     BlockHeaderBlockDocument,
+    IBlockHeaderBlockDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
 import { BlockchainInformationRepository } from '../../../db/repositories/BlockchainInformationRepository.js';
@@ -106,7 +108,9 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getBlockTransactions(
-        height: -1 | bigint = -1,
+        height: SafeBigInt = -1,
+        hash?: string,
+        includeTransactions: boolean = false,
     ): Promise<BlockWithTransactions | undefined> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
@@ -116,19 +120,26 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
 
-        let block =
-            height === -1
-                ? await this.blockRepository.getLatestBlock()
-                : await this.blockRepository.getBlockHeader(height, this.currentSession);
+        let block: IBlockHeaderBlockDocument | undefined;
+        if (hash) {
+            block = await this.blockRepository.getBlockByHash(hash, this.currentSession);
+        } else {
+            block =
+                height === -1
+                    ? await this.blockRepository.getLatestBlock()
+                    : await this.blockRepository.getBlockHeader(height, this.currentSession);
+        }
 
         if (!block) {
             return undefined;
         }
 
-        const transactions = await this.transactionRepository.getTransactionsByBlockHash(
-            block.height,
-            this.currentSession,
-        );
+        const transactions = includeTransactions
+            ? await this.transactionRepository.getTransactionsByBlockHash(
+                  block.height,
+                  this.currentSession,
+              )
+            : [];
 
         return {
             block: this.convertBlockHeaderToBlockHeaderDocument(block),

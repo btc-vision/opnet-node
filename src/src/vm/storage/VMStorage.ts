@@ -84,6 +84,8 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public abstract getLatestBlock(): Promise<BlockHeaderAPIBlockDocument | undefined>;
 
     public abstract getBlockTransactions(
-        height: bigint | -1,
+        height?: bigint | -1,
+        hash?: string,
+        includeTransactions?: boolean,
     ): Promise<BlockWithTransactions | undefined>;
 }

@@ -203,6 +203,12 @@ export class BlockchainIndexer extends Logger {
                 throw new Error(`Error fetching block ${blockHeightInProgress}.`);
             }
 
+            if (block.height !== blockHeightInProgress) {
+                throw new Error(
+                    `Block height mismatch. Expected: ${blockHeightInProgress}, got: ${block.height}`,
+                );
+            }
+
             const processStartTime = Date.now();
             const processed: Block | null = await this.processBlock(block, this.vmManager);
             if (processed === null) {

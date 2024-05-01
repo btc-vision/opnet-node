@@ -1,8 +1,18 @@
+import {
+    BlockByHashParamsAsArray,
+    BlockByHashParamsAsObject,
+} from '../../json-rpc/types/interfaces/params/BlockByHashParams.js';
+import {
+    BlockByIdParamsAsArray,
+    BlockByIdParamsAsObject,
+} from '../../json-rpc/types/interfaces/params/BlockByIdParams.js';
+
 export type SafeBigInt = -1 | bigint;
+export type SafeString = string | null;
 
 export class SafeMath {
     public static getParameterAsBigInt(
-        params: [string | bigint | -1] | { height: string | bigint | -1 },
+        params: BlockByIdParamsAsObject | BlockByIdParamsAsArray,
     ): SafeBigInt {
         const isArray = Array.isArray(params);
 
@@ -22,5 +32,24 @@ export class SafeMath {
         }
 
         return BigInt(height);
+    }
+
+    public static getParameterAsString(
+        params: BlockByHashParamsAsObject | BlockByHashParamsAsArray,
+    ): SafeString {
+        const isArray = Array.isArray(params);
+
+        let blockHash;
+        if (isArray) {
+            blockHash = params.shift();
+
+            if (typeof blockHash !== 'string') {
+                blockHash = null;
+            }
+        } else {
+            blockHash = params.blockHash;
+        }
+
+        return blockHash;
     }
 }

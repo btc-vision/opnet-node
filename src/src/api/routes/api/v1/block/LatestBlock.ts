@@ -1,38 +1,32 @@
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/BlockByIdParams.js';
-import { BlockHeadersById } from '../../../../json-rpc/types/interfaces/params/BlockHeadersById.js';
-import { BlockHeadersByIdResult } from '../../../../json-rpc/types/interfaces/results/BlockHeadersByIdResult.js';
+import { BlockByNumberResult } from '../../../../json-rpc/types/interfaces/results/BlockByNumberResult.js';
 import { Route } from '../../../Route.js';
-import { SafeMath } from '../../../safe/SafeMath.js';
 
-export class HeapBlockRoute extends Route<
-    Routes.HEAP_BLOCK,
-    JSONRpcMethods.BLOCK_HEIGHT_BY_ID,
-    BlockHeadersByIdResult | undefined
+export class LatestBlock extends Route<
+    Routes.LATEST_BLOCK,
+    JSONRpcMethods.BLOCK_BY_NUMBER,
+    BlockByNumberResult | undefined
 > {
     constructor() {
-        super(Routes.HEAP_BLOCK, RouteType.GET);
+        super(Routes.LATEST_BLOCK, RouteType.GET);
     }
 
-    public async getData(
-        _params: BlockHeadersById,
-    ): Promise<BlockHeaderAPIBlockDocument | undefined> {
+    public async getData(): Promise<BlockByNumberResult | undefined> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
 
-        const height = SafeMath.getParameterAsBigInt(_params);
+        const latestBlock = await this.storage.getLatestBlock();
 
-        return this.storage.getLatestBlock();
+        return latestBlock?.height;
     }
 
-    public async getDataRPC(params: BlockByIdParams): Promise<BlockHeadersByIdResult | undefined> {
-        const data = await this.getData(params);
+    public async getDataRPC(): Promise<BlockByNumberResult | undefined> {
+        const data = await this.getData();
         if (!data) throw new Error(`Block not found at given height.`);
 
         return data;
@@ -41,7 +35,7 @@ export class HeapBlockRoute extends Route<
     protected initialize(): void {}
 
     /**
-     * GET /api/v1/block/heapBlock
+     * GET /api/v1/block/latest
      * @tag OpNet
      * @summary Get the current heap block of OpNet
      * @description Get the current heap block of OpNet (the block that is currently being processed)
@@ -80,10 +74,7 @@ export class HeapBlockRoute extends Route<
         }*/
 
         try {
-            const height = _req.query.height as string | undefined;
-            const bigintHeight = height ? BigInt(height) : -1;
-
-            const data = await this.getData({ height: bigintHeight });
+            const data = await this.getData();
 
             if (data) {
                 res.status(200);
