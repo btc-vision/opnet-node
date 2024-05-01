@@ -49,7 +49,9 @@ export class UTXOsRoute extends Route<
      * GET /api/v1/address/utxos
      * @tag OpNet
      * @summary Get the requested wallet unspent transaction outputs (UTXOs).
-     * @description Get every unspent transaction output (UTXO) for the requested wallet. This endpoint allows also UTXOs optimization for dust UTXOs.
+     * @description Get every unspent transaction output (UTXOs) for the requested wallet. This endpoint allows also UTXOs optimization for dust UTXOs.
+     * @queryParam {string} [address] - The address of the wallet to fetch.
+     * @queryParam {boolean} [optimize] - Optimize the UTXOs for the given address.
      * @response 200 - Returns the requested wallet UTXOs.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error

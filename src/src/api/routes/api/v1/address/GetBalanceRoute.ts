@@ -48,6 +48,7 @@ export class GetBalanceRoute extends Route<
      * @tag OpNet
      * @summary Get the requested wallet current btc balance.
      * @description Get the current btc balance for the requested wallet.
+     * @queryParam {string} [address] - The address of the wallet to fetch.
      * @response 200 - Returns the requested wallet balance.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
