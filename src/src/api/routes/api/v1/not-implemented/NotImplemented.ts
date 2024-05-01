@@ -31,7 +31,7 @@ export class NotImplemented extends Route<Routes.NOT_IMPLEMENTED, JSONRpcMethods
      * @response 200 - Not Implemented
      * @response 400 - Not Implemented
      * @response default - Unexpected error
-     * @responseContent {{error: string}} 200.plain/text
+     * @responseContent {error: string} 200.plain/text
      */
     protected onRequest(_req: Request, res: Response, _next?: MiddlewareNext): void {
         let response: string | null = this.getData();

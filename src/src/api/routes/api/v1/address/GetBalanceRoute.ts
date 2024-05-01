@@ -52,7 +52,7 @@ export class GetBalanceRoute extends Route<
      * @response 200 - Returns the requested wallet balance.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
-     * @responseContent {{balance: integer}} 200.application/json
+     * @responseContent {balance: string} 200.application/json
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
