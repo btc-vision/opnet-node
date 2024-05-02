@@ -104,6 +104,10 @@ export class ContractEvaluator {
         this.currentStorageState.clear();
     }
 
+    public dispose(): void {
+        this.vmIsolator.dispose();
+    }
+
     public getViewSelectors(): SelectorsMap {
         return this.viewAbi;
     }

@@ -78,7 +78,7 @@ export class VMManager extends Logger {
 
     public async closeDatabase(): Promise<void> {
         await this.vmStorage.close();
-        this.clear();
+        await this.clear();
     }
 
     public async prepareBlock(blockId: bigint): Promise<void> {
@@ -86,7 +86,7 @@ export class VMManager extends Logger {
             this.debug(`Preparing block ${blockId}...`);
         }
 
-        this.clear();
+        await this.clear();
 
         await this.vmBitcoinBlock.prepare(blockId);
 
@@ -100,7 +100,7 @@ export class VMManager extends Logger {
         }
 
         await this.vmBitcoinBlock.revert();
-        this.clear();
+        await this.clear();
     }
 
     public async terminateBlock(): Promise<void> {
@@ -114,7 +114,7 @@ export class VMManager extends Logger {
             await this.vmBitcoinBlock.revert();
         }
 
-        this.clear();
+        await this.clear();
     }
 
     public async saveTransactions(
@@ -188,9 +188,8 @@ export class VMManager extends Logger {
                 from || null,
             );
 
-            console.log(`Response:`, response);
-
             vmEvaluator.clear();
+            vmEvaluator.dispose();
 
             return response;
         } catch (e) {
@@ -199,8 +198,6 @@ export class VMManager extends Logger {
                     'hex',
                 )}`,
             );
-
-            console.log(e);
 
             throw e;
         }
@@ -612,13 +609,19 @@ export class VMManager extends Logger {
         await this.vmStorage.saveBlockHeader(block.getBlockHeaderDocument());
     }
 
-    private clear(): void {
+    private async clear(): Promise<void> {
         this.blockState = undefined;
         this.receiptState = undefined;
 
         this.cachedBlockHeader.clear();
         this.verifiedBlockHeights.clear();
         this.contractCache.clear();
+
+        for (let vmEvaluator of this.vmEvaluators.values()) {
+            const evaluator = await vmEvaluator;
+            evaluator.dispose();
+        }
+
         this.vmEvaluators.clear();
     }
 

@@ -92,6 +92,13 @@ export class VMIsolator {
         await this.contract.init(runTime);
     }
 
+    public dispose(): void {
+        this.context.release();
+        this.jail.release();
+
+        this.isolatedVM.dispose();
+    }
+
     private defineMethods(): void {
         if (!this.reference) {
             throw new Error('Contract not loaded');
