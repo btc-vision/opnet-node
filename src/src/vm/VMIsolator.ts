@@ -124,7 +124,7 @@ export class VMIsolator {
 
     private getCallOptions(): ReferenceApplyOptions {
         return {
-            timeout: 50,
+            timeout: 200,
         };
     }
 
@@ -386,7 +386,7 @@ export class VMIsolator {
 
             this.module = await this.isolatedVM.compileModule(code);
 
-            await this.module.instantiate(
+            this.module.instantiateSync(
                 this.context,
                 (specifier: string, _referrer: ivm.Module) => {
                     throw new Error(`Module ${specifier} not found`);
@@ -394,8 +394,8 @@ export class VMIsolator {
                 },
             );
 
-            this.module.evaluateSync({
-                timeout: 500,
+            await this.module.evaluate({
+                timeout: 2000,
             });
 
             this.reference = this.module.namespace;
