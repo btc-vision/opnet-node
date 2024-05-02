@@ -56,7 +56,7 @@ export class TransactionByHash extends Route<
      * @response 200 - Return the transaction details.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
-     * @responseContent {object} 200.application/json
+     * @responseContent {GenericTransaction} 200.application/json
      */
     protected async onRequest(_req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {

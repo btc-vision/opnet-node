@@ -82,7 +82,7 @@ export class GetCode extends Route<
      * @response 200 - Return the bytecode of the contract and all it's descriptors.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
-     * @responseContent {{bytecode: string}} 200.application/json
+     * @responseContent {object} 200.application/json
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
