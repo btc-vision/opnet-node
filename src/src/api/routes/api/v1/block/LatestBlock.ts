@@ -47,34 +47,6 @@ export class LatestBlock extends Route<
      * @responseContent {{height: string}} 200.application/json
      */
     protected async onRequest(_req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
-        /*const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK> = {
-            type: MessageType.RPC_METHOD,
-            data: {
-                rpcMethod: BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK,
-            } as GetBlock,
-        };
-
-        const currentBlock = await ServerThread.sendMessageToThread(
-            ThreadTypes.BITCOIN_RPC,
-            currentBlockMsg,
-        );
-
-        try {
-            if (!currentBlock) {
-                res.status(400);
-                res.json({ error: 'Something went wrong.' });
-            } else {
-                res.status(200);
-                res.json(currentBlock);
-            }
-        } catch (err: unknown) {
-            let e = err as Error;
-            this.error(e.stack);
-
-            res.status(500);
-            res.end();
-        }*/
-
         try {
             const data = await this.getData();
 

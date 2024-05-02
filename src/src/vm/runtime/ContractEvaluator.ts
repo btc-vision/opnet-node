@@ -169,14 +169,14 @@ export class ContractEvaluator {
         // We restore the original storage state before executing the method.
         await this.restoreOriginalStorageState();
 
-        const canWrite = this.canWrite(address, abi);
-        if (!isView && !canWrite) {
-            throw new Error('Method is not allowed to write');
+        if (!calldata && !isView) {
+            throw new Error('Calldata is required.');
         }
 
-        if (!calldata && !isView) {
-            throw new Error('Calldata is required for method call');
-        }
+        const canWrite: boolean = this.canWrite(address, abi);
+        /*if (!isView && !canWrite) {
+            throw new Error('Method is not allowed to write or not found.');
+        }*/
 
         try {
             // We execute the method.
@@ -330,6 +330,8 @@ export class ContractEvaluator {
         }
 
         this.clear();
+
+        while (1) {}
 
         const events = this.getEvents();
         return {

@@ -103,9 +103,16 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const calldata: BinaryWriter = new BinaryWriter();
+        //calldata.writeSelector(balanceOfSelector);
         calldata.writeAddress(address);
 
         const buffer = calldata.getBuffer();
+        console.log(
+            'calldata getBalanceOf ->',
+            balanceOfSelector,
+            Buffer.from(buffer).toString('hex'),
+        );
+
         const balanceValue = await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, true, balanceOfSelector, buffer)
             .catch((e) => {
@@ -153,10 +160,17 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const addBalanceSelector = Number(`0x` + abiCoder.encodeSelector('addFreeMoney'));
         const addCalldata: BinaryWriter = new BinaryWriter();
 
+        //addCalldata.writeSelector(addBalanceSelector);
         addCalldata.writeAddress(address);
         addCalldata.writeU256(amount);
 
         const addBuffer = addCalldata.getBuffer();
+        console.log(
+            'calldata giveMoneyTo ->',
+            addBalanceSelector,
+            Buffer.from(addBuffer).toString('hex'),
+        );
+
         const result = await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, false, addBalanceSelector, addBuffer, address)
             .catch((e) => {
@@ -187,6 +201,14 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const totalSupplySelector = Number(`0x` + abiCoder.encodeSelector('totalSupply'));
+
+        const addCalldata: BinaryWriter = new BinaryWriter();
+        //addCalldata.writeSelector(totalSupplySelector);
+        console.log(
+            totalSupplySelector,
+            'calldata getTotalSupply ->',
+            Buffer.from(addCalldata.getBuffer()).toString('hex'),
+        );
 
         const totalSupplyValue = await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, true, totalSupplySelector)

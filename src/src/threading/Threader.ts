@@ -417,12 +417,12 @@ export class Threader<T extends ThreadTypes> extends Logger {
             async (resolve: (value: ThreadData | PromiseLike<ThreadData>) => void) => {
                 let taskId: string = this.generateRndTaskId();
                 let timeout = setTimeout(() => {
-                    this.warn(`Thread task ${taskId} timed out.`);
+                    this.warn(`[A] Thread task ${taskId} timed out.`);
 
                     resolve({
                         error: true,
                     });
-                }, 120000);
+                }, 30000);
 
                 let task: ThreadTaskCallback = {
                     timeout: timeout,

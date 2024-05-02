@@ -580,7 +580,7 @@ export class VMMongoStorage extends VMStorage {
             await this.updateBlockHeight();
 
             this.startCache();
-        }, 2000);
+        }, 3000);
     }
 
     private async updateBlockHeight(): Promise<void> {

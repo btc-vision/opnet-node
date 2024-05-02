@@ -286,7 +286,8 @@ export class Block extends Logger {
             // We must wait for the generic transactions to be saved before finalizing the block
             await this.saveGenericTransactionPromise;
 
-            await vmManager.terminateBlock(this);
+            await vmManager.saveBlock(this);
+            await vmManager.terminateBlock();
 
             return true;
         } catch (e) {
