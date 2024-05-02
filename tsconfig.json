@@ -19,6 +19,7 @@
 			"es2021",
 			"es2022",
 			"esnext",
+			"dom"
 		],
 		"strict": true,
 		"strictNullChecks": true,

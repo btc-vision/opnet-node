@@ -11,7 +11,7 @@ export type VMRuntime = {
         contract: Number | null,
         calldata: Uint8Array,
         caller?: Address | null,
-    ): Uint8Array;
+    ): Promise<Uint8Array>;
 
     readView(method: Selector, contract?: Number | null): Uint8Array;
 

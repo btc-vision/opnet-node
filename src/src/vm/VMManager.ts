@@ -2,7 +2,7 @@ import { Address, ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-visio
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import fs from 'fs';
-import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
+import { Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
@@ -23,7 +23,6 @@ import {
     BlockHeaderChecksumProof,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../db/interfaces/ITransactionDocument.js';
-import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
@@ -33,6 +32,7 @@ import { MemoryValue, ProvenMemoryValue } from './storage/types/MemoryValue.js';
 import { StoragePointer } from './storage/types/StoragePointer.js';
 import { VMStorage } from './storage/VMStorage.js';
 import { VMBitcoinBlock } from './VMBitcoinBlock.js';
+import { VMIsolator } from './VMIsolator.js';
 
 Globals.register();
 
@@ -131,43 +131,14 @@ export class VMManager extends Logger {
     public async loadContractFromBytecode(
         contractAddress: string,
         contractBytecode: Buffer,
-    ): Promise<VMContext | null> {
-        const contextOptions: EvaluatedContext = {
-            context: {
-                logs: [],
-                errors: [],
+    ): Promise<VMIsolator> {
+        const isolator = new VMIsolator(contractAddress, contractBytecode);
+        isolator.getStorage = this.getStorage.bind(this);
+        isolator.setStorage = this.setStorage.bind(this);
 
-                contract: null,
+        await isolator.setupJail();
 
-                getStorage: this.getStorage.bind(this),
-                setStorage: this.setStorage.bind(this),
-
-                rndPromise: this.rndPromise.bind(this),
-
-                ContractEvaluator: ContractEvaluator,
-
-                initialBytecode: contractBytecode,
-                contractAddress: contractAddress,
-            },
-        };
-
-        const scriptRunningOptions: RunningScriptInNewContextOptions = {
-            timeout: 2000,
-            contextCodeGeneration: {
-                strings: false,
-                wasm: false,
-            },
-        };
-
-        const runtime: Script = this.createRuntimeVM();
-
-        try {
-            await runtime.runInNewContext(contextOptions, scriptRunningOptions);
-        } catch (error) {
-            console.log('Error:', error, contextOptions.context);
-        }
-
-        return contextOptions.context;
+        return isolator;
     }
 
     /** This method is allowed to read only. It can not modify any states. */
@@ -198,8 +169,6 @@ export class VMManager extends Logger {
         calldata.copy(finalBuffer, 0, 4, calldata.byteLength);
 
         const selector: Selector = calldata.readUInt32BE(0);
-        console.log(`Selector: ${selector}`);
-
         const isView: boolean = vmEvaluator.isViewMethod(selector);
         if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
             this.debugBright(
@@ -210,17 +179,31 @@ export class VMManager extends Logger {
         }
 
         // Execute the function
-        const response = await vmEvaluator.execute(
-            contractAddress,
-            isView,
-            selector,
-            finalBuffer,
-            from || null,
-        );
+        try {
+            const response = await vmEvaluator.execute(
+                contractAddress,
+                isView,
+                selector,
+                finalBuffer,
+                from || null,
+            );
 
-        vmEvaluator.clear();
+            console.log(`Response:`, response);
 
-        return response;
+            vmEvaluator.clear();
+
+            return response;
+        } catch (e) {
+            this.error(
+                `Error executing contract ${contractAddress} at block ${height} with calldata ${calldata.toString(
+                    'hex',
+                )}`,
+            );
+
+            console.log(e);
+
+            throw e;
+        }
     }
 
     public async executeTransaction(
@@ -535,16 +518,16 @@ export class VMManager extends Logger {
             throw new Error(`Contract ${contractAddress} not found.`);
         }
 
-        const vmContext: VMContext | null = await this.loadContractFromBytecode(
+        const vmIsolator: VMIsolator | null = await this.loadContractFromBytecode(
             contractAddress,
             contractInformation.bytecode,
         );
 
-        if (!vmContext) {
+        if (!vmIsolator) {
             throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
         }
 
-        const vmEvaluator = vmContext.contract;
+        const vmEvaluator = vmIsolator.getContract();
         if (!vmEvaluator) {
             throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
         }
