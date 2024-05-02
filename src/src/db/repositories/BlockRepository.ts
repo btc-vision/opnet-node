@@ -33,6 +33,26 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         return result;
     }
 
+    public async getBlockByHash(
+        hash: string,
+        currentSession?: ClientSession,
+    ): Promise<IBlockHeaderBlockDocument | undefined> {
+        const criteria: Partial<BlockHeaderBlockDocument> = {
+            hash: hash,
+        };
+
+        const result: IBlockHeaderBlockDocument | null = await this.queryOne(
+            criteria,
+            currentSession,
+        );
+
+        if (result === null) {
+            return;
+        }
+
+        return result;
+    }
+
     public async getBlockHeader(
         height: bigint,
         currentSession?: ClientSession,

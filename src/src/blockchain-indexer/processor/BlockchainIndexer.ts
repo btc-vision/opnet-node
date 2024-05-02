@@ -5,6 +5,7 @@ import {
 } from '@btc-vision/bsi-bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
+import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { Config } from '../../config/Config.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
 import { BlockchainInformationRepository } from '../../db/repositories/BlockchainInformationRepository.js';
@@ -19,20 +20,23 @@ export class BlockchainIndexer extends Logger {
 
     private readonly bitcoinNetwork: bitcoin.networks.Network;
 
-    private readonly vmManager: VMManager = new VMManager(Config);
+    private readonly vmManager: VMManager;
     private readonly processOnlyOneBlock: boolean = false;
 
-    private readonly maximumPrefetchBlocks: number = 10;
+    private readonly maximumPrefetchBlocks: number;
     private readonly prefetchedBlocks: Map<number, Promise<BlockDataWithTransactionData | null>> =
         new Map();
 
     private fatalFailure: boolean = false;
     private currentBlockInProcess: Promise<void> | undefined;
 
-    constructor() {
+    constructor(config: BtcIndexerConfig) {
         super();
 
-        this.network = Config.BLOCKCHAIN.BITCOIND_NETWORK;
+        this.maximumPrefetchBlocks = config.OP_NET.MAXIMUM_PREFETCH_BLOCKS;
+        this.network = config.BLOCKCHAIN.BITCOIND_NETWORK;
+
+        this.vmManager = new VMManager(config);
 
         switch (this.network) {
             case 'mainnet':
@@ -197,6 +201,12 @@ export class BlockchainIndexer extends Logger {
 
             if (!block) {
                 throw new Error(`Error fetching block ${blockHeightInProgress}.`);
+            }
+
+            if (block.height !== blockHeightInProgress) {
+                throw new Error(
+                    `Block height mismatch. Expected: ${blockHeightInProgress}, got: ${block.height}`,
+                );
             }
 
             const processStartTime = Date.now();

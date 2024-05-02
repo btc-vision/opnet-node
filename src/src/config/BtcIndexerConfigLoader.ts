@@ -32,8 +32,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         OP_NET: {
-            TRANSACTIONS_THREADS: 4,
+            MAXIMUM_TRANSACTION_SESSIONS: 12,
             TRANSACTIONS_MAXIMUM_CONCURRENT: 100,
+            MAXIMUM_PREFETCH_BLOCKS: 10,
 
             ENABLED_AT_BLOCK: 0,
             REINDEX: false,
@@ -114,6 +115,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
+                parsedConfig.OP_NET.MAXIMUM_PREFETCH_BLOCKS !== undefined &&
+                typeof parsedConfig.OP_NET.MAXIMUM_PREFETCH_BLOCKS !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property OP_NET.MAXIMUM_PREFETCH_BLOCKS is not a number.`,
+                );
+            }
+
+            if (
                 parsedConfig.OP_NET.REINDEX === undefined ||
                 typeof parsedConfig.OP_NET.REINDEX !== 'boolean'
             ) {
@@ -143,8 +153,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
-                parsedConfig.OP_NET.TRANSACTIONS_THREADS !== undefined &&
-                typeof parsedConfig.OP_NET.TRANSACTIONS_THREADS !== 'number'
+                parsedConfig.OP_NET.MAXIMUM_TRANSACTION_SESSIONS !== undefined &&
+                typeof parsedConfig.OP_NET.MAXIMUM_TRANSACTION_SESSIONS !== 'number'
             ) {
                 throw new Error(`Oops the property OP_NET.TRANSACTIONS_THREADS is not a number.`);
             }

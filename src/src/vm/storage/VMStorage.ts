@@ -1,4 +1,5 @@
 import { Logger } from '@btc-vision/bsi-common';
+import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/UTXOsOutputTransactions.js';
 import { BitcoinAddress } from '../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
@@ -84,6 +85,15 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public abstract getLatestBlock(): Promise<BlockHeaderAPIBlockDocument | undefined>;
 
     public abstract getBlockTransactions(
-        height: bigint | -1,
+        height?: bigint | -1,
+        hash?: string,
+        includeTransactions?: boolean,
     ): Promise<BlockWithTransactions | undefined>;
+
+    public abstract getUTXOs(
+        address: string,
+        optimize: boolean,
+    ): Promise<UTXOsOutputTransactions | undefined>;
+
+    public abstract getBalanceOf(address: string): Promise<bigint | undefined>;
 }

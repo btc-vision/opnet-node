@@ -4,7 +4,6 @@ import { MiddlewareNext } from 'hyper-express/types/components/middleware/Middle
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/BlockByIdParams.js';
-import { BlockHeadersByIdResult } from '../../../../json-rpc/types/interfaces/results/BlockHeadersByIdResult.js';
 import { Schema } from '../../../../protobuf/Schema.js';
 import { Route } from '../../../Route.js';
 
@@ -17,7 +16,7 @@ export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA, JSONRpcMethods
         return Schema.schema || null;
     }
 
-    public async getDataRPC(_params: BlockByIdParams): Promise<BlockHeadersByIdResult | undefined> {
+    public async getDataRPC(_params: BlockByIdParams): Promise<{} | undefined> {
         throw new Error('Method not implemented.');
     }
 

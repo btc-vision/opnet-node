@@ -17,7 +17,6 @@ import { ContractInformation } from '../blockchain-indexer/processor/transaction
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
-import { Config } from '../config/Config.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import {
     BlockHeaderBlockDocument,
@@ -76,7 +75,7 @@ export class VMManager extends Logger {
     }
 
     public async prepareBlock(blockId: bigint): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Preparing block ${blockId}...`);
         }
 
@@ -89,7 +88,7 @@ export class VMManager extends Logger {
     }
 
     public async revertBlock(): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Reverting block ${this.vmBitcoinBlock.height}...`);
         }
 
@@ -98,11 +97,10 @@ export class VMManager extends Logger {
     }
 
     public async terminateBlock(block: Block): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Terminating block ${this.vmBitcoinBlock.height}...`);
         }
 
-        // TODO: Save block data
         try {
             if (block !== undefined) {
                 await this.saveBlock(block);
@@ -194,7 +192,7 @@ export class VMManager extends Logger {
         }
 
         const contractAddress: BitcoinAddress = interactionTransaction.contractAddress;
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
         }
 
@@ -216,7 +214,7 @@ export class VMManager extends Logger {
 
         const selector: Selector = calldata.readUInt32BE(0);
         const isView: boolean = vmEvaluator.isViewMethod(selector);
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
             this.debugBright(
                 `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${contractAddress} at block ${blockHeight} with calldata ${calldata.toString(
                     'hex',
@@ -240,11 +238,11 @@ export class VMManager extends Logger {
         this.updateBlockValuesFromResult(
             result,
             contractAddress,
-            Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+            this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
             interactionTransaction.transactionId,
         );
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debug(
                 `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute)`,
             );
@@ -256,7 +254,7 @@ export class VMManager extends Logger {
     public updateBlockValuesFromResult(
         result: EvaluatedResult,
         contractAddress: BitcoinAddress,
-        disableStorageCheck: boolean = Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+        disableStorageCheck: boolean = this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
         transactionId?: string,
     ): void {
         if (!this.blockState) {
@@ -384,7 +382,7 @@ export class VMManager extends Logger {
 
     public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string | undefined> {
         const newBlockHeight: bigint = height - 1n;
-        if (newBlockHeight < BigInt(Config.OP_NET.ENABLED_AT_BLOCK)) {
+        if (newBlockHeight < BigInt(this.config.OP_NET.ENABLED_AT_BLOCK)) {
             return ZERO_HASH;
         }
 
@@ -414,7 +412,7 @@ export class VMManager extends Logger {
             throw new Error('Contract address not found');
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debugBright(
                 `Attempting to deploy contract ${contractDeploymentTransaction.contractAddress}`,
             );
@@ -428,7 +426,7 @@ export class VMManager extends Logger {
         // We must save the contract information
         await this.setContractAt(contractInformation);
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
             this.info(`Contract ${contractInformation.contractAddress} deployed.`);
         }
     }
@@ -484,7 +482,7 @@ export class VMManager extends Logger {
 
         // We use pub the pub key as the deployer address.
         const contractDeployer: string = contractInformation.deployerAddress;
-        if (!contractDeployer || contractDeployer.length < ADDRESS_BYTE_LENGTH) {
+        if (!contractDeployer || contractDeployer.length > ADDRESS_BYTE_LENGTH) {
             throw new Error(`Invalid contract deployer "${contractDeployer}"`);
         }
 
@@ -559,7 +557,7 @@ export class VMManager extends Logger {
     }
 
     private async saveBlock(block: Block): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Saving block ${block.height}...`);
         }
 
@@ -765,14 +763,17 @@ export class VMManager extends Logger {
                 throw new Error('Block state not found');
             }
 
-            if (!Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK && !this.blockState.hasTree()) {
+            if (
+                !this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK &&
+                !this.blockState.hasTree()
+            ) {
                 throw new Error(
                     `Tried to verify the value of a state without a valid tree. Block height: ${blockHeight} - Current height: ${this.vmBitcoinBlock.height} (Have this block been saved already?)`,
                 );
             }
 
             // Same block.
-            return Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK
+            return this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK
                 ? true
                 : StateMerkleTree.verify(
                       this.blockState.root,
@@ -828,7 +829,7 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Validating block ${height} headers...`);
         }
 

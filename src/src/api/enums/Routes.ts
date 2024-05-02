@@ -1,8 +1,19 @@
 export enum Routes {
-    HEAP_BLOCK = 'block/heapBlock',
+    /** Block */
+    LATEST_BLOCK = 'block/latest',
+
+    BLOCK_BY_HASH = 'block/by-hash',
+    BLOCK_BY_ID = 'block/by-id',
+
+    /** Address */
+    UTXOS = 'address/utxos',
+    GET_BALANCE = 'address/get-balance',
+
+    /** Other */
     PROTOBUF_SCHEMA = 'protobuf/schema',
-    BLOCK = 'block',
     JSON_RPC = 'json-rpc',
+
+    NOT_IMPLEMENTED = 'not-implemented',
 }
 
 export enum RouteType {

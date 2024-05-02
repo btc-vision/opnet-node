@@ -1,16 +1,18 @@
 import { BufferHelper } from '@btc-vision/bsi-binary';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession } from 'mongodb';
+import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/UTXOsOutputTransactions.js';
+import { SafeBigInt } from '../../../api/routes/safe/SafeMath.js';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { Config } from '../../../config/Config.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { BlockWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { BlockRootStates } from '../../../db/interfaces/BlockRootStates.js';
 import {
     BlockHeaderAPIBlockDocument,
     BlockHeaderBlockDocument,
+    IBlockHeaderBlockDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
 import { BlockchainInformationRepository } from '../../../db/repositories/BlockchainInformationRepository.js';
@@ -38,7 +40,7 @@ export class VMMongoStorage extends VMStorage {
     private blockchainInfoRepository: BlockchainInformationRepository | undefined;
 
     private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
-    private maxTransactionSessions: number = 10;
+    private readonly maxTransactionSessions: number;
 
     private committedTransactions: Set<bigint> = new Set<bigint>();
     private writeTransactions: Map<bigint, Promise<void>[]> = new Map<bigint, Promise<void>[]>();
@@ -50,7 +52,8 @@ export class VMMongoStorage extends VMStorage {
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
 
-        this.network = Config.BLOCKCHAIN.BITCOIND_NETWORK;
+        this.network = config.BLOCKCHAIN.BITCOIND_NETWORK;
+        this.maxTransactionSessions = config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS;
 
         this.startCache();
 
@@ -106,7 +109,9 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getBlockTransactions(
-        height: -1 | bigint = -1,
+        height: SafeBigInt = -1,
+        hash?: string,
+        includeTransactions?: boolean,
     ): Promise<BlockWithTransactions | undefined> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
@@ -116,19 +121,24 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
 
-        let block =
-            height === -1
-                ? await this.blockRepository.getLatestBlock()
-                : await this.blockRepository.getBlockHeader(height, this.currentSession);
+        let block: IBlockHeaderBlockDocument | undefined;
+        if (hash) {
+            block = await this.blockRepository.getBlockByHash(hash, this.currentSession);
+        } else {
+            block =
+                height === -1
+                    ? await this.blockRepository.getLatestBlock()
+                    : await this.blockRepository.getBlockHeader(height, this.currentSession);
+        }
 
         if (!block) {
             return undefined;
         }
 
-        const transactions = await this.transactionRepository.getTransactionsByBlockHash(
-            block.height,
-            this.currentSession,
-        );
+        const transactions =
+            includeTransactions === true
+                ? await this.transactionRepository.getTransactionsByBlockHash(block.height)
+                : [];
 
         return {
             block: this.convertBlockHeaderToBlockHeaderDocument(block),
@@ -137,7 +147,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async close(): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Closing database');
         }
 
@@ -145,7 +155,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async prepareNewBlock(blockId: bigint): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Preparing new block');
         }
 
@@ -170,7 +180,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async terminateBlock(blockId: bigint): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Terminating block');
         }
 
@@ -191,7 +201,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async revertChanges(blockId: bigint): Promise<void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Reverting changes');
         }
 
@@ -406,6 +416,25 @@ export class VMMongoStorage extends VMStorage {
         return await this.blockRepository.getBlockHeader(height);
     }
 
+    public async getUTXOs(
+        address: BitcoinAddress,
+        optimize: boolean = false,
+    ): Promise<UTXOsOutputTransactions> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        return await this.transactionRepository.getWalletUnspentUTXOS(address, optimize);
+    }
+
+    public async getBalanceOf(address: BitcoinAddress): Promise<bigint | undefined> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        return await this.transactionRepository.getBalanceOf(address);
+    }
+
     private async fakeWaitCommit(
         transactionSession: ClientSession,
         blockId: bigint,
@@ -598,7 +627,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction session not started');
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Terminating session');
         }
 
