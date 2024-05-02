@@ -1,7 +1,6 @@
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import { Binary } from 'mongodb';
 import { ContractInformation } from '../../../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
@@ -14,11 +13,12 @@ import {
     DeploymentTransactionDocument,
     TransactionDocument,
 } from '../../../../../db/interfaces/ITransactionDocument.js';
+import { TransactionConverterForAPI } from '../../../../data-converter/TransactionConverterForAPI.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { BlockByHashParams } from '../../../../json-rpc/types/interfaces/params/BlockByHashParams.js';
-import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/BlockByIdParams.js';
-import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/BlockByIdResult.js';
+import { BlockByHashParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByHashParams.js';
+import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByIdParams.js';
+import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { Route } from '../../../Route.js';
 import { SafeBigInt } from '../../../safe/SafeMath.js';
 
@@ -86,28 +86,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
 
         if (data.transactions) {
             for (const transaction of data.transactions) {
-                const revert = transaction.revert
-                    ? Binary.createFromHexString(transaction.revert.toString('hex'))
-                    : undefined;
-
-                let newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
-                    ...transaction,
-                    outputs: transaction.outputs.map((output) => {
-                        return {
-                            ...output,
-                            value: output.value.toString(),
-                        };
-                    }),
-                    revert: revert?.toString('base64'),
-                    burnedBitcoin: transaction.burnedBitcoin.toString(),
-                    _id: undefined,
-                    blockHeight: undefined,
-                    deployedTransactionHash: undefined,
-                    deployedTransactionId: undefined,
-                };
-
-                delete newTx._id;
-                delete newTx.blockHeight;
+                let newTx = TransactionConverterForAPI.convertTransactionToAPI(transaction);
 
                 if (newTx.OPNetType === OPNetTransactionTypes.Deployment) {
                     const txDeployment =
@@ -117,6 +96,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
                         txDeployment.contractAddress,
                         BigInt(data.block.height) + 1n,
                     );
+
                     if (contractData) {
                         newTx = {
                             ...newTx,
@@ -124,11 +104,11 @@ export abstract class BlockRoute<T extends Routes> extends Route<
                             deployedTransactionHash: undefined,
                             deployedTransactionId: undefined,
                         };
+
+                        delete newTx.deployedTransactionId;
+                        delete newTx.deployedTransactionHash;
                     }
                 }
-
-                delete newTx.deployedTransactionId;
-                delete newTx.deployedTransactionHash;
 
                 transactions.push(newTx);
             }
@@ -185,7 +165,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
             bytecode: data.bytecode.toString('base64'),
             deployerPubKey: data.deployerPubKey.toString('base64'),
             contractSeed: data.contractSeed.toString('base64'),
-            contractSaltHash: data.contractSaltHash.toString('base64'),
+            contractSaltHash: data.contractSaltHash.toString('hex'),
             blockHeight: undefined,
             _id: undefined,
         };

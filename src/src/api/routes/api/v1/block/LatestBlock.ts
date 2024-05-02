@@ -3,7 +3,7 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { BlockByNumberResult } from '../../../../json-rpc/types/interfaces/results/BlockByNumberResult.js';
+import { BlockByNumberResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByNumberResult.js';
 import { Route } from '../../../Route.js';
 
 export class LatestBlock extends Route<
@@ -38,7 +38,7 @@ export class LatestBlock extends Route<
 
     /**
      * GET /api/v1/block/latest
-     * @tag OpNet
+     * @tag Block
      * @summary Get the current heap block of OpNet
      * @description Get the current heap block of OpNet (the block that is currently being processed)
      * @response 200 - Return the current heap block of the Bitcoin blockchain.

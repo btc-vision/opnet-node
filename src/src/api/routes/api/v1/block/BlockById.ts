@@ -6,8 +6,8 @@ import {
     BlockWithTransactions,
 } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { Routes } from '../../../../enums/Routes.js';
-import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/BlockByIdParams.js';
-import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/BlockByIdResult.js';
+import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByIdParams.js';
+import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { SafeBigInt, SafeMath } from '../../../safe/SafeMath.js';
 import { BlockRoute } from './BlockRoute.js';
 
@@ -39,8 +39,6 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
             throw new Error('Storage not initialized');
         }
 
-        console.log(includeTransactions);
-
         const transactions: BlockWithTransactions | undefined =
             await this.storage.getBlockTransactions(height, undefined, includeTransactions);
         if (!transactions) return undefined;
@@ -61,7 +59,7 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
 
     /**
      * GET /api/v1/block/by-id
-     * @tag OpNet
+     * @tag Block
      * @summary Get a block and its transactions by height.
      * @queryParam {integer} [height] - The height of the block to fetch.
      * @queryParam {boolean} [sendTransactions] - Whether to include transactions in the response.

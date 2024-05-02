@@ -10,6 +10,7 @@ import { Routes, RouteType } from '../enums/Routes.js';
 import { JSONRpcMethods } from '../json-rpc/types/enums/JSONRpcMethods.js';
 import { JSONRpc2RequestParams } from '../json-rpc/types/interfaces/JSONRpc2Request.js';
 import { JSONRpc2ResultData } from '../json-rpc/types/interfaces/JSONRpc2ResultData.js';
+import { JSONRpcParams } from '../json-rpc/types/interfaces/JSONRpcParams.js';
 
 export abstract class Route<
     T extends Routes,
@@ -48,6 +49,10 @@ export abstract class Route<
     public getDataRPC(
         _params?: JSONRpc2RequestParams<R>,
     ): Promise<JSONRpc2ResultData<R> | undefined> | JSONRpc2ResultData<R> | undefined {
+        throw new Error('Method not implemented.');
+    }
+
+    protected getParams(_req: Request, _res: Response): JSONRpcParams<R> | undefined {
         throw new Error('Method not implemented.');
     }
 

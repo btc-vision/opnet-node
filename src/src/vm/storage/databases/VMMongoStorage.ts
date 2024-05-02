@@ -1,7 +1,7 @@
 import { BufferHelper } from '@btc-vision/bsi-binary';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession } from 'mongodb';
-import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/UTXOsOutputTransactions.js';
+import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { SafeBigInt } from '../../../api/routes/safe/SafeMath.js';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
@@ -146,6 +146,16 @@ export class VMMongoStorage extends VMStorage {
         };
     }
 
+    public async getTransactionByHash(
+        hash: string,
+    ): Promise<ITransactionDocument<OPNetTransactionTypes> | undefined> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        return await this.transactionRepository.getTransactionByHash(hash);
+    }
+
     public async close(): Promise<void> {
         if (this.config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug('Closing database');
@@ -235,10 +245,6 @@ export class VMMongoStorage extends VMStorage {
 
         if (!this.pointerRepository) {
             throw new Error('Repository not initialized');
-        }
-
-        if (!this.currentSession) {
-            throw new Error('Session not started');
         }
 
         const value = await this.pointerRepository.getByContractAndPointer(
@@ -369,7 +375,7 @@ export class VMMongoStorage extends VMStorage {
 
     public async getContractAt(
         contractAddress: BitcoinAddress,
-        height: bigint,
+        height?: bigint,
     ): Promise<ContractInformation | undefined> {
         if (!this.contractRepository) {
             throw new Error('Repository not initialized');

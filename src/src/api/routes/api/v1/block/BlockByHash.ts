@@ -3,8 +3,8 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { BlockHeaderAPIDocumentWithTransactions } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { Routes } from '../../../../enums/Routes.js';
-import { BlockByHashParams } from '../../../../json-rpc/types/interfaces/params/BlockByHashParams.js';
-import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/BlockByIdResult.js';
+import { BlockByHashParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByHashParams.js';
+import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { SafeMath } from '../../../safe/SafeMath.js';
 import { BlockRoute } from './BlockRoute.js';
 
@@ -67,7 +67,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
 
     /**
      * GET /api/v1/block/by-hash
-     * @tag OpNet
+     * @tag Block
      * @summary Get a block and its transactions by height.
      * @queryParam {string} [hash] - The height of the block to fetch.
      * @queryParam {boolean} [sendTransactions] - Whether to include transactions in the response.

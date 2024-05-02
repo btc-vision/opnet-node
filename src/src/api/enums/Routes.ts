@@ -9,6 +9,17 @@ export enum Routes {
     UTXOS = 'address/utxos',
     GET_BALANCE = 'address/get-balance',
 
+    /** Transaction */
+    TRANSACTION_BY_HASH = 'transaction/by-hash',
+    TRANSACTION_RECEIPT = 'transaction/receipt',
+    //SEND_RAW_TRANSACTION = 'transaction/send-raw',
+    //SIMULATE_TRANSACTION = 'transaction/simulate',
+
+    /** States */
+    GET_CODE = 'states/get-code',
+    GET_STORAGE_AT = 'states/get-storage-at',
+    CALL = 'states/call',
+
     /** Other */
     PROTOBUF_SCHEMA = 'protobuf/schema',
     JSON_RPC = 'json-rpc',

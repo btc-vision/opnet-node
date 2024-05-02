@@ -3,8 +3,8 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { GetBalanceParams } from '../../../../json-rpc/types/interfaces/params/GetBalanceParams.js';
-import { GetBalanceResult } from '../../../../json-rpc/types/interfaces/results/GetBalanceResult.js';
+import { GetBalanceParams } from '../../../../json-rpc/types/interfaces/params/address/GetBalanceParams.js';
+import { GetBalanceResult } from '../../../../json-rpc/types/interfaces/results/address/GetBalanceResult.js';
 import { Route } from '../../../Route.js';
 import { SafeString } from '../../../safe/SafeMath.js';
 
@@ -42,10 +42,9 @@ export class GetBalanceRoute extends Route<
 
     protected initialize(): void {}
 
-    // TODO: Add the response type to the @response tag
     /**
      * GET /api/v1/address/get-balance
-     * @tag OpNet
+     * @tag Address
      * @summary Get the requested wallet current btc balance.
      * @description Get the current btc balance for the requested wallet.
      * @queryParam {string} [address] - The address of the wallet to fetch.

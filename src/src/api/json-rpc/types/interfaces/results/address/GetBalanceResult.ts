@@ -1,5 +1,5 @@
-import { JSONRpcMethods } from '../../enums/JSONRpcMethods.js';
-import { JSONRpc2ResultData } from '../JSONRpc2ResultData.js';
+import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
+import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
 
 export interface GetBalanceResultForAPI {
     balance: bigint;
