@@ -1,6 +1,6 @@
 import fs from 'fs';
 import IsolatedVM from 'isolated-vm';
-import ivm, { Context, Isolate, Module, Reference, ReferenceApplyOptions } from 'isolated-vm';
+import ivm, { Context, Isolate, Reference, ReferenceApplyOptions } from 'isolated-vm';
 import path from 'path';
 
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
@@ -26,11 +26,12 @@ interface IsolatedMethods {
     GET_EVENTS: IsolatedVM.Reference<VMRuntime['getEvents']>;
 }
 
-const moduleCodeCache = new Map<string, string>();
+const code: string = fs.readFileSync(
+    path.join(__dirname, '../vm/isolated/IsolatedManager.js'),
+    'utf-8',
+);
 
 export class VMIsolator {
-    private readonly code: string = `export * from './isolated/IsolatedManager.js';`;
-
     private contract: ContractEvaluator | null = null;
 
     private isolatedVM: Isolate = new ivm.Isolate({ memoryLimit: 128 });
@@ -377,19 +378,20 @@ export class VMIsolator {
 
             this.jail.setSync('module', externalCopy.copyInto({ release: true }));
 
-            this.module = await this.isolatedVM.compileModule(this.code);
+            this.module = await this.isolatedVM.compileModule(code);
 
             await this.module.instantiate(
                 this.context,
                 (specifier: string, _referrer: ivm.Module) => {
-                    return this.getModuleFromCache(this.isolatedVM, this.context, specifier);
+                    throw new Error(`Module ${specifier} not found`);
+                    //return this.getModuleFromCache(this.isolatedVM, this.context, specifier);
                 },
             );
 
             this.module.evaluateSync({
                 timeout: 500,
             });
-
+            
             this.reference = this.module.namespace;
         } catch (e) {
             console.log(e);
@@ -398,7 +400,7 @@ export class VMIsolator {
         return;
     }
 
-    private getModuleFromCache(
+    /*private getModuleFromCache(
         isolatedVM: Isolate,
         context: ivm.Context,
         specifier: string,
@@ -436,5 +438,5 @@ export class VMIsolator {
             console.log(e);
             throw e;
         }
-    }
+    }*/
 }

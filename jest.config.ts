@@ -33,7 +33,7 @@ const config: Config.InitialOptions = {
     moduleNameMapper: {
         '^(\\.{1,2}/.*)\\.[jt]s$': '$1',
     },
-    moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx'],
+    moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'node'],
     moduleDirectories: ['node_modules', 'src', 'build'],
     testEnvironment: 'node',
     transformIgnorePatterns: [`/node_modules/(?!${esModules})`, `/build/`],
