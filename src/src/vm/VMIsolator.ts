@@ -27,7 +27,7 @@ interface IsolatedMethods {
 }
 
 const code: string = fs.readFileSync(
-    path.join(__dirname, '../vm/isolated/IsolatedManager.js'),
+    path.normalize(path.join(__dirname, '../vm/isolated/IsolatedManager.js')),
     'utf-8',
 );
 
