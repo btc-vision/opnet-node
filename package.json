@@ -6,7 +6,7 @@
     "main": "build/index.js",
     "scripts": {
         "watch": "gulp watch",
-        "start": "cd build && node index",
+        "start": "cd build && node --no-node-snapshot index",
         "build": "gulp",
         "test": "jest --runInBand",
         "setup": "npm i && npm run build"
