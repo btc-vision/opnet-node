@@ -211,7 +211,7 @@ export class VMManager extends Logger {
                 )}`,
             );
 
-            throw e;
+            throw new Error('Execution Reverted.');
         }
     }
 
