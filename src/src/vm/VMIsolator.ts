@@ -78,7 +78,7 @@ export class VMIsolator {
         this.jail.setSync('global', this.jail.derefInto());
         this.jail.setSync('globalThis', this.jail.derefInto());
 
-        this.jail.setSync('log', function (...args: unknown[]) {
+        this.jail.setSync('log', function (...args: unknown[]): void {
             console.log(...args);
         });
 
