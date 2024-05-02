@@ -123,7 +123,8 @@ export class BlockchainIndexer extends Logger {
 
             await this.currentBlockInProcess;
         } catch (e) {
-            this.panic(`Error processing blocks: ${e}`);
+            const error = e as Error;
+            this.panic(`Error processing blocks: ${error.stack}`);
         }
 
         if (this.processOnlyOneBlock) {

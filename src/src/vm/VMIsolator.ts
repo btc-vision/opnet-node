@@ -94,7 +94,6 @@ export class VMIsolator {
 
     public dispose(): void {
         this.context.release();
-        this.jail.release();
 
         this.isolatedVM.dispose();
     }

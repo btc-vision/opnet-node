@@ -153,7 +153,15 @@ export class VMManager extends Logger {
         }
 
         // Get the contract evaluator
-        const vmEvaluator: ContractEvaluator = await this.getVMEvaluator(contractAddress, height); //await this.getVMEvaluatorFromCache(contractAddress);
+        const vmEvaluator: ContractEvaluator | null = await this.getVMEvaluator(
+            contractAddress,
+            height,
+        ); //await this.getVMEvaluatorFromCache(contractAddress);
+
+        if (!vmEvaluator) {
+            throw new Error(`Unable to initialize contract ${contractAddress}`);
+        }
+
         const isInitialized: boolean = vmEvaluator.isInitialized();
         if (!isInitialized) {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
@@ -189,7 +197,12 @@ export class VMManager extends Logger {
             );
 
             vmEvaluator.clear();
+
+            // We must dispose the evaluator after a while.
             vmEvaluator.dispose();
+            /*setTimeout(() => {
+                vmEvaluator.dispose();
+            }, 500);*/
 
             return response;
         } catch (e) {
@@ -218,7 +231,14 @@ export class VMManager extends Logger {
         }
 
         // Get the contract evaluator
-        const vmEvaluator: ContractEvaluator = await this.getVMEvaluatorFromCache(contractAddress);
+        const vmEvaluator: ContractEvaluator | null =
+            await this.getVMEvaluatorFromCache(contractAddress);
+        if (!vmEvaluator) {
+            throw new Error(
+                `[executeTransaction] Unable to initialize contract ${contractAddress}`,
+            );
+        }
+
         const isInitialized: boolean = vmEvaluator.isInitialized();
         if (!isInitialized) {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
@@ -506,13 +526,13 @@ export class VMManager extends Logger {
     private async getVMEvaluator(
         contractAddress: Address,
         height?: bigint,
-    ): Promise<ContractEvaluator> {
+    ): Promise<ContractEvaluator | null> {
         // TODO: Add a caching layer for this.
         const contractInformation: ContractInformation | undefined =
             await this.getContractInformation(contractAddress, height);
 
         if (!contractInformation) {
-            throw new Error(`Contract ${contractAddress} not found.`);
+            return null;
         }
 
         const vmIsolator: VMIsolator | null = await this.loadContractFromBytecode(
@@ -548,9 +568,15 @@ export class VMManager extends Logger {
         }
 
         const newVmEvaluator = this.getVMEvaluator(contractAddress);
-        this.vmEvaluators.set(contractAddress, newVmEvaluator);
+        if (!newVmEvaluator) {
+            throw new Error(
+                `[getVMEvaluatorFromCache] Unable to initialize contract ${contractAddress}`,
+            );
+        }
 
-        return newVmEvaluator;
+        this.vmEvaluators.set(contractAddress, newVmEvaluator as Promise<ContractEvaluator>);
+
+        return newVmEvaluator as Promise<ContractEvaluator>;
     }
 
     private async updateReceiptState(): Promise<void> {
@@ -592,6 +618,7 @@ export class VMManager extends Logger {
 
     private async setContractAt(contractData: ContractInformation): Promise<void> {
         this.contractCache.set(contractData.contractAddress, contractData);
+
         await this.vmStorage.setContractAt(contractData);
     }
 
@@ -619,7 +646,7 @@ export class VMManager extends Logger {
 
         for (let vmEvaluator of this.vmEvaluators.values()) {
             const evaluator = await vmEvaluator;
-            evaluator.dispose();
+            if (evaluator) evaluator.dispose();
         }
 
         this.vmEvaluators.clear();
