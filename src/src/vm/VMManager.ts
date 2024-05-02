@@ -1,7 +1,6 @@
 import { Address, ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import fs from 'fs';
 import { Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
@@ -39,9 +38,9 @@ Globals.register();
 export class VMManager extends Logger {
     public initiated: boolean = false;
 
-    private readonly runtimeCode: string = fs
+    /*private readonly runtimeCode: string = fs
         .readFileSync(`${__dirname}/../../../build/src/vm/runtime/index.js`)
-        .toString();
+        .toString();*/
 
     private readonly vmStorage: VMStorage;
     private readonly vmBitcoinBlock: VMBitcoinBlock;
@@ -939,10 +938,6 @@ export class VMManager extends Logger {
             default:
                 throw new Error('Invalid VM Storage type.');
         }
-    }
-
-    private createRuntimeVM(): Script {
-        return this.getScriptFromCodeString(this.runtimeCode);
     }
 
     private getScriptFromCodeString(sourceCode: string, cachedData?: Buffer): Script {

@@ -26,10 +26,8 @@ interface IsolatedMethods {
     GET_EVENTS: IsolatedVM.Reference<VMRuntime['getEvents']>;
 }
 
-const code: string = fs.readFileSync(
-    path.normalize(path.join(__dirname, '../vm/isolated/IsolatedManager.js')),
-    'utf-8',
-);
+const codePath = path.resolve(__dirname, '../vm/isolated/IsolatedManager.js');
+const code: string = fs.readFileSync(codePath, 'utf-8');
 
 export class VMIsolator {
     private contract: ContractEvaluator | null = null;
