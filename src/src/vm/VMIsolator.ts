@@ -391,7 +391,7 @@ export class VMIsolator {
             this.module.evaluateSync({
                 timeout: 500,
             });
-            
+
             this.reference = this.module.namespace;
         } catch (e) {
             console.log(e);
