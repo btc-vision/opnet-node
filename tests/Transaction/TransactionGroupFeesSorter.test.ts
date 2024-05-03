@@ -20,7 +20,10 @@ describe('TransactionGroupFeesSorter', () => {
             const groupC: Transaction<OPNetTransactionTypes>[] = [];
 
             groupA.push(CreateFakeTransaction(networks.regtest, BigInt(20000000)));
+            groupA.push(CreateFakeTransaction(networks.regtest, BigInt(20000000)));
             groupB.push(CreateFakeTransaction(networks.regtest, BigInt(30000000)));
+            groupB.push(CreateFakeTransaction(networks.regtest, BigInt(30000000)));
+            groupC.push(CreateFakeTransaction(networks.regtest, BigInt(10000000)));
             groupC.push(CreateFakeTransaction(networks.regtest, BigInt(10000000)));
 
             const groups: Transaction<OPNetTransactionTypes>[][] = [groupA, groupB, groupC];
@@ -68,6 +71,22 @@ describe('TransactionGroupFeesSorter', () => {
             // Then
             expect(sortedGroups[0]).toMatchObject(groupB);
             expect(sortedGroups[1]).toMatchObject(groupA);
+        });
+
+        test('should handle empty groups', () => {
+            // Given
+            const groupA: Transaction<OPNetTransactionTypes>[] = [];
+            const groupB: Transaction<OPNetTransactionTypes>[] = [];
+
+            groupB.push(CreateFakeTransaction(networks.regtest, BigInt(30000000)));
+            const groups = [groupA, groupB];
+
+            // When
+            const sortedGroups = sorter.sortGroupsByBurnedFees(groups);
+
+            // Then
+            expect(sortedGroups[0]).toBe(groupB);
+            expect(sortedGroups[1]).toBe(groupA);
         });
     });
 });
