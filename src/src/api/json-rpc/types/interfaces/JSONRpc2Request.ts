@@ -6,7 +6,7 @@ export type JSONRpc2RequestParams<T extends JSONRpcMethods> = JSONRpcParams<T> |
 
 export interface JSONRpc2Request<T extends JSONRpcMethods> {
     readonly jsonrpc: '2.0';
-    readonly method: T;
+    method: T;
     readonly params: JSONRpc2RequestParams<T>;
     readonly id?: JSONRpcId;
 }

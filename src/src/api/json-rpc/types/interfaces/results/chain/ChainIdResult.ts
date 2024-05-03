@@ -1,4 +1,4 @@
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
 
-export type BlockByNumberResult = JSONRpc2ResultData<JSONRpcMethods.BLOCK_BY_NUMBER> & string;
+export type ChainIdResult = JSONRpc2ResultData<JSONRpcMethods.CHAIN_ID> & string;

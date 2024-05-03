@@ -5,6 +5,7 @@ import { UTXOsRoute } from './api/v1/address/UTXOsRoute.js';
 import { BlockByHash } from './api/v1/block/BlockByHash.js';
 import { BlockById } from './api/v1/block/BlockById.js';
 import { LatestBlock } from './api/v1/block/LatestBlock.js';
+import { ChainId } from './api/v1/chain/ChainId.js';
 import { JSONRpc } from './api/v1/json-rpc/JSONRpc.js';
 import { NotImplemented } from './api/v1/not-implemented/NotImplemented.js';
 import { ProtobufSchema } from './api/v1/protobuf/ProtobufSchema.js';
@@ -30,6 +31,9 @@ export const DefinedRoutes: { [key in Routes]: Route<key, JSONRpcMethods, unknow
     [Routes.GET_STORAGE_AT]: new GetStorageAt(),
     [Routes.GET_CODE]: new GetCode(),
     [Routes.CALL]: new Call(),
+
+    /** Chain */
+    [Routes.CHAIN_ID]: new ChainId(),
 
     /** Transactions */
     [Routes.TRANSACTION_BY_HASH]: new TransactionByHash(),

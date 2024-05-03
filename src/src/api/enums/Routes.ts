@@ -5,6 +5,9 @@ export enum Routes {
     BLOCK_BY_HASH = 'block/by-hash',
     BLOCK_BY_ID = 'block/by-id',
 
+    /** Chain */
+    CHAIN_ID = 'chain/id',
+
     /** Address */
     UTXOS = 'address/utxos',
     GET_BALANCE = 'address/get-balance',

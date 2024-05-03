@@ -11,6 +11,9 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     [JSONRpcMethods.GET_BLOCK_BY_HASH]: Routes.BLOCK_BY_HASH,
     [JSONRpcMethods.GET_BLOCK_BY_NUMBER]: Routes.BLOCK_BY_ID,
 
+    /** Chain */
+    [JSONRpcMethods.CHAIN_ID]: Routes.CHAIN_ID,
+
     /** Transactions */
     [JSONRpcMethods.GET_TRANSACTION_BY_HASH]: Routes.TRANSACTION_BY_HASH,
     [JSONRpcMethods.SEND_RAW_TRANSACTION]: Routes.NOT_IMPLEMENTED,
