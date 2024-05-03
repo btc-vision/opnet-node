@@ -3,7 +3,7 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { BlockByNumberResult } from '../../../../json-rpc/types/interfaces/results/BlockByNumberResult.js';
+import { BlockByNumberResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByNumberResult.js';
 import { Route } from '../../../Route.js';
 
 export class LatestBlock extends Route<
@@ -22,9 +22,7 @@ export class LatestBlock extends Route<
 
         const latestBlock = await this.storage.getLatestBlock();
 
-        return {
-            height: latestBlock?.height || '0',
-        };
+        return `0x${BigInt(latestBlock?.height || '0').toString(16)}`;
     }
 
     public async getDataRPC(): Promise<BlockByNumberResult | undefined> {
@@ -38,43 +36,15 @@ export class LatestBlock extends Route<
 
     /**
      * GET /api/v1/block/latest
-     * @tag OpNet
+     * @tag Block
      * @summary Get the current heap block of OpNet
      * @description Get the current heap block of OpNet (the block that is currently being processed)
      * @response 200 - Return the current heap block of the Bitcoin blockchain.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
-     * @responseContent {{height: string}} 200.application/json
+     * @responseContent {string} 200.application/json
      */
     protected async onRequest(_req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
-        /*const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK> = {
-            type: MessageType.RPC_METHOD,
-            data: {
-                rpcMethod: BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK,
-            } as GetBlock,
-        };
-
-        const currentBlock = await ServerThread.sendMessageToThread(
-            ThreadTypes.BITCOIN_RPC,
-            currentBlockMsg,
-        );
-
-        try {
-            if (!currentBlock) {
-                res.status(400);
-                res.json({ error: 'Something went wrong.' });
-            } else {
-                res.status(200);
-                res.json(currentBlock);
-            }
-        } catch (err: unknown) {
-            let e = err as Error;
-            this.error(e.stack);
-
-            res.status(500);
-            res.end();
-        }*/
-
         try {
             const data = await this.getData();
 

@@ -9,8 +9,8 @@ import {
     SelectorsMap,
 } from '@btc-vision/bsi-binary';
 import fs from 'fs';
-import { VMContext } from '../../src/src/vm/evaluated/EvaluatedContext.js';
 import { ContractEvaluator } from '../../src/src/vm/runtime/ContractEvaluator.js';
+import { VMIsolator } from '../../src/src/vm/VMIsolator.js';
 import { VMManager } from '../../src/src/vm/VMManager.js';
 import { TestConfig } from '../config/Config.js';
 
@@ -43,7 +43,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     let mainContractMethodSelectors: ContractABIMap | undefined;
 
     let vmEvaluator: ContractEvaluator | null = null;
-    let vmContext: VMContext | null = null;
+    let vmContext: VMIsolator | null = null;
 
     async function load() {
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
@@ -60,11 +60,10 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('VM context not found.');
         }
 
-        if (vmContext.contract === null) {
+        vmEvaluator = vmContext.getContract();
+        if (vmEvaluator === null) {
             throw new Error('Contract not found.');
         }
-
-        vmEvaluator = vmContext.contract;
 
         await vmEvaluator.setupContract(ANY_OWNER, ANY_CONTRACT_ADDRESS);
 

@@ -11,7 +11,7 @@ import {
     OperationOptions,
     Sort,
 } from 'mongodb';
-import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/UTXOsOutputTransactions.js';
+import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
     BalanceOfAggregation,
@@ -82,6 +82,20 @@ export class TransactionRepository extends BaseRepository<
         const sort: Sort = { index: 1 };
 
         return await this.getAll(criteria, currentSession, sort);
+    }
+
+    public async getTransactionByHash(
+        hash: string,
+        currentSession?: ClientSession,
+    ): Promise<TransactionDocument<OPNetTransactionTypes> | undefined> {
+        const criteria: Document = {
+            $or: [{ hash }, { id: hash }],
+        };
+
+        const transaction = await this.queryOne(criteria, currentSession);
+        delete transaction?._id;
+
+        return transaction ?? undefined;
     }
 
     public async getBalanceOf(wallet: Address, currentSession?: ClientSession): Promise<bigint> {

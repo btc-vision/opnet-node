@@ -35,7 +35,7 @@ export interface TransactionDocument<T extends OPNetTransactionTypes>
     readonly revert: Binary | undefined;
 }
 
-type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocument<T> & {
+export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocument<T> & {
     readonly from: string;
     readonly contractAddress: string;
 };

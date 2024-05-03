@@ -9,8 +9,8 @@ import {
     SelectorsMap,
 } from '@btc-vision/bsi-binary';
 import fs from 'fs';
-import { VMContext } from '../../src/src/vm/evaluated/EvaluatedContext.js';
 import { ContractEvaluator } from '../../src/src/vm/runtime/ContractEvaluator.js';
+import { VMIsolator } from '../../src/src/vm/VMIsolator.js';
 import { VMManager } from '../../src/src/vm/VMManager.js';
 import { TestConfig } from '../config/Config.js';
 
@@ -45,7 +45,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
     let mainContractMethodSelectors: ContractABIMap | undefined;
 
     let vmEvaluator: ContractEvaluator | null = null;
-    let vmContext: VMContext | null = null;
+    let vmContext: VMIsolator | null = null;
 
     async function load() {
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
@@ -62,11 +62,10 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             throw new Error('VM context not found.');
         }
 
-        if (vmContext.contract === null) {
+        vmEvaluator = vmContext.getContract();
+        if (vmEvaluator === null) {
             throw new Error('Contract not found.');
         }
-
-        vmEvaluator = vmContext.contract;
 
         await vmEvaluator.setupContract(ANY_OWNER, ANY_CONTRACT_ADDRESS);
 
@@ -103,9 +102,16 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const calldata: BinaryWriter = new BinaryWriter();
+        //calldata.writeSelector(balanceOfSelector);
         calldata.writeAddress(address);
 
         const buffer = calldata.getBuffer();
+        console.log(
+            'calldata getBalanceOf ->',
+            balanceOfSelector,
+            Buffer.from(buffer).toString('hex'),
+        );
+
         const balanceValue = await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, true, balanceOfSelector, buffer)
             .catch((e) => {
@@ -153,10 +159,17 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const addBalanceSelector = Number(`0x` + abiCoder.encodeSelector('addFreeMoney'));
         const addCalldata: BinaryWriter = new BinaryWriter();
 
+        //addCalldata.writeSelector(addBalanceSelector);
         addCalldata.writeAddress(address);
         addCalldata.writeU256(amount);
 
         const addBuffer = addCalldata.getBuffer();
+        console.log(
+            'calldata giveMoneyTo ->',
+            addBalanceSelector,
+            Buffer.from(addBuffer).toString('hex'),
+        );
+
         const result = await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, false, addBalanceSelector, addBuffer, address)
             .catch((e) => {
@@ -187,6 +200,14 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const totalSupplySelector = Number(`0x` + abiCoder.encodeSelector('totalSupply'));
+
+        const addCalldata: BinaryWriter = new BinaryWriter();
+        //addCalldata.writeSelector(totalSupplySelector);
+        console.log(
+            totalSupplySelector,
+            'calldata getTotalSupply ->',
+            Buffer.from(addCalldata.getBuffer()).toString('hex'),
+        );
 
         const totalSupplyValue = await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, true, totalSupplySelector)

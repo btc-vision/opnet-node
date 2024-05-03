@@ -270,7 +270,7 @@ export class Block extends Logger {
             await this.saveGenericTransactionPromise;
 
             const error: Error = e as Error;
-            this.error(`Something went wrong while executing the block: ${error.stack}`);
+            this.error(`[execute] Something went wrong while executing the block: ${error.stack}`);
 
             await this.revertBlock(vmManager);
 
@@ -286,12 +286,15 @@ export class Block extends Logger {
             // We must wait for the generic transactions to be saved before finalizing the block
             await this.saveGenericTransactionPromise;
 
-            await vmManager.terminateBlock(this);
+            await vmManager.saveBlock(this);
+            await vmManager.terminateBlock();
 
             return true;
         } catch (e) {
             const error: Error = e as Error;
-            this.error(`Something went wrong while executing the block: ${error.stack}`);
+            this.error(
+                `[FinalizeBlock] Something went wrong while executing the block: ${error.stack}`,
+            );
 
             await this.revertBlock(vmManager);
 
@@ -335,7 +338,9 @@ export class Block extends Logger {
             await this.signBlock(vmManager);
         } catch (e) {
             const error: Error = e as Error;
-            this.error(`Something went wrong while executing the block: ${error.stack}`);
+            this.error(
+                `[processBlockStates] Something went wrong while executing the block: ${error.stack}`,
+            );
 
             await this.revertBlock(vmManager);
         }

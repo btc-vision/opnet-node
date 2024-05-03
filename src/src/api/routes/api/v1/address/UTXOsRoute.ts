@@ -3,9 +3,9 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { UTXOsByAddressParams } from '../../../../json-rpc/types/interfaces/params/UTXOsByAddressParams.js';
-import { UTXOsOutputResult } from '../../../../json-rpc/types/interfaces/results/UTXOsOutputResult.js';
-import { UTXOsOutputTransactions } from '../../../../json-rpc/types/interfaces/results/UTXOsOutputTransactions.js';
+import { UTXOsByAddressParams } from '../../../../json-rpc/types/interfaces/params/address/UTXOsByAddressParams.js';
+import { UTXOsOutputResult } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputResult.js';
+import { UTXOsOutputTransactions } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { Route } from '../../../Route.js';
 import { SafeString } from '../../../safe/SafeMath.js';
 
@@ -47,7 +47,7 @@ export class UTXOsRoute extends Route<
     // TODO: Add the response type to the @response tag
     /**
      * GET /api/v1/address/utxos
-     * @tag OpNet
+     * @tag Address
      * @summary Get the requested wallet unspent transaction outputs (UTXOs).
      * @description Get every unspent transaction output (UTXOs) for the requested wallet. This endpoint allows also UTXOs optimization for dust UTXOs.
      * @queryParam {string} [address] - The address of the wallet to fetch.

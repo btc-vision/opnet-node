@@ -36,49 +36,39 @@ export class JSONRpc2Manager extends Logger {
             const requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined =
                 await req.json();
 
-            const hasValidRequest = this.verifyRequest(requestData);
-            if (!hasValidRequest || !requestData) {
-                this.sendInvalidRequest(res, requestData?.id);
-                return;
+            let response:
+                | JSONRpc2ResponseResult<JSONRpcMethods>
+                | JSONRpc2ResponseResult<JSONRpcMethods>[];
+
+            // Batch request
+            if (Array.isArray(requestData)) {
+                const pendingPromise: Promise<
+                    JSONRpc2ResponseResult<JSONRpcMethods> | undefined
+                >[] = [];
+
+                for (const request of requestData) {
+                    pendingPromise.push(this.processSingleRequest(res, request));
+                }
+
+                const responses = await Promise.all(pendingPromise);
+
+                // We must check if the response is an array of undefined values
+                // If so, we must send an internal error
+
+                if (responses.every((value) => value === undefined)) {
+                    return;
+                }
+
+                response = responses as JSONRpc2ResponseResult<JSONRpcMethods>[];
+            } else {
+                const resp = await this.processSingleRequest(res, requestData);
+
+                if (!resp) {
+                    return;
+                }
+
+                response = resp;
             }
-
-            if (!this.hasMethod(requestData.method as string)) {
-                this.warn(`Method not found: ${requestData.method}`);
-                this.sendInvalidMethod(res, requestData.id);
-                return;
-            }
-
-            const params: JSONRpc2RequestParams<JSONRpcMethods> =
-                requestData.params as JSONRpc2RequestParams<JSONRpcMethods>;
-            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.debugBright(
-                    `JSON-RPC requested method: ${requestData.method} - ${JSON.stringify(params)}`,
-                );
-            }
-
-            const method: JSONRpcMethods = requestData.method as JSONRpcMethods;
-            const result = await this.router.requestResponse(method, params);
-
-            if (typeof result === 'undefined') {
-                this.sendInternalError(res);
-                return;
-            }
-
-            if ('error' in result) {
-                this.sendErrorResponse(result.error, res, requestData.id);
-                return;
-            }
-
-            if (!result.result) {
-                this.sendInternalError(res);
-                return;
-            }
-
-            const response: JSONRpc2ResponseResult<JSONRpcMethods> = {
-                jsonrpc: JSONRpc2Manager.RPC_VERSION,
-                id: requestData.id ?? null,
-                result: result.result,
-            };
 
             res.status(200);
             res.json(response);
@@ -89,6 +79,60 @@ export class JSONRpc2Manager extends Logger {
 
             this.sendInternalError(res);
         }
+    }
+
+    private async processSingleRequest(
+        res: Response,
+        requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined,
+    ): Promise<JSONRpc2ResponseResult<JSONRpcMethods> | undefined> {
+        const hasValidRequest = this.verifyRequest(requestData);
+        if (!hasValidRequest || !requestData) {
+            this.sendInvalidRequest(res, requestData?.id);
+            return;
+        }
+
+        if (requestData.method?.startsWith('eth_')) {
+            requestData.method = requestData.method.replace('eth_', 'btc_') as JSONRpcMethods;
+        }
+
+        if (!this.hasMethod(requestData.method as string)) {
+            this.warn(`Method not found: ${requestData.method}`);
+            this.sendInvalidMethod(res, requestData.id);
+            return;
+        }
+
+        const params: JSONRpc2RequestParams<JSONRpcMethods> =
+            requestData.params as JSONRpc2RequestParams<JSONRpcMethods>;
+
+        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            this.debugBright(
+                `JSON-RPC requested method: ${requestData.method} - ${JSON.stringify(params)}`,
+            );
+        }
+
+        const method: JSONRpcMethods = requestData.method as JSONRpcMethods;
+        const result = await this.router.requestResponse(method, params);
+
+        if (typeof result === 'undefined') {
+            this.sendInternalError(res);
+            return;
+        }
+
+        if ('error' in result) {
+            this.sendErrorResponse(result.error, res, requestData.id);
+            return;
+        }
+
+        if (!result.result) {
+            this.sendInternalError(res);
+            return;
+        }
+
+        return {
+            jsonrpc: JSONRpc2Manager.RPC_VERSION,
+            id: requestData.id ?? null,
+            result: result.result,
+        };
     }
 
     private verifyRequest(
@@ -128,6 +172,8 @@ export class JSONRpc2Manager extends Logger {
     }
 
     private sendInternalError(res: Response): void {
+        if (res.closed) return;
+
         const errorData: JSONRpcResultError<JSONRpcMethods> = {
             code: JSONRPCErrorCode.INTERNAL_ERROR,
             message: 'Internal error',
@@ -138,6 +184,8 @@ export class JSONRpc2Manager extends Logger {
     }
 
     private sendInvalidMethod(res: Response, id?: JSONRpcId): void {
+        if (res.closed) return;
+
         const errorData: JSONRpcResultError<JSONRpcMethods> = {
             code: JSONRPCErrorCode.METHOD_NOT_FOUND,
             message: 'Method not found',
@@ -148,6 +196,8 @@ export class JSONRpc2Manager extends Logger {
     }
 
     private sendInvalidRequest(res: Response, id?: JSONRpcId): void {
+        if (res.closed) return;
+
         const errorData: JSONRpcResultError<JSONRpcMethods> = {
             code: JSONRPCErrorCode.INVALID_REQUEST,
             message: 'Invalid Request',
@@ -162,6 +212,8 @@ export class JSONRpc2Manager extends Logger {
         res: Response,
         id?: JSONRpcId,
     ): void {
+        if (res.closed) return;
+
         const response: JSONRpc2ResponseError<T> = {
             jsonrpc: JSONRpc2Manager.RPC_VERSION,
             id: id ?? null,

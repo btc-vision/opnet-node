@@ -3,7 +3,7 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/BlockByIdParams.js';
+import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByIdParams.js';
 import { Route } from '../../../Route.js';
 
 export class NotImplemented extends Route<Routes.NOT_IMPLEMENTED, JSONRpcMethods, string | null> {

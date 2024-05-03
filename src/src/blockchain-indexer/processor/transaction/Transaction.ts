@@ -37,7 +37,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public readonly blockTime: number | undefined;
     public readonly time: number | undefined;
+
     public wasCompressed: boolean = false;
+
     protected readonly _computedIndexingHash: Buffer;
     protected readonly transactionHashBuffer: Buffer;
     protected readonly transactionHash: string;

@@ -1,5 +1,5 @@
 import { Logger } from '@btc-vision/bsi-common';
-import { MessagePort, parentPort } from 'worker_threads';
+import { MessagePort, parentPort, threadId } from 'worker_threads';
 import { MessageType } from '../enum/MessageType.js';
 import {
     LinkThreadMessage,
@@ -57,25 +57,33 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     ): Promise<ThreadData | null> {
         return new Promise<ThreadData | null>((resolve, reject) => {
             try {
-                if (!m.taskId) {
+                const hasTaskId = m.taskId !== undefined && m.taskId !== null;
+                if (!hasTaskId) {
                     m.taskId = this.generateTaskId();
+
+                    const timeout = setTimeout(() => {
+                        this.warn(
+                            `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType})`,
+                        );
+
+                        resolve(null);
+                    }, 3000);
+
+                    const task: ThreadTaskCallback = {
+                        timeout: timeout,
+                        resolve: resolve,
+                    };
+
+                    this.tasks.set(m.taskId, task);
                 }
 
-                let timeout = setTimeout(() => {
-                    this.warn(`Thread task ${m.taskId} timed out.`);
-
-                    resolve(null);
-                }, 2400000);
-
-                let task: ThreadTaskCallback = {
-                    timeout: timeout,
-                    resolve: resolve,
-                };
-
-                this.tasks.set(m.taskId, task);
                 if (port) {
                     port.postMessage(m);
                 } else if (parentPort) parentPort.postMessage(m);
+
+                if (hasTaskId) {
+                    resolve(null);
+                }
             } catch (e) {
                 reject(e);
             }

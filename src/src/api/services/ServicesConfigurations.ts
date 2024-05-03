@@ -80,8 +80,8 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.BITCOIN_RPC]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 2,
-            maxYoungGenerationSizeMb: 1024,
+            maxOldGenerationSizeMb: 1024 * 6,
+            maxYoungGenerationSizeMb: 1024 * 2,
             stackSizeMb: 256,
         },
     },

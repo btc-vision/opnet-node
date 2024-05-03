@@ -1,11 +1,11 @@
 import {
     BlockByHashParamsAsArray,
     BlockByHashParamsAsObject,
-} from '../../json-rpc/types/interfaces/params/BlockByHashParams.js';
+} from '../../json-rpc/types/interfaces/params/blocks/BlockByHashParams.js';
 import {
     BlockByIdParamsAsArray,
     BlockByIdParamsAsObject,
-} from '../../json-rpc/types/interfaces/params/BlockByIdParams.js';
+} from '../../json-rpc/types/interfaces/params/blocks/BlockByIdParams.js';
 
 export type SafeBigInt = -1 | bigint;
 export type SafeString = string | null;
