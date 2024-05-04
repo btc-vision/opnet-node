@@ -20,9 +20,9 @@ components:
       in: header
       name: X-API-KEY
 servers:
-  - url: https://api.btcsc.io
+  - url: https://testnet.opnet.org
     description: OpNet Testnet Server
-  - url: http://localhost:9001
-    description: Sandbox server
   - url: https://api.opnet.org
     description: OpNet Prod Server
+  - url: http://localhost:9001
+    description: Sandbox server

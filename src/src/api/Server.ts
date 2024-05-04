@@ -1,4 +1,5 @@
 import { Globals, Logger } from '@btc-vision/bsi-common';
+import cors from 'cors';
 import HyperExpress, { MiddlewareHandler } from 'hyper-express';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
@@ -50,8 +51,16 @@ export class Server extends Logger {
         // ERROR HANDLING
         this.app.set_error_handler(this.globalErrorHandler.bind(this));
 
-        //this.app.use(cors());
         this.app.use(this.handleAny.bind(this));
+        this.app.options(
+            '*',
+            cors({
+                origin: '*',
+                methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+                preflightContinue: false,
+                optionsSuccessStatus: 204,
+            }),
+        );
 
         // GET
         this.loadRoutes();
@@ -126,9 +135,11 @@ export class Server extends Logger {
     }
 
     private async handleAny(_req: Request, res: Response, _next: MiddlewareNext): Promise<void> {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-        res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+        if (_req.method !== 'OPTIONS') {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+            res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+        }
 
         res.setHeader('Protocol', 'OpNet Official');
         res.setHeader('Version', '1');
