@@ -715,16 +715,6 @@ export class VMManager extends Logger {
         }
     }
 
-    // don't even question it ????????????????
-    private rndPromise(): Promise<void> {
-        // ??????????????
-        return new Promise<void>((resolve) => {
-            setTimeout(() => {
-                resolve();
-            }, 2);
-        });
-    }
-
     /** We must ENSURE that NOTHING get modified EVEN during the execution of the block. This is performance costly but required. */
     private async setStorage(
         address: BitcoinAddress,

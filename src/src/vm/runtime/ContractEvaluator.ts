@@ -56,10 +56,6 @@ export class ContractEvaluator {
         return this.vmIsolator.getStorage(address, pointer, defaultValueBuffer, canInitialize);
     }
 
-    public async rndPromise(): Promise<void> {
-        //return await this.vmIsolator.rndPromise();
-    }
-
     public async setStorage(
         address: string,
         pointer: StoragePointer,
@@ -80,8 +76,6 @@ export class ContractEvaluator {
         if (this.contractRef !== 0) {
             throw new Error('Contract already initialized');
         }
-
-        await this.rndPromise();
 
         this.contractInstance.INIT(owner, contractAddress);
 
@@ -170,10 +164,6 @@ export class ContractEvaluator {
         }
 
         const canWrite: boolean = this.canWrite(address, abi);
-        /*if (!isView && !canWrite) {
-            throw new Error('Method is not allowed to write or not found.');
-        }*/
-
         try {
             // We execute the method.
             const resp: EvaluatedResult | undefined = await this.evaluate(
