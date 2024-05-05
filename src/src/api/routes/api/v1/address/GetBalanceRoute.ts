@@ -27,10 +27,8 @@ export class GetBalanceRoute extends Route<
             throw new Error('Address not provided');
         }
 
-        const balanceOf = (await this.storage.getBalanceOf(address)) || 0n;
-        return {
-            balance: balanceOf,
-        };
+        const balanceOf: bigint = (await this.storage.getBalanceOf(address)) || 0n;
+        return `0x${balanceOf.toString(16)}`;
     }
 
     public async getDataRPC(params: GetBalanceParams): Promise<GetBalanceResult | undefined> {
@@ -51,7 +49,7 @@ export class GetBalanceRoute extends Route<
      * @response 200 - Returns the requested wallet balance.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
-     * @responseContent {balance: string} 200.application/json
+     * @responseContent {string} 200.application/json
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {

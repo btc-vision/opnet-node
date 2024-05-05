@@ -11,6 +11,9 @@
         "test": "jest --runInBand",
         "setup": "npm i && npm run build"
     },
+    "engines": {
+        "node": ">=20.0.0"
+    },
     "author": "BlobMaster41",
     "license": "LICENSE.MD",
     "dependencies": {
