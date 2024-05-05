@@ -21,4 +21,4 @@ export interface CallResultData {
 }
 
 export type CallResult = JSONRpc2ResultData<JSONRpcMethods.CALL> &
-    (CallRequestError | CallResultData); // TODO: Specify return type
+    (CallRequestError | CallResultData);

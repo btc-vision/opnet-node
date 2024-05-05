@@ -1,10 +1,10 @@
 import { ScriptPubKey } from '@btc-vision/bsi-bitcoin-rpc';
 
-export interface UXTOSOutputTransaction {
+export interface UTXOSOutputTransaction {
     readonly transactionId: string;
     readonly outputIndex: number;
     readonly value: bigint;
     readonly scriptPubKey: ScriptPubKey;
 }
 
-export type UTXOsOutputTransactions = UXTOSOutputTransaction[];
+export type UTXOsOutputTransactions = UTXOSOutputTransaction[];
