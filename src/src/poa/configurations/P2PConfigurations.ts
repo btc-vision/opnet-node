@@ -209,8 +209,8 @@ export class P2PConfigurations {
 
     public get identifyConfiguration(): IdentifyInit {
         return {
-            protocolPrefix: `${P2PConfigurations.protocolName}/${P2PVersion}`,
-            agentVersion: P2PConfigurations.protocolVersion,
+            protocolPrefix: P2PConfigurations.protocolName,
+            agentVersion: P2PVersion,
             timeout: 10000,
             runOnConnectionOpen: true,
         };
