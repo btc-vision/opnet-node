@@ -16,6 +16,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         ZERO_MQ: {},
 
         P2P: {
+            IS_BOOTSTRAP_NODE: false,
             CLIENT_MODE: false,
             ENABLE_IPV6: false,
 
@@ -203,6 +204,19 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.P2P.CLIENT_MODE !== 'boolean'
             ) {
                 throw new Error(`Oops the property P2P.CLIENT_MODE is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.P2P.IS_BOOTSTRAP_NODE !== undefined &&
+                typeof parsedConfig.P2P.IS_BOOTSTRAP_NODE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property P2P.IS_BOOTSTRAP_NODE is not a boolean.`);
+            }
+
+            if (parsedConfig.P2P.CLIENT_MODE && parsedConfig.P2P.IS_BOOTSTRAP_NODE) {
+                throw new Error(
+                    `Oops the property P2P.CLIENT_MODE and P2P.IS_BOOTSTRAP_NODE cannot be both true.`,
+                );
             }
 
             if (

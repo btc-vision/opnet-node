@@ -43,7 +43,12 @@ export class P2PConfigurations {
     constructor(private readonly config: BtcIndexerConfig) {}
 
     public get tcpConfiguration(): TCPOptions {
-        return {};
+        return {
+            inboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
+            outboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
+
+            maxConnections: this.config.P2P.MAXIMUM_PEERS,
+        };
     }
 
     public get websocketConfiguration(): WebSocketsInit {
@@ -220,24 +225,7 @@ export class P2PConfigurations {
         return await createFromJSON(thisPeer);
     }
 
-    private loadPeer(): BackedUpPeer | undefined {
-        try {
-            const lastPeerIdentity = fs.readFileSync(this.peerFilePath());
-            const decrypted = this.decrypt(new Uint8Array(lastPeerIdentity));
-
-            return JSON.parse(decrypted);
-        } catch (e) {
-            console.log(e);
-        }
-
-        return;
-    }
-
-    private peerFilePath(): string {
-        return path.join(__dirname, 'peer.bin');
-    }
-
-    private savePeer(peer: PeerId): void {
+    public savePeer(peer: PeerId): void {
         if (!peer.privateKey) {
             throw new Error('Peer does not have a private key.');
         }
@@ -251,9 +239,31 @@ export class P2PConfigurations {
             privKey: this.uint8ArrayToString(peer.privateKey),
             pubKey: this.uint8ArrayToString(peer.publicKey),
         };
-
+        
         const encrypted = this.encrypt(JSON.stringify(peerIdentity));
         fs.writeFileSync(this.peerFilePath(), encrypted, 'binary');
+    }
+
+    private loadPeer(): BackedUpPeer | undefined {
+        try {
+            const lastPeerIdentity = fs.readFileSync(this.peerFilePath());
+            const decrypted = this.decrypt(new Uint8Array(lastPeerIdentity));
+
+            return JSON.parse(decrypted);
+        } catch (e) {
+            const error = e as Error;
+            if (error.message.includes('no such file or directory')) {
+                return;
+            }
+
+            console.log(e);
+        }
+
+        return;
+    }
+
+    private peerFilePath(): string {
+        return path.join(__dirname, '../../', 'identity.bin');
     }
 
     private encrypt(dataJson: string): Uint8Array {

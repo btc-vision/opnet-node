@@ -42,6 +42,7 @@ export interface PoA {
 }
 
 export interface P2P {
+    readonly IS_BOOTSTRAP_NODE: boolean;
     readonly CLIENT_MODE: boolean;
 
     readonly ENABLE_IPV6: boolean;
