@@ -155,8 +155,6 @@ export class Threader<T extends ThreadTypes> extends Logger {
             );
 
             if (!success) {
-                this.warn(`Thread not found in ${this.threadType} sending to parent.`);
-
                 try {
                     parentPort?.postMessage(txMessage, [txMessage.data.port]);
                 } catch (e) {
