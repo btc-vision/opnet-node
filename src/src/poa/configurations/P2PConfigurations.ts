@@ -194,7 +194,7 @@ export class P2PConfigurations {
             kBucketSize: 20,
             pingTimeout: 10000,
             clientMode: false,
-            protocol: P2PConfigurations.protocolName,
+            protocol: this.protocol,
         };
     }
 
@@ -207,7 +207,7 @@ export class P2PConfigurations {
     }
 
     public get protocol(): string {
-        return `${P2PConfigurations.protocolName}/opnet/${P2PVersion}`;
+        return `${P2PConfigurations.protocolName}/op/${P2PVersion}`;
     }
 
     public async peerIdConfigurations(): Promise<PeerId | undefined> {

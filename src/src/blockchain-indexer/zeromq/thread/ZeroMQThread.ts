@@ -3,8 +3,6 @@ import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../../../threading/thread/Thread.js';
 import { BitcoinZeroMQTopic } from '../enums/BitcoinZeroMQTopic.js';
-import { NewBlockSubscription } from '../subscriptions/NewBlockSubscription.js';
-import { NewTxSubscription } from '../subscriptions/NewTxSubscription.js';
 import { ZeroMQ } from '../ZeroMQ.js';
 
 type ZeroMQSubscriptions = Partial<{
@@ -25,8 +23,8 @@ export class ZeroMQThread extends Thread<ThreadTypes.ZERO_MQ> {
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected async init(): Promise<void> {
-        this.subscription[BitcoinZeroMQTopic.RAWBLOCK] = new NewBlockSubscription();
-        this.subscription[BitcoinZeroMQTopic.HASHTX] = new NewTxSubscription();
+        //this.subscription[BitcoinZeroMQTopic.RAWBLOCK] = new NewBlockSubscription();
+        //this.subscription[BitcoinZeroMQTopic.HASHTX] = new NewTxSubscription();
 
         for (const sub in this.subscription) {
             const subscription = this.subscription[sub as BitcoinZeroMQTopic];

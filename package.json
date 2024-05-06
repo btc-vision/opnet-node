@@ -49,6 +49,7 @@
         "cors": "^2.8.5",
         "crypto": "^1.0.1",
         "eslint-plugin-openapi": "^0.0.4",
+        "figlet": "^1.7.0",
         "gulp": "^4.0.2",
         "gulp-cached": "^1.1.1",
         "gulp-eslint": "^6.0.0",
@@ -71,6 +72,7 @@
     },
     "devDependencies": {
         "@babel/preset-env": "^7.24.3",
+        "@types/figlet": "^1.5.8",
         "@types/node": "^20.11.30",
         "eslint": "^8.57.0",
         "gulp-clean": "^0.4.0",

@@ -16,6 +16,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         ZERO_MQ: {},
 
         P2P: {
+            CLIENT_MODE: false,
             ENABLE_IPV6: false,
 
             P2P_HOST_V6: '::',
@@ -197,6 +198,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         }
 
         if (parsedConfig.P2P) {
+            if (
+                parsedConfig.P2P.CLIENT_MODE !== undefined &&
+                typeof parsedConfig.P2P.CLIENT_MODE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property P2P.CLIENT_MODE is not a boolean.`);
+            }
+
             if (
                 parsedConfig.P2P.ENABLE_IPV6 !== undefined &&
                 typeof parsedConfig.P2P.ENABLE_IPV6 !== 'boolean'
