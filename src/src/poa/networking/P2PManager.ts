@@ -7,6 +7,7 @@ import {
     type ConnectionGater,
     CustomEvent,
     IdentifyResult,
+    Peer,
     PeerDiscovery,
     PeerId,
     PeerInfo,
@@ -101,6 +102,8 @@ export class P2PManager extends Logger {
     private async onPeerUpdate(_evt: CustomEvent<PeerUpdate>): Promise<void> {}
 
     private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
+        if (!this.node) throw new Error('Node not initialized');
+
         const agent: string | undefined = evt.detail.agentVersion;
         const version: string | undefined = evt.detail.protocolVersion;
         const peerId: PeerId = evt.detail.peerId;
@@ -119,6 +122,24 @@ export class P2PManager extends Logger {
         }
 
         this.info(`Identified peer: ${peerId.toString()} - Agent: ${agent} - Version: ${version}`);
+
+        const nodeLength = await this.getPeers();
+        if (nodeLength.length === 1) {
+            this.notifyArt(
+                'OPNet',
+                'Doh',
+                `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
+                `\n\nAuthenticating this node. Looking for peers...\n\n\n\n\n`,
+            );
+        }
+    }
+
+    private getPeers(): Promise<Peer[]> {
+        if (!this.node) {
+            throw new Error('Node not initialized');
+        }
+
+        return this.node.peerStore.all();
     }
 
     private async onStarted(): Promise<void> {
