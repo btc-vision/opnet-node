@@ -42,15 +42,23 @@ export interface PoA {
 }
 
 export interface P2P {
-    readonly ENABLED: boolean;
+    readonly ENABLE_IPV6: boolean;
+    readonly P2P_HOST_V6: string;
+    readonly P2P_PORT_V6: number;
 
     readonly P2P_HOST: string;
     readonly P2P_PORT: number;
 
     readonly P2P_PROTOCOL: PeerToPeerMethod;
 
-    readonly MAXIMUM_INBOUND_PEERS: number;
-    readonly MAXIMUM_OUTBOUND_PEERS: number;
+    readonly MINIMUM_PEERS: number;
+    readonly MAXIMUM_PEERS: number;
+    readonly MAXIMUM_INCOMING_PENDING_PEERS: number;
+
+    readonly PEER_INACTIVITY_TIMEOUT: number;
+
+    readonly MAXIMUM_INBOUND_STREAMS: number;
+    readonly MAXIMUM_OUTBOUND_STREAMS: number;
 
     readonly BOOTSTRAP_NODES: string[];
 

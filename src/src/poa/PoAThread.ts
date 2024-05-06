@@ -1,3 +1,4 @@
+import { Config } from '../config/Config.js';
 import { MessageType } from '../threading/enum/MessageType.js';
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
@@ -7,7 +8,7 @@ import { PoA } from './PoA.js';
 export class PoAThread extends Thread<ThreadTypes.PoA> {
     public readonly threadType: ThreadTypes.PoA = ThreadTypes.PoA;
 
-    private poa: PoA = new PoA();
+    private poa: PoA = new PoA(Config);
 
     constructor() {
         super();
