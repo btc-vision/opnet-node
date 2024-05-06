@@ -31,8 +31,12 @@ interface BackedUpPeer {
 
 export class P2PConfigurations {
     public static readonly protocolName: string = 'opnet';
+    public static readonly protocolVersion: string = '1.0.0';
 
-    private static readonly defaultBootstrapNodes: string[] = [];
+    private static readonly defaultBootstrapNodes: string[] = [
+        '/ip4/51.81.67.34/tcp/9800/p2p/12D3KooWSXW5S3cyKRoYyVvJTwomwfCZxsauRVHKe1iyU4zbXLhv',
+    ];
+
     private static readonly maxMessageSize: number = 8 * 1024 * 1024; // 8 MiB
 
     private readonly encKey: Uint8Array = new Uint8Array([
@@ -175,8 +179,8 @@ export class P2PConfigurations {
 
     public get nodeConfigurations(): NodeInfo {
         return {
-            name: P2PConfigurations.protocolName,
-            version: P2PVersion,
+            name: `${P2PConfigurations.protocolName}/${P2PVersion}`,
+            version: P2PConfigurations.protocolVersion,
         };
     }
 
@@ -205,9 +209,10 @@ export class P2PConfigurations {
 
     public get identifyConfiguration(): IdentifyInit {
         return {
-            protocolPrefix: P2PConfigurations.protocolName,
-            agentVersion: P2PVersion,
+            protocolPrefix: `${P2PConfigurations.protocolName}/${P2PVersion}`,
+            agentVersion: P2PConfigurations.protocolVersion,
             timeout: 10000,
+            runOnConnectionOpen: true,
         };
     }
 
@@ -239,7 +244,7 @@ export class P2PConfigurations {
             privKey: this.uint8ArrayToString(peer.privateKey),
             pubKey: this.uint8ArrayToString(peer.publicKey),
         };
-        
+
         const encrypted = this.encrypt(JSON.stringify(peerIdentity));
         fs.writeFileSync(this.peerFilePath(), encrypted, 'binary');
     }

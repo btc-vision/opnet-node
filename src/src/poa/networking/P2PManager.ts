@@ -32,8 +32,9 @@ export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly p2pConfigurations: P2PConfigurations;
-
     private node: Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }> | undefined;
+
+    private pendingNodeIdentifications: Map<string, NodeJS.Timeout> = new Map();
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
@@ -103,6 +104,12 @@ export class P2PManager extends Logger {
         const agent: string | undefined = evt.detail.agentVersion;
         const version: string | undefined = evt.detail.protocolVersion;
         const peerId: PeerId = evt.detail.peerId;
+
+        const timeout = this.pendingNodeIdentifications.get(peerId.toString());
+        if (timeout) {
+            clearTimeout(timeout);
+            this.pendingNodeIdentifications.delete(peerId.toString());
+        }
 
         if (!this.allowConnection(peerId, agent, version)) {
             this.warn(
@@ -174,6 +181,14 @@ export class P2PManager extends Logger {
         const peerId = evt.detail.toString();
 
         this.success(`Connected to peer: ${peerId}`);
+
+        const timeout = setTimeout(() => {
+            this.warn(`Identification timeout for peer: ${peerId}`);
+            this.pendingNodeIdentifications.delete(peerId);
+
+            this.disconnectPeer(evt.detail);
+        }, 5000);
+        this.pendingNodeIdentifications.set(peerId, timeout);
     }
 
     private async startNode(): Promise<void> {
