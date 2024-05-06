@@ -105,7 +105,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
         } else {
             const success = await this.sendLinkMessageToThreadOfType(requestedThreadType, message);
             if (!success) {
-                this.warn(`Thread ${requestedThreadType} not found sending to parent.`);
+                //this.warn(`Thread ${requestedThreadType} not found sending to parent.`);
                 parentPort?.postMessage(message);
             }
         }
