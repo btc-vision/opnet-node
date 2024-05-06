@@ -10,10 +10,10 @@ import { ThreadManager } from '../threading/manager/ThreadManager.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../threading/Threader.js';
 
-export class APIManager extends ThreadManager<ThreadTypes.API> {
-    public logColor: string = '#bc00fa';
+export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
+    public readonly logColor: string = '#00f2fa';
 
-    protected readonly threadManager: Threader<ThreadTypes.API> = new Threader(ThreadTypes.API);
+    protected readonly threadManager: Threader<ThreadTypes.PoA> = new Threader(ThreadTypes.PoA);
 
     constructor() {
         super();
@@ -21,26 +21,25 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
         void this.init();
     }
 
-    protected async onGlobalMessage(
-        msg: ThreadMessageBase<MessageType>,
-        _thread: Worker,
-    ): Promise<void> {
-        switch (msg.type) {
-            default: {
-                console.log(msg);
-                throw new Error('Unknown message type.');
-            }
-        }
+    public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
+        throw new Error('Method not implemented.');
     }
 
-    protected async createLinkBetweenThreads(): Promise<void> {}
+    /*public async dispatchMessageToThread(
+        message: ThreadMessageBase<MessageType>,
+    ): Promise<ThreadData | null> {
+        return await this.threadManager.execute(message);
+    }*/
 
     protected async sendLinkToThreadsOfType(
-        threadType: ThreadTypes,
+        _threadType: ThreadTypes,
         _threadId: number,
-        _message: LinkThreadMessage<LinkType>,
+        message: LinkThreadMessage<LinkType>,
     ): Promise<boolean> {
-        switch (threadType) {
+        const targetThreadType = message.data.targetThreadType;
+        //const targetThreadId = message.data.targetThreadId;
+
+        switch (targetThreadType) {
             default: {
                 return false;
             }
@@ -57,7 +56,12 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
             }
         }
     }
+
+    protected async createLinkBetweenThreads(): Promise<void> {
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.BITCOIN_INDEXER);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
+    }
 }
 
-const apiManager = new APIManager();
-void apiManager.createThreads();
+const manager = new PoAThreadManager();
+void manager.createThreads();

@@ -52,7 +52,7 @@ export class BlockchainIndexer extends Logger {
                 throw new Error(`Invalid network ${this.network}`);
         }
 
-        this.listenEvents();
+        //this.listenEvents();
     }
 
     private _blockchainInfoRepository: BlockchainInformationRepository | undefined;

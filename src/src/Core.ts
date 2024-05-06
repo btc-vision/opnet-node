@@ -1,7 +1,7 @@
 import { Globals, Logger } from '@btc-vision/bsi-common';
 import { Worker } from 'worker_threads';
-import { ServicesConfigurations } from './api/services/ServicesConfigurations.js';
 import { Config } from './config/Config.js';
+import { ServicesConfigurations } from './services/ServicesConfigurations.js';
 import { MessageType } from './threading/enum/MessageType.js';
 import {
     LinkThreadMessage,
@@ -20,10 +20,12 @@ export class Core extends Logger {
     public readonly logColor: string = '#1553c7';
 
     private readonly masterThreads: Partial<Record<ThreadTypes, Worker>> = {};
+    private readonly threads: Worker[] = [];
 
     constructor() {
         super();
 
+        //this.listenEvents();
         void this.start();
     }
 
@@ -39,10 +41,12 @@ export class Core extends Logger {
             await this.createThread(0, ThreadTypes.API);
         }
 
-        await this.createThread(0, ThreadTypes.VM);
-
         if (Config.INDEXER.ENABLED) {
             await this.createThread(0, ThreadTypes.BITCOIN_INDEXER);
+        }
+
+        if (Config.POA.ENABLED) {
+            await this.createThread(0, ThreadTypes.PoA);
         }
     }
 
@@ -101,6 +105,44 @@ export class Core extends Logger {
         }
     }
 
+    private listenEvents(): void {
+        let called = false;
+        process.on('SIGINT', async () => {
+            if (!called) {
+                called = true;
+                await this.terminateAllActions();
+            }
+        });
+
+        process.on('SIGQUIT', async () => {
+            if (!called) {
+                called = true;
+                await this.terminateAllActions();
+            }
+        });
+
+        process.on('SIGTERM', async () => {
+            if (!called) {
+                called = true;
+                await this.terminateAllActions();
+            }
+        });
+    }
+
+    private async terminateAllActions(): Promise<void> {
+        this.log(`Exit requested.`);
+
+        for (let thread of this.threads) {
+            try {
+                this.log(`Exiting thread.`);
+                await thread.terminate();
+                this.log(`Exited thread.`);
+            } catch (e) {}
+        }
+
+        process.exit(0);
+    }
+
     private createThread(i: number, type: ThreadTypes): Promise<void> {
         return new Promise((resolve) => {
             const settings = ServicesConfigurations[type];
@@ -133,6 +175,8 @@ export class Core extends Logger {
             thread.on('message', (msg: ThreadMessageBase<MessageType>) => {
                 this.onThreadMessage(thread, msg, type);
             });
+
+            this.threads.push(thread);
         });
     }
 }

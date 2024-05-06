@@ -4,7 +4,7 @@ import { MessageChannel, MessagePort, parentPort, Worker, WorkerOptions } from '
 import {
     ServicesConfigurations,
     WorkerConfigurations,
-} from '../api/services/ServicesConfigurations.js';
+} from '../services/ServicesConfigurations.js';
 import { MessageType } from './enum/MessageType.js';
 import {
     LinkThreadMessage,
