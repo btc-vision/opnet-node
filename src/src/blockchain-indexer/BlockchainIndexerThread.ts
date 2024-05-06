@@ -20,6 +20,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.BITCOIN_INDEXER>
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected async init(): Promise<void> {
+        console.log(`!!! ------------ CREATED THREAD FOR INDEXER ------------ !!!`);
         this.log(`Starting up blockchain indexer thread...`);
 
         await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);

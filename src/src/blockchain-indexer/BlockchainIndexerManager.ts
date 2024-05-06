@@ -61,7 +61,6 @@ class BlockchainIndexerManager extends ThreadManager<ThreadTypes.BITCOIN_INDEXER
         message: LinkThreadMessage<LinkType>,
     ): Promise<boolean> {
         const targetThreadType = message.data.targetThreadType;
-        //const targetThreadId = message.data.targetThreadId;
 
         switch (targetThreadType) {
             default: {
@@ -84,6 +83,8 @@ class BlockchainIndexerManager extends ThreadManager<ThreadTypes.BITCOIN_INDEXER
     protected async createLinkBetweenThreads(): Promise<void> {}
 
     protected async init(): Promise<void> {
+        await super.init();
+
         this.important('Creating threads for ZeroMQ...');
         await this.zeroMQThreads.createThreads();
 
