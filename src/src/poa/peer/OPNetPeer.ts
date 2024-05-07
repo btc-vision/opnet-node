@@ -88,8 +88,8 @@ export class OPNetPeer extends Logger {
             }
         } catch (e) {
             console.log(e);
-            
-            await this.disconnectPeer(this.peerId);
+
+            await this.destroy();
         }
 
         /*const promises: Promise<boolean>[] = [
