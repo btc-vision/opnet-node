@@ -46,7 +46,7 @@ export class OPNetIdentity extends OPNetPathFinder {
             throw new Error('OPNet Auth Key not found.');
         }
 
-        return this.opnetAuthKeyBin;
+        return new Uint8Array(this.opnetAuthKeyBin);
     }
 
     private get network(): networks.Network {
