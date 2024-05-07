@@ -67,23 +67,29 @@ export class OPNetPeer extends Logger {
     };
 
     public async onMessage(rawBuf: ArrayBuffer): Promise<void> {
-        const buffer: Uint8Array = new Uint8Array(rawBuf);
-        const toClient = buffer.slice(0, 1)[0] === 0x01;
+        try {
+            const buffer: Uint8Array = new Uint8Array(rawBuf);
+            const toClient = buffer.slice(0, 1)[0] === 0x01;
 
-        console.log('Message received!', buffer.slice(1));
+            console.log('Message received!', buffer.slice(1));
 
-        let success = false;
-        switch (toClient) {
-            case true:
-                success = await this.clientNetworkingManager.onMessage(buffer.slice(1));
-                break;
-            case false:
-                success = await this.serverNetworkingManager.onMessage(buffer.slice(1));
-                break;
-        }
+            let success = false;
+            switch (toClient) {
+                case true:
+                    success = await this.clientNetworkingManager.onMessage(buffer.slice(1));
+                    break;
+                case false:
+                    success = await this.serverNetworkingManager.onMessage(buffer.slice(1));
+                    break;
+            }
 
-        if (!success) {
-            throw new Error(`Unknown opcode received. ${buffer[1]}`);
+            if (!success) {
+                throw new Error(`Unknown opcode received. ${buffer[1]}`);
+            }
+        } catch (e) {
+            console.log(e);
+            
+            await this.disconnectPeer(this.peerId);
         }
 
         /*const promises: Promise<boolean>[] = [
