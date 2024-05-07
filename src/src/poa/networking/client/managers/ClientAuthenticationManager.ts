@@ -25,6 +25,8 @@ import { ConnectionStatus } from '../enums/ConnectionStatus.js';
 export abstract class ClientAuthenticationManager extends SharedAuthenticationManager {
     public readonly logColor: string = '#08fa00';
 
+    protected readonly peerId: string;
+
     protected _encryptem: EncryptemClient = new EncryptemClient();
     protected selfIdentity: OPNetIdentity | undefined;
 
@@ -38,10 +40,11 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     #OPNetClientKeyCipher: Uint8Array | null = null;
     #connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED;
 
-    protected constructor(selfIdentity: OPNetIdentity | undefined) {
+    protected constructor(selfIdentity: OPNetIdentity | undefined, peerId: string) {
         super();
 
         this.selfIdentity = selfIdentity;
+        this.peerId = peerId;
     }
 
     public get connectionStatus(): ConnectionStatus {
@@ -144,7 +147,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     }
 
     protected async attemptAuth(key: Uint8Array): Promise<void> {
-        this.log('Attempting to authenticate with OPNet Server...');
+        this.log(`Attempting to authenticate with ${this.peerId}...`);
 
         this.connectionStatus = ConnectionStatus.AUTHENTICATING;
 
@@ -180,8 +183,6 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
             if (!isOk) {
                 reject(new Error('Failed to setup client encryptem.'));
             }
-
-            this.success('Successfully selected OPNet key.');
 
             try {
                 const publicKeyResponse = this.getClientPublicKey();
@@ -237,7 +238,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         }
 
         this.latency = Long.fromInt(Date.now()).subtract(this.lastPing).toNumber();
-        this.info(`Latency: ${this.latency}ms.`);
+        this.info(`Latency with ${this.peerId} is ${this.latency}ms.`);
     }
 
     private startPingInterval(): void {
@@ -311,11 +312,11 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
 
         if (unpackedAuthData.status === OPNetAuthenticationStatus.SUCCESS) {
             await this.buildKeyCipherExchangeClientPacket();
-            this.success('Successfully authenticated with the remote peer.');
+            this.success(`Successfully authenticated with ${this.peerId}.`);
 
             this.connectionStatus = ConnectionStatus.AUTHENTICATION_SUCCESS;
         } else {
-            this.fail(`Failed to authenticate with the remote peer: ${unpackedAuthData.message}`);
+            this.fail(`Failed to authenticate with ${this.peerId}: ${unpackedAuthData.message}`);
 
             this.connectionStatus = ConnectionStatus.AUTHENTICATION_FAILED;
         }

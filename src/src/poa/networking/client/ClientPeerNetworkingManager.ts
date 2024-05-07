@@ -4,13 +4,12 @@ import { ClientAuthenticationManager } from './managers/ClientAuthenticationMana
 
 export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
     public readonly logColor: string = '#00f2fa';
-    protected readonly peerId: string;
+
+
     private destroyed: boolean = false;
 
     constructor(peerId: string, selfIdentity: OPNetIdentity | undefined) {
-        super(selfIdentity);
-
-        this.peerId = peerId;
+        super(selfIdentity, peerId);
     }
 
     public async login(): Promise<void> {
