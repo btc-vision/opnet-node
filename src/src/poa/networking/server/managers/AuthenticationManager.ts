@@ -28,7 +28,18 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
     protected abstract readonly peerId: string;
 
+    private passVersionCheck: boolean = false;
     private timeoutAuth: NodeJS.Timeout | null = null;
+
+    private _peerIdentity: string | undefined;
+
+    public get peerIdentity(): string {
+        if (!this._peerIdentity) {
+            throw new Error(`Peer identity not defined.`);
+        }
+
+        return this._peerIdentity;
+    }
 
     protected _encryptem: EncryptemServer = new EncryptemServer();
 
@@ -44,12 +55,6 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         this.timeoutAuth = setTimeout(() => {
             void this.disconnectPeer(1007, 'Authentication timeout.');
         }, 30000);
-    }
-
-    protected authenticate(): void {
-        this.isAuthenticated = true;
-
-        if (this.timeoutAuth) clearTimeout(this.timeoutAuth);
     }
 
     protected onAuthenticated(): void {
@@ -117,12 +122,14 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
         const statusMessage: IAuthenticationStatusPacket = {
             status: OPNetAuthenticationStatus.SUCCESS,
-            message: 'Successfully authenticated.',
+            message: 'Pre auth valid.',
         };
 
         await this.sendAuthenticationStatusPacket(statusMessage);
 
-        this.authenticate();
+        if (this.timeoutAuth) {
+            clearTimeout(this.timeoutAuth);
+        }
     }
 
     private async sendServerHandshake(): Promise<void> {
@@ -229,7 +236,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         const clientAuthCipherBuffer = unpackedAuthData.clientAuthCipher as Buffer;
         const clientIdentityBuffer = unpackedAuthData.identity as Buffer;
 
-        console.log({
+        console.log('auth request', {
             clientKeyCipherBuffer,
             clientAuthCipherBuffer,
             clientIdentityBuffer,
@@ -237,20 +244,17 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
         this.encryptem.setClientPublicKey(clientKeyCipherBuffer);
 
-        const clientAuthCipherValid = this.encryptem.authenticateKeyData(clientAuthCipherBuffer);
-
-        if (clientAuthCipherValid) {
-            this.log(`Peer public key received. Sending server public key.`);
-
-            if (!this.isAuthenticated) {
-                await this.createFullAuthentication();
-            }
-
-            await this.sendServerHandshake();
-        } else {
-            this.error(`Peer public key verification failed.`);
-            await this.disconnectPeer(1007, 'Peer key verification failed.');
+        // sha512
+        if (clientIdentityBuffer.byteLength !== 64) {
+            await this.disconnectPeer(1007, 'Invalid peer identity.');
+            return;
         }
+
+        // TODO: Verify peer identity.
+        this._peerIdentity = Buffer.from(clientIdentityBuffer).toString('hex');
+
+        // Accept the client's public key.
+        await this.sendServerHandshake();
     }
 
     /** If the peer is using an outdated version of the protocol, we must compare to check if we can accept the version. */
@@ -274,9 +278,20 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         return true;
     }
 
+    private async onPassedVersionCheck(): Promise<void> {
+        this.passVersionCheck = true;
+
+        await this.createFullAuthentication();
+    }
+
     private async onAuthenticationMessage(packet: OPNetPacket): Promise<void> {
         if (!this.protocol) return;
         if (!this.encryptem) return;
+
+        if (this.passVersionCheck) {
+            await this.disconnectPeer(1007, 'Peer has already passed the version check.');
+            return;
+        }
 
         const authPacket: AuthenticationPacket | undefined =
             (await this.protocol.onIncomingPacket<IAuthenticationPacket>(packet)) as
@@ -301,25 +316,13 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         }
 
         this.log(`Peer (${this.peerId}) is using the latest version of the OPNet Protocol.`);
-
         if (!(unpackedAuthData.clientAuthCipher && unpackedAuthData.clientAuthCipher.length > 0)) {
             this.warn(`Peer (${this.peerId}) sent an invalid client authentication cipher.`);
-
             await this.createAuthenticationFailureMessage('Invalid client authentication cipher.');
 
             return;
         }
 
-        const clientAuthCipherValid = this.encryptem.authenticateKeyData(
-            unpackedAuthData.clientAuthCipher,
-        );
-
-        if (clientAuthCipherValid) {
-            await this.createFullAuthentication();
-        } else {
-            this.warn(`Peer (${this.peerId}) sent an invalid client authentication cipher.`);
-
-            await this.createAuthenticationFailureMessage('Invalid client authentication cipher.');
-        }
+        await this.onPassedVersionCheck();
     }
 }
