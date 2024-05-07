@@ -1,5 +1,7 @@
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { Transaction } from '../Transaction.js';
+import { TransactionGroupBuilder } from './TransactionGroupBuilder.js';
+import { TransactionGroupFeesSorter } from './TransactionGroupFeesSorter.js';
 
 /**
  * The goal of this class is to sort transactions in bitcoin blocks where their position in a block is topologically sorted.
@@ -9,87 +11,62 @@ import { Transaction } from '../Transaction.js';
  * Transaction with the same fee will get stored via a tie-breaking hash.
  */
 export class TransactionSorter {
-    constructor() {}
-
     public sortTransactions(
         transactions: Transaction<OPNetTransactionTypes>[],
     ): Transaction<OPNetTransactionTypes>[] {
-        // Separate block rewards
+        const feesSorter: TransactionGroupFeesSorter = new TransactionGroupFeesSorter();
+        const groupBuilder: TransactionGroupBuilder = new TransactionGroupBuilder();
+        const initialLength = transactions.length;
+
+        // Filter block rewards and non-block rewards
         const blockRewards = transactions.filter((t) =>
             t.inputs.some((input) => input.originalTransactionId === undefined),
         );
+
         const nonBlockRewards = transactions.filter((t) =>
             t.inputs.every((input) => input.originalTransactionId !== undefined),
         );
 
-        // Sort block rewards by burned fee
-        const sortedBlockRewards = blockRewards.sort((a, b) => Number(a.burnedFee - b.burnedFee));
+        // Initialize the final list with block rewards since they have no dependencies
+        const finalList: Transaction<OPNetTransactionTypes>[] = [...blockRewards];
 
-        // Dependency graph for transactions
-        const graph: Map<string, Transaction<OPNetTransactionTypes>[]> = new Map();
-        transactions.forEach((tx) => {
-            tx.inputs.forEach((input) => {
-                if (input.originalTransactionId) {
-                    if (!graph.has(input.originalTransactionId)) {
-                        graph.set(input.originalTransactionId, []);
-                    }
-                    graph.get(input.originalTransactionId)!.push(tx);
-                }
-            });
-        });
+        // Build dependency groups for non-block rewards
+        const groups: Transaction<OPNetTransactionTypes>[][] =
+            groupBuilder.buildGroups(nonBlockRewards);
 
-        // Topological sort respecting transaction dependencies
-        const sortedTransactions = this.topologicalSort(nonBlockRewards, graph);
+        // Sort groups by total burned fee and flatten into the final list
+        const sortedGroups = feesSorter.sortGroupsByBurnedFees(groups);
+        for (let i = 0; i < sortedGroups.length; i++) {
+            const group = sortedGroups[i];
+            //const totalGroupBurnedFee = this.calculateTotalBurnedFees(group);
 
-        const result = sortedBlockRewards.concat(sortedTransactions);
-        for(let i = 0; i < result.length; i++) {
-            result[i].index = i;
+            //console.log(`Group ${i} has total burned fee: ${totalGroupBurnedFee}`);
+            this.verifyDuplicatedTransactionsAndPushToFinalList(group, finalList);
         }
 
-        return result;
-    }
-
-    private isRBF(transaction: Transaction<OPNetTransactionTypes>): boolean {
-        return transaction.inputs.some((input) => input.sequenceId < 0xfffffffe);
-    }
-
-    private topologicalSort(
-        transactions: Transaction<OPNetTransactionTypes>[],
-        graph: Map<string, Transaction<OPNetTransactionTypes>[]>,
-    ): Transaction<OPNetTransactionTypes>[] {
-        const sorted: Transaction<OPNetTransactionTypes>[] = [];
-        const visited: Set<string> = new Set();
-
-        const visit = (tx: Transaction<OPNetTransactionTypes>) => {
-            const txId = tx.transactionId;
-            if (visited.has(txId)) return;
-            visited.add(txId);
-
-            const dependents = graph.get(txId);
-            if (dependents) {
-                dependents.forEach((dependentTx) => visit(dependentTx));
-            }
-
-            sorted.push(tx);
-        };
-
-        transactions = transactions.sort((a, b) => {
-            const feeDiff = Number(b.burnedFee - a.burnedFee);
-            if (feeDiff !== 0) return feeDiff;
-
-            // TODO: Verify that we need to handle RBF transactions
-            /*if (this.isRBF(a) && !this.isRBF(b)) {
-                return -1;
-            } else if (!this.isRBF(a) && this.isRBF(b)) {
-                return 1;
-            }*/
-
-            // Resolve ties using the hash of (transactionHash + blockHash)
-            return Buffer.compare(a.computedIndexingHash, b.computedIndexingHash);
+        // Ensure the index of each transaction in the final list
+        finalList.forEach((tx, index) => {
+            tx.index = index;
         });
 
-        transactions.forEach((tx) => visit(tx));
+        if (finalList.length !== initialLength) {
+            throw new Error(
+                `Transaction count changed during sorting. Expected ${initialLength}, got ${finalList.length}.`,
+            );
+        }
 
-        return sorted.reverse();
+        return finalList;
+    }
+
+    // Optional to avoid duplicated transactions
+    private verifyDuplicatedTransactionsAndPushToFinalList(
+        group: Transaction<OPNetTransactionTypes>[],
+        finalList: Transaction<OPNetTransactionTypes>[],
+    ): void {
+        group.forEach((tx) => {
+            if (!finalList.includes(tx)) {
+                finalList.push(tx);
+            }
+        });
     }
 }

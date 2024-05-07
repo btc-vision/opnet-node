@@ -22,6 +22,10 @@ export interface RPCConfig {
 }
 
 export interface OPNetConfig {
+    readonly TRANSACTIONS_MAXIMUM_CONCURRENT: number;
+    readonly MAXIMUM_TRANSACTION_SESSIONS: number;
+    readonly MAXIMUM_PREFETCH_BLOCKS: number;
+
     readonly ENABLED_AT_BLOCK: number;
 
     REINDEX: boolean;

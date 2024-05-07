@@ -3,11 +3,10 @@ import { Decimal128 } from 'mongodb';
 
 export type BlockHeaderChecksumProof = Array<[number, string[]]>;
 
-export interface BlockHeaderBlockDocument {
+export interface BaseBlockDocument {
     /** Allows us to verify that the block is correct and not regenerated. */
     checksumRoot: string;
 
-    height: Decimal128;
     hash: string;
 
     previousBlockHash: string;
@@ -27,9 +26,19 @@ export interface BlockHeaderBlockDocument {
     receiptRoot: string;
 
     checksumProofs: BlockHeaderChecksumProof;
+}
 
+export interface BlockHeaderBlockDocument extends BaseBlockDocument {
+    height: Decimal128;
     time: Date;
     medianTime: Date;
+}
+
+export interface BlockHeaderAPIBlockDocument extends BaseBlockDocument {
+    height: string;
+
+    time: number;
+    medianTime: number;
 }
 
 export type IBlockHeaderBlockDocument = BlockHeaderBlockDocument & IBaseDocument;

@@ -38,12 +38,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public readonly blockTime: number | undefined;
     public readonly time: number | undefined;
 
-    public readonly computedIndexingHash: Buffer;
-
     public wasCompressed: boolean = false;
 
+    protected readonly _computedIndexingHash: Buffer;
     protected readonly transactionHashBuffer: Buffer;
-
     protected readonly transactionHash: string;
     protected readonly vInputIndex: number;
 
@@ -82,7 +80,11 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.blockTime = rawTransactionData.blocktime;
         this.time = rawTransactionData.time;
 
-        this.computedIndexingHash = this.computeHashForTransaction();
+        this._computedIndexingHash = this.computeHashForTransaction();
+    }
+
+    public get computedIndexingHash(): Buffer {
+        return this._computedIndexingHash;
     }
 
     protected _revert: Error | undefined;
@@ -191,6 +193,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             const vIn = data.vin[y];
             const witnesses = vIn.txinwitness;
 
+            if (!witnesses) {
+                continue;
+            }
+
             for (let i = 0; i < witnesses.length; i++) {
                 const witness = witnesses[i];
                 const raw = Buffer.from(witness, 'hex');
@@ -231,7 +237,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         const outputDocuments = this.outputs.map((output) => output.toDocument());
 
         return {
-            id: this.txid,
+            id: this.transactionId,
             hash: this.hash,
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
 

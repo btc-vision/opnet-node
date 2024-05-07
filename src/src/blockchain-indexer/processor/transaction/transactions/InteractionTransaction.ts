@@ -49,6 +49,8 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
     protected contractSecret: Buffer | undefined;
     protected interactionPubKey: Buffer | undefined;
 
+    protected receiptProofs: string[] | undefined;
+
     constructor(
         rawTransactionData: TransactionData,
         vIndexIn: number,
@@ -100,6 +102,8 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         const events = receiptData?.events || [];
         const receipt = receiptData?.result;
 
+        const receiptProofs: string[] = this.receiptProofs || [];
+
         return {
             ...super.toDocument(),
             from: this.from,
@@ -111,10 +115,15 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             interactionPubKey: new Binary(this.interactionPubKey),
 
             wasCompressed: this.wasCompressed,
+            receiptProofs: receiptProofs,
 
             receipt: receipt ? new Binary(receipt) : undefined,
             events: events,
         };
+    }
+
+    public setReceiptProofs(proofs: string[] | undefined): void {
+        this.receiptProofs = proofs;
     }
 
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
@@ -136,7 +145,6 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
         /** As we only support one contract interaction per transaction, we can safely assume that the first element is the one we are looking for. */
         const scriptData = this.getWitnessWithMagic();
-
         if (!scriptData) {
             throw new Error(`No script data found for deployment transaction ${this.txid}`);
         }

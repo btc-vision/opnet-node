@@ -1,6 +1,7 @@
 import { BufferHelper } from '@btc-vision/bsi-binary';
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 import { BlockHeaderChecksumProof } from '../../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { ZERO_HASH } from '../types/ZeroValue.js';
 
 export class ChecksumMerkle {
     public static TREE_TYPE: [string, string] = ['uint8', 'bytes32'];
@@ -42,12 +43,12 @@ export class ChecksumMerkle {
         blockStateRoot: string,
         blockReceiptRoot: string,
     ): void {
-        this.values.push([0, BufferHelper.hexToUint8Array(previousBlockHash)]);
-        this.values.push([1, BufferHelper.hexToUint8Array(previousBlockChecksum)]);
-        this.values.push([2, BufferHelper.hexToUint8Array(blockHash)]);
-        this.values.push([3, BufferHelper.hexToUint8Array(blockMerkleRoot)]);
-        this.values.push([4, BufferHelper.hexToUint8Array(blockStateRoot)]);
-        this.values.push([5, BufferHelper.hexToUint8Array(blockReceiptRoot)]);
+        this.values.push([0, BufferHelper.hexToUint8Array(previousBlockHash || ZERO_HASH)]);
+        this.values.push([1, BufferHelper.hexToUint8Array(previousBlockChecksum || ZERO_HASH)]);
+        this.values.push([2, BufferHelper.hexToUint8Array(blockHash || ZERO_HASH)]);
+        this.values.push([3, BufferHelper.hexToUint8Array(blockMerkleRoot || ZERO_HASH)]);
+        this.values.push([4, BufferHelper.hexToUint8Array(blockStateRoot || ZERO_HASH)]);
+        this.values.push([5, BufferHelper.hexToUint8Array(blockReceiptRoot || ZERO_HASH)]);
 
         this.generateTree();
     }

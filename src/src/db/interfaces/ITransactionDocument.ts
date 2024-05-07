@@ -2,25 +2,40 @@ import { NetEvent } from '@btc-vision/bsi-binary';
 import { IBaseDocument } from '@btc-vision/bsi-common';
 import { Binary, Decimal128 } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { TransactionInput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
-import { ITransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import {
+    APIDocumentInput,
+    TransactionInput,
+} from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
+import {
+    APIDocumentOutput,
+    ITransactionOutput,
+} from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 
-export interface TransactionDocument<T extends OPNetTransactionTypes> {
+export interface TransactionDocumentBase<T extends OPNetTransactionTypes> {
     readonly id: string;
     readonly hash: string;
-    readonly blockHeight: Decimal128;
+
     readonly index: number; // Mark the order of the transaction in the block
-    readonly burnedBitcoin: Decimal128;
 
-    readonly revert: Binary | undefined;
+    readonly blockHeight: Decimal128 | string | undefined;
+    readonly burnedBitcoin: Decimal128 | string;
+    readonly revert: Binary | undefined | string;
 
-    readonly inputs: TransactionInput[];
-    readonly outputs: ITransactionOutput[];
+    readonly inputs: TransactionInput[] | APIDocumentInput[];
+    readonly outputs: ITransactionOutput[] | APIDocumentOutput[];
 
     readonly OPNetType: T;
 }
 
-type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocument<T> & {
+export interface TransactionDocument<T extends OPNetTransactionTypes>
+    extends TransactionDocumentBase<T> {
+    readonly blockHeight: Decimal128;
+    readonly burnedBitcoin: Decimal128;
+
+    readonly revert: Binary | undefined;
+}
+
+export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocument<T> & {
     readonly from: string;
     readonly contractAddress: string;
 };
@@ -39,6 +54,7 @@ export interface InteractionTransactionDocument
 
     readonly events: NetEvent[];
     readonly receipt?: Binary;
+    readonly receiptProofs?: string[];
 }
 
 export type ITransactionDocument<T extends OPNetTransactionTypes> = TransactionDocument<T> &

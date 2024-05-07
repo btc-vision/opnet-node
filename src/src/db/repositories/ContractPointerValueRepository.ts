@@ -1,7 +1,16 @@
 import { Address, BufferHelper } from '@btc-vision/bsi-binary';
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
+import {
+    Binary,
+    BulkWriteOptions,
+    BulkWriteResult,
+    ClientSession,
+    Collection,
+    Db,
+    Filter,
+} from 'mongodb';
+import { BitcoinAddress } from '../../bitcoin/types/BitcoinAddress.js';
 import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
@@ -59,6 +68,61 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             proofs: results.proofs,
             lastSeenAt: DataConverter.fromDecimal128(results.lastSeenAt),
         };
+    }
+
+    public async setStoragePointers(
+        storage: Map<BitcoinAddress, Map<StoragePointer, [MemoryValue, string[]]>>,
+        lastSeenAt: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        if (!currentSession) {
+            throw new Error('Current session is required.');
+        }
+
+        const bulk = this.getCollection().initializeUnorderedBulkOp();
+        for (const [contractAddress, pointers] of storage) {
+            for (const [pointer, [value, proofs]] of pointers) {
+                const pointerToBinary = new Binary(pointer);
+                const valueToBinary = new Binary(value);
+
+                const criteria: Partial<Filter<IContractPointerValueDocument>> = {
+                    contractAddress: contractAddress,
+                    pointer: pointerToBinary,
+                    lastSeenAt: DataConverter.toDecimal128(lastSeenAt),
+                };
+
+                const update: Partial<IContractPointerValueDocument> = {
+                    contractAddress: contractAddress,
+                    pointer: pointerToBinary,
+                    value: valueToBinary,
+                    proofs: proofs,
+                    lastSeenAt: DataConverter.toDecimal128(lastSeenAt),
+                };
+                
+                bulk.find(criteria).upsert().updateOne({ $set: update });
+            }
+        }
+
+        const options: BulkWriteOptions = this.getOptions(currentSession);
+        const response: BulkWriteResult = await bulk.execute(options);
+
+        let errored = false;
+        if (response.hasWriteErrors()) {
+            const errors = response.getWriteErrors();
+
+            for (const error of errors) {
+                this.error(`[DATABASE ERROR.] ${error.errmsg}`);
+            }
+
+            errored = true;
+        } else if (!response.isOk()) {
+            errored = true;
+        }
+
+        if (errored) {
+            this.error(`[DATABASE ERROR.] Bulk write operation failed.`);
+            throw new Error(`[DATABASE ERROR.] Bulk write operation failed.`);
+        }
     }
 
     public async setByContractAndPointer(

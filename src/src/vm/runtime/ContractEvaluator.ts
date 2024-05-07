@@ -12,11 +12,11 @@ import {
     Selector,
     SelectorsMap,
 } from '@btc-vision/bsi-binary';
-import { VMContext } from '../evaluated/EvaluatedContext.js';
 import { EvaluatedResult } from '../evaluated/EvaluatedResult.js';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
-import { instantiate, VMRuntime } from '../wasmRuntime/runDebug.js';
+import { VMIsolator } from '../VMIsolator.js';
+import { VMRuntime } from '../wasmRuntime/runDebug.js';
 
 export class ContractEvaluator {
     private contractInstance: VMRuntime | null = null;
@@ -34,19 +34,10 @@ export class ContractEvaluator {
 
     private readonly enableTracing: boolean = false;
 
-    constructor(
-        private readonly stack: VMContext,
-        private readonly console: Console,
-    ) {
-        void this.init();
-    }
+    constructor(private readonly vmIsolator: VMIsolator) {}
 
-    public get wasm(): VMRuntime | null {
-        return this.contractInstance;
-    }
-
-    public async init(): Promise<void> {
-        this.contractInstance = await this.instantiatedContract(this.stack.initialBytecode, {});
+    public async init(runtime: VMRuntime): Promise<void> {
+        this.contractInstance = runtime;
     }
 
     public async getStorage(
@@ -60,13 +51,9 @@ export class ContractEvaluator {
         }
 
         const canInitialize: boolean =
-            address === this.stack.contractAddress ? setIfNotExit : false;
+            address === this.vmIsolator.contractAddress ? setIfNotExit : false;
 
-        return this.stack.getStorage(address, pointer, defaultValueBuffer, canInitialize);
-    }
-
-    public async rndPromise(): Promise<void> {
-        return await this.stack.rndPromise();
+        return this.vmIsolator.getStorage(address, pointer, defaultValueBuffer, canInitialize);
     }
 
     public async setStorage(
@@ -74,11 +61,11 @@ export class ContractEvaluator {
         pointer: StoragePointer,
         value: MemoryValue,
     ): Promise<void> {
-        if (address !== this.stack.contractAddress) {
+        if (address !== this.vmIsolator.contractAddress) {
             throw new Error('Contract attempted to set storage for another contract.');
         }
 
-        return this.stack.setStorage(address, pointer, value);
+        return this.vmIsolator.setStorage(address, pointer, value);
     }
 
     public async setupContract(owner: Address, contractAddress: Address): Promise<void> {
@@ -90,9 +77,8 @@ export class ContractEvaluator {
             throw new Error('Contract already initialized');
         }
 
-        await this.rndPromise();
-
         this.contractInstance.INIT(owner, contractAddress);
+
         this.contractRef = this.contractInstance.getContract();
 
         this.viewAbi = this.getViewABI();
@@ -110,6 +96,10 @@ export class ContractEvaluator {
 
     public clear(): void {
         this.currentStorageState.clear();
+    }
+
+    public dispose(): void {
+        this.vmIsolator.dispose();
     }
 
     public getViewSelectors(): SelectorsMap {
@@ -133,7 +123,7 @@ export class ContractEvaluator {
     }
 
     public isViewMethod(abi: Selector): boolean {
-        const methodAbi = this.viewAbi.get(this.stack.contractAddress);
+        const methodAbi = this.viewAbi.get(this.vmIsolator.contractAddress);
 
         if (!methodAbi) {
             throw new Error(`Contract has no methods`);
@@ -169,15 +159,11 @@ export class ContractEvaluator {
         // We restore the original storage state before executing the method.
         await this.restoreOriginalStorageState();
 
-        const canWrite = this.canWrite(address, abi);
-        if (!isView && !canWrite) {
-            throw new Error('Method is not allowed to write');
-        }
-
         if (!calldata && !isView) {
-            throw new Error('Calldata is required for method call');
+            throw new Error('Calldata is required.');
         }
 
+        const canWrite: boolean = this.canWrite(address, abi);
         try {
             // We execute the method.
             const resp: EvaluatedResult | undefined = await this.evaluate(
@@ -195,10 +181,6 @@ export class ContractEvaluator {
             this.isProcessing = false;
             throw e;
         }
-    }
-
-    public export(): void {
-        this.stack.contract = this;
     }
 
     private async restoreOriginalStorageState(): Promise<void> {
@@ -247,7 +229,7 @@ export class ContractEvaluator {
         let error: Error | undefined = undefined;
         try {
             if (hasSelectorInMethods) {
-                result = this.contractInstance.readMethod(
+                result = await this.contractInstance.readMethod(
                     abi,
                     this.getContract(),
                     calldata as Uint8Array,
@@ -349,44 +331,6 @@ export class ContractEvaluator {
 
         return abiDecoder.readEvents();
     }
-
-    private async instantiatedContract(bytecode: Buffer, state: {}): Promise<VMRuntime> {
-        return instantiate(bytecode, state);
-    }
-
-    /*private getMergedStorageState(): BlockchainStorage {
-        const mergedStorageState: BlockchainStorage = new Map();
-
-        for (const [key, value] of this.persistentStorageState) {
-            const newStorage: PointerStorage = new Map();
-
-            for (const [k, v] of value) {
-                newStorage.set(k, v);
-            }
-
-            mergedStorageState.set(key, newStorage);
-        }
-
-        for (const [key, value] of this.currentStorageState) {
-            const existingValue = mergedStorageState.get(key);
-
-            if (existingValue) {
-                for (const [k, v] of value) {
-                    existingValue.set(k, v);
-                }
-            } else {
-                const newStorage: PointerStorage = new Map();
-
-                for (const [k, v] of value) {
-                    newStorage.set(k, v);
-                }
-
-                mergedStorageState.set(key, newStorage);
-            }
-        }
-
-        return mergedStorageState;
-    }*/
 
     private writeCurrentStorageState(): void {
         if (!this.contractInstance) {

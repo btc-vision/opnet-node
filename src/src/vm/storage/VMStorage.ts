@@ -1,9 +1,14 @@
 import { Logger } from '@btc-vision/bsi-common';
+import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { BitcoinAddress } from '../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { BlockWithTransactions } from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { BlockRootStates } from '../../db/interfaces/BlockRootStates.js';
-import { BlockHeaderBlockDocument } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
+import {
+    BlockHeaderAPIBlockDocument,
+    BlockHeaderBlockDocument,
+} from '../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
@@ -24,6 +29,8 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         height?: bigint,
     ): Promise<ProvenMemoryValue | null>;
 
+    public abstract terminate(): Promise<void>;
+
     public abstract setStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
@@ -32,14 +39,29 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         lastSeenAt: bigint,
     ): Promise<void>;
 
+    public abstract setStoragePointers(
+        storage: Map<BitcoinAddress, Map<StoragePointer, [MemoryValue, string[]]>>,
+        lastSeenAt: bigint,
+    ): Promise<void>;
+
     public abstract hasContractAt(address: BitcoinAddress): Promise<boolean>;
 
     public abstract getContractAt(
         address: BitcoinAddress,
+        height?: bigint,
     ): Promise<ContractInformation | undefined>;
+
+    public abstract getTransactionByHash(
+        hash: string,
+    ): Promise<ITransactionDocument<OPNetTransactionTypes> | undefined>;
 
     public abstract saveTransaction(
         transaction: ITransactionDocument<OPNetTransactionTypes>,
+    ): Promise<void>;
+
+    public abstract saveTransactions(
+        blockHeight: bigint,
+        transaction: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void>;
 
     public abstract getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined>;
@@ -54,13 +76,28 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
 
     public abstract setContractAt(contractData: ContractInformation): Promise<void>;
 
-    public abstract prepareNewBlock(): Promise<void>;
+    public abstract prepareNewBlock(blockId: bigint): Promise<void>;
 
-    public abstract terminateBlock(): Promise<void>;
+    public abstract terminateBlock(blockId: bigint): Promise<void>;
 
-    public abstract revertChanges(): Promise<void>;
+    public abstract revertChanges(blockId: bigint): Promise<void>;
 
     public abstract init(): Promise<void>;
 
     public abstract close(): Promise<void>;
+
+    public abstract getLatestBlock(): Promise<BlockHeaderAPIBlockDocument | undefined>;
+
+    public abstract getBlockTransactions(
+        height?: bigint | -1,
+        hash?: string,
+        includeTransactions?: boolean,
+    ): Promise<BlockWithTransactions | undefined>;
+
+    public abstract getUTXOs(
+        address: string,
+        optimize: boolean,
+    ): Promise<UTXOsOutputTransactions | undefined>;
+
+    public abstract getBalanceOf(address: string): Promise<bigint | undefined>;
 }

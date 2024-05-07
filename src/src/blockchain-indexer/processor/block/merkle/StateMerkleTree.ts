@@ -9,6 +9,14 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         super(StateMerkleTree.TREE_TYPE);
     }
 
+    public static encodePointerBuffer(contract: string, pointer: Uint8Array | Buffer): Buffer {
+        const hash = crypto.createHash('sha256');
+        hash.update(contract);
+        hash.update(pointer);
+
+        return hash.digest();
+    }
+
     public getProofs(): Map<Address, Map<MemorySlotPointer, string[]>> {
         if (!this.tree) {
             throw new Error('Merkle tree not generated');
@@ -23,7 +31,6 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
                 const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
 
                 const proof: string[] = this.tree.getProof([pointer, valueAsBuffer]);
-
                 if (!proof || !proof.length) {
                     throw new Error(`Proof not found for ${pointer.toString('hex')}`);
                 }
@@ -190,15 +197,10 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
     }
 
     public encodePointer(contract: string, pointer: bigint): Buffer {
-        return this.encodePointerBuffer(contract, BufferHelper.pointerToUint8Array(pointer));
-    }
-
-    public encodePointerBuffer(contract: string, pointer: Uint8Array | Buffer): Buffer {
-        const hash = crypto.createHash('sha256');
-        hash.update(contract);
-        hash.update(pointer);
-
-        return hash.digest();
+        return StateMerkleTree.encodePointerBuffer(
+            contract,
+            BufferHelper.pointerToUint8Array(pointer),
+        );
     }
 
     public getValues(): [Buffer, Buffer][] {

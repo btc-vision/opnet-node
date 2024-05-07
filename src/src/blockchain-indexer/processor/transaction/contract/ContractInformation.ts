@@ -16,7 +16,6 @@ export class ContractInformation {
         public readonly deployerPubKey: Buffer,
         public readonly contractSeed: Buffer,
         public readonly contractSaltHash: Buffer,
-        public readonly burnedFee: bigint,
         public readonly deployerAddress: BitcoinAddress,
     ) {}
 
@@ -60,7 +59,6 @@ export class ContractInformation {
             deployerPubKeyBuffer,
             contractSeedBuffer,
             contractSaltHashBuffer,
-            DataConverter.fromDecimal128(contractDocument.burnedFee),
             contractDocument.deployerAddress,
         );
     }
@@ -100,7 +98,6 @@ export class ContractInformation {
             transaction.deployerPubKey,
             transaction.contractSeed,
             transaction.contractSaltHash,
-            transaction.burnedFee,
             transaction.from,
         );
     }

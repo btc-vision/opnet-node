@@ -1,16 +1,25 @@
 import { ScriptPubKey } from '@btc-vision/bsi-bitcoin-rpc';
 import { VOut } from '@btc-vision/bsi-bitcoin-rpc/src/rpc/types/BlockData.js';
+import BigNumber from 'bignumber.js';
 import { script } from 'bitcoinjs-lib';
 import { Decimal128 } from 'mongodb';
 
-export interface ITransactionOutput {
-    readonly value: Decimal128;
+export interface ITransactionOutputBase {
+    readonly value: Decimal128 | string;
     readonly index: number;
     readonly scriptPubKey: {
         hex: string;
         addresses?: string[];
         address?: string;
     };
+}
+
+export interface ITransactionOutput extends ITransactionOutputBase {
+    readonly value: Decimal128;
+}
+
+export interface APIDocumentOutput extends ITransactionOutputBase {
+    readonly value: string;
 }
 
 export class TransactionOutput {
@@ -41,6 +50,10 @@ export class TransactionOutput {
     }
 
     private convertValue(value: number): bigint {
-        return BigInt(value * 1e8);
+        // Safe conversion from decimal float to bigint 8 decimal places
+        let bigNumber: BigNumber = new BigNumber(value.toString());
+        bigNumber = bigNumber.multipliedBy('100000000').decimalPlaces(0);
+
+        return BigInt(bigNumber.toString());
     }
 }

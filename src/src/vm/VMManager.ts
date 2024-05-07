@@ -1,25 +1,27 @@
-import { ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-vision/bsi-binary';
+import { Address, ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import fs from 'fs';
-import { RunningScriptInNewContextOptions, Script, ScriptOptions } from 'vm';
+import { Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
+import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
-import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import {
+    MAX_HASH,
+    MAX_MINUS_ONE,
+    ZERO_HASH,
+} from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
-import { Config } from '../config/Config.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../db/interfaces/ITransactionDocument.js';
-import { EvaluatedContext, VMContext } from './evaluated/EvaluatedContext.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
@@ -29,24 +31,33 @@ import { MemoryValue, ProvenMemoryValue } from './storage/types/MemoryValue.js';
 import { StoragePointer } from './storage/types/StoragePointer.js';
 import { VMStorage } from './storage/VMStorage.js';
 import { VMBitcoinBlock } from './VMBitcoinBlock.js';
+import { VMIsolator } from './VMIsolator.js';
 
 Globals.register();
 
 export class VMManager extends Logger {
-    private readonly runtimeCode: string = fs
+    public initiated: boolean = false;
+
+    /*private readonly runtimeCode: string = fs
         .readFileSync(`${__dirname}/../../../build/src/vm/runtime/index.js`)
-        .toString();
+        .toString();*/
 
     private readonly vmStorage: VMStorage;
     private readonly vmBitcoinBlock: VMBitcoinBlock;
 
     private blockState: StateMerkleTree | undefined;
+    private receiptState: ReceiptMerkleTree | undefined;
 
     private cachedBlockHeader: Map<bigint, BlockHeaderBlockDocument> = new Map();
     private verifiedBlockHeights: Map<bigint, Promise<boolean>> = new Map();
     private contractCache: Map<string, ContractInformation> = new Map();
 
-    constructor(private readonly config: IBtcIndexerConfig) {
+    private vmEvaluators: Map<Address, Promise<ContractEvaluator>> = new Map();
+
+    constructor(
+        private readonly config: IBtcIndexerConfig,
+        private readonly isExecutor: boolean = false,
+    ) {
         super();
 
         this.vmStorage = this.getVMStorage();
@@ -56,157 +67,197 @@ export class VMManager extends Logger {
 
     public async init(): Promise<void> {
         await this.vmStorage.init();
+
+        this.initiated = true;
+    }
+
+    public async terminate(): Promise<void> {
+        await this.vmStorage.terminate();
     }
 
     public async closeDatabase(): Promise<void> {
         await this.vmStorage.close();
-        this.clear();
+        await this.clear();
     }
 
     public async prepareBlock(blockId: bigint): Promise<void> {
-        this.clear();
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.debug(`Preparing block ${blockId}...`);
+        }
+
+        await this.clear();
 
         await this.vmBitcoinBlock.prepare(blockId);
 
         this.blockState = new StateMerkleTree();
+        this.receiptState = new ReceiptMerkleTree();
     }
 
     public async revertBlock(): Promise<void> {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.debug(`Reverting block ${this.vmBitcoinBlock.height}...`);
+        }
+
         await this.vmBitcoinBlock.revert();
-        this.clear();
+        await this.clear();
     }
 
-    public async terminateBlock(block?: Block): Promise<void> {
-        // TODO: Save block data
-        try {
-            if (block !== undefined) {
-                await this.saveBlock(block);
-            }
+    public async terminateBlock(): Promise<void> {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.debug(`Terminating block ${this.vmBitcoinBlock.height}...`);
+        }
 
+        try {
             await this.vmBitcoinBlock.terminate();
         } catch (e) {
             await this.vmBitcoinBlock.revert();
         }
 
-        this.clear();
+        await this.clear();
     }
 
-    public async saveTransaction(
+    public async saveTransactions(
         blockHeight: bigint,
-        transaction: ITransactionDocument<OPNetTransactionTypes>,
+        transaction: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void> {
         if (this.vmBitcoinBlock.height !== blockHeight) {
             throw new Error('Block height mismatch');
         }
 
-        await this.vmStorage.saveTransaction(transaction);
+        await this.vmStorage.saveTransactions(blockHeight, transaction);
     }
 
     public async loadContractFromBytecode(
         contractAddress: string,
         contractBytecode: Buffer,
-    ): Promise<VMContext | null> {
-        const contextOptions: EvaluatedContext = {
-            context: {
-                logs: [],
-                errors: [],
+    ): Promise<VMIsolator> {
+        const isolator = new VMIsolator(contractAddress, contractBytecode);
+        isolator.getStorage = this.getStorage.bind(this);
+        isolator.setStorage = this.setStorage.bind(this);
 
-                contract: null,
+        await isolator.setupJail();
 
-                getStorage: this.getStorage.bind(this),
-                setStorage: this.setStorage.bind(this),
-
-                rndPromise: this.rndPromise.bind(this),
-
-                ContractEvaluator: ContractEvaluator,
-
-                initialBytecode: contractBytecode,
-                contractAddress: contractAddress,
-            },
-        };
-
-        const scriptRunningOptions: RunningScriptInNewContextOptions = {
-            timeout: 2000,
-            contextCodeGeneration: {
-                strings: false,
-                wasm: false,
-            },
-        };
-
-        const runtime: Script = this.createRuntimeVM();
-
-        try {
-            await runtime.runInNewContext(contextOptions, scriptRunningOptions);
-        } catch (error) {
-            console.log('Error:', error, contextOptions.context);
-        }
-
-        return contextOptions.context;
+        return isolator;
     }
 
-    public async executeTransaction(
-        blockHeight: bigint,
-        interactionTransaction: InteractionTransaction,
+    /** This method is allowed to read only. It can not modify any states. */
+    public async execute(
+        contractAddress: Address,
+        calldataString: string,
+        height?: bigint,
+        from?: Address,
     ): Promise<EvaluatedResult> {
-        if (this.vmBitcoinBlock.height !== blockHeight) {
-            throw new Error('Block height mismatch');
+        if (height === undefined) {
+            height = await this.getChainCurrentBlockHeight();
         }
 
-        const contractAddress: BitcoinAddress = interactionTransaction.contractAddress;
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
-        }
-
-        // TODO: Add a caching layer for this.
-        const contractInformation: ContractInformation | undefined =
-            await this.getContractInformation(contractAddress);
-
-        if (!contractInformation) {
-            throw new Error(`Contract ${contractAddress} not found.`);
-        }
-
-        const vmContext: VMContext | null = await this.loadContractFromBytecode(
+        // Get the contract evaluator
+        const vmEvaluator: ContractEvaluator | null = await this.getVMEvaluator(
             contractAddress,
-            contractInformation.bytecode,
-        );
+            height,
+        ); //await this.getVMEvaluatorFromCache(contractAddress);
 
-        if (!vmContext) {
-            throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
-        }
-
-        const vmEvaluator = vmContext.contract;
         if (!vmEvaluator) {
-            throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
+            throw new Error(`Unable to initialize contract ${contractAddress}`);
         }
-
-        // We use pub the pub key as the deployer address.
-        const contractDeployer: string = contractInformation.deployerAddress;
-        if (!contractDeployer || contractDeployer.length < ADDRESS_BYTE_LENGTH) {
-            throw new Error(`Invalid contract deployer "${contractDeployer}"`);
-        }
-
-        await vmEvaluator.setupContract(contractDeployer, contractAddress);
 
         const isInitialized: boolean = vmEvaluator.isInitialized();
         if (!isInitialized) {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.debugBright(
-                `Executing transaction ${interactionTransaction.txid} for contract ${contractAddress}`,
-            );
-        }
-
         // Get the function selector
-        const calldata: Buffer = interactionTransaction.calldata;
+        const calldata: Buffer = Buffer.from(calldataString, 'hex');
+        if (calldata.byteLength < 4) {
+            throw new Error('Calldata too short');
+        }
 
         const finalBuffer: Buffer = Buffer.alloc(calldata.byteLength - 4);
         calldata.copy(finalBuffer, 0, 4, calldata.byteLength);
 
         const selector: Selector = calldata.readUInt32BE(0);
         const isView: boolean = vmEvaluator.isViewMethod(selector);
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            this.debugBright(
+                `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${contractAddress} at block ${height} with calldata ${calldata.toString(
+                    'hex',
+                )}`,
+            );
+        }
+
+        // Execute the function
+        try {
+            const response = await vmEvaluator.execute(
+                contractAddress,
+                isView,
+                selector,
+                finalBuffer,
+                from || null,
+            );
+
+            vmEvaluator.clear();
+
+            // We must dispose the evaluator after a while.
+            vmEvaluator.dispose();
+            /*setTimeout(() => {
+                vmEvaluator.dispose();
+            }, 500);*/
+
+            return response;
+        } catch (e) {
+            this.error(
+                `Error executing contract ${contractAddress} at block ${height} with calldata ${calldata.toString(
+                    'hex',
+                )}`,
+            );
+
+            throw new Error('Execution Reverted.');
+        }
+    }
+
+    public async executeTransaction(
+        blockHeight: bigint,
+        interactionTransaction: InteractionTransaction,
+    ): Promise<EvaluatedResult> {
+        const start = Date.now();
+        if (this.vmBitcoinBlock.height !== blockHeight) {
+            throw new Error('Block height mismatch');
+        }
+
+        const contractAddress: Address = interactionTransaction.contractAddress;
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
+        }
+
+        // Get the contract evaluator
+        const vmEvaluator: ContractEvaluator | null =
+            await this.getVMEvaluatorFromCache(contractAddress);
+        if (!vmEvaluator) {
+            throw new Error(
+                `[executeTransaction] Unable to initialize contract ${contractAddress}`,
+            );
+        }
+
+        const isInitialized: boolean = vmEvaluator.isInitialized();
+        if (!isInitialized) {
+            throw new Error(`Unable to initialize contract ${contractAddress}`);
+        }
+
+        // Trace the execution time
+        const startBeforeExecution = Date.now();
+
+        // Get the function selector
+        const calldata: Buffer = interactionTransaction.calldata;
+        if (calldata.byteLength < 4) {
+            throw new Error('Calldata too short');
+        }
+
+        const finalBuffer: Buffer = Buffer.alloc(calldata.byteLength - 4);
+        calldata.copy(finalBuffer, 0, 4, calldata.byteLength);
+
+        const selector: Selector = calldata.readUInt32BE(0);
+        const isView: boolean = vmEvaluator.isViewMethod(selector);
+        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
             this.debugBright(
                 `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${contractAddress} at block ${blockHeight} with calldata ${calldata.toString(
                     'hex',
@@ -227,7 +278,18 @@ export class VMManager extends Logger {
             throw new Error('Execution Reverted.');
         }
 
-        this.updateBlockValuesFromResult(result, contractAddress);
+        this.updateBlockValuesFromResult(
+            result,
+            contractAddress,
+            this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+            interactionTransaction.transactionId,
+        );
+
+        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            this.debug(
+                `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute)`,
+            );
+        }
 
         return result;
     }
@@ -235,10 +297,15 @@ export class VMManager extends Logger {
     public updateBlockValuesFromResult(
         result: EvaluatedResult,
         contractAddress: BitcoinAddress,
-        disableStorageCheck: boolean = Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+        disableStorageCheck: boolean = this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+        transactionId?: string,
     ): void {
         if (!this.blockState) {
             throw new Error('Block state not found');
+        }
+
+        if (!this.receiptState) {
+            throw new Error('Receipt state not found');
         }
 
         const resultValue: Uint8Array | undefined = result.result;
@@ -254,6 +321,10 @@ export class VMManager extends Logger {
             }
 
             this.blockState.updateValues(contract, val);
+        }
+
+        if (transactionId && result.result) {
+            this.receiptState.updateValue(contractAddress, transactionId, result.result);
         }
 
         if (!disableStorageCheck) {
@@ -354,7 +425,7 @@ export class VMManager extends Logger {
 
     public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string | undefined> {
         const newBlockHeight: bigint = height - 1n;
-        if (newBlockHeight < BigInt(Config.OP_NET.ENABLED_AT_BLOCK)) {
+        if (newBlockHeight < BigInt(this.config.OP_NET.ENABLED_AT_BLOCK)) {
             return ZERO_HASH;
         }
 
@@ -384,7 +455,7 @@ export class VMManager extends Logger {
             throw new Error('Contract address not found');
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debugBright(
                 `Attempting to deploy contract ${contractDeploymentTransaction.contractAddress}`,
             );
@@ -398,7 +469,7 @@ export class VMManager extends Logger {
         // We must save the contract information
         await this.setContractAt(contractInformation);
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
             this.info(`Contract ${contractInformation.contractAddress} deployed.`);
         }
     }
@@ -408,27 +479,134 @@ export class VMManager extends Logger {
             throw new Error('Block state not found');
         }
 
+        if (!this.receiptState) {
+            throw new Error('Receipt state not found');
+        }
+
+        await this.updateReceiptState();
+
         this.blockState.freeze();
 
         await this.saveBlockStateChanges();
 
         const states: EvaluatedStates = {
             storage: this.blockState,
+            receipts: this.receiptState,
         };
 
         this.blockState = undefined;
+        this.receiptState = undefined;
+
         return states;
+    }
+
+    public async saveBlock(block: Block): Promise<void> {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.debug(`Saving block ${block.height}...`);
+        }
+
+        if (block.height !== this.vmBitcoinBlock.height) {
+            throw new Error('Block height mismatch');
+        }
+
+        await this.saveBlockHeader(block);
+    }
+
+    private async getChainCurrentBlockHeight(): Promise<bigint> {
+        const block = await this.vmStorage.getLatestBlock();
+
+        if (!block) {
+            throw new Error('Block not found');
+        }
+
+        return BigInt(block.height);
+    }
+
+    private async getVMEvaluator(
+        contractAddress: Address,
+        height?: bigint,
+    ): Promise<ContractEvaluator | null> {
+        // TODO: Add a caching layer for this.
+        const contractInformation: ContractInformation | undefined =
+            await this.getContractInformation(contractAddress, height);
+
+        if (!contractInformation) {
+            return null;
+        }
+
+        const vmIsolator: VMIsolator | null = await this.loadContractFromBytecode(
+            contractAddress,
+            contractInformation.bytecode,
+        );
+
+        if (!vmIsolator) {
+            throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
+        }
+
+        const vmEvaluator = vmIsolator.getContract();
+        if (!vmEvaluator) {
+            throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
+        }
+
+        // We use pub the pub key as the deployer address.
+        const contractDeployer: string = contractInformation.deployerAddress;
+        if (!contractDeployer || contractDeployer.length > ADDRESS_BYTE_LENGTH) {
+            throw new Error(`Invalid contract deployer "${contractDeployer}"`);
+        }
+
+        await vmEvaluator.setupContract(contractDeployer, contractAddress);
+
+        return vmEvaluator;
+    }
+
+    private async getVMEvaluatorFromCache(contractAddress: Address): Promise<ContractEvaluator> {
+        const vmEvaluator: Promise<ContractEvaluator> | undefined =
+            this.vmEvaluators.get(contractAddress);
+        if (vmEvaluator) {
+            return vmEvaluator;
+        }
+
+        const newVmEvaluator = this.getVMEvaluator(contractAddress);
+        if (!newVmEvaluator) {
+            throw new Error(
+                `[getVMEvaluatorFromCache] Unable to initialize contract ${contractAddress}`,
+            );
+        }
+
+        this.vmEvaluators.set(contractAddress, newVmEvaluator as Promise<ContractEvaluator>);
+
+        return newVmEvaluator as Promise<ContractEvaluator>;
+    }
+
+    private async updateReceiptState(): Promise<void> {
+        if (!this.receiptState) {
+            throw new Error('Receipt state not found');
+        }
+
+        const lastChecksum: string | undefined = await this.getPreviousBlockChecksumOfHeight(
+            this.vmBitcoinBlock.height,
+        );
+
+        if (lastChecksum) {
+            this.receiptState.updateValue(MAX_HASH, MAX_HASH, Buffer.from(lastChecksum, 'hex'));
+        } else {
+            this.receiptState.updateValue(MAX_HASH, MAX_HASH, Buffer.alloc(0));
+        }
+
+        this.receiptState.updateValue(MAX_MINUS_ONE, MAX_MINUS_ONE, Buffer.from([1])); // version
+        this.receiptState.freeze();
     }
 
     private async getContractInformation(
         contractAddress: BitcoinAddress,
+        height: bigint = this.vmBitcoinBlock.height,
     ): Promise<ContractInformation | undefined> {
         if (this.contractCache.has(contractAddress)) {
             return this.contractCache.get(contractAddress);
         }
 
         const contractInformation: ContractInformation | undefined =
-            await this.vmStorage.getContractAt(contractAddress);
+            await this.vmStorage.getContractAt(contractAddress, height);
 
         if (contractInformation) {
             this.contractCache.set(contractAddress, contractInformation);
@@ -439,6 +617,7 @@ export class VMManager extends Logger {
 
     private async setContractAt(contractData: ContractInformation): Promise<void> {
         this.contractCache.set(contractData.contractAddress, contractData);
+
         await this.vmStorage.setContractAt(contractData);
     }
 
@@ -452,23 +631,24 @@ export class VMManager extends Logger {
         throw new Error(`Proof not found for index ${index}`);
     }
 
-    private async saveBlock(block: Block): Promise<void> {
-        if (block.height !== this.vmBitcoinBlock.height) {
-            throw new Error('Block height mismatch');
-        }
-
-        await this.saveBlockHeader(block);
-    }
-
     private async saveBlockHeader(block: Block): Promise<void> {
         await this.vmStorage.saveBlockHeader(block.getBlockHeaderDocument());
     }
 
-    private clear(): void {
+    private async clear(): Promise<void> {
         this.blockState = undefined;
+        this.receiptState = undefined;
+
         this.cachedBlockHeader.clear();
         this.verifiedBlockHeights.clear();
         this.contractCache.clear();
+
+        for (let vmEvaluator of this.vmEvaluators.values()) {
+            const evaluator = await vmEvaluator;
+            if (evaluator) evaluator.dispose();
+        }
+
+        this.vmEvaluators.clear();
     }
 
     private async getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined> {
@@ -496,10 +676,15 @@ export class VMManager extends Logger {
 
         /** Nothing to save. */
         if (!stateChanges) return;
+
+        let storageToUpdate: Map<
+            BitcoinAddress,
+            Map<StoragePointer, [MemoryValue, string[]]>
+        > = new Map();
+
         for (const [address, val] of stateChanges.entries()) {
             for (const [key, value] of val.entries()) {
                 if (value[0] === undefined || value[0] === null) {
-                    console.log(value);
                     throw new Error(
                         `Value (${value[0]}) not found in state changes. Key ${key.toString()}`,
                     );
@@ -508,25 +693,26 @@ export class VMManager extends Logger {
                 const pointer: StoragePointer = BufferHelper.pointerToUint8Array(key);
                 const data: MemoryValue = BufferHelper.valueToUint8Array(value[0]);
 
-                await this.vmStorage.setStorage(
+                /*await this.vmStorage.setStorage(
                     address,
                     pointer,
                     data,
                     value[1],
                     this.vmBitcoinBlock.height,
-                );
+                );*/
+
+                const storage = storageToUpdate.get(address) || new Map();
+                if (!storageToUpdate.has(address)) {
+                    storageToUpdate.set(address, storage);
+                }
+
+                storage.set(pointer, [data, value[1]]);
             }
         }
-    }
 
-    // don't even question it ????????????????
-    private rndPromise(): Promise<void> {
-        // ??????????????
-        return new Promise<void>((resolve) => {
-            setTimeout(() => {
-                resolve();
-            }, 2);
-        });
+        if (storageToUpdate.size) {
+            await this.vmStorage.setStoragePointers(storageToUpdate, this.vmBitcoinBlock.height);
+        }
     }
 
     /** We must ENSURE that NOTHING get modified EVEN during the execution of the block. This is performance costly but required. */
@@ -546,6 +732,42 @@ export class VMManager extends Logger {
         this.blockState.updateValue(address, pointerBigInt, valueBigInt);
     }
 
+    private async getStorageFromDB(
+        address: BitcoinAddress,
+        pointer: StoragePointer,
+        defaultValue: MemoryValue | null = null,
+        setIfNotExit: boolean = true,
+    ): Promise<{ memory?: MemoryValue; proven?: ProvenMemoryValue } | null> {
+        const valueFromDB = await this.vmStorage.getStorage(
+            address,
+            pointer,
+            defaultValue,
+            setIfNotExit,
+            this.vmBitcoinBlock.height,
+        );
+
+        if (!valueFromDB) {
+            return null;
+        }
+
+        if (valueFromDB.lastSeenAt === 0n) {
+            // Default value.
+            //await this.setStorage(address, pointer, valueFromDB.value);
+
+            return {
+                memory: valueFromDB.value,
+            };
+        } else {
+            return {
+                proven: {
+                    value: valueFromDB.value,
+                    proofs: valueFromDB.proofs,
+                    lastSeenAt: valueFromDB.lastSeenAt,
+                },
+            };
+        }
+    }
+
     /** We must verify that the storage is correct */
     private async getStorage(
         address: BitcoinAddress,
@@ -554,38 +776,28 @@ export class VMManager extends Logger {
         setIfNotExit: boolean = true,
     ): Promise<MemoryValue | null> {
         /** We must check if we have the value in the current block state */
-        if (!this.blockState) {
+        if (!this.blockState && !this.isExecutor) {
             throw new Error('Block state not found');
         }
 
         const pointerBigInt: bigint = BufferHelper.uint8ArrayToPointer(pointer);
-        const valueBigInt = this.blockState.getValueWithProofs(address, pointerBigInt);
+        const valueBigInt = this.blockState?.getValueWithProofs(address, pointerBigInt);
 
         let memoryValue: ProvenMemoryValue | null;
         if (!valueBigInt) {
-            const valueFromDB = await this.vmStorage.getStorage(
+            const result = await this.getStorageFromDB(
                 address,
                 pointer,
                 defaultValue,
                 setIfNotExit,
-                this.vmBitcoinBlock.height,
             );
 
-            if (!valueFromDB) {
-                return null;
-            }
+            if (result?.memory) return result.memory;
 
-            if (valueFromDB.lastSeenAt === 0n) {
-                // Default value.
-                //await this.setStorage(address, pointer, valueFromDB.value);
-
-                return valueFromDB.value;
+            if (result?.proven) {
+                memoryValue = result.proven;
             } else {
-                memoryValue = {
-                    value: valueFromDB.value,
-                    proofs: valueFromDB.proofs,
-                    lastSeenAt: valueFromDB.lastSeenAt,
-                };
+                throw new Error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
             }
         } else {
             memoryValue = {
@@ -601,7 +813,7 @@ export class VMManager extends Logger {
             throw new Error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
         }
 
-        const encodedPointer = this.blockState.encodePointerBuffer(address, pointer);
+        const encodedPointer = StateMerkleTree.encodePointerBuffer(address, pointer);
 
         // We must verify the proofs.
         const isValid: boolean = await this.verifyProofs(
@@ -636,14 +848,17 @@ export class VMManager extends Logger {
                 throw new Error('Block state not found');
             }
 
-            if (!Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK && !this.blockState.hasTree()) {
+            if (
+                !this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK &&
+                !this.blockState.hasTree()
+            ) {
                 throw new Error(
                     `Tried to verify the value of a state without a valid tree. Block height: ${blockHeight} - Current height: ${this.vmBitcoinBlock.height} (Have this block been saved already?)`,
                 );
             }
 
             // Same block.
-            return Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK
+            return this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK
                 ? true
                 : StateMerkleTree.verify(
                       this.blockState.root,
@@ -699,7 +914,7 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Validating block ${height} headers...`);
         }
 
@@ -713,10 +928,6 @@ export class VMManager extends Logger {
             default:
                 throw new Error('Invalid VM Storage type.');
         }
-    }
-
-    private createRuntimeVM(): Script {
-        return this.getScriptFromCodeString(this.runtimeCode);
     }
 
     private getScriptFromCodeString(sourceCode: string, cachedData?: Buffer): Script {

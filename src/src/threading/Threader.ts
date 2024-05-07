@@ -1,7 +1,10 @@
 import { Logger, UtilsConfigurations } from '@btc-vision/bsi-common';
 import fs from 'fs';
 import { MessageChannel, MessagePort, parentPort, Worker, WorkerOptions } from 'worker_threads';
-import { ServicesConfigurations } from '../api/services/ServicesConfigurations.js';
+import {
+    ServicesConfigurations,
+    WorkerConfigurations,
+} from '../api/services/ServicesConfigurations.js';
 import { MessageType } from './enum/MessageType.js';
 import {
     LinkThreadMessage,
@@ -129,59 +132,6 @@ export class Threader<T extends ThreadTypes> extends Logger {
         throw new Error('Method not implemented.');
     }
 
-    private async createThreadLinkBetween(
-        thread: Worker,
-        targetThreadType: ThreadTypes,
-        targetThreadId: number,
-        mainTargetThreadType: ThreadTypes | null = null,
-        mainTargetThreadId: number | null = null,
-    ): Promise<void> {
-        const channel = this.createChannel();
-
-        const rxMessage: LinkThreadMessage<LinkType.RX> = {
-            type: MessageType.LINK_THREAD,
-            toServer: false,
-            data: {
-                type: LinkType.RX,
-                targetThreadId: thread.threadId,
-                sourceThreadId: targetThreadId,
-
-                targetThreadType: this.threadType,
-                sourceThreadType: targetThreadType,
-
-                mainTargetThreadType: mainTargetThreadType,
-                mainTargetThreadId: mainTargetThreadId,
-
-                port: channel.rx,
-            },
-        };
-
-        const txMessage: LinkThreadMessage<LinkType.TX> = {
-            type: MessageType.LINK_THREAD,
-            toServer: false,
-            data: {
-                type: LinkType.TX,
-                targetThreadId: targetThreadId,
-                sourceThreadId: thread.threadId,
-
-                targetThreadType: targetThreadType,
-                sourceThreadType: this.threadType,
-
-                mainTargetThreadType: mainTargetThreadType,
-                mainTargetThreadId: mainTargetThreadId,
-
-                port: channel.tx,
-            },
-        };
-
-        await this.onThreadSetLinkPort(this.threadType, thread.threadId, rxMessage);
-        await this.onThreadSetLinkPort(
-            txMessage.data.targetThreadType,
-            txMessage.data.targetThreadId,
-            txMessage,
-        );
-    }
-
     public async onThreadSetLinkPort(
         targetThreadType: ThreadTypes,
         targetThreadId: number,
@@ -213,46 +163,6 @@ export class Threader<T extends ThreadTypes> extends Logger {
                     this.error(e);
                 }
             }
-        }
-    }
-
-    private async requestThreadLink(thread: Worker, targetType: ThreadTypes): Promise<void> {
-        const threadId = thread.threadId;
-
-        let m: LinkThreadRequestMessage = {
-            type: MessageType.LINK_THREAD_REQUEST,
-            toServer: false,
-            data: {
-                threadType: targetType,
-                targetThreadType: this.threadType,
-                targetThreadId: threadId,
-
-                mainTargetThreadId: 0,
-                mainTargetThreadType: null,
-            },
-        };
-
-        await this.onCreateLinkThreadRequest(m);
-    }
-
-    private onThreadMessage(thread: Worker, m: ThreadMessageBase<MessageType>): void {
-        if (m.type === MessageType.LINK_THREAD) {
-            console.log('[THREAD] Link thread message received: ', m);
-
-            return;
-        }
-
-        if (m.taskId && !m.toServer) {
-            let task: ThreadTaskCallback | undefined = this.tasks.get(m.taskId);
-
-            if (task) {
-                clearTimeout(task.timeout);
-
-                task.resolve(m.data);
-                this.tasks.delete(m.taskId);
-            }
-        } else {
-            void this.onGlobalMessage(m, thread);
         }
     }
 
@@ -309,21 +219,16 @@ export class Threader<T extends ThreadTypes> extends Logger {
         });
     }
 
-    private async linkAllThreads(thread: Worker): Promise<void> {
-        for (let threadType of this.linkThreadTypes) {
-            await this.requestThreadLink(thread, threadType);
-        }
-    }
-
     public async createThread(i: number): Promise<void | Worker> {
         return new Promise(
             (resolve: (value: (void | Worker) | PromiseLike<void | Worker>) => void) => {
                 setTimeout(() => {
                     if (!this.target) return;
 
-                    let workerOpts: WorkerOptions = {
-                        ...{},
+                    const specificConfig: WorkerOptions = WorkerConfigurations[this.threadType];
+                    const workerOpts: WorkerOptions = {
                         ...UtilsConfigurations.WORKER_OPTIONS,
+                        ...specificConfig,
                     };
 
                     workerOpts.name = `Thread ${i} - ${this.target
@@ -401,6 +306,105 @@ export class Threader<T extends ThreadTypes> extends Logger {
         );
     }
 
+    private async createThreadLinkBetween(
+        thread: Worker,
+        targetThreadType: ThreadTypes,
+        targetThreadId: number,
+        mainTargetThreadType: ThreadTypes | null = null,
+        mainTargetThreadId: number | null = null,
+    ): Promise<void> {
+        const channel = this.createChannel();
+
+        const rxMessage: LinkThreadMessage<LinkType.RX> = {
+            type: MessageType.LINK_THREAD,
+            toServer: false,
+            data: {
+                type: LinkType.RX,
+                targetThreadId: thread.threadId,
+                sourceThreadId: targetThreadId,
+
+                targetThreadType: this.threadType,
+                sourceThreadType: targetThreadType,
+
+                mainTargetThreadType: mainTargetThreadType,
+                mainTargetThreadId: mainTargetThreadId,
+
+                port: channel.rx,
+            },
+        };
+
+        const txMessage: LinkThreadMessage<LinkType.TX> = {
+            type: MessageType.LINK_THREAD,
+            toServer: false,
+            data: {
+                type: LinkType.TX,
+                targetThreadId: targetThreadId,
+                sourceThreadId: thread.threadId,
+
+                targetThreadType: targetThreadType,
+                sourceThreadType: this.threadType,
+
+                mainTargetThreadType: mainTargetThreadType,
+                mainTargetThreadId: mainTargetThreadId,
+
+                port: channel.tx,
+            },
+        };
+
+        await this.onThreadSetLinkPort(this.threadType, thread.threadId, rxMessage);
+        await this.onThreadSetLinkPort(
+            txMessage.data.targetThreadType,
+            txMessage.data.targetThreadId,
+            txMessage,
+        );
+    }
+
+    private async requestThreadLink(thread: Worker, targetType: ThreadTypes): Promise<void> {
+        const threadId = thread.threadId;
+
+        let m: LinkThreadRequestMessage = {
+            type: MessageType.LINK_THREAD_REQUEST,
+            toServer: false,
+            data: {
+                threadType: targetType,
+                targetThreadType: this.threadType,
+                targetThreadId: threadId,
+
+                mainTargetThreadId: 0,
+                mainTargetThreadType: null,
+            },
+        };
+
+        await this.onCreateLinkThreadRequest(m);
+    }
+
+    private onThreadMessage(thread: Worker, m: ThreadMessageBase<MessageType>): void {
+        if (m.type === MessageType.LINK_THREAD) {
+            console.log('[THREAD] Link thread message received: ', m);
+
+            return;
+        }
+
+        if (m.taskId && !m.toServer) {
+            let task: ThreadTaskCallback | undefined = this.tasks.get(m.taskId);
+
+            if (task) {
+                clearTimeout(task.timeout);
+
+                task.resolve(m.data);
+                this.tasks.delete(m.taskId);
+            }
+        } else {
+            void this.onGlobalMessage(m, thread);
+        }
+    }
+
+    private async linkAllThreads(thread: Worker): Promise<void> {
+        for (let threadType of this.linkThreadTypes) {
+            await this.requestThreadLink(thread, threadType);
+        }
+    }
+
     private generateRndTaskId(): string {
         return Math.random().toString(36).substring(2);
     }
@@ -413,12 +417,12 @@ export class Threader<T extends ThreadTypes> extends Logger {
             async (resolve: (value: ThreadData | PromiseLike<ThreadData>) => void) => {
                 let taskId: string = this.generateRndTaskId();
                 let timeout = setTimeout(() => {
-                    this.warn(`Thread task ${taskId} timed out.`);
+                    this.warn(`[A] Thread task ${taskId} timed out.`);
 
                     resolve({
                         error: true,
                     });
-                }, 120000);
+                }, 30000);
 
                 let task: ThreadTaskCallback = {
                     timeout: timeout,

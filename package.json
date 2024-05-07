@@ -6,17 +6,20 @@
     "main": "build/index.js",
     "scripts": {
         "watch": "gulp watch",
-        "start": "cd build && node index",
+        "start": "cd build && node --no-node-snapshot index",
         "build": "gulp",
         "test": "jest --runInBand",
         "setup": "npm i && npm run build"
+    },
+    "engines": {
+        "node": ">=20.0.0"
     },
     "author": "BlobMaster41",
     "license": "LICENSE.MD",
     "dependencies": {
         "@asyncapi/generator": "^1.17.13",
         "@asyncapi/html-template": "^2.2.1",
-        "@btc-vision/bsi-binary": "github:btc-vision/bsi-binary",
+        "@btc-vision/bsi-binary": "latest",
         "@btc-vision/bsi-bitcoin-rpc": "latest",
         "@btc-vision/bsi-common": "latest",
         "@btc-vision/bsi-db": "latest",
@@ -29,8 +32,10 @@
         "@types/swagger-ui-express": "^4.1.6",
         "asyncapi-validator": "^4.0.0",
         "babel-plugin-transform-import-meta": "^2.2.1",
+        "bignumber.js": "^9.1.2",
         "bitcoinjs-lib": "github:btc-vision/bitcoinjs-lib",
         "cors": "^2.8.5",
+        "crypto": "^1.0.1",
         "eslint-plugin-openapi": "^0.0.4",
         "gulp": "^4.0.2",
         "gulp-cached": "^1.1.1",
@@ -38,6 +43,7 @@
         "gulp-logger": "^0.0.2",
         "gulp-typescript": "^6.0.0-alpha.1",
         "hyper-express": "^6.15.2",
+        "isolated-vm": "^4.7.2",
         "json-as-xlsx": "^2.5.6",
         "mongodb": "^6.5.0",
         "node-cache": "^5.1.2",

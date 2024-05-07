@@ -23,49 +23,53 @@ export class VMBitcoinBlock extends Logger {
 
         this.blockId = blockId;
 
-        if (this.blockId === 0n) {
-            throw new Error(`Block ${this.blockId} is not valid`);
-        }
+        //if (this.blockId === 0n) {
+        //    throw new Error(`Block ${this.blockId} is not valid`);
+        //}
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
             this.log(`Preparing block ${this.blockId}...`);
         }
 
-        await this.vmStorage.prepareNewBlock();
+        await this.vmStorage.prepareNewBlock(blockId);
 
         this.isPrepared = true;
     }
 
     public async revert(): Promise<void> {
         if (!this.isPrepared) {
-            throw new Error(`Block ${this.blockId} is not prepared`);
+            throw new Error(`[REVERT] Block ${this.blockId} is not prepared`);
         }
 
-        if (this.blockId === 0n) {
-            throw new Error(`Block ${this.blockId} is not valid`);
-        }
+        //if (this.blockId === 0n) {
+        //    throw new Error(`Block ${this.blockId} is not valid`);
+        //}
 
-        this.error(`Reverting block ${this.blockId}...`);
+        const blockId = this.blockId;
+        this.error(`Reverting block ${blockId}...`);
 
         this.reset();
-        await this.vmStorage.revertChanges();
+
+        await this.vmStorage.revertChanges(blockId);
     }
 
     public async terminate(): Promise<void> {
         if (!this.isPrepared) {
-            throw new Error(`Block ${this.blockId} is not prepared`);
+            throw new Error(`[TERMINATE] Block ${this.blockId} is not prepared`);
         }
 
-        if (this.blockId === 0n) {
-            throw new Error(`Block ${this.blockId} is not valid`);
-        }
+        //if (this.blockId === 0n) {
+        //    throw new Error(`Block ${this.blockId} is not valid`);
+        //}
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
             this.log(`Terminating block ${this.blockId}...`);
         }
 
+        const blockId = this.blockId;
         this.reset();
-        await this.vmStorage.terminateBlock();
+
+        await this.vmStorage.terminateBlock(blockId);
 
         return;
     }

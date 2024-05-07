@@ -7,3 +7,163 @@ components:
           type: integer
           minimum: 0
           description: The current heap block of the Bitcoin blockchain.
+    GenericTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+        hash:
+          type: string
+        index:
+          type: integer
+        blockHeight:
+          type: string
+        burnedBitcoin:
+          type: string
+        revert:
+          type: string
+          nullable: true
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionInput'
+        outputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionOutput'
+        OPNetType:
+          type: string
+          enum:
+            - Generic
+    DeploymentTransaction:
+      allOf:
+        - $ref: '#/components/schemas/GenericTransaction'
+        - type: object
+          properties:
+            contractAddress:
+              type: string
+    InteractionTransaction:
+      allOf:
+        - $ref: '#/components/schemas/GenericTransaction'
+        - type: object
+          properties:
+            contractAddress:
+              type: string
+            calldata:
+              type: string
+            senderPubKeyHash:
+              type: string
+            contractSecret:
+              type: string
+            interactionPubKey:
+              type: string
+            wasCompressed:
+              type: boolean
+            events:
+              type: array
+              items:
+                $ref: '#/components/schemas/NetEvent'
+            receipt:
+              type: string
+              nullable: true
+            receiptProofs:
+              type: array
+              items:
+                type: string
+    Block:
+      type: object
+      properties:
+        hash:
+          type: string
+        height:
+          type: string
+        time:
+          type: integer
+        version:
+          type: integer
+        bits:
+          type: string
+        nonce:
+          type: integer
+        previousBlockHash:
+          type: string
+        merkleRoot:
+          type: string
+        txCount:
+          type: integer
+        size:
+          type: integer
+        weight:
+          type: integer
+        strippedSize:
+          type: integer
+        storageRoot:
+          type: string
+        receiptRoot:
+          type: string
+        checksumProofs:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+        medianTime:
+          type: integer
+        previousBlockChecksum:
+          type: string
+        checksumRoot:
+          type: string
+        transactions:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/GenericTransaction'
+              - $ref: '#/components/schemas/DeploymentTransaction'
+              - $ref: '#/components/schemas/InteractionTransaction'
+    TransactionInput:
+      type: object
+      properties:
+        originalTransactionId:
+          type: string
+          nullable: true
+        outputTransactionIndex:
+          type: integer
+          nullable: true
+        scriptSignature:
+          type: string
+          nullable: true
+        sequenceId:
+          type: integer
+        transactionInWitness:
+          type: array
+          items:
+            type: string
+    TransactionOutput:
+      type: object
+      properties:
+        value:
+          type: string
+        index:
+          type: integer
+        scriptPubKey:
+          $ref: '#/components/schemas/ScriptPubKey'
+    ScriptPubKey:
+      type: object
+      properties:
+        hex:
+          type: string
+        addresses:
+          type: array
+          items:
+            type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+    NetEvent:
+      type: object
+      properties:
+        eventType:
+          type: string
+        data:
+          type: string
