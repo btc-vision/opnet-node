@@ -133,7 +133,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     }
 
     protected async attemptAuth(key: Uint8Array): Promise<void> {
-        this.log('Attempting to authenticate with  Server...');
+        this.log('Attempting to authenticate with OPNet Server...');
 
         this.connectionStatus = ConnectionStatus.AUTHENTICATING;
 

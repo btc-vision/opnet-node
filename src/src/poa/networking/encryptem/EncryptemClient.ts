@@ -64,8 +64,6 @@ export class EncryptemClient extends Logger {
     }
 
     public async generateClientCipherKeyPair(authKey: Uint8Array): Promise<boolean> {
-        console.log(`Auth key`, authKey);
-
         const keys = await this.generateNewCipherKey();
 
         this.setClientPublicKey(keys.publicKey);
@@ -76,8 +74,6 @@ export class EncryptemClient extends Logger {
         this.#clientSignaturePrivateKey = signatureSeededKeyPairs.privateKey;
 
         this.#serverSignaturePublicKey = null;
-
-        console.log(keys, signatureSeededKeyPairs);
 
         return !(
             keys.privateKey.length !== 32 ||
@@ -315,8 +311,8 @@ export class EncryptemClient extends Logger {
         publicKey: Buffer;
         privateKey: Buffer;
     }> {
-        const publicKey = authKey.slice(64, 96);
         const privateKey = authKey.slice(0, 64);
+        const publicKey = authKey.slice(64, 96);
 
         return {
             publicKey: Buffer.from(publicKey.buffer),
