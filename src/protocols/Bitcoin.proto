@@ -1,6 +1,0 @@
-syntax = "proto3";
-package Example;
-
-message ExampleMessage {
-    bool readOnly = 1;
-}

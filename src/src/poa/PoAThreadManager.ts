@@ -25,12 +25,6 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
         throw new Error('Method not implemented.');
     }
 
-    /*public async dispatchMessageToThread(
-        message: ThreadMessageBase<MessageType>,
-    ): Promise<ThreadData | null> {
-        return await this.threadManager.execute(message);
-    }*/
-
     protected async sendLinkToThreadsOfType(
         _threadType: ThreadTypes,
         _threadId: number,

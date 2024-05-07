@@ -14,6 +14,7 @@ import {
     PeerUpdate,
 } from '@libp2p/interface';
 import type { MultiaddrConnection } from '@libp2p/interface/src/connection/index.js';
+import { IncomingStreamData } from '@libp2p/interface/src/stream-handler/index.js';
 import { KadDHT, kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
 import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';
@@ -23,9 +24,13 @@ import { uPnPNAT } from '@libp2p/upnp-nat';
 import { webSockets } from '@libp2p/websockets';
 import type { Multiaddr } from '@multiformats/multiaddr';
 import figlet, { Fonts } from 'figlet';
+import { lpStream } from 'it-length-prefixed-stream';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { P2PConfigurations } from '../configurations/P2PConfigurations.js';
+import { OPNetIdentity } from '../identity/OPNetIdentity.js';
+import { OPNetPeer } from '../peer/OPNetPeer.js';
+import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -37,10 +42,18 @@ export class P2PManager extends Logger {
 
     private pendingNodeIdentifications: Map<string, NodeJS.Timeout> = new Map();
 
+    private peers: Map<string, OPNetPeer> = new Map();
+
+    private blackListedPeerIds: Set<string> = new Set();
+    private blackListedPeerIps: Set<string> = new Set();
+
+    private readonly identity: OPNetIdentity;
+
     constructor(private readonly config: BtcIndexerConfig) {
         super();
 
         this.p2pConfigurations = new P2PConfigurations(this.config);
+        this.identity = new OPNetIdentity(this.config);
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -51,11 +64,16 @@ export class P2PManager extends Logger {
         return this.node.getMultiaddrs();
     }
 
+    private get defaultHandle(): string {
+        return `${P2PConfigurations.protocolName}/${AuthenticationManager.CURRENT_PROTOCOL_VERSION}`;
+    }
+
     public async init(): Promise<void> {
         this.node = await this.createNode();
 
         await this.addListeners();
         await this.startNode();
+        await this.addHandles();
         await this.onStarted();
     }
 
@@ -77,13 +95,9 @@ export class P2PManager extends Logger {
         }
 
         this.node.addEventListener('peer:discovery', this.onPeerDiscovery.bind(this));
-
         this.node.addEventListener('peer:disconnect', this.onPeerDisconnect.bind(this));
-
         this.node.addEventListener('peer:update', this.onPeerUpdate.bind(this));
-
         this.node.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
-
         this.node.addEventListener('peer:connect', this.onPeerConnect.bind(this));
     }
 
@@ -96,7 +110,12 @@ export class P2PManager extends Logger {
     private async onPeerDisconnect(evt: CustomEvent<PeerId>): Promise<void> {
         const peerId = evt.detail.toString();
 
-        this.debug(`Disconnected from peer: ${peerId}`);
+        const peer = this.peers.get(peerId);
+        if (peer) {
+            await peer.onDisconnect();
+
+            this.peers.delete(peerId);
+        }
     }
 
     private async onPeerUpdate(_evt: CustomEvent<PeerUpdate>): Promise<void> {}
@@ -107,23 +126,24 @@ export class P2PManager extends Logger {
         const agent: string | undefined = evt.detail.agentVersion;
         const version: string | undefined = evt.detail.protocolVersion;
         const peerId: PeerId = evt.detail.peerId;
+        const peerIdStr: string = peerId.toString();
 
-        const timeout = this.pendingNodeIdentifications.get(peerId.toString());
+        const timeout = this.pendingNodeIdentifications.get(peerIdStr);
         if (timeout) {
             clearTimeout(timeout);
-            this.pendingNodeIdentifications.delete(peerId.toString());
+            this.pendingNodeIdentifications.delete(peerIdStr);
         }
 
         if (!this.allowConnection(peerId, agent, version)) {
-            this.warn(
-                `Dropping connection to peer: ${peerId.toString()} due to agent or version mismatch`,
-            );
+            this.warn(`Dropping connection to peer: ${peerIdStr} due to agent or version mismatch`);
+
+            this.blackListPeerId(peerId);
             return await this.disconnectPeer(peerId);
         }
 
-        this.info(`Identified peer: ${peerId.toString()} - Agent: ${agent} - Version: ${version}`);
+        this.info(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
 
-        const nodeLength = await this.getPeers();
+        /*const nodeLength = await this.getPeers();
         if (nodeLength.length === 1) {
             this.notifyArt(
                 'OPNet',
@@ -131,6 +151,29 @@ export class P2PManager extends Logger {
                 `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
                 `\n\nAuthenticating this node. Looking for peers...\n\n\n\n\n`,
             );
+        }*/
+
+        await this.createPeer(evt.detail, peerIdStr);
+    }
+
+    private async createPeer(peerInfo: IdentifyResult, peerIdStr: string): Promise<void> {
+        if (this.peers.has(peerIdStr)) {
+            throw new Error(`Peer (client) ${peerIdStr} already exists. Memory leak detected.`);
+        }
+
+        const peer: OPNetPeer = new OPNetPeer(peerInfo, this.identity);
+        peer.disconnectPeer = this.disconnectPeer.bind(this);
+        peer.sendMsg = this.sendToPeer.bind(this);
+
+        this.peers.set(peerIdStr, peer);
+
+        await peer.init();
+        await peer.authenticate();
+    }
+
+    private blackListPeerId(peerId: PeerId): void {
+        if (!this.blackListedPeerIds.has(peerId.toString())) {
+            this.blackListedPeerIds.add(peerId.toString());
         }
     }
 
@@ -154,7 +197,9 @@ export class P2PManager extends Logger {
                 'OPNet Bootstrap Node',
                 'Big Money-sw',
                 `\n\n\nPoA enabled. This node is a,\n\n\n\n\n`,
-                `\n\nThis node is running in bootstrap mode. This means it will not connect to other peers automatically. It will only accept incoming connections.\n\n\n\n\n`,
+                `\n\nThis node is running in bootstrap mode. This means it will not connect to other peers automatically. It will only accept incoming connections.\n`,
+                `This node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
+                `Your OPNet identity is ${this.identity.opnetAddress}.\n\n\n\n\n`,
             );
         }
 
@@ -166,18 +211,18 @@ export class P2PManager extends Logger {
         this.p2pConfigurations.savePeer(this.node.peerId);
     }
 
-    private notifyArt(text: string, font: Fonts, prefix: string, suffix: string): void {
+    private notifyArt(text: string, font: Fonts, prefix: string, ...suffix: string[]): void {
         const artVal = figlet.textSync(text, {
             font: font, //'Doh',
             horizontalLayout: 'default',
             verticalLayout: 'default',
         });
 
-        this.info(`${prefix}${artVal}${suffix}`);
+        this.info(`${prefix}${artVal}${suffix.join('\n')}`);
     }
 
     private allowConnection(
-        _peerId: PeerId,
+        peerId: PeerId,
         agent: string | undefined,
         version: string | undefined,
     ): boolean {
@@ -186,6 +231,14 @@ export class P2PManager extends Logger {
         }
 
         // TODO: Implement logic to allow or deny connection based on agent and version
+        const id: string = peerId.toString();
+        if (this.blackListedPeerIds.has(id)) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.debug(`Peer ${id} is blacklisted. Flushing connection...`);
+            }
+
+            return false;
+        }
 
         return true;
     }
@@ -220,6 +273,110 @@ export class P2PManager extends Logger {
         await this.node.start();
     }
 
+    private async addHandles(): Promise<void> {
+        if (this.node === undefined) {
+            throw new Error('Node not initialized');
+        }
+
+        await this.node.handle(this.defaultHandle, async (incomingStream: IncomingStreamData) => {
+            const stream = incomingStream.stream;
+            const connection = incomingStream.connection;
+
+            const peerId: PeerId = connection.remotePeer;
+
+            try {
+                const lp = lpStream(stream);
+                const req = await lp.read();
+
+                if (!req) {
+                    return;
+                }
+
+                // TODO: Check if this may contain multiple messages or if this is junk chunks of data
+                const data: Uint8Array = req.subarray();
+
+                /** We could await for the message to process and send a response but this may lead to timeout in some cases */
+                void this.onPeerMessage(peerId, data);
+
+                // Acknowledge the message
+                await lp.write(new Uint8Array([0x01]));
+            } catch (e) {
+                if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    this.debug('Error while handling incoming stream', (e as Error).stack);
+                }
+            }
+
+            // Close the stream
+            await stream.close().catch(() => {});
+        });
+    }
+
+    /** We could return a Uint8Array to send a response. For the protocol v1, we will ignore that. */
+    private async onPeerMessage(peerId: PeerId, data: Uint8Array): Promise<void> {
+        const id: string = peerId.toString();
+        const peer: OPNetPeer | undefined = this.peers.get(id);
+
+        if (!peer) {
+            this.warn(`Received message from unknown peer: ${id}`);
+            return;
+        }
+
+        await peer.onMessage(data);
+    }
+
+    /** Broadcast a message to all connected peers */
+    private async broadcastMessage(data: Uint8Array): Promise<void> {
+        if (this.node === undefined) {
+            throw new Error('Node not initialized');
+        }
+
+        const peers = await this.getPeers();
+
+        const sentPromises: Promise<void>[] = [];
+        for (const peer of peers) {
+            if (peer.id === this.node.peerId) {
+                continue;
+            }
+
+            sentPromises.push(this.sendToPeer(peer.id, data));
+        }
+
+        await Promise.all(sentPromises);
+    }
+
+    /** Send a message to a specific peer */
+    private async sendToPeer(peerId: PeerId, data: Uint8Array): Promise<void> {
+        if (this.node === undefined) {
+            throw new Error('Node not initialized');
+        }
+
+        const connection = await this.node.dialProtocol(peerId, this.defaultHandle);
+        try {
+            const lp = lpStream(connection);
+
+            await lp.write(data);
+
+            const ack = await lp.read();
+            const ackData = ack ? ack.subarray() : new Uint8Array();
+
+            if (ackData[0] !== 0x01) {
+                if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    this.debug(`Peer ${peerId.toString()} did not acknowledge the message.`);
+                }
+            }
+        } catch (e) {
+            const error = e as Error;
+
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.error(
+                    `Error while sending message to peer ${peerId.toString()}: ${error.stack}`,
+                );
+            }
+        }
+
+        await connection.close().catch(() => {});
+    }
+
     private getConnectionGater(): ConnectionGater {
         return {
             denyInboundUpgradedConnection: this.denyInboundUpgradedConnection.bind(this),
@@ -232,9 +389,19 @@ export class P2PManager extends Logger {
     }
 
     private async denyInboundUpgradedConnection(
-        _peerId: PeerId,
+        peerId: PeerId,
         _maConn: MultiaddrConnection,
     ): Promise<boolean> {
+        const id: string = peerId.toString();
+
+        if (this.blackListedPeerIds.has(id)) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.debug(`Peer ${id} is blacklisted. Flushing connection...`);
+            }
+
+            return true;
+        }
+
         return false;
     }
 

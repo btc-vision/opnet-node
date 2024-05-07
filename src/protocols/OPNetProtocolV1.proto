@@ -1,0 +1,33 @@
+syntax = "proto3";
+package OPNetProtocolV1;
+
+message Authentication {
+  string version = 1;
+  optional bytes clientAuthCipher = 2;
+}
+
+enum AuthenticationStatusEnum {
+  SUCCESS = 0;
+  ERROR = 1;
+}
+
+message AuthenticationStatus {
+  AuthenticationStatusEnum status = 1;
+  string message = 2;
+}
+
+message ClientKeyCipherExchange {
+  bytes clientKeyCipher = 1;
+  bytes clientAuthCipher = 2;
+}
+
+message ServerKeyCipherExchange {
+  bytes serverKeyCipher = 1;
+  bytes serverSigningCipher = 2;
+  bool encryptionEnabled = 3;
+}
+
+message Ping {
+  uint64 timestamp = 1;
+  uint64 lastPing = 2;
+}

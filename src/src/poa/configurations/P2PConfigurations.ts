@@ -21,6 +21,7 @@ import path from 'path';
 
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { PeerToPeerMethod } from '../../config/interfaces/PeerToPeerMethod.js';
+import { OPNetPathFinder } from '../identity/OPNetPathFinder.js';
 import { P2PVersion } from './P2PVersion.js';
 
 interface BackedUpPeer {
@@ -29,7 +30,7 @@ interface BackedUpPeer {
     pubKey?: string;
 }
 
-export class P2PConfigurations {
+export class P2PConfigurations extends OPNetPathFinder {
     public static readonly protocolName: string = 'opnet';
     public static readonly protocolVersion: string = '1.0.0';
 
@@ -39,12 +40,9 @@ export class P2PConfigurations {
 
     private static readonly maxMessageSize: number = 8 * 1024 * 1024; // 8 MiB
 
-    private readonly encKey: Uint8Array = new Uint8Array([
-        38, 162, 193, 94, 65, 16, 221, 161, 9, 147, 108, 244, 141, 120, 43, 48, 170, 11, 60, 155,
-        22, 66, 236, 123, 132, 192, 47, 24, 144, 19, 76, 237,
-    ]);
-
-    constructor(private readonly config: BtcIndexerConfig) {}
+    constructor(private readonly config: BtcIndexerConfig) {
+        super();
+    }
 
     public get tcpConfiguration(): TCPOptions {
         return {
@@ -252,7 +250,7 @@ export class P2PConfigurations {
     private loadPeer(): BackedUpPeer | undefined {
         try {
             const lastPeerIdentity = fs.readFileSync(this.peerFilePath());
-            const decrypted = this.decrypt(new Uint8Array(lastPeerIdentity));
+            const decrypted = this.decryptToString(new Uint8Array(lastPeerIdentity));
 
             return JSON.parse(decrypted);
         } catch (e) {
@@ -268,27 +266,7 @@ export class P2PConfigurations {
     }
 
     private peerFilePath(): string {
-        return path.join(__dirname, '../../', 'identity.bin');
-    }
-
-    private encrypt(dataJson: string): Uint8Array {
-        const data = Buffer.from(dataJson).toString('base64');
-
-        let encrypted: Uint8Array = new Uint8Array(data.length);
-        for (let i = 0; i < data.length; i++) {
-            encrypted[i] = data.charCodeAt(i) ^ this.encKey[i % this.encKey.length];
-        }
-
-        return encrypted;
-    }
-
-    private decrypt(encrypted: Uint8Array): string {
-        let data: string = '';
-        for (let i = 0; i < encrypted.length; i++) {
-            data += String.fromCharCode(encrypted[i] ^ this.encKey[i % this.encKey.length]);
-        }
-
-        return Buffer.from(data, 'base64').toString('utf8');
+        return path.join(this.getBinPath(), 'identity.bin');
     }
 
     private uint8ArrayToString(uint8Array: Uint8Array): string {
