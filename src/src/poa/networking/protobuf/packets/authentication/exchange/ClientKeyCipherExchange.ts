@@ -6,6 +6,7 @@ import { PackedMessage, Packet } from '../../Packet.js';
 export interface IClientKeyCipherExchangePacket extends PackedMessage {
     readonly clientKeyCipher: Uint8Array;
     readonly clientAuthCipher: Uint8Array;
+    readonly identity: Uint8Array;
 }
 
 export class ClientKeyCipherExchange extends Packet<IClientKeyCipherExchangePacket, {}, {}> {

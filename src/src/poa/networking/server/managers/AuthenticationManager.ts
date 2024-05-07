@@ -42,7 +42,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
     protected createTimeoutAuth(): void {
         this.timeoutAuth = setTimeout(() => {
-            this.disconnectPeer(1007, 'Authentication timeout.');
+            void this.disconnectPeer(1007, 'Authentication timeout.');
         }, 30000);
     }
 
@@ -109,7 +109,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
     private async createFullAuthentication(): Promise<void> {
         if (!this.encryptem) return;
         if (this.encryptionStarted) {
-            this.disconnectPeer(1007);
+            await this.disconnectPeer(1007);
             return;
         }
 
@@ -130,7 +130,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (!this.protocol) return;
 
         if (this.encryptionStarted) {
-            this.disconnectPeer(1007);
+            await this.disconnectPeer(1007);
             return;
         }
 
@@ -138,7 +138,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         const serverSigningCipher = this.encryptem.getServerSignaturePublicKey();
 
         if (!serverKey || !serverSigningCipher) {
-            this.disconnectPeer(1007);
+            await this.disconnectPeer(1007);
 
             this.warn(
                 `Failed to send server handshake. Server key or server signing cipher is null.`,
@@ -217,30 +217,39 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return;
         }
 
-        if (unpackedAuthData.clientKeyCipher && unpackedAuthData.clientAuthCipher) {
-            let clientKeyCipherBuffer = unpackedAuthData.clientKeyCipher as Buffer;
-            let clientAuthCipherBuffer = unpackedAuthData.clientAuthCipher as Buffer;
-
-            this.encryptem.setClientPublicKey(clientKeyCipherBuffer);
-
-            const clientAuthCipherValid =
-                this.encryptem.authenticateKeyData(clientAuthCipherBuffer);
-            if (clientAuthCipherValid) {
-                this.log(`Peer public key received. Sending server public key.`);
-
-                if (!this.isAuthenticated) {
-                    await this.createFullAuthentication();
-                }
-
-                await this.sendServerHandshake();
-            } else {
-                this.error(`Peer public key verification failed.`);
-                this.disconnectPeer(1007, 'Peer key verification failed.');
-            }
-        } else {
+        if (!(unpackedAuthData.clientKeyCipher && unpackedAuthData.clientAuthCipher)) {
             this.warn(`Peer (${this.peerId}) sent an invalid client authentication cipher.`);
 
-            await this.createAuthenticationFailureMessage('Invalid client authentication cipher.');
+            return await this.createAuthenticationFailureMessage(
+                'Invalid client authentication cipher.',
+            );
+        }
+
+        const clientKeyCipherBuffer = unpackedAuthData.clientKeyCipher as Buffer;
+        const clientAuthCipherBuffer = unpackedAuthData.clientAuthCipher as Buffer;
+        const clientIdentityBuffer = unpackedAuthData.identity as Buffer;
+
+        this.encryptem.setClientPublicKey(clientKeyCipherBuffer);
+
+        console.log({
+            clientKeyCipherBuffer,
+            clientAuthCipherBuffer,
+            clientIdentityBuffer,
+        });
+
+        const clientAuthCipherValid = this.encryptem.authenticateKeyData(clientAuthCipherBuffer);
+
+        if (clientAuthCipherValid) {
+            this.log(`Peer public key received. Sending server public key.`);
+
+            if (!this.isAuthenticated) {
+                await this.createFullAuthentication();
+            }
+
+            await this.sendServerHandshake();
+        } else {
+            this.error(`Peer public key verification failed.`);
+            await this.disconnectPeer(1007, 'Peer key verification failed.');
         }
     }
 
@@ -286,12 +295,12 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (!this.canAcceptVersion(unpackedAuthData.version)) {
             this.warn(`Peer (${this.peerId}) is using an outdated version of OPNet protocol.`);
 
-            this.disconnectPeer(1004, 'Outdated protocol version.');
+            await this.disconnectPeer(1004, 'Outdated protocol version.');
 
             return;
         }
 
-        this.log(`Peer (${this.peerId}) is using the latest version of .`);
+        this.log(`Peer (${this.peerId}) is using the latest version of the OPNet Protocol.`);
 
         if (!(unpackedAuthData.clientAuthCipher && unpackedAuthData.clientAuthCipher.length > 0)) {
             this.warn(`Peer (${this.peerId}) sent an invalid client authentication cipher.`);

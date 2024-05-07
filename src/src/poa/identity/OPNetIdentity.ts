@@ -37,6 +37,10 @@ export class OPNetIdentity extends OPNetPathFinder {
         return '0x' + this.keyPair.identity.toString('hex');
     }
 
+    public get opnetAddressAsBuffer(): Buffer {
+        return this.keyPair.identity;
+    }
+
     public get opnetCertificate(): string {
         return this.convertToOPNetCertificate(this.opnetAuthKeyBin);
     }

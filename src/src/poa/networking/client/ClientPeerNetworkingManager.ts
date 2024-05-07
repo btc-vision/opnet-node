@@ -7,11 +7,8 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
     protected readonly peerId: string;
     private destroyed: boolean = false;
 
-    constructor(
-        peerId: string,
-        private selfIdentity: OPNetIdentity | undefined,
-    ) {
-        super();
+    constructor(peerId: string, selfIdentity: OPNetIdentity | undefined) {
+        super(selfIdentity);
 
         this.peerId = peerId;
     }

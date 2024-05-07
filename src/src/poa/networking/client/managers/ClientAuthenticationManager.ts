@@ -1,4 +1,5 @@
 import Long from 'long';
+import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { EncryptemClient } from '../../encryptem/EncryptemClient.js';
 import { IClientKeyCipherExchangePacket } from '../../protobuf/packets/authentication/exchange/ClientKeyCipherExchange.js';
 import {
@@ -24,8 +25,10 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     public readonly logColor: string = '#08fa00';
 
     protected _encryptem: EncryptemClient = new EncryptemClient();
+    protected selfIdentity: OPNetIdentity | undefined;
 
     private pingInterval: NodeJS.Timeout | null = null;
+
     private lastServerPing: Long = Long.fromInt(Date.now());
     private lastPing: Long = Long.fromInt(Date.now());
     private latency: number = 0;
@@ -34,8 +37,10 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     #OPNetClientKeyCipher: Uint8Array | null = null;
     #connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED;
 
-    protected constructor() {
+    protected constructor(selfIdentity: OPNetIdentity | undefined) {
         super();
+
+        this.selfIdentity = selfIdentity;
     }
 
     public get connectionStatus(): ConnectionStatus {
@@ -90,6 +95,10 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     }
 
     protected async buildKeyCipherExchangeClientPacket(): Promise<void> {
+        if (!this.selfIdentity) {
+            throw new Error('Self identity not found.');
+        }
+
         if (!(this.#OPNetAuthKey && this.#OPNetClientKeyCipher)) {
             throw new Error(' Authorization Key not selected.');
         }
@@ -105,6 +114,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         const keyCipherExchangeData: IClientKeyCipherExchangePacket = {
             clientKeyCipher: this.#OPNetClientKeyCipher,
             clientAuthCipher: this.#OPNetAuthKey,
+            identity: this.selfIdentity.opnetAddressAsBuffer,
         };
 
         const packedKeyCipherExchangeData = keyCipherExchangePacket.pack(keyCipherExchangeData);
@@ -296,11 +306,11 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
 
         if (unpackedAuthData.status === OPNetAuthenticationStatus.SUCCESS) {
             await this.buildKeyCipherExchangeClientPacket();
-            this.success('Successfully authenticated with BlockZero Server.');
+            this.success('Successfully authenticated with the remote peer.');
 
             this.connectionStatus = ConnectionStatus.AUTHENTICATION_SUCCESS;
         } else {
-            this.fail(`Failed to authenticate with BlockZero Server: ${unpackedAuthData.message}`);
+            this.fail(`Failed to authenticate with the remote peer: ${unpackedAuthData.message}`);
 
             this.connectionStatus = ConnectionStatus.AUTHENTICATION_FAILED;
         }
