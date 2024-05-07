@@ -25,14 +25,25 @@ export class OPNetPeer extends Logger {
 
         this.serverNetworkingManager = new ServerPeerNetworkingManager(this.peerIdString);
         this.serverNetworkingManager.disconnectPeer = this.disconnect.bind(this);
-        this.serverNetworkingManager.send = this.sendInternal.bind(this);
+        this.serverNetworkingManager.send = async (data: Uint8Array | Buffer) => {
+            // to client
+            data = Buffer.concat([Buffer.from([0x01]), Buffer.from(data)]);
+
+            return this.sendInternal(data);
+        };
 
         this.clientNetworkingManager = new ClientPeerNetworkingManager(
             this.peerIdString,
             this.selfIdentity,
         );
+
         this.clientNetworkingManager.disconnectPeer = this.disconnect.bind(this);
-        this.clientNetworkingManager.send = this.sendInternal.bind(this);
+        this.clientNetworkingManager.send = async (data: Uint8Array | Buffer) => {
+            // to server
+            data = Buffer.concat([Buffer.from([0x00]), Buffer.from(data)]);
+
+            return this.sendInternal(data);
+        };
     }
 
     private get peerIdentity(): IdentifyResult {
@@ -57,9 +68,9 @@ export class OPNetPeer extends Logger {
 
     public async onMessage(rawBuf: ArrayBuffer): Promise<void> {
         const buffer: Uint8Array = new Uint8Array(rawBuf);
-        const isClient = buffer.slice(0, 1)[0] === 0x01;
+        const toClient = buffer.slice(0, 1)[0] === 0x01;
 
-        console.log('on message', buffer, isClient);
+        console.log('on message', buffer, toClient);
 
         /*const promises: Promise<boolean>[] = [
             this.clientNetworkingManager.onMessage(rawBuf),

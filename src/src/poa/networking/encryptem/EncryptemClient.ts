@@ -64,17 +64,20 @@ export class EncryptemClient extends Logger {
     }
 
     public async generateClientCipherKeyPair(authKey: Uint8Array): Promise<boolean> {
-        let keys = await this.generateNewCipherKey();
+        console.log(`Auth key`, authKey);
+
+        const keys = await this.generateNewCipherKey();
 
         this.setClientPublicKey(keys.publicKey);
         this.setClientSecretKey(keys.privateKey);
 
-        let signatureSeededKeyPairs = await this.generateSignatureSeededKeyPairs(authKey);
-
+        const signatureSeededKeyPairs = await this.generateSignatureSeededKeyPairs(authKey);
         this.#clientSignaturePublicKey = signatureSeededKeyPairs.publicKey;
         this.#clientSignaturePrivateKey = signatureSeededKeyPairs.privateKey;
 
         this.#serverSignaturePublicKey = null;
+
+        console.log(keys, signatureSeededKeyPairs);
 
         return !(
             keys.privateKey.length !== 32 ||

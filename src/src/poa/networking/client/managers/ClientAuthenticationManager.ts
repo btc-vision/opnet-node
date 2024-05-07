@@ -168,14 +168,12 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
                 reject(new Error('Failed to setup client encryptem.'));
             }
 
-            this.success('Successfully selected  key.');
+            this.success('Successfully selected OPNet key.');
 
             try {
                 const publicKeyResponse = this.getClientPublicKey();
 
                 if (publicKeyResponse.publicKey && publicKeyResponse.authKey) {
-                    this.log('Successfully got  public key.');
-
                     this.#OPNetClientKeyCipher = publicKeyResponse.publicKey;
                     this.#OPNetAuthKey = publicKeyResponse.authKey;
 

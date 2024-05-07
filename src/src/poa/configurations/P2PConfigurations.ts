@@ -35,7 +35,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public static readonly protocolVersion: string = '1.0.0';
 
     private static readonly defaultBootstrapNodes: string[] = [
-        '/ip4/51.81.67.34/tcp/9800/p2p/12D3KooWSXW5S3cyKRoYyVvJTwomwfCZxsauRVHKe1iyU4zbXLhv',
+        '/ip4/51.81.67.34/tcp/9800/p2p/12D3KooWDFVSjsLwG84wzdWrMBd8MYySbK48NYqu35HUv2H794Ty',
     ];
 
     private static readonly maxMessageSize: number = 8 * 1024 * 1024; // 8 MiB
