@@ -70,7 +70,21 @@ export class OPNetPeer extends Logger {
         const buffer: Uint8Array = new Uint8Array(rawBuf);
         const toClient = buffer.slice(0, 1)[0] === 0x01;
 
-        console.log('on message', buffer, toClient);
+        console.log('on message', buffer, toClient, buffer.slice(1), buffer.slice(1));
+
+        let success = false;
+        switch (toClient) {
+            case true:
+                success = await this.clientNetworkingManager.onMessage(buffer.slice(1));
+                break;
+            case false:
+                success = await this.serverNetworkingManager.onMessage(buffer.slice(1));
+                break;
+        }
+
+        if (!success) {
+            throw new Error(`Unknown opcode received. ${buffer[1]}`);
+        }
 
         /*const promises: Promise<boolean>[] = [
             this.clientNetworkingManager.onMessage(rawBuf),
