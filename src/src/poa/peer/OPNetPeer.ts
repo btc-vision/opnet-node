@@ -71,8 +71,6 @@ export class OPNetPeer extends Logger {
             const buffer: Uint8Array = new Uint8Array(rawBuf);
             const toClient = buffer.slice(0, 1)[0] === 0x01;
 
-            console.log('Message received!', buffer.slice(1));
-
             let success = false;
             switch (toClient) {
                 case true:
