@@ -41,7 +41,7 @@ export abstract class Packet<
         let message = this.packet.decode(msgToUnpack);
         const objOutput = this.packet.toObject(message, {
             longs: Long,
-            enums: String,
+            enums: Number,
             bytes: Buffer,
             defaults: true,
             arrays: true,

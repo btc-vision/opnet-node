@@ -323,6 +323,12 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return;
         }
 
+        if (unpackedAuthData.clientAuthCipher.byteLength !== 32) {
+            await this.disconnectPeer(1007, 'Invalid client authentication cipher.');
+            return;
+        }
+
+        this.encryptem.setClientSignaturePublicKey(Buffer.from(unpackedAuthData.clientAuthCipher));
         await this.onPassedVersionCheck();
     }
 }
