@@ -141,8 +141,8 @@ export class EncryptemClient extends Logger {
                 }
             } catch (e: unknown) {
                 let err = e as Error;
-                this.error(`Decryption failed.`);
-                console.log(err.stack);
+                this.error(`[CLIENT] Decryption failed.`);
+                console.log(err);
             }
 
             return msg;

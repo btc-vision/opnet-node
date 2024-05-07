@@ -1,4 +1,5 @@
 import Long from 'long';
+import { clearInterval } from 'node:timers';
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { EncryptemClient } from '../../encryptem/EncryptemClient.js';
 import { IClientKeyCipherExchangePacket } from '../../protobuf/packets/authentication/exchange/ClientKeyCipherExchange.js';
@@ -169,6 +170,8 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
 
     protected destroy(): void {
         super.destroy();
+
+        if (this.pingInterval) clearInterval(this.pingInterval);
     }
 
     private async setupKey(uint8Key: Uint8Array): Promise<void> {
@@ -276,6 +279,8 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
             unpackedServerCipherData.serverKeyCipher,
             unpackedServerCipherData.serverSigningCipher,
         );
+
+        this.encryptionStarted = true;
 
         this.startPingInterval();
     }
