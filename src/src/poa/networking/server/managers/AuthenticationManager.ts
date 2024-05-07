@@ -229,13 +229,13 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         const clientAuthCipherBuffer = unpackedAuthData.clientAuthCipher as Buffer;
         const clientIdentityBuffer = unpackedAuthData.identity as Buffer;
 
-        this.encryptem.setClientPublicKey(clientKeyCipherBuffer);
-
         console.log({
             clientKeyCipherBuffer,
             clientAuthCipherBuffer,
             clientIdentityBuffer,
         });
+
+        this.encryptem.setClientPublicKey(clientKeyCipherBuffer);
 
         const clientAuthCipherValid = this.encryptem.authenticateKeyData(clientAuthCipherBuffer);
 

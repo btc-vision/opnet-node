@@ -108,7 +108,7 @@ export class EncryptemServer extends Logger {
             return false;
         }
 
-        publicKey = Buffer.from(publicKey);
+        publicKey = Buffer.from(publicKey as Uint8Array);
 
         const publicKeyName = cyrb53(publicKey.toString('hex'), publicKey[10]).toString();
         const keyName = Buffer.from(publicKeyName).toString('base64');
