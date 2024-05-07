@@ -42,6 +42,10 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public get authKey(): Uint8Array {
+        if (!this.opnetAuthKeyBin) {
+            throw new Error('OPNet Auth Key not found.');
+        }
+
         return this.opnetAuthKeyBin;
     }
 
