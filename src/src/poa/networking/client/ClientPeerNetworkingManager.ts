@@ -1,16 +1,21 @@
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { OPNetPacket } from '../protobuf/types/OPNetPacket.js';
 import { ClientAuthenticationManager } from './managers/ClientAuthenticationManager.js';
+import { ClientPeerManager } from './managers/ClientPeerManager.js';
 
 export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
     public readonly logColor: string = '#00f2fa';
 
-
     private destroyed: boolean = false;
+    private peerManager: ClientPeerManager | undefined;
 
     constructor(peerId: string, selfIdentity: OPNetIdentity | undefined) {
         super(selfIdentity, peerId);
     }
+
+    public onClientAuthenticationCompleted: () => void = () => {
+        throw new Error('onAuthenticationCompleted not implemented.');
+    };
 
     public async login(): Promise<void> {
         if (!this.selfIdentity) throw new Error('Self identity not found.');
@@ -20,7 +25,7 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
 
     /**
      * On message handler.
-     * @private
+     * @public
      */
     public async onMessage(rawBuf: Uint8Array): Promise<boolean> {
         const raw: Uint8Array = this.decrypt(rawBuf);
@@ -31,7 +36,18 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
             packet: Buffer.from(raw.slice(1)),
         };
 
-        return await this.onPacket(packet);
+        const managed: boolean = await this.onPacket(packet);
+        if (!managed) {
+            if (this.peerManager) {
+                const processed: boolean = await this.peerManager.onPacket(packet);
+
+                if (processed) {
+                    return true;
+                }
+            }
+        }
+
+        return managed;
     }
 
     /**
@@ -45,5 +61,21 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
         this.selfIdentity = undefined;
 
         super.destroy();
+
+        if (this.peerManager) {
+            this.peerManager.destroy();
+
+            delete this.peerManager;
+        }
+    }
+
+    protected onAuthenticated(): void {
+        this.createSession();
+
+        this.onClientAuthenticationCompleted();
+    }
+
+    private createSession(): void {
+        this.peerManager = new ClientPeerManager(this.peerId, this.selfIdentity);
     }
 }

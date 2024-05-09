@@ -53,8 +53,6 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
 
     protected set connectionStatus(status: ConnectionStatus) {
         this.#connectionStatus = status;
-
-        this.log(`Connection status changed to ${status}.`);
     }
 
     protected get encryptemClient(): EncryptemClient {
@@ -71,6 +69,8 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
 
         await this.disconnectPeer(3000, 'Goodbye.');
     }
+
+    protected abstract onAuthenticated(): void;
 
     protected async onPacket(packet: OPNetPacket): Promise<boolean> {
         const opcode: number = packet.opcode;
@@ -284,6 +284,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         this.encryptionStarted = true;
 
         this.startPingInterval();
+        this.onAuthenticated();
     }
 
     private async setCipherKeys(

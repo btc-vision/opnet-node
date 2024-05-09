@@ -32,3 +32,12 @@ message Ping {
   uint64 timestamp = 1;
   uint64 lastPing = 2;
 }
+
+message Peer {
+  bytes identity = 1;
+  string address = 2;
+}
+
+message TransactionRequest {
+  bytes transaction = 1;
+}

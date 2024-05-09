@@ -23,13 +23,20 @@ export class OPNetPeer extends Logger {
         this.peerId = this.peerIdentity.peerId;
         this.peerIdString = this.peerId.toString();
 
-        this.serverNetworkingManager = new ServerPeerNetworkingManager(this.peerIdString);
+        this.serverNetworkingManager = new ServerPeerNetworkingManager(
+            this.peerIdString,
+            this.selfIdentity,
+        );
+
         this.serverNetworkingManager.disconnectPeer = this.disconnect.bind(this);
         this.serverNetworkingManager.send = async (data: Uint8Array | Buffer) => {
             // to client
             data = Buffer.concat([Buffer.from([0x01]), Buffer.from(data)]);
 
             return this.sendInternal(data);
+        };
+        this.serverNetworkingManager.onServerAuthenticationCompleted = () => {
+            this.onServerAuthenticationCompleted();
         };
 
         this.clientNetworkingManager = new ClientPeerNetworkingManager(
@@ -43,6 +50,9 @@ export class OPNetPeer extends Logger {
             data = Buffer.concat([Buffer.from([0x00]), Buffer.from(data)]);
 
             return this.sendInternal(data);
+        };
+        this.clientNetworkingManager.onClientAuthenticationCompleted = () => {
+            this.onClientAuthenticationCompleted();
         };
     }
 
@@ -136,4 +146,8 @@ export class OPNetPeer extends Logger {
         this.debug(`Disconnecting peer ${this.peerId} with code ${code} and reason ${reason}.`);
         await this.disconnectPeer(this.peerId);
     }
+
+    private onServerAuthenticationCompleted(): void {}
+
+    private onClientAuthenticationCompleted(): void {}
 }

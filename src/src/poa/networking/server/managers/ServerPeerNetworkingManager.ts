@@ -1,20 +1,29 @@
+import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { AuthenticationManager } from './AuthenticationManager.js';
+import { ServerPeerManager } from './ServerPeerManager.js';
 
 export class ServerPeerNetworkingManager extends AuthenticationManager {
-    protected readonly peerId: string;
     private destroyed: boolean = false;
+    private peerManager: ServerPeerManager | undefined;
 
-    constructor(peerId: string) {
+    constructor(
+        protected readonly peerId: string,
+        private readonly selfIdentity: OPNetIdentity | undefined,
+    ) {
         super();
 
         this.peerId = peerId;
         this.createTimeoutAuth();
     }
 
+    public onServerAuthenticationCompleted: () => void = () => {
+        throw new Error('onAuthenticationCompleted not implemented.');
+    };
+
     /**
      * On message handler.
-     * @private
+     * @public
      */
     public async onMessage(rawBuf: Uint8Array): Promise<boolean> {
         const raw: Uint8Array = this.decrypt(rawBuf);
@@ -25,7 +34,18 @@ export class ServerPeerNetworkingManager extends AuthenticationManager {
             packet: Buffer.from(raw.slice(1)),
         };
 
-        return await this.onPacket(packet);
+        const managed: boolean = await this.onPacket(packet);
+        if (!managed) {
+            if (this.peerManager) {
+                const processed: boolean = await this.peerManager.onPacket(packet);
+
+                if (processed) {
+                    return true;
+                }
+            }
+        }
+
+        return managed;
     }
 
     /**
@@ -38,5 +58,15 @@ export class ServerPeerNetworkingManager extends AuthenticationManager {
         this.destroyed = true;
 
         super.destroy();
+    }
+
+    protected onAuthenticated(): void {
+        this.createSession();
+
+        this.onServerAuthenticationCompleted();
+    }
+
+    private createSession(): void {
+        this.peerManager = new ServerPeerManager(this.peerId, this.selfIdentity);
     }
 }
