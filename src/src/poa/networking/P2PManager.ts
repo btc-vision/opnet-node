@@ -261,10 +261,12 @@ export class P2PManager extends Logger {
         if (code !== DisconnectionCode.RECONNECT && code !== DisconnectionCode.EXPECTED) {
             this.blackListPeerId(peerId);
 
-            const peer = await this.node.peerStore.get(peerId);
-            if (peer) {
-                this.blacklistPeerIps(peer);
-            }
+            try {
+                const peer = await this.node.peerStore.get(peerId);
+                if (peer) {
+                    this.blacklistPeerIps(peer);
+                }
+            } catch (e) {}
         }
 
         await this.node.hangUp(peerId);
@@ -397,6 +399,12 @@ export class P2PManager extends Logger {
                 if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                     this.debug(`Peer ${peerId.toString()} did not acknowledge the message.`);
                 }
+
+                await this.disconnectPeer(
+                    peerId,
+                    DisconnectionCode.BAD_PEER,
+                    'Peer did not acknowledge the message.',
+                );
             }
         } catch (e) {
             const error = e as Error;

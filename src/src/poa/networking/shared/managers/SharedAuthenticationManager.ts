@@ -91,7 +91,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
         } catch (err: unknown) {
             const error = err as Error;
 
-            this.error(`Peer networking error while sending message: ${error.stack}`);
+            this.error(`Peer networking error while sending message: ${error.message}`);
         }
     }
 
@@ -104,14 +104,6 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
     }
 
     protected abstract createSession(): void;
-
-    private destroyNetworkHandlers(): void {
-        for (const handler of this.networkHandlers) {
-            handler.destroy();
-        }
-
-        this.networkHandlers = [];
-    }
 
     protected destroy(): void {
         if (this._encryptem) {
@@ -127,5 +119,13 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
         }
 
         this.destroyNetworkHandlers();
+    }
+
+    private destroyNetworkHandlers(): void {
+        for (const handler of this.networkHandlers) {
+            handler.destroy();
+        }
+
+        this.networkHandlers = [];
     }
 }
