@@ -479,7 +479,7 @@ export class P2PManager extends Logger {
         return false;
     }
 
-    private async getDatastore(): Promise<Datastore> {
+    private async getDatastore(): Promise<Datastore | undefined> {
         return await this.p2pConfigurations.getDataStore();
     }
 
