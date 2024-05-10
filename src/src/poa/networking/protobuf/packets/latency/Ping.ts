@@ -9,7 +9,7 @@ export interface IPingPacket extends PackedMessage {
     readonly lastPing: Long;
 }
 
-export class Ping extends Packet<IPingPacket, {}, {}> {
+export class Ping extends Packet<IPingPacket, IPingPacket, IPingPacket> {
     public static TYPE: Packets = Packets.Ping;
 
     protected readonly opcode: ServerInBound = ServerInBound.PING;

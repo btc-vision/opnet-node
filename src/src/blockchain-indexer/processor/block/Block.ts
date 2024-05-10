@@ -366,7 +366,7 @@ export class Block extends Logger {
             transaction.receipt = await vmManager.executeTransaction(this.height, transaction);
         } catch (e) {
             const error: Error = e as Error;
-            this.error(`Failed to execute transaction ${transaction.txid}: ${error.stack}`);
+            this.error(`Failed to execute transaction ${transaction.txid}: ${error.message}`);
 
             transaction.revert = error;
         }

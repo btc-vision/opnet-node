@@ -49,6 +49,7 @@
         "bitcoinjs-lib": "github:btc-vision/bitcoinjs-lib",
         "cors": "^2.8.5",
         "crypto": "^1.0.1",
+        "datastore-level": "^10.1.8",
         "eslint-plugin-openapi": "^0.0.4",
         "figlet": "^1.7.0",
         "gulp": "^4.0.2",

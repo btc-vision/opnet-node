@@ -24,12 +24,14 @@ import { uPnPNAT } from '@libp2p/upnp-nat';
 import { webSockets } from '@libp2p/websockets';
 import type { Multiaddr } from '@multiformats/multiaddr';
 import figlet, { Fonts } from 'figlet';
+import type { Datastore } from 'interface-datastore';
 import { lpStream } from 'it-length-prefixed-stream';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { P2PConfigurations } from '../configurations/P2PConfigurations.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { OPNetPeer } from '../peer/OPNetPeer.js';
+import { DisconnectionCode } from './enums/DisconnectionCode.js';
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
@@ -175,6 +177,10 @@ export class P2PManager extends Logger {
         if (!this.blackListedPeerIds.has(peerId.toString())) {
             this.blackListedPeerIds.add(peerId.toString());
         }
+
+        try {
+            this.node?.peerStore.delete(peerId);
+        } catch (e) {}
     }
 
     private getPeers(): Promise<Peer[]> {
@@ -243,12 +249,40 @@ export class P2PManager extends Logger {
         return true;
     }
 
-    private async disconnectPeer(peerId: PeerId): Promise<void> {
+    private async disconnectPeer(
+        peerId: PeerId,
+        code: number = DisconnectionCode.RECONNECT,
+        reason?: string,
+    ): Promise<void> {
         if (this.node === undefined) {
             throw new Error('Node not initialized');
         }
 
+        if (code !== DisconnectionCode.RECONNECT && code !== DisconnectionCode.EXPECTED) {
+            this.blackListPeerId(peerId);
+
+            const peer = await this.node.peerStore.get(peerId);
+            if (peer) {
+                this.blacklistPeerIps(peer);
+            }
+        }
+
         await this.node.hangUp(peerId);
+    }
+
+    private blacklistPeerIps(peer: Peer): void {
+        const address = peer.addresses;
+
+        if (address.length === 0) {
+            return;
+        }
+
+        for (const addr of address) {
+            const ip = addr.toString().split('/')[1];
+            if (ip && !this.blackListedPeerIps.has(ip)) {
+                this.blackListedPeerIps.add(ip);
+            }
+        }
     }
 
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
@@ -381,7 +415,47 @@ export class P2PManager extends Logger {
         return {
             denyInboundUpgradedConnection: this.denyInboundUpgradedConnection.bind(this),
             denyInboundConnection: this.denyInboundConnection.bind(this),
+            denyOutboundConnection: this.denyOutboundConnection.bind(this),
+            denyOutboundUpgradedConnection: this.denyOutboundUpgradedConnection.bind(this),
         };
+    }
+
+    private async denyOutboundUpgradedConnection(
+        peerId: PeerId,
+        _maConn: MultiaddrConnection,
+    ): Promise<boolean> {
+        const id: string = peerId.toString();
+
+        if (this.isBlackListedPeerId(peerId)) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.debug(`[OUT] Peer ${id} is blacklisted. Flushing connection...`);
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private async denyOutboundConnection(
+        peerId: PeerId,
+        _maConn: MultiaddrConnection,
+    ): Promise<boolean> {
+        const id: string = peerId.toString();
+
+        if (this.isBlackListedPeerId(peerId)) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.debug(`[OUT] Peer ${id} is blacklisted. Flushing connection...`);
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private isBlackListedPeerId(peerId: PeerId): boolean {
+        return this.blackListedPeerIds.has(peerId.toString());
     }
 
     private async denyInboundConnection(_maConn: MultiaddrConnection): Promise<boolean> {
@@ -394,7 +468,7 @@ export class P2PManager extends Logger {
     ): Promise<boolean> {
         const id: string = peerId.toString();
 
-        if (this.blackListedPeerIds.has(id)) {
+        if (this.isBlackListedPeerId(peerId)) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.debug(`Peer ${id} is blacklisted. Flushing connection...`);
             }
@@ -403,6 +477,10 @@ export class P2PManager extends Logger {
         }
 
         return false;
+    }
+
+    private async getDatastore(): Promise<Datastore> {
+        return await this.p2pConfigurations.getDataStore();
     }
 
     private async createNode(): Promise<
@@ -419,7 +497,10 @@ export class P2PManager extends Logger {
             peerDiscovery.push(bootstrap(this.p2pConfigurations.bootstrapConfiguration));
         }
 
+        const datastore = await this.getDatastore();
+
         return await createLibp2p({
+            datastore: datastore,
             peerId: peerId,
             transports: [
                 tcp(this.p2pConfigurations.tcpConfiguration),

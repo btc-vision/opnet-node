@@ -9,7 +9,11 @@ export interface IClientKeyCipherExchangePacket extends PackedMessage {
     readonly identity: Uint8Array;
 }
 
-export class ClientKeyCipherExchange extends Packet<IClientKeyCipherExchangePacket, {}, {}> {
+export class ClientKeyCipherExchange extends Packet<
+    IClientKeyCipherExchangePacket,
+    IClientKeyCipherExchangePacket,
+    IClientKeyCipherExchangePacket
+> {
     public static TYPE: Packets = Packets.ClientKeyCipherExchange;
 
     protected opcode: ServerInBound = ServerInBound.CLIENT_CIPHER_EXCHANGE;

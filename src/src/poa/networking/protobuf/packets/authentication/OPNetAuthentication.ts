@@ -5,7 +5,8 @@ import { PackedMessage, Packet } from '../Packet.js';
 
 export interface IAuthenticationPacket extends PackedMessage {
     readonly version: string;
-    readonly clientAuthCipher?: Uint8Array;
+    readonly clientAuthCipher: Uint8Array;
+    readonly trustedChecksum: string;
 }
 
 export class AuthenticationPacket extends Packet<IAuthenticationPacket, {}, {}> {

@@ -3,6 +3,7 @@ import { PeerId } from '@libp2p/interface';
 import { IdentifyResult } from '@libp2p/interface/src';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { ClientPeerNetworkingManager } from '../networking/client/ClientPeerNetworkingManager.js';
+import { DisconnectionCode } from '../networking/enums/DisconnectionCode.js';
 import { ServerPeerNetworkingManager } from '../networking/server/managers/ServerPeerNetworkingManager.js';
 
 export class OPNetPeer extends Logger {
@@ -97,23 +98,16 @@ export class OPNetPeer extends Logger {
         } catch (e) {
             console.log(e);
 
-            await this.destroy();
+            await this.disconnect(DisconnectionCode.BAD_PACKET, 'Bad packet.');
+            await this.destroy(false);
         }
-
-        /*const promises: Promise<boolean>[] = [
-            this.clientNetworkingManager.onMessage(rawBuf),
-            this.serverNetworkingManager.onMessage(rawBuf),
-        ];
-
-        const resp = await Promise.all(promises);
-        const processed = resp[0] || resp[1];
-
-        if(!processed) {
-            this.warn(`[PEER] Unknown opcode: ${opcode}`);
-        }*/
     }
 
-    public disconnectPeer: (peerId: PeerId) => Promise<void> = () => {
+    public disconnectPeer: (
+        peerId: PeerId,
+        code: DisconnectionCode,
+        reason?: string,
+    ) => Promise<void> = () => {
         throw new Error('Method not implemented.');
     };
 
@@ -128,7 +122,7 @@ export class OPNetPeer extends Logger {
         this.isDestroyed = true;
         this.selfIdentity = undefined;
 
-        if (shouldDisconnect) await this.disconnect(1007, 'Goodbye!');
+        if (shouldDisconnect) await this.disconnect(DisconnectionCode.BAD_BEHAVIOR, 'Goodbye!');
         this.clientNetworkingManager.destroy();
 
         delete this._peerIdentity;
@@ -140,11 +134,11 @@ export class OPNetPeer extends Logger {
         await this.sendMsg(this.peerId, data);
     }
 
-    protected async disconnect(code: number, reason?: string): Promise<void> {
+    protected async disconnect(code: DisconnectionCode, reason?: string): Promise<void> {
         if (this.isDestroyed) return;
 
         this.debug(`Disconnecting peer ${this.peerId} with code ${code} and reason ${reason}.`);
-        await this.disconnectPeer(this.peerId);
+        await this.disconnectPeer(this.peerId, code, reason);
     }
 
     private onServerAuthenticationCompleted(): void {}

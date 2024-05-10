@@ -1,9 +1,13 @@
 syntax = "proto3";
 package OPNetProtocolV1;
 
+/*
+  AUTHENTICATION
+*/
 message Authentication {
   string version = 1;
-  optional bytes clientAuthCipher = 2;
+  bytes clientAuthCipher = 2;
+  string trustedChecksum = 3;
 }
 
 enum AuthenticationStatusEnum {
@@ -28,16 +32,44 @@ message ServerKeyCipherExchange {
   bool encryptionEnabled = 3;
 }
 
+/*
+  NETWORKING
+*/
+
 message Ping {
   uint64 timestamp = 1;
   uint64 lastPing = 2;
 }
 
-message Peer {
-  bytes identity = 1;
-  string address = 2;
+/*
+  PEERING
+*/
+
+enum PeerType {
+  ARCHIVE = 0;
+  FULL = 1;
+  LIGHT = 2;
 }
 
-message TransactionRequest {
+message PeerInfo {
+  bytes identity = 1;
+  string opnetVersion = 2;
+  string address = 3;
+  PeerType type = 4;
+}
+
+message DiscoveryResponse {
+  repeated PeerInfo peers = 1;
+}
+
+message Discover {
+  string version = 1;
+  string trustedChecksum = 2;
+}
+
+/*
+  BLOCKCHAIN
+*/
+message Transaction {
   bytes transaction = 1;
 }

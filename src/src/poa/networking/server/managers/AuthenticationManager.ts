@@ -1,4 +1,5 @@
 import { EncryptemServer } from '../../encryptem/EncryptemServer.js';
+import { DisconnectionCode } from '../../enums/DisconnectionCode.js';
 import {
     ClientKeyCipherExchange,
     IClientKeyCipherExchangePacket,
@@ -53,20 +54,18 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
     protected createTimeoutAuth(): void {
         this.timeoutAuth = setTimeout(() => {
-            void this.disconnectPeer(1007, 'Authentication timeout.');
+            void this.disconnectPeer(DisconnectionCode.AUTH_TIMED_OUT, 'Authentication timeout.');
         }, 30000);
     }
 
-    protected onAuthenticated(): void {
+    protected override onAuthenticated(): void {
         if (!this.protocol) {
             throw new Error(`Protocol not found.`);
         }
 
-        this.info(
-            `!!!! ----- Successfully authenticated peer ${this.peerId} with OPNet. Retrieving peer information... ----- !!!!`,
-        );
-
         this.protocol.onAuthenticated();
+
+        super.onAuthenticated();
     }
 
     protected async onPacket(packet: OPNetPacket): Promise<boolean> {
@@ -114,7 +113,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
     private async createFullAuthentication(): Promise<void> {
         if (!this.encryptem) return;
         if (this.encryptionStarted) {
-            await this.disconnectPeer(1007);
+            await this.disconnectPeer(DisconnectionCode.BAD_ENCRYPTION);
             return;
         }
 
@@ -137,7 +136,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (!this.protocol) return;
 
         if (this.encryptionStarted) {
-            await this.disconnectPeer(1007);
+            await this.disconnectPeer(DisconnectionCode.BAD_ENCRYPTION);
             return;
         }
 
@@ -145,7 +144,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         const serverSigningCipher = this.encryptem.getServerSignaturePublicKey();
 
         if (!serverKey || !serverSigningCipher) {
-            await this.disconnectPeer(1007);
+            await this.disconnectPeer(DisconnectionCode.BAD_PACKET);
 
             this.warn(
                 `Failed to send server handshake. Server key or server signing cipher is null.`,
@@ -236,17 +235,11 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         const clientAuthCipherBuffer = unpackedAuthData.clientAuthCipher as Buffer;
         const clientIdentityBuffer = unpackedAuthData.identity as Buffer;
 
-        console.log('auth request', {
-            clientKeyCipherBuffer,
-            clientAuthCipherBuffer,
-            clientIdentityBuffer,
-        });
-
         this.encryptem.setClientPublicKey(clientKeyCipherBuffer);
 
         // sha512
         if (clientIdentityBuffer.byteLength !== 64) {
-            await this.disconnectPeer(1007, 'Invalid peer identity.');
+            await this.disconnectPeer(DisconnectionCode.BAD_IDENTITY, 'Invalid peer identity.');
             return;
         }
 
@@ -289,7 +282,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (!this.encryptem) return;
 
         if (this.passVersionCheck) {
-            await this.disconnectPeer(1007, 'Peer has already passed the version check.');
+            await this.disconnectPeer(DisconnectionCode.BAD_VERSION, 'Peer has already passed the version check.');
             return;
         }
 
@@ -310,7 +303,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (!this.canAcceptVersion(unpackedAuthData.version)) {
             this.warn(`Peer (${this.peerId}) is using an outdated version of OPNet protocol.`);
 
-            await this.disconnectPeer(1004, 'Outdated protocol version.');
+            await this.disconnectPeer(DisconnectionCode.BAD_VERSION, 'Outdated protocol version.');
 
             return;
         }
@@ -324,7 +317,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         }
 
         if (unpackedAuthData.clientAuthCipher.byteLength !== 32) {
-            await this.disconnectPeer(1007, 'Invalid client authentication cipher.');
+            await this.disconnectPeer(DisconnectionCode.BAD_AUTH_CIPHER, 'Invalid client authentication cipher.');
             return;
         }
 

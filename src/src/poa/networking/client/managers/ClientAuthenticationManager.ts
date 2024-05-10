@@ -2,6 +2,7 @@ import Long from 'long';
 import { clearInterval } from 'node:timers';
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { EncryptemClient } from '../../encryptem/EncryptemClient.js';
+import { DisconnectionCode } from '../../enums/DisconnectionCode.js';
 import { IClientKeyCipherExchangePacket } from '../../protobuf/packets/authentication/exchange/ClientKeyCipherExchange.js';
 import {
     IServerKeyCipherExchangePacket,
@@ -67,10 +68,8 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         this.#OPNetAuthKey = null;
         this.#OPNetClientKeyCipher = null;
 
-        await this.disconnectPeer(3000, 'Goodbye.');
+        await this.disconnectPeer(DisconnectionCode.EXPECTED, 'Goodbye.');
     }
-
-    protected abstract onAuthenticated(): void;
 
     protected async onPacket(packet: OPNetPacket): Promise<boolean> {
         const opcode: number = packet.opcode;
@@ -165,16 +164,27 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         const authData: IAuthenticationPacket = {
             version: AuthenticationManager.CURRENT_PROTOCOL_VERSION,
             clientAuthCipher: this.#OPNetAuthKey,
+            trustedChecksum: this.getTrustedChecksum(),
         };
 
-        let packedAuthData = authPacket.pack(authData);
-        await this.sendMsg(packedAuthData);
+        await this.sendMsg(authPacket.pack(authData));
     }
 
     protected destroy(): void {
         super.destroy();
 
         if (this.pingInterval) clearInterval(this.pingInterval);
+    }
+
+    protected override onAuthenticated(): void {
+        if (!this.protocol) {
+            throw new Error(`Protocol not found.`);
+        }
+
+        this.protocol.onAuthenticated();
+        this.startPingInterval();
+
+        super.onAuthenticated();
     }
 
     private async setupKey(uint8Key: Uint8Array): Promise<void> {
@@ -282,8 +292,6 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         );
 
         this.encryptionStarted = true;
-
-        this.startPingInterval();
         this.onAuthenticated();
     }
 

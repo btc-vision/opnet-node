@@ -2,9 +2,12 @@ import { ClientKeyCipherExchange } from '../../protobuf/packets/authentication/e
 import { ServerKeyCipherExchange } from '../../protobuf/packets/authentication/exchange/ServerKeyCipherExchange.js';
 import { AuthenticationPacket } from '../../protobuf/packets/authentication/OPNetAuthentication.js';
 import { AuthenticationStatus } from '../../protobuf/packets/authentication/status/AuthentificationStatus.js';
+import { TransactionPacket } from '../../protobuf/packets/blockchain/TransactionPacket.js';
 import { Ping } from '../../protobuf/packets/latency/Ping.js';
 import { Pong } from '../../protobuf/packets/latency/Pong.js';
 import { PackedMessage, Packet } from '../../protobuf/packets/Packet.js';
+import { DiscoverPacket } from '../../protobuf/packets/peering/DiscoveryPacket.js';
+import { DiscoveryResponsePacket } from '../../protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { Packets } from '../../protobuf/types/enums/Packets.js';
 import {
     CommonPackets,
@@ -29,6 +32,9 @@ export class OPNetProtocolV1 {
     public onAuthenticated(): void {
         this.opnetProtocol = {
             ...this.commonProtocol(),
+            [ServerInBound.DISCOVER]: this.handleDiscoveryPacket,
+            [ServerOutBound.DISCOVERY_RESPONSE]: this.handleDiscoveryResponsePacket,
+            [CommonPackets.TRANSACTION]: this.handleTransactionPacket,
         };
     }
 
@@ -55,6 +61,18 @@ export class OPNetProtocolV1 {
         }
 
         return packetHandler() as Packet<T, PackedMessage, PackedMessage>;
+    }
+
+    private handleDiscoveryResponsePacket(): DiscoveryResponsePacket {
+        return PacketManager.getPacketBuilder(Packets.DiscoveryResponse) as DiscoveryResponsePacket;
+    }
+
+    private handleTransactionPacket(): TransactionPacket {
+        return PacketManager.getPacketBuilder(Packets.Transaction) as TransactionPacket;
+    }
+
+    private handleDiscoveryPacket(): DiscoverPacket {
+        return PacketManager.getPacketBuilder(Packets.Discover) as DiscoverPacket;
     }
 
     private handleAuthenticationPacket(): AuthenticationPacket {

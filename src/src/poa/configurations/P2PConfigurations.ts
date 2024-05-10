@@ -12,6 +12,7 @@ import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { TCPOptions } from '@libp2p/tcp';
 import { UPnPNATInit } from '@libp2p/upnp-nat';
 import { WebSocketsInit } from '@libp2p/websockets';
+import { LevelDatastore } from 'datastore-level';
 import fs from 'fs';
 import { AddressManagerInit } from 'libp2p/address-manager/index.js';
 import { ConnectionManagerInit } from 'libp2p/connection-manager/index.js';
@@ -247,6 +248,31 @@ export class P2PConfigurations extends OPNetPathFinder {
         fs.writeFileSync(this.peerFilePath(), encrypted, 'binary');
     }
 
+    public async getDataStore(): Promise<LevelDatastore | undefined> {
+        const levelDbStore = this.getDataStorePath();
+        this.createDirIfNotExists(levelDbStore);
+
+        const dataStore = new LevelDatastore(levelDbStore);
+
+        try {
+            await dataStore.open();
+        } catch (e) {
+            console.log(`Failed to open data store: ${(e as Error).stack}`);
+
+            return undefined;
+        }
+
+        return dataStore;
+    }
+
+    private createDirIfNotExists(dir: string): void {
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, {
+                recursive: true,
+            });
+        }
+    }
+
     private loadPeer(): BackedUpPeer | undefined {
         try {
             const lastPeerIdentity = fs.readFileSync(this.peerFilePath());
@@ -263,6 +289,10 @@ export class P2PConfigurations extends OPNetPathFinder {
         }
 
         return;
+    }
+
+    private getDataStorePath(): string {
+        return path.join(this.getBinPath(), 'datastore');
     }
 
     private peerFilePath(): string {

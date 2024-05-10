@@ -1,12 +1,8 @@
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
-import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { AuthenticationManager } from './AuthenticationManager.js';
 import { ServerPeerManager } from './ServerPeerManager.js';
 
 export class ServerPeerNetworkingManager extends AuthenticationManager {
-    private destroyed: boolean = false;
-    private peerManager: ServerPeerManager | undefined;
-
     constructor(
         protected readonly peerId: string,
         private readonly selfIdentity: OPNetIdentity | undefined,
@@ -17,36 +13,13 @@ export class ServerPeerNetworkingManager extends AuthenticationManager {
         this.createTimeoutAuth();
     }
 
+    public getTrustedChecksum(): string {
+        throw new Error('getTrustedChecksum not implemented.');
+    }
+
     public onServerAuthenticationCompleted: () => void = () => {
         throw new Error('onAuthenticationCompleted not implemented.');
     };
-
-    /**
-     * On message handler.
-     * @public
-     */
-    public async onMessage(rawBuf: Uint8Array): Promise<boolean> {
-        const raw: Uint8Array = this.decrypt(rawBuf);
-
-        const opcode: number = raw[0];
-        const packet: OPNetPacket = {
-            opcode: opcode,
-            packet: Buffer.from(raw.slice(1)),
-        };
-
-        const managed: boolean = await this.onPacket(packet);
-        if (!managed) {
-            if (this.peerManager) {
-                const processed: boolean = await this.peerManager.onPacket(packet);
-
-                if (processed) {
-                    return true;
-                }
-            }
-        }
-
-        return managed;
-    }
 
     /**
      * Destroy handler.
@@ -60,13 +33,15 @@ export class ServerPeerNetworkingManager extends AuthenticationManager {
         super.destroy();
     }
 
-    protected onAuthenticated(): void {
-        this.createSession();
+    protected createSession(): void {
+        const peerManager: ServerPeerManager = new ServerPeerManager(
+            this.protocol,
+            this.peerId,
+            this.selfIdentity,
+        );
+
+        this.networkHandlers.push(peerManager);
 
         this.onServerAuthenticationCompleted();
-    }
-
-    private createSession(): void {
-        this.peerManager = new ServerPeerManager(this.peerId, this.selfIdentity);
     }
 }

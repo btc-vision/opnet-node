@@ -9,7 +9,7 @@ export interface IPongPacket extends PackedMessage {
     readonly lastPing: Long;
 }
 
-export class Pong extends Packet<IPongPacket, {}, {}> {
+export class Pong extends Packet<IPongPacket, IPongPacket, IPongPacket> {
     public static TYPE: Packets = Packets.Ping;
 
     protected readonly opcode: CommonPackets = CommonPackets.PONG;

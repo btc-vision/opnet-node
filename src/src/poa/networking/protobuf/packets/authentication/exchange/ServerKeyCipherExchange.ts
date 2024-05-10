@@ -9,7 +9,11 @@ export interface IServerKeyCipherExchangePacket extends PackedMessage {
     encryptionEnabled: boolean;
 }
 
-export class ServerKeyCipherExchange extends Packet<IServerKeyCipherExchangePacket, {}, {}> {
+export class ServerKeyCipherExchange extends Packet<
+    IServerKeyCipherExchangePacket,
+    IServerKeyCipherExchangePacket,
+    IServerKeyCipherExchangePacket
+> {
     public static TYPE: Packets = Packets.ServerKeyCipherExchange;
 
     protected opcode: ServerOutBound = ServerOutBound.SERVER_CIPHER_EXCHANGE;

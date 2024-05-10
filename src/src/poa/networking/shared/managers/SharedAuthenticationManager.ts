@@ -1,3 +1,4 @@
+import { AbstractPacketManager } from '../../default/AbstractPacketManager.js';
 import { EncryptemClient } from '../../encryptem/EncryptemClient.js';
 import { EncryptemServer } from '../../encryptem/EncryptemServer.js';
 import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
@@ -6,7 +7,12 @@ import { PeerNetworkingManager } from '../PeerNetworkingManager.js';
 
 export abstract class SharedAuthenticationManager extends PeerNetworkingManager {
     public static readonly CURRENT_PROTOCOL_VERSION: string = '1.0.0';
+
     protected encryptionStarted: boolean = false;
+    protected destroyed: boolean = false;
+    protected networkHandlers: AbstractPacketManager[] = [];
+
+    protected isAuthenticated: boolean = false;
 
     protected abstract _encryptem: EncryptemServer | EncryptemClient | undefined;
 
@@ -24,6 +30,8 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
         return this._protocol;
     }
 
+    public abstract getTrustedChecksum(): string;
+
     public decrypt(_raw: Uint8Array): Uint8Array {
         let raw: Uint8Array | null = _raw;
         if (this.encryptionStarted && this._encryptem) {
@@ -36,6 +44,34 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
         }
 
         return raw;
+    }
+
+    /**
+     * On message handler.
+     * @public
+     */
+    public async onMessage(rawBuf: Uint8Array): Promise<boolean> {
+        if (this.destroyed) return false;
+
+        const raw: Uint8Array = this.decrypt(rawBuf);
+
+        const opcode: number = raw[0];
+        const packet: OPNetPacket = {
+            opcode: opcode,
+            packet: Buffer.from(raw.slice(1)),
+        };
+
+        const managed: boolean = await this.onPacket(packet);
+        if (!managed && this.isAuthenticated) {
+            for (const handler of this.networkHandlers) {
+                const processed: boolean = await handler.onPacket(packet);
+
+                if (processed) {
+                    return true;
+                }
+            }
+        }
+        return managed;
     }
 
     protected async sendMsg(buffer: Buffer | Uint8Array): Promise<void> {
@@ -61,6 +97,22 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
 
     protected abstract onPacket(packet: OPNetPacket): Promise<boolean>;
 
+    protected onAuthenticated(): void {
+        this.isAuthenticated = true;
+
+        this.createSession();
+    }
+
+    protected abstract createSession(): void;
+
+    private destroyNetworkHandlers(): void {
+        for (const handler of this.networkHandlers) {
+            handler.destroy();
+        }
+
+        this.networkHandlers = [];
+    }
+
     protected destroy(): void {
         if (this._encryptem) {
             this._encryptem.destroy();
@@ -74,6 +126,6 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
             delete this._protocol;
         }
 
-        this.log(`Finishing cleaning up peer...`);
+        this.destroyNetworkHandlers();
     }
 }

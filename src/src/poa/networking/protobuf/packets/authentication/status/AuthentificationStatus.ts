@@ -10,7 +10,11 @@ export interface IAuthenticationStatusPacket extends PackedMessage {
     message: string;
 }
 
-export class AuthenticationStatus extends Packet<IAuthenticationStatusPacket, {}, {}> {
+export class AuthenticationStatus extends Packet<
+    IAuthenticationStatusPacket,
+    IAuthenticationStatusPacket,
+    IAuthenticationStatusPacket
+> {
     public static TYPE: Packets = Packets.AuthenticationStatus;
 
     protected opcode: ServerOutBound = ServerOutBound.AUTHENTICATION_STATUS;
