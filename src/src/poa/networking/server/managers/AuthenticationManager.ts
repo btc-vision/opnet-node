@@ -282,7 +282,10 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (!this.encryptem) return;
 
         if (this.passVersionCheck) {
-            await this.disconnectPeer(DisconnectionCode.BAD_VERSION, 'Peer has already passed the version check.');
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_VERSION,
+                'Peer has already passed the version check.',
+            );
             return;
         }
 
@@ -308,6 +311,8 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return;
         }
 
+        console.log(unpackedAuthData);
+
         this.log(`Peer (${this.peerId}) is using the latest version of the OPNet Protocol.`);
         if (!(unpackedAuthData.clientAuthCipher && unpackedAuthData.clientAuthCipher.length > 0)) {
             this.warn(`Peer (${this.peerId}) sent an invalid client authentication cipher.`);
@@ -317,7 +322,10 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         }
 
         if (unpackedAuthData.clientAuthCipher.byteLength !== 32) {
-            await this.disconnectPeer(DisconnectionCode.BAD_AUTH_CIPHER, 'Invalid client authentication cipher.');
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_AUTH_CIPHER,
+                'Invalid client authentication cipher.',
+            );
             return;
         }
 

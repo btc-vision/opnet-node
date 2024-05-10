@@ -36,7 +36,10 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
                 `Failed to authenticate with peer ${this.peerId}. Problem during login. ${e}`,
             );
 
-            await this.disconnectPeer(DisconnectionCode.UNABLE_TO_AUTHENTICATE, 'Failed to authenticate with peer.');
+            await this.disconnectPeer(
+                DisconnectionCode.UNABLE_TO_AUTHENTICATE,
+                'Failed to authenticate with peer.',
+            );
         }
     }
 
@@ -56,10 +59,6 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
         delete this._peerManager;
     }
 
-    public getTrustedChecksum(): string {
-        throw new Error('getTrustedChecksum not implemented.');
-    }
-
     public onPeersDiscovered: () => Promise<void> = () => {
         throw new Error('onPeersDiscovered not implemented.');
     };
@@ -76,7 +75,7 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
 
     private createPeerManager(): ClientPeerManager {
         const peerManager = new ClientPeerManager(this.protocol, this.peerId, this.selfIdentity);
-        peerManager.getTrustedChecksum = this.getTrustedChecksum.bind(this);
+        peerManager.getTrustedChecksum = this.trustedChecksum.bind(this);
 
         peerManager.on(CommonHandlers.SEND, this.sendMsg.bind(this));
         peerManager.on(PeerHandlerEvents.PEERS_DISCOVERED, this.onPeersDiscovered.bind(this));

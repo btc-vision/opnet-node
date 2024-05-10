@@ -164,7 +164,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         const authData: IAuthenticationPacket = {
             version: AuthenticationManager.CURRENT_PROTOCOL_VERSION,
             clientAuthCipher: this.#OPNetAuthKey,
-            trustedChecksum: this.getTrustedChecksum(),
+            trustedChecksum: this.trustedChecksum(),
         };
 
         await this.sendMsg(authPacket.pack(authData));

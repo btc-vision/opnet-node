@@ -13,10 +13,6 @@ export class ServerPeerNetworkingManager extends AuthenticationManager {
         this.createTimeoutAuth();
     }
 
-    public getTrustedChecksum(): string {
-        throw new Error('getTrustedChecksum not implemented.');
-    }
-
     public onServerAuthenticationCompleted: () => void = () => {
         throw new Error('onAuthenticationCompleted not implemented.');
     };

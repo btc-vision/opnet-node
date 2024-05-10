@@ -1,3 +1,4 @@
+import { P2PVersion, TRUSTED_CHECKSUM } from '../../../configurations/P2PVersion.js';
 import { AbstractPacketManager } from '../../default/AbstractPacketManager.js';
 import { EncryptemClient } from '../../encryptem/EncryptemClient.js';
 import { EncryptemServer } from '../../encryptem/EncryptemServer.js';
@@ -30,7 +31,14 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
         return this._protocol;
     }
 
-    public abstract getTrustedChecksum(): string;
+    public trustedChecksum(): string {
+        const checksum = TRUSTED_CHECKSUM[P2PVersion];
+        if (!checksum) {
+            throw new Error('Trusted checksum not found.');
+        }
+
+        return checksum;
+    }
 
     public decrypt(_raw: Uint8Array): Uint8Array {
         let raw: Uint8Array | null = _raw;
