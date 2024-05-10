@@ -252,7 +252,7 @@ export class P2PManager extends Logger {
     private async disconnectPeer(
         peerId: PeerId,
         code: number = DisconnectionCode.RECONNECT,
-        reason?: string,
+        _reason?: string,
     ): Promise<void> {
         if (this.node === undefined) {
             throw new Error('Node not initialized');
@@ -269,7 +269,7 @@ export class P2PManager extends Logger {
             } catch (e) {}
         }
 
-        await this.node.hangUp(peerId);
+        await this.node.hangUp(peerId).catch(() => {});
     }
 
     private blacklistPeerIps(peer: Peer): void {
@@ -335,11 +335,17 @@ export class P2PManager extends Logger {
                 void this.onPeerMessage(peerId, data);
 
                 // Acknowledge the message
-                await lp.write(new Uint8Array([0x01]));
+                await lp.write(new Uint8Array([0x01])).catch(() => {});
             } catch (e) {
                 if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                     this.debug('Error while handling incoming stream', (e as Error).stack);
                 }
+
+                await this.disconnectPeer(
+                    peerId,
+                    DisconnectionCode.BAD_PEER,
+                    'Error while handling incoming stream',
+                );
             }
 
             // Close the stream
