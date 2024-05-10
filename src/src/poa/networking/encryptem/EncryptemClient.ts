@@ -75,6 +75,8 @@ export class EncryptemClient extends Logger {
 
         this.#serverSignaturePublicKey = null;
 
+        console.log(keys, signatureSeededKeyPairs);
+
         return !(
             keys.privateKey.length !== 32 ||
             keys.publicKey.length !== 32 ||
@@ -123,9 +125,9 @@ export class EncryptemClient extends Logger {
             this.#clientSecretKey &&
             this.#serverSignaturePublicKey
         ) {
-            let auth = Buffer.from(msg.subarray(0, this.sodium.crypto_auth_BYTES));
-            let signature = Buffer.from(msg.subarray(auth.length, auth.length + 64));
-            let data = Buffer.from(msg.subarray(auth.length + 64, msg.length));
+            let auth = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
+            let signature = Buffer.from(msg.slice(auth.length, auth.length + 64));
+            let data = Buffer.from(msg.slice(auth.length + 64, msg.length));
 
             try {
                 let decryptedBuffer = this.#decrypt(
@@ -232,8 +234,8 @@ export class EncryptemClient extends Logger {
             throw new Error('Short message');
         }
 
-        const nonce: Buffer = msg.subarray(0, this.sodium.crypto_box_NONCEBYTES);
-        const cipher: Buffer = msg.subarray(this.sodium.crypto_box_NONCEBYTES);
+        const nonce: Buffer = msg.slice(0, this.sodium.crypto_box_NONCEBYTES);
+        const cipher: Buffer = msg.slice(this.sodium.crypto_box_NONCEBYTES);
 
         const decryptedMessage = this.sodium.sodium_malloc(
             cipher.length - this.sodium.crypto_box_MACBYTES,
@@ -312,8 +314,8 @@ export class EncryptemClient extends Logger {
         publicKey: Buffer;
         privateKey: Buffer;
     }> {
-        const privateKey = authKey.subarray(0, 64);
-        const publicKey = authKey.subarray(64, 96);
+        const privateKey = authKey.slice(0, 64);
+        const publicKey = authKey.slice(64, 96);
 
         return {
             publicKey: Buffer.from(publicKey.buffer),

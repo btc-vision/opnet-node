@@ -143,9 +143,9 @@ export class EncryptemServer extends Logger {
             this.#serverPrivateKey &&
             this.#clientSignaturePublicKey
         ) {
-            const auth = Buffer.from(msg.subarray(0, this.sodium.crypto_auth_BYTES));
-            const signature = Buffer.from(msg.subarray(auth.length, auth.length + 64));
-            const data = Buffer.from(msg.subarray(auth.length + 64, msg.length));
+            const auth = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
+            const signature = Buffer.from(msg.slice(auth.length, auth.length + 64));
+            const data = Buffer.from(msg.slice(auth.length + 64, msg.length));
 
             try {
                 const decryptedBuffer = this.#decrypt(
@@ -234,8 +234,8 @@ export class EncryptemServer extends Logger {
             throw 'Invalid signature';
         }
 
-        const nonce = msg.subarray(0, this.sodium.crypto_box_NONCEBYTES);
-        const cipher = msg.subarray(this.sodium.crypto_box_NONCEBYTES);
+        const nonce = msg.slice(0, this.sodium.crypto_box_NONCEBYTES);
+        const cipher = msg.slice(this.sodium.crypto_box_NONCEBYTES);
 
         const decryptedMessage = this.sodium.sodium_malloc(
             cipher.length - this.sodium.crypto_box_MACBYTES,
