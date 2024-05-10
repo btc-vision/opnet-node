@@ -27,7 +27,6 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
     ): Promise<void> {
         switch (msg.type) {
             default: {
-                console.log(msg);
                 throw new Error('Unknown message type.');
             }
         }

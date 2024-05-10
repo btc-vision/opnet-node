@@ -75,8 +75,6 @@ export class EncryptemClient extends Logger {
 
         this.#serverSignaturePublicKey = null;
 
-        console.log(keys, signatureSeededKeyPairs);
-
         return !(
             keys.privateKey.length !== 32 ||
             keys.publicKey.length !== 32 ||
