@@ -19,6 +19,7 @@ import { KadDHT, kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
 import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';
 import { mplex } from '@libp2p/mplex';
+import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { tcp } from '@libp2p/tcp';
 import { uPnPNAT } from '@libp2p/upnp-nat';
 import { webSockets } from '@libp2p/websockets';
@@ -139,7 +140,7 @@ export class P2PManager extends Logger {
         if (!this.allowConnection(peerId, agent, version)) {
             this.warn(`Dropping connection to peer: ${peerIdStr} due to agent or version mismatch`);
 
-            this.blackListPeerId(peerId);
+            await this.blackListPeerId(peerId);
             return await this.disconnectPeer(peerId);
         }
 
@@ -173,13 +174,19 @@ export class P2PManager extends Logger {
         await peer.authenticate();
     }
 
-    private blackListPeerId(peerId: PeerId): void {
+    private async blackListPeerId(peerId: PeerId): Promise<void> {
         if (!this.blackListedPeerIds.has(peerId.toString())) {
             this.blackListedPeerIds.add(peerId.toString());
         }
 
         try {
-            this.node?.peerStore.delete(peerId);
+            if (this.node) {
+                const hasPeer = await this.node?.peerStore.has(peerId);
+
+                if (hasPeer) {
+                    await this.node.peerStore.delete(peerId);
+                }
+            }
         } catch (e) {}
     }
 
@@ -259,7 +266,7 @@ export class P2PManager extends Logger {
         }
 
         if (code !== DisconnectionCode.RECONNECT && code !== DisconnectionCode.EXPECTED) {
-            this.blackListPeerId(peerId);
+            await this.blackListPeerId(peerId);
 
             try {
                 const peer = await this.node.peerStore.get(peerId);
@@ -280,7 +287,7 @@ export class P2PManager extends Logger {
         }
 
         for (const addr of address) {
-            const ip = addr.toString().split('/')[1];
+            const ip = addr.multiaddr.nodeAddress().address;
             if (ip && !this.blackListedPeerIps.has(ip)) {
                 this.blackListedPeerIps.add(ip);
             }
@@ -497,6 +504,20 @@ export class P2PManager extends Logger {
         return await this.p2pConfigurations.getDataStore();
     }
 
+    private peerStoreConfigurations(): PersistentPeerStoreInit {
+        const baseConfigs = this.p2pConfigurations.peerStoreConfiguration;
+        baseConfigs.addressFilter = this.addressFilter.bind(this);
+
+        return baseConfigs;
+    }
+
+    private async addressFilter(peerId: PeerId, multiaddr: Multiaddr): Promise<boolean> {
+        const peerIdStr: string = peerId.toString();
+        const ip: string = multiaddr.nodeAddress().address;
+
+        return !(this.blackListedPeerIds.has(peerIdStr) || this.blackListedPeerIps.has(ip));
+    }
+
     private async createNode(): Promise<
         Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }>
     > {
@@ -530,7 +551,7 @@ export class P2PManager extends Logger {
             peerDiscovery: peerDiscovery,
             nodeInfo: this.p2pConfigurations.nodeConfigurations,
             connectionManager: this.p2pConfigurations.connectionManagerConfiguration,
-            peerStore: this.p2pConfigurations.peerStoreConfiguration,
+            peerStore: this.peerStoreConfigurations(),
             transportManager: this.p2pConfigurations.transportManagerConfiguration,
             services: {
                 nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),
