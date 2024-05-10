@@ -5,6 +5,6 @@
  */
 export const P2PVersion = '0.0.1';
 
-export const TRUSTED_CHECKSUM = {
+export const TRUSTED_CHECKSUM: { [key: string]: string } = {
     '0.0.1': '0x00000000',
 };

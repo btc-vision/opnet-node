@@ -1,3 +1,4 @@
+import { TRUSTED_CHECKSUM } from '../../../configurations/P2PVersion.js';
 import { EncryptemServer } from '../../encryptem/EncryptemServer.js';
 import { DisconnectionCode } from '../../enums/DisconnectionCode.js';
 import {
@@ -251,7 +252,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
     }
 
     /** If the peer is using an outdated version of the protocol, we must compare to check if we can accept the version. */
-    private canAcceptVersion(peerVersion: string): boolean {
+    private mayAcceptVersion(peerVersion: string): boolean {
         /** We must compare minor, major and patch versions. */
 
         const peerVersionSplit = peerVersion.split('.');
@@ -275,6 +276,15 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         this.passVersionCheck = true;
 
         await this.createFullAuthentication();
+    }
+
+    private mayAcceptTrustedChecksum(peerVersion: string, trustedChecksum: string): boolean {
+        const requestedVersionChecksum: string = TRUSTED_CHECKSUM[peerVersion];
+        if (!requestedVersionChecksum) {
+            return false;
+        }
+
+        return requestedVersionChecksum !== trustedChecksum;
     }
 
     private async onAuthenticationMessage(packet: OPNetPacket): Promise<void> {
@@ -303,7 +313,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return;
         }
 
-        if (!this.canAcceptVersion(unpackedAuthData.version)) {
+        if (!this.mayAcceptVersion(unpackedAuthData.version)) {
             this.warn(`Peer (${this.peerId}) is using an outdated version of OPNet protocol.`);
 
             await this.disconnectPeer(DisconnectionCode.BAD_VERSION, 'Outdated protocol version.');
@@ -311,7 +321,19 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return;
         }
 
-        console.log(unpackedAuthData);
+        if (
+            this.mayAcceptTrustedChecksum(
+                unpackedAuthData.version,
+                unpackedAuthData.trustedChecksum,
+            )
+        ) {
+            this.warn(`Peer (${this.peerId}) has an invalid trusted checksum.`);
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_TRUSTED_CHECKSUM,
+                'Invalid trusted checksum.',
+            );
+            return;
+        }
 
         this.log(`Peer (${this.peerId}) is using the latest version of the OPNet Protocol.`);
         if (!(unpackedAuthData.clientAuthCipher && unpackedAuthData.clientAuthCipher.length > 0)) {
