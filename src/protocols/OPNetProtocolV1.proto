@@ -99,7 +99,7 @@ message OPNetBlockWitness {
 }
 
 message ChecksumProof {
-  repeated string proofs = 1;
+  repeated string proof = 1;
 }
 
 message BlockHeaderWitness {
