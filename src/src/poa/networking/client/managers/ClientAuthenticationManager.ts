@@ -29,7 +29,6 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     protected readonly peerId: string;
 
     protected _encryptem: EncryptemClient = new EncryptemClient();
-    protected selfIdentity: OPNetIdentity | undefined;
 
     private pingInterval: NodeJS.Timeout | null = null;
 
@@ -42,9 +41,8 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     #connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED;
 
     protected constructor(selfIdentity: OPNetIdentity | undefined, peerId: string) {
-        super();
+        super(selfIdentity);
 
-        this.selfIdentity = selfIdentity;
         this.peerId = peerId;
     }
 
@@ -97,7 +95,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         return true;
     }
 
-    protected async buildKeyCipherExchangeClientPacket(): Promise<void> {
+    protected async buildKeyCipherExchangeClientPacket(challenge: Uint8Array): Promise<void> {
         if (!this.selfIdentity) {
             throw new Error('Self identity not found.');
         }
@@ -114,10 +112,12 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
             return;
         }
 
+        const challengeResponse: Buffer = this.selfIdentity.identityChallenge(challenge);
         const keyCipherExchangeData: IClientKeyCipherExchangePacket = {
             clientKeyCipher: this.#OPNetClientKeyCipher,
             clientAuthCipher: this.#OPNetAuthKey,
             identity: this.selfIdentity.opnetAddressAsBuffer,
+            challenge: challengeResponse,
         };
 
         const packedKeyCipherExchangeData = keyCipherExchangePacket.pack(keyCipherExchangeData);
@@ -324,8 +324,11 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
             return;
         }
 
-        if (unpackedAuthData.status === OPNetAuthenticationStatus.SUCCESS) {
-            await this.buildKeyCipherExchangeClientPacket();
+        if (
+            unpackedAuthData.status === OPNetAuthenticationStatus.SUCCESS &&
+            unpackedAuthData.challenge
+        ) {
+            await this.buildKeyCipherExchangeClientPacket(unpackedAuthData.challenge);
             this.success(`Successfully authenticated with ${this.peerId}.`);
 
             this.connectionStatus = ConnectionStatus.AUTHENTICATION_SUCCESS;

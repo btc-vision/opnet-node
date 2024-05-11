@@ -6,8 +6,10 @@ import { ServerOutBound } from '../../../types/messages/OPNetMessages.js';
 import { PackedMessage, Packet } from '../../Packet.js';
 
 export interface IAuthenticationStatusPacket extends PackedMessage {
-    status: OPNetAuthenticationStatus;
-    message: string;
+    readonly status: OPNetAuthenticationStatus;
+    readonly message: string;
+
+    readonly challenge?: Uint8Array;
 }
 
 export class AuthenticationStatus extends Packet<

@@ -7,6 +7,7 @@ export interface IClientKeyCipherExchangePacket extends PackedMessage {
     readonly clientKeyCipher: Uint8Array;
     readonly clientAuthCipher: Uint8Array;
     readonly identity: Uint8Array;
+    readonly challenge: Uint8Array;
 }
 
 export class ClientKeyCipherExchange extends Packet<

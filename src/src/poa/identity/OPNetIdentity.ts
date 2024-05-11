@@ -26,6 +26,8 @@ export class OPNetIdentity extends OPNetPathFinder {
 
         this.opnetAuthKeyBin = this.loadOPNetAuthKeys();
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
+
+        console.log(this.keyPair);
     }
 
     public get peerType(): number {
@@ -79,11 +81,15 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public get opnetAddress(): string {
-        return '0x' + this.keyPair.identity.toString('hex');
+        return '0x' + this.keyPair.identity.hash.toString('hex');
     }
 
     public get opnetAddressAsBuffer(): Buffer {
-        return this.keyPair.identity;
+        return this.keyPair.identity.hash;
+    }
+
+    public get identityProof(): Buffer {
+        return this.keyPair.identity.proof;
     }
 
     public get opnetCertificate(): string {
@@ -109,6 +115,10 @@ export class OPNetIdentity extends OPNetPathFinder {
             default:
                 throw new Error('Invalid network');
         }
+    }
+
+    public identityChallenge(salt: Buffer | Uint8Array): Buffer {
+        return this.keyPairGenerator.hashChallenge(this.keyPair, salt);
     }
 
     private getOPNetAuthKeysPath(): string {
@@ -191,15 +201,18 @@ export class OPNetIdentity extends OPNetPathFinder {
         const privateKey = buf.slice(0, 64);
         const publicKey = buf.slice(64, 96);
 
-        const identity = buf.slice(96, 160);
-        const rsaKey = Buffer.from(buf.slice(160));
+        const identity = buf.slice(96, 224);
+        const rsaKey = Buffer.from(buf.slice(224));
 
         const regeneratedRsa = JSON.parse(rsaKey.toString('utf-8'));
 
         return {
             privateKey: Buffer.from(privateKey),
             publicKey: Buffer.from(publicKey),
-            identity: Buffer.from(identity),
+            identity: {
+                hash: Buffer.from(identity.slice(0, 64)),
+                proof: Buffer.from(identity.slice(64)),
+            },
             rsa: {
                 privateKey: regeneratedRsa.privateKey,
                 publicKey: regeneratedRsa.publicKey,
@@ -208,9 +221,15 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     private generateDefaultOPNetAuthKeys(): Buffer {
-        const keyPair = this.keyPairGenerator.generateKey(this.opnetWallet.publicKey);
+        const keyPair = this.keyPairGenerator.generateKey();
         const rsaBuffer = Buffer.from(JSON.stringify(keyPair.rsa), `utf-8`);
 
-        return Buffer.concat([keyPair.privateKey, keyPair.publicKey, keyPair.identity, rsaBuffer]);
+        return Buffer.concat([
+            keyPair.privateKey, // 64 bytes
+            keyPair.publicKey, // 32 bytes
+            keyPair.identity.hash, // 64 bytes
+            keyPair.identity.proof, // 64 bytes
+            rsaBuffer, // variable
+        ]);
     }
 }

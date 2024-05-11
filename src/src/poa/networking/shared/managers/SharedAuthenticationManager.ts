@@ -1,4 +1,5 @@
 import { P2PVersion, TRUSTED_CHECKSUM } from '../../../configurations/P2PVersion.js';
+import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../../default/AbstractPacketManager.js';
 import { EncryptemClient } from '../../encryptem/EncryptemClient.js';
 import { EncryptemServer } from '../../encryptem/EncryptemServer.js';
@@ -17,7 +18,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
 
     protected abstract _encryptem: EncryptemServer | EncryptemClient | undefined;
 
-    protected constructor() {
+    protected constructor(protected selfIdentity: OPNetIdentity | undefined) {
         super();
     }
 

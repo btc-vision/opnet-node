@@ -39,12 +39,14 @@ enum AuthenticationStatusEnum {
 message AuthenticationStatus {
   AuthenticationStatusEnum status = 1;
   string message = 2;
+  optional bytes challenge = 3;
 }
 
 message ClientKeyCipherExchange {
   bytes clientKeyCipher = 1;
   bytes clientAuthCipher = 2;
   bytes identity = 3;
+  bytes challenge = 4;
 }
 
 message ServerKeyCipherExchange {

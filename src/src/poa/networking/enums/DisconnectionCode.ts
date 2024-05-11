@@ -15,5 +15,8 @@ export enum DisconnectionCode {
     UNABLE_TO_AUTHENTICATE = 12,
     BAD_TRUSTED_CHECKSUM = 13,
 
+    BAD_NETWORK = 14,
+    BAD_CHAIN_ID = 15,
+
     EXPECTED = 1000,
 }

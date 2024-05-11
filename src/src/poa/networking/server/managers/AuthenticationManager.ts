@@ -1,5 +1,6 @@
 import { ChainIds } from '../../../../config/enums/ChainIds.js';
 import { TRUSTED_CHECKSUM } from '../../../configurations/P2PVersion.js';
+import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { EncryptemServer } from '../../encryptem/EncryptemServer.js';
 import { DisconnectionCode } from '../../enums/DisconnectionCode.js';
 import {
@@ -27,6 +28,8 @@ import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { SharedAuthenticationManager } from '../../shared/managers/SharedAuthenticationManager.js';
 
 export abstract class AuthenticationManager extends SharedAuthenticationManager {
+    private static readonly VERIFY_NETWORK: boolean = true;
+
     public clientVersion: string | undefined;
     public clientChecksum: string | undefined;
 
@@ -39,6 +42,11 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
     private passVersionCheck: boolean = false;
     private timeoutAuth: NodeJS.Timeout | null = null;
+    private identityChallenge: Uint8Array | Buffer | undefined;
+
+    protected constructor(selfIdentity: OPNetIdentity | undefined) {
+        super(selfIdentity);
+    }
 
     private _clientIdentity: string | undefined;
 
@@ -127,9 +135,12 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
         await this.encryptem.generateServerCipherKeyPair();
 
+        this.generateChallenge();
+
         const statusMessage: IAuthenticationStatusPacket = {
             status: OPNetAuthenticationStatus.SUCCESS,
             message: 'Pre auth valid.',
+            challenge: this.identityChallenge,
         };
 
         await this.sendAuthenticationStatusPacket(statusMessage);
@@ -137,6 +148,15 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (this.timeoutAuth) {
             clearTimeout(this.timeoutAuth);
         }
+    }
+
+    private generateChallenge(): void {
+        if (this.identityChallenge) {
+            throw new Error(`Challenge already set.`);
+        }
+
+        const challenge = crypto.getRandomValues(new Uint8Array(128));
+        this.identityChallenge = Buffer.from(challenge);
     }
 
     private async sendServerHandshake(): Promise<void> {
@@ -242,6 +262,9 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         const clientKeyCipherBuffer = unpackedAuthData.clientKeyCipher as Buffer;
         const clientAuthCipherBuffer = unpackedAuthData.clientAuthCipher as Buffer;
         const clientIdentityBuffer = unpackedAuthData.identity as Buffer;
+        const challengeResponse = unpackedAuthData.challenge;
+
+        console.log('challengeResponse', challengeResponse);
 
         this.encryptem.setClientPublicKey(clientKeyCipherBuffer);
 
@@ -312,6 +335,20 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         return requestedVersionChecksum !== trustedChecksum;
     }
 
+    private async verifyNetwork(): Promise<void> {
+        if (!this.selfIdentity) throw new Error('Self identity not found.');
+
+        if (this.selfIdentity.peerNetwork !== this.clientNetwork) {
+            await this.disconnectPeer(DisconnectionCode.BAD_NETWORK, 'Invalid network.');
+            return;
+        }
+
+        if (this.selfIdentity.peerChainId !== this.clientChainId) {
+            await this.disconnectPeer(DisconnectionCode.BAD_CHAIN_ID, 'Invalid chain ID.');
+            return;
+        }
+    }
+
     private async onAuthenticationMessage(packet: OPNetPacket): Promise<void> {
         if (!this.protocol) return;
         if (!this.encryptem) return;
@@ -345,8 +382,6 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
             return;
         }
-
-        console.log('unpackedAuthData', unpackedAuthData);
 
         if (
             this.mayAcceptTrustedChecksum(
@@ -382,6 +417,10 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         this.clientNetwork = unpackedAuthData.network;
         this.clientIndexerMode = unpackedAuthData.type;
         this.clientChainId = unpackedAuthData.chainId;
+
+        if (AuthenticationManager.VERIFY_NETWORK) {
+            await this.verifyNetwork();
+        }
 
         this.encryptem.setClientSignaturePublicKey(Buffer.from(unpackedAuthData.clientAuthCipher));
         await this.onPassedVersionCheck();

@@ -6,9 +6,9 @@ import { ServerPeerManager } from './ServerPeerManager.js';
 export class ServerPeerNetworkingManager extends AuthenticationManager {
     constructor(
         protected readonly peerId: string,
-        private readonly selfIdentity: OPNetIdentity | undefined,
+        selfIdentity: OPNetIdentity | undefined,
     ) {
-        super();
+        super(selfIdentity);
 
         this.peerId = peerId;
         this.createTimeoutAuth();

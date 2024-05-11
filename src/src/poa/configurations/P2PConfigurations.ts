@@ -23,6 +23,7 @@ import path from 'path';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { PeerToPeerMethod } from '../../config/interfaces/PeerToPeerMethod.js';
 import { OPNetPathFinder } from '../identity/OPNetPathFinder.js';
+import { BootstrapNodes } from './BootstrapNodes.js';
 import { P2PVersion } from './P2PVersion.js';
 
 interface BackedUpPeer {
@@ -34,15 +35,13 @@ interface BackedUpPeer {
 export class P2PConfigurations extends OPNetPathFinder {
     public static readonly protocolName: string = 'opnet';
     public static readonly protocolVersion: string = '1.0.0';
-
-    private static readonly defaultBootstrapNodes: string[] = [
-        '/ip4/51.81.67.34/tcp/9800/p2p/12D3KooWR6md7NNX8NAd3HNQiqNRVCTbrBbL4ExBFAfGapAWvY5U',
-    ];
-
     private static readonly maxMessageSize: number = 8 * 1024 * 1024; // 8 MiB
+    private readonly defaultBootstrapNodes: string[];
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
+
+        this.defaultBootstrapNodes = this.getDefaultBootstrapNodes();
     }
 
     public get tcpConfiguration(): TCPOptions {
@@ -265,6 +264,21 @@ export class P2PConfigurations extends OPNetPathFinder {
         return dataStore;
     }
 
+    private getDefaultBootstrapNodes(): string[] {
+        const bootstrapNodes =
+            BootstrapNodes[this.config.OP_NET.CHAIN_ID]?.[this.config.BLOCKCHAIN.BITCOIND_NETWORK];
+
+        if (bootstrapNodes) {
+            return bootstrapNodes;
+        }
+
+        console.warn(
+            `!!! --- No bootstrap nodes found for chain ${this.config.OP_NET.CHAIN_ID} and network ${this.config.BLOCKCHAIN.BITCOIND_NETWORK} --- !!!`,
+        );
+
+        return [];
+    }
+
     private createDirIfNotExists(dir: string): void {
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, {
@@ -304,6 +318,6 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     private getBootstrapPeers(): string[] {
-        return [...this.config.P2P.BOOTSTRAP_NODES, ...P2PConfigurations.defaultBootstrapNodes];
+        return [...this.config.P2P.BOOTSTRAP_NODES, ...this.defaultBootstrapNodes];
     }
 }

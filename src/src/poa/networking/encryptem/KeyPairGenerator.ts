@@ -1,17 +1,21 @@
-import crypto, { KeyPairSyncResult } from 'crypto';
+import crypto, { KeyPairSyncResult, Sign } from 'crypto';
 import sodium from 'sodium-native';
-import { cyrb53 } from './CYRB53.js';
 
 export interface OPNetKeyPair {
     publicKey: Buffer;
     privateKey: Buffer;
 
-    identity: Buffer;
+    identity: OPNetProvenIdentity;
     rsa: {
         publicKey: string;
         privateKey: string;
     };
 }
+
+export type OPNetProvenIdentity = {
+    hash: Buffer;
+    proof: Buffer;
+};
 
 type SodiumKeyPair = {
     publicKey: Buffer;
@@ -19,13 +23,13 @@ type SodiumKeyPair = {
 };
 
 export class KeyPairGenerator {
-    public generateKey(bitcoinPubKey: Buffer): OPNetKeyPair {
-        const keyPair = this.generateKeyPair(this.generateAuthKey());
-        const rsaKeyPair = this.generateRSAKeyPair(
-            Buffer.concat([keyPair.privateKey]).toString('hex'),
-        );
+    private signatureAlgorithm: string = 'rsa-sha512';
 
-        const identity = this.generateIdentity(keyPair, bitcoinPubKey, rsaKeyPair.privateKey);
+    public generateKey(): OPNetKeyPair {
+        const keyPair = this.generateKeyPair(this.generateAuthKey());
+        const rsaKeyPair = this.generateRSAKeyPair(this.#passphrase(keyPair));
+
+        const identity = this.generateIdentity(keyPair);
 
         return {
             publicKey: keyPair.publicKey,
@@ -36,6 +40,45 @@ export class KeyPairGenerator {
                 privateKey: rsaKeyPair.privateKey,
             },
         };
+    }
+
+    public verifySignatureRSA(data: Buffer, signature: Buffer, publicKey: string): boolean {
+        const verify = crypto.createVerify(this.signatureAlgorithm);
+        verify.update(data);
+
+        return verify.verify(
+            {
+                key: publicKey,
+                padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+            },
+            signature,
+        );
+    }
+
+    public verifySignature(data: Buffer, signature: Buffer, publicKey: Buffer): boolean {
+        return sodium.crypto_sign_verify_detached(signature, data, publicKey);
+    }
+
+    public signRSA(data: Buffer, privateKey: string, keypair: SodiumKeyPair): Buffer {
+        const signObj: Sign = this.getRSASignature(data);
+        return signObj.sign({
+            key: privateKey,
+            padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+            passphrase: this.#passphrase(keypair),
+        });
+    }
+
+    public hashChallenge(keyPair: SodiumKeyPair, salt: Buffer | Uint8Array): Buffer {
+        const hash = crypto.createHash('sha512');
+        hash.update(keyPair.publicKey);
+        hash.update(salt);
+
+        const result: Buffer = hash.digest();
+        return this.sign(result, keyPair.privateKey);
+    }
+
+    #passphrase(keyPair: SodiumKeyPair): string {
+        return Buffer.concat([keyPair.privateKey]).toString('hex');
     }
 
     private generateRSAKeyPair(passphrase: string): KeyPairSyncResult<string, string> {
@@ -60,21 +103,24 @@ export class KeyPairGenerator {
         return crypto.getRandomValues(key);
     }
 
-    private generateIdentity(
-        keypair: SodiumKeyPair,
-        bitcoinPubKey: Buffer,
-        rsaPrivKey: string,
-    ): Buffer {
-        const checksum = cyrb53(keypair.publicKey.toString('hex'), keypair.publicKey[10]);
-        const bitcoinChecksum = cyrb53(bitcoinPubKey.toString('hex'), checksum);
-
+    private generateIdentity(keypair: SodiumKeyPair): OPNetProvenIdentity {
         const sha = crypto.createHash('sha512');
         sha.update(keypair.publicKey);
-        sha.update(rsaPrivKey);
-        sha.update(keypair.privateKey);
-        sha.update(new Uint32Array([checksum, bitcoinChecksum]));
 
-        return sha.digest();
+        const hash: Buffer = sha.digest();
+        const proof: Buffer = this.sign(hash, keypair.privateKey);
+
+        return {
+            hash,
+            proof: proof,
+        };
+    }
+
+    private getRSASignature(data: Buffer): Sign {
+        const sign = crypto.createSign(this.signatureAlgorithm);
+        sign.update(data);
+
+        return sign;
     }
 
     private generateKeyPair(seed: Buffer): SodiumKeyPair {
@@ -86,5 +132,12 @@ export class KeyPairGenerator {
             publicKey,
             privateKey,
         };
+    }
+
+    private sign(data: Buffer, privateKey: Buffer): Buffer {
+        const signature = sodium.sodium_malloc(sodium.crypto_sign_BYTES);
+        sodium.crypto_sign_detached(signature, data, privateKey);
+
+        return signature;
     }
 }
