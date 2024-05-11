@@ -3,10 +3,11 @@ import { PeerId } from '@libp2p/interface';
 import { IdentifyResult } from '@libp2p/interface/src';
 import { ChainIds } from '../../config/enums/ChainIds.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
-import { ClientPeerNetworkingManager } from '../networking/client/ClientPeerNetworkingManager.js';
+import { ClientPeerNetworking } from '../networking/client/ClientPeerNetworking.js';
 import { DisconnectionCode } from '../networking/enums/DisconnectionCode.js';
+import { IBlockHeaderWitness } from '../networking/protobuf/packets/blockchain/BlockHeaderWitness.js';
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
-import { ServerPeerNetworkingManager } from '../networking/server/managers/ServerPeerNetworkingManager.js';
+import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
 
 export class OPNetPeer extends Logger {
     public isAuthenticated: boolean = false;
@@ -16,8 +17,8 @@ export class OPNetPeer extends Logger {
 
     private isDestroyed: boolean = false;
 
-    private clientNetworkingManager: ClientPeerNetworkingManager;
-    private serverNetworkingManager: ServerPeerNetworkingManager;
+    private clientNetworkingManager: ClientPeerNetworking;
+    private serverNetworkingManager: ServerPeerNetworking;
 
     constructor(
         private _peerIdentity: IdentifyResult | undefined,
@@ -28,7 +29,7 @@ export class OPNetPeer extends Logger {
         this.peerId = this.peerIdentity.peerId;
         this.peerIdString = this.peerId.toString();
 
-        this.serverNetworkingManager = new ServerPeerNetworkingManager(
+        this.serverNetworkingManager = new ServerPeerNetworking(
             this.peerIdString,
             this.selfIdentity,
         );
@@ -48,7 +49,7 @@ export class OPNetPeer extends Logger {
             return this.getOPNetPeers();
         };
 
-        this.clientNetworkingManager = new ClientPeerNetworkingManager(
+        this.clientNetworkingManager = new ClientPeerNetworking(
             this.peerIdString,
             this.selfIdentity,
         );
@@ -116,6 +117,10 @@ export class OPNetPeer extends Logger {
     public sendMsg: (peerId: PeerId, data: Uint8Array | Buffer) => Promise<void> = async () => {
         throw new Error('Method not implemented.');
     };
+
+    public async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
+        return await this.serverNetworkingManager.broadcastBlockWitness(blockWitness);
+    }
 
     public async onMessage(rawBuf: ArrayBuffer): Promise<void> {
         try {

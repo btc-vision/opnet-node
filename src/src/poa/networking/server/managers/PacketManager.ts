@@ -3,6 +3,7 @@ import { ClientKeyCipherExchange } from '../../protobuf/packets/authentication/e
 import { ServerKeyCipherExchange } from '../../protobuf/packets/authentication/exchange/ServerKeyCipherExchange.js';
 import { AuthenticationPacket } from '../../protobuf/packets/authentication/OPNetAuthentication.js';
 import { AuthenticationStatus } from '../../protobuf/packets/authentication/status/AuthentificationStatus.js';
+import { BlockHeaderWitnessPacket } from '../../protobuf/packets/blockchain/BlockHeaderWitness.js';
 import { TransactionPacket } from '../../protobuf/packets/blockchain/TransactionPacket.js';
 import { Ping } from '../../protobuf/packets/latency/Ping.js';
 import { Pong } from '../../protobuf/packets/latency/Pong.js';
@@ -52,6 +53,9 @@ export class OPNetPacketManager extends ProtobufLoader {
          * Blockchain
          */
         [Packets.Transaction]: new TransactionPacket(this.getProtobufType(TransactionPacket.TYPE)),
+        [Packets.BlockHeaderWitness]: new BlockHeaderWitnessPacket(
+            this.getProtobufType(BlockHeaderWitnessPacket.TYPE),
+        ),
     };
 
     constructor() {

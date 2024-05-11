@@ -1,12 +1,15 @@
 import { CommonHandlers } from '../../events/CommonHandlers.js';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
+import { AbstractPacketManager } from '../default/AbstractPacketManager.js';
 import { DisconnectionCode } from '../enums/DisconnectionCode.js';
+import { SharedBlockHeaderManager } from '../shared/managers/SharedBlockHeaderManager.js';
 import { PeerHandlerEvents } from './events/PeerHandlerEvents.js';
 import { ClientAuthenticationManager } from './managers/ClientAuthenticationManager.js';
 import { ClientPeerManager } from './managers/ClientPeerManager.js';
 
-export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
+export class ClientPeerNetworking extends ClientAuthenticationManager {
     public readonly logColor: string = '#00f2fa';
+    private _blockHeaderManager: SharedBlockHeaderManager | undefined;
 
     constructor(peerId: string, selfIdentity: OPNetIdentity | undefined) {
         super(selfIdentity, peerId);
@@ -57,6 +60,7 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
         super.destroy();
 
         delete this._peerManager;
+        delete this._blockHeaderManager;
     }
 
     public onPeersDiscovered: () => Promise<void> = () => {
@@ -69,6 +73,7 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
 
     protected createSession(): void {
         this.networkHandlers.push(this.createPeerManager());
+        this.networkHandlers.push(this.createBlockWitnessManager());
 
         this.onClientAuthenticationCompleted();
     }
@@ -79,14 +84,33 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
             this.peerId,
             this.selfIdentity,
         );
-        
-        peerManager.getTrustedChecksum = this.trustedChecksum.bind(this);
 
-        peerManager.on(CommonHandlers.SEND, this.sendMsg.bind(this));
+        peerManager.getTrustedChecksum = this.trustedChecksum.bind(this);
         peerManager.on(PeerHandlerEvents.PEERS_DISCOVERED, this.onPeersDiscovered.bind(this));
+
+        this.listenToManagerEvents(peerManager);
 
         this._peerManager = peerManager;
 
         return peerManager;
+    }
+
+    private listenToManagerEvents(manager: AbstractPacketManager): void {
+        manager.on(CommonHandlers.SEND, this.sendMsg.bind(this));
+    }
+
+    private createBlockWitnessManager(): SharedBlockHeaderManager {
+        const blockWitnessManager: SharedBlockHeaderManager = new SharedBlockHeaderManager(
+            this.protocol,
+            this.peerId,
+            this.selfIdentity,
+        );
+
+        blockWitnessManager.getTrustedChecksum = this.trustedChecksum.bind(this);
+        this.listenToManagerEvents(blockWitnessManager);
+
+        this._blockHeaderManager = blockWitnessManager;
+
+        return blockWitnessManager;
     }
 }

@@ -89,3 +89,34 @@ message Discover {
 message Transaction {
   bytes transaction = 1;
 }
+
+/* BLOCKS */
+
+message OPNetBlockWitness {
+  bytes signature = 1;
+  optional bytes opnetPubKey = 2;
+  optional string identity = 3;
+}
+
+message ChecksumProof {
+  repeated string proofs = 1;
+}
+
+message BlockHeaderWitness {
+  uint64 blockNumber = 1;
+  string blockHash = 2;
+  string previousBlockHash = 3;
+
+  string merkleRoot = 4;
+  string stateRoot = 5;
+  string storageRoot = 6;
+
+  string checksumHash = 7;
+  repeated ChecksumProof checksumProofs = 8;
+  string previousBlockChecksum = 9;
+
+  uint32 txCount = 10;
+
+  repeated OPNetBlockWitness validatorWitnesses = 11;
+  repeated OPNetBlockWitness trustedWitnesses = 12;
+}

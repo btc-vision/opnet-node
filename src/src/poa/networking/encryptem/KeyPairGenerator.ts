@@ -78,10 +78,24 @@ export class KeyPairGenerator {
         });
     }
 
+    public hash(data: Buffer): Buffer {
+        const hash = crypto.createHash('sha512');
+        hash.update(data);
+
+        return hash.digest();
+    }
+
     public hashChallenge(keyPair: SodiumKeyPair, salt: Buffer | Uint8Array): Buffer {
         const result = this.hashWithPubKey(keyPair.publicKey, salt);
 
         return this.sign(result, keyPair.privateKey);
+    }
+
+    public sign(data: Buffer, privateKey: Buffer): Buffer {
+        const signature = sodium.sodium_malloc(sodium.crypto_sign_BYTES);
+        sodium.crypto_sign_detached(signature, data, privateKey);
+
+        return signature;
     }
 
     private hashWithPubKey(pubKey: Buffer | Uint8Array, data: Buffer | Uint8Array): Buffer {
@@ -147,12 +161,5 @@ export class KeyPairGenerator {
             publicKey,
             privateKey,
         };
-    }
-
-    private sign(data: Buffer, privateKey: Buffer): Buffer {
-        const signature = sodium.sodium_malloc(sodium.crypto_sign_BYTES);
-        sodium.crypto_sign_detached(signature, data, privateKey);
-
-        return signature;
     }
 }

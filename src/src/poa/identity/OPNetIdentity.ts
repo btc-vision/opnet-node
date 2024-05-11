@@ -8,6 +8,7 @@ import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { ChainIds } from '../../config/enums/ChainIds.js';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { KeyPairGenerator, OPNetKeyPair } from '../networking/encryptem/KeyPairGenerator.js';
+import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/BlockHeaderWitness.js';
 import { OPNetPathFinder } from './OPNetPathFinder.js';
 
 export class OPNetIdentity extends OPNetPathFinder {
@@ -115,6 +116,10 @@ export class OPNetIdentity extends OPNetPathFinder {
         }
     }
 
+    public hash(data: Buffer): Buffer {
+        return this.keyPairGenerator.hash(data);
+    }
+
     public identityChallenge(salt: Buffer | Uint8Array): Buffer {
         return this.keyPairGenerator.hashChallenge(this.keyPair, salt);
     }
@@ -125,6 +130,25 @@ export class OPNetIdentity extends OPNetPathFinder {
         pubKey: Buffer | Uint8Array,
     ): boolean {
         return this.keyPairGenerator.verifyChallenge(challenge, signature, pubKey);
+    }
+
+    public aknowledgeData(data: Buffer): OPNetBlockWitness {
+        return {
+            signature: this.keyPairGenerator.sign(data, this.keyPair.privateKey),
+            identity: this.opnetAddress,
+            opnetPubKey: this.keyPair.publicKey,
+        };
+    }
+
+    public aknowledgeTrustedData(data: Buffer): OPNetBlockWitness {
+        if (!this.opnetWallet.privateKey) throw new Error('Private key not found');
+
+        return {
+            signature: this.keyPairGenerator.signRSA(data, this.keyPair.rsa.privateKey, {
+                privateKey: this.keyPair.privateKey,
+                publicKey: this.keyPair.publicKey,
+            }),
+        };
     }
 
     private getOPNetAuthKeysPath(): string {

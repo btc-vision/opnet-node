@@ -17,10 +17,14 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.BITCOIN_INDEXER>
         void this.init();
     }
 
-    protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
+    protected async onMessage(message: ThreadMessageBase<MessageType>): Promise<void> {
+        console.log(`BlockchainIndexerThread: Received message:`, message);
+    }
 
     protected async init(): Promise<void> {
         this.log(`Starting up blockchain indexer thread...`);
+
+        this.blockIndexer.sendMessageToThread = this.sendMessageToThread.bind(this);
 
         await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
         await DBManagerInstance.connect();
@@ -29,7 +33,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.BITCOIN_INDEXER>
             void this.blockIndexer.start();
 
             this.info(`Blockchain indexer thread started.`);
-        }, 500);
+        }, 7000);
     }
 
     protected async onLinkMessage(

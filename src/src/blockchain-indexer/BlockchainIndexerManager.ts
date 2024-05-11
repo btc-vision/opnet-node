@@ -80,7 +80,9 @@ class BlockchainIndexerManager extends ThreadManager<ThreadTypes.BITCOIN_INDEXER
         }
     }
 
-    protected async createLinkBetweenThreads(): Promise<void> {}
+    protected async createLinkBetweenThreads(): Promise<void> {
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
+    }
 
     protected async init(): Promise<void> {
         await super.init();

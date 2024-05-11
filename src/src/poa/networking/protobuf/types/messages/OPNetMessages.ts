@@ -4,6 +4,7 @@ export enum CommonPackets {
 
     /** Blockchain */
     TRANSACTION = 0x0a,
+    BLOCK_HEADER_WITNESS = 0x0b,
 }
 
 /** From 0x0C to 0x7A */

@@ -14,5 +14,6 @@ export enum Packets {
     DiscoveryResponse = 'DiscoveryResponse',
 
     /** Blockchain */
+    BlockHeaderWitness = 'BlockHeaderWitness',
     Transaction = 'Transaction',
 }

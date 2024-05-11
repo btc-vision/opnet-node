@@ -61,7 +61,6 @@ export class Core extends Logger {
         data.mainTargetThreadType = threadType;
 
         const targetThread = this.masterThreads[data.threadType];
-
         if (!targetThread) {
             this.error(`Target thread ${data.threadType} not found.`);
             return;

@@ -31,7 +31,6 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
         message: LinkThreadMessage<LinkType>,
     ): Promise<boolean> {
         const targetThreadType = message.data.targetThreadType;
-        //const targetThreadId = message.data.targetThreadId;
 
         switch (targetThreadType) {
             default: {
@@ -42,7 +41,7 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
 
     protected async sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
-        _message: LinkThreadRequestMessage,
+        message: LinkThreadRequestMessage,
     ): Promise<boolean> {
         switch (threadType) {
             default: {

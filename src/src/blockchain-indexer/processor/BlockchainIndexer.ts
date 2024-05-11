@@ -9,6 +9,14 @@ import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { Config } from '../../config/Config.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
 import { BlockchainInformationRepository } from '../../db/repositories/BlockchainInformationRepository.js';
+import { MessageType } from '../../threading/enum/MessageType.js';
+import {
+    BlockProcessedData,
+    BlockProcessedMessage,
+} from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
+import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import { ThreadData } from '../../threading/interfaces/ThreadData.js';
+import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { VMManager } from '../../vm/VMManager.js';
 import { Block } from './block/Block.js';
 
@@ -64,6 +72,13 @@ export class BlockchainIndexer extends Logger {
 
         return this._blockchainInfoRepository;
     }
+
+    public sendMessageToThread: (
+        type: ThreadTypes,
+        message: ThreadMessageBase<MessageType>,
+    ) => Promise<ThreadData | null> = async () => {
+        throw new Error('sendMessageToThread not implemented.');
+    };
 
     public async start(): Promise<void> {
         if (DBManagerInstance.db === null) {
@@ -224,6 +239,8 @@ export class BlockchainIndexer extends Logger {
                 );
             }
 
+            await this.notifyBlockProcessed(processed);
+
             blockHeightInProgress++;
 
             if (this.processOnlyOneBlock) {
@@ -276,6 +293,35 @@ export class BlockchainIndexer extends Logger {
         }
 
         return await this.rpcClient.getBlockInfoWithTransactionData(blockHash);
+    }
+
+    private async notifyBlockProcessed(block: Block): Promise<void> {
+        const blockHeader: BlockProcessedData = {
+            blockNumber: block.height,
+            blockHash: block.hash,
+            previousBlockHash: block.previousBlockHash,
+
+            merkleRoot: block.merkleRoot,
+            receiptRoot: block.receiptRoot,
+            storageRoot: block.storageRoot,
+
+            checksumHash: block.checksumRoot,
+            checksumProofs: block.checksumProofs.map((proof) => {
+                return {
+                    proof: proof[1],
+                };
+            }),
+            previousBlockChecksum: block.previousBlockChecksum,
+
+            txCount: block.header.nTx,
+        };
+
+        const msg: BlockProcessedMessage = {
+            type: MessageType.BLOCK_PROCESSED,
+            data: blockHeader,
+        };
+
+        await this.sendMessageToThread(ThreadTypes.PoA, msg);
     }
 
     private async getChainCurrentBlockHeight(): Promise<number> {
