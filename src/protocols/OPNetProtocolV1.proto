@@ -108,7 +108,7 @@ message BlockHeaderWitness {
   string previousBlockHash = 3;
 
   string merkleRoot = 4;
-  string stateRoot = 5;
+  string receiptRoot = 5;
   string storageRoot = 6;
 
   string checksumHash = 7;
