@@ -1,8 +1,7 @@
-import { BitcoinNetwork, Logger } from '@btc-vision/bsi-common';
+import { Logger } from '@btc-vision/bsi-common';
 import { PeerId } from '@libp2p/interface';
 import { IdentifyResult } from '@libp2p/interface/src';
 import { ChainIds } from '../../config/enums/ChainIds.js';
-import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { ClientPeerNetworkingManager } from '../networking/client/ClientPeerNetworkingManager.js';
 import { DisconnectionCode } from '../networking/enums/DisconnectionCode.js';
@@ -70,11 +69,11 @@ export class OPNetPeer extends Logger {
         return this.serverNetworkingManager.clientIdentity;
     }
 
-    public get clientIndexerMode(): OPNetIndexerMode | undefined {
+    public get clientIndexerMode(): number | undefined {
         return this.serverNetworkingManager.clientIndexerMode;
     }
 
-    public get clientNetwork(): BitcoinNetwork | undefined {
+    public get clientNetwork(): number | undefined {
         return this.serverNetworkingManager.clientNetwork;
     }
 
