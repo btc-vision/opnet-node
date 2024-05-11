@@ -26,8 +26,6 @@ export class OPNetIdentity extends OPNetPathFinder {
 
         this.opnetAuthKeyBin = this.loadOPNetAuthKeys();
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
-
-        console.log(this.keyPair);
     }
 
     public get peerType(): number {
