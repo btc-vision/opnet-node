@@ -119,6 +119,14 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.keyPairGenerator.hashChallenge(this.keyPair, salt);
     }
 
+    public verifyChallenge(
+        challenge: Buffer | Uint8Array,
+        signature: Buffer | Uint8Array,
+        pubKey: Buffer | Uint8Array,
+    ): boolean {
+        return this.keyPairGenerator.verifyChallenge(challenge, signature, pubKey);
+    }
+
     private getOPNetAuthKeysPath(): string {
         return path.join(this.getBinPath(), 'opnet.bin');
     }

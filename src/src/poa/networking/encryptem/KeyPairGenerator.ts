@@ -55,8 +55,18 @@ export class KeyPairGenerator {
         );
     }
 
-    public verifySignature(data: Buffer, signature: Buffer, publicKey: Buffer): boolean {
-        return sodium.crypto_sign_verify_detached(signature, data, publicKey);
+    public verifyChallenge(
+        challenge: Buffer | Uint8Array,
+        signature: Buffer | Uint8Array,
+        pubKey: Buffer | Uint8Array,
+    ): boolean {
+        const hashedData: Buffer = this.hashWithPubKey(pubKey, challenge);
+
+        return sodium.crypto_sign_verify_detached(
+            Buffer.from(signature.buffer, signature.byteOffset, signature.byteLength),
+            hashedData,
+            Buffer.from(pubKey.buffer, pubKey.byteOffset, pubKey.byteLength),
+        );
     }
 
     public signRSA(data: Buffer, privateKey: string, keypair: SodiumKeyPair): Buffer {
@@ -69,12 +79,17 @@ export class KeyPairGenerator {
     }
 
     public hashChallenge(keyPair: SodiumKeyPair, salt: Buffer | Uint8Array): Buffer {
-        const hash = crypto.createHash('sha512');
-        hash.update(keyPair.publicKey);
-        hash.update(salt);
+        const result = this.hashWithPubKey(keyPair.publicKey, salt);
 
-        const result: Buffer = hash.digest();
         return this.sign(result, keyPair.privateKey);
+    }
+
+    private hashWithPubKey(pubKey: Buffer | Uint8Array, data: Buffer | Uint8Array): Buffer {
+        const hash = crypto.createHash('sha512');
+        hash.update(pubKey);
+        hash.update(data);
+
+        return hash.digest();
     }
 
     #passphrase(keyPair: SodiumKeyPair): string {

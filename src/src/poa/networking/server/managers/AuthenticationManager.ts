@@ -264,10 +264,6 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         const clientIdentityBuffer = unpackedAuthData.identity as Buffer;
         const challengeResponse = unpackedAuthData.challenge;
 
-        console.log('challengeResponse', challengeResponse);
-
-        this.encryptem.setClientPublicKey(clientKeyCipherBuffer);
-
         // sha512
         if (clientIdentityBuffer.byteLength !== 64) {
             await this.disconnectPeer(DisconnectionCode.BAD_IDENTITY, 'Invalid peer identity.');
@@ -275,28 +271,85 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         }
 
         /** We verify that the client's signature public key is the same as the one we have stored. */
-        const signaturePubKey = this.encryptem.getClientSignaturePublicKey();
-        if (!signaturePubKey) {
-            await this.disconnectPeer(
-                DisconnectionCode.BAD_AUTH_CIPHER,
-                'Invalid client authentication cipher. Signature public key not found.',
-            );
+        const isValidSign = await this.verifySignaturePublicKey(clientAuthCipherBuffer);
+        if (!isValidSign) {
             return;
         }
 
-        if (!clientAuthCipherBuffer.equals(signaturePubKey)) {
-            await this.disconnectPeer(
-                DisconnectionCode.BAD_AUTH_CIPHER,
-                'Invalid client authentication cipher. Signature public key mismatch.',
-            );
+        /** We must verify the identity of the peer. */
+        const isValidChallenge = await this.verifyChallenge(
+            clientAuthCipherBuffer,
+            challengeResponse,
+        );
+        if (!isValidChallenge) {
             return;
         }
 
         // TODO: Verify peer identity.
         this._clientIdentity = Buffer.from(clientIdentityBuffer).toString('hex');
 
+        this.encryptem.setClientPublicKey(clientKeyCipherBuffer);
+
         // Send the server handshake response.
         await this.sendServerHandshake();
+    }
+
+    private async verifySignaturePublicKey(signaturePubKey: Uint8Array | Buffer): Promise<boolean> {
+        const encryptemSignaturePubKey = this.encryptem.getClientSignaturePublicKey();
+        if (!encryptemSignaturePubKey) {
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_AUTH_CIPHER,
+                'Invalid client authentication cipher. Signature public key not found.',
+            );
+            return false;
+        }
+
+        if (!encryptemSignaturePubKey.equals(signaturePubKey)) {
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_AUTH_CIPHER,
+                'Invalid client authentication cipher. Signature public key mismatch.',
+            );
+            return false;
+        }
+
+        return true;
+    }
+
+    private async verifyChallenge(
+        signaturePubKey: Uint8Array | Buffer,
+        challengeResponse: Uint8Array | Buffer,
+    ): Promise<boolean> {
+        if (!this.identityChallenge) {
+            throw new Error(`Challenge not set.`);
+        }
+
+        if (!this.selfIdentity) {
+            throw new Error(`Self identity not found.`);
+        }
+
+        if (!challengeResponse || !this.identityChallenge) {
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_CHALLENGE,
+                'Malformed challenge response.',
+            );
+            return false;
+        }
+
+        const isValid: boolean = this.selfIdentity.verifyChallenge(
+            this.identityChallenge,
+            challengeResponse,
+            signaturePubKey,
+        );
+
+        if (!isValid) {
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_CHALLENGE,
+                'Invalid challenge response.',
+            );
+            return false;
+        }
+
+        return true;
     }
 
     /** If the peer is using an outdated version of the protocol, we must compare to check if we can accept the version. */
