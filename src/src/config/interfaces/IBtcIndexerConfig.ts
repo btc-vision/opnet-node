@@ -1,6 +1,8 @@
 import { BlockchainConfig, IConfig, IConfigTemplate } from '@btc-vision/bsi-common';
+import { ChainId } from '../../api/routes/api/v1/chain/ChainId.js';
 import { BitcoinZeroMQTopic } from '../../blockchain-indexer/zeromq/enums/BitcoinZeroMQTopic.js';
 import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';
+import { ChainIds } from '../enums/ChainIds.js';
 import { OPNetIndexerMode } from './OPNetIndexerMode.js';
 import { PeerToPeerMethod } from './PeerToPeerMethod.js';
 
@@ -34,6 +36,7 @@ export interface OPNetConfig {
     readonly DISABLE_SCANNED_BLOCK_STORAGE_CHECK: boolean;
     readonly VERIFY_INTEGRITY_ON_STARTUP: boolean;
 
+    readonly CHAIN_ID: ChainIds;
     readonly MODE: OPNetIndexerMode;
 }
 

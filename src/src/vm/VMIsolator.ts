@@ -122,7 +122,7 @@ export class VMIsolator {
 
     private getCallOptions(): ReferenceApplyOptions {
         return {
-            timeout: 200,
+            timeout: 100,
         };
     }
 

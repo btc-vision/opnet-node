@@ -1,6 +1,24 @@
 syntax = "proto3";
 package OPNetProtocolV1;
 
+enum PeerType {
+  ARCHIVE = 0;
+  FULL = 1;
+  LIGHT = 2;
+}
+
+enum ChainIds {
+  Bitcoin = 0;
+}
+
+enum BitcoinNetworks {
+  Unknown = 0;
+  Mainnet = 1;
+  Testnet = 2;
+  Regtest = 3;
+  Signet = 4;
+}
+
 /*
   AUTHENTICATION
 */
@@ -8,6 +26,9 @@ message Authentication {
   string version = 1;
   bytes clientAuthCipher = 2;
   string trustedChecksum = 3;
+  PeerType type = 4;
+  BitcoinNetworks network = 5;
+  ChainIds chainId = 6;
 }
 
 enum AuthenticationStatusEnum {
@@ -45,17 +66,10 @@ message Ping {
   PEERING
 */
 
-enum PeerType {
-  ARCHIVE = 0;
-  FULL = 1;
-  LIGHT = 2;
-}
-
 message PeerInfo {
-  bytes identity = 1;
-  string opnetVersion = 2;
-  string address = 3;
-  PeerType type = 4;
+  string opnetVersion = 1;
+  bytes trustedPublicKey = 2;
+  PeerType type = 3;
 }
 
 message DiscoveryResponse {

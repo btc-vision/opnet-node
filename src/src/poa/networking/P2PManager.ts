@@ -33,6 +33,7 @@ import { P2PConfigurations } from '../configurations/P2PConfigurations.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { OPNetPeer } from '../peer/OPNetPeer.js';
 import { DisconnectionCode } from './enums/DisconnectionCode.js';
+import { OPNetPeerInfo } from './protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
@@ -51,6 +52,7 @@ export class P2PManager extends Logger {
     private blackListedPeerIps: Set<string> = new Set();
 
     private readonly identity: OPNetIdentity;
+    private loggedInitialOPNetMessage: boolean = false;
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
@@ -144,17 +146,9 @@ export class P2PManager extends Logger {
             return await this.disconnectPeer(peerId);
         }
 
-        this.info(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
-
-        /*const nodeLength = await this.getPeers();
-        if (nodeLength.length === 1) {
-            this.notifyArt(
-                'OPNet',
-                'Doh',
-                `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
-                `\n\nAuthenticating this node. Looking for peers...\n\n\n\n\n`,
-            );
-        }*/
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.info(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
+        }
 
         await this.createPeer(evt.detail, peerIdStr);
     }
@@ -167,11 +161,73 @@ export class P2PManager extends Logger {
         const peer: OPNetPeer = new OPNetPeer(peerInfo, this.identity);
         peer.disconnectPeer = this.disconnectPeer.bind(this);
         peer.sendMsg = this.sendToPeer.bind(this);
+        peer.reportAuthenticatedPeer = this.reportAuthenticatedPeer.bind(this);
+        peer.getOPNetPeers = this.getOPNetPeers.bind(this);
 
         this.peers.set(peerIdStr, peer);
 
         await peer.init();
         await peer.authenticate();
+    }
+
+    private reportAuthenticatedPeer(_peerId: PeerId): void {
+        this.logOPNetInfo();
+    }
+
+    private logOPNetInfo(): void {
+        if (!this.loggedInitialOPNetMessage) {
+            this.loggedInitialOPNetMessage = true;
+            this.notifyArt(
+                'OPNet',
+                'Doh',
+                `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
+                `\nThis node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
+                `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
+                `Your OPNet trusted certificate is\n ${this.identity.rsaPublicKey}\n`,
+                `Looking for peers...\n\n`,
+            );
+        }
+    }
+
+    private getOPNetPeers(): OPNetPeerInfo[] {
+        const peers: OPNetPeerInfo[] = [];
+
+        for (const [peerId, peer] of this.peers) {
+            if (peer.clientVersion === undefined) continue;
+            if (peer.clientChecksum === undefined) continue;
+            if (peer.clientIdentity === undefined) continue;
+            if (peer.clientIndexerMode === undefined) continue;
+            if (peer.clientChainId === undefined) continue;
+            if (peer.clientNetwork === undefined) continue;
+
+            const peerInfo: OPNetPeerInfo = {
+                opnetVersion: peer.clientVersion,
+                identity: peer.clientIdentity,
+                type: peer.clientIndexerMode,
+                network: peer.clientNetwork,
+                chainId: peer.clientChainId,
+            };
+
+            peers.push(peerInfo);
+        }
+
+        console.log(this.shuffleArray(peers));
+
+        return peers;
+    }
+
+    private shuffleArray<T>(array: T[]): T[] {
+        const randomNumbers = crypto.getRandomValues(new Uint8Array(array.length));
+
+        // apply durstenfeld shuffle with previously generated random numbers
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = randomNumbers[array.length - i - 1];
+            const temp = array[i];
+            array[i] = array[j];
+            array[j] = temp;
+        }
+
+        return array;
     }
 
     private async blackListPeerId(peerId: PeerId): Promise<void> {
@@ -209,10 +265,11 @@ export class P2PManager extends Logger {
             this.notifyArt(
                 'OPNet Bootstrap Node',
                 'Big Money-sw',
-                `\n\n\nPoA enabled. This node is a,\n\n\n\n\n`,
+                `\n\n\nThis node is a,\n\n\n\n\n`,
                 `\n\nThis node is running in bootstrap mode. This means it will not connect to other peers automatically. It will only accept incoming connections.\n`,
                 `This node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
-                `Your OPNet identity is ${this.identity.opnetAddress}.\n\n\n\n\n`,
+                `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
+                `Your OPNet trusted certificate is\n ${this.identity.rsaPublicKey}\n\n`,
             );
         }
 

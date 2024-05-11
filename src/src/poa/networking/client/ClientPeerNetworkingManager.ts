@@ -74,7 +74,12 @@ export class ClientPeerNetworkingManager extends ClientAuthenticationManager {
     }
 
     private createPeerManager(): ClientPeerManager {
-        const peerManager = new ClientPeerManager(this.protocol, this.peerId, this.selfIdentity);
+        const peerManager: ClientPeerManager = new ClientPeerManager(
+            this.protocol,
+            this.peerId,
+            this.selfIdentity,
+        );
+        
         peerManager.getTrustedChecksum = this.trustedChecksum.bind(this);
 
         peerManager.on(CommonHandlers.SEND, this.sendMsg.bind(this));

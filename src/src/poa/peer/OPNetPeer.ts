@@ -1,12 +1,17 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { BitcoinNetwork, Logger } from '@btc-vision/bsi-common';
 import { PeerId } from '@libp2p/interface';
 import { IdentifyResult } from '@libp2p/interface/src';
+import { ChainIds } from '../../config/enums/ChainIds.js';
+import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { ClientPeerNetworkingManager } from '../networking/client/ClientPeerNetworkingManager.js';
 import { DisconnectionCode } from '../networking/enums/DisconnectionCode.js';
+import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworkingManager } from '../networking/server/managers/ServerPeerNetworkingManager.js';
 
 export class OPNetPeer extends Logger {
+    public isAuthenticated: boolean = false;
+
     private readonly peerId: PeerId;
     private readonly peerIdString: string;
 
@@ -40,6 +45,10 @@ export class OPNetPeer extends Logger {
             this.onServerAuthenticationCompleted();
         };
 
+        this.serverNetworkingManager.getOPNetPeers = (): OPNetPeerInfo[] => {
+            return this.getOPNetPeers();
+        };
+
         this.clientNetworkingManager = new ClientPeerNetworkingManager(
             this.peerIdString,
             this.selfIdentity,
@@ -57,6 +66,30 @@ export class OPNetPeer extends Logger {
         };
     }
 
+    public get clientIdentity(): string | undefined {
+        return this.serverNetworkingManager.clientIdentity;
+    }
+
+    public get clientIndexerMode(): OPNetIndexerMode | undefined {
+        return this.serverNetworkingManager.clientIndexerMode;
+    }
+
+    public get clientNetwork(): BitcoinNetwork | undefined {
+        return this.serverNetworkingManager.clientNetwork;
+    }
+
+    public get clientChainId(): ChainIds | undefined {
+        return this.serverNetworkingManager.clientChainId;
+    }
+
+    public get clientChecksum(): string | undefined {
+        return this.serverNetworkingManager.clientChecksum;
+    }
+
+    public get clientVersion(): string | undefined {
+        return this.serverNetworkingManager.clientVersion;
+    }
+
     private get peerIdentity(): IdentifyResult {
         if (!this._peerIdentity) {
             throw new Error('Peer identity not found.');
@@ -64,6 +97,14 @@ export class OPNetPeer extends Logger {
 
         return this._peerIdentity;
     }
+
+    public getOPNetPeers: () => OPNetPeerInfo[] = () => {
+        throw new Error('getOPNetPeers not implemented.');
+    };
+
+    public reportAuthenticatedPeer: (peerId: PeerId) => void = () => {
+        throw new Error('Method not implemented.');
+    };
 
     public authenticate(): Promise<void> {
         return this.clientNetworkingManager.login();
@@ -137,11 +178,17 @@ export class OPNetPeer extends Logger {
     protected async disconnect(code: DisconnectionCode, reason?: string): Promise<void> {
         if (this.isDestroyed) return;
 
+        this.isAuthenticated = false;
+
         this.debug(`Disconnecting peer ${this.peerId} with code ${code} and reason ${reason}.`);
         await this.disconnectPeer(this.peerId, code, reason);
     }
 
     private onServerAuthenticationCompleted(): void {}
 
-    private onClientAuthenticationCompleted(): void {}
+    private onClientAuthenticationCompleted(): void {
+        this.isAuthenticated = true;
+
+        this.reportAuthenticatedPeer(this.peerId);
+    }
 }

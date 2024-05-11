@@ -146,6 +146,8 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     }
 
     protected async attemptAuth(key: Uint8Array): Promise<void> {
+        if (!this.selfIdentity) throw new Error('Self identity not found.');
+
         this.log(`Attempting to authenticate with ${this.peerId}...`);
 
         this.connectionStatus = ConnectionStatus.AUTHENTICATING;
@@ -165,6 +167,9 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
             version: AuthenticationManager.CURRENT_PROTOCOL_VERSION,
             clientAuthCipher: this.#OPNetAuthKey,
             trustedChecksum: this.trustedChecksum(),
+            type: this.selfIdentity.peerType,
+            network: this.selfIdentity.peerNetwork,
+            chainId: this.selfIdentity.peerChainId,
         };
 
         await this.sendMsg(authPacket.pack(authData));

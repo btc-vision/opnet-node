@@ -1,9 +1,12 @@
+import { BitcoinNetwork } from '@btc-vision/bsi-common';
 import { EcKeyPair } from '@btc-vision/bsi-transaction';
 import { networks } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
 import fs from 'fs';
 import path from 'path';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
+import { ChainIds } from '../../config/enums/ChainIds.js';
+import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { KeyPairGenerator, OPNetKeyPair } from '../networking/encryptem/KeyPairGenerator.js';
 import { OPNetPathFinder } from './OPNetPathFinder.js';
 
@@ -23,6 +26,48 @@ export class OPNetIdentity extends OPNetPathFinder {
 
         this.opnetAuthKeyBin = this.loadOPNetAuthKeys();
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
+    }
+
+    public get peerType(): number {
+        const mode = this.config.OP_NET.MODE;
+
+        switch (mode) {
+            case OPNetIndexerMode.ARCHIVE:
+                return 0;
+            case OPNetIndexerMode.FULL:
+                return 1;
+            case OPNetIndexerMode.LIGHT:
+                return 2;
+            default:
+                throw new Error('Invalid OPNet mode');
+        }
+    }
+
+    public get peerNetwork(): number {
+        const network = this.config.BLOCKCHAIN.BITCOIND_NETWORK;
+
+        switch (network) {
+            case BitcoinNetwork.Mainnet:
+                return 0;
+            case BitcoinNetwork.TestNet:
+                return 1;
+            case BitcoinNetwork.Regtest:
+                return 2;
+            case BitcoinNetwork.Signet:
+                return 3;
+            case BitcoinNetwork.Unknown:
+                return 4;
+            default:
+                throw new Error('Invalid Bitcoin network');
+        }
+    }
+
+    public get peerChainId(): ChainIds {
+        return this.config.OP_NET.CHAIN_ID;
+    }
+
+    public get rsaPublicKey(): string {
+        return this.keyPair.rsa.publicKey;
     }
 
     public get tapAddress(): string {
@@ -145,18 +190,27 @@ export class OPNetIdentity extends OPNetPathFinder {
     private restoreKeyPair(buf: Buffer | Uint8Array): OPNetKeyPair {
         const privateKey = buf.slice(0, 64);
         const publicKey = buf.slice(64, 96);
-        const identity = buf.slice(96);
+
+        const identity = buf.slice(96, 160);
+        const rsaKey = Buffer.from(buf.slice(160));
+
+        const regeneratedRsa = JSON.parse(rsaKey.toString('utf-8'));
 
         return {
             privateKey: Buffer.from(privateKey),
             publicKey: Buffer.from(publicKey),
             identity: Buffer.from(identity),
+            rsa: {
+                privateKey: regeneratedRsa.privateKey,
+                publicKey: regeneratedRsa.publicKey,
+            },
         };
     }
 
     private generateDefaultOPNetAuthKeys(): Buffer {
         const keyPair = this.keyPairGenerator.generateKey(this.opnetWallet.publicKey);
+        const rsaBuffer = Buffer.from(JSON.stringify(keyPair.rsa), `utf-8`);
 
-        return Buffer.concat([keyPair.privateKey, keyPair.publicKey, keyPair.identity]);
+        return Buffer.concat([keyPair.privateKey, keyPair.publicKey, keyPair.identity, rsaBuffer]);
     }
 }

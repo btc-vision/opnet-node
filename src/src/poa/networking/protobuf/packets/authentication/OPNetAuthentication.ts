@@ -7,6 +7,9 @@ export interface IAuthenticationPacket extends PackedMessage {
     readonly version: string;
     readonly clientAuthCipher: Uint8Array;
     readonly trustedChecksum: string;
+    readonly type: number;
+    readonly network: number;
+    readonly chainId: number;
 }
 
 export class AuthenticationPacket extends Packet<IAuthenticationPacket, {}, {}> {

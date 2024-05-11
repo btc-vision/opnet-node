@@ -1,4 +1,5 @@
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
+import { OPNetPeerInfo } from '../../protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { AuthenticationManager } from './AuthenticationManager.js';
 import { ServerPeerManager } from './ServerPeerManager.js';
 
@@ -13,8 +14,22 @@ export class ServerPeerNetworkingManager extends AuthenticationManager {
         this.createTimeoutAuth();
     }
 
+    private _peerManager: ServerPeerManager | undefined;
+
+    protected get peerManager(): ServerPeerManager {
+        if (!this._peerManager) {
+            throw new Error('Peer manager not found.');
+        }
+
+        return this._peerManager;
+    }
+
     public onServerAuthenticationCompleted: () => void = () => {
         throw new Error('onAuthenticationCompleted not implemented.');
+    };
+
+    public getOPNetPeers: () => OPNetPeerInfo[] = () => {
+        throw new Error('getOPNetPeers not implemented.');
     };
 
     /**
@@ -26,18 +41,30 @@ export class ServerPeerNetworkingManager extends AuthenticationManager {
         if (this.destroyed) return;
         this.destroyed = true;
 
+        delete this._peerManager;
+
         super.destroy();
     }
 
     protected createSession(): void {
+        const peerManager = this.createPeerManager();
+
+        this.networkHandlers.push(peerManager);
+
+        this.onServerAuthenticationCompleted();
+    }
+
+    private createPeerManager(): ServerPeerManager {
         const peerManager: ServerPeerManager = new ServerPeerManager(
             this.protocol,
             this.peerId,
             this.selfIdentity,
         );
 
-        this.networkHandlers.push(peerManager);
+        peerManager.getOPNetPeers = () => {
+            return this.getOPNetPeers();
+        };
 
-        this.onServerAuthenticationCompleted();
+        return peerManager;
     }
 }

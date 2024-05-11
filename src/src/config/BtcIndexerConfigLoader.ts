@@ -2,6 +2,7 @@ import { ConfigManager, IConfig } from '@btc-vision/bsi-common';
 import { BitcoinZeroMQTopic } from '../blockchain-indexer/zeromq/enums/BitcoinZeroMQTopic.js';
 import { IndexerStorageType } from '../vm/storage/types/IndexerStorageType.js';
 import { BtcIndexerConfig } from './BtcIndexerConfig.js';
+import { ChainIds } from './enums/ChainIds.js';
 import { IBtcIndexerConfig } from './interfaces/IBtcIndexerConfig.js';
 import { OPNetIndexerMode } from './interfaces/OPNetIndexerMode.js';
 import { PeerToPeerMethod } from './interfaces/PeerToPeerMethod.js';
@@ -59,6 +60,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             REINDEX_FROM_BLOCK: 0,
             VERIFY_INTEGRITY_ON_STARTUP: false,
             DISABLE_SCANNED_BLOCK_STORAGE_CHECK: true,
+
+            CHAIN_ID: ChainIds.Bitcoin,
             MODE: OPNetIndexerMode.ARCHIVE,
         },
     };
@@ -186,6 +189,14 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(
                     `Oops the property OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT is not a number.`,
                 );
+            }
+
+            if(parsedConfig.OP_NET.CHAIN_ID !== undefined && typeof parsedConfig.OP_NET.CHAIN_ID !== 'number') {
+                throw new Error(`Oops the property OP_NET.CHAIN_ID is not a number.`);
+            }
+
+            if(parsedConfig.OP_NET.CHAIN_ID !== undefined && parsedConfig.OP_NET.CHAIN_ID in ChainIds) {
+                throw new Error(`Oops the property OP_NET.CHAIN_ID is not a valid ChainIds enum value.`);
             }
         }
 

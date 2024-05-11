@@ -1,3 +1,4 @@
+import { ChainIds } from '../../../../config/enums/ChainIds.js';
 import { TRUSTED_CHECKSUM } from '../../../configurations/P2PVersion.js';
 import { EncryptemServer } from '../../encryptem/EncryptemServer.js';
 import { DisconnectionCode } from '../../enums/DisconnectionCode.js';
@@ -26,21 +27,27 @@ import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { SharedAuthenticationManager } from '../../shared/managers/SharedAuthenticationManager.js';
 
 export abstract class AuthenticationManager extends SharedAuthenticationManager {
-    protected isAuthenticated: boolean = false;
+    public clientVersion: string | undefined;
+    public clientChecksum: string | undefined;
 
+    public clientIndexerMode: number | undefined;
+    public clientNetwork: number | undefined;
+    public clientChainId: ChainIds | undefined;
+
+    protected isAuthenticated: boolean = false;
     protected abstract readonly peerId: string;
 
     private passVersionCheck: boolean = false;
     private timeoutAuth: NodeJS.Timeout | null = null;
 
-    private _peerIdentity: string | undefined;
+    private _clientIdentity: string | undefined;
 
-    public get peerIdentity(): string {
-        if (!this._peerIdentity) {
+    public get clientIdentity(): string {
+        if (!this._clientIdentity) {
             throw new Error(`Peer identity not defined.`);
         }
 
-        return this._peerIdentity;
+        return this._clientIdentity;
     }
 
     protected _encryptem: EncryptemServer = new EncryptemServer();
@@ -244,10 +251,28 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return;
         }
 
-        // TODO: Verify peer identity.
-        this._peerIdentity = Buffer.from(clientIdentityBuffer).toString('hex');
+        /** We verify that the client's signature public key is the same as the one we have stored. */
+        const signaturePubKey = this.encryptem.getClientSignaturePublicKey();
+        if (!signaturePubKey) {
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_AUTH_CIPHER,
+                'Invalid client authentication cipher.',
+            );
+            return;
+        }
 
-        // Accept the client's public key.
+        if (!clientAuthCipherBuffer.compare(signaturePubKey)) {
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_AUTH_CIPHER,
+                'Invalid client authentication cipher.',
+            );
+            return;
+        }
+
+        // TODO: Verify peer identity.
+        this._clientIdentity = Buffer.from(clientIdentityBuffer).toString('hex');
+
+        // Send the server handshake response.
         await this.sendServerHandshake();
     }
 
@@ -321,6 +346,8 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return;
         }
 
+        console.log('unpackedAuthData', unpackedAuthData);
+
         if (
             this.mayAcceptTrustedChecksum(
                 unpackedAuthData.version,
@@ -335,7 +362,6 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return;
         }
 
-        this.log(`Peer (${this.peerId}) is using the latest version of the OPNet Protocol.`);
         if (!(unpackedAuthData.clientAuthCipher && unpackedAuthData.clientAuthCipher.length > 0)) {
             this.warn(`Peer (${this.peerId}) sent an invalid client authentication cipher.`);
             await this.createAuthenticationFailureMessage('Invalid client authentication cipher.');
@@ -350,6 +376,12 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             );
             return;
         }
+
+        this.clientVersion = unpackedAuthData.version;
+        this.clientChecksum = unpackedAuthData.trustedChecksum;
+        this.clientNetwork = unpackedAuthData.network;
+        this.clientIndexerMode = unpackedAuthData.type;
+        this.clientChainId = unpackedAuthData.chainId;
 
         this.encryptem.setClientSignaturePublicKey(Buffer.from(unpackedAuthData.clientAuthCipher));
         await this.onPassedVersionCheck();
