@@ -14,11 +14,11 @@ export const BootstrapNodes: BootstrapNodes = {
         [BitcoinNetwork.Mainnet]: [],
 
         [BitcoinNetwork.TestNet]: [
-            '/ip4/51.81.67.34/tcp/9800/p2p/12D3KooWR6md7NNX8NAd3HNQiqNRVCTbrBbL4ExBFAfGapAWvY5U',
+            '/ip4/51.81.67.34/tcp/9800/p2p/12D3KooWEJQQ3a7gXtbfAZgHLbSmDpTtA8E2xPeqfm31Fky3PCKn',
         ],
 
         [BitcoinNetwork.Regtest]: [
-            '/ip4/51.81.67.34/tcp/9800/p2p/12D3KooWR6md7NNX8NAd3HNQiqNRVCTbrBbL4ExBFAfGapAWvY5U',
+            '/ip4/51.81.67.34/tcp/9800/p2p/12D3KooWEJQQ3a7gXtbfAZgHLbSmDpTtA8E2xPeqfm31Fky3PCKn',
         ],
 
         [BitcoinNetwork.Signet]: [],
