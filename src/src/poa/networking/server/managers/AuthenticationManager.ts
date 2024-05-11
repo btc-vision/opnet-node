@@ -256,15 +256,15 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (!signaturePubKey) {
             await this.disconnectPeer(
                 DisconnectionCode.BAD_AUTH_CIPHER,
-                'Invalid client authentication cipher.',
+                'Invalid client authentication cipher. Signature public key not found.',
             );
             return;
         }
 
-        if (!clientAuthCipherBuffer.compare(signaturePubKey)) {
+        if (!clientAuthCipherBuffer.equals(signaturePubKey)) {
             await this.disconnectPeer(
                 DisconnectionCode.BAD_AUTH_CIPHER,
-                'Invalid client authentication cipher.',
+                'Invalid client authentication cipher. Signature public key mismatch.',
             );
             return;
         }
@@ -372,7 +372,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (unpackedAuthData.clientAuthCipher.byteLength !== 32) {
             await this.disconnectPeer(
                 DisconnectionCode.BAD_AUTH_CIPHER,
-                'Invalid client authentication cipher.',
+                'Invalid client authentication cipher. Invalid length.',
             );
             return;
         }
