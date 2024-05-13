@@ -139,9 +139,9 @@ export class P2PManager extends Logger {
 
         const peer = this.peers.get(peerId);
         if (peer) {
-            await peer.onDisconnect();
-
             this.peers.delete(peerId);
+
+            await peer.onDisconnect();
         }
     }
 
@@ -192,7 +192,6 @@ export class P2PManager extends Logger {
         this.peers.set(peerIdStr, peer);
 
         await peer.init();
-        await peer.authenticate();
     }
 
     private reportAuthenticatedPeer(_peerId: PeerId): void {
@@ -355,6 +354,8 @@ export class P2PManager extends Logger {
                 }
             } catch (e) {}
         }
+
+        this.peers.delete(peerId.toString());
 
         await this.node.hangUp(peerId).catch(() => {});
     }

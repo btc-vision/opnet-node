@@ -88,12 +88,17 @@ export class OPNetPeer extends Logger {
         throw new Error('Method not implemented.');
     };
 
-    public authenticate(): Promise<void> {
-        return this.clientNetworkingManager.login();
+    public async authenticate(): Promise<void> {
+        return await this.clientNetworkingManager.login();
     }
 
     public async init(): Promise<void> {
         this.log(`Creating peer ${this.peerIdString}.`);
+
+        // We wait just a bit to ensure that the connection is established.
+        await this.sleep(1500);
+
+        await this.authenticate();
     }
 
     public sendMsg: (peerId: PeerId, data: Uint8Array | Buffer) => Promise<void> = async () => {
@@ -176,6 +181,10 @@ export class OPNetPeer extends Logger {
 
         this.debug(`Disconnecting peer ${this.peerId} with code ${code} and reason ${reason}.`);
         await this.disconnectPeer(this.peerId, code, reason);
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     private defineServerNetworkingEvents(): void {
