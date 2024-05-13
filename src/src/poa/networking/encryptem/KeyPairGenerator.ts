@@ -1,5 +1,6 @@
 import crypto, { KeyPairSyncResult, Sign } from 'crypto';
 import sodium from 'sodium-native';
+import { P2PVersion, TRUSTED_PUBLIC_KEYS } from '../../configurations/P2PVersion.js';
 
 export interface OPNetKeyPair {
     publicKey: Buffer;
@@ -24,6 +25,12 @@ type SodiumKeyPair = {
 
 export class KeyPairGenerator {
     private signatureAlgorithm: string = 'rsa-sha512';
+
+    private trustedPublicKeys: string[] = [];
+
+    constructor() {
+        this.loadTrustedPublicKeys();
+    }
 
     public generateKey(): OPNetKeyPair {
         const keyPair = this.generateKeyPair(this.generateAuthKey());
@@ -55,6 +62,16 @@ export class KeyPairGenerator {
         );
     }
 
+    public verifyOPNetIdentity(identity: string, pubKey: Buffer): boolean {
+        const sha = crypto.createHash('sha512');
+        sha.update(pubKey);
+
+        const hash: Buffer = sha.digest();
+        const hashStr = `0x${hash.toString('hex')}`;
+
+        return hashStr === identity;
+    }
+
     public verifyChallenge(
         challenge: Buffer | Uint8Array,
         signature: Buffer | Uint8Array,
@@ -62,11 +79,31 @@ export class KeyPairGenerator {
     ): boolean {
         const hashedData: Buffer = this.hashWithPubKey(pubKey, challenge);
 
+        return this.verifyOPNetSignature(hashedData, signature, pubKey);
+    }
+
+    public verifyOPNetSignature(
+        data: Buffer,
+        signature: Buffer | Uint8Array,
+        pubKey: Buffer | Uint8Array,
+    ): boolean {
         return sodium.crypto_sign_verify_detached(
             Buffer.from(signature.buffer, signature.byteOffset, signature.byteLength),
-            hashedData,
+            data,
             Buffer.from(pubKey.buffer, pubKey.byteOffset, pubKey.byteLength),
         );
+    }
+
+    public verifyTrustedSignature(data: Buffer, signature: Buffer): boolean {
+        try {
+            for (const trustedPublicKey of this.trustedPublicKeys) {
+                if (this.verifySignatureRSA(data, signature, trustedPublicKey)) {
+                    return true;
+                }
+            }
+        } catch (e) {}
+
+        return false;
     }
 
     public signRSA(data: Buffer, privateKey: string, keypair: SodiumKeyPair): Buffer {
@@ -96,6 +133,19 @@ export class KeyPairGenerator {
         sodium.crypto_sign_detached(signature, data, privateKey);
 
         return signature;
+    }
+
+    private loadTrustedPublicKeys(): void {
+        const currentVersion = TRUSTED_PUBLIC_KEYS[P2PVersion];
+        if (!currentVersion) {
+            throw new Error('Current version not found.');
+        }
+
+        if (currentVersion.length <= 0) {
+            throw new Error('There is no trusted public keys for the current version.');
+        }
+
+        this.trustedPublicKeys = currentVersion;
     }
 
     private hashWithPubKey(pubKey: Buffer | Uint8Array, data: Buffer | Uint8Array): Buffer {

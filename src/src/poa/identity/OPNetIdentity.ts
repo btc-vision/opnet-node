@@ -132,7 +132,33 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.keyPairGenerator.verifyChallenge(challenge, signature, pubKey);
     }
 
-    public aknowledgeData(data: Buffer): OPNetBlockWitness {
+    public verifyAcknowledgment(data: Buffer, witness: OPNetBlockWitness): boolean {
+        if (!data) return false;
+        if (!witness.opnetPubKey) return false;
+        if (!witness.identity) return false;
+
+        if (!this.verifyOPNetIdentity(witness.identity, witness.opnetPubKey)) return false;
+
+        return this.keyPairGenerator.verifyOPNetSignature(
+            data,
+            witness.signature,
+            witness.opnetPubKey,
+        );
+    }
+
+    public verifyTrustedAcknowledgment(data: Buffer, witness: OPNetBlockWitness): boolean {
+        if (!data) return false;
+        if (!witness.signature) return false;
+
+        // We protect the identity of trusted validators by not revealing their public keys.
+        return this.keyPairGenerator.verifyTrustedSignature(data, witness.signature);
+    }
+
+    public verifyOPNetIdentity(identity: string, pubKey: Buffer): boolean {
+        return this.keyPairGenerator.verifyOPNetIdentity(identity, pubKey);
+    }
+
+    public acknowledgeData(data: Buffer): OPNetBlockWitness {
         return {
             signature: this.keyPairGenerator.sign(data, this.keyPair.privateKey),
             identity: this.opnetAddress,
@@ -140,7 +166,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         };
     }
 
-    public aknowledgeTrustedData(data: Buffer): OPNetBlockWitness {
+    public acknowledgeTrustedData(data: Buffer): OPNetBlockWitness {
         if (!this.opnetWallet.privateKey) throw new Error('Private key not found');
 
         return {

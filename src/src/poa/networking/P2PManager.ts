@@ -65,7 +65,7 @@ export class P2PManager extends Logger {
         this.p2pConfigurations = new P2PConfigurations(this.config);
         this.identity = new OPNetIdentity(this.config);
 
-        this.blockWitnessManager = new BlockWitnessManager(this.identity);
+        this.blockWitnessManager = new BlockWitnessManager(this.config, this.identity);
         this.blockWitnessManager.broadcastBlockWitness = this.broadcastBlockWitness.bind(this);
     }
 
