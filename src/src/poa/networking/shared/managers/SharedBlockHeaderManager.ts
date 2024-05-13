@@ -34,7 +34,7 @@ export class SharedBlockHeaderManager extends AbstractPacketManager {
     public destroy(): void {
         super.destroy();
     }
-    
+
     private async onBlockWitness(packet: OPNetPacket): Promise<void> {
         this.info(`Peer ${this.peerId} got a block witness packet.`);
 
@@ -51,6 +51,6 @@ export class SharedBlockHeaderManager extends AbstractPacketManager {
             return;
         }
 
-        await this.emit(CommonHandlers.BLOCK_WITNESS, blockWitness);
+        await this.emit(CommonHandlers.BLOCK_WITNESS, unpackedPacket);
     }
 }
