@@ -185,7 +185,9 @@ export class P2PManager extends Logger {
         peer.sendMsg = this.sendToPeer.bind(this);
         peer.reportAuthenticatedPeer = this.reportAuthenticatedPeer.bind(this);
         peer.getOPNetPeers = this.getOPNetPeers.bind(this);
-        peer.onBlockWitness = this.blockWitnessManager.onBlockWitness.bind(this);
+        peer.onBlockWitness = this.blockWitnessManager.onBlockWitness.bind(
+            this.blockWitnessManager,
+        );
 
         this.peers.set(peerIdStr, peer);
 
