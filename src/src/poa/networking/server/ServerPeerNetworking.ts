@@ -38,6 +38,10 @@ export class ServerPeerNetworking extends AuthenticationManager {
     };
 
     public async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
+        if (this.destroyed) {
+            throw new Error('Server peer networking is destroyed.');
+        }
+
         if (!this._blockHeaderManager) {
             throw new Error('Block witness manager not found.');
         }
