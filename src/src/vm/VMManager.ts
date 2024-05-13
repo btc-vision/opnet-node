@@ -1,7 +1,6 @@
 import { Address, ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { Script, ScriptOptions } from 'vm';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
@@ -333,21 +332,32 @@ export class VMManager extends Logger {
     }
 
     /** TODO: Move this method to an other class and use this method when synchronizing block headers once PoA is implemented. */
-    public async validateBlockChecksum(blockHeader: BlockHeaderBlockDocument): Promise<boolean> {
-        if (!blockHeader.checksumRoot) {
+    public async validateBlockChecksum(
+        blockHeader: Partial<BlockHeaderBlockDocument>,
+    ): Promise<boolean> {
+        if (!blockHeader.checksumRoot || blockHeader.height === undefined) {
             throw new Error('Block checksum not found');
         }
 
-        const prevBlockHash: string = blockHeader.previousBlockHash;
+        const prevBlockHash: string | undefined = blockHeader.previousBlockHash;
         const blockHeight: bigint = DataConverter.fromDecimal128(blockHeader.height);
-        const blockReceipt: string = blockHeader.receiptRoot;
-        const blockStorage: string = blockHeader.storageRoot;
-        const blockHash: string = blockHeader.hash;
-        const blockMerkelRoot: string = blockHeader.merkleRoot;
-        const checksumRoot: string = blockHeader.checksumRoot;
-        const proofs: BlockHeaderChecksumProof = blockHeader.checksumProofs;
+        const blockReceipt: string | undefined = blockHeader.receiptRoot;
+        const blockStorage: string | undefined = blockHeader.storageRoot;
+        const blockHash: string | undefined = blockHeader.hash;
+        const blockMerkelRoot: string | undefined = blockHeader.merkleRoot;
+        const checksumRoot: string | undefined = blockHeader.checksumRoot;
+        const proofs: BlockHeaderChecksumProof | undefined = blockHeader.checksumProofs;
 
-        if (!blockHeight || !blockReceipt || !blockStorage || !blockHash || !blockMerkelRoot) {
+        if (
+            !blockHeight ||
+            !blockReceipt ||
+            !blockStorage ||
+            !blockHash ||
+            !blockMerkelRoot ||
+            !proofs ||
+            !checksumRoot ||
+            !prevBlockHash
+        ) {
             throw new Error('Block data not found');
         }
 
@@ -512,6 +522,21 @@ export class VMManager extends Logger {
         await this.saveBlockHeader(block);
     }
 
+    public async getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined> {
+        if (this.cachedBlockHeader.has(height)) {
+            return this.cachedBlockHeader.get(height);
+        }
+
+        const blockHeader: BlockHeaderBlockDocument | undefined =
+            await this.vmStorage.getBlockHeader(height);
+
+        if (blockHeader) {
+            this.cachedBlockHeader.set(height, blockHeader);
+        }
+
+        return blockHeader;
+    }
+
     private async getChainCurrentBlockHeight(): Promise<bigint> {
         const block = await this.vmStorage.getLatestBlock();
 
@@ -649,21 +674,6 @@ export class VMManager extends Logger {
         }
 
         this.vmEvaluators.clear();
-    }
-
-    private async getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined> {
-        if (this.cachedBlockHeader.has(height)) {
-            return this.cachedBlockHeader.get(height);
-        }
-
-        const blockHeader: BlockHeaderBlockDocument | undefined =
-            await this.vmStorage.getBlockHeader(height);
-
-        if (blockHeader) {
-            this.cachedBlockHeader.set(height, blockHeader);
-        }
-
-        return blockHeader;
     }
 
     /** We must save the final state changes to the storage */
@@ -928,13 +938,5 @@ export class VMManager extends Logger {
             default:
                 throw new Error('Invalid VM Storage type.');
         }
-    }
-
-    private getScriptFromCodeString(sourceCode: string, cachedData?: Buffer): Script {
-        const opts: ScriptOptions = {
-            cachedData: cachedData,
-        };
-
-        return new Script(sourceCode, opts);
     }
 }

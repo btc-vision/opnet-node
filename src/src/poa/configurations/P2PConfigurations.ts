@@ -198,9 +198,9 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get dhtConfiguration(): KadDHTInit {
         return {
-            kBucketSize: 20,
+            kBucketSize: 30,
             pingTimeout: 10000,
-            clientMode: false,
+            clientMode: this.config.P2P.CLIENT_MODE,
             protocol: this.protocol,
         };
     }

@@ -4,6 +4,7 @@ import { MessageType } from '../threading/enum/MessageType.js';
 import { BlockProcessedMessage } from '../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../threading/interfaces/ThreadData.js';
+import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { P2PManager } from './networking/P2PManager.js';
 
 export class PoA extends Logger {
@@ -15,6 +16,7 @@ export class PoA extends Logger {
         super();
 
         this.p2p = new P2PManager(this.config);
+        this.p2p.sendMessageToThread = this.internalSendMessageToThread.bind(this);
     }
 
     public async init(): Promise<void> {
@@ -22,6 +24,13 @@ export class PoA extends Logger {
 
         await this.p2p.init();
     }
+
+    public sendMessageToThread: (
+        threadType: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ) => Promise<ThreadData | null> = async () => {
+        throw new Error('sendMessageToThread not implemented.');
+    };
 
     public async handleBitcoinIndexerMessage(
         m: ThreadMessageBase<MessageType>,
@@ -35,10 +44,17 @@ export class PoA extends Logger {
         }
     }
 
+    private internalSendMessageToThread(
+        threadType: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<ThreadData | null> {
+        return this.sendMessageToThread(threadType, m);
+    }
+
     private async onBlockProcessed(m: BlockProcessedMessage): Promise<ThreadData> {
         const data = m.data;
 
-        await this.p2p.generateBlockHeaderProof(data);
+        await this.p2p.generateBlockHeaderProof(data, true);
 
         return {};
     }

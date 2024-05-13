@@ -20,6 +20,8 @@ export class PoAThread extends Thread<ThreadTypes.PoA> {
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected async init(): Promise<void> {
+        this.poa.sendMessageToThread = this.sendMessageToThread.bind(this);
+
         await this.poa.init();
     }
 

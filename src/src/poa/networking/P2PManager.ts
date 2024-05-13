@@ -29,7 +29,11 @@ import type { Datastore } from 'interface-datastore';
 import { lpStream } from 'it-length-prefixed-stream';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
+import { MessageType } from '../../threading/enum/MessageType.js';
 import { BlockProcessedData } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
+import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import { ThreadData } from '../../threading/interfaces/ThreadData.js';
+import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { P2PConfigurations } from '../configurations/P2PConfigurations.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { OPNetPeer } from '../peer/OPNetPeer.js';
@@ -67,6 +71,7 @@ export class P2PManager extends Logger {
 
         this.blockWitnessManager = new BlockWitnessManager(this.config, this.identity);
         this.blockWitnessManager.broadcastBlockWitness = this.broadcastBlockWitness.bind(this);
+        this.blockWitnessManager.sendMessageToThread = this.internalSendMessageToThread.bind(this);
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -81,8 +86,15 @@ export class P2PManager extends Logger {
         return `${P2PConfigurations.protocolName}/${AuthenticationManager.CURRENT_PROTOCOL_VERSION}`;
     }
 
-    public async generateBlockHeaderProof(data: BlockProcessedData): Promise<void> {
-        return this.blockWitnessManager.generateBlockHeaderProof(data);
+    public sendMessageToThread: (
+        threadType: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ) => Promise<ThreadData | null> = async () => {
+        throw new Error('sendMessageToThread not implemented.');
+    };
+
+    public async generateBlockHeaderProof(data: BlockProcessedData, isSelf: boolean = false): Promise<void> {
+        return this.blockWitnessManager.generateBlockHeaderProof(data, isSelf);
     }
 
     public async init(): Promise<void> {
@@ -100,6 +112,13 @@ export class P2PManager extends Logger {
         }
 
         super.info(...args);
+    }
+
+    private internalSendMessageToThread(
+        threadType: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<ThreadData | null> {
+        return this.sendMessageToThread(threadType, m);
     }
 
     private async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
@@ -381,8 +400,6 @@ export class P2PManager extends Logger {
         if (this.pendingNodeIdentifications.has(peerId)) {
             return;
         }
-
-        this.success(`Connected to peer: ${peerId}`);
 
         const timeout = setTimeout(() => {
             this.warn(`Identification timeout for peer: ${peerId}`);

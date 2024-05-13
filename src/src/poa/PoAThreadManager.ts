@@ -51,6 +51,7 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
     }
 
     protected async createLinkBetweenThreads(): Promise<void> {
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.BITCOIN_RPC);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.BITCOIN_INDEXER);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }

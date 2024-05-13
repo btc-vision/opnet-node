@@ -73,6 +73,15 @@ export class BlockchainIndexer extends Logger {
         return this._blockchainInfoRepository;
     }
 
+    public async handleBitcoinIndexerMessage(
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<ThreadData> {
+        switch (m.type) {
+            default:
+                throw new Error(`Unknown message type: ${m.type} received in PoA.`);
+        }
+    }
+
     public sendMessageToThread: (
         type: ThreadTypes,
         message: ThreadMessageBase<MessageType>,

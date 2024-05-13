@@ -148,8 +148,6 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     protected async attemptAuth(key: Uint8Array): Promise<void> {
         if (!this.selfIdentity) throw new Error('Self identity not found.');
 
-        this.log(`Attempting to authenticate with ${this.peerId}...`);
-
         this.connectionStatus = ConnectionStatus.AUTHENTICATING;
 
         const authPacket = this.protocol.getPacketBuilder(Packets.Authentication);
@@ -253,7 +251,6 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         }
 
         this.latency = Long.fromInt(Date.now()).subtract(this.lastPing).toNumber();
-        this.info(`Latency with ${this.peerId} is ${this.latency}ms.`);
     }
 
     private startPingInterval(): void {

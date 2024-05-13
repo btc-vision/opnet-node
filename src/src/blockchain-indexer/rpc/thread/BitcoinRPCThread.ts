@@ -1,11 +1,21 @@
 import { BitcoinRawTransactionParams, BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
+import { DataConverter } from '@btc-vision/bsi-db';
 import { Config } from '../../../config/Config.js';
+import {
+    BlockHeaderBlockDocument,
+    BlockHeaderChecksumProof,
+} from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { ChecksumProof } from '../../../poa/networking/protobuf/packets/blockchain/BlockHeaderWitness.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import {
     CallRequestData,
     CallRequestResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { RPCMessage } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+import {
+    BlockDataAtHeightData,
+    ValidatedBlockHeader,
+} from '../../../threading/interfaces/thread-messages/messages/api/ValidateBlockHeaders.js';
 import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
@@ -48,6 +58,9 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             case ThreadTypes.BITCOIN_INDEXER: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
+            case ThreadTypes.PoA: {
+                return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
+            }
             default:
                 this.log(`Unknown thread message received. {Type: ${m.type}}`);
                 break;
@@ -77,6 +90,50 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
         return result;
     }
 
+    private async validateBlockHeaders(data: BlockDataAtHeightData): Promise<ValidatedBlockHeader> {
+        const blockNumber = BigInt(data.blockNumber);
+        const blockHeader = data.blockHeader;
+
+        const vmBlockHeader: Partial<BlockHeaderBlockDocument> = {
+            previousBlockHash: blockHeader.previousBlockHash,
+            height: DataConverter.toDecimal128(blockNumber),
+            receiptRoot: blockHeader.receiptRoot,
+            storageRoot: blockHeader.storageRoot,
+            hash: blockHeader.blockHash,
+            merkleRoot: blockHeader.merkleRoot,
+            checksumRoot: blockHeader.checksumHash,
+            checksumProofs: this.getChecksumProofs(blockHeader.checksumProofs),
+        };
+
+        const hasValidProofs: boolean | null = await this.vmManager
+            .validateBlockChecksum(vmBlockHeader)
+            .catch(() => {
+                return null;
+            });
+
+        const fetchedBlockHeader = await this.vmManager.getBlockHeader(blockNumber).catch(() => {
+            return undefined;
+        });
+
+        return {
+            hasValidProofs: hasValidProofs,
+            storedBlockHeader: fetchedBlockHeader ?? null,
+        };
+    }
+
+    private getChecksumProofs(rawProofs: ChecksumProof[]): BlockHeaderChecksumProof {
+        const proofs: BlockHeaderChecksumProof = [];
+
+        for (let i = 0; i < rawProofs.length; i++) {
+            const proof = rawProofs[i];
+            const data: [number, string[]] = [i, proof.proof];
+
+            proofs.push(data);
+        }
+
+        return proofs;
+    }
+
     private async processAPIMessage(
         message: RPCMessage<BitcoinRPCThreadMessageType>,
     ): Promise<ThreadData | void> {
@@ -86,10 +143,15 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             case BitcoinRPCThreadMessageType.GET_CURRENT_BLOCK: {
                 return await this.bitcoinRPC.getBlockHeight();
             }
+
             case BitcoinRPCThreadMessageType.GET_TX: {
                 return await this.bitcoinRPC.getRawTransaction(
                     message.data.data as BitcoinRawTransactionParams,
                 );
+            }
+
+            case BitcoinRPCThreadMessageType.VALIDATE_BLOCK_HEADERS: {
+                return await this.validateBlockHeaders(message.data.data as BlockDataAtHeightData);
             }
 
             case BitcoinRPCThreadMessageType.CALL: {

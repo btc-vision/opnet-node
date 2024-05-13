@@ -93,8 +93,6 @@ export class OPNetPeer extends Logger {
     }
 
     public async init(): Promise<void> {
-        this.log(`Creating peer ${this.peerIdString}.`);
-
         // We wait just a bit to ensure that the connection is established.
         await this.sleep(1500);
 
