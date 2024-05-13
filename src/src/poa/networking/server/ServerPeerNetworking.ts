@@ -9,6 +9,7 @@ import { ServerPeerManager } from './managers/ServerPeerManager.js';
 
 export class ServerPeerNetworking extends AuthenticationManager {
     private _blockHeaderManager: ServerBlockHeaderWitnessManager | undefined;
+    private _peerManager: ServerPeerManager | undefined;
 
     constructor(
         protected readonly peerId: string,
@@ -20,15 +21,13 @@ export class ServerPeerNetworking extends AuthenticationManager {
         this.createTimeoutAuth();
     }
 
-    private _peerManager: ServerPeerManager | undefined;
-
-    protected get peerManager(): ServerPeerManager {
+    /*protected get peerManager(): ServerPeerManager {
         if (!this._peerManager) {
             throw new Error('Peer manager not found.');
         }
 
         return this._peerManager;
-    }
+    }*/
 
     public onServerAuthenticationCompleted: () => void = () => {
         throw new Error('onAuthenticationCompleted not implemented.');
@@ -57,6 +56,11 @@ export class ServerPeerNetworking extends AuthenticationManager {
 
         delete this._peerManager;
         delete this._blockHeaderManager;
+
+        this.onServerAuthenticationCompleted = () => {};
+        this.getOPNetPeers = () => {
+            throw new Error('getOPNetPeers not implemented.');
+        };
 
         super.destroy();
     }
@@ -92,7 +96,6 @@ export class ServerPeerNetworking extends AuthenticationManager {
         const blockWitnessManager: ServerBlockHeaderWitnessManager =
             new ServerBlockHeaderWitnessManager(this.protocol, this.peerId, this.selfIdentity);
 
-        blockWitnessManager.getTrustedChecksum = this.trustedChecksum.bind(this);
         this.listenToManagerEvents(blockWitnessManager);
 
         this._blockHeaderManager = blockWitnessManager;

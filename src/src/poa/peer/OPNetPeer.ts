@@ -34,36 +34,14 @@ export class OPNetPeer extends Logger {
             this.selfIdentity,
         );
 
-        this.serverNetworkingManager.disconnectPeer = this.disconnect.bind(this);
-        this.serverNetworkingManager.send = async (data: Uint8Array | Buffer) => {
-            // to client
-            data = Buffer.concat([Buffer.from([0x01]), Buffer.from(data)]);
-
-            return this.sendInternal(data);
-        };
-        this.serverNetworkingManager.onServerAuthenticationCompleted = () => {
-            this.onServerAuthenticationCompleted();
-        };
-
-        this.serverNetworkingManager.getOPNetPeers = (): OPNetPeerInfo[] => {
-            return this.getOPNetPeers();
-        };
+        this.defineServerNetworkingEvents();
 
         this.clientNetworkingManager = new ClientPeerNetworking(
             this.peerIdString,
             this.selfIdentity,
         );
 
-        this.clientNetworkingManager.disconnectPeer = this.disconnect.bind(this);
-        this.clientNetworkingManager.send = async (data: Uint8Array | Buffer) => {
-            // to server
-            data = Buffer.concat([Buffer.from([0x00]), Buffer.from(data)]);
-
-            return this.sendInternal(data);
-        };
-        this.clientNetworkingManager.onClientAuthenticationCompleted = () => {
-            this.onClientAuthenticationCompleted();
-        };
+        this.defineClientNetworkingEvents();
     }
 
     public get clientIdentity(): string | undefined {
@@ -97,6 +75,10 @@ export class OPNetPeer extends Logger {
 
         return this._peerIdentity;
     }
+
+    public onBlockWitness: (blockWitness: IBlockHeaderWitness) => Promise<void> = () => {
+        throw new Error('onBlockWitness not implemented.');
+    };
 
     public getOPNetPeers: () => OPNetPeerInfo[] = () => {
         throw new Error('getOPNetPeers not implemented.');
@@ -170,6 +152,12 @@ export class OPNetPeer extends Logger {
         if (shouldDisconnect) await this.disconnect(DisconnectionCode.BAD_BEHAVIOR, 'Goodbye!');
         this.clientNetworkingManager.destroy();
 
+        this.disconnectPeer = () => Promise.resolve();
+        this.sendMsg = () => Promise.resolve();
+        this.reportAuthenticatedPeer = () => {};
+        this.getOPNetPeers = () => [];
+        this.onBlockWitness = async () => {};
+
         delete this._peerIdentity;
     }
 
@@ -186,6 +174,42 @@ export class OPNetPeer extends Logger {
 
         this.debug(`Disconnecting peer ${this.peerId} with code ${code} and reason ${reason}.`);
         await this.disconnectPeer(this.peerId, code, reason);
+    }
+
+    private defineServerNetworkingEvents(): void {
+        this.serverNetworkingManager.disconnectPeer = this.disconnect.bind(this);
+        this.serverNetworkingManager.send = async (data: Uint8Array | Buffer) => {
+            // to client
+            data = Buffer.concat([Buffer.from([0x01]), Buffer.from(data)]);
+
+            return this.sendInternal(data);
+        };
+
+        this.serverNetworkingManager.onServerAuthenticationCompleted = () => {
+            this.onServerAuthenticationCompleted();
+        };
+
+        this.serverNetworkingManager.getOPNetPeers = (): OPNetPeerInfo[] => {
+            return this.getOPNetPeers();
+        };
+    }
+
+    private defineClientNetworkingEvents(): void {
+        this.clientNetworkingManager.disconnectPeer = this.disconnect.bind(this);
+        this.clientNetworkingManager.send = async (data: Uint8Array | Buffer) => {
+            // to server
+            data = Buffer.concat([Buffer.from([0x00]), Buffer.from(data)]);
+
+            return this.sendInternal(data);
+        };
+
+        this.clientNetworkingManager.onClientAuthenticationCompleted = () => {
+            this.onClientAuthenticationCompleted();
+        };
+
+        this.clientNetworkingManager.onBlockWitness = async (blockWitness: IBlockHeaderWitness) => {
+            await this.onBlockWitness(blockWitness);
+        };
     }
 
     private onServerAuthenticationCompleted(): void {}

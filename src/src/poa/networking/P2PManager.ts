@@ -28,13 +28,13 @@ import figlet, { Fonts } from 'figlet';
 import type { Datastore } from 'interface-datastore';
 import { lpStream } from 'it-length-prefixed-stream';
 import { createLibp2p, Libp2p } from 'libp2p';
-import Long from 'long';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { BlockProcessedData } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { P2PConfigurations } from '../configurations/P2PConfigurations.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { OPNetPeer } from '../peer/OPNetPeer.js';
 import { DisconnectionCode } from './enums/DisconnectionCode.js';
+import { BlockWitnessManager } from './p2p/BlockWitnessManager.js';
 import { IBlockHeaderWitness } from './protobuf/packets/blockchain/BlockHeaderWitness.js';
 import { OPNetPeerInfo } from './protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
@@ -57,11 +57,16 @@ export class P2PManager extends Logger {
     private readonly identity: OPNetIdentity;
     private loggedInitialOPNetMessage: boolean = false;
 
+    private readonly blockWitnessManager: BlockWitnessManager;
+
     constructor(private readonly config: BtcIndexerConfig) {
         super();
 
         this.p2pConfigurations = new P2PConfigurations(this.config);
         this.identity = new OPNetIdentity(this.config);
+
+        this.blockWitnessManager = new BlockWitnessManager(this.identity);
+        this.blockWitnessManager.broadcastBlockWitness = this.broadcastBlockWitness.bind(this);
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -74,6 +79,10 @@ export class P2PManager extends Logger {
 
     private get defaultHandle(): string {
         return `${P2PConfigurations.protocolName}/${AuthenticationManager.CURRENT_PROTOCOL_VERSION}`;
+    }
+
+    public async generateBlockHeaderProof(data: BlockProcessedData): Promise<void> {
+        return this.blockWitnessManager.generateBlockHeaderProof(data);
     }
 
     public async init(): Promise<void> {
@@ -93,21 +102,6 @@ export class P2PManager extends Logger {
         super.info(...args);
     }
 
-    public async generateBlockHeaderProof(data: BlockProcessedData): Promise<void> {
-        const blockChecksumHash = this.generateBlockHeaderChecksumHash(data);
-        const signedWitness = this.identity.aknowledgeData(blockChecksumHash);
-        const trustedWitness = this.identity.aknowledgeTrustedData(blockChecksumHash);
-
-        const blockWitness: IBlockHeaderWitness = {
-            ...data,
-            blockNumber: Long.fromString(data.blockNumber.toString()),
-            validatorWitnesses: [signedWitness],
-            trustedWitnesses: [trustedWitness],
-        };
-        
-        await this.broadcastBlockWitness(blockWitness);
-    }
-
     private async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
         const promises: Promise<void>[] = [];
 
@@ -116,19 +110,6 @@ export class P2PManager extends Logger {
         }
 
         await Promise.all(promises);
-    }
-
-    private generateBlockHeaderChecksumHash(
-        data: BlockProcessedData | IBlockHeaderWitness,
-    ): Buffer {
-        const generatedChecksum = Buffer.concat([
-            Buffer.from(data.blockHash, 'hex'),
-            Buffer.from(data.previousBlockHash || '', 'hex'),
-            Buffer.from(data.checksumHash, 'hex'),
-            Buffer.from(data.previousBlockChecksum, 'hex'),
-        ]);
-
-        return this.identity.hash(generatedChecksum);
     }
 
     private isBootstrapNode(): boolean {
@@ -204,6 +185,7 @@ export class P2PManager extends Logger {
         peer.sendMsg = this.sendToPeer.bind(this);
         peer.reportAuthenticatedPeer = this.reportAuthenticatedPeer.bind(this);
         peer.getOPNetPeers = this.getOPNetPeers.bind(this);
+        peer.onBlockWitness = this.blockWitnessManager.onBlockWitness.bind(this);
 
         this.peers.set(peerIdStr, peer);
 

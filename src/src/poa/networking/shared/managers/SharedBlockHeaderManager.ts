@@ -1,3 +1,4 @@
+import { CommonHandlers } from '../../../events/CommonHandlers.js';
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../../default/AbstractPacketManager.js';
 import {
@@ -17,10 +18,6 @@ export class SharedBlockHeaderManager extends AbstractPacketManager {
         super(protocol, peerId, selfIdentity);
     }
 
-    public getTrustedChecksum: () => string = () => {
-        throw new Error('getTrustedChecksum not implemented.');
-    };
-
     public async onPacket(packet: OPNetPacket): Promise<boolean> {
         switch (packet.opcode) {
             case CommonPackets.BLOCK_HEADER_WITNESS:
@@ -37,7 +34,7 @@ export class SharedBlockHeaderManager extends AbstractPacketManager {
     public destroy(): void {
         super.destroy();
     }
-
+    
     private async onBlockWitness(packet: OPNetPacket): Promise<void> {
         this.info(`Peer ${this.peerId} got a block witness packet.`);
 
@@ -54,6 +51,6 @@ export class SharedBlockHeaderManager extends AbstractPacketManager {
             return;
         }
 
-        console.log(`[MUST VERIFY] Block witness ->`, unpackedPacket);
+        await this.emit(CommonHandlers.BLOCK_WITNESS, blockWitness);
     }
 }
