@@ -187,7 +187,7 @@ export class BlockWitnessManager extends Logger {
         const trustedWitnesses: OPNetBlockWitness[] = validWitnesses.validTrustedWitnesses;
 
         this.success(
-            `BLOCK VALIDATION SUCCESSFUL. Received ${opnetWitnesses.length} validation witness(es) and ${trustedWitnesses.length} trusted witness(es). Data integrity is intact.`,
+            `BLOCK (${blockNumber}) VALIDATION SUCCESSFUL. Received ${opnetWitnesses.length} validation witness(es) and ${trustedWitnesses.length} trusted witness(es). Data integrity is intact.`,
         );
 
         /** We can store the witnesses in the database after validating their data */
