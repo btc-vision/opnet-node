@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import Long from 'long';
 import { BtcIndexerConfig } from '../../../config/BtcIndexerConfig.js';
 import { BlockProcessedData } from '../../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
@@ -46,15 +46,19 @@ export class BlockWitnessManager extends Logger {
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
         const validWitnesses = this.validateBlockHeaderSignatures(blockWitness);
         if (!validWitnesses) {
-            this.fail(
-                `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
-            );
+            if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+                this.fail(
+                    `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
+                );
+            }
             return;
         }
 
-        this.success(
-            `Received a VALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
-        );
+        if (this.config.DEBUG_LEVEL >= DebugLevel.WARN) {
+            this.success(
+                `Received a VALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
+            );
+        }
 
         console.log('Valid trusted witnesses:', validWitnesses.validTrustedWitnesses);
         console.log('Valid OPNet witnesses:', validWitnesses.opnetWitnesses);

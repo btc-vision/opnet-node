@@ -36,8 +36,6 @@ export class SharedBlockHeaderManager extends AbstractPacketManager {
     }
 
     private async onBlockWitness(packet: OPNetPacket): Promise<void> {
-        this.info(`Peer ${this.peerId} got a block witness packet.`);
-
         const blockWitness = (await this.protocol.onIncomingPacket<IBlockHeaderWitness>(
             packet,
         )) as BlockHeaderWitnessPacket;
