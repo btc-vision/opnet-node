@@ -359,7 +359,7 @@ export class BlockchainIndexer extends Logger {
             };
         }
 
-        await this.safeProcessBlocks();
+        void this.safeProcessBlocks();
 
         return {
             started: true,
