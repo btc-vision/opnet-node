@@ -150,7 +150,7 @@ export class VMIsolator {
 
     private getCallOptions(): ReferenceApplyOptions {
         return {
-            timeout: 100,
+            timeout: 20,
         };
     }
 
