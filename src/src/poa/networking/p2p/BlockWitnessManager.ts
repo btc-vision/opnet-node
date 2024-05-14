@@ -193,6 +193,8 @@ export class BlockWitnessManager extends Logger {
         }
 
         if (!validProofs) {
+            console.log(blockDataAtHeight);
+
             if (this.config.DEBUG_LEVEL >= DebugLevel.WARN) {
                 this.fail(
                     `BAD BLOCK HEADERS for block ${blockNumber.toString()}. Invalid checksum proofs!`,

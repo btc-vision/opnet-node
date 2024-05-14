@@ -427,14 +427,28 @@ export class VMManager extends Logger {
             blockReceiptProof,
         );
 
-        return (
+        const isValid =
             hasValidPrevHash &&
             hasValidPrevChecksum &&
             hasValidBlockHash &&
             hasValidBlockMerkelRoot &&
             hasValidBlockStorage &&
-            hasValidBlockReceipt
-        );
+            hasValidBlockReceipt;
+
+        if (!isValid) {
+            console.log(
+                'Invalid block checksum',
+                blockHeader.height,
+                hasValidPrevHash,
+                hasValidPrevChecksum,
+                hasValidBlockHash,
+                hasValidBlockMerkelRoot,
+                hasValidBlockStorage,
+                hasValidBlockReceipt,
+            );
+        }
+
+        return isValid;
     }
 
     public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string | undefined> {
