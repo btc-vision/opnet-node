@@ -30,7 +30,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
 
         this.rsaIdentity = this.keyPairGenerator.opnetHash(
-            Buffer.from(this.keyPair.rsa.publicKey, 'utf-8'),
+            Buffer.from(this.keyPair.rsa.publicKey.trim(), 'utf-8'),
         );
     }
 
@@ -73,7 +73,7 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public get rsaPublicKey(): string {
-        return this.keyPair.rsa.publicKey;
+        return this.keyPair.rsa.publicKey.trim();
     }
 
     public get tapAddress(): string {
