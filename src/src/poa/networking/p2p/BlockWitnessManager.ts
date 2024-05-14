@@ -42,8 +42,7 @@ export class BlockWitnessManager extends Logger {
     ) {
         super();
 
-        this.pendingBlockThreshold =
-            BigInt(this.config.OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT) || 10n;
+        this.pendingBlockThreshold = BigInt(this.config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS) || 10n;
     }
 
     public sendMessageToThread: (

@@ -35,6 +35,11 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
         const bulk = this.getCollection().initializeUnorderedBulkOp();
 
         for (const witness of witnesses) {
+            if (!witness.identity) {
+                this.warn(`[BLOCK WITNESS.] Witness identity is missing. Skipping this witness.`);
+                continue;
+            }
+
             const signature = new Binary(witness.signature);
             const pubKey: Binary | undefined = witness.opnetPubKey
                 ? new Binary(witness.opnetPubKey)
@@ -42,14 +47,14 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
 
             const blockNumber = DataConverter.toDecimal128(height);
 
-            const isTrusted = !pubKey || !witness.identity;
+            const isTrusted = !pubKey;
             if (!signature) {
                 continue;
             }
 
             const criteria: Partial<IBlockWitnessDocument> = {
                 blockNumber: blockNumber,
-                signature: signature,
+                identity: witness.identity,
             };
 
             const update: Partial<IBlockWitnessDocument> = {
