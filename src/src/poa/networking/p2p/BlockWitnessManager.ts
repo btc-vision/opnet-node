@@ -82,20 +82,15 @@ export class BlockWitnessManager extends Logger {
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
-        console.log('onBlockWitness');
         const blockNumber: bigint = BigInt(blockWitness.blockNumber.toString());
         if (this.currentBlock === blockNumber) {
-            console.log('1');
             await this.processBlockWitnesses(blockNumber, blockWitness);
         } else if (this.currentBlock < blockNumber) {
-            console.log('2');
+            // note: if not initialized, this.currentBlock is 0n.
             this.addToPendingWitnessesVerification(blockNumber, blockWitness);
         } else {
-            console.log('3');
             await this.processBlockWitnesses(blockNumber, blockWitness);
         }
-
-        console.log('block witness process.');
 
         await this.processQueuedWitnesses();
     }
@@ -198,12 +193,10 @@ export class BlockWitnessManager extends Logger {
         }
 
         const checksumHash = receivedBlockHeader.checksumRoot;
-        console.log(blockNumber, checksumHash, blockWitness.checksumHash);
-
         if (checksumHash !== blockWitness.checksumHash) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
                 this.fail(
-                    'BAD BLOCK HEADER RECEIVED. OPNet calculated checksum hash does not match the stored checksum hash. (DATA INTEGRITY ERROR',
+                    'BAD BLOCK HEADER RECEIVED. OPNet calculated checksum hash does not match the stored checksum hash. Is this node corrupted? (DATA INTEGRITY ERROR)',
                 );
             }
             return;

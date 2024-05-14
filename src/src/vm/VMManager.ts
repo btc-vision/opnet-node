@@ -214,7 +214,7 @@ export class VMManager extends Logger {
                 )}`,
             );
 
-            throw new Error('Execution Reverted.');
+            throw new Error('execution reverted');
         }
     }
 
@@ -278,7 +278,7 @@ export class VMManager extends Logger {
         if (!result) {
             await this.resetContractVM(vmEvaluator);
 
-            throw new Error('Execution Reverted.');
+            throw new Error('execution reverted.');
         }
 
         this.updateBlockValuesFromResult(
@@ -313,7 +313,7 @@ export class VMManager extends Logger {
 
         const resultValue: Uint8Array | undefined = result.result;
         if (!resultValue) {
-            throw new Error('Execution Reverted.');
+            throw new Error('execution reverted.');
         }
 
         for (const [contract, val] of result.changedStorage) {
