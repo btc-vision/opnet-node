@@ -170,8 +170,11 @@ export class BlockWitnessManager extends Logger {
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): IBlockHeaderWitness {
+        const trusted = this.knownTrustedWitnesses.get(blockNumber);
+        if (!trusted) return blockWitness;
+
         const trustedWitnesses = blockWitness.trustedWitnesses.filter((w) => {
-            return !this.knownTrustedWitnesses.get(blockNumber)?.includes(w.identity || '');
+            return !trusted.includes(w.identity || '');
         });
 
         return {
@@ -185,6 +188,7 @@ export class BlockWitnessManager extends Logger {
         blockWitness: IBlockHeaderWitness,
     ): Promise<void> {
         const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
+        console.log(filteredBlockWitnesses);
         if (filteredBlockWitnesses.trustedWitnesses.length === 0) {
             return;
         }
