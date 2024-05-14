@@ -67,7 +67,7 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
 
     protected async createLinkBetweenThreads(): Promise<void> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.ZERO_MQ);
+        //await this.threadManager.createLinkBetweenThreads(ThreadTypes.ZERO_MQ);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }
 }

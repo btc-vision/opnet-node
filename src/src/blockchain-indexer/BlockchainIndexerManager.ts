@@ -87,8 +87,9 @@ class BlockchainIndexerManager extends ThreadManager<ThreadTypes.BITCOIN_INDEXER
     protected async init(): Promise<void> {
         await super.init();
 
-        this.important('Creating threads for ZeroMQ...');
-        await this.zeroMQThreads.createThreads();
+        /** Disabled. */
+        //this.important('Creating threads for ZeroMQ...');
+        //await this.zeroMQThreads.createThreads();
 
         this.important('Creating threads for bitcoin-rpc...');
         await this.bitcoinRPCThreads.createThreads();
