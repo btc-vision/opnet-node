@@ -102,6 +102,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             hash: blockHeader.blockHash,
             merkleRoot: blockHeader.merkleRoot,
             checksumRoot: blockHeader.checksumHash,
+            previousBlockChecksum: blockHeader.previousBlockChecksum,
             checksumProofs: this.getChecksumProofs(blockHeader.checksumProofs),
         };
 

@@ -502,6 +502,22 @@ export class Block extends Logger {
 
         this.#_checksumProofs = this.#_checksumMerkle.getProofs();
 
+        /*const isValid = vmManager.validateBlockChecksum({
+            height: DataConverter.toDecimal128(this.height),
+            checksumRoot: this.checksumRoot,
+            checksumProofs: this.checksumProofs,
+            hash: this.hash,
+            previousBlockChecksum: this.previousBlockChecksum,
+            previousBlockHash: this.previousBlockHash,
+            receiptRoot: this.receiptRoot,
+            merkleRoot: this.merkleRoot,
+            storageRoot: this.storageRoot,
+        });
+
+        if (!isValid) {
+            throw new Error('Block checksum is invalid');
+        }*/
+
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.debug(
                 `Block ${this.height} signed successfully. Checksum root: ${this.checksumRoot}. Saving ${this.transactions.length} transactions.`,

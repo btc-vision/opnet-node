@@ -351,6 +351,8 @@ export class VMManager extends Logger {
         }
 
         const prevBlockHash: string | undefined = blockHeader.previousBlockHash;
+        const prevBlockChecksum: string | undefined = blockHeader.previousBlockChecksum;
+
         const blockHeight: bigint = DataConverter.fromDecimal128(blockHeader.height);
         const blockReceipt: string | undefined = blockHeader.receiptRoot;
         const blockStorage: string | undefined = blockHeader.storageRoot;
@@ -377,6 +379,14 @@ export class VMManager extends Logger {
 
         if (!previousBlockChecksum) {
             throw new Error('Previous block checksum not found');
+        }
+
+        if (prevBlockChecksum !== previousBlockChecksum) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.fail(`Previous block checksum mismatch for block ${blockHeight} (${prevBlockChecksum} !== ${previousBlockChecksum})`);
+            }
+
+            return false;
         }
 
         /** We must validate the block checksum */
