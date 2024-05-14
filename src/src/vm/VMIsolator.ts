@@ -73,10 +73,13 @@ export class VMIsolator {
         return this.contract;
     }
 
+    /**
+     * VERY IMPORTANT.
+     * This method is used to reset the VM if something goes wrong.
+     */
     public async reset(): Promise<void> {
-        console.log('RESETTING VM.');
-
         this.dispose();
+
         this.isolatedVM = this.createVM();
         this.context = this.createContext();
 
