@@ -77,10 +77,6 @@ export class EncryptemServer extends Logger {
 
     public startEncryption(): void {
         this.started = true;
-
-        this.important(
-            `!! -- Encryption started. Handshake completed successfully with client. -- !!`,
-        );
     }
 
     public encrypt(msg: Uint8Array): Uint8Array {

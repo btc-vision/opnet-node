@@ -28,7 +28,7 @@ import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { SharedAuthenticationManager } from '../../shared/managers/SharedAuthenticationManager.js';
 
 export abstract class AuthenticationManager extends SharedAuthenticationManager {
-    private static readonly VERIFY_NETWORK: boolean = false;
+    private static readonly VERIFY_NETWORK: boolean = true;
 
     public clientVersion: string | undefined;
     public clientChecksum: string | undefined;
