@@ -287,19 +287,26 @@ export class BlockWitnessManager extends Logger {
         trustedWitnesses: OPNetBlockWitness[],
         witnessData: IBlockHeaderWitness,
     ): Promise<void> {
+        if (!this.blockWitnessRepository) {
+            throw new Error('BlockWitnessRepository not initialized.');
+        }
+
         const trustedWitnessIdentities = trustedWitnesses
             .map((w) => w.identity)
             .filter((i) => !!i) as string[];
 
-        const rawWitnesses = await this.blockWitnessRepository?.getBlockWitnesses(
-            blockNumber,
-            true,
-            trustedWitnessIdentities,
-        );
+        const rawWitnesses =
+            (await this.blockWitnessRepository.getBlockWitnesses(
+                blockNumber,
+                true,
+                trustedWitnessIdentities,
+            )) || [];
 
         const newTrustedWitnesses = trustedWitnesses.filter((w) => {
-            return !rawWitnesses?.find((witness) => witness.identity === w.identity);
+            return !rawWitnesses.find((witness) => witness.identity === w.identity);
         });
+
+        console.log(newTrustedWitnesses, trustedWitnesses, rawWitnesses, blockNumber);
 
         if (newTrustedWitnesses.length > 0) {
             const knownWitnesses = this.convertKnownWitnessesToOPNetWitness(rawWitnesses || []);
