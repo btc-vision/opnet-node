@@ -379,11 +379,17 @@ export class VMManager extends Logger {
         }
 
         /** We must validate the block checksum */
+        const prevHashValue: [number, Uint8Array] = [
+            0,
+            BufferHelper.hexToUint8Array(prevBlockHash ?? ZERO_HASH),
+        ];
+        console.log(prevHashValue);
+
         const prevHashProof = this.getProofForIndex(proofs, 0);
         const hasValidPrevHash: boolean = ChecksumMerkle.verify(
             checksumRoot,
             ChecksumMerkle.TREE_TYPE,
-            [0, BufferHelper.hexToUint8Array(prevBlockHash ?? ZERO_HASH)],
+            prevHashValue,
             prevHashProof,
         );
 
