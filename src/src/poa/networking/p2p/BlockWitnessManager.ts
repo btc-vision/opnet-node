@@ -76,7 +76,6 @@ export class BlockWitnessManager extends Logger {
             trustedWitnesses: [trustedWitness],
         };
 
-        await this.onBlockWitness(blockWitness);
         await this.broadcastBlockWitness(blockWitness);
     }
 
