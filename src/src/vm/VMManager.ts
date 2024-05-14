@@ -366,8 +366,7 @@ export class VMManager extends Logger {
             !blockHash ||
             !blockMerkelRoot ||
             !proofs ||
-            !checksumRoot ||
-            !prevBlockHash
+            !checksumRoot
         ) {
             throw new Error('Block data not found');
         }
@@ -384,7 +383,7 @@ export class VMManager extends Logger {
         const hasValidPrevHash: boolean = ChecksumMerkle.verify(
             checksumRoot,
             ChecksumMerkle.TREE_TYPE,
-            [0, BufferHelper.hexToUint8Array(prevBlockHash)],
+            [0, BufferHelper.hexToUint8Array(prevBlockHash ?? ZERO_HASH)],
             prevHashProof,
         );
 

@@ -109,6 +109,10 @@ export class BlockchainIndexer extends Logger {
 
         await this.rpcClient.init(Config.BLOCKCHAIN);
         await this.vmManager.init();
+
+        if (Config.P2P.IS_BOOTSTRAP_NODE) {
+            void this.safeProcessBlocks();
+        }
     }
 
     private async getCurrentBlock(): Promise<CurrentIndexerBlockResponseData> {
@@ -351,6 +355,12 @@ export class BlockchainIndexer extends Logger {
     }
 
     private async startIndexer(): Promise<StartIndexerResponseData> {
+        if (Config.P2P.IS_BOOTSTRAP_NODE) {
+            return {
+                started: true,
+            };
+        }
+
         if (this.currentBlockInProcess) {
             return {
                 started: false,
