@@ -188,8 +188,8 @@ export class BlockWitnessManager extends Logger {
         blockWitness: IBlockHeaderWitness,
     ): Promise<void> {
         const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
-        console.log(filteredBlockWitnesses);
         if (filteredBlockWitnesses.trustedWitnesses.length === 0) {
+            this.log(`No new trusted witness for block ${blockNumber.toString()}.`);
             return;
         }
 
