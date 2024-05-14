@@ -22,7 +22,12 @@ export class PoAThread extends Thread<ThreadTypes.PoA> {
     protected async init(): Promise<void> {
         this.poa.sendMessageToThread = this.sendMessageToThread.bind(this);
 
-        await this.poa.init();
+        /**
+         * Make sure that other threads are setup before starting PoA.
+         */
+        setTimeout(() => {
+            void this.onThreadLinkSetup();
+        }, 10000);
     }
 
     protected async onLinkMessage(
@@ -37,6 +42,10 @@ export class PoAThread extends Thread<ThreadTypes.PoA> {
                 throw new Error(`Unknown message sent by thread of type: ${type}`);
             }
         }
+    }
+
+    protected async onThreadLinkSetup(): Promise<void> {
+        await this.poa.init();
     }
 
     private async handleBitcoinIndexerMessage(

@@ -6,4 +6,5 @@ export enum MessageType {
     RPC_METHOD,
 
     BLOCK_PROCESSED,
+    CURRENT_INDEXER_BLOCK,
 }

@@ -58,7 +58,7 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
 
         setTimeout(async () => {
             await this.createLinkBetweenThreads();
-        }, 5000);
+        }, 3000);
     }
 
     protected abstract createLinkBetweenThreads(): Promise<void>;

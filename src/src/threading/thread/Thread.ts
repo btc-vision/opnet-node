@@ -166,7 +166,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
     private createInternalThreadLink(m: LinkThreadMessage<LinkType>): void {
         const data = m.data;
-        const linkType = data.type;
+        // const linkType = data.type;
         const threadType = data.sourceThreadType;
 
         /*if (data.mainTargetThreadType === this.threadType) {

@@ -93,12 +93,17 @@ export class P2PManager extends Logger {
         throw new Error('sendMessageToThread not implemented.');
     };
 
-    public async generateBlockHeaderProof(data: BlockProcessedData, isSelf: boolean = false): Promise<void> {
+    public async generateBlockHeaderProof(
+        data: BlockProcessedData,
+        isSelf: boolean = false,
+    ): Promise<void> {
         return this.blockWitnessManager.generateBlockHeaderProof(data, isSelf);
     }
 
     public async init(): Promise<void> {
         this.node = await this.createNode();
+
+        await this.getCurrentBlock();
 
         await this.addListeners();
         await this.startNode();
@@ -112,6 +117,10 @@ export class P2PManager extends Logger {
         }
 
         super.info(...args);
+    }
+
+    private async getCurrentBlock(): Promise<void> {
+        await this.blockWitnessManager.setCurrentBlock();
     }
 
     private internalSendMessageToThread(
@@ -402,7 +411,10 @@ export class P2PManager extends Logger {
         }
 
         const timeout = setTimeout(() => {
-            this.warn(`Identification timeout for peer: ${peerId}`);
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.warn(`Identification timeout for peer: ${peerId}`);
+            }
+
             this.pendingNodeIdentifications.delete(peerId);
 
             this.disconnectPeer(evt.detail);

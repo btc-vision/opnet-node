@@ -30,11 +30,14 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.BITCOIN_INDEXER>
         await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
         await DBManagerInstance.connect();
 
-        setTimeout(() => {
-            void this.blockIndexer.start();
+        /**
+         * Make sure that other threads are setup before starting the Indexer.
+         */
+        setTimeout(async () => {
+            await this.blockIndexer.start();
 
             this.info(`Blockchain indexer thread started.`);
-        }, 7000);
+        }, 6000);
     }
 
     protected async onLinkMessage(

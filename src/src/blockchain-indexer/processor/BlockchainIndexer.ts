@@ -14,6 +14,7 @@ import {
     BlockProcessedData,
     BlockProcessedMessage,
 } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
+import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
@@ -77,6 +78,9 @@ export class BlockchainIndexer extends Logger {
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData> {
         switch (m.type) {
+            case MessageType.CURRENT_INDEXER_BLOCK: {
+                return await this.getCurrentBlock();
+            }
             default:
                 throw new Error(`Unknown message type: ${m.type} received in PoA.`);
         }
@@ -99,7 +103,15 @@ export class BlockchainIndexer extends Logger {
         await this.rpcClient.init(Config.BLOCKCHAIN);
         await this.vmManager.init();
 
-        await this.safeProcessBlocks();
+        void this.safeProcessBlocks();
+    }
+
+    private async getCurrentBlock(): Promise<CurrentIndexerBlockResponseData> {
+        const blockchainInfo = await this.blockchainInfoRepository.getByNetwork(this.network);
+
+        return {
+            blockNumber: BigInt(blockchainInfo.inProgressBlock),
+        };
     }
 
     private listenEvents(): void {
@@ -155,7 +167,7 @@ export class BlockchainIndexer extends Logger {
             return;
         }
 
-        setTimeout(() => this.safeProcessBlocks(), 10000);
+        setTimeout(() => this.safeProcessBlocks(), 5000);
     }
 
     private async getCurrentProcessBlockHeight(startBlockHeight: number): Promise<number> {

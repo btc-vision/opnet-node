@@ -9,6 +9,10 @@ import {
     ValidatedBlockHeader,
 } from '../../../threading/interfaces/thread-messages/messages/api/ValidateBlockHeaders.js';
 import { BlockProcessedData } from '../../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
+import {
+    BlockProcessedMessage,
+    CurrentIndexerBlockResponseData,
+} from '../../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
 import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
@@ -56,6 +60,12 @@ export class BlockWitnessManager extends Logger {
         async () => {
             throw new Error('broadcastBlockWitness not implemented.');
         };
+
+    public async setCurrentBlock(): Promise<void> {
+        this.currentBlock = await this.getCurrentBlock();
+
+        this.log(`Current block set to ${this.currentBlock.toString()}`);
+    }
 
     public async generateBlockHeaderProof(
         data: BlockProcessedData,
@@ -315,6 +325,24 @@ export class BlockWitnessManager extends Logger {
         } else if (witnesses.length < this.maxPendingWitnesses) {
             witnesses.push(blockWitness);
         }
+    }
+
+    private async getCurrentBlock(): Promise<bigint> {
+        const msg: BlockProcessedMessage = {
+            type: MessageType.CURRENT_INDEXER_BLOCK,
+            data: {},
+        };
+
+        const resp = (await this.sendMessageToThread(
+            ThreadTypes.BITCOIN_INDEXER,
+            msg,
+        )) as CurrentIndexerBlockResponseData | null;
+
+        if (!resp) {
+            return -1n;
+        }
+
+        return resp.blockNumber;
     }
 
     private generateBlockHeaderChecksumHash(
