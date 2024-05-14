@@ -102,7 +102,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             return;
         }
 
-        return textEncoder.encode(this._revert.message);
+        const finalMsg: string =
+            this._revert.message.length > 1000
+                ? this._revert.message.slice(0, 1000)
+                : this._revert.message;
+
+        return textEncoder.encode(finalMsg);
     }
 
     protected _receipt: EvaluatedResult | undefined;
