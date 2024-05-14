@@ -154,7 +154,9 @@ export class VMManager extends Logger {
         const vmEvaluator: ContractEvaluator | null = await this.getVMEvaluator(
             contractAddress,
             height,
-        ); //await this.getVMEvaluatorFromCache(contractAddress);
+        ).catch(() => {
+            return null;
+        }); //await this.getVMEvaluatorFromCache(contractAddress);
 
         if (!vmEvaluator) {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
@@ -204,6 +206,8 @@ export class VMManager extends Logger {
 
             return response;
         } catch (e) {
+            await this.resetContractVM(vmEvaluator);
+
             this.error(
                 `Error executing contract ${contractAddress} at block ${height} with calldata ${calldata.toString(
                     'hex',
@@ -265,15 +269,15 @@ export class VMManager extends Logger {
         }
 
         // Execute the function
-        const result: EvaluatedResult = await vmEvaluator.execute(
-            contractAddress,
-            isView,
-            selector,
-            finalBuffer,
-            interactionTransaction.from,
-        );
+        const result: EvaluatedResult | null = await vmEvaluator
+            .execute(contractAddress, isView, selector, finalBuffer, interactionTransaction.from)
+            .catch(() => {
+                return null;
+            });
 
         if (!result) {
+            await this.resetContractVM(vmEvaluator);
+
             throw new Error('Execution Reverted.');
         }
 
@@ -537,6 +541,10 @@ export class VMManager extends Logger {
         return blockHeader;
     }
 
+    private async resetContractVM(vmEvaluator: ContractEvaluator): Promise<void> {
+        await vmEvaluator.preventDamage();
+    }
+
     private async getChainCurrentBlockHeight(): Promise<bigint> {
         const block = await this.vmStorage.getLatestBlock();
 
@@ -591,7 +599,10 @@ export class VMManager extends Logger {
             return vmEvaluator;
         }
 
-        const newVmEvaluator = this.getVMEvaluator(contractAddress);
+        const newVmEvaluator = this.getVMEvaluator(contractAddress).catch(() => {
+            return null;
+        });
+
         if (!newVmEvaluator) {
             throw new Error(
                 `[getVMEvaluatorFromCache] Unable to initialize contract ${contractAddress}`,

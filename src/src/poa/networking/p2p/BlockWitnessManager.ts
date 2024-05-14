@@ -175,6 +175,8 @@ export class BlockWitnessManager extends Logger {
         }
 
         const checksumHash = receivedBlockHeader.checksumRoot;
+        console.log(blockNumber, checksumHash, blockWitness.checksumHash);
+
         if (checksumHash !== blockWitness.checksumHash) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
                 this.fail(

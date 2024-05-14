@@ -32,6 +32,9 @@ export class ContractEvaluator {
     private writeMethods: MethodMap = new Map();
     private initializeContract: boolean = false;
 
+    private contractOwner: Address | undefined;
+    private contractAddress: Address | undefined;
+
     private readonly enableTracing: boolean = false;
 
     constructor(private readonly vmIsolator: VMIsolator) {}
@@ -69,6 +72,13 @@ export class ContractEvaluator {
     }
 
     public async setupContract(owner: Address, contractAddress: Address): Promise<void> {
+        if (!owner || !contractAddress) {
+            throw new Error('Owner and contract address are required');
+        }
+
+        this.contractOwner = owner;
+        this.contractAddress = contractAddress;
+
         if (!this.contractInstance) {
             throw new Error('No contract instance');
         }
@@ -180,6 +190,19 @@ export class ContractEvaluator {
         } catch (e) {
             this.isProcessing = false;
             throw e;
+        }
+    }
+
+    public async preventDamage(): Promise<void> {
+        try {
+            if (!this.contractAddress || !this.contractOwner) return;
+            this.initializeContract = false;
+            this.contractRef = 0;
+
+            await this.vmIsolator.reset();
+            await this.setupContract(this.contractOwner, this.contractAddress);
+        } catch (e) {
+            console.error(`UNABLE TO PURGE MEMORY: ${e}`);
         }
     }
 
@@ -344,8 +367,6 @@ export class ContractEvaluator {
         }
 
         const buf: Uint8Array = this.binaryWriter.getBuffer();
-
-        this.contractInstance.purgeMemory();
         this.contractInstance.loadStorage(buf);
     }
 

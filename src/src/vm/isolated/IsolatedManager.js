@@ -18,6 +18,13 @@ const adaptedImports = {
             text = __liftString(text >>> 0);
             log(text);
         },
+        seed() {
+            // ~lib/builtins/seed() => f64
+            return (() => {
+                // @external.js
+                return Date.now() * (Math.random() * Math.random());
+            })();
+        },
     }),
 };
 
@@ -279,4 +286,9 @@ export function allocateMemory(size) {
 export function isInitialized() {
     // src/btc/exports/index/isInitialized() => bool
     return adaptedExports.isInitialized();
+}
+
+export function purgeMemory() {
+    // src/btc/exports/index/purgeMemory() => void
+    return adaptedExports.purgeMemory();
 }

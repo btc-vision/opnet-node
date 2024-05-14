@@ -24,6 +24,7 @@ interface IsolatedMethods {
     INITIALIZE_STORAGE: IsolatedVM.Reference<VMRuntime['initializeStorage']>;
     IS_INITIALIZED: IsolatedVM.Reference<VMRuntime['isInitialized']>;
     GET_EVENTS: IsolatedVM.Reference<VMRuntime['getEvents']>;
+    PURGE_MEMORY: IsolatedVM.Reference<VMRuntime['purgeMemory']>;
 }
 
 const codePath = path.resolve(__dirname, '../vm/isolated/IsolatedManager.js');
@@ -32,8 +33,8 @@ const code: string = fs.readFileSync(codePath, 'utf-8');
 export class VMIsolator {
     private contract: ContractEvaluator | null = null;
 
-    private isolatedVM: Isolate = new ivm.Isolate({ memoryLimit: 128 });
-    private context: Context = this.isolatedVM.createContextSync();
+    private isolatedVM: Isolate = this.createVM();
+    private context: Context = this.createContext();
 
     private jail = this.context.global;
 
@@ -72,6 +73,18 @@ export class VMIsolator {
         return this.contract;
     }
 
+    public async reset(): Promise<void> {
+        console.log('RESETTING VM.');
+
+        this.dispose();
+        this.isolatedVM = this.createVM();
+        this.context = this.createContext();
+
+        this.jail = this.context.global;
+
+        await this.setupJail();
+    }
+
     public async setupJail(): Promise<void> {
         this.jail.setSync('global', this.jail.derefInto());
         this.jail.setSync('globalThis', this.jail.derefInto());
@@ -91,9 +104,20 @@ export class VMIsolator {
     }
 
     public dispose(): void {
+        this.methods = null;
+        this.module = null;
+
         this.context.release();
 
         this.isolatedVM.dispose();
+    }
+
+    private createVM(): Isolate {
+        return new ivm.Isolate({ memoryLimit: 128 });
+    }
+
+    private createContext(): Context {
+        return this.isolatedVM.createContextSync();
     }
 
     private defineMethods(): void {
@@ -117,6 +141,7 @@ export class VMIsolator {
             LOAD_STORAGE: this.reference.getSync('loadStorage', { reference: true }),
             ALLOCATE_MEMORY: this.reference.getSync('allocateMemory', { reference: true }),
             IS_INITIALIZED: this.reference.getSync('isInitialized', { reference: true }),
+            PURGE_MEMORY: this.reference.getSync('purgeMemory', { reference: true }),
         };
     }
 
@@ -309,6 +334,7 @@ export class VMIsolator {
             [],
             this.getCallOptions(),
         ) as Reference<Uint8Array>;
+
         const resp = result.copySync();
         result.release();
 
@@ -352,7 +378,13 @@ export class VMIsolator {
         return this.methods.GROW_MEMORY.applySync(undefined, [size], this.getCallOptions());
     }
 
-    private purgeMemory(): void {}
+    private purgeMemory(): void {
+        if (!this.methods) {
+            throw new Error('Methods not defined');
+        }
+
+        this.methods.PURGE_MEMORY.applySync(undefined, [], this.getCallOptions());
+    }
 
     private getRuntime(): VMRuntime {
         return {
@@ -392,8 +424,8 @@ export class VMIsolator {
                 },
             );
 
-            await this.module.evaluate({
-                timeout: 2000,
+            await this.module.evaluate(this.getCallOptions()).catch(() => {
+                return false;
             });
 
             this.reference = this.module.namespace;
