@@ -76,16 +76,21 @@ export class BlockchainIndexer extends Logger {
     public async handleBitcoinIndexerMessage(
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData> {
+        let resp: ThreadData;
         switch (m.type) {
             case MessageType.CURRENT_INDEXER_BLOCK: {
-                return await this.getCurrentBlock();
+                resp = await this.getCurrentBlock();
+                break;
             }
             case MessageType.START_INDEXER: {
-                return await this.startIndexer();
+                resp = await this.startIndexer();
+                break;
             }
             default:
                 throw new Error(`Unknown message type: ${m.type} received in PoA.`);
         }
+
+        return resp ?? null;
     }
 
     public sendMessageToThread: (
@@ -346,6 +351,8 @@ export class BlockchainIndexer extends Logger {
     }
 
     private async startIndexer(): Promise<StartIndexerResponseData> {
+        console.log('BOOT.');
+
         if (this.currentBlockInProcess) {
             return {
                 started: false,

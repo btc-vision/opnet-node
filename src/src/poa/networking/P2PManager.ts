@@ -233,6 +233,7 @@ export class P2PManager extends Logger {
     private async logOPNetInfo(): Promise<void> {
         if (!this.startedIndexer) {
             this.startedIndexer = true;
+
             this.notifyArt(
                 'OPNet',
                 'Doh',
