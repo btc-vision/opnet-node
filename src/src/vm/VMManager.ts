@@ -1,7 +1,6 @@
 import { Address, ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { defaultAbiCoder } from '@ethersproject/abi';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
@@ -383,7 +382,9 @@ export class VMManager extends Logger {
 
         if (prevBlockChecksum !== previousBlockChecksum) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.fail(`Previous block checksum mismatch for block ${blockHeight} (${prevBlockChecksum} !== ${previousBlockChecksum})`);
+                this.fail(
+                    `Previous block checksum mismatch for block ${blockHeight} (${prevBlockChecksum} !== ${previousBlockChecksum})`,
+                );
             }
 
             return false;
@@ -403,21 +404,12 @@ export class VMManager extends Logger {
             prevHashProof,
         );
 
-        const val = BufferHelper.hexToUint8Array(previousBlockChecksum);
-
         const prevChecksumProof = this.getProofForIndex(proofs, 1);
         const hasValidPrevChecksum: boolean = ChecksumMerkle.verify(
             checksumRoot,
             ChecksumMerkle.TREE_TYPE,
             [1, BufferHelper.hexToUint8Array(previousBlockChecksum)],
             prevChecksumProof,
-        );
-
-        console.log(
-            [1, val],
-            prevChecksumProof,
-            hasValidPrevChecksum,
-            defaultAbiCoder.encode(['string', 'bytes'], [1, val]),
         );
 
         const blockHashProof = this.getProofForIndex(proofs, 2);
@@ -452,28 +444,14 @@ export class VMManager extends Logger {
             blockReceiptProof,
         );
 
-        const isValid =
+        return (
             hasValidPrevHash &&
             hasValidPrevChecksum &&
             hasValidBlockHash &&
             hasValidBlockMerkelRoot &&
             hasValidBlockStorage &&
-            hasValidBlockReceipt;
-
-        if (!isValid) {
-            console.log(
-                'Invalid block checksum',
-                blockHeader.height,
-                hasValidPrevHash,
-                hasValidPrevChecksum,
-                hasValidBlockHash,
-                hasValidBlockMerkelRoot,
-                hasValidBlockStorage,
-                hasValidBlockReceipt,
-            );
-        }
-
-        return isValid;
+            hasValidBlockReceipt
+        );
     }
 
     public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string | undefined> {
