@@ -268,12 +268,7 @@ export class BlockWitnessManager extends Logger {
             `BLOCK (${blockNumber}) VALIDATION SUCCESSFUL. Received ${opnetWitnesses.length} validation witness(es) and ${trustedWitnesses.length} trusted witness(es). Data integrity is maintained.`,
         );
 
-        await this.broadcastTrustedWitnesses(
-            blockNumber,
-            opnetWitnesses,
-            trustedWitnesses,
-            blockWitness,
-        );
+        await this.broadcastTrustedWitnesses(blockNumber, trustedWitnesses, blockWitness);
 
         /** We can store the witnesses in the database after validating their data */
         await this.writeBlockWitnessesToDatabase(blockNumber, opnetWitnesses, trustedWitnesses);
@@ -281,7 +276,6 @@ export class BlockWitnessManager extends Logger {
 
     private async broadcastTrustedWitnesses(
         blockNumber: bigint,
-        opnetWitnesses: OPNetBlockWitness[],
         trustedWitnesses: OPNetBlockWitness[],
         witnessData: IBlockHeaderWitness,
     ): Promise<void> {
@@ -301,7 +295,13 @@ export class BlockWitnessManager extends Logger {
             )) || [];
 
         const newTrustedWitnesses = trustedWitnesses.filter((w) => {
-            return !rawWitnesses.find((witness) => witness.identity === w.identity);
+            /**
+             * We should not broadcast the generated witness by this trusted node twice. This would leak our identity.
+             */
+            return (
+                w.identity !== this.identity.rsaOPNetIdentity &&
+                !rawWitnesses.find((witness) => witness.identity === w.identity)
+            );
         });
 
         if (newTrustedWitnesses.length > 0) {
@@ -319,10 +319,16 @@ export class BlockWitnessManager extends Logger {
                 );
             }
 
+            const blockChecksumHash: Buffer = this.generateBlockHeaderChecksumHash(witnessData);
+            const selfSignedWitness = this.identity.acknowledgeData(blockChecksumHash);
+
+            /**
+             * We spoof the validatorWitnesses to include the self-signed witness. This way, the identity of the trusted validators is not revealed.
+             */
             await this.broadcastBlockWitness({
                 ...witnessData,
                 trustedWitnesses: trustedWitness,
-                validatorWitnesses: opnetWitnesses,
+                validatorWitnesses: [selfSignedWitness],
             });
         }
     }

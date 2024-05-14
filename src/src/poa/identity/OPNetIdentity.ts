@@ -72,6 +72,10 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.config.OP_NET.CHAIN_ID;
     }
 
+    public get rsaOPNetIdentity(): string {
+        return this.rsaIdentity;
+    }
+
     public get rsaPublicKey(): string {
         return this.keyPair.rsa.publicKey.trim();
     }
