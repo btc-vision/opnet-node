@@ -429,7 +429,7 @@ export class VMIsolator {
 
             await this.module
                 .evaluate({
-                    timeout: 150,
+                    timeout: 500,
                 })
                 .catch(() => {
                     return false;
