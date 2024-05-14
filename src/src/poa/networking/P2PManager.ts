@@ -31,7 +31,10 @@ import { createLibp2p, Libp2p } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
 import { BlockProcessedData } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
-import { StartIndexer } from '../../threading/interfaces/thread-messages/messages/indexer/StartIndexer.js';
+import {
+    StartIndexer,
+    StartIndexerResponseData,
+} from '../../threading/interfaces/thread-messages/messages/indexer/StartIndexer.js';
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
@@ -245,11 +248,16 @@ export class P2PManager extends Logger {
                 data: {},
             };
 
-            const resp = await this.sendMessageToThread(
+            const resp = (await this.sendMessageToThread(
                 ThreadTypes.BITCOIN_INDEXER,
                 startupMessage,
-            );
-            console.log(resp);
+            )) as StartIndexerResponseData | null;
+
+            if (resp && resp.started) {
+                this.info(`Indexer started successfully.`);
+            } else {
+                throw new Error(`Failed to start indexer.`);
+            }
         }
     }
 
