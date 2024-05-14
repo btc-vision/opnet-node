@@ -34,6 +34,8 @@ export class BlockWitnessManager extends Logger {
     private pendingWitnessesVerification: Map<bigint, IBlockHeaderWitness[]> = new Map();
     private currentBlock: bigint = 0n;
 
+    private broadcastedBlockWitnesses: Map<bigint, IBlockHeaderWitness> = new Map();
+
     constructor(
         private readonly config: BtcIndexerConfig,
         private readonly identity: OPNetIdentity,
@@ -42,7 +44,6 @@ export class BlockWitnessManager extends Logger {
 
         this.pendingBlockThreshold =
             BigInt(this.config.OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT) || 10n;
-        console.log(this.pendingBlockThreshold);
     }
 
     public sendMessageToThread: (
