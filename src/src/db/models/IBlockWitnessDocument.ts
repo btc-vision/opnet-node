@@ -6,7 +6,7 @@ interface IOPNetWitnessDocument {
 
     readonly signature: Binary;
 
-    readonly identity?: string;
+    identity?: string;
     readonly opnetPubKey?: Binary;
 }
 

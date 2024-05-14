@@ -1,6 +1,6 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { Binary, BulkWriteOptions, BulkWriteResult, Collection, Db } from 'mongodb';
+import { Binary, BulkWriteOptions, BulkWriteResult, Collection, Db, Filter } from 'mongodb';
 import { OPNetBlockWitness } from '../../poa/networking/protobuf/packets/blockchain/BlockHeaderWitness.js';
 import {
     IBlockWitnessDocument,
@@ -16,10 +16,15 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
 
     public async getBlockWitnesses(
         height: bigint,
+        identity?: string[],
     ): Promise<IParsedBlockWitnessDocument[] | undefined> {
-        const criteria: Partial<IBlockWitnessDocument> = {
+        const criteria: Partial<Filter<IBlockWitnessDocument>> = {
             blockNumber: DataConverter.toDecimal128(height),
         };
+
+        if (identity && identity.length) {
+            criteria.identity = { $in: identity };
+        }
 
         const witnesses = await this.queryMany(criteria);
         if (!witnesses) {

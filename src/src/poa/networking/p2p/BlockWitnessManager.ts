@@ -229,9 +229,27 @@ export class BlockWitnessManager extends Logger {
             `BLOCK (${blockNumber}) VALIDATION SUCCESSFUL. Received ${opnetWitnesses.length} validation witness(es) and ${trustedWitnesses.length} trusted witness(es). Data integrity is maintained.`,
         );
 
-        /** We can store the witnesses in the database after validating their data */
+        await this.broadcastTrustedWitnesses(blockNumber, opnetWitnesses, trustedWitnesses);
 
+        /** We can store the witnesses in the database after validating their data */
         await this.writeBlockWitnessesToDatabase(blockNumber, opnetWitnesses, trustedWitnesses);
+    }
+
+    private async broadcastTrustedWitnesses(
+        blockNumber: bigint,
+        opnetWitnesses: OPNetBlockWitness[],
+        trustedWitnesses: OPNetBlockWitness[],
+    ): Promise<void> {
+        const trustedWitnessIdentities = trustedWitnesses
+            .map((w) => w.identity)
+            .filter((i) => !!i) as string[];
+
+        const witnesses = await this.blockWitnessRepository?.getBlockWitnesses(
+            blockNumber,
+            trustedWitnessIdentities,
+        );
+
+        console.log('trustedWitnessIdentities', trustedWitnessIdentities, witnesses);
     }
 
     private async writeBlockWitnessesToDatabase(
