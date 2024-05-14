@@ -381,7 +381,7 @@ export class VMManager extends Logger {
         /** We must validate the block checksum */
         const prevHashValue: [number, Uint8Array] = [
             0,
-            BufferHelper.hexToUint8Array(prevBlockHash ?? ZERO_HASH),
+            prevBlockHash ? BufferHelper.hexToUint8Array(prevBlockHash) : new Uint8Array(32),
         ];
         console.log(prevHashValue);
 
