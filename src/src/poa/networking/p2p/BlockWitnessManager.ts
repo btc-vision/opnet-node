@@ -186,6 +186,8 @@ export class BlockWitnessManager extends Logger {
 
         const validProofs = blockDataAtHeight.hasValidProofs;
         if (validProofs === null) {
+            console.log(blockDataAtHeight);
+
             if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
                 this.fail(`Validator can not verify the accuracy of the block yet.`);
             }

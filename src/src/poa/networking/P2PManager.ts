@@ -489,11 +489,11 @@ export class P2PManager extends Logger {
                     this.debug('Error while handling incoming stream', (e as Error).stack);
                 }
 
-                await this.disconnectPeer(
+                /*await this.disconnectPeer(
                     peerId,
                     DisconnectionCode.BAD_PEER,
                     'Error while handling incoming stream',
-                ).catch(() => {});
+                ).catch(() => {});*/
             }
 
             // Close the stream

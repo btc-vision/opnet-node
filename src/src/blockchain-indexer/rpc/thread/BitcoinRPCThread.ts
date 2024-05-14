@@ -107,7 +107,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
         const hasValidProofs: boolean | null = await this.vmManager
             .validateBlockChecksum(vmBlockHeader)
-            .catch(() => {
+            .catch((e) => {
+                console.log(e);
                 return null;
             });
 

@@ -31,7 +31,7 @@ export class BlockchainIndexer extends Logger {
     private readonly bitcoinNetwork: bitcoin.networks.Network;
 
     private readonly vmManager: VMManager;
-    private readonly processOnlyOneBlock: boolean = false;
+    private readonly processOnlyOneBlock: boolean = true;
 
     private readonly maximumPrefetchBlocks: number;
     private readonly prefetchedBlocks: Map<number, Promise<BlockDataWithTransactionData | null>> =
