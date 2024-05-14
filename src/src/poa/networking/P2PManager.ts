@@ -242,10 +242,14 @@ export class P2PManager extends Logger {
 
             const startupMessage: StartIndexer = {
                 type: MessageType.START_INDEXER,
-                data: {}
-            }
+                data: {},
+            };
 
-            await this.sendMessageToThread(ThreadTypes.BITCOIN_INDEXER, startupMessage);
+            const resp = await this.sendMessageToThread(
+                ThreadTypes.BITCOIN_INDEXER,
+                startupMessage,
+            );
+            console.log(resp);
         }
     }
 
@@ -412,8 +416,7 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
-        const peerId = evt.detail.toString();
-
+        const peerId: string = evt.detail.toString();
         if (this.pendingNodeIdentifications.has(peerId)) {
             return;
         }

@@ -57,6 +57,7 @@
         "gulp-eslint": "^6.0.0",
         "gulp-logger": "^0.0.2",
         "gulp-typescript": "^6.0.0-alpha.1",
+        "gulplog": "^2.2.0",
         "hyper-express": "^6.15.2",
         "isolated-vm": "^4.7.2",
         "it-length-prefixed-stream": "^1.1.7",
