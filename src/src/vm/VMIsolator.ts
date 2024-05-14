@@ -427,9 +427,13 @@ export class VMIsolator {
                 },
             );
 
-            await this.module.evaluate(this.getCallOptions()).catch(() => {
-                return false;
-            });
+            await this.module
+                .evaluate({
+                    timeout: 150,
+                })
+                .catch(() => {
+                    return false;
+                });
 
             this.reference = this.module.namespace;
         } catch (e) {
