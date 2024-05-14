@@ -227,8 +227,6 @@ export class BlockWitnessManager extends Logger {
 
         const validProofs = blockDataAtHeight.hasValidProofs;
         if (validProofs === null) {
-            console.log(blockDataAtHeight);
-
             if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
                 this.fail(`Validator can not verify the accuracy of the block yet.`);
             }
@@ -305,8 +303,6 @@ export class BlockWitnessManager extends Logger {
         const newTrustedWitnesses = trustedWitnesses.filter((w) => {
             return !rawWitnesses.find((witness) => witness.identity === w.identity);
         });
-
-        console.log(newTrustedWitnesses, trustedWitnesses, rawWitnesses, blockNumber);
 
         if (newTrustedWitnesses.length > 0) {
             const knownWitnesses = this.convertKnownWitnessesToOPNetWitness(rawWitnesses || []);
