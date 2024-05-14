@@ -82,14 +82,20 @@ export class BlockWitnessManager extends Logger {
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
+        console.log('onBlockWitness');
         const blockNumber: bigint = BigInt(blockWitness.blockNumber.toString());
         if (this.currentBlock === blockNumber) {
+            console.log('1');
             await this.processBlockWitnesses(blockNumber, blockWitness);
         } else if (this.currentBlock < blockNumber) {
+            console.log('2');
             this.addToPendingWitnessesVerification(blockNumber, blockWitness);
         } else {
+            console.log('3');
             await this.processBlockWitnesses(blockNumber, blockWitness);
         }
+
+        console.log('block witness process.');
 
         await this.processQueuedWitnesses();
     }
