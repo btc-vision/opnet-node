@@ -125,7 +125,6 @@ export class BlockWitnessManager extends Logger {
 
         blocks.forEach((block) => {
             if (currentBlock - block > this.pendingBlockThreshold) {
-                this.info(`Purging block ${block.toString()} from known trusted witnesses.`);
                 this.knownTrustedWitnesses.delete(block);
             }
         });
@@ -264,9 +263,11 @@ export class BlockWitnessManager extends Logger {
         const opnetWitnesses: OPNetBlockWitness[] = validWitnesses.opnetWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = validWitnesses.validTrustedWitnesses;
 
-        this.success(
-            `BLOCK (${blockNumber}) VALIDATION SUCCESSFUL. Received ${opnetWitnesses.length} validation witness(es) and ${trustedWitnesses.length} trusted witness(es). Data integrity is maintained.`,
-        );
+        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            this.success(
+                `BLOCK (${blockNumber}) VALIDATION SUCCESSFUL. Received ${opnetWitnesses.length} validation witness(es) and ${trustedWitnesses.length} trusted witness(es). Data integrity is maintained.`,
+            );
+        }
 
         await this.broadcastTrustedWitnesses(blockNumber, trustedWitnesses, blockWitness);
 
@@ -313,7 +314,7 @@ export class BlockWitnessManager extends Logger {
 
             this.addKnownTrustedWitnesses(blockNumber, trustedWitness);
 
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.log(
                     `Broadcasting block witness for block ${blockNumber.toString()} to OPNet network.`,
                 );
