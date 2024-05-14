@@ -193,8 +193,6 @@ export class BlockWitnessManager extends Logger {
             return;
         }
 
-        console.log(blockWitness.trustedWitnesses);
-
         const blockDataAtHeight = await this.getBlockDataAtHeight(
             blockNumber,
             filteredBlockWitnesses,
