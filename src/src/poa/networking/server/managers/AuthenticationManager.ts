@@ -389,7 +389,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
     }
 
     private async verifyNetwork(): Promise<void> {
-        if (!this.selfIdentity) throw new Error('Self identity not found.');
+        if (!this.selfIdentity) throw new Error('(verifyNetwork) Self identity not found.');
 
         if (this.selfIdentity.peerNetwork !== this.clientNetwork) {
             await this.disconnectPeer(DisconnectionCode.BAD_NETWORK, 'Invalid network.');

@@ -146,7 +146,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     }
 
     protected async attemptAuth(key: Uint8Array): Promise<void> {
-        if (!this.selfIdentity) throw new Error('Self identity not found.');
+        if (!this.selfIdentity) throw new Error('(attemptAuth) Self identity not found.');
 
         this.connectionStatus = ConnectionStatus.AUTHENTICATING;
 

@@ -26,7 +26,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
     };
 
     public async login(): Promise<void> {
-        if (!this.selfIdentity) throw new Error('Self identity not found.');
+        if (!this.selfIdentity) throw new Error('(login) Self identity not found.');
 
         try {
             await this.attemptAuth(this.selfIdentity.authKey);
