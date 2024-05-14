@@ -181,7 +181,8 @@ export class VMManager extends Logger {
 
         const selector: Selector = calldata.readUInt32BE(0);
         const isView: boolean = vmEvaluator.isViewMethod(selector);
-        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+
+        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debugBright(
                 `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${contractAddress} at block ${height} with calldata ${calldata.toString(
                     'hex',
@@ -264,7 +265,8 @@ export class VMManager extends Logger {
 
         const selector: Selector = calldata.readUInt32BE(0);
         const isView: boolean = vmEvaluator.isViewMethod(selector);
-        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+
+        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debugBright(
                 `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${contractAddress} at block ${blockHeight} with calldata ${calldata.toString(
                     'hex',
@@ -593,7 +595,9 @@ export class VMManager extends Logger {
         return vmEvaluator;
     }
 
-    private async getVMEvaluatorFromCache(contractAddress: Address): Promise<ContractEvaluator | null> {
+    private async getVMEvaluatorFromCache(
+        contractAddress: Address,
+    ): Promise<ContractEvaluator | null> {
         const vmEvaluator: Promise<ContractEvaluator | null> | undefined =
             this.vmEvaluators.get(contractAddress);
 
