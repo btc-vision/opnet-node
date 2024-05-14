@@ -51,10 +51,12 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const contractBytecode: Buffer = fs.readFileSync('bytecode/contract.wasm');
         expect(contractBytecode).toBeDefined();
 
-        vmContext = await vmManager.loadContractFromBytecode(
+        const vmContextObj = await vmManager.loadContractFromBytecode(
             ANY_CONTRACT_ADDRESS,
             contractBytecode,
         );
+
+        vmContext = vmContextObj.isolator;
 
         expect(vmContext).toBeDefined();
 

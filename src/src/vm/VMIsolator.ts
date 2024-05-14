@@ -77,7 +77,7 @@ export class VMIsolator {
      * VERY IMPORTANT.
      * This method is used to reset the VM if something goes wrong.
      */
-    public async reset(): Promise<void> {
+    public async reset(): Promise<boolean> {
         this.dispose();
 
         this.isolatedVM = this.createVM();
@@ -85,10 +85,10 @@ export class VMIsolator {
 
         this.jail = this.context.global;
 
-        await this.setupJail();
+        return await this.setupJail();
     }
 
-    public async setupJail(): Promise<void> {
+    public async setupJail(): Promise<boolean> {
         this.jail.setSync('global', this.jail.derefInto());
         this.jail.setSync('globalThis', this.jail.derefInto());
 
@@ -96,7 +96,11 @@ export class VMIsolator {
             console.log(...args);
         });
 
-        await this.loadContractFromBytecode();
+        let errored = await this.loadContractFromBytecode();
+        if (errored) {
+            return errored;
+        }
+
         this.defineMethods();
 
         this.contract = new ContractEvaluator(this);
@@ -104,6 +108,8 @@ export class VMIsolator {
         const runTime = this.getRuntime();
 
         await this.contract.init(runTime);
+
+        return false;
     }
 
     public dispose(): void {
@@ -410,7 +416,8 @@ export class VMIsolator {
         };
     }
 
-    private async loadContractFromBytecode(): Promise<void> {
+    private async loadContractFromBytecode(): Promise<boolean> {
+        let errored: boolean = false;
         try {
             const wasmModule = await WebAssembly.compile(this.contractBytecode);
             const externalCopy = new ivm.ExternalCopy(wasmModule);
@@ -432,7 +439,7 @@ export class VMIsolator {
                     timeout: 500,
                 })
                 .catch(() => {
-                    return false;
+                    errored = true;
                 });
 
             this.reference = this.module.namespace;
@@ -440,7 +447,7 @@ export class VMIsolator {
             console.log(e);
         }
 
-        return;
+        return errored;
     }
 
     /*private getModuleFromCache(

@@ -129,14 +129,17 @@ export class VMManager extends Logger {
     public async loadContractFromBytecode(
         contractAddress: string,
         contractBytecode: Buffer,
-    ): Promise<VMIsolator> {
+    ): Promise<{ isolator: VMIsolator; errored: boolean }> {
         const isolator = new VMIsolator(contractAddress, contractBytecode);
         isolator.getStorage = this.getStorage.bind(this);
         isolator.setStorage = this.setStorage.bind(this);
 
-        await isolator.setupJail();
+        let errored = await isolator.setupJail();
 
-        return isolator;
+        return {
+            isolator,
+            errored,
+        };
     }
 
     /** This method is allowed to read only. It can not modify any states. */
@@ -235,6 +238,7 @@ export class VMManager extends Logger {
         // Get the contract evaluator
         const vmEvaluator: ContractEvaluator | null =
             await this.getVMEvaluatorFromCache(contractAddress);
+
         if (!vmEvaluator) {
             throw new Error(
                 `[executeTransaction] Unable to initialize contract ${contractAddress}`,
@@ -561,11 +565,14 @@ export class VMManager extends Logger {
             return null;
         }
 
-        const vmIsolator: VMIsolator | null = await this.loadContractFromBytecode(
-            contractAddress,
-            contractInformation.bytecode,
-        );
+        const vmIsolatorObj: { isolator: VMIsolator; errored: boolean } =
+            await this.loadContractFromBytecode(contractAddress, contractInformation.bytecode);
 
+        if (vmIsolatorObj.errored) {
+            return null;
+        }
+
+        const vmIsolator: VMIsolator | null = vmIsolatorObj.isolator;
         if (!vmIsolator) {
             throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
         }
@@ -586,9 +593,10 @@ export class VMManager extends Logger {
         return vmEvaluator;
     }
 
-    private async getVMEvaluatorFromCache(contractAddress: Address): Promise<ContractEvaluator> {
-        const vmEvaluator: Promise<ContractEvaluator> | undefined =
+    private async getVMEvaluatorFromCache(contractAddress: Address): Promise<ContractEvaluator | null> {
+        const vmEvaluator: Promise<ContractEvaluator | null> | undefined =
             this.vmEvaluators.get(contractAddress);
+
         if (vmEvaluator) {
             return vmEvaluator;
         }
@@ -597,13 +605,14 @@ export class VMManager extends Logger {
             return null;
         });
 
+        // This was move on top of the error on purpose. It prevents timeout during initialization for faster processing.
+        this.vmEvaluators.set(contractAddress, newVmEvaluator as Promise<ContractEvaluator>);
+
         if (!newVmEvaluator) {
             throw new Error(
                 `[getVMEvaluatorFromCache] Unable to initialize contract ${contractAddress}`,
             );
         }
-
-        this.vmEvaluators.set(contractAddress, newVmEvaluator as Promise<ContractEvaluator>);
 
         return newVmEvaluator as Promise<ContractEvaluator>;
     }
