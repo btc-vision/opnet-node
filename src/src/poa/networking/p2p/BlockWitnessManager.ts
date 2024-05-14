@@ -82,8 +82,6 @@ export class BlockWitnessManager extends Logger {
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
-        console.log('Processing block witnesses', blockWitness);
-
         const blockNumber: bigint = BigInt(blockWitness.blockNumber.toString());
         if (this.currentBlock === blockNumber) {
             await this.processBlockWitnesses(blockNumber, blockWitness);
@@ -132,6 +130,13 @@ export class BlockWitnessManager extends Logger {
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): Promise<void> {
+        console.log(
+            'Processing block witnesses',
+            blockNumber,
+            blockWitness,
+            this.config.DEBUG_LEVEL,
+        );
+
         const blockDataAtHeight = await this.getBlockDataAtHeight(blockNumber, blockWitness);
         if (!blockDataAtHeight) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
