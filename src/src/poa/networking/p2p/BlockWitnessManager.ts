@@ -3,6 +3,7 @@ import Long from 'long';
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { BtcIndexerConfig } from '../../../config/BtcIndexerConfig.js';
 import { DBManagerInstance } from '../../../db/DBManager.js';
+import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockWitnessRepository } from '../../../db/repositories/BlockWitnessRepository.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import { RPCMessageData } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
@@ -40,7 +41,6 @@ export class BlockWitnessManager extends Logger {
     private pendingWitnessesVerification: Map<bigint, IBlockHeaderWitness[]> = new Map();
     private currentBlock: bigint = -1n;
 
-    private broadcastBlockWitnesses: Map<bigint, IBlockHeaderWitness> = new Map();
     private blockWitnessRepository: BlockWitnessRepository | undefined;
 
     constructor(
@@ -229,7 +229,12 @@ export class BlockWitnessManager extends Logger {
             `BLOCK (${blockNumber}) VALIDATION SUCCESSFUL. Received ${opnetWitnesses.length} validation witness(es) and ${trustedWitnesses.length} trusted witness(es). Data integrity is maintained.`,
         );
 
-        await this.broadcastTrustedWitnesses(blockNumber, opnetWitnesses, trustedWitnesses);
+        await this.broadcastTrustedWitnesses(
+            blockNumber,
+            opnetWitnesses,
+            trustedWitnesses,
+            blockWitness,
+        );
 
         /** We can store the witnesses in the database after validating their data */
         await this.writeBlockWitnessesToDatabase(blockNumber, opnetWitnesses, trustedWitnesses);
@@ -239,17 +244,62 @@ export class BlockWitnessManager extends Logger {
         blockNumber: bigint,
         opnetWitnesses: OPNetBlockWitness[],
         trustedWitnesses: OPNetBlockWitness[],
+        witnessData: IBlockHeaderWitness,
     ): Promise<void> {
         const trustedWitnessIdentities = trustedWitnesses
             .map((w) => w.identity)
             .filter((i) => !!i) as string[];
 
-        const witnesses = await this.blockWitnessRepository?.getBlockWitnesses(
+        const rawWitnesses = await this.blockWitnessRepository?.getBlockWitnesses(
             blockNumber,
+            true,
             trustedWitnessIdentities,
         );
 
-        console.log('trustedWitnessIdentities', trustedWitnessIdentities, witnesses);
+        const newTrustedWitnesses = trustedWitnesses.filter((w) => {
+            return !rawWitnesses?.find((witness) => witness.identity === w.identity);
+        });
+
+        if (newTrustedWitnesses.length > 0) {
+            const knownWitnesses = this.convertKnownWitnessesToOPNetWitness(rawWitnesses || []);
+            const trustedWitness = this.mergeAndDedupeTrustedWitnesses(
+                newTrustedWitnesses,
+                knownWitnesses,
+            );
+
+            this.log(
+                `Broadcasting block witness for block ${blockNumber.toString()} to OPNet network.`,
+            );
+
+            await this.broadcastBlockWitness({
+                ...witnessData,
+                trustedWitnesses: trustedWitness,
+                validatorWitnesses: opnetWitnesses,
+            });
+        }
+    }
+
+    private mergeAndDedupeTrustedWitnesses(
+        newTrustedWitnesses: OPNetBlockWitness[],
+        knownWitnesses: OPNetBlockWitness[],
+    ): OPNetBlockWitness[] {
+        const newWitnesses = newTrustedWitnesses.filter((w) => {
+            return !knownWitnesses.find((kw) => kw.identity === w.identity);
+        });
+
+        return [...newWitnesses, ...knownWitnesses];
+    }
+
+    private convertKnownWitnessesToOPNetWitness(
+        witnesses: IParsedBlockWitnessDocument[],
+    ): OPNetBlockWitness[] {
+        return witnesses.map((w) => {
+            return {
+                identity: w.identity,
+                signature: Buffer.from(w.signature.buffer),
+                opnetPubKey: w.opnetPubKey ? Buffer.from(w.opnetPubKey.buffer) : undefined,
+            };
+        });
     }
 
     private async writeBlockWitnessesToDatabase(

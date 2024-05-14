@@ -16,10 +16,12 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
 
     public async getBlockWitnesses(
         height: bigint,
+        trusted: boolean = false,
         identity?: string[],
     ): Promise<IParsedBlockWitnessDocument[] | undefined> {
         const criteria: Partial<Filter<IBlockWitnessDocument>> = {
             blockNumber: DataConverter.toDecimal128(height),
+            trusted: trusted,
         };
 
         if (identity && identity.length) {
