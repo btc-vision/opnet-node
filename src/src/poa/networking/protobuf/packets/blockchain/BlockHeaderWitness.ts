@@ -5,7 +5,8 @@ import { CommonPackets } from '../../types/messages/OPNetMessages.js';
 import { PackedMessage, Packet } from '../Packet.js';
 
 export interface OPNetBlockWitness {
-    readonly identity?: string;
+    identity?: string;
+
     readonly opnetPubKey?: Buffer;
     readonly signature: Buffer;
 }

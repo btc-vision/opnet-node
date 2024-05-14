@@ -151,7 +151,10 @@ export class OPNetIdentity extends OPNetPathFinder {
         if (!witness.signature) return false;
 
         // We protect the identity of trusted validators by not revealing their public keys.
-        return this.keyPairGenerator.verifyTrustedSignature(data, witness.signature);
+        const validWitness = this.keyPairGenerator.verifyTrustedSignature(data, witness.signature);
+        witness.identity = validWitness.identity;
+
+        return validWitness.validity;
     }
 
     public verifyOPNetIdentity(identity: string, pubKey: Buffer): boolean {

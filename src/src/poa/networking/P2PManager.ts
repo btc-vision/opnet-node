@@ -29,6 +29,7 @@ import type { Datastore } from 'interface-datastore';
 import { lpStream } from 'it-length-prefixed-stream';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
+import { DBManagerInstance } from '../../db/DBManager.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
 import { BlockProcessedData } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import {
@@ -105,6 +106,11 @@ export class P2PManager extends Logger {
     }
 
     public async init(): Promise<void> {
+        await DBManagerInstance.setup(this.config.DATABASE.CONNECTION_TYPE);
+        await DBManagerInstance.connect();
+
+        await this.blockWitnessManager.init();
+
         this.node = await this.createNode();
 
         await this.getCurrentBlock();

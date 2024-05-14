@@ -351,8 +351,6 @@ export class BlockchainIndexer extends Logger {
     }
 
     private async startIndexer(): Promise<StartIndexerResponseData> {
-        console.log('BOOT.');
-
         if (this.currentBlockInProcess) {
             return {
                 started: false,

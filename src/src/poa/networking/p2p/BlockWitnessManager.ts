@@ -2,6 +2,8 @@ import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import Long from 'long';
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { BtcIndexerConfig } from '../../../config/BtcIndexerConfig.js';
+import { DBManagerInstance } from '../../../db/DBManager.js';
+import { BlockWitnessRepository } from '../../../db/repositories/BlockWitnessRepository.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import { RPCMessageData } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import {
@@ -39,6 +41,7 @@ export class BlockWitnessManager extends Logger {
     private currentBlock: bigint = -1n;
 
     private broadcastBlockWitnesses: Map<bigint, IBlockHeaderWitness> = new Map();
+    private blockWitnessRepository: BlockWitnessRepository | undefined;
 
     constructor(
         private readonly config: BtcIndexerConfig,
@@ -47,6 +50,12 @@ export class BlockWitnessManager extends Logger {
         super();
 
         this.pendingBlockThreshold = BigInt(this.config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS) || 10n;
+    }
+
+    public async init(): Promise<void> {
+        if (!DBManagerInstance.db) throw new Error('Database not initialized.');
+
+        this.blockWitnessRepository = new BlockWitnessRepository(DBManagerInstance.db);
     }
 
     public sendMessageToThread: (
@@ -219,6 +228,22 @@ export class BlockWitnessManager extends Logger {
         );
 
         /** We can store the witnesses in the database after validating their data */
+
+        await this.writeBlockWitnessesToDatabase(blockNumber, opnetWitnesses, trustedWitnesses);
+    }
+
+    private async writeBlockWitnessesToDatabase(
+        blockNumber: bigint,
+        opnetWitnesses: OPNetBlockWitness[],
+        trustedWitnesses: OPNetBlockWitness[],
+    ): Promise<void> {
+        if (!this.blockWitnessRepository)
+            throw new Error('BlockWitnessRepository not initialized.');
+
+        console.log(blockNumber, opnetWitnesses, trustedWitnesses);
+
+        // Save OPNet witnesses
+        await this.blockWitnessRepository.setBlockWitnesses(blockNumber, opnetWitnesses);
     }
 
     private async requestRPCData(

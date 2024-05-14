@@ -72,6 +72,12 @@ export class KeyPairGenerator {
         return hashStr === identity;
     }
 
+    public opnetHash(data: Buffer): string {
+        const hashed = this.hash(data);
+
+        return `0x${hashed.toString('hex')}`;
+    }
+
     public verifyChallenge(
         challenge: Buffer | Uint8Array,
         signature: Buffer | Uint8Array,
@@ -94,16 +100,25 @@ export class KeyPairGenerator {
         );
     }
 
-    public verifyTrustedSignature(data: Buffer, signature: Buffer): boolean {
-        try {
-            for (const trustedPublicKey of this.trustedPublicKeys) {
+    public verifyTrustedSignature(
+        data: Buffer,
+        signature: Buffer,
+    ): { validity: boolean; identity: string } {
+        for (const trustedPublicKey of this.trustedPublicKeys) {
+            try {
                 if (this.verifySignatureRSA(data, signature, trustedPublicKey)) {
-                    return true;
+                    return {
+                        validity: true,
+                        identity: this.opnetHash(Buffer.from(trustedPublicKey, 'utf-8')),
+                    };
                 }
-            }
-        } catch (e) {}
+            } catch (e) {}
+        }
 
-        return false;
+        return {
+            validity: false,
+            identity: '',
+        };
     }
 
     public signRSA(data: Buffer, privateKey: string, keypair: SodiumKeyPair): Buffer {
