@@ -166,11 +166,21 @@ export class BlockWitnessManager extends Logger {
         }
 
         if (validWitnesses.opnetWitnesses.length === 0) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+                this.fail(
+                    `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
+                );
+            }
             return;
         }
 
         const receivedBlockHeader = blockDataAtHeight.storedBlockHeader;
         if (!receivedBlockHeader) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
+                this.fail(
+                    `Failed to get block header data at height ${blockNumber.toString()}. (DATA INTEGRITY ERROR)`,
+                );
+            }
             return;
         }
 
