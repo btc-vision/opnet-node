@@ -27,7 +27,7 @@ export class PoAThread extends Thread<ThreadTypes.PoA> {
          */
         setTimeout(() => {
             void this.onThreadLinkSetup();
-        }, 10000);
+        }, 5000);
     }
 
     protected async onLinkMessage(

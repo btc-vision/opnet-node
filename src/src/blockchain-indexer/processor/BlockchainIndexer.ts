@@ -60,8 +60,6 @@ export class BlockchainIndexer extends Logger {
             default:
                 throw new Error(`Invalid network ${this.network}`);
         }
-
-        //this.listenEvents();
     }
 
     private _blockchainInfoRepository: BlockchainInformationRepository | undefined;
@@ -93,13 +91,15 @@ export class BlockchainIndexer extends Logger {
         throw new Error('sendMessageToThread not implemented.');
     };
 
-    public async start(): Promise<void> {
+    public preInit(): void {
         if (DBManagerInstance.db === null) {
             throw new Error('DBManager instance must be defined');
         }
 
         this._blockchainInfoRepository = new BlockchainInformationRepository(DBManagerInstance.db);
+    }
 
+    public async start(): Promise<void> {
         await this.rpcClient.init(Config.BLOCKCHAIN);
         await this.vmManager.init();
 
