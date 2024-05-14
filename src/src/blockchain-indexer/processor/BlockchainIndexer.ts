@@ -107,10 +107,10 @@ export class BlockchainIndexer extends Logger {
     }
 
     private async getCurrentBlock(): Promise<CurrentIndexerBlockResponseData> {
-        const blockchainInfo = await this.blockchainInfoRepository.getByNetwork(this.network);
+        const blockchainInfo = await this.getCurrentProcessBlockHeight(-1);
 
         return {
-            blockNumber: BigInt(blockchainInfo.inProgressBlock),
+            blockNumber: BigInt(blockchainInfo - 1),
         };
     }
 
