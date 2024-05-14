@@ -359,7 +359,8 @@ export class VMManager extends Logger {
         const proofs: BlockHeaderChecksumProof | undefined = blockHeader.checksumProofs;
 
         if (
-            !blockHeight ||
+            blockHeight === null ||
+            blockHeight === undefined ||
             !blockReceipt ||
             !blockStorage ||
             !blockHash ||
