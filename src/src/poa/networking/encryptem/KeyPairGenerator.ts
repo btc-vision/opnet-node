@@ -109,7 +109,7 @@ export class KeyPairGenerator {
                 if (this.verifySignatureRSA(data, signature, trustedPublicKey)) {
                     return {
                         validity: true,
-                        identity: this.opnetHash(Buffer.from(trustedPublicKey, 'utf-8')),
+                        identity: this.opnetHash(Buffer.from(trustedPublicKey, 'utf-8')), // TODO: Precompute this.
                     };
                 }
             } catch (e) {}

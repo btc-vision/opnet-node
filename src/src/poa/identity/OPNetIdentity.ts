@@ -18,6 +18,7 @@ export class OPNetIdentity extends OPNetPathFinder {
     private readonly opnetWallet: ECPairInterface;
 
     private readonly keyPair: OPNetKeyPair;
+    private readonly rsaIdentity: string;
 
     public constructor(private readonly config: BtcIndexerConfig) {
         super();
@@ -27,6 +28,10 @@ export class OPNetIdentity extends OPNetPathFinder {
 
         this.opnetAuthKeyBin = this.loadOPNetAuthKeys();
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
+
+        this.rsaIdentity = this.keyPairGenerator.opnetHash(
+            Buffer.from(this.keyPair.rsa.publicKey, 'utf-8'),
+        );
     }
 
     public get peerType(): number {
@@ -146,15 +151,20 @@ export class OPNetIdentity extends OPNetPathFinder {
         );
     }
 
-    public verifyTrustedAcknowledgment(data: Buffer, witness: OPNetBlockWitness): boolean {
+    public verifyTrustedAcknowledgment(
+        data: Buffer,
+        witness: OPNetBlockWitness,
+        identity: string | undefined,
+    ): boolean {
         if (!data) return false;
         if (!witness.signature) return false;
+        if (!identity) return false;
 
         // We protect the identity of trusted validators by not revealing their public keys.
         const validWitness = this.keyPairGenerator.verifyTrustedSignature(data, witness.signature);
-        witness.identity = validWitness.identity;
+        if (!validWitness.validity) return false;
 
-        return validWitness.validity;
+        return validWitness.identity === identity;
     }
 
     public verifyOPNetIdentity(identity: string, pubKey: Buffer): boolean {
@@ -177,6 +187,7 @@ export class OPNetIdentity extends OPNetPathFinder {
                 privateKey: this.keyPair.privateKey,
                 publicKey: this.keyPair.publicKey,
             }),
+            identity: this.rsaIdentity,
         };
     }
 

@@ -42,6 +42,7 @@ export class BlockWitnessManager extends Logger {
     private currentBlock: bigint = -1n;
 
     private blockWitnessRepository: BlockWitnessRepository | undefined;
+    private knownTrustedWitnesses: Map<bigint, string[]> = new Map();
 
     constructor(
         private readonly config: BtcIndexerConfig,
@@ -82,6 +83,8 @@ export class BlockWitnessManager extends Logger {
     ): Promise<void> {
         if (isSelf) {
             this.currentBlock = data.blockNumber;
+
+            this.purgeOldWitnesses();
         }
 
         const blockChecksumHash = this.generateBlockHeaderChecksumHash(data);
@@ -116,13 +119,24 @@ export class BlockWitnessManager extends Logger {
         await this.processQueuedWitnesses();
     }
 
+    private purgeOldWitnesses(): void {
+        const currentBlock = this.currentBlock;
+        const blocks = Array.from(this.knownTrustedWitnesses.keys());
+
+        blocks.forEach((block) => {
+            if (currentBlock - block > this.pendingBlockThreshold) {
+                this.info(`Purging block ${block.toString()} from known trusted witnesses.`);
+                this.knownTrustedWitnesses.delete(block);
+            }
+        });
+    }
+
     private async processQueuedWitnesses(): Promise<void> {
         if (this.currentBlock === -1n) {
             return;
         }
 
         const block: bigint = this.currentBlock;
-
         const queued = this.pendingWitnessesVerification.get(block);
         if (!queued) {
             return;
@@ -152,11 +166,34 @@ export class BlockWitnessManager extends Logger {
         return (await this.requestRPCData(message)) as ValidatedBlockHeader | undefined;
     }
 
+    private removeKnownTrustedWitnesses(
+        blockNumber: bigint,
+        blockWitness: IBlockHeaderWitness,
+    ): IBlockHeaderWitness {
+        const trustedWitnesses = blockWitness.trustedWitnesses.filter((w) => {
+            return !this.knownTrustedWitnesses.get(blockNumber)?.includes(w.identity || '');
+        });
+
+        return {
+            ...blockWitness,
+            trustedWitnesses: trustedWitnesses,
+        };
+    }
+
     private async processBlockWitnesses(
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): Promise<void> {
-        const blockDataAtHeight = await this.getBlockDataAtHeight(blockNumber, blockWitness);
+        const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
+        if (filteredBlockWitnesses.trustedWitnesses.length === 0) {
+            return;
+        }
+
+        const blockDataAtHeight = await this.getBlockDataAtHeight(
+            blockNumber,
+            filteredBlockWitnesses,
+        );
+
         if (!blockDataAtHeight) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
                 this.fail(`Failed to get block data at height ${blockNumber.toString()}`);
@@ -267,6 +304,8 @@ export class BlockWitnessManager extends Logger {
                 knownWitnesses,
             );
 
+            this.addKnownTrustedWitnesses(blockNumber, trustedWitness);
+
             this.log(
                 `Broadcasting block witness for block ${blockNumber.toString()} to OPNet network.`,
             );
@@ -276,6 +315,17 @@ export class BlockWitnessManager extends Logger {
                 trustedWitnesses: trustedWitness,
                 validatorWitnesses: opnetWitnesses,
             });
+        }
+    }
+
+    private addKnownTrustedWitnesses(blockNumber: bigint, witnesses: OPNetBlockWitness[]): void {
+        const knownWitnesses = this.knownTrustedWitnesses.get(blockNumber);
+        const trustedWitnessIdentity: string[] = witnesses.map((w) => w.identity) as string[];
+
+        if (knownWitnesses) {
+            knownWitnesses.push(...trustedWitnessIdentity);
+        } else {
+            this.knownTrustedWitnesses.set(blockNumber, trustedWitnessIdentity);
         }
     }
 
@@ -368,7 +418,11 @@ export class BlockWitnessManager extends Logger {
         witnesses: OPNetBlockWitness[],
     ): OPNetBlockWitness[] {
         return witnesses.filter((witness) => {
-            return this.identity.verifyTrustedAcknowledgment(blockChecksumHash, witness);
+            return this.identity.verifyTrustedAcknowledgment(
+                blockChecksumHash,
+                witness,
+                witness.identity,
+            );
         });
     }
 
