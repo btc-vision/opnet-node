@@ -98,9 +98,10 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
 
             await this.send(buffer);
         } catch (err: unknown) {
-            const error = err as Error;
-
-            this.error(`Peer networking error while sending message: ${error.message}`);
+            /*
+                const error = err as Error;
+                this.error(`Peer networking error while sending message: ${error.message}`);
+             */
         }
     }
 

@@ -479,7 +479,7 @@ export class P2PManager extends Logger {
                 // Acknowledge the message
                 await lp.write(new Uint8Array([0x01])).catch(() => {});
             } catch (e) {
-                if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                     this.debug('Error while handling incoming stream', (e as Error).stack);
                 }
 
@@ -487,7 +487,7 @@ export class P2PManager extends Logger {
                     peerId,
                     DisconnectionCode.BAD_PEER,
                     'Error while handling incoming stream',
-                );
+                ).catch(() => {});
             }
 
             // Close the stream
