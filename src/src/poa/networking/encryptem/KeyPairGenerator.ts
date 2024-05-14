@@ -25,8 +25,9 @@ type SodiumKeyPair = {
 
 export class KeyPairGenerator {
     private signatureAlgorithm: string = 'rsa-sha512';
-
     private trustedPublicKeys: string[] = [];
+
+    private precomputedTrustedPublicKeys: { [key: string]: string } = {};
 
     constructor() {
         this.loadTrustedPublicKeys();
@@ -109,7 +110,7 @@ export class KeyPairGenerator {
                 if (this.verifySignatureRSA(data, signature, trustedPublicKey)) {
                     return {
                         validity: true,
-                        identity: this.opnetHash(Buffer.from(trustedPublicKey, 'utf-8')), // TODO: Precompute this.
+                        identity: this.precomputedTrustedPublicKeys[trustedPublicKey],
                     };
                 }
             } catch (e) {}
@@ -150,6 +151,14 @@ export class KeyPairGenerator {
         return signature;
     }
 
+    private computeTrustedPublicKeys(): void {
+        for (const trustedPublicKey of this.trustedPublicKeys) {
+            this.precomputedTrustedPublicKeys[trustedPublicKey] = this.opnetHash(
+                Buffer.from(trustedPublicKey.trim(), 'utf-8'),
+            );
+        }
+    }
+
     private loadTrustedPublicKeys(): void {
         const currentVersion = TRUSTED_PUBLIC_KEYS[P2PVersion];
         if (!currentVersion) {
@@ -160,7 +169,9 @@ export class KeyPairGenerator {
             throw new Error('There is no trusted public keys for the current version.');
         }
 
-        this.trustedPublicKeys = currentVersion;
+        this.trustedPublicKeys = currentVersion.map((key) => key.trim());
+
+        this.computeTrustedPublicKeys();
     }
 
     private hashWithPubKey(pubKey: Buffer | Uint8Array, data: Buffer | Uint8Array): Buffer {

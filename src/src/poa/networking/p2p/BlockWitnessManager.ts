@@ -313,9 +313,11 @@ export class BlockWitnessManager extends Logger {
 
             this.addKnownTrustedWitnesses(blockNumber, trustedWitness);
 
-            this.log(
-                `Broadcasting block witness for block ${blockNumber.toString()} to OPNet network.`,
-            );
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.log(
+                    `Broadcasting block witness for block ${blockNumber.toString()} to OPNet network.`,
+                );
+            }
 
             await this.broadcastBlockWitness({
                 ...witnessData,
