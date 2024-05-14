@@ -32,9 +32,9 @@ export class BlockWitnessManager extends Logger {
     private readonly maxPendingWitnesses: number = 50;
 
     private pendingWitnessesVerification: Map<bigint, IBlockHeaderWitness[]> = new Map();
-    private currentBlock: bigint = 0n;
+    private currentBlock: bigint = -1n;
 
-    private broadcastedBlockWitnesses: Map<bigint, IBlockHeaderWitness> = new Map();
+    private broadcastBlockWitnesses: Map<bigint, IBlockHeaderWitness> = new Map();
 
     constructor(
         private readonly config: BtcIndexerConfig,
@@ -82,6 +82,10 @@ export class BlockWitnessManager extends Logger {
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
+        if (this.currentBlock === -1n) {
+            return;
+        }
+
         const blockNumber: bigint = BigInt(blockWitness.blockNumber.toString());
         if (this.currentBlock === blockNumber) {
             await this.processBlockWitnesses(blockNumber, blockWitness);
@@ -96,7 +100,11 @@ export class BlockWitnessManager extends Logger {
     }
 
     private async processQueuedWitnesses(): Promise<void> {
-        const block = this.currentBlock;
+        if (this.currentBlock === -1n) {
+            return;
+        }
+
+        const block: bigint = this.currentBlock;
 
         const queued = this.pendingWitnessesVerification.get(block);
         if (!queued) {
@@ -106,7 +114,7 @@ export class BlockWitnessManager extends Logger {
         this.pendingWitnessesVerification.delete(block);
 
         const promises = queued.map((witness) => {
-            return this.processBlockWitnesses(this.currentBlock, witness);
+            return this.processBlockWitnesses(block, witness);
         });
 
         await Promise.all(promises);
@@ -131,17 +139,30 @@ export class BlockWitnessManager extends Logger {
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): Promise<void> {
-        console.log(
-            'Processing block witnesses',
-            blockNumber,
-            blockWitness,
-            this.config.DEBUG_LEVEL,
-        );
-
         const blockDataAtHeight = await this.getBlockDataAtHeight(blockNumber, blockWitness);
         if (!blockDataAtHeight) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
                 this.fail(`Failed to get block data at height ${blockNumber.toString()}`);
+            }
+            return;
+        }
+
+        const receivedBlockHeader = blockDataAtHeight.storedBlockHeader;
+        if (!receivedBlockHeader) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
+                this.fail(
+                    `Failed to get block header data at height ${blockNumber.toString()}. (DATA INTEGRITY ERROR)`,
+                );
+            }
+            return;
+        }
+
+        const checksumHash = receivedBlockHeader.checksumRoot;
+        if (checksumHash !== blockWitness.checksumHash) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
+                this.fail(
+                    'BAD BLOCK HEADER RECEIVED. OPNet calculated checksum hash does not match the stored checksum hash. Is this node corrupted? (DATA INTEGRITY ERROR)',
+                );
             }
             return;
         }
@@ -177,26 +198,6 @@ export class BlockWitnessManager extends Logger {
             if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
                 this.fail(
                     `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
-                );
-            }
-            return;
-        }
-
-        const receivedBlockHeader = blockDataAtHeight.storedBlockHeader;
-        if (!receivedBlockHeader) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
-                this.fail(
-                    `Failed to get block header data at height ${blockNumber.toString()}. (DATA INTEGRITY ERROR)`,
-                );
-            }
-            return;
-        }
-
-        const checksumHash = receivedBlockHeader.checksumRoot;
-        if (checksumHash !== blockWitness.checksumHash) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
-                this.fail(
-                    'BAD BLOCK HEADER RECEIVED. OPNet calculated checksum hash does not match the stored checksum hash. Is this node corrupted? (DATA INTEGRITY ERROR)',
                 );
             }
             return;
@@ -286,7 +287,7 @@ export class BlockWitnessManager extends Logger {
         blockWitness: IBlockHeaderWitness,
     ): void {
         // We do not store any pending witnesses until we have a current block.
-        if (!this.currentBlock) return;
+        if (this.currentBlock === -1n) return;
 
         /**
          * We reject any witnesses that are too far ahead of the current block.
