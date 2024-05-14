@@ -400,8 +400,6 @@ export class VMManager extends Logger {
             prevChecksumProof,
         );
 
-        console.log([1, BufferHelper.hexToUint8Array(previousBlockChecksum)], prevChecksumProof, hasValidPrevChecksum);
-
         const blockHashProof = this.getProofForIndex(proofs, 2);
         const hasValidBlockHash: boolean = ChecksumMerkle.verify(
             checksumRoot,

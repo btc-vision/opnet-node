@@ -3,8 +3,6 @@ import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 import { BlockHeaderChecksumProof } from '../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ZERO_HASH } from '../types/ZeroValue.js';
 
-console.log([1, BufferHelper.hexToUint8Array(ZERO_HASH)]);
-
 export class ChecksumMerkle {
     public static TREE_TYPE: [string, string] = ['uint8', 'bytes32'];
     protected tree: StandardMerkleTree<[number, Uint8Array]> | undefined;
