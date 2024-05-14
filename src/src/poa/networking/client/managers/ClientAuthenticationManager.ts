@@ -251,6 +251,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         }
 
         this.latency = Long.fromInt(Date.now()).subtract(this.lastPing).toNumber();
+        this.info(`Latency with ${this.peerId}: ${this.latency}ms.`);
     }
 
     private startPingInterval(): void {
