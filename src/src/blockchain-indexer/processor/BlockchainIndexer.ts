@@ -15,6 +15,7 @@ import {
     BlockProcessedMessage,
 } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
+import { StartIndexerResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/StartIndexer.js';
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
@@ -79,6 +80,9 @@ export class BlockchainIndexer extends Logger {
             case MessageType.CURRENT_INDEXER_BLOCK: {
                 return await this.getCurrentBlock();
             }
+            case MessageType.START_INDEXER: {
+                return await this.startIndexer();
+            }
             default:
                 throw new Error(`Unknown message type: ${m.type} received in PoA.`);
         }
@@ -91,19 +95,15 @@ export class BlockchainIndexer extends Logger {
         throw new Error('sendMessageToThread not implemented.');
     };
 
-    public preInit(): void {
+    public async init(): Promise<void> {
         if (DBManagerInstance.db === null) {
             throw new Error('DBManager instance must be defined');
         }
 
         this._blockchainInfoRepository = new BlockchainInformationRepository(DBManagerInstance.db);
-    }
 
-    public async start(): Promise<void> {
         await this.rpcClient.init(Config.BLOCKCHAIN);
         await this.vmManager.init();
-
-        void this.safeProcessBlocks();
     }
 
     private async getCurrentBlock(): Promise<CurrentIndexerBlockResponseData> {
@@ -114,7 +114,7 @@ export class BlockchainIndexer extends Logger {
         };
     }
 
-    private listenEvents(): void {
+    /*private listenEvents(): void {
         let called = false;
         process.on('SIGINT', async () => {
             if (!called) {
@@ -146,7 +146,7 @@ export class BlockchainIndexer extends Logger {
         await this.vmManager.terminate();
 
         process.exit(0);
-    }
+    }*/
 
     private async safeProcessBlocks(): Promise<void> {
         if (this.fatalFailure) {
@@ -343,6 +343,20 @@ export class BlockchainIndexer extends Logger {
         };
 
         await this.sendMessageToThread(ThreadTypes.PoA, msg);
+    }
+
+    private async startIndexer(): Promise<StartIndexerResponseData> {
+        if (this.currentBlockInProcess !== null) {
+            return {
+                started: false,
+            };
+        }
+
+        await this.safeProcessBlocks();
+
+        return {
+            started: true,
+        };
     }
 
     private async getChainCurrentBlockHeight(): Promise<number> {

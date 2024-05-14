@@ -31,6 +31,7 @@ import { createLibp2p, Libp2p } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
 import { BlockProcessedData } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
+import { StartIndexer } from '../../threading/interfaces/thread-messages/messages/indexer/StartIndexer.js';
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
@@ -59,7 +60,7 @@ export class P2PManager extends Logger {
     private blackListedPeerIps: Set<string> = new Set();
 
     private readonly identity: OPNetIdentity;
-    private loggedInitialOPNetMessage: boolean = false;
+    private startedIndexer: boolean = false;
 
     private readonly blockWitnessManager: BlockWitnessManager;
 
@@ -223,12 +224,12 @@ export class P2PManager extends Logger {
     }
 
     private reportAuthenticatedPeer(_peerId: PeerId): void {
-        this.logOPNetInfo();
+        void this.logOPNetInfo();
     }
 
-    private logOPNetInfo(): void {
-        if (!this.loggedInitialOPNetMessage) {
-            this.loggedInitialOPNetMessage = true;
+    private async logOPNetInfo(): Promise<void> {
+        if (!this.startedIndexer) {
+            this.startedIndexer = true;
             this.notifyArt(
                 'OPNet',
                 'Doh',
@@ -238,6 +239,13 @@ export class P2PManager extends Logger {
                 `Your OPNet trusted certificate is\n ${this.identity.rsaPublicKey}\n`,
                 `Looking for peers...\n\n`,
             );
+
+            const startupMessage: StartIndexer = {
+                type: MessageType.START_INDEXER,
+                data: {}
+            }
+
+            await this.sendMessageToThread(ThreadTypes.BITCOIN_INDEXER, startupMessage);
         }
     }
 
