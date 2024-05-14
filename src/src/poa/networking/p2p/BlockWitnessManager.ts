@@ -240,10 +240,10 @@ export class BlockWitnessManager extends Logger {
         if (!this.blockWitnessRepository)
             throw new Error('BlockWitnessRepository not initialized.');
 
-        console.log(blockNumber, opnetWitnesses, trustedWitnesses);
+        const finalWitnesses: OPNetBlockWitness[] = [...opnetWitnesses, ...trustedWitnesses];
 
         // Save OPNet witnesses
-        await this.blockWitnessRepository.setBlockWitnesses(blockNumber, opnetWitnesses);
+        await this.blockWitnessRepository.setBlockWitnesses(blockNumber, finalWitnesses);
     }
 
     private async requestRPCData(
