@@ -421,20 +421,14 @@ export class VMManager extends Logger {
             blockReceiptProof,
         );
 
-        const isBlockValid: boolean =
+        return (
             hasValidPrevHash &&
             hasValidPrevChecksum &&
             hasValidBlockHash &&
             hasValidBlockMerkelRoot &&
             hasValidBlockStorage &&
-            hasValidBlockReceipt;
-        if (!isBlockValid) {
-            this.error(
-                `Block was altered. Block height: ${blockHeight} - Block hash: ${blockHash} - Checksum root: ${checksumRoot} (PrevHash: ${hasValidPrevHash}, PrevChecksum: ${hasValidPrevChecksum}, BlockHash: ${hasValidBlockHash}, BlockMerkelRoot: ${hasValidBlockMerkelRoot}, BlockStorage: ${hasValidBlockStorage}, BlockReceipt: ${hasValidBlockReceipt})`,
-            );
-        }
-
-        return isBlockValid;
+            hasValidBlockReceipt
+        );
     }
 
     public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string | undefined> {
