@@ -31,7 +31,7 @@ export class ServerPeerManager extends AbstractPacketManager {
         return true;
     }
 
-    public getOPNetPeers: () => OPNetPeerInfo[] = () => {
+    public getOPNetPeers: () => Promise<OPNetPeerInfo[]> = () => {
         throw new Error('getOPNetPeers not implemented.');
     };
 
@@ -46,7 +46,7 @@ export class ServerPeerManager extends AbstractPacketManager {
         }
 
         const discoverResponseData: IDiscoveryResponse = {
-            peers: this.getOPNetPeers(),
+            peers: await this.getOPNetPeers(),
         };
 
         await this.sendMsg(packet.pack(discoverResponseData));

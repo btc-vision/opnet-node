@@ -72,8 +72,6 @@ export class ClientPeerManager extends AbstractPacketManager {
             return;
         }
 
-        console.log(`Response`, unpackedPacket);
-
         await this.emit(PeerHandlerEvents.PEERS_DISCOVERED, unpackedPacket.peers);
     }
 }

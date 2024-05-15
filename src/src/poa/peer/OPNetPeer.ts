@@ -80,12 +80,16 @@ export class OPNetPeer extends Logger {
         throw new Error('onBlockWitness not implemented.');
     };
 
-    public getOPNetPeers: () => OPNetPeerInfo[] = () => {
+    public getOPNetPeers: () => Promise<OPNetPeerInfo[]> = () => {
         throw new Error('getOPNetPeers not implemented.');
     };
 
     public reportAuthenticatedPeer: (peerId: PeerId) => void = () => {
         throw new Error('Method not implemented.');
+    };
+
+    public onPeersDiscovered: (peers: OPNetPeerInfo[]) => Promise<void> = () => {
+        throw new Error('onPeersDiscovered not implemented.');
     };
 
     public async authenticate(): Promise<void> {
@@ -160,7 +164,7 @@ export class OPNetPeer extends Logger {
         this.disconnectPeer = () => Promise.resolve();
         this.sendMsg = () => Promise.resolve();
         this.reportAuthenticatedPeer = () => {};
-        this.getOPNetPeers = () => [];
+        this.getOPNetPeers = () => Promise.resolve([]);
         this.onBlockWitness = async () => {};
 
         delete this._peerIdentity;
@@ -198,13 +202,13 @@ export class OPNetPeer extends Logger {
             this.onServerAuthenticationCompleted();
         };
 
-        this.serverNetworkingManager.getOPNetPeers = (): OPNetPeerInfo[] => {
+        this.serverNetworkingManager.getOPNetPeers = (): Promise<OPNetPeerInfo[]> => {
             return this.getOPNetPeers();
         };
     }
 
-    private async onPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
-        console.log(`Discovered peers: ${peers.length}`);
+    private async onPeersDiscoveredInternal(peers: OPNetPeerInfo[]): Promise<void> {
+        await this.onPeersDiscovered(peers);
     }
 
     private defineClientNetworkingEvents(): void {
@@ -221,7 +225,7 @@ export class OPNetPeer extends Logger {
         };
 
         this.clientNetworkingManager.onPeersDiscovered = async (peers: OPNetPeerInfo[]) => {
-            await this.onPeersDiscovered(peers);
+            await this.onPeersDiscoveredInternal(peers);
         };
 
         this.clientNetworkingManager.onBlockWitness = async (blockWitness: IBlockHeaderWitness) => {

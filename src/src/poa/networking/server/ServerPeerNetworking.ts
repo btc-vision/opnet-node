@@ -33,7 +33,7 @@ export class ServerPeerNetworking extends AuthenticationManager {
         throw new Error('onAuthenticationCompleted not implemented.');
     };
 
-    public getOPNetPeers: () => OPNetPeerInfo[] = () => {
+    public getOPNetPeers: () => Promise<OPNetPeerInfo[]> = () => {
         throw new Error('getOPNetPeers not implemented.');
     };
 

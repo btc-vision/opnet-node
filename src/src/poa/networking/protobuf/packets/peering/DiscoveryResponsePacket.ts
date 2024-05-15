@@ -10,7 +10,7 @@ export interface OPNetPeerInfo {
     readonly type: number;
     readonly network: number;
     readonly chainId: ChainIds;
-    readonly peerId: string;
+    readonly peerId: string[];
 }
 
 export interface IDiscoveryResponse extends PackedMessage {

@@ -234,10 +234,24 @@ export class P2PManager extends Logger {
         peer.onBlockWitness = this.blockWitnessManager.onBlockWitness.bind(
             this.blockWitnessManager,
         );
+        peer.onPeersDiscovered = this.onOPNetPeersDiscovered.bind(this);
 
         this.peers.set(peerIdStr, peer);
 
         await peer.init();
+    }
+
+    private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
+        if (!this.node) throw new Error('Node not initialized');
+
+        this.log(`Discovered ${peers.length} OPNet peers.`);
+
+        for (let peer = 0; peer < peers.length; peer++) {
+            const peerInfo = peers[peer];
+            console.log(peerInfo);
+
+            //const idk = this.node.dial(peerInfo.peerId);
+        }
     }
 
     private reportAuthenticatedPeer(_peerId: PeerId): void {
@@ -276,10 +290,19 @@ export class P2PManager extends Logger {
         }
     }
 
-    private getOPNetPeers(): OPNetPeerInfo[] {
+    private async getOPNetPeers(): Promise<OPNetPeerInfo[]> {
+        if (!this.node) throw new Error('Node not initialized');
+
         const peers: OPNetPeerInfo[] = [];
 
-        for (const [peerId, peer] of this.peers) {
+        const peersData: Peer[] = await this.node.peerStore.all();
+
+        for (const peerObj of peersData) {
+            const peerId = peerObj.id;
+            const peer = this.peers.get(peerId.toString());
+
+            if (!peer) continue;
+
             if (peer.clientVersion === undefined) continue;
             if (peer.clientChecksum === undefined) continue;
             if (peer.clientIdentity === undefined) continue;
@@ -293,7 +316,7 @@ export class P2PManager extends Logger {
                 type: peer.clientIndexerMode,
                 network: peer.clientNetwork,
                 chainId: peer.clientChainId,
-                peerId: peerId.toString(),
+                peerId: peerObj.addresses.map((addr) => addr.multiaddr.toString()),
             };
 
             peers.push(peerInfo);
