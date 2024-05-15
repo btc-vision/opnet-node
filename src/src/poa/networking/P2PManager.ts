@@ -374,21 +374,23 @@ export class P2PManager extends Logger {
             peers.push(peerInfo);
         }
 
-        return this.shuffleArray(peers);
+        this.shuffleArray(peers);
+
+        return peers;
     }
 
-    private shuffleArray<T>(array: T[]): T[] {
-        const randomNumbers = crypto.getRandomValues(new Uint8Array(array.length));
+    private shuffleArray<T>(array: T[]): void {
+        let currentIndex = array.length;
 
-        // apply durstenfeld shuffle with previously generated random numbers
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = randomNumbers[array.length - i - 1];
-            const temp = array[i];
-            array[i] = array[j];
-            array[j] = temp;
+        // While there remain elements to shuffle...
+        while (currentIndex != 0) {
+            // Pick a remaining element...
+            let randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex--;
+
+            // And swap it with the current element.
+            [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
         }
-
-        return array;
     }
 
     private async blackListPeerId(peerId: PeerId): Promise<void> {
