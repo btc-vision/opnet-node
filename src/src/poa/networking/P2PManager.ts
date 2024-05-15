@@ -22,7 +22,7 @@ import { mplex } from '@libp2p/mplex';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { tcp } from '@libp2p/tcp';
 import { uPnPNAT } from '@libp2p/upnp-nat';
-import type { Multiaddr } from '@multiformats/multiaddr';
+import { multiaddr, Multiaddr } from '@multiformats/multiaddr';
 import figlet, { Fonts } from 'figlet';
 import type { Datastore } from 'interface-datastore';
 import { lpStream } from 'it-length-prefixed-stream';
@@ -250,7 +250,11 @@ export class P2PManager extends Logger {
             const peerInfo = peers[peer];
             console.log(peerInfo);
 
-            //const idk = this.node.dial(peerInfo.peerId);
+            for (const address of peerInfo.addresses) {
+                const multiAddr = multiaddr(address);
+
+                console.log(multiAddr);
+            }
         }
     }
 
@@ -316,7 +320,7 @@ export class P2PManager extends Logger {
                 type: peer.clientIndexerMode,
                 network: peer.clientNetwork,
                 chainId: peer.clientChainId,
-                addresses: peerObj.addresses.map((addr) => addr.multiaddr.toString()),
+                addresses: peerObj.addresses.map((addr) => addr.multiaddr.bytes),
             };
 
             console.log(peerInfo);

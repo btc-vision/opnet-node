@@ -74,7 +74,7 @@ message PeerInfo {
   uint32 type = 3;
   uint32 network = 4;
   ChainIds chainId = 5;
-  repeated string addresses = 6;
+  repeated bytes addresses = 6;
 }
 
 message DiscoveryResponse {
