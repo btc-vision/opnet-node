@@ -196,7 +196,10 @@ export class BlockWitnessManager extends Logger {
     ): Promise<void> {
         const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
         if (filteredBlockWitnesses.trustedWitnesses.length === 0) {
-            this.log(`No new trusted witness for block ${blockNumber.toString()}.`);
+            return;
+        }
+
+        if (filteredBlockWitnesses.validatorWitnesses.length === 0) {
             return;
         }
 
