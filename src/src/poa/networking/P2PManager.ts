@@ -516,7 +516,12 @@ export class P2PManager extends Logger {
 
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
         const peerId: string = evt.detail.toString();
-        if (this.pendingNodeIdentifications.has(peerId)) {
+        /*if (this.pendingNodeIdentifications.has(peerId)) {
+            return;
+        }*/
+
+        const peer = this.peers.get(peerId);
+        if (peer) {
             return;
         }
 
@@ -526,9 +531,8 @@ export class P2PManager extends Logger {
             }
 
             this.pendingNodeIdentifications.delete(peerId);
-
             this.disconnectPeer(evt.detail, DisconnectionCode.RECONNECT, 'Identification timeout.');
-        }, 5000);
+        }, 10000);
 
         this.pendingNodeIdentifications.set(peerId, timeout);
     }
