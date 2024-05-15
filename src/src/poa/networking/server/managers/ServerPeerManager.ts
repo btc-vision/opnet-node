@@ -53,8 +53,6 @@ export class ServerPeerManager extends AbstractPacketManager {
     }
 
     private async onDiscover(packet: OPNetPacket): Promise<void> {
-        this.info(`Peer ${this.peerId} got a discover packet.`);
-
         const discoverPacket = (await this.protocol.onIncomingPacket<IDiscover>(
             packet,
         )) as DiscoverPacket;
@@ -68,6 +66,6 @@ export class ServerPeerManager extends AbstractPacketManager {
             return;
         }
 
-        console.log(`discover packet`, unpackedPacket);
+        await this.buildDiscoveryResponse();
     }
 }

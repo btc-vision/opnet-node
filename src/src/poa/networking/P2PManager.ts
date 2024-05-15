@@ -22,7 +22,6 @@ import { mplex } from '@libp2p/mplex';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { tcp } from '@libp2p/tcp';
 import { uPnPNAT } from '@libp2p/upnp-nat';
-import { webSockets } from '@libp2p/websockets';
 import type { Multiaddr } from '@multiformats/multiaddr';
 import figlet, { Fonts } from 'figlet';
 import type { Datastore } from 'interface-datastore';
@@ -164,6 +163,15 @@ export class P2PManager extends Logger {
         this.node.addEventListener('peer:update', this.onPeerUpdate.bind(this));
         this.node.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
         this.node.addEventListener('peer:connect', this.onPeerConnect.bind(this));
+    }
+
+    private async refreshRouting(): Promise<void> {
+        if (!this.node) throw new Error('Node not initialized');
+
+        await this.node.services.kadDHT.refreshRoutingTable();
+        setTimeout(() => {
+            void this.refreshRouting();
+        }, 15000);
     }
 
     private async onPeerDiscovery(evt: CustomEvent<PeerInfo>): Promise<void> {
@@ -356,6 +364,8 @@ export class P2PManager extends Logger {
         }
 
         this.p2pConfigurations.savePeer(this.node.peerId);
+
+        await this.refreshRouting();
     }
 
     private notifyArt(text: string, font: Fonts, prefix: string, ...suffix: string[]): void {
@@ -680,7 +690,7 @@ export class P2PManager extends Logger {
             peerId: peerId,
             transports: [
                 tcp(this.p2pConfigurations.tcpConfiguration),
-                webSockets(this.p2pConfigurations.websocketConfiguration),
+                //webSockets(this.p2pConfigurations.websocketConfiguration),
             ],
             connectionEncryption: [noise()],
             connectionGater: this.getConnectionGater(),

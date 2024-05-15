@@ -71,6 +71,16 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         this.networkHandlers.push(this.createBlockWitnessManager());
 
         this.onClientAuthenticationCompleted();
+
+        void this.discoverPeers();
+    }
+
+    private async discoverPeers(): Promise<void> {
+        if (!this._peerManager) {
+            throw new Error('Peer manager not found.');
+        }
+
+        await this._peerManager.discoverPeers();
     }
 
     private createPeerManager(): ClientPeerManager {
