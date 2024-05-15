@@ -99,7 +99,7 @@ export class BlockWitnessManager extends Logger {
         };
 
         /** Attempt to crash. */
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 10; i++) {
             void this.broadcastBlockWitness(blockWitness);
         }
     }
