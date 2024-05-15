@@ -179,8 +179,13 @@ export class BlockWitnessManager extends Logger {
             return !trusted.includes(w.identity || '');
         });
 
+        const opnetWitnesses = blockWitness.validatorWitnesses.filter((w) => {
+            return !trusted.includes(w.identity || '');
+        });
+
         return {
             ...blockWitness,
+            validatorWitnesses: opnetWitnesses,
             trustedWitnesses: trustedWitnesses,
         };
     }
