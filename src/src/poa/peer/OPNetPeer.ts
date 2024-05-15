@@ -150,15 +150,20 @@ export class OPNetPeer extends Logger {
     public async onDisconnect(): Promise<void> {
         this.log(`Peer ${this.peerId} disconnected.`);
 
-        await this.destroy(false);
+        await this.destroy(true);
     }
 
     public async destroy(shouldDisconnect: boolean = true): Promise<void> {
         if (this.isDestroyed) return;
-        this.isDestroyed = true;
         this.selfIdentity = undefined;
 
-        if (shouldDisconnect) await this.disconnect(DisconnectionCode.BAD_BEHAVIOR, 'Goodbye!');
+        if (shouldDisconnect) {
+            try {
+                await this.disconnect(DisconnectionCode.RECONNECT, 'Goodbye!');
+            } catch (e) {}
+        }
+
+        this.isDestroyed = true;
         this.clientNetworkingManager.destroy();
 
         this.disconnectPeer = () => Promise.resolve();
