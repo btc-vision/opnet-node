@@ -19,6 +19,7 @@ import { KadDHT, kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
 import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';
 import { mplex } from '@libp2p/mplex';
+import { peerIdFromBytes, peerIdFromString } from '@libp2p/peer-id';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { tcp } from '@libp2p/tcp';
 import { uPnPNAT } from '@libp2p/upnp-nat';
@@ -48,7 +49,6 @@ import { OPNetPeerInfo } from './protobuf/packets/peering/DiscoveryResponsePacke
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
-import { peerIdFromBytes } from '@libp2p/peer-id';
 
 export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -248,16 +248,62 @@ export class P2PManager extends Logger {
 
         this.log(`Discovered ${peers.length} OPNet peers.`);
 
+        const peersToTry: PeerInfo[] = [];
         for (let peer = 0; peer < peers.length; peer++) {
             const peerInfo = peers[peer];
             console.log(peerInfo);
 
             try {
                 const peerId = peerIdFromBytes(peerInfo.peer);
+                if (!peerId.toString()) continue;
 
-                console.log(peerId);
+                if (this.blackListedPeerIds.has(peerId.toString())) continue;
+
+                const hasPeerInfo = await this.node.peerStore.has(peerId);
+                if (hasPeerInfo) continue;
+
+                const addresses: Multiaddr[] = [];
+                for (const address of peerInfo.addresses) {
+                    const addr = multiaddr(address);
+
+                    if (this.blackListedPeerIps.has(addr.nodeAddress().address)) continue;
+
+                    addresses.push(addr);
+                }
+
+                const peerData: PeerInfo = {
+                    id: peerIdFromString(peerId.toString()),
+                    multiaddrs: addresses,
+                };
+
+                peersToTry.push(peerData);
             } catch (e) {}
         }
+
+        if (peersToTry.length === 0) {
+            return;
+        }
+
+        console.log(`ATTEMPTING TO CONNECT TO PEERS ->`, peersToTry);
+
+        const promises: Promise<Peer>[] = [];
+        for (let peerData of peersToTry) {
+            const addedPeer = this.node.peerStore.merge(peerData.id, {
+                multiaddrs: peerData.multiaddrs,
+                tags: {
+                    ['OPNET']: {
+                        value: 50,
+                        ttl: 60000,
+                    },
+                },
+            });
+
+            promises.push(addedPeer);
+        }
+
+        await Promise.all(promises);
+
+        console.log(promises);
     }
 
     private reportAuthenticatedPeer(_peerId: PeerId): void {
@@ -303,9 +349,8 @@ export class P2PManager extends Logger {
 
         const peersData: Peer[] = await this.node.peerStore.all();
 
-        for (const peerObj of peersData) {
-            const peerId = peerObj.id;
-            const peer = this.peers.get(peerId.toString());
+        for (const peerData of peersData) {
+            const peer = this.peers.get(peerData.id.toString());
 
             if (!peer) continue;
 
@@ -322,7 +367,8 @@ export class P2PManager extends Logger {
                 type: peer.clientIndexerMode,
                 network: peer.clientNetwork,
                 chainId: peer.clientChainId,
-                peer: peerObj.id.toBytes(),
+                peer: peerData.id.toCID().bytes,
+                addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
             };
 
             console.log(peerInfo);
@@ -709,11 +755,10 @@ export class P2PManager extends Logger {
         const peerDiscovery: [
             (components: MulticastDNSComponents) => PeerDiscovery,
             BootstrapDiscoveryMethod?,
-        ] = [mdns(this.p2pConfigurations.multicastDnsConfiguration)];
-
-        if (!this.isBootstrapNode()) {
-            peerDiscovery.push(bootstrap(this.p2pConfigurations.bootstrapConfiguration));
-        }
+        ] = [
+            mdns(this.p2pConfigurations.multicastDnsConfiguration),
+            bootstrap(this.p2pConfigurations.bootstrapConfiguration),
+        ];
 
         const datastore = await this.getDatastore();
 

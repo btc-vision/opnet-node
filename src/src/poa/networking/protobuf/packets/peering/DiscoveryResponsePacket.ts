@@ -11,6 +11,7 @@ export interface OPNetPeerInfo {
     readonly network: number;
     readonly chainId: ChainIds;
     readonly peer: Uint8Array;
+    readonly addresses: Uint8Array[];
 }
 
 export interface IDiscoveryResponse extends PackedMessage {
