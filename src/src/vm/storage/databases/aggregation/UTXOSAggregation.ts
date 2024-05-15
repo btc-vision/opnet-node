@@ -47,7 +47,7 @@ export class UTXOSAggregation extends Aggregation {
             {
                 $match: {
                     'outputs.value': {
-                        $gt: 0,
+                        $gte: 330,
                     },
                 },
             },
@@ -96,11 +96,6 @@ export class UTXOSAggregation extends Aggregation {
                     outputIndex: '$outputs.index',
                     value: '$outputs.value',
                     scriptPubKey: '$outputs.scriptPubKey',
-                },
-            },
-            {
-                $sort: {
-                    value: -1,
                 },
             },
         ];
