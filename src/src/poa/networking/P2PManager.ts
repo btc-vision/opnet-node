@@ -251,7 +251,6 @@ export class P2PManager extends Logger {
         const peersToTry: PeerInfo[] = [];
         for (let peer = 0; peer < peers.length; peer++) {
             const peerInfo = peers[peer];
-            console.log(peerInfo);
 
             try {
                 const peerId = peerIdFromBytes(peerInfo.peer);
@@ -259,8 +258,8 @@ export class P2PManager extends Logger {
 
                 if (this.blackListedPeerIds.has(peerId.toString())) continue;
 
-                const hasPeerInfo = await this.node.peerStore.has(peerId);
-                if (hasPeerInfo) continue;
+                //const hasPeerInfo = await this.node.peerStore.has(peerId);
+                //if (hasPeerInfo) continue;
 
                 const addresses: Multiaddr[] = [];
                 for (const address of peerInfo.addresses) {
@@ -346,7 +345,6 @@ export class P2PManager extends Logger {
         if (!this.node) throw new Error('Node not initialized');
 
         const peers: OPNetPeerInfo[] = [];
-
         const peersData: Peer[] = await this.node.peerStore.all();
 
         for (const peerData of peersData) {

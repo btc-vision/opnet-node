@@ -134,7 +134,8 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get bootstrapConfiguration(): BootstrapInit {
         return {
-            timeout: 10000,
+            timeout: 5000,
+            tagValue: 60,
             list: this.getBootstrapPeers(),
         };
     }
