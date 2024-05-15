@@ -2,13 +2,13 @@ import { Address } from '@btc-vision/bsi-binary';
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import {
+    AggregateOptions,
     ClientSession,
     Collection,
     Db,
     Decimal128,
     Document,
     Filter,
-    OperationOptions,
     Sort,
 } from 'mongodb';
 import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
@@ -101,7 +101,8 @@ export class TransactionRepository extends BaseRepository<
     public async getBalanceOf(wallet: Address, currentSession?: ClientSession): Promise<bigint> {
         const aggregation: Document[] = this.balanceOfAggregation.getAggregation(wallet);
         const collection = this.getCollection();
-        const options: OperationOptions = this.getOptions(currentSession);
+        const options: AggregateOptions = this.getOptions(currentSession) as AggregateOptions;
+        options.allowDiskUse = true;
 
         const aggregatedDocument = collection.aggregate<BalanceOfOutputTransactionFromDB>(
             aggregation,
@@ -121,12 +122,14 @@ export class TransactionRepository extends BaseRepository<
     ): Promise<UTXOsOutputTransactions> {
         const aggregation: Document[] = this.uxtosAggregation.getAggregation(wallet);
         const collection = this.getCollection();
-        const options = this.getOptions(currentSession);
+        const options = this.getOptions(currentSession) as AggregateOptions;
+        options.allowDiskUse = true;
 
         const aggregatedDocument = collection.aggregate<UTXOSOutputTransactionFromDB>(
             aggregation,
             options,
         );
+
         const results: UTXOSOutputTransactionFromDB[] = await aggregatedDocument.toArray();
 
         return results.map((result) => {
