@@ -751,10 +751,11 @@ export class P2PManager extends Logger {
         const peerDiscovery: [
             (components: MulticastDNSComponents) => PeerDiscovery,
             BootstrapDiscoveryMethod?,
-        ] = [
-            mdns(this.p2pConfigurations.multicastDnsConfiguration),
-            bootstrap(this.p2pConfigurations.bootstrapConfiguration),
-        ];
+        ] = [mdns(this.p2pConfigurations.multicastDnsConfiguration)];
+
+        if (this.p2pConfigurations.bootstrapConfiguration.list.length) {
+            peerDiscovery.push(bootstrap(this.p2pConfigurations.bootstrapConfiguration));
+        }
 
         const datastore = await this.getDatastore();
 
