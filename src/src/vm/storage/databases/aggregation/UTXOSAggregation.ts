@@ -27,6 +27,7 @@ export class UTXOSAggregation extends Aggregation {
                             'outputs.scriptPubKey.addresses': wallet,
                         },
                     ],
+                    'outputs.value': { $gte: 330 },
                 },
             },
             {
@@ -42,13 +43,7 @@ export class UTXOSAggregation extends Aggregation {
                             'outputs.scriptPubKey.addresses': wallet,
                         },
                     ],
-                },
-            },
-            {
-                $match: {
-                    'outputs.value': {
-                        $gte: 330,
-                    },
+                    'outputs.value': { $gte: 330 },
                 },
             },
             {
