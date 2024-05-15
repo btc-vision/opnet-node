@@ -316,8 +316,10 @@ export class P2PManager extends Logger {
                 type: peer.clientIndexerMode,
                 network: peer.clientNetwork,
                 chainId: peer.clientChainId,
-                peerId: peerObj.addresses.map((addr) => addr.multiaddr.toString()),
+                addresses: peerObj.addresses.map((addr) => addr.multiaddr.toString()),
             };
+
+            console.log(peerInfo);
 
             peers.push(peerInfo);
         }
