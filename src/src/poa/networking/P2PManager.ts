@@ -48,6 +48,7 @@ import { OPNetPeerInfo } from './protobuf/packets/peering/DiscoveryResponsePacke
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
+import { peerIdFromBytes } from '@libp2p/peer-id';
 
 export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -223,6 +224,7 @@ export class P2PManager extends Logger {
 
     private async createPeer(peerInfo: IdentifyResult, peerIdStr: string): Promise<void> {
         if (this.peers.has(peerIdStr)) {
+            await peerInfo.connection.close();
             throw new Error(`Peer (client) ${peerIdStr} already exists. Memory leak detected.`);
         }
 
@@ -250,11 +252,11 @@ export class P2PManager extends Logger {
             const peerInfo = peers[peer];
             console.log(peerInfo);
 
-            for (const address of peerInfo.addresses) {
-                const multiAddr = multiaddr(address);
+            try {
+                const peerId = peerIdFromBytes(peerInfo.peer);
 
-                console.log(multiAddr);
-            }
+                console.log(peerId);
+            } catch (e) {}
         }
     }
 
@@ -320,7 +322,7 @@ export class P2PManager extends Logger {
                 type: peer.clientIndexerMode,
                 network: peer.clientNetwork,
                 chainId: peer.clientChainId,
-                addresses: peerObj.addresses.map((addr) => addr.multiaddr.bytes),
+                peer: peerObj.id.toBytes(),
             };
 
             console.log(peerInfo);
