@@ -272,6 +272,7 @@ export class BlockWitnessManager extends Logger {
             );
         }
 
+        this.addKnownTrustedWitnesses(blockNumber, opnetWitnesses);
         await this.broadcastTrustedWitnesses(blockNumber, trustedWitnesses, blockWitness);
 
         /** We can store the witnesses in the database after validating their data */

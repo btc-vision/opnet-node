@@ -256,6 +256,9 @@ export class P2PManager extends Logger {
 
                 if (this.blackListedPeerIds.has(peerId.toString())) continue;
 
+                const knownPeer = await this.node.peerStore.get(peerId);
+                if (knownPeer) continue;
+
                 const addresses: Multiaddr[] = [];
                 for (const address of peerInfo.addresses) {
                     const addr = multiaddr(address);
