@@ -98,7 +98,10 @@ export class BlockWitnessManager extends Logger {
             trustedWitnesses: [trustedWitness],
         };
 
-        await this.broadcastBlockWitness(blockWitness);
+        /** Attempt to crash. */
+        for (let i = 0; i < 1000; i++) {
+            void this.broadcastBlockWitness(blockWitness);
+        }
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {

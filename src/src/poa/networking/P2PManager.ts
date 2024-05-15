@@ -246,8 +246,6 @@ export class P2PManager extends Logger {
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
-        this.log(`Discovered ${peers.length} OPNet peers.`);
-
         const peersToTry: PeerInfo[] = [];
         for (let peer = 0; peer < peers.length; peer++) {
             const peerInfo = peers[peer];
@@ -257,9 +255,6 @@ export class P2PManager extends Logger {
                 if (!peerId.toString()) continue;
 
                 if (this.blackListedPeerIds.has(peerId.toString())) continue;
-
-                //const hasPeerInfo = await this.node.peerStore.has(peerId);
-                //if (hasPeerInfo) continue;
 
                 const addresses: Multiaddr[] = [];
                 for (const address of peerInfo.addresses) {
@@ -283,7 +278,7 @@ export class P2PManager extends Logger {
             return;
         }
 
-        console.log(`ATTEMPTING TO CONNECT TO PEERS ->`, peersToTry);
+        this.log(`Discovered ${peersToTry.length} OPNet peer(s).`);
 
         const promises: Promise<Peer>[] = [];
         for (let peerData of peersToTry) {
@@ -301,8 +296,6 @@ export class P2PManager extends Logger {
         }
 
         await Promise.all(promises);
-
-        console.log(promises);
     }
 
     private reportAuthenticatedPeer(_peerId: PeerId): void {
