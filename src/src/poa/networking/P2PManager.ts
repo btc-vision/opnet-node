@@ -2,11 +2,9 @@ import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap, BootstrapComponents } from '@libp2p/bootstrap';
-import { Identify, identify } from '@libp2p/identify';
 import {
     type ConnectionGater,
     CustomEvent,
-    IdentifyResult,
     Peer,
     PeerDiscovery,
     PeerId,
@@ -50,13 +48,17 @@ import { AuthenticationManager } from './server/managers/AuthenticationManager.j
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
+export interface OPNetConnectionInfo {
+    peerId: PeerId;
+    agentVersion: string;
+    protocolVersion: string;
+}
+
 export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly p2pConfigurations: P2PConfigurations;
-    private node: Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }> | undefined;
-
-    private pendingNodeIdentifications: Map<string, NodeJS.Timeout> = new Map();
+    private node: Libp2p<{ nat: unknown; kadDHT: KadDHT }> | undefined;
 
     private peers: Map<string, OPNetPeer> = new Map();
 
@@ -162,7 +164,7 @@ export class P2PManager extends Logger {
         this.node.addEventListener('peer:discovery', this.onPeerDiscovery.bind(this));
         this.node.addEventListener('peer:disconnect', this.onPeerDisconnect.bind(this));
         this.node.addEventListener('peer:update', this.onPeerUpdate.bind(this));
-        this.node.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
+        //this.node.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
         this.node.addEventListener('peer:connect', this.onPeerConnect.bind(this));
     }
 
@@ -194,7 +196,7 @@ export class P2PManager extends Logger {
 
     private async onPeerUpdate(_evt: CustomEvent<PeerUpdate>): Promise<void> {}
 
-    private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
+    /*private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
         const agent: string | undefined = evt.detail.agentVersion;
@@ -220,11 +222,10 @@ export class P2PManager extends Logger {
         }
 
         await this.createPeer(evt.detail, peerIdStr);
-    }
+    }*/
 
-    private async createPeer(peerInfo: IdentifyResult, peerIdStr: string): Promise<void> {
+    private async createPeer(peerInfo: OPNetConnectionInfo, peerIdStr: string): Promise<void> {
         if (this.peers.has(peerIdStr)) {
-            await peerInfo.connection.close();
             throw new Error(`Peer (client) ${peerIdStr} already exists. Memory leak detected.`);
         }
 
@@ -405,14 +406,6 @@ export class P2PManager extends Logger {
         } catch (e) {}
     }
 
-    private getPeers(): Promise<Peer[]> {
-        if (!this.node) {
-            throw new Error('Node not initialized');
-        }
-
-        return this.node.peerStore.all();
-    }
-
     private async onStarted(): Promise<void> {
         if (!this.node) {
             throw new Error('Node not initialized');
@@ -515,17 +508,23 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
-        const peerId: string = evt.detail.toString();
+        const peerIdStr: string = evt.detail.toString();
         /*if (this.pendingNodeIdentifications.has(peerId)) {
             return;
         }*/
 
-        const peer = this.peers.get(peerId);
+        const peer = this.peers.get(peerIdStr);
         if (peer) {
             return;
         }
 
-        const timeout = setTimeout(() => {
+        const peerId = peerIdFromString(peerIdStr);
+        if (!peerId) return;
+
+        const agent = `OPNet`;
+        const version = `1.0.0`;
+
+        /*const timeout = setTimeout(() => {
             if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.warn(`Identification timeout for peer: ${peerId}`);
             }
@@ -534,7 +533,27 @@ export class P2PManager extends Logger {
             this.disconnectPeer(evt.detail, DisconnectionCode.RECONNECT, 'Identification timeout.');
         }, 10000);
 
-        this.pendingNodeIdentifications.set(peerId, timeout);
+        this.pendingNodeIdentifications.set(peerId, timeout);*/
+
+        if (!this.allowConnection(peerId, agent, version)) {
+            this.warn(`Dropping connection to peer: ${peerIdStr} due to agent or version mismatch`);
+
+            await this.blackListPeerId(peerId);
+            return await this.disconnectPeer(peerId);
+        }
+
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.info(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
+        }
+
+        await this.createPeer(
+            {
+                agentVersion: agent,
+                protocolVersion: version,
+                peerId: peerId,
+            },
+            peerIdStr,
+        );
     }
 
     private async startNode(): Promise<void> {
@@ -600,26 +619,6 @@ export class P2PManager extends Logger {
         }
 
         await peer.onMessage(data);
-    }
-
-    /** Broadcast a message to all connected peers */
-    private async broadcastMessage(data: Uint8Array): Promise<void> {
-        if (this.node === undefined) {
-            throw new Error('Node not initialized');
-        }
-
-        const peers = await this.getPeers();
-
-        const sentPromises: Promise<void>[] = [];
-        for (const peer of peers) {
-            if (peer.id === this.node.peerId) {
-                continue;
-            }
-
-            sentPromises.push(this.sendToPeer(peer.id, data));
-        }
-
-        await Promise.all(sentPromises);
     }
 
     /** Send a message to a specific peer */
@@ -747,9 +746,7 @@ export class P2PManager extends Logger {
         return !(this.blackListedPeerIds.has(peerIdStr) || this.blackListedPeerIps.has(ip));
     }
 
-    private async createNode(): Promise<
-        Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }>
-    > {
+    private async createNode(): Promise<Libp2p<{ nat: unknown; kadDHT: KadDHT }>> {
         const peerId = await this.p2pConfigurations.peerIdConfigurations();
 
         const peerDiscovery: [
@@ -785,7 +782,6 @@ export class P2PManager extends Logger {
             services: {
                 nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),
                 kadDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
-                identify: identify(this.p2pConfigurations.identifyConfiguration),
             },
         });
     }

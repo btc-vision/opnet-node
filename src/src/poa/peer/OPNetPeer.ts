@@ -5,6 +5,7 @@ import { ChainIds } from '../../config/enums/ChainIds.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { ClientPeerNetworking } from '../networking/client/ClientPeerNetworking.js';
 import { DisconnectionCode } from '../networking/enums/DisconnectionCode.js';
+import { OPNetConnectionInfo } from '../networking/P2PManager.js';
 import { IBlockHeaderWitness } from '../networking/protobuf/packets/blockchain/BlockHeaderWitness.js';
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
@@ -21,7 +22,7 @@ export class OPNetPeer extends Logger {
     private serverNetworkingManager: ServerPeerNetworking;
 
     constructor(
-        private _peerIdentity: IdentifyResult | undefined,
+        private _peerIdentity: OPNetConnectionInfo | undefined,
         private selfIdentity: OPNetIdentity | undefined,
     ) {
         super();
@@ -68,7 +69,7 @@ export class OPNetPeer extends Logger {
         return this.serverNetworkingManager.clientVersion;
     }
 
-    private get peerIdentity(): IdentifyResult {
+    private get peerIdentity(): OPNetConnectionInfo {
         if (!this._peerIdentity) {
             throw new Error('Peer identity not found.');
         }
