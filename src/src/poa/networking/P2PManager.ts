@@ -279,7 +279,7 @@ export class P2PManager extends Logger {
     private getOPNetPeers(): OPNetPeerInfo[] {
         const peers: OPNetPeerInfo[] = [];
 
-        for (const [_peerId, peer] of this.peers) {
+        for (const [peerId, peer] of this.peers) {
             if (peer.clientVersion === undefined) continue;
             if (peer.clientChecksum === undefined) continue;
             if (peer.clientIdentity === undefined) continue;
@@ -293,6 +293,7 @@ export class P2PManager extends Logger {
                 type: peer.clientIndexerMode,
                 network: peer.clientNetwork,
                 chainId: peer.clientChainId,
+                peerId: peerId.toString(),
             };
 
             peers.push(peerInfo);
@@ -453,7 +454,7 @@ export class P2PManager extends Logger {
 
             this.pendingNodeIdentifications.delete(peerId);
 
-            this.disconnectPeer(evt.detail);
+            this.disconnectPeer(evt.detail, DisconnectionCode.RECONNECT, 'Identification timeout.');
         }, 5000);
 
         this.pendingNodeIdentifications.set(peerId, timeout);

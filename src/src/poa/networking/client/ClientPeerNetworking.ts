@@ -3,6 +3,7 @@ import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../default/AbstractPacketManager.js';
 import { DisconnectionCode } from '../enums/DisconnectionCode.js';
 import { IBlockHeaderWitness } from '../protobuf/packets/blockchain/BlockHeaderWitness.js';
+import { OPNetPeerInfo } from '../protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { SharedBlockHeaderManager } from '../shared/managers/SharedBlockHeaderManager.js';
 import { PeerHandlerEvents } from './events/PeerHandlerEvents.js';
 import { ClientAuthenticationManager } from './managers/ClientAuthenticationManager.js';
@@ -62,7 +63,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         delete this._blockHeaderManager;
     }
 
-    public onPeersDiscovered: () => Promise<void> = () => {
+    public onPeersDiscovered: (peers: OPNetPeerInfo[]) => Promise<void> = () => {
         throw new Error('onPeersDiscovered not implemented.');
     };
 

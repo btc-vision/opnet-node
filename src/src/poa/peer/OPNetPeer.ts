@@ -203,6 +203,10 @@ export class OPNetPeer extends Logger {
         };
     }
 
+    private async onPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
+        console.log(`Discovered peers: ${peers.length}`);
+    }
+
     private defineClientNetworkingEvents(): void {
         this.clientNetworkingManager.disconnectPeer = this.disconnect.bind(this);
         this.clientNetworkingManager.send = async (data: Uint8Array | Buffer) => {
@@ -214,6 +218,10 @@ export class OPNetPeer extends Logger {
 
         this.clientNetworkingManager.onClientAuthenticationCompleted = () => {
             this.onClientAuthenticationCompleted();
+        };
+
+        this.clientNetworkingManager.onPeersDiscovered = async (peers: OPNetPeerInfo[]) => {
+            await this.onPeersDiscovered(peers);
         };
 
         this.clientNetworkingManager.onBlockWitness = async (blockWitness: IBlockHeaderWitness) => {
