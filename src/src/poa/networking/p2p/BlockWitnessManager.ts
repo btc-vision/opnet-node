@@ -195,6 +195,10 @@ export class BlockWitnessManager extends Logger {
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): Promise<void> {
+        if (blockNumber < this.currentBlock - this.pendingBlockThreshold) {
+            return; // we do not process old witnesses.
+        }
+
         const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
         if (filteredBlockWitnesses.trustedWitnesses.length === 0) {
             return;
