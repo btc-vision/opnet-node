@@ -229,11 +229,7 @@ export class OPNetPeer extends Logger {
         };
 
         this.clientNetworkingManager.onBlockWitness = async (blockWitness: IBlockHeaderWitness) => {
-            const before = Date.now();
             await this.onBlockWitness(blockWitness);
-            const after = Date.now();
-
-            this.debug(`Block witness processing took ${after - before}ms.`);
         };
     }
 

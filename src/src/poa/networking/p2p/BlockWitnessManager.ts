@@ -51,6 +51,10 @@ export class BlockWitnessManager extends Logger {
         super();
 
         this.pendingBlockThreshold = BigInt(this.config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS) || 10n;
+
+        setInterval(() => {
+            this.purgeOldWitnesses();
+        }, 30000);
     }
 
     public async init(): Promise<void> {
@@ -98,10 +102,7 @@ export class BlockWitnessManager extends Logger {
             trustedWitnesses: [trustedWitness],
         };
 
-        /** Attempt to crash. */
-        for (let i = 0; i < 10; i++) {
-            void this.broadcastBlockWitness(blockWitness);
-        }
+        await this.broadcastBlockWitness(blockWitness);
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
