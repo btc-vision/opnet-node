@@ -319,21 +319,23 @@ export class P2PManager extends Logger {
                 `Looking for peers...\n\n`,
             );
 
-            const startupMessage: StartIndexer = {
-                type: MessageType.START_INDEXER,
-                data: {},
-            };
+            setTimeout(async () => {
+                const startupMessage: StartIndexer = {
+                    type: MessageType.START_INDEXER,
+                    data: {},
+                };
 
-            const resp = (await this.sendMessageToThread(
-                ThreadTypes.BITCOIN_INDEXER,
-                startupMessage,
-            )) as StartIndexerResponseData | null;
+                const resp = (await this.sendMessageToThread(
+                    ThreadTypes.BITCOIN_INDEXER,
+                    startupMessage,
+                )) as StartIndexerResponseData | null;
 
-            if (resp && resp.started) {
-                this.info(`Indexer started successfully.`);
-            } else {
-                throw new Error(`Failed to start indexer.`);
-            }
+                if (resp && resp.started) {
+                    this.info(`Indexer started successfully.`);
+                } else {
+                    throw new Error(`Failed to start indexer.`);
+                }
+            }, 3000);
         }
     }
 
