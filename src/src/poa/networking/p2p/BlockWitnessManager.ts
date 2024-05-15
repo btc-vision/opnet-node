@@ -50,7 +50,8 @@ export class BlockWitnessManager extends Logger {
     ) {
         super();
 
-        this.pendingBlockThreshold = BigInt(this.config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS) || 10n;
+        this.pendingBlockThreshold =
+            BigInt(this.config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS + 100) || 10n;
 
         setInterval(() => {
             this.purgeOldWitnesses();
