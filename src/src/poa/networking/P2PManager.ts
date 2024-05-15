@@ -369,8 +369,6 @@ export class P2PManager extends Logger {
                 addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
             };
 
-            console.log(peerInfo);
-
             peers.push(peerInfo);
         }
 
