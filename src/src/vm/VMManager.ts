@@ -201,13 +201,7 @@ export class VMManager extends Logger {
             );
 
             vmEvaluator.clear();
-
-            // We must dispose the evaluator after a while.
             vmEvaluator.dispose();
-            /*setTimeout(() => {
-                vmEvaluator.dispose();
-            }, 500);*/
-
             return response;
         } catch (e) {
             await this.resetContractVM(vmEvaluator);

@@ -50,6 +50,10 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
     private _clientIdentity: string | undefined;
 
+    public get hasAuthenticated(): boolean {
+        return this.isAuthenticated;
+    }
+
     public get clientIdentity(): string {
         if (!this._clientIdentity) {
             throw new Error(`Peer identity not defined.`);
@@ -292,6 +296,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
         // Send the server handshake response.
         await this.sendServerHandshake();
+        this.isAuthenticated = true;
     }
 
     private async verifySignaturePublicKey(signaturePubKey: Uint8Array | Buffer): Promise<boolean> {

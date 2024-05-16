@@ -351,6 +351,7 @@ export class P2PManager extends Logger {
 
             if (!peer) continue;
 
+            if (!peer.hasAuthenticated) continue;
             if (peer.clientVersion === undefined) continue;
             if (peer.clientChecksum === undefined) continue;
             if (peer.clientIdentity === undefined) continue;

@@ -1,7 +1,11 @@
+import { NetEvent } from '@btc-vision/bsi-binary';
 import { Binary } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { TransactionDocumentForAPI } from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
-import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
+import {
+    ITransactionDocument,
+    NetEventDocument,
+} from '../../db/interfaces/ITransactionDocument.js';
 
 export class TransactionConverterForAPI {
     public static convertTransactionToAPI(
@@ -17,6 +21,16 @@ export class TransactionConverterForAPI {
                 return {
                     ...output,
                     value: output.value.toString(),
+                };
+            }),
+            events: transaction.events.map((event: NetEvent | NetEventDocument) => {
+                return {
+                    eventType: event.eventType,
+                    eventDataSelector: event.eventDataSelector.toString(),
+                    eventData: (event.eventData instanceof Uint8Array
+                        ? new Binary(event.eventData)
+                        : event.eventData
+                    ).toString('base64'),
                 };
             }),
             revert: revert?.toString('base64'),

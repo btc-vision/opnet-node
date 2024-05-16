@@ -45,6 +45,10 @@ export class OPNetPeer extends Logger {
         this.defineClientNetworkingEvents();
     }
 
+    public get hasAuthenticated(): boolean {
+        return this.serverNetworkingManager.hasAuthenticated;
+    }
+
     public get clientIdentity(): string | undefined {
         return this.serverNetworkingManager.clientIdentity;
     }

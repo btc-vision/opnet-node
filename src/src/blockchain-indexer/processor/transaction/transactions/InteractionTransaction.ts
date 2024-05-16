@@ -1,7 +1,12 @@
+import { NetEvent } from '@btc-vision/bsi-binary';
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
+import { DataConverter } from '@btc-vision/bsi-db';
 import bitcoin, { address, opcodes, payments } from 'bitcoinjs-lib';
 import { Binary } from 'mongodb';
-import { InteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
+import {
+    InteractionTransactionDocument,
+    NetEventDocument,
+} from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
@@ -97,6 +102,9 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         return OPNetTransactionTypes.Interaction;
     }
 
+    /**
+     * Convert the transaction to a document.
+     */
     public toDocument(): InteractionTransactionDocument {
         const receiptData = this.receipt;
         const events = receiptData?.events || [];
@@ -118,7 +126,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             receiptProofs: receiptProofs,
 
             receipt: receipt ? new Binary(receipt) : undefined,
-            events: events,
+            events: this.convertEvents(events),
         };
     }
 
@@ -229,6 +237,21 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
     }
 
     /**
+     * Convert the events to the document format.
+     * @param events NetEvent[]
+     * @private
+     */
+    private convertEvents(events: NetEvent[]): NetEventDocument[] {
+        return events.map((event) => {
+            return {
+                eventType: event.eventType,
+                eventDataSelector: DataConverter.toDecimal128(event.eventDataSelector),
+                eventData: new Binary(event.eventData),
+            };
+        });
+    }
+
+    /**
      * Get the output witness from the secret. Note: If there is multiple interaction in the same transaction, there should be only one output that match the secret.
      * @param secret Buffer
      * @private
@@ -255,12 +278,6 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         }
 
         return undefined;
-    }
-
-    private getLastScriptForTransactionInput(witnessInput: TransactionInput): string | undefined {
-        const witness: string[] = witnessInput.transactionInWitness;
-
-        return witness[witness.length - 1];
     }
 
     /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */

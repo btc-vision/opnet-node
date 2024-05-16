@@ -1,4 +1,3 @@
-import { NetEvent } from '@btc-vision/bsi-binary';
 import { IBaseDocument } from '@btc-vision/bsi-common';
 import { Binary, Decimal128 } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
@@ -43,6 +42,12 @@ export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocum
 export interface DeploymentTransactionDocument
     extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment> {}
 
+export interface NetEventDocument {
+    readonly eventType: string;
+    readonly eventDataSelector: Decimal128;
+    readonly eventData: Binary;
+}
+
 export interface InteractionTransactionDocument
     extends ExtendedBaseInfo<OPNetTransactionTypes.Interaction> {
     readonly calldata: Binary;
@@ -52,7 +57,7 @@ export interface InteractionTransactionDocument
 
     readonly wasCompressed: boolean;
 
-    readonly events: NetEvent[];
+    readonly events: NetEventDocument[];
     readonly receipt?: Binary;
     readonly receiptProofs?: string[];
 }

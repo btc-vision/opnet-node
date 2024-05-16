@@ -5,10 +5,18 @@ import {
     TransactionDocumentBase,
 } from '../../interfaces/ITransactionDocument.js';
 
+export interface ReceiptDataForAPI {
+    readonly eventType: string;
+    readonly eventDataSelector: string;
+    readonly eventData: string;
+}
+
 export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     extends TransactionDocumentBase<T> {
     readonly burnedBitcoin: string;
     readonly revert: string | undefined;
+
+    readonly events: ReceiptDataForAPI[];
 
     blockHeight: undefined;
     deployedTransactionHash: undefined;

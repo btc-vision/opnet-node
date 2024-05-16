@@ -104,7 +104,6 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const calldata: BinaryWriter = new BinaryWriter();
-        //calldata.writeSelector(balanceOfSelector);
         calldata.writeAddress(address);
 
         const buffer = calldata.getBuffer();
@@ -117,7 +116,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         const balanceValue = await vmEvaluator
             .execute(ANY_CONTRACT_ADDRESS, true, balanceOfSelector, buffer)
             .catch((e) => {
-                expect(e).toBeUndefined();
+                expect((e as Error)?.stack).toBeUndefined();
 
                 vmManager.revertBlock();
             });
@@ -170,6 +169,7 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
             'calldata giveMoneyTo ->',
             addBalanceSelector,
             Buffer.from(addBuffer).toString('hex'),
+            amount,
         );
 
         const result = await vmEvaluator
@@ -311,6 +311,8 @@ describe('Anyone should be able to deploy a Bitcoin Smart Contract (BSC).', () =
         }
 
         const balanceOfResponse = await getBalanceOf(ANY_OWNER);
+        console.log(balanceOfResponse);
+
         expect(balanceOfResponse).toBeGreaterThanOrEqual(0n);
     });
 

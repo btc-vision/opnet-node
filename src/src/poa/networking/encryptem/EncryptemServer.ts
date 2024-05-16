@@ -1,8 +1,6 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { Buffer } from 'buffer';
-import fs from 'fs';
 import sodium from 'sodium-native';
-import { cyrb53 } from './CYRB53.js';
 
 export class EncryptemServer extends Logger {
     public logColor: string = `#f61a3b`;
@@ -97,32 +95,6 @@ export class EncryptemServer extends Logger {
         } else {
             throw new Error('Encryption failed. Client public key or server private key is null.');
         }
-    }
-
-    public authenticateKeyData(publicKey: Uint8Array | Buffer): boolean {
-        if (publicKey.length !== this.sodium.crypto_sign_PUBLICKEYBYTES) {
-            return false;
-        }
-
-        publicKey = Buffer.from(publicKey as Uint8Array);
-
-        const publicKeyName = cyrb53(publicKey.toString('hex'), publicKey[10]).toString();
-        const keyName = Buffer.from(publicKeyName).toString('base64');
-        const keyNamePriv = cyrb53(keyName, publicKey[12]);
-
-        /** TODO: Change this. */
-        if (fs.existsSync(`./publicKeys/${keyNamePriv}.pub`)) {
-            this.log(`Public key exists. Loading key pair...`);
-
-            const publicKey = fs.readFileSync(`./publicKeys/${keyNamePriv}.pub`, 'binary');
-            this.#clientSignaturePublicKey = Buffer.from(publicKey, 'binary');
-
-            return true;
-        } else {
-            this.error(`Public key ${keyNamePriv} does not exist.`);
-        }
-
-        return false;
     }
 
     public verifyAuth(k: Buffer, input: Buffer): boolean {

@@ -1,4 +1,5 @@
 const imports = {};
+const ENABLE_LOGGING = false;
 
 const adaptedImports = {
     env: Object.assign(Object.create(globalThis), imports.env || {}, {
@@ -14,9 +15,11 @@ const adaptedImports = {
             })();
         },
         'console.log'(text) {
-            // ~lib/bindings/dom/console.log(~lib/string/String) => void
-            text = __liftString(text >>> 0);
-            log(text);
+            if (ENABLE_LOGGING) {
+                // ~lib/bindings/dom/console.log(~lib/string/String) => void
+                text = __liftString(text >>> 0);
+                log(text);
+            }
         },
         seed() {
             // ~lib/builtins/seed() => f64

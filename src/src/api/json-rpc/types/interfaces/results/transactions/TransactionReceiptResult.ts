@@ -1,11 +1,11 @@
-import { NetEvent } from '@btc-vision/bsi-binary';
+import { ReceiptDataForAPI } from '../../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
 
 export interface TransactionReceiptResultAPI {
     readonly receipt: string | null;
     readonly receiptProofs: string[];
-    readonly events: NetEvent[];
+    readonly events: ReceiptDataForAPI[];
 
     readonly revert?: string;
 }
