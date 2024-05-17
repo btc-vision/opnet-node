@@ -17,13 +17,13 @@ export class TransactionConverterForAPI {
 
         let newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
-            outputs: transaction.outputs.map((output) => {
+            outputs: transaction.outputs?.map((output) => {
                 return {
                     ...output,
                     value: output.value.toString(),
                 };
             }),
-            events: transaction.events.map((event: NetEvent | NetEventDocument) => {
+            events: transaction.events?.map((event: NetEvent | NetEventDocument) => {
                 return {
                     eventType: event.eventType,
                     eventDataSelector: event.eventDataSelector.toString(),
