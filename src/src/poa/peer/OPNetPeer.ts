@@ -5,10 +5,8 @@ import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { ClientPeerNetworking } from '../networking/client/ClientPeerNetworking.js';
 import { DisconnectionCode } from '../networking/enums/DisconnectionCode.js';
 import { OPNetConnectionInfo } from '../networking/P2PManager.js';
-import {
-    IBlockHeaderWitness,
-    OPNetBlockWitness,
-} from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { IBlockHeaderWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
 
@@ -84,12 +82,17 @@ export class OPNetPeer extends Logger {
         return this._peerIdentity;
     }
 
-    public requestBlockWitnesses: (blockNumber: bigint) => Promise<OPNetBlockWitness[]> = () => {
-        throw new Error('requestBlockWitnesses not implemented.');
-    };
+    public requestBlockWitnesses: (blockNumber: bigint) => Promise<ISyncBlockHeaderResponse> =
+        () => {
+            throw new Error('requestBlockWitnesses not implemented.');
+        };
 
     public onBlockWitness: (blockWitness: IBlockHeaderWitness) => Promise<void> = () => {
         throw new Error('onBlockWitness not implemented.');
+    };
+
+    public onBlockWitnessResponse: (packet: ISyncBlockHeaderResponse) => Promise<void> = () => {
+        throw new Error('onBlockWitnessResponse not implemented.');
     };
 
     public getOPNetPeers: () => Promise<OPNetPeerInfo[]> = () => {
@@ -223,6 +226,12 @@ export class OPNetPeer extends Logger {
 
         this.serverNetworkingManager.getOPNetPeers = (): Promise<OPNetPeerInfo[]> => {
             return this.getOPNetPeers();
+        };
+
+        this.serverNetworkingManager.onBlockWitnessResponse = async (
+            packet: ISyncBlockHeaderResponse,
+        ) => {
+            return this.onBlockWitnessResponse(packet);
         };
     }
 

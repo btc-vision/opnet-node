@@ -4,6 +4,7 @@ import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thr
 import { BtcIndexerConfig } from '../../../config/BtcIndexerConfig.js';
 import { DBManagerInstance } from '../../../db/DBManager.js';
 import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
+import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { BlockWitnessRepository } from '../../../db/repositories/BlockWitnessRepository.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import { RPCMessageData } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
@@ -24,6 +25,7 @@ import {
     IBlockHeaderWitness,
     OPNetBlockWitness,
 } from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 
 interface ValidWitnesses {
     validTrustedWitnesses: OPNetBlockWitness[];
@@ -42,6 +44,7 @@ export class BlockWitnessManager extends Logger {
     private currentBlock: bigint = -1n;
 
     private blockWitnessRepository: BlockWitnessRepository | undefined;
+    private blockHeaderRepository: BlockRepository | undefined;
     private knownTrustedWitnesses: Map<bigint, string[]> = new Map();
 
     constructor(
@@ -61,9 +64,50 @@ export class BlockWitnessManager extends Logger {
         if (!DBManagerInstance.db) throw new Error('Database not initialized.');
 
         this.blockWitnessRepository = new BlockWitnessRepository(DBManagerInstance.db);
+        this.blockHeaderRepository = new BlockRepository(DBManagerInstance.db);
     }
 
-    public async requestBlockWitnesses(blockNumber: bigint): Promise<OPNetBlockWitness[]> {
+    public async onBlockWitnessResponse(packet: ISyncBlockHeaderResponse): Promise<void> {
+        if (!this.blockHeaderRepository) {
+            throw new Error('BlockHeaderRepository not initialized.');
+        }
+
+        const trustedWitnesses = packet.trustedWitnesses;
+        const validatorsWitnesses = packet.validatorWitnesses;
+        const blockNumber = BigInt(packet.blockNumber.toString());
+
+        const blockHeader = await this.blockHeaderRepository.getBlockHeader(blockNumber);
+        if (!blockHeader) {
+            this.fail(`Block header for block ${blockNumber.toString()} not found.`);
+            return;
+        }
+
+        const blockWitness: IBlockHeaderWitness = {
+            blockHash: blockHeader.blockHash,
+            blockNumber: BigInt(blockHeader.blockNumber.toString()),
+            trustedWitnesses: trustedWitnesses,
+            validatorWitnesses: validatorsWitnesses,
+            checksumHash: blockHeader.checksumRoot,
+            previousBlockChecksum: blockHeader.previousBlockChecksum,
+            previousBlockHash: blockHeader.previousBlockHash,
+            merkleRoot: blockHeader.merkleRoot,
+            receiptRoot: blockHeader.receiptRoot,
+            storageRoot: blockHeader.storageRoot,
+            txCount: blockHeader.txCount,
+            checksumProofs: blockHeader.checksumProofs.map((proof) => {
+                return {
+                    proof: proof[1],
+                };
+            }),
+        };
+
+        this.log(`Processing block witness for block ${blockNumber.toString()}`);
+        console.log(blockWitness);
+
+        await this.processBlockWitnesses(blockNumber, blockWitness);
+    }
+
+    public async requestBlockWitnesses(blockNumber: bigint): Promise<ISyncBlockHeaderResponse> {
         if (!this.blockWitnessRepository) {
             throw new Error('BlockWitnessRepository not initialized.');
         }
@@ -77,12 +121,21 @@ export class BlockWitnessManager extends Logger {
         ];
 
         const [opnetWitnesses, trustedWitnesses] = await Promise.all(witnesses);
-        if (!opnetWitnesses || !trustedWitnesses) return [];
+        if (!opnetWitnesses || !trustedWitnesses)
+            return {
+                blockNumber: Long.fromString(blockNumber.toString()),
+                trustedWitnesses: [],
+                validatorWitnesses: [],
+            };
 
         const witnessesData = this.convertKnownWitnessesToOPNetWitness(opnetWitnesses);
         const trustedWitnessData = this.convertKnownWitnessesToOPNetWitness(trustedWitnesses);
 
-        return this.mergeAndDedupeTrustedWitnesses(witnessesData, trustedWitnessData);
+        return {
+            blockNumber: Long.fromString(blockNumber.toString()),
+            trustedWitnesses: trustedWitnessData,
+            validatorWitnesses: witnessesData,
+        };
     }
 
     public sendMessageToThread: (

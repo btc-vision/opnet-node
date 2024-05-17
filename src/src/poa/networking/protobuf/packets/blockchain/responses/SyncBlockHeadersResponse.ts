@@ -7,7 +7,8 @@ import { OPNetBlockWitness } from '../common/BlockHeaderWitness.js';
 
 export interface ISyncBlockHeaderResponse extends PackedMessage {
     readonly blockNumber: Long;
-    readonly blockWitnesses: OPNetBlockWitness[];
+    readonly validatorWitnesses: OPNetBlockWitness[];
+    readonly trustedWitnesses: OPNetBlockWitness[];
 }
 
 /** Broadcast goes both ways */

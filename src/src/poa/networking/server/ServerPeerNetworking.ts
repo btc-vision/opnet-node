@@ -36,6 +36,10 @@ export class ServerPeerNetworking extends AuthenticationManager {
         throw new Error('getOPNetPeers not implemented.');
     };
 
+    public onBlockWitnessResponse: (packet: ISyncBlockHeaderResponse) => Promise<void> = () => {
+        throw new Error('onBlockWitnessResponse not implemented.');
+    };
+
     public async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
         if (this.destroyed) {
             throw new Error('Server peer networking is destroyed.');
@@ -109,7 +113,11 @@ export class ServerPeerNetworking extends AuthenticationManager {
     }
 
     private async handleSyncBlockHeadersResponse(packet: ISyncBlockHeaderResponse): Promise<void> {
-        console.log('handleSyncBlockHeadersResponse', packet);
+        if (!this._blockHeaderManager) {
+            throw new Error('Block witness manager not found.');
+        }
+
+        await this.onBlockWitnessResponse(packet);
     }
 
     private listenToManagerEvents(manager: AbstractPacketManager): void {

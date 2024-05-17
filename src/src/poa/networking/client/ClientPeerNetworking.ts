@@ -2,12 +2,12 @@ import { CommonHandlers } from '../../events/CommonHandlers.js';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../default/AbstractPacketManager.js';
 import { DisconnectionCode } from '../enums/DisconnectionCode.js';
-import {
-    IBlockHeaderWitness,
-    OPNetBlockWitness,
-} from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { IBlockHeaderWitness } from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { ISyncBlockHeaderRequest } from '../protobuf/packets/blockchain/requests/SyncBlockHeadersRequest.js';
-import { SyncBlockHeadersResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
+import {
+    ISyncBlockHeaderResponse,
+    SyncBlockHeadersResponse,
+} from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { Packets } from '../protobuf/types/enums/Packets.js';
 import { SharedBlockHeaderManager } from '../shared/managers/SharedBlockHeaderManager.js';
@@ -29,9 +29,10 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         throw new Error('onBlockWitness not implemented.');
     };
 
-    public requestBlockWitnesses: (blockNumber: bigint) => Promise<OPNetBlockWitness[]> = () => {
-        throw new Error('requestBlockWitnesses not implemented.');
-    };
+    public requestBlockWitnesses: (blockNumber: bigint) => Promise<ISyncBlockHeaderResponse> =
+        () => {
+            throw new Error('requestBlockWitnesses not implemented.');
+        };
 
     public onClientAuthenticationCompleted: () => void = () => {
         throw new Error('onAuthenticationCompleted not implemented.');
@@ -119,7 +120,8 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         }
 
         const blockNumber: bigint = BigInt(packet.blockNumber.toString());
-        const blockWitnesses: OPNetBlockWitness[] = await this.requestBlockWitnesses(blockNumber);
+        const blockWitnesses: ISyncBlockHeaderResponse =
+            await this.requestBlockWitnesses(blockNumber);
 
         const packetBuilder = this.protocol.getPacketBuilder(
             Packets.SyncBlockHeadersResponse,
@@ -128,10 +130,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
             throw new Error('SyncBlockHeadersResponse not found.');
         }
 
-        const packedBlockWitnesses: Uint8Array = packetBuilder.pack({
-            blockNumber: packet.blockNumber,
-            blockWitnesses: blockWitnesses,
-        });
+        const packedBlockWitnesses: Uint8Array = packetBuilder.pack(blockWitnesses);
 
         await this.sendMsg(packedBlockWitnesses);
     }
