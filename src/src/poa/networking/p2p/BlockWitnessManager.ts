@@ -178,7 +178,8 @@ export class BlockWitnessManager extends Logger {
             trustedWitnesses: [trustedWitness],
         };
 
-        await this.broadcastBlockWitness(blockWitness);
+        await this.processBlockWitnesses(data.blockNumber, blockWitness);
+        //await this.broadcastBlockWitness(blockWitness);
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
