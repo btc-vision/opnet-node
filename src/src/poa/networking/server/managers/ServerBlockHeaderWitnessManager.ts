@@ -1,5 +1,5 @@
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
-import { IBlockHeaderWitness } from '../../protobuf/packets/blockchain/BlockHeaderWitness.js';
+import { IBlockHeaderWitness } from '../../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { Packets } from '../../protobuf/types/enums/Packets.js';
 import { SharedBlockHeaderManager } from '../../shared/managers/SharedBlockHeaderManager.js';
 import { OPNetProtocolV1 } from '../protocol/OPNetProtocolV1.js';

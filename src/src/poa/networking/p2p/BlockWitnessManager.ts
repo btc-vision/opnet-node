@@ -23,7 +23,7 @@ import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import {
     IBlockHeaderWitness,
     OPNetBlockWitness,
-} from '../protobuf/packets/blockchain/BlockHeaderWitness.js';
+} from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 
 interface ValidWitnesses {
     validTrustedWitnesses: OPNetBlockWitness[];

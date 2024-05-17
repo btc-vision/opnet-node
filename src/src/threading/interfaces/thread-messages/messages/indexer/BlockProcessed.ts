@@ -1,4 +1,4 @@
-import { ChecksumProof } from '../../../../../poa/networking/protobuf/packets/blockchain/BlockHeaderWitness.js';
+import { ChecksumProof } from '../../../../../poa/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { MessageType } from '../../../../enum/MessageType.js';
 import { ThreadMessageBase } from '../../ThreadMessageBase.js';
 

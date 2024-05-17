@@ -15,6 +15,9 @@ export enum ServerInBound {
 
     /** Peering */
     DISCOVER = 0x82,
+
+    /** SYNC */
+    SYNC_BLOCK_HEADERS_REQUEST = 0x7a,
 }
 
 /** from 0x80 to 0xFF */
@@ -24,6 +27,9 @@ export enum ServerOutBound {
 
     /** Peering */
     DISCOVERY_RESPONSE = 0x0f,
+
+    /** SYNC */
+    SYNC_BLOCK_HEADERS_RESPONSE = 0x7b,
 }
 
 export type PossiblePackets = CommonPackets | ServerInBound | ServerOutBound;

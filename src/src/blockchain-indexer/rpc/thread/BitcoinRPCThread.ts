@@ -5,7 +5,7 @@ import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { ChecksumProof } from '../../../poa/networking/protobuf/packets/blockchain/BlockHeaderWitness.js';
+import { ChecksumProof } from '../../../poa/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import {
     CallRequestData,

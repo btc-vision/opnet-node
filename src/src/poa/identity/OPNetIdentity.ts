@@ -8,7 +8,7 @@ import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { ChainIds } from '../../config/enums/ChainIds.js';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { KeyPairGenerator, OPNetKeyPair } from '../networking/encryptem/KeyPairGenerator.js';
-import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/BlockHeaderWitness.js';
+import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { OPNetPathFinder } from './OPNetPathFinder.js';
 
 export class OPNetIdentity extends OPNetPathFinder {

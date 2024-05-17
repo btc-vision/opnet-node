@@ -3,8 +3,10 @@ import { ClientKeyCipherExchange } from '../../protobuf/packets/authentication/e
 import { ServerKeyCipherExchange } from '../../protobuf/packets/authentication/exchange/ServerKeyCipherExchange.js';
 import { AuthenticationPacket } from '../../protobuf/packets/authentication/OPNetAuthentication.js';
 import { AuthenticationStatus } from '../../protobuf/packets/authentication/status/AuthentificationStatus.js';
-import { BlockHeaderWitnessPacket } from '../../protobuf/packets/blockchain/BlockHeaderWitness.js';
-import { TransactionPacket } from '../../protobuf/packets/blockchain/TransactionPacket.js';
+import { BlockHeaderWitnessPacket } from '../../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { TransactionPacket } from '../../protobuf/packets/blockchain/common/TransactionPacket.js';
+import { SyncBlockHeadersRequest } from '../../protobuf/packets/blockchain/requests/SyncBlockHeadersRequest.js';
+import { SyncBlockHeadersResponse } from '../../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { Ping } from '../../protobuf/packets/latency/Ping.js';
 import { Pong } from '../../protobuf/packets/latency/Pong.js';
 import { PackedMessage, Packet } from '../../protobuf/packets/Packet.js';
@@ -55,6 +57,17 @@ export class OPNetPacketManager extends ProtobufLoader {
         [Packets.Transaction]: new TransactionPacket(this.getProtobufType(TransactionPacket.TYPE)),
         [Packets.BlockHeaderWitness]: new BlockHeaderWitnessPacket(
             this.getProtobufType(BlockHeaderWitnessPacket.TYPE),
+        ),
+
+        /**
+         * Sync
+         */
+        [Packets.SyncBlockHeadersRequest]: new SyncBlockHeadersRequest(
+            this.getProtobufType(SyncBlockHeadersRequest.TYPE),
+        ),
+
+        [Packets.SyncBlockHeadersResponse]: new SyncBlockHeadersResponse(
+            this.getProtobufType(SyncBlockHeadersResponse.TYPE),
         ),
     };
 

@@ -1,7 +1,7 @@
 import { Type } from 'protobufjs';
-import { Packets } from '../../types/enums/Packets.js';
-import { CommonPackets } from '../../types/messages/OPNetMessages.js';
-import { PackedMessage, Packet } from '../Packet.js';
+import { Packets } from '../../../types/enums/Packets.js';
+import { CommonPackets } from '../../../types/messages/OPNetMessages.js';
+import { PackedMessage, Packet } from '../../Packet.js';
 
 export interface ITransactionPacket extends PackedMessage {
     readonly transaction: Uint8Array;

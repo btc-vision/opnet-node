@@ -2,8 +2,10 @@ import { ClientKeyCipherExchange } from '../../protobuf/packets/authentication/e
 import { ServerKeyCipherExchange } from '../../protobuf/packets/authentication/exchange/ServerKeyCipherExchange.js';
 import { AuthenticationPacket } from '../../protobuf/packets/authentication/OPNetAuthentication.js';
 import { AuthenticationStatus } from '../../protobuf/packets/authentication/status/AuthentificationStatus.js';
-import { BlockHeaderWitnessPacket } from '../../protobuf/packets/blockchain/BlockHeaderWitness.js';
-import { TransactionPacket } from '../../protobuf/packets/blockchain/TransactionPacket.js';
+import { BlockHeaderWitnessPacket } from '../../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { TransactionPacket } from '../../protobuf/packets/blockchain/common/TransactionPacket.js';
+import { SyncBlockHeadersRequest } from '../../protobuf/packets/blockchain/requests/SyncBlockHeadersRequest.js';
+import { SyncBlockHeadersResponse } from '../../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { Ping } from '../../protobuf/packets/latency/Ping.js';
 import { Pong } from '../../protobuf/packets/latency/Pong.js';
 import { PackedMessage, Packet } from '../../protobuf/packets/Packet.js';
@@ -37,6 +39,10 @@ export class OPNetProtocolV1 {
             [ServerOutBound.DISCOVERY_RESPONSE]: this.handleDiscoveryResponsePacket,
             [CommonPackets.TRANSACTION]: this.handleTransactionPacket,
             [CommonPackets.BLOCK_HEADER_WITNESS]: this.handleBlockHeaderWitnessPacket,
+
+            /** Sync */
+            [ServerInBound.SYNC_BLOCK_HEADERS_REQUEST]: this.handleSyncBlockHeadersRequest,
+            [ServerOutBound.SYNC_BLOCK_HEADERS_RESPONSE]: this.handleSyncBlockHeadersResponse,
         };
     }
 
@@ -63,6 +69,18 @@ export class OPNetProtocolV1 {
         }
 
         return packetHandler() as Packet<T, PackedMessage, PackedMessage>;
+    }
+
+    private handleSyncBlockHeadersRequest(): SyncBlockHeadersRequest {
+        return PacketManager.getPacketBuilder(
+            Packets.SyncBlockHeadersRequest,
+        ) as SyncBlockHeadersRequest;
+    }
+
+    private handleSyncBlockHeadersResponse(): SyncBlockHeadersResponse {
+        return PacketManager.getPacketBuilder(
+            Packets.SyncBlockHeadersResponse,
+        ) as SyncBlockHeadersResponse;
     }
 
     private handleBlockHeaderWitnessPacket(): BlockHeaderWitnessPacket {

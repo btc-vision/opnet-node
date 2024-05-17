@@ -2,7 +2,8 @@ import { CommonHandlers } from '../../events/CommonHandlers.js';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../default/AbstractPacketManager.js';
 import { DisconnectionCode } from '../enums/DisconnectionCode.js';
-import { IBlockHeaderWitness } from '../protobuf/packets/blockchain/BlockHeaderWitness.js';
+import { IBlockHeaderWitness } from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { SharedBlockHeaderManager } from '../shared/managers/SharedBlockHeaderManager.js';
 import { PeerHandlerEvents } from './events/PeerHandlerEvents.js';
@@ -101,8 +102,16 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         return peerManager;
     }
 
+    private async onSyncBlockHeadersResponse(packet: ISyncBlockHeaderResponse): Promise<void> {
+        console.log('onSyncBlockHeadersResponse', packet);
+    }
+
     private listenToManagerEvents(manager: AbstractPacketManager): void {
         manager.on(CommonHandlers.SEND, this.sendMsg.bind(this));
+        manager.on(
+            CommonHandlers.SYNC_BLOCK_HEADERS_RESPONSE,
+            this.onSyncBlockHeadersResponse.bind(this),
+        );
     }
 
     private createBlockWitnessManager(): SharedBlockHeaderManager {

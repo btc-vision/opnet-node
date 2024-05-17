@@ -124,3 +124,12 @@ message BlockHeaderWitness {
   repeated OPNetBlockWitness validatorWitnesses = 11;
   repeated OPNetBlockWitness trustedWitnesses = 12;
 }
+
+/* SYNC */
+message SyncBlockHeadersRequest {
+  uint64 blockNumber = 1;
+}
+
+message SyncBlockHeadersResponse {
+  repeated BlockHeaderWitness headers = 1;
+}

@@ -1,17 +1,17 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { PeerId } from '@libp2p/interface';
-import { IdentifyResult } from '@libp2p/interface/src';
 import { ChainIds } from '../../config/enums/ChainIds.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { ClientPeerNetworking } from '../networking/client/ClientPeerNetworking.js';
 import { DisconnectionCode } from '../networking/enums/DisconnectionCode.js';
 import { OPNetConnectionInfo } from '../networking/P2PManager.js';
-import { IBlockHeaderWitness } from '../networking/protobuf/packets/blockchain/BlockHeaderWitness.js';
+import { IBlockHeaderWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
 
 export class OPNetPeer extends Logger {
-    public isAuthenticated: boolean = false;
+    public isClientAuthenticated: boolean = false;
+    public isServerAuthenticated: boolean = false;
 
     private readonly peerId: PeerId;
     private readonly peerIdString: string;
@@ -101,6 +101,10 @@ export class OPNetPeer extends Logger {
         return await this.clientNetworkingManager.login();
     }
 
+    public async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
+        return this.serverNetworkingManager.requestBlockWitnessesFromPeer(blockNumber);
+    }
+
     public async init(): Promise<void> {
         // We wait just a bit to ensure that the connection is established.
         await this.sleep(1500);
@@ -137,8 +141,6 @@ export class OPNetPeer extends Logger {
                 throw new Error(`Unknown opcode received. ${buffer[1]}`);
             }
         } catch (e) {
-            console.log(e);
-
             await this.disconnect(DisconnectionCode.BAD_PACKET, 'Bad packet.');
             await this.destroy(false);
         }
@@ -189,7 +191,7 @@ export class OPNetPeer extends Logger {
     protected async disconnect(code: DisconnectionCode, reason?: string): Promise<void> {
         if (this.isDestroyed) return;
 
-        this.isAuthenticated = false;
+        this.isClientAuthenticated = false;
 
         this.debug(`Disconnecting peer ${this.peerId} with code ${code} and reason ${reason}.`);
         await this.disconnectPeer(this.peerId, code, reason);
@@ -243,11 +245,21 @@ export class OPNetPeer extends Logger {
         };
     }
 
-    private onServerAuthenticationCompleted(): void {}
+    private isAuthenticated(): void {
+        if (this.isServerAuthenticated && this.isClientAuthenticated) {
+            this.reportAuthenticatedPeer(this.peerId);
+        }
+    }
+
+    private onServerAuthenticationCompleted(): void {
+        this.isServerAuthenticated = true;
+
+        this.isAuthenticated();
+    }
 
     private onClientAuthenticationCompleted(): void {
-        this.isAuthenticated = true;
+        this.isClientAuthenticated = true;
 
-        this.reportAuthenticatedPeer(this.peerId);
+        this.isAuthenticated();
     }
 }

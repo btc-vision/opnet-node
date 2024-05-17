@@ -42,7 +42,7 @@ import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { OPNetPeer } from '../peer/OPNetPeer.js';
 import { DisconnectionCode } from './enums/DisconnectionCode.js';
 import { BlockWitnessManager } from './p2p/BlockWitnessManager.js';
-import { IBlockHeaderWitness } from './protobuf/packets/blockchain/BlockHeaderWitness.js';
+import { IBlockHeaderWitness } from './protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { OPNetPeerInfo } from './protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
 
@@ -104,6 +104,8 @@ export class P2PManager extends Logger {
         data: BlockProcessedData,
         isSelf: boolean = false,
     ): Promise<void> {
+        await this.requestBlockWitnessesFromPeer(data.blockNumber);
+
         return this.blockWitnessManager.generateBlockHeaderProof(data, isSelf);
     }
 
@@ -129,6 +131,17 @@ export class P2PManager extends Logger {
         }
 
         super.info(...args);
+    }
+
+    private async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
+        this.log(`Requesting block witnesses for block ${blockNumber} from peers.`);
+
+        const promises: Promise<void>[] = [];
+        for (const [_peerId, peer] of this.peers) {
+            promises.push(peer.requestBlockWitnessesFromPeer(blockNumber));
+        }
+
+        await Promise.all(promises);
     }
 
     private async getCurrentBlock(): Promise<void> {
@@ -164,7 +177,6 @@ export class P2PManager extends Logger {
         this.node.addEventListener('peer:discovery', this.onPeerDiscovery.bind(this));
         this.node.addEventListener('peer:disconnect', this.onPeerDisconnect.bind(this));
         this.node.addEventListener('peer:update', this.onPeerUpdate.bind(this));
-        //this.node.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
         this.node.addEventListener('peer:connect', this.onPeerConnect.bind(this));
     }
 
@@ -195,34 +207,6 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerUpdate(_evt: CustomEvent<PeerUpdate>): Promise<void> {}
-
-    /*private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
-        if (!this.node) throw new Error('Node not initialized');
-
-        const agent: string | undefined = evt.detail.agentVersion;
-        const version: string | undefined = evt.detail.protocolVersion;
-        const peerId: PeerId = evt.detail.peerId;
-        const peerIdStr: string = peerId.toString();
-
-        const timeout = this.pendingNodeIdentifications.get(peerIdStr);
-        if (timeout) {
-            clearTimeout(timeout);
-            this.pendingNodeIdentifications.delete(peerIdStr);
-        }
-
-        if (!this.allowConnection(peerId, agent, version)) {
-            this.warn(`Dropping connection to peer: ${peerIdStr} due to agent or version mismatch`);
-
-            await this.blackListPeerId(peerId);
-            return await this.disconnectPeer(peerId);
-        }
-
-        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.info(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
-        }
-
-        await this.createPeer(evt.detail, peerIdStr);
-    }*/
 
     private async createPeer(peerInfo: OPNetConnectionInfo, peerIdStr: string): Promise<void> {
         if (this.peers.has(peerIdStr)) {
@@ -281,8 +265,6 @@ export class P2PManager extends Logger {
         if (peersToTry.length === 0) {
             return;
         }
-
-        this.log(`Discovered ${peersToTry.length} OPNet peer(s).`);
 
         const promises: Promise<Peer>[] = [];
         for (let peerData of peersToTry) {
@@ -510,10 +492,6 @@ export class P2PManager extends Logger {
 
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
         const peerIdStr: string = evt.detail.toString();
-        /*if (this.pendingNodeIdentifications.has(peerId)) {
-            return;
-        }*/
-
         const peer = this.peers.get(peerIdStr);
         if (peer) {
             return;
@@ -524,17 +502,6 @@ export class P2PManager extends Logger {
 
         const agent = `OPNet`;
         const version = `1.0.0`;
-
-        /*const timeout = setTimeout(() => {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.warn(`Identification timeout for peer: ${peerId}`);
-            }
-
-            this.pendingNodeIdentifications.delete(peerId);
-            this.disconnectPeer(evt.detail, DisconnectionCode.RECONNECT, 'Identification timeout.');
-        }, 10000);
-
-        this.pendingNodeIdentifications.set(peerId, timeout);*/
 
         if (!this.allowConnection(peerId, agent, version)) {
             this.warn(`Dropping connection to peer: ${peerIdStr} due to agent or version mismatch`);
@@ -596,12 +563,6 @@ export class P2PManager extends Logger {
                 if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                     this.debug('Error while handling incoming stream', (e as Error).stack);
                 }
-
-                /*await this.disconnectPeer(
-                    peerId,
-                    DisconnectionCode.BAD_PEER,
-                    'Error while handling incoming stream',
-                ).catch(() => {});*/
             }
 
             // Close the stream

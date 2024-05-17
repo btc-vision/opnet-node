@@ -16,4 +16,8 @@ export enum Packets {
     /** Blockchain */
     BlockHeaderWitness = 'BlockHeaderWitness',
     Transaction = 'Transaction',
+
+    /** Sync */
+    SyncBlockHeadersRequest = 'SyncBlockHeadersRequest',
+    SyncBlockHeadersResponse = 'SyncBlockHeadersResponse',
 }
