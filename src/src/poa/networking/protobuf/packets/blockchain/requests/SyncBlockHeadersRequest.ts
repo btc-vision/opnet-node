@@ -1,10 +1,11 @@
+import Long from 'long';
 import { Type } from 'protobufjs';
 import { Packets } from '../../../types/enums/Packets.js';
 import { ServerInBound } from '../../../types/messages/OPNetMessages.js';
 import { PackedMessage, Packet } from '../../Packet.js';
 
 export interface ISyncBlockHeaderRequest extends PackedMessage {
-    readonly blockNumber: bigint;
+    readonly blockNumber: Long;
 }
 
 /** Broadcast goes both ways */

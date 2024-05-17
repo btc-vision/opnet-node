@@ -1,3 +1,4 @@
+import Long from 'long';
 import { CommonHandlers } from '../../events/CommonHandlers.js';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../default/AbstractPacketManager.js';
@@ -68,7 +69,7 @@ export class ServerPeerNetworking extends AuthenticationManager {
 
     public async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
         const requestBlockWitnesses: ISyncBlockHeaderRequest = {
-            blockNumber: blockNumber,
+            blockNumber: Long.fromString(blockNumber.toString()),
         };
 
         const syncBlockHeaderRequest: SyncBlockHeadersRequest | undefined =
