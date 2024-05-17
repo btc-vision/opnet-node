@@ -104,8 +104,6 @@ export class BlockWitnessManager extends Logger {
             }),
         };
 
-        this.log(`Processing block witness for block ${blockNumber.toString()}`);
-
         await this.processBlockWitnesses(blockNumber, blockWitness);
     }
 

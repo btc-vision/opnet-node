@@ -134,8 +134,6 @@ export class P2PManager extends Logger {
     }
 
     private async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
-        this.log(`Requesting block witnesses for block ${blockNumber} from peers.`);
-
         const promises: Promise<void>[] = [];
         for (const [_peerId, peer] of this.peers) {
             if (!peer.isAuthenticated) continue;
