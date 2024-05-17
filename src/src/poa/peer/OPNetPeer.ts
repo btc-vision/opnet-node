@@ -151,6 +151,7 @@ export class OPNetPeer extends Logger {
                 throw new Error(`Unknown opcode received. ${buffer[1]}`);
             }
         } catch (e) {
+            console.log(e);
             await this.disconnect(DisconnectionCode.BAD_PACKET, 'Bad packet.');
             await this.destroy(false);
         }
