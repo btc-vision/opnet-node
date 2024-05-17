@@ -68,6 +68,8 @@ export class BlockWitnessManager extends Logger {
     }
 
     public async onBlockWitnessResponse(packet: ISyncBlockHeaderResponse): Promise<void> {
+        console.log(packet);
+
         if (!this.blockHeaderRepository) {
             throw new Error('BlockHeaderRepository not initialized.');
         }

@@ -132,6 +132,7 @@ message SyncBlockHeadersRequest {
 
 message SyncBlockHeadersResponse {
   uint64 blockNumber = 1;
+
   repeated OPNetBlockWitness validatorWitnesses = 2;
   repeated OPNetBlockWitness trustedWitnesses = 3;
 }

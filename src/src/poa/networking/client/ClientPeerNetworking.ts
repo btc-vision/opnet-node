@@ -120,6 +120,8 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         }
 
         const blockNumber: bigint = BigInt(packet.blockNumber.toString());
+        this.log(`Peer ${this.peerId} requested block witnesses for block ${blockNumber}.`);
+
         const blockWitnesses: ISyncBlockHeaderResponse =
             await this.requestBlockWitnesses(blockNumber);
 
@@ -131,6 +133,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         }
 
         const packedBlockWitnesses: Uint8Array = packetBuilder.pack(blockWitnesses);
+        console.log(packedBlockWitnesses, 'packedBlockWitnesses', blockWitnesses);
 
         await this.sendMsg(packedBlockWitnesses);
     }
