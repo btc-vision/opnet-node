@@ -3,6 +3,7 @@ import Long from 'long';
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { BtcIndexerConfig } from '../../../config/BtcIndexerConfig.js';
 import { DBManagerInstance } from '../../../db/DBManager.js';
+import { BlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { BlockWitnessRepository } from '../../../db/repositories/BlockWitnessRepository.js';
@@ -68,25 +69,25 @@ export class BlockWitnessManager extends Logger {
     }
 
     public async onBlockWitnessResponse(packet: ISyncBlockHeaderResponse): Promise<void> {
-        console.log(packet);
-
         if (!this.blockHeaderRepository) {
             throw new Error('BlockHeaderRepository not initialized.');
         }
 
         const trustedWitnesses = packet.trustedWitnesses;
         const validatorsWitnesses = packet.validatorWitnesses;
-        const blockNumber = BigInt(packet.blockNumber.toString());
+        const blockNumber: bigint = BigInt(packet.blockNumber.toString());
 
-        const blockHeader = await this.blockHeaderRepository.getBlockHeader(blockNumber);
+        const blockHeader: BlockHeaderBlockDocument | undefined =
+            await this.blockHeaderRepository.getBlockHeader(blockNumber);
+
         if (!blockHeader) {
             this.fail(`Block header for block ${blockNumber.toString()} not found.`);
             return;
         }
 
         const blockWitness: IBlockHeaderWitness = {
-            blockHash: blockHeader.blockHash,
-            blockNumber: BigInt(blockHeader.blockNumber.toString()),
+            blockHash: blockHeader.hash,
+            blockNumber: BigInt(blockHeader.height.toString()),
             trustedWitnesses: trustedWitnesses,
             validatorWitnesses: validatorsWitnesses,
             checksumHash: blockHeader.checksumRoot,
