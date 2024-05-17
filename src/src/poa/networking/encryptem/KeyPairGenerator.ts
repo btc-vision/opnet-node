@@ -99,9 +99,7 @@ export class KeyPairGenerator {
             data,
             Buffer.from(pubKey.buffer, pubKey.byteOffset, pubKey.byteLength),
         );
-
-        console.log('Signature:', sign, signature, data, pubKey);
-
+        
         return sign;
     }
 

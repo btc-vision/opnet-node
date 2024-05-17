@@ -314,8 +314,6 @@ export class BlockWitnessManager extends Logger {
         }
 
         const checksumHash = receivedBlockHeader.checksumRoot;
-        console.log(blockWitness, checksumHash, blockWitness.checksumHash);
-
         if (checksumHash !== blockWitness.checksumHash) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
                 this.fail(
@@ -504,10 +502,6 @@ export class BlockWitnessManager extends Logger {
         blockWitness: IBlockHeaderWitness,
     ): ValidWitnesses | undefined {
         const blockChecksumHash: Buffer = this.generateBlockHeaderChecksumHash(blockWitness);
-        console.log(
-            `Block ${blockWitness.blockNumber} checksum hash: ${blockChecksumHash.toString('hex')}`,
-        );
-
         const validatorWitnesses: OPNetBlockWitness[] = blockWitness.validatorWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = blockWitness.trustedWitnesses;
 
@@ -622,8 +616,8 @@ export class BlockWitnessManager extends Logger {
         const generatedChecksum = Buffer.concat([
             Buffer.from(data.blockHash, 'hex'),
             Buffer.from(data.previousBlockHash || '', 'hex'),
-            Buffer.from(data.checksumHash, 'hex'),
-            Buffer.from(data.previousBlockChecksum, 'hex'),
+            Buffer.from(data.checksumHash.replace('0x', ''), 'hex'),
+            Buffer.from(data.previousBlockChecksum.replace('0x', ''), 'hex'),
         ]);
 
         return this.identity.hash(generatedChecksum);
