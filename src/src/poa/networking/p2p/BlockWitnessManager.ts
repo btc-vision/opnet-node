@@ -50,8 +50,7 @@ export class BlockWitnessManager extends Logger {
     ) {
         super();
 
-        this.pendingBlockThreshold =
-            BigInt(this.config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS + 100) || 10n;
+        this.pendingBlockThreshold = BigInt(this.config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS) || 10n;
 
         setInterval(() => {
             this.purgeOldWitnesses();
@@ -196,10 +195,8 @@ export class BlockWitnessManager extends Logger {
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): Promise<void> {
-        this.info(`Processing block witness for block ${blockNumber.toString()}`);
-
         if (blockNumber < this.currentBlock - this.pendingBlockThreshold) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.fail(`Block ${blockNumber} is too far behind the current block.`);
             }
 
@@ -208,7 +205,7 @@ export class BlockWitnessManager extends Logger {
 
         const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
         if (filteredBlockWitnesses.trustedWitnesses.length === 0) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.fail(`No trusted witnesses found in message.`);
             }
             return;
@@ -224,7 +221,7 @@ export class BlockWitnessManager extends Logger {
         );
 
         if (!blockDataAtHeight) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.fail(`Failed to get block data at height ${blockNumber.toString()}`);
             }
             return;
@@ -252,7 +249,7 @@ export class BlockWitnessManager extends Logger {
 
         const validProofs = blockDataAtHeight.hasValidProofs;
         if (validProofs === null) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.fail(`Validator can not verify the accuracy of the block yet.`);
             }
             return;
@@ -269,7 +266,7 @@ export class BlockWitnessManager extends Logger {
 
         const validWitnesses = this.validateBlockHeaderSignatures(blockWitness);
         if (!validWitnesses) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.fail(
                     `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
                 );
@@ -278,7 +275,7 @@ export class BlockWitnessManager extends Logger {
         }
 
         if (validWitnesses.opnetWitnesses.length === 0) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.fail(
                     `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
                 );
@@ -486,8 +483,6 @@ export class BlockWitnessManager extends Logger {
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): void {
-        this.log(`Adding block witness for block ${blockNumber.toString()} to queue.`);
-
         // We do not store any pending witnesses until we have a current block.
         if (this.currentBlock === -1n) return;
 
