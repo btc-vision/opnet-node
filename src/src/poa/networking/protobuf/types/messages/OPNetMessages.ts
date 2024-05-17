@@ -29,7 +29,7 @@ export enum ServerOutBound {
     DISCOVERY_RESPONSE = 0x0f,
 
     /** SYNC */
-    SYNC_BLOCK_HEADERS_RESPONSE = 0x7b,
+    SYNC_BLOCK_HEADERS_RESPONSE = 0x10,
 }
 
 export type PossiblePackets = CommonPackets | ServerInBound | ServerOutBound;
