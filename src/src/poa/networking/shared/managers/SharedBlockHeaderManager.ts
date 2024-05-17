@@ -31,7 +31,6 @@ export class SharedBlockHeaderManager extends AbstractPacketManager {
     }
 
     public async onPacket(packet: OPNetPacket): Promise<boolean> {
-        console.log(packet);
         switch (packet.opcode) {
             case CommonPackets.BLOCK_HEADER_WITNESS: {
                 await this.onBlockWitness(packet);

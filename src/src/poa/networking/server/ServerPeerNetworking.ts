@@ -7,6 +7,7 @@ import {
     ISyncBlockHeaderRequest,
     SyncBlockHeadersRequest,
 } from '../protobuf/packets/blockchain/requests/SyncBlockHeadersRequest.js';
+import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { Packets } from '../protobuf/types/enums/Packets.js';
 import { AuthenticationManager } from './managers/AuthenticationManager.js';
@@ -107,15 +108,15 @@ export class ServerPeerNetworking extends AuthenticationManager {
         return peerManager;
     }
 
-    private async handleSyncBlockHeadersRequest(packet: ISyncBlockHeaderRequest): Promise<void> {
-        console.log('handleSyncBlockHeadersRequest', packet);
+    private async handleSyncBlockHeadersResponse(packet: ISyncBlockHeaderResponse): Promise<void> {
+        console.log('handleSyncBlockHeadersResponse', packet);
     }
 
     private listenToManagerEvents(manager: AbstractPacketManager): void {
         manager.on(CommonHandlers.SEND, this.sendMsg.bind(this));
         manager.on(
-            CommonHandlers.SYNC_BLOCK_HEADERS_REQUEST,
-            this.handleSyncBlockHeadersRequest.bind(this),
+            CommonHandlers.SYNC_BLOCK_HEADERS_RESPONSE,
+            this.handleSyncBlockHeadersResponse.bind(this),
         );
     }
 

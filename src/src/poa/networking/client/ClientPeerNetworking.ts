@@ -3,7 +3,7 @@ import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../default/AbstractPacketManager.js';
 import { DisconnectionCode } from '../enums/DisconnectionCode.js';
 import { IBlockHeaderWitness } from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
-import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
+import { ISyncBlockHeaderRequest } from '../protobuf/packets/blockchain/requests/SyncBlockHeadersRequest.js';
 import { OPNetPeerInfo } from '../protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { SharedBlockHeaderManager } from '../shared/managers/SharedBlockHeaderManager.js';
 import { PeerHandlerEvents } from './events/PeerHandlerEvents.js';
@@ -28,6 +28,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
     };
 
     public async login(): Promise<void> {
+        if (this.destroyed) return;
         if (!this.selfIdentity) throw new Error('(login) Self identity not found.');
 
         try {
@@ -102,16 +103,12 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         return peerManager;
     }
 
-    private async onSyncBlockHeadersResponse(packet: ISyncBlockHeaderResponse): Promise<void> {
-        console.log('onSyncBlockHeadersResponse', packet);
+    private async onSyncBlockHeadersRequest(packet: ISyncBlockHeaderRequest): Promise<void> {
+        console.log('onSyncBlockHeadersRequest', packet);
     }
 
     private listenToManagerEvents(manager: AbstractPacketManager): void {
         manager.on(CommonHandlers.SEND, this.sendMsg.bind(this));
-        manager.on(
-            CommonHandlers.SYNC_BLOCK_HEADERS_RESPONSE,
-            this.onSyncBlockHeadersResponse.bind(this),
-        );
     }
 
     private createBlockWitnessManager(): SharedBlockHeaderManager {
@@ -122,6 +119,10 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         );
 
         blockWitnessManager.on(CommonHandlers.BLOCK_WITNESS, this.onBlockWitness.bind(this));
+        blockWitnessManager.on(
+            CommonHandlers.SYNC_BLOCK_HEADERS_REQUEST,
+            this.onSyncBlockHeadersRequest.bind(this),
+        );
 
         this.listenToManagerEvents(blockWitnessManager);
         this._blockHeaderManager = blockWitnessManager;
