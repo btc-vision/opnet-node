@@ -138,6 +138,8 @@ export class P2PManager extends Logger {
 
         const promises: Promise<void>[] = [];
         for (const [_peerId, peer] of this.peers) {
+            if (!peer.isAuthenticated) continue;
+
             promises.push(peer.requestBlockWitnessesFromPeer(blockNumber));
         }
 
@@ -159,6 +161,8 @@ export class P2PManager extends Logger {
         const promises: Promise<void>[] = [];
 
         for (const [_peerId, peer] of this.peers) {
+            if (!peer.isAuthenticated) continue;
+
             promises.push(peer.broadcastBlockWitness(blockWitness));
         }
 

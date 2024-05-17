@@ -55,6 +55,10 @@ export class OPNetPeer extends Logger {
         return this.serverNetworkingManager.clientIdentity;
     }
 
+    public get isAuthenticated(): boolean {
+        return this.isClientAuthenticated && this.isServerAuthenticated;
+    }
+
     public get clientIndexerMode(): number | undefined {
         return this.serverNetworkingManager.clientIndexerMode;
     }
@@ -270,8 +274,8 @@ export class OPNetPeer extends Logger {
         };
     }
 
-    private isAuthenticated(): void {
-        if (this.isServerAuthenticated && this.isClientAuthenticated) {
+    private onAuth(): void {
+        if (this.isAuthenticated) {
             this.reportAuthenticatedPeer(this.peerId);
         }
     }
@@ -279,12 +283,12 @@ export class OPNetPeer extends Logger {
     private onServerAuthenticationCompleted(): void {
         this.isServerAuthenticated = true;
 
-        this.isAuthenticated();
+        this.onAuth();
     }
 
     private onClientAuthenticationCompleted(): void {
         this.isClientAuthenticated = true;
 
-        this.isAuthenticated();
+        this.onAuth();
     }
 }
