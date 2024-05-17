@@ -297,8 +297,6 @@ export class P2PManager extends Logger {
     }
 
     private async logOPNetInfo(): Promise<void> {
-        console.log(this.startedIndexer);
-
         if (!this.startedIndexer) {
             this.startedIndexer = true;
 
