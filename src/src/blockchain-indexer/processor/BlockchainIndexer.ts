@@ -126,7 +126,7 @@ export class BlockchainIndexer extends Logger {
         await this.vmManager.init();
 
         if (Config.P2P.IS_BOOTSTRAP_NODE) {
-            void this.safeProcessBlocks();
+            setTimeout(() => this.safeProcessBlocks(), 8000);
         }
     }
 
@@ -379,7 +379,7 @@ export class BlockchainIndexer extends Logger {
         let blockHeightInProgress: number = wasReorg
             ? startBlockHeight
             : await this.getCurrentProcessBlockHeight(startBlockHeight);
-        
+
         let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
 
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
