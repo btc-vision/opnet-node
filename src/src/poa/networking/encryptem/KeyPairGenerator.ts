@@ -94,11 +94,15 @@ export class KeyPairGenerator {
         signature: Buffer | Uint8Array,
         pubKey: Buffer | Uint8Array,
     ): boolean {
-        return sodium.crypto_sign_verify_detached(
+        const sign: boolean = sodium.crypto_sign_verify_detached(
             Buffer.from(signature.buffer, signature.byteOffset, signature.byteLength),
             data,
             Buffer.from(pubKey.buffer, pubKey.byteOffset, pubKey.byteLength),
         );
+
+        console.log('Signature:', sign, signature, data, pubKey);
+
+        return sign;
     }
 
     public verifyTrustedSignature(

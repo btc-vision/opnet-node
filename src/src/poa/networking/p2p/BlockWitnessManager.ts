@@ -504,6 +504,10 @@ export class BlockWitnessManager extends Logger {
         blockWitness: IBlockHeaderWitness,
     ): ValidWitnesses | undefined {
         const blockChecksumHash: Buffer = this.generateBlockHeaderChecksumHash(blockWitness);
+        console.log(
+            `Block ${blockWitness.blockNumber} checksum hash: ${blockChecksumHash.toString('hex')}`,
+        );
+
         const validatorWitnesses: OPNetBlockWitness[] = blockWitness.validatorWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = blockWitness.trustedWitnesses;
 
