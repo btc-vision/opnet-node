@@ -293,8 +293,6 @@ export class BlockchainIndexer extends Logger {
                 return 0n;
             }
 
-            this.log(`Validating header for block ${previousBlock}...`);
-
             const promises: [
                 Promise<string | null>,
                 Promise<BlockHeaderBlockDocument | undefined>,
@@ -317,6 +315,9 @@ export class BlockchainIndexer extends Logger {
 
             if (savedBlockHeader.hash === currentBlockHash) {
                 shouldContinue = false;
+                this.success(`Validated headers for block ${previousBlock}... (GOOD)`);
+            } else {
+                this.fail(`Validated headers for block ${previousBlock}... (BAD)`);
             }
         } while (shouldContinue);
 
@@ -356,9 +357,9 @@ export class BlockchainIndexer extends Logger {
 
         this.vmStorage.resumeWrites();
 
-        const blockToRescan: number = Math.max(Number(lastGoodBlock) - 1, -1);
         // We must reprocess the blocks from the last known good block.
-        await this.processBlocks(blockToRescan);
+        const blockToRescan: number = Math.max(Number(lastGoodBlock) - 1, -1);
+        await this.processBlocks(blockToRescan, true);
     }
 
     private async purge(): Promise<void> {
@@ -371,9 +372,14 @@ export class BlockchainIndexer extends Logger {
         await this.vmManager.clear();
     }
 
-    private async processBlocks(startBlockHeight: number = -1): Promise<void> {
-        let blockHeightInProgress: number =
-            await this.getCurrentProcessBlockHeight(startBlockHeight);
+    private async processBlocks(
+        startBlockHeight: number = -1,
+        wasReorg: boolean = false,
+    ): Promise<void> {
+        let blockHeightInProgress: number = wasReorg
+            ? startBlockHeight
+            : await this.getCurrentProcessBlockHeight(startBlockHeight);
+        
         let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
 
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
