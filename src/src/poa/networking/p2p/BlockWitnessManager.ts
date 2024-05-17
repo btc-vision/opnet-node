@@ -80,6 +80,8 @@ export class BlockWitnessManager extends Logger {
         const blockHeader: BlockHeaderBlockDocument | undefined =
             await this.blockHeaderRepository.getBlockHeader(blockNumber);
 
+        console.log(blockHeader);
+
         if (!blockHeader) {
             this.fail(`Block header for block ${blockNumber.toString()} not found.`);
             return;

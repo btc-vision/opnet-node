@@ -1,5 +1,6 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { PeerId } from '@libp2p/interface';
+import { Config } from '../../config/Config.js';
 import { ChainIds } from '../../config/enums/ChainIds.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { ClientPeerNetworking } from '../networking/client/ClientPeerNetworking.js';
@@ -151,7 +152,10 @@ export class OPNetPeer extends Logger {
                 throw new Error(`Unknown opcode received. ${buffer[1]}`);
             }
         } catch (e) {
-            console.log(e);
+            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                console.log(`BAD PACKET`, e);
+            }
+
             await this.disconnect(DisconnectionCode.BAD_PACKET, 'Bad packet.');
             await this.destroy(false);
         }

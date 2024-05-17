@@ -126,7 +126,7 @@ export class P2PManager extends Logger {
     }
 
     public override info(...args: unknown[]): void {
-        if (this.config.DEBUG_LEVEL < DebugLevel.INFO) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
             return;
         }
 

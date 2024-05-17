@@ -133,8 +133,6 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         }
 
         const packedBlockWitnesses: Uint8Array = packetBuilder.pack(blockWitnesses);
-        console.log(packedBlockWitnesses, 'packedBlockWitnesses', blockWitnesses);
-
         await this.sendMsg(packedBlockWitnesses);
     }
 
