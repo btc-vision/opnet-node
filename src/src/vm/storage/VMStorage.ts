@@ -9,6 +9,7 @@ import {
     BlockHeaderAPIBlockDocument,
     BlockHeaderBlockDocument,
 } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
 import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
@@ -21,6 +22,9 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         super();
     }
 
+    public abstract resumeWrites(): void;
+    public abstract revertDataUntilBlock(height: bigint): Promise<void>;
+
     public abstract getStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
@@ -28,8 +32,6 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         setIfNotExit: boolean,
         height?: bigint,
     ): Promise<ProvenMemoryValue | null>;
-
-    public abstract terminate(): Promise<void>;
 
     public abstract setStorage(
         address: BitcoinAddress,
@@ -100,4 +102,13 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<UTXOsOutputTransactions | undefined>;
 
     public abstract getBalanceOf(address: string): Promise<bigint | undefined>;
+
+    public abstract getReorgs(
+        fromBlock?: bigint,
+        toBlock?: bigint,
+    ): Promise<IReorgDocument[] | undefined>;
+
+    public abstract setReorg(reorgData: IReorgData): Promise<void>;
+
+    public abstract awaitPendingWrites(): Promise<void>;
 }

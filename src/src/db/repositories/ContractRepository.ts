@@ -11,6 +11,17 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         super(db);
     }
 
+    public async deleteContractsFromBlockHeight(
+        blockHeight: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IContractDocument>> = {
+            blockHeight: { $gt: DataConverter.toDecimal128(blockHeight) },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
     public async hasContract(
         contractAddress: string,
         currentSession?: ClientSession | undefined,

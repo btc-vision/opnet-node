@@ -14,11 +14,14 @@ import {
     BlockHeaderBlockDocument,
     IBlockHeaderBlockDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { IReorgData, IReorgDocument } from '../../../db/interfaces/IReorgDocument.js';
 import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
 import { BlockchainInformationRepository } from '../../../db/repositories/BlockchainInformationRepository.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
+import { BlockWitnessRepository } from '../../../db/repositories/BlockWitnessRepository.js';
 import { ContractPointerValueRepository } from '../../../db/repositories/ContractPointerValueRepository.js';
 import { ContractRepository } from '../../../db/repositories/ContractRepository.js';
+import { ReorgsRepository } from '../../../db/repositories/ReorgsRepository.js';
 import { TransactionRepository } from '../../../db/repositories/TransactionRepository.js';
 import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
@@ -38,6 +41,8 @@ export class VMMongoStorage extends VMStorage {
     private blockRepository: BlockRepository | undefined;
     private transactionRepository: TransactionRepository | undefined;
     private blockchainInfoRepository: BlockchainInformationRepository | undefined;
+    private reorgRepository: ReorgsRepository | undefined;
+    private blockWitnessRepository: BlockWitnessRepository | undefined;
 
     private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
     private readonly maxTransactionSessions: number;
@@ -48,6 +53,7 @@ export class VMMongoStorage extends VMStorage {
     private startedBlockIds: Set<bigint> = new Set<bigint>();
 
     private readonly network: string;
+    private blockHeightSaveLoop: NodeJS.Timeout | undefined;
 
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
@@ -60,7 +66,48 @@ export class VMMongoStorage extends VMStorage {
         this.databaseManager = new ConfigurableDBManager(this.config);
     }
 
-    public async terminate(): Promise<void> {
+    public async revertDataUntilBlock(blockId: bigint): Promise<void> {
+        /** We must delete all the data until the blockId */
+        if (!this.blockRepository) {
+            throw new Error('Block header repository not initialized');
+        }
+
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        if (!this.contractRepository) {
+            throw new Error('Contract repository not initialized');
+        }
+
+        if (!this.pointerRepository) {
+            throw new Error('Pointer repository not initialized');
+        }
+
+        if (!this.blockWitnessRepository) {
+            throw new Error('Block witness repository not initialized');
+        }
+
+        await this.updateBlockchainInfo(Number(blockId));
+
+        const promises: Promise<void>[] = [
+            this.transactionRepository.deleteTransactionsFromBlockHeight(blockId),
+            this.contractRepository.deleteContractsFromBlockHeight(blockId),
+            this.pointerRepository.deletePointerFromBlockHeight(blockId),
+            this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
+            this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId),
+        ];
+
+        await Promise.all(promises);
+    }
+
+    public resumeWrites(): void {
+        this.startCache();
+    }
+
+    public async awaitPendingWrites(): Promise<void> {
+        if (this.blockHeightSaveLoop) clearTimeout(this.blockHeightSaveLoop);
+
         for (let action of this.writeTransactions.values()) {
             await Promise.all(action);
         }
@@ -68,6 +115,8 @@ export class VMMongoStorage extends VMStorage {
         for (let session of this.waitingCommits.values()) {
             await session;
         }
+
+        this.clearCache();
 
         await this.updateBlockHeight();
     }
@@ -87,6 +136,9 @@ export class VMMongoStorage extends VMStorage {
         this.blockchainInfoRepository = new BlockchainInformationRepository(
             this.databaseManager.db,
         );
+
+        this.reorgRepository = new ReorgsRepository(this.databaseManager.db);
+        this.blockWitnessRepository = new BlockWitnessRepository(this.databaseManager.db);
     }
 
     public async getLatestBlock(): Promise<BlockHeaderAPIBlockDocument> {
@@ -106,6 +158,25 @@ export class VMMongoStorage extends VMStorage {
         this.cachedLatestBlock = this.convertBlockHeaderToBlockHeaderDocument(latestBlock);
 
         return this.cachedLatestBlock;
+    }
+
+    public async getReorgs(
+        fromBlock: bigint,
+        toBlock: bigint,
+    ): Promise<IReorgDocument[] | undefined> {
+        if (!this.reorgRepository) {
+            throw new Error('Reorg repository not initialized');
+        }
+
+        return await this.reorgRepository.getReorgs(fromBlock, toBlock);
+    }
+
+    public async setReorg(reorg: IReorgData): Promise<void> {
+        if (!this.reorgRepository) {
+            throw new Error('Reorg repository not initialized');
+        }
+
+        await this.reorgRepository.setReorg(reorg);
     }
 
     public async getBlockTransactions(
@@ -162,6 +233,7 @@ export class VMMongoStorage extends VMStorage {
         }
 
         await this.databaseManager.close();
+        if (this.blockHeightSaveLoop) clearTimeout(this.blockHeightSaveLoop);
     }
 
     public async prepareNewBlock(blockId: bigint): Promise<void> {
@@ -575,7 +647,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     private startCache(): void {
-        setTimeout(async () => {
+        this.blockHeightSaveLoop = setTimeout(async () => {
             this.clearCache();
             await this.updateBlockHeight();
 
@@ -584,7 +656,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     private async updateBlockHeight(): Promise<void> {
-        const v = Array.from(this.startedBlockIds.values());
+        const v: bigint[] = Array.from(this.startedBlockIds.values());
         const smallestBlockInCommittedTransactions = this.smallestBigIntInArray(v);
 
         await this.commitUntilBlockId(smallestBlockInCommittedTransactions);

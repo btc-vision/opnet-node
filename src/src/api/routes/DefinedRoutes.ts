@@ -6,6 +6,7 @@ import { BlockByHash } from './api/v1/block/BlockByHash.js';
 import { BlockById } from './api/v1/block/BlockById.js';
 import { LatestBlock } from './api/v1/block/LatestBlock.js';
 import { ChainId } from './api/v1/chain/ChainId.js';
+import { ReorgRoute } from './api/v1/chain/ReorgRoute.js';
 import { JSONRpc } from './api/v1/json-rpc/JSONRpc.js';
 import { NotImplemented } from './api/v1/not-implemented/NotImplemented.js';
 import { ProtobufSchema } from './api/v1/protobuf/ProtobufSchema.js';
@@ -34,6 +35,7 @@ export const DefinedRoutes: { [key in Routes]: Route<key, JSONRpcMethods, unknow
 
     /** Chain */
     [Routes.CHAIN_ID]: new ChainId(),
+    [Routes.REORG]: new ReorgRoute(),
 
     /** Transactions */
     [Routes.TRANSACTION_BY_HASH]: new TransactionByHash(),

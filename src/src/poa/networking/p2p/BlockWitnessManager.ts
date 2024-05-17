@@ -196,12 +196,21 @@ export class BlockWitnessManager extends Logger {
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): Promise<void> {
+        this.info(`Processing block witness for block ${blockNumber.toString()}`);
+
         if (blockNumber < this.currentBlock - this.pendingBlockThreshold) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+                this.fail(`Block ${blockNumber} is too far behind the current block.`);
+            }
+
             return; // we do not process old witnesses.
         }
 
         const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
         if (filteredBlockWitnesses.trustedWitnesses.length === 0) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+                this.fail(`No trusted witnesses found in message.`);
+            }
             return;
         }
 
@@ -477,6 +486,8 @@ export class BlockWitnessManager extends Logger {
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): void {
+        this.log(`Adding block witness for block ${blockNumber.toString()} to queue.`);
+
         // We do not store any pending witnesses until we have a current block.
         if (this.currentBlock === -1n) return;
 

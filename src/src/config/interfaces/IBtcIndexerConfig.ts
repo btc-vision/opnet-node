@@ -1,5 +1,4 @@
 import { BlockchainConfig, IConfig, IConfigTemplate } from '@btc-vision/bsi-common';
-import { ChainId } from '../../api/routes/api/v1/chain/ChainId.js';
 import { BitcoinZeroMQTopic } from '../../blockchain-indexer/zeromq/enums/BitcoinZeroMQTopic.js';
 import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';
 import { ChainIds } from '../enums/ChainIds.js';

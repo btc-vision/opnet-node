@@ -13,6 +13,7 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
 
     /** Chain */
     [JSONRpcMethods.CHAIN_ID]: Routes.CHAIN_ID,
+    [JSONRpcMethods.REORG]: Routes.REORG,
 
     /** Transactions */
     [JSONRpcMethods.GET_TRANSACTION_BY_HASH]: Routes.TRANSACTION_BY_HASH,

@@ -35,6 +35,17 @@ export class TransactionRepository extends BaseRepository<
         super(db);
     }
 
+    public async deleteTransactionsFromBlockHeight(
+        blockHeight: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<ITransactionDocument<OPNetTransactionTypes>>> = {
+            blockHeight: { $gt: DataConverter.toDecimal128(blockHeight) },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
     /** Save block headers */
     public async saveTransaction(
         transactionData: ITransactionDocument<OPNetTransactionTypes>,

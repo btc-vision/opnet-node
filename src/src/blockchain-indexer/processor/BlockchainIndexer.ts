@@ -8,6 +8,8 @@ import bitcoin from 'bitcoinjs-lib';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { Config } from '../../config/Config.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
+import { BlockHeaderBlockDocument } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { IReorgData } from '../../db/interfaces/IReorgDocument.js';
 import { BlockchainInformationRepository } from '../../db/repositories/BlockchainInformationRepository.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
 import {
@@ -19,8 +21,14 @@ import { StartIndexerResponseData } from '../../threading/interfaces/thread-mess
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
+import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { VMManager } from '../../vm/VMManager.js';
 import { Block } from './block/Block.js';
+
+interface LastBlock {
+    hash?: string;
+    checksum?: string;
+}
 
 export class BlockchainIndexer extends Logger {
     public readonly logColor: string = '#00ff00';
@@ -31,6 +39,8 @@ export class BlockchainIndexer extends Logger {
     private readonly bitcoinNetwork: bitcoin.networks.Network;
 
     private readonly vmManager: VMManager;
+    private readonly vmStorage: VMStorage;
+
     private readonly processOnlyOneBlock: boolean = false;
 
     private readonly maximumPrefetchBlocks: number;
@@ -40,6 +50,10 @@ export class BlockchainIndexer extends Logger {
     private fatalFailure: boolean = false;
     private currentBlockInProcess: Promise<void> | undefined;
 
+    private lastBlock: LastBlock = {};
+
+    private pendingNextBlockScan: NodeJS.Timeout | undefined;
+
     constructor(config: BtcIndexerConfig) {
         super();
 
@@ -47,6 +61,7 @@ export class BlockchainIndexer extends Logger {
         this.network = config.BLOCKCHAIN.BITCOIND_NETWORK;
 
         this.vmManager = new VMManager(config);
+        this.vmStorage = this.vmManager.getVMStorage();
 
         switch (this.network) {
             case 'mainnet':
@@ -176,7 +191,7 @@ export class BlockchainIndexer extends Logger {
             return;
         }
 
-        setTimeout(() => this.safeProcessBlocks(), 5000);
+        this.pendingNextBlockScan = setTimeout(() => this.safeProcessBlocks(), 5000);
     }
 
     private async getCurrentProcessBlockHeight(startBlockHeight: number): Promise<number> {
@@ -212,10 +227,6 @@ export class BlockchainIndexer extends Logger {
                 continue;
             }
 
-            if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
-                this.debug(`!!!!!!!!! ------ Prefetching block ${nextBlockId} ------ !!!!!!!!!`);
-            }
-
             this.prefetchedBlocks.set(nextBlockId, this.getBlock(nextBlockId));
         }
     }
@@ -234,9 +245,136 @@ export class BlockchainIndexer extends Logger {
         return block;
     }
 
+    private async getLastBlockHash(height: bigint): Promise<LastBlock | undefined> {
+        if (height === -1n) {
+            return;
+        } else if (this.lastBlock.hash && this.lastBlock.checksum) {
+            return {
+                hash: this.lastBlock.hash,
+                checksum: this.lastBlock.checksum,
+            };
+        }
+
+        const previousBlock = await this.vmManager.getBlockHeader(height);
+        if (!previousBlock) {
+            throw new Error(
+                `Error fetching previous block hash. Can not verify chain reorg. Block height: ${height}`,
+            );
+        }
+
+        return {
+            hash: previousBlock.hash,
+            checksum: previousBlock.checksumRoot,
+        };
+    }
+
+    private async verifyChainReorg(block: BlockDataWithTransactionData): Promise<boolean> {
+        const previousBlockHash: LastBlock | undefined = await this.getLastBlockHash(
+            BigInt(block.height) - 1n,
+        );
+
+        if (!previousBlockHash) return false;
+        return block.previousblockhash !== previousBlockHash.hash;
+    }
+
+    /**
+     * We must find the last known good block to revert to.
+     */
+    private async revertToLastGoodBlock(height: number): Promise<bigint> {
+        let shouldContinue: boolean = true;
+        let previousBlock: number = height;
+
+        do {
+            previousBlock--;
+
+            if (previousBlock < 0) {
+                this.error(`Can not revert to a block lower than 0. GENESIS block reached.`);
+
+                return 0n;
+            }
+
+            this.log(`Validating header for block ${previousBlock}...`);
+
+            const promises: [
+                Promise<string | null>,
+                Promise<BlockHeaderBlockDocument | undefined>,
+            ] = [
+                this.rpcClient.getBlockHash(previousBlock),
+                this.vmStorage.getBlockHeader(BigInt(previousBlock)),
+            ];
+
+            const results = await Promise.all(promises);
+
+            const currentBlockHash: string | null = results[0];
+            if (currentBlockHash === null) {
+                throw new Error(`Error fetching block hash.`);
+            }
+
+            const savedBlockHeader: BlockHeaderBlockDocument | undefined = results[1];
+            if (!savedBlockHeader) {
+                throw new Error(`Error fetching block header.`);
+            }
+
+            if (savedBlockHeader.hash === currentBlockHash) {
+                shouldContinue = false;
+            }
+        } while (shouldContinue);
+
+        return BigInt(previousBlock);
+    }
+
+    private async revertDataUntilBlock(height: bigint): Promise<void> {
+        this.important(`STOPPED ALL JOBS. Purging bad data until block ${height}.`);
+
+        await this.vmStorage.revertDataUntilBlock(height);
+    }
+
+    /** Handle blockchain restoration here. */
+    private async restoreBlockchain(height: number): Promise<void> {
+        if (height === 0) throw new Error(`Can not restore blockchain from genesis block.`);
+
+        this.important(
+            `!!!! ----- Chain reorganization detected. Block ${height} has a different previous block hash. ----- !!!!`,
+        );
+
+        await this.purge();
+
+        // We must identify the last known good block.
+        const lastGoodBlock: bigint = await this.revertToLastGoodBlock(height);
+        this.info(`OPNet will automatically revert to block ${lastGoodBlock}.`);
+
+        const reorgData: IReorgData = {
+            fromBlock: BigInt(height),
+            toBlock: lastGoodBlock,
+            timestamp: new Date(),
+        };
+
+        await this.vmStorage.setReorg(reorgData);
+
+        // We must purge all the bad data.
+        await this.revertDataUntilBlock(lastGoodBlock);
+
+        this.vmStorage.resumeWrites();
+
+        const blockToRescan: number = Math.max(Number(lastGoodBlock) - 1, -1);
+        // We must reprocess the blocks from the last known good block.
+        await this.processBlocks(blockToRescan);
+    }
+
+    private async purge(): Promise<void> {
+        clearTimeout(this.pendingNextBlockScan);
+
+        this.lastBlock.hash = undefined;
+        this.prefetchedBlocks.clear();
+
+        await this.vmStorage.awaitPendingWrites();
+        await this.vmManager.clear();
+    }
+
     private async processBlocks(startBlockHeight: number = -1): Promise<void> {
-        let blockHeightInProgress = await this.getCurrentProcessBlockHeight(startBlockHeight);
-        let chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
+        let blockHeightInProgress: number =
+            await this.getCurrentProcessBlockHeight(startBlockHeight);
+        let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
 
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
             const getBlockDataTimingStart = Date.now();
@@ -255,6 +393,13 @@ export class BlockchainIndexer extends Logger {
                 );
             }
 
+            /** We must check for chain reorgs here. */
+            const chainReorged: boolean = await this.verifyChainReorg(block);
+            if (chainReorged) {
+                await this.restoreBlockchain(blockHeightInProgress);
+                return;
+            }
+
             const processStartTime = Date.now();
             const processed: Block | null = await this.processBlock(block, this.vmManager);
             if (processed === null) {
@@ -268,6 +413,9 @@ export class BlockchainIndexer extends Logger {
                     `Block ${blockHeightInProgress} processed successfully. {Transaction(s): ${processed.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processed.timeForTransactionExecution}ms | State update: ${processed.timeForStateUpdate}ms | Block processing: ${processed.timeForBlockProcessing}ms | Generic transaction saving: ${processed.timeForGenericTransactions}ms | Took ${processEndTime - processStartTime}ms})`,
                 );
             }
+
+            this.lastBlock.hash = processed.hash;
+            this.lastBlock.checksum = processed.checksumRoot;
 
             await this.notifyBlockProcessed(processed);
 

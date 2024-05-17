@@ -7,6 +7,7 @@ export enum Routes {
 
     /** Chain */
     CHAIN_ID = 'chain/id',
+    REORG = 'chain/reorg',
 
     /** Address */
     UTXOS = 'address/utxos',

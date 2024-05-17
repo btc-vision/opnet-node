@@ -37,10 +37,6 @@ Globals.register();
 export class VMManager extends Logger {
     public initiated: boolean = false;
 
-    /*private readonly runtimeCode: string = fs
-        .readFileSync(`${__dirname}/../../../build/src/vm/runtime/index.js`)
-        .toString();*/
-
     private readonly vmStorage: VMStorage;
     private readonly vmBitcoinBlock: VMBitcoinBlock;
 
@@ -64,14 +60,21 @@ export class VMManager extends Logger {
         this.contractCache = new Map();
     }
 
+    public getVMStorage(): VMStorage {
+        if (this.vmStorage) return this.vmStorage;
+
+        switch (this.config.INDEXER.STORAGE_TYPE) {
+            case IndexerStorageType.MONGODB:
+                return new VMMongoStorage(this.config);
+            default:
+                throw new Error('Invalid VM Storage type.');
+        }
+    }
+
     public async init(): Promise<void> {
         await this.vmStorage.init();
 
         this.initiated = true;
-    }
-
-    public async terminate(): Promise<void> {
-        await this.vmStorage.terminate();
     }
 
     public async closeDatabase(): Promise<void> {
@@ -552,6 +555,22 @@ export class VMManager extends Logger {
         return blockHeader;
     }
 
+    public async clear(): Promise<void> {
+        this.blockState = undefined;
+        this.receiptState = undefined;
+
+        this.cachedBlockHeader.clear();
+        this.verifiedBlockHeights.clear();
+        this.contractCache.clear();
+
+        for (let vmEvaluator of this.vmEvaluators.values()) {
+            const evaluator = await vmEvaluator;
+            if (evaluator) evaluator.dispose();
+        }
+
+        this.vmEvaluators.clear();
+    }
+
     private async resetContractVM(vmEvaluator: ContractEvaluator): Promise<void> {
         await vmEvaluator.preventDamage();
     }
@@ -687,22 +706,6 @@ export class VMManager extends Logger {
 
     private async saveBlockHeader(block: Block): Promise<void> {
         await this.vmStorage.saveBlockHeader(block.getBlockHeaderDocument());
-    }
-
-    private async clear(): Promise<void> {
-        this.blockState = undefined;
-        this.receiptState = undefined;
-
-        this.cachedBlockHeader.clear();
-        this.verifiedBlockHeights.clear();
-        this.contractCache.clear();
-
-        for (let vmEvaluator of this.vmEvaluators.values()) {
-            const evaluator = await vmEvaluator;
-            if (evaluator) evaluator.dispose();
-        }
-
-        this.vmEvaluators.clear();
     }
 
     /** We must save the final state changes to the storage */
@@ -958,14 +961,5 @@ export class VMManager extends Logger {
         }
 
         return this.validateBlockChecksum(blockHeaders);
-    }
-
-    private getVMStorage(): VMStorage {
-        switch (this.config.INDEXER.STORAGE_TYPE) {
-            case IndexerStorageType.MONGODB:
-                return new VMMongoStorage(this.config);
-            default:
-                throw new Error('Invalid VM Storage type.');
-        }
     }
 }

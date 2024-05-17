@@ -4,6 +4,7 @@ export enum JSONRpcMethods {
 
     /** Chain */
     CHAIN_ID = 'btc_chainId',
+    REORG = 'btc_reorg',
 
     /** Blocks */
     GET_BLOCK_BY_HASH = 'btc_getBlockByHash',

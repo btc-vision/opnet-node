@@ -1,6 +1,8 @@
 import { Globals, Logger } from '@btc-vision/bsi-common';
 import { Worker } from 'worker_threads';
 import { Config } from './config/Config.js';
+import { DBManagerInstance } from './db/DBManager.js';
+import { IndexManager } from './db/indexes/IndexManager.js';
 import { ServicesConfigurations } from './services/ServicesConfigurations.js';
 import { MessageType } from './threading/enum/MessageType.js';
 import {
@@ -53,14 +55,36 @@ export class Core extends Logger {
     public async start(): Promise<void> {
         this.log(`Starting up core...`);
 
+        const dbOk = await this.setupDB();
+        if (!dbOk) {
+            process.exit(0);
+        }
+
         await this.createThreads();
+    }
+
+    private async setupDB(): Promise<boolean> {
+        await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
+        await DBManagerInstance.connect();
+
+        if (!DBManagerInstance.db) {
+            this.error('Database connection not established. Check your configurations.');
+            return false;
+        }
+
+        const indexerManager: IndexManager = new IndexManager(DBManagerInstance);
+        await indexerManager.setupDB();
+
+        await DBManagerInstance.close();
+
+        return true;
     }
 
     private onLinkThreadRequest(msg: LinkThreadRequestMessage, threadType: ThreadTypes): void {
         const data: LinkThreadRequestData = msg.data;
         data.mainTargetThreadType = threadType;
 
-        const targetThread = this.masterThreads[data.threadType];
+        const targetThread: Worker | undefined = this.masterThreads[data.threadType];
         if (!targetThread) {
             this.error(`Target thread ${data.threadType} not found.`);
             return;
