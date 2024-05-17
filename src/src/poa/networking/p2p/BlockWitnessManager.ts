@@ -63,6 +63,28 @@ export class BlockWitnessManager extends Logger {
         this.blockWitnessRepository = new BlockWitnessRepository(DBManagerInstance.db);
     }
 
+    public async requestBlockWitnesses(blockNumber: bigint): Promise<OPNetBlockWitness[]> {
+        if (!this.blockWitnessRepository) {
+            throw new Error('BlockWitnessRepository not initialized.');
+        }
+
+        const witnesses: [
+            Promise<IParsedBlockWitnessDocument[] | undefined>,
+            Promise<IParsedBlockWitnessDocument[] | undefined>,
+        ] = [
+            this.blockWitnessRepository.getBlockWitnesses(blockNumber),
+            this.blockWitnessRepository.getBlockWitnesses(blockNumber, true),
+        ];
+
+        const [opnetWitnesses, trustedWitnesses] = await Promise.all(witnesses);
+        if (!opnetWitnesses || !trustedWitnesses) return [];
+
+        const witnessesData = this.convertKnownWitnessesToOPNetWitness(opnetWitnesses);
+        const trustedWitnessData = this.convertKnownWitnessesToOPNetWitness(trustedWitnesses);
+
+        return this.mergeAndDedupeTrustedWitnesses(witnessesData, trustedWitnessData);
+    }
+
     public sendMessageToThread: (
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,

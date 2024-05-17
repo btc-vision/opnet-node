@@ -1,11 +1,13 @@
+import Long from 'long';
 import { Type } from 'protobufjs';
 import { Packets } from '../../../types/enums/Packets.js';
 import { ServerOutBound } from '../../../types/messages/OPNetMessages.js';
 import { PackedMessage, Packet } from '../../Packet.js';
-import { IBlockHeaderWitness } from '../common/BlockHeaderWitness.js';
+import { OPNetBlockWitness } from '../common/BlockHeaderWitness.js';
 
 export interface ISyncBlockHeaderResponse extends PackedMessage {
-    readonly blockHeaders: IBlockHeaderWitness[];
+    readonly blockNumber: Long;
+    readonly blockWitnesses: OPNetBlockWitness[];
 }
 
 /** Broadcast goes both ways */

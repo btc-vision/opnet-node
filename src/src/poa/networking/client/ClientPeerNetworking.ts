@@ -2,9 +2,14 @@ import { CommonHandlers } from '../../events/CommonHandlers.js';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../default/AbstractPacketManager.js';
 import { DisconnectionCode } from '../enums/DisconnectionCode.js';
-import { IBlockHeaderWitness } from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import {
+    IBlockHeaderWitness,
+    OPNetBlockWitness,
+} from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { ISyncBlockHeaderRequest } from '../protobuf/packets/blockchain/requests/SyncBlockHeadersRequest.js';
+import { SyncBlockHeadersResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../protobuf/packets/peering/DiscoveryResponsePacket.js';
+import { Packets } from '../protobuf/types/enums/Packets.js';
 import { SharedBlockHeaderManager } from '../shared/managers/SharedBlockHeaderManager.js';
 import { PeerHandlerEvents } from './events/PeerHandlerEvents.js';
 import { ClientAuthenticationManager } from './managers/ClientAuthenticationManager.js';
@@ -12,6 +17,7 @@ import { ClientPeerManager } from './managers/ClientPeerManager.js';
 
 export class ClientPeerNetworking extends ClientAuthenticationManager {
     public readonly logColor: string = '#00f2fa';
+
     private _blockHeaderManager: SharedBlockHeaderManager | undefined;
     private _peerManager: ClientPeerManager | undefined;
 
@@ -21,6 +27,10 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
 
     public onBlockWitness: (blockWitness: IBlockHeaderWitness) => Promise<void> = () => {
         throw new Error('onBlockWitness not implemented.');
+    };
+
+    public requestBlockWitnesses: (blockNumber: bigint) => Promise<OPNetBlockWitness[]> = () => {
+        throw new Error('requestBlockWitnesses not implemented.');
     };
 
     public onClientAuthenticationCompleted: () => void = () => {
@@ -104,7 +114,26 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
     }
 
     private async onSyncBlockHeadersRequest(packet: ISyncBlockHeaderRequest): Promise<void> {
-        console.log('onSyncBlockHeadersRequest', packet);
+        if (!this._blockHeaderManager) {
+            throw new Error('Block header manager not found.');
+        }
+
+        const blockNumber: bigint = BigInt(packet.blockNumber.toString());
+        const blockWitnesses: OPNetBlockWitness[] = await this.requestBlockWitnesses(blockNumber);
+
+        const packetBuilder = this.protocol.getPacketBuilder(
+            Packets.SyncBlockHeadersResponse,
+        ) as SyncBlockHeadersResponse;
+        if (!packetBuilder) {
+            throw new Error('SyncBlockHeadersResponse not found.');
+        }
+
+        const packedBlockWitnesses: Uint8Array = packetBuilder.pack({
+            blockNumber: packet.blockNumber,
+            blockWitnesses: blockWitnesses,
+        });
+
+        await this.sendMsg(packedBlockWitnesses);
     }
 
     private listenToManagerEvents(manager: AbstractPacketManager): void {

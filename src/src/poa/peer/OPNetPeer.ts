@@ -5,7 +5,10 @@ import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { ClientPeerNetworking } from '../networking/client/ClientPeerNetworking.js';
 import { DisconnectionCode } from '../networking/enums/DisconnectionCode.js';
 import { OPNetConnectionInfo } from '../networking/P2PManager.js';
-import { IBlockHeaderWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import {
+    IBlockHeaderWitness,
+    OPNetBlockWitness,
+} from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
 
@@ -80,6 +83,10 @@ export class OPNetPeer extends Logger {
 
         return this._peerIdentity;
     }
+
+    public requestBlockWitnesses: (blockNumber: bigint) => Promise<OPNetBlockWitness[]> = () => {
+        throw new Error('requestBlockWitnesses not implemented.');
+    };
 
     public onBlockWitness: (blockWitness: IBlockHeaderWitness) => Promise<void> = () => {
         throw new Error('onBlockWitness not implemented.');
@@ -242,6 +249,10 @@ export class OPNetPeer extends Logger {
 
         this.clientNetworkingManager.onBlockWitness = async (blockWitness: IBlockHeaderWitness) => {
             await this.onBlockWitness(blockWitness);
+        };
+
+        this.clientNetworkingManager.requestBlockWitnesses = async (blockNumber: bigint) => {
+            return this.requestBlockWitnesses(blockNumber);
         };
     }
 

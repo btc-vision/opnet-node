@@ -222,6 +222,9 @@ export class P2PManager extends Logger {
             this.blockWitnessManager,
         );
         peer.onPeersDiscovered = this.onOPNetPeersDiscovered.bind(this);
+        peer.requestBlockWitnesses = this.blockWitnessManager.requestBlockWitnesses.bind(
+            this.blockWitnessManager,
+        );
 
         this.peers.set(peerIdStr, peer);
 

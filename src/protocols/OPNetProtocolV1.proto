@@ -131,5 +131,5 @@ message SyncBlockHeadersRequest {
 }
 
 message SyncBlockHeadersResponse {
-  repeated BlockHeaderWitness headers = 1;
+  repeated OPNetBlockWitness blockWitnesses = 1;
 }
