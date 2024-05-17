@@ -121,12 +121,13 @@ export class BlockWitnessManager extends Logger {
         ];
 
         const [opnetWitnesses, trustedWitnesses] = await Promise.all(witnesses);
-        if (!opnetWitnesses || !trustedWitnesses)
+        if (!opnetWitnesses || !trustedWitnesses) {
             return {
                 blockNumber: Long.fromString(blockNumber.toString()),
                 trustedWitnesses: [],
                 validatorWitnesses: [],
             };
+        }
 
         const witnessesData = this.convertKnownWitnessesToOPNetWitness(opnetWitnesses);
         const trustedWitnessData = this.convertKnownWitnessesToOPNetWitness(trustedWitnesses);
@@ -313,6 +314,8 @@ export class BlockWitnessManager extends Logger {
         }
 
         const checksumHash = receivedBlockHeader.checksumRoot;
+        console.log(checksumHash, blockWitness.checksumHash);
+
         if (checksumHash !== blockWitness.checksumHash) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
                 this.fail(

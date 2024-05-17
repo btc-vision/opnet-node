@@ -114,7 +114,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             });
 
         const fetchedBlockHeader = await this.vmManager.getBlockHeader(blockNumber).catch(() => {
-            return undefined;
+            return null;
         });
 
         return {
