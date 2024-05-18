@@ -238,6 +238,7 @@ export class P2PManager extends Logger {
 
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
+        console.log('Discovered peers:', peers);
 
         const peersToTry: PeerInfo[] = [];
         for (let peer = 0; peer < peers.length; peer++) {
@@ -364,7 +365,6 @@ export class P2PManager extends Logger {
 
         for (const peerData of peersData) {
             const peer = this.peers.get(peerData.id.toString());
-
             if (!peer) continue;
 
             if (!peer.hasAuthenticated) continue;
@@ -376,7 +376,10 @@ export class P2PManager extends Logger {
             if (peer.clientNetwork === undefined) continue;
 
             const connection = this.getOutboundConnectionForPeer(peerData.id);
-            if (!connection) continue;
+            if (!connection) {
+                this.warn(`No connection found for peer ${peerData.id.toString()}`);
+                continue;
+            }
 
             const peerInfo: OPNetPeerInfo = {
                 opnetVersion: peer.clientVersion,
