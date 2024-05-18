@@ -255,10 +255,10 @@ export class P2PManager extends Logger {
 
                 if (knownPeer) continue;
 
-                if (peerInfo.addresses.length === 0) {
+                /*if (peerInfo.addresses.length === 0) {
                     this.fail(`No addresses found for peer ${peerId.toString()}`);
                     continue;
-                }
+                }*/
 
                 const addresses: Multiaddr[] = [];
                 for (const address of peerInfo.addresses) {
@@ -269,12 +269,12 @@ export class P2PManager extends Logger {
                     addresses.push(addr);
                 }
 
-                console.log(peerInfo.addresses, addresses);
+                //console.log(peerInfo.addresses, addresses);
 
-                if (addresses.length === 0) {
+                /*if (addresses.length === 0) {
                     this.warn(`No valid addresses found for peer ${peerId.toString()}`);
                     continue;
-                }
+                }*/
 
                 const peerData: PeerInfo = {
                     id: peerIdFromString(peerId.toString()),
@@ -293,6 +293,9 @@ export class P2PManager extends Logger {
 
         const promises: Promise<Peer>[] = [];
         for (let peerData of peersToTry) {
+            const findPeer = await this.node.peerRouting.findPeer(peerData.id);
+            console.log(findPeer);
+
             const addedPeer = this.node.peerStore.merge(peerData.id, {
                 multiaddrs: peerData.multiaddrs,
                 tags: {
@@ -379,7 +382,14 @@ export class P2PManager extends Logger {
                 addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
             };
 
-            console.log(`ADDING PEER ${peerData.id.toString()}`, peerData);
+            const connections = this.node.getConnections(peerData.id);
+
+            console.log(
+                `ADDING PEER ${peerData.id.toString()}`,
+                peerData,
+                connections,
+                connections[0]?.remoteAddr,
+            );
 
             if (!peerInfo.addresses.length) {
                 this.fail(`No addresses found for peer ${peerData.id.toString()}`);
