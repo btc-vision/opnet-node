@@ -589,8 +589,6 @@ export class P2PManager extends Logger {
                 await this.node.services.identify.identify(connection);
 
             console.log('Identified:', identified);
-        } else {
-            this.fail(`No connection found for peer ${peerIdStr}`);
         }
 
         await this.createPeer(
