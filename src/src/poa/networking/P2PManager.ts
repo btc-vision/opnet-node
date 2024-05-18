@@ -249,11 +249,11 @@ export class P2PManager extends Logger {
 
                 if (this.blackListedPeerIds.has(peerId.toString())) continue;
 
-                const knownPeer: Peer | null = await this.node.peerStore
+                /*const knownPeer: Peer | null = await this.node.peerStore
                     .get(peerId)
                     .catch(() => null);
 
-                if (knownPeer) continue;
+                if (knownPeer) continue;*/
 
                 /*if (peerInfo.addresses.length === 0) {
                     this.fail(`No addresses found for peer ${peerId.toString()}`);
@@ -294,7 +294,7 @@ export class P2PManager extends Logger {
         const promises: Promise<Peer>[] = [];
         for (let peerData of peersToTry) {
             const findPeer = await this.node.peerRouting.findPeer(peerData.id);
-            console.log(findPeer);
+            console.log('findPeer', findPeer);
 
             const addedPeer = this.node.peerStore.merge(peerData.id, {
                 multiaddrs: peerData.multiaddrs,
@@ -382,14 +382,9 @@ export class P2PManager extends Logger {
                 addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
             };
 
-            const connections = this.node.getConnections(peerData.id);
+            const connection = this.getOutboundConnectionForPeer(peerData.id);
 
-            console.log(
-                `ADDING PEER ${peerData.id.toString()}`,
-                peerData,
-                connections,
-                connections[0]?.remoteAddr,
-            );
+            console.log(`ADDING PEER ${peerData.id.toString()}`, peerData, connection);
 
             if (!peerInfo.addresses.length) {
                 this.fail(`No addresses found for peer ${peerData.id.toString()}`);
@@ -402,6 +397,19 @@ export class P2PManager extends Logger {
         this.shuffleArray(peers);
 
         return peers;
+    }
+
+    private getOutboundConnectionForPeer(peer: PeerId): Multiaddr | undefined {
+        if (!this.node) throw new Error('Node not initialized');
+
+        const connections = this.node.getConnections(peer);
+        if (!connections) return undefined;
+
+        for (const connection of connections) {
+            if (connection.direction === 'outbound') {
+                return connection.remoteAddr;
+            }
+        }
     }
 
     private shuffleArray<T>(array: T[]): void {
