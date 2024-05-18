@@ -298,7 +298,9 @@ export class P2PManager extends Logger {
             //const findPeer = await this.node.peerRouting.findPeer(peerData.id);
             //console.log('findPeer', findPeer);
 
-            console.log('TRYING', peerData);
+            let idk = await this.node.dial(peerData.id);
+
+            console.log('TRYING', peerData, idk);
 
             const addedPeer = this.node.peerStore.merge(peerData.id, {
                 multiaddrs: peerData.multiaddrs,
@@ -394,10 +396,10 @@ export class P2PManager extends Logger {
                 addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
             };
 
-            if (!peerInfo.addresses.length) {
+            /*if (!peerInfo.addresses.length) {
                 this.fail(`No addresses found for peer ${peerData.id.toString()}`);
                 continue;
-            }
+            }*/
 
             peers.push(peerInfo);
         }
