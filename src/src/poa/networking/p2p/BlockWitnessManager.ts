@@ -618,7 +618,7 @@ export class BlockWitnessManager extends Logger {
             Buffer.from(data.checksumHash.replace('0x', ''), 'hex'),
             Buffer.from(data.previousBlockChecksum.replace('0x', ''), 'hex'),
         ]);
-
+        
         return this.identity.hash(generatedChecksum);
     }
 }

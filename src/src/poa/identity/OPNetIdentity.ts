@@ -168,6 +168,8 @@ export class OPNetIdentity extends OPNetPathFinder {
         const validWitness = this.keyPairGenerator.verifyTrustedSignature(data, witness.signature);
         if (!validWitness.validity) return false;
 
+        console.log(validWitness);
+
         return validWitness.identity === identity;
     }
 

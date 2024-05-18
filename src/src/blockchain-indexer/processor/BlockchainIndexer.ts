@@ -126,7 +126,7 @@ export class BlockchainIndexer extends Logger {
         await this.vmManager.init();
 
         if (Config.P2P.IS_BOOTSTRAP_NODE) {
-            setTimeout(() => this.safeProcessBlocks(), 8000);
+            setTimeout(() => this.startAndPurgeIndexer(), 8000);
         }
     }
 
@@ -172,14 +172,14 @@ export class BlockchainIndexer extends Logger {
         process.exit(0);
     }*/
 
-    private async safeProcessBlocks(): Promise<void> {
+    private async safeProcessBlocks(startBlockHeight: number): Promise<void> {
         if (this.fatalFailure) {
             this.panic('Fatal failure detected, exiting...');
             return;
         }
 
         try {
-            this.currentBlockInProcess = this.processBlocks();
+            this.currentBlockInProcess = this.processBlocks(startBlockHeight);
 
             await this.currentBlockInProcess;
         } catch (e) {
@@ -191,18 +191,10 @@ export class BlockchainIndexer extends Logger {
             return;
         }
 
-        this.pendingNextBlockScan = setTimeout(() => this.safeProcessBlocks(), 5000);
+        this.pendingNextBlockScan = setTimeout(() => this.safeProcessBlocks(-1), 5000);
     }
 
     private async getCurrentProcessBlockHeight(startBlockHeight: number): Promise<number> {
-        if (Config.OP_NET.REINDEX) {
-            if (Config.OP_NET.REINDEX_FROM_BLOCK) {
-                return Config.OP_NET.REINDEX_FROM_BLOCK;
-            }
-
-            return Config.OP_NET.ENABLED_AT_BLOCK;
-        }
-
         const blockchainInfo = await this.blockchainInfoRepository.getByNetwork(this.network);
 
         // Process block either from the forced start height
@@ -508,6 +500,19 @@ export class BlockchainIndexer extends Logger {
         await this.sendMessageToThread(ThreadTypes.PoA, msg);
     }
 
+    private getDefaultBlockHeight(): number {
+        let startBlockHeight = -1;
+        if (Config.OP_NET.REINDEX) {
+            if (Config.OP_NET.REINDEX_FROM_BLOCK) {
+                startBlockHeight = Config.OP_NET.REINDEX_FROM_BLOCK;
+            } else {
+                startBlockHeight = Config.OP_NET.ENABLED_AT_BLOCK;
+            }
+        }
+
+        return startBlockHeight;
+    }
+
     private async startIndexer(): Promise<StartIndexerResponseData> {
         if (Config.P2P.IS_BOOTSTRAP_NODE) {
             return {
@@ -521,11 +526,23 @@ export class BlockchainIndexer extends Logger {
             };
         }
 
-        void this.safeProcessBlocks();
+        await this.startAndPurgeIndexer();
 
         return {
             started: true,
         };
+    }
+
+    private async startAndPurgeIndexer(): Promise<void> {
+        const startBlock = this.getDefaultBlockHeight();
+        if (startBlock !== -1) {
+            // Purge old data
+            this.log(`Purging old data... (from block ${startBlock})`);
+
+            await this.vmStorage.revertDataUntilBlock(BigInt(startBlock));
+        }
+
+        void this.safeProcessBlocks(startBlock);
     }
 
     private async getChainCurrentBlockHeight(): Promise<number> {
