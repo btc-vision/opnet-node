@@ -254,12 +254,14 @@ export class BlockWitnessManager extends Logger {
         if (!trusted) return blockWitness;
 
         const trustedWitnesses = blockWitness.trustedWitnesses.filter((w) => {
-            return trusted.includes(w.identity || '');
+            return !trusted.includes(w.identity || '');
         });
 
         const opnetWitnesses = blockWitness.validatorWitnesses.filter((w) => {
-            return trusted.includes(w.identity || '');
+            return !trusted.includes(w.identity || '');
         });
+
+        console.log(opnetWitnesses, trustedWitnesses, trusted);
 
         return {
             ...blockWitness,

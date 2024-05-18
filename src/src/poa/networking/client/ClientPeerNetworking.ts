@@ -80,21 +80,19 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         throw new Error('onPeersDiscovered not implemented.');
     };
 
-    protected createSession(): void {
-        this.networkHandlers.push(this.createPeerManager());
-        this.networkHandlers.push(this.createBlockWitnessManager());
-
-        this.onClientAuthenticationCompleted();
-
-        void this.discoverPeers();
-    }
-
-    private async discoverPeers(): Promise<void> {
+    public async discoverPeers(): Promise<void> {
         if (!this._peerManager) {
             throw new Error('Peer manager not found.');
         }
 
         await this._peerManager.discoverPeers();
+    }
+
+    protected createSession(): void {
+        this.networkHandlers.push(this.createPeerManager());
+        this.networkHandlers.push(this.createBlockWitnessManager());
+
+        this.onClientAuthenticationCompleted();
     }
 
     private createPeerManager(): ClientPeerManager {

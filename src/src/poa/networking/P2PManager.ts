@@ -249,8 +249,16 @@ export class P2PManager extends Logger {
 
                 if (this.blackListedPeerIds.has(peerId.toString())) continue;
 
-                const knownPeer = await this.node.peerStore.get(peerId);
+                const knownPeer: Peer | null = await this.node.peerStore
+                    .get(peerId)
+                    .catch(() => null);
+
                 if (knownPeer) continue;
+
+                if (peerInfo.addresses.length === 0) {
+                    this.fail(`No addresses found for peer ${peerId.toString()}`);
+                    continue;
+                }
 
                 const addresses: Multiaddr[] = [];
                 for (const address of peerInfo.addresses) {
@@ -261,13 +269,22 @@ export class P2PManager extends Logger {
                     addresses.push(addr);
                 }
 
+                console.log(peerInfo.addresses, addresses);
+
+                if (addresses.length === 0) {
+                    this.warn(`No valid addresses found for peer ${peerId.toString()}`);
+                    continue;
+                }
+
                 const peerData: PeerInfo = {
                     id: peerIdFromString(peerId.toString()),
                     multiaddrs: addresses,
                 };
 
                 peersToTry.push(peerData);
-            } catch (e) {}
+            } catch (e) {
+                console.log(`Error while adding peer to try:`, e);
+            }
         }
 
         if (peersToTry.length === 0) {
@@ -281,15 +298,18 @@ export class P2PManager extends Logger {
                 tags: {
                     ['OPNET']: {
                         value: 50,
-                        ttl: 60000,
+                        ttl: 128000,
                     },
                 },
             });
 
+            this.log(`Added peer ${peerData.id.toString()} to peer store.`);
+
             promises.push(addedPeer);
         }
 
-        await Promise.all(promises);
+        const res = await Promise.all(promises);
+        console.log('Added peers ->', res);
     }
 
     private reportAuthenticatedPeer(_peerId: PeerId): void {
@@ -358,6 +378,13 @@ export class P2PManager extends Logger {
                 peer: peerData.id.toCID().bytes,
                 addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
             };
+
+            console.log(`ADDING PEER ${peerData.id.toString()}`, peerData.addresses);
+
+            if (!peerInfo.addresses.length) {
+                this.fail(`No addresses found for peer ${peerData.id.toString()}`);
+                continue;
+            }
 
             peers.push(peerInfo);
         }

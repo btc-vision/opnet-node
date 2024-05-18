@@ -277,6 +277,8 @@ export class OPNetPeer extends Logger {
     private onAuth(): void {
         if (this.isAuthenticated) {
             this.reportAuthenticatedPeer(this.peerId);
+
+            void this.clientNetworkingManager.discoverPeers();
         }
     }
 
