@@ -261,7 +261,7 @@ export class BlockWitnessManager extends Logger {
             return !trusted.includes(w.identity || '');
         });
 
-        console.log(opnetWitnesses, trustedWitnesses, trusted);
+        //console.log(opnetWitnesses, trustedWitnesses, trusted);
 
         return {
             ...blockWitness,
