@@ -15,7 +15,7 @@ import {
     PeerUpdate,
 } from '@libp2p/interface';
 import { IdentifyResult } from '@libp2p/interface/src';
-import type { MultiaddrConnection } from '@libp2p/interface/src/connection/index.js';
+import type { Connection, MultiaddrConnection } from '@libp2p/interface/src/connection/index.js';
 import { PeerData } from '@libp2p/interface/src/peer-store/index.js';
 import { IncomingStreamData } from '@libp2p/interface/src/stream-handler/index.js';
 import { KadDHT, kadDHT } from '@libp2p/kad-dht';
@@ -278,10 +278,10 @@ export class P2PManager extends Logger {
                     .catch(() => null);
                 if (knownPeer) continue;*/
 
-                /*if (peerInfo.addresses.length === 0) {
+                if (peerInfo.addresses.length === 0) {
                     this.fail(`No addresses found for peer ${peerId.toString()}`);
                     continue;
-                }*/
+                }
 
                 const addresses: Multiaddr[] = [];
                 for (const address of peerInfo.addresses) {
@@ -292,12 +292,10 @@ export class P2PManager extends Logger {
                     addresses.push(addr);
                 }
 
-                //console.log(peerInfo.addresses, addresses);
-
-                /*if (addresses.length === 0) {
+                if (addresses.length === 0) {
                     this.warn(`No valid addresses found for peer ${peerId.toString()}`);
                     continue;
-                }*/
+                }
 
                 const peerData: PeerInfo = {
                     id: peerIdFromString(peerId.toString()),
@@ -560,6 +558,8 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
+        if (!this.node) throw new Error('Node not initialized');
+
         const peerIdStr: string = evt.detail.toString();
         const peer = this.peers.get(peerIdStr);
         if (peer) {
@@ -583,6 +583,16 @@ export class P2PManager extends Logger {
             this.info(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
         }
 
+        const connection = this.getInboundConnectionForPeer(peerId);
+        if (connection) {
+            const identified: IdentifyResult =
+                await this.node.services.identify.identify(connection);
+
+            console.log('Identified:', identified);
+        } else {
+            this.fail(`No connection found for peer ${peerIdStr}`);
+        }
+
         await this.createPeer(
             {
                 agentVersion: agent,
@@ -591,6 +601,23 @@ export class P2PManager extends Logger {
             },
             peerIdStr,
         );
+    }
+
+    private getInboundConnectionForPeer(peerId: PeerId): Connection | undefined {
+        if (!this.node) {
+            throw new Error('Node not initialized');
+        }
+
+        const connections = this.node.getConnections(peerId);
+        if (connections.length === 0) {
+            return undefined;
+        }
+
+        for (const conn of connections) {
+            if (conn.direction === 'inbound') {
+                return conn;
+            }
+        }
     }
 
     private async startNode(): Promise<void> {
