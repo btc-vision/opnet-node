@@ -383,13 +383,12 @@ export class P2PManager extends Logger {
             };
 
             const connection = this.getOutboundConnectionForPeer(peerData.id);
-
             console.log(`ADDING PEER ${peerData.id.toString()}`, peerData, connection);
 
-            if (!peerInfo.addresses.length) {
+            /*if (!peerInfo.addresses.length) {
                 this.fail(`No addresses found for peer ${peerData.id.toString()}`);
                 continue;
-            }
+            }*/
 
             peers.push(peerInfo);
         }
@@ -403,6 +402,7 @@ export class P2PManager extends Logger {
         if (!this.node) throw new Error('Node not initialized');
 
         const connections = this.node.getConnections(peer);
+        console.log('connections', connections);
         if (!connections) return undefined;
 
         for (const connection of connections) {
