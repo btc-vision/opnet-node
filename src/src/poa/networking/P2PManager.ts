@@ -302,12 +302,8 @@ export class P2PManager extends Logger {
 
         const promises: Promise<Peer>[] = [];
         for (let peerData of peersToTry) {
-            //const findPeer = await this.node.peerRouting.findPeer(peerData.id);
-            //console.log('findPeer', findPeer);
-
-            let idk = await this.node.dial(peerData.id);
-
-            console.log('TRYING', peerData, idk);
+            const findPeer = await this.node.peerRouting.findPeer(peerData.id);
+            console.log('findPeer', findPeer);
 
             const addedPeer = this.node.peerStore.merge(peerData.id, {
                 multiaddrs: peerData.multiaddrs,
