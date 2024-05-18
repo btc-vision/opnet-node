@@ -2,6 +2,8 @@ import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap, BootstrapComponents } from '@libp2p/bootstrap';
+import { circuitRelayServer } from '@libp2p/circuit-relay-v2';
+import type { CircuitRelayService } from '@libp2p/circuit-relay-v2/src';
 import {
     type ConnectionGater,
     CustomEvent,
@@ -58,7 +60,7 @@ export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly p2pConfigurations: P2PConfigurations;
-    private node: Libp2p<{ nat: unknown; kadDHT: KadDHT }> | undefined;
+    private node: Libp2p<{ nat: unknown; kadDHT: KadDHT; relay: CircuitRelayService }> | undefined;
 
     private peers: Map<string, OPNetPeer> = new Map();
 
@@ -252,10 +254,10 @@ export class P2PManager extends Logger {
                 // Is self.
                 if (this.node.peerId.equals(peerId)) continue;
 
-                const knownPeer: Peer | null = await this.node.peerStore
+                /*const knownPeer: Peer | null = await this.node.peerStore
                     .get(peerId)
                     .catch(() => null);
-                if (knownPeer) continue;
+                if (knownPeer) continue;*/
 
                 /*if (peerInfo.addresses.length === 0) {
                     this.fail(`No addresses found for peer ${peerId.toString()}`);
@@ -404,20 +406,11 @@ export class P2PManager extends Logger {
             peers.push(peerInfo);
         }
 
-        console.log('Peers:', peers);
+        console.log('Sending Peers:', peers);
 
         this.shuffleArray(peers);
 
         return peers;
-    }
-
-    private getOutboundConnectionForPeer(peer: PeerId): Multiaddr | undefined {
-        if (!this.node) throw new Error('Node not initialized');
-
-        const connections = this.node.getConnections(peer);
-        if (!connections) return undefined;
-
-        return connections[0].remoteAddr;
     }
 
     private shuffleArray<T>(array: T[]): void {
@@ -769,7 +762,9 @@ export class P2PManager extends Logger {
         return !(this.blackListedPeerIds.has(peerIdStr) || this.blackListedPeerIps.has(ip));
     }
 
-    private async createNode(): Promise<Libp2p<{ nat: unknown; kadDHT: KadDHT }>> {
+    private async createNode(): Promise<
+        Libp2p<{ nat: unknown; kadDHT: KadDHT; relay: CircuitRelayService }>
+    > {
         const peerId = await this.p2pConfigurations.peerIdConfigurations();
 
         const peerDiscovery: [
@@ -805,6 +800,7 @@ export class P2PManager extends Logger {
             services: {
                 nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),
                 kadDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
+                relay: circuitRelayServer(),
             },
         });
     }
