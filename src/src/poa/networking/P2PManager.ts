@@ -558,8 +558,6 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
-        if (!this.node) throw new Error('Node not initialized');
-
         const peerIdStr: string = evt.detail.toString();
         const peer = this.peers.get(peerIdStr);
         if (peer) {
@@ -583,14 +581,7 @@ export class P2PManager extends Logger {
             this.info(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
         }
 
-        const connection = this.getInboundConnectionForPeer(peerId);
-        if (connection) {
-            const identified: IdentifyResult =
-                await this.node.services.identify.identify(connection);
-
-            console.log('Identified:', identified);
-        }
-
+        await this.identifyPeer(peerId);
         await this.createPeer(
             {
                 agentVersion: agent,
@@ -599,6 +590,15 @@ export class P2PManager extends Logger {
             },
             peerIdStr,
         );
+    }
+
+    private async identifyPeer(peerId: PeerId): Promise<void> {
+        if (!this.node) throw new Error('Node not initialized');
+
+        const connection = this.getInboundConnectionForPeer(peerId);
+        if (connection) {
+            await this.node.services.identify.identify(connection).catch(() => {});
+        }
     }
 
     private getInboundConnectionForPeer(peerId: PeerId): Connection | undefined {

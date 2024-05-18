@@ -210,10 +210,10 @@ export class P2PConfigurations extends OPNetPathFinder {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
             agentVersion: P2PVersion,
-            timeout: 5000,
+            timeout: 8000,
             maxInboundStreams: 4,
             maxOutboundStreams: 4,
-            runOnConnectionOpen: false
+            runOnConnectionOpen: false,
         };
     }
 
