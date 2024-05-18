@@ -196,10 +196,9 @@ export class P2PManager extends Logger {
         const peerInfo: IdentifyResult = evt.detail;
         const peerData: PeerData = {
             multiaddrs: peerInfo.listenAddrs,
-            //protocols: peerInfo.protocols,
         };
 
-        await this.node.peerStore.save(peerInfo.peerId, peerData);
+        await this.node.peerStore.merge(peerInfo.peerId, peerData);
         this.info(`Identified peer: ${peerInfo.peerId.toString()}`);
     }
 
@@ -314,9 +313,6 @@ export class P2PManager extends Logger {
 
         const promises: Promise<Peer>[] = [];
         for (let peerData of peersToTry) {
-            const findPeer = await this.node.peerRouting.findPeer(peerData.id).catch(() => null);
-            console.log('findPeer', findPeer);
-
             const addedPeer = this.node.peerStore.merge(peerData.id, {
                 multiaddrs: peerData.multiaddrs,
                 tags: {
@@ -332,8 +328,7 @@ export class P2PManager extends Logger {
             promises.push(addedPeer);
         }
 
-        const res = await Promise.all(promises);
-        console.log('Added peers ->', res);
+        await Promise.all(promises);
     }
 
     private reportAuthenticatedPeer(_peerId: PeerId): void {
@@ -392,15 +387,6 @@ export class P2PManager extends Logger {
             if (peer.clientChainId === undefined) continue;
             if (peer.clientNetwork === undefined) continue;
 
-            /*const connection = this.getOutboundConnectionForPeer(peerData.id);
-            if (!connection) {
-                this.warn(`No connection found for peer ${peerData.id.toString()}`);
-                continue;
-            }*/
-
-            const peerInfoData: PeerInfo = await this.node.peerRouting.findPeer(peerData.id);
-            console.log(peerInfoData);
-
             const peerInfo: OPNetPeerInfo = {
                 opnetVersion: peer.clientVersion,
                 identity: peer.clientIdentity,
@@ -418,8 +404,6 @@ export class P2PManager extends Logger {
 
             peers.push(peerInfo);
         }
-
-        console.log('Sending Peers:', peers);
 
         this.shuffleArray(peers);
 
