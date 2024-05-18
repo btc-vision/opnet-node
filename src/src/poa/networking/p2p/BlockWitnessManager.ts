@@ -254,11 +254,11 @@ export class BlockWitnessManager extends Logger {
         if (!trusted) return blockWitness;
 
         const trustedWitnesses = blockWitness.trustedWitnesses.filter((w) => {
-            return !trusted.includes(w.identity || '');
+            return trusted.includes(w.identity || '');
         });
 
         const opnetWitnesses = blockWitness.validatorWitnesses.filter((w) => {
-            return !trusted.includes(w.identity || '');
+            return trusted.includes(w.identity || '');
         });
 
         return {
@@ -281,14 +281,10 @@ export class BlockWitnessManager extends Logger {
         }
 
         const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
-        if (filteredBlockWitnesses.trustedWitnesses.length === 0) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.fail(`No trusted witnesses found in message.`);
-            }
-            return;
-        }
-
-        if (filteredBlockWitnesses.validatorWitnesses.length === 0) {
+        if (
+            filteredBlockWitnesses.trustedWitnesses.length === 0 ||
+            filteredBlockWitnesses.validatorWitnesses.length === 0
+        ) {
             return;
         }
 
