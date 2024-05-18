@@ -379,7 +379,7 @@ export class P2PManager extends Logger {
                 addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
             };
 
-            console.log(`ADDING PEER ${peerData.id.toString()}`, peerData.addresses);
+            console.log(`ADDING PEER ${peerData.id.toString()}`, peerData);
 
             if (!peerInfo.addresses.length) {
                 this.fail(`No addresses found for peer ${peerData.id.toString()}`);
