@@ -238,11 +238,10 @@ export class P2PManager extends Logger {
 
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
-        console.log('Discovered peers:', peers);
 
         const peersToTry: PeerInfo[] = [];
         for (let peer = 0; peer < peers.length; peer++) {
-            const peerInfo = peers[peer];
+            const peerInfo: OPNetPeerInfo = peers[peer];
 
             try {
                 const peerId = peerIdFromBytes(peerInfo.peer);
@@ -253,11 +252,10 @@ export class P2PManager extends Logger {
                 // Is self.
                 if (this.node.peerId.equals(peerId)) continue;
 
-                /*const knownPeer: Peer | null = await this.node.peerStore
+                const knownPeer: Peer | null = await this.node.peerStore
                     .get(peerId)
                     .catch(() => null);
-
-                if (knownPeer) continue;*/
+                if (knownPeer) continue;
 
                 /*if (peerInfo.addresses.length === 0) {
                     this.fail(`No addresses found for peer ${peerId.toString()}`);
@@ -297,8 +295,10 @@ export class P2PManager extends Logger {
 
         const promises: Promise<Peer>[] = [];
         for (let peerData of peersToTry) {
-            const findPeer = await this.node.peerRouting.findPeer(peerData.id);
-            console.log('findPeer', findPeer);
+            //const findPeer = await this.node.peerRouting.findPeer(peerData.id);
+            //console.log('findPeer', findPeer);
+
+            console.log('TRYING', peerData);
 
             const addedPeer = this.node.peerStore.merge(peerData.id, {
                 multiaddrs: peerData.multiaddrs,
@@ -375,11 +375,14 @@ export class P2PManager extends Logger {
             if (peer.clientChainId === undefined) continue;
             if (peer.clientNetwork === undefined) continue;
 
-            const connection = this.getOutboundConnectionForPeer(peerData.id);
+            /*const connection = this.getOutboundConnectionForPeer(peerData.id);
             if (!connection) {
                 this.warn(`No connection found for peer ${peerData.id.toString()}`);
                 continue;
-            }
+            }*/
+
+            const peerInfoData: PeerInfo = await this.node.peerRouting.findPeer(peerData.id);
+            console.log(peerInfoData);
 
             const peerInfo: OPNetPeerInfo = {
                 opnetVersion: peer.clientVersion,
@@ -388,7 +391,7 @@ export class P2PManager extends Logger {
                 network: peer.clientNetwork,
                 chainId: peer.clientChainId,
                 peer: peerData.id.toCID().bytes,
-                addresses: [connection.bytes], //peerData.addresses.map((addr) => addr.multiaddr.bytes),
+                addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
             };
 
             if (!peerInfo.addresses.length) {
@@ -398,6 +401,8 @@ export class P2PManager extends Logger {
 
             peers.push(peerInfo);
         }
+
+        console.log('Peers:', peers);
 
         this.shuffleArray(peers);
 

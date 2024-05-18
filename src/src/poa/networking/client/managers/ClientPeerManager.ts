@@ -57,7 +57,7 @@ export class ClientPeerManager extends AbstractPacketManager {
     }
 
     private async onDiscoveryResponse(packet: OPNetPacket): Promise<void> {
-        //this.info(`Peer ${this.peerId} got discovery a response.`);
+        this.info(`Peer ${this.peerId} got discovery a response.`);
 
         const discoveryPacket = (await this.protocol.onIncomingPacket<IDiscoveryResponse>(
             packet,
