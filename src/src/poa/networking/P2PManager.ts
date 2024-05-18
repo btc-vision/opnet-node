@@ -14,7 +14,9 @@ import {
     PeerInfo,
     PeerUpdate,
 } from '@libp2p/interface';
+import { IdentifyResult } from '@libp2p/interface/src';
 import type { MultiaddrConnection } from '@libp2p/interface/src/connection/index.js';
+import { PeerData } from '@libp2p/interface/src/peer-store/index.js';
 import { IncomingStreamData } from '@libp2p/interface/src/stream-handler/index.js';
 import { KadDHT, kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
@@ -185,6 +187,20 @@ export class P2PManager extends Logger {
         this.node.addEventListener('peer:disconnect', this.onPeerDisconnect.bind(this));
         this.node.addEventListener('peer:update', this.onPeerUpdate.bind(this));
         this.node.addEventListener('peer:connect', this.onPeerConnect.bind(this));
+        this.node.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
+    }
+
+    private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
+        if (!this.node) throw new Error('Node not initialized');
+
+        const peerInfo: IdentifyResult = evt.detail;
+        const peerData: PeerData = {
+            multiaddrs: peerInfo.listenAddrs,
+            //protocols: peerInfo.protocols,
+        };
+
+        await this.node.peerStore.save(peerInfo.peerId, peerData);
+        this.info(`Identified peer: ${peerInfo.peerId.toString()}`);
     }
 
     private async refreshRouting(): Promise<void> {
@@ -298,11 +314,9 @@ export class P2PManager extends Logger {
             return;
         }
 
-        console.log(`Peers to try`, peersToTry);
-
         const promises: Promise<Peer>[] = [];
         for (let peerData of peersToTry) {
-            const findPeer = await this.node.peerRouting.findPeer(peerData.id);
+            const findPeer = await this.node.peerRouting.findPeer(peerData.id).catch(() => null);
             console.log('findPeer', findPeer);
 
             const addedPeer = this.node.peerStore.merge(peerData.id, {
