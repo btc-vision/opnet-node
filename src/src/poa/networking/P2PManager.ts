@@ -4,6 +4,7 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap, BootstrapComponents } from '@libp2p/bootstrap';
 import { circuitRelayServer } from '@libp2p/circuit-relay-v2';
 import type { CircuitRelayService } from '@libp2p/circuit-relay-v2/src';
+import { Identify, identify } from '@libp2p/identify';
 import {
     type ConnectionGater,
     CustomEvent,
@@ -60,7 +61,9 @@ export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly p2pConfigurations: P2PConfigurations;
-    private node: Libp2p<{ nat: unknown; kadDHT: KadDHT; relay: CircuitRelayService }> | undefined;
+    private node:
+        | Libp2p<{ nat: unknown; kadDHT: KadDHT; relay: CircuitRelayService; identify: Identify }>
+        | undefined;
 
     private peers: Map<string, OPNetPeer> = new Map();
 
@@ -294,6 +297,8 @@ export class P2PManager extends Logger {
         if (peersToTry.length === 0) {
             return;
         }
+
+        console.log(`Peers to try`, peersToTry);
 
         const promises: Promise<Peer>[] = [];
         for (let peerData of peersToTry) {
@@ -763,7 +768,7 @@ export class P2PManager extends Logger {
     }
 
     private async createNode(): Promise<
-        Libp2p<{ nat: unknown; kadDHT: KadDHT; relay: CircuitRelayService }>
+        Libp2p<{ nat: unknown; kadDHT: KadDHT; relay: CircuitRelayService; identify: Identify }>
     > {
         const peerId = await this.p2pConfigurations.peerIdConfigurations();
 
@@ -798,6 +803,7 @@ export class P2PManager extends Logger {
             peerStore: this.peerStoreConfigurations(),
             transportManager: this.p2pConfigurations.transportManagerConfiguration,
             services: {
+                identify: identify(this.p2pConfigurations.identifyConfiguration),
                 nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),
                 kadDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
                 relay: circuitRelayServer(),
