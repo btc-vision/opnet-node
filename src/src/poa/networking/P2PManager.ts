@@ -249,6 +249,9 @@ export class P2PManager extends Logger {
 
                 if (this.blackListedPeerIds.has(peerId.toString())) continue;
 
+                // Is self.
+                if (this.node.peerId.equals(peerId)) continue;
+
                 /*const knownPeer: Peer | null = await this.node.peerStore
                     .get(peerId)
                     .catch(() => null);
@@ -406,7 +409,7 @@ export class P2PManager extends Logger {
         if (!connections) return undefined;
 
         for (const connection of connections) {
-            if (connection.direction === 'outbound') {
+            if (connection.direction === 'inbound') {
                 return connection.remoteAddr;
             }
         }
