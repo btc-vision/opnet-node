@@ -1,7 +1,7 @@
-import {TrustedPublicKeys} from './types/TrustedPublicKeys';
-import {ChainIds} from '../../config/enums/ChainIds';
-import {BitcoinNetwork} from '@btc-vision/bsi-common';
-import {RegTestTrustedKeys001} from './keys/0.0.1/RegtestTrustedKeys001';
+import { BitcoinNetwork } from '@btc-vision/bsi-common';
+import { ChainIds } from '../../config/enums/ChainIds.js';
+import { RegTestTrustedKeys001 } from './keys/0.0.1/RegtestTrustedKeys001.js';
+import { TrustedPublicKeys } from './types/TrustedPublicKeys.js';
 
 /**
  * DO NOT MODIFY THIS FILE IF YOU DON'T KNOW WHAT YOU ARE DOING.

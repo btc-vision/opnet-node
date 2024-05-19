@@ -13,7 +13,7 @@ export class TransactionPacket extends Packet<
     ITransactionPacket,
     ITransactionPacket
 > {
-    public static TYPE: Packets = Packets.Transaction;
+    public static TYPE: Packets = Packets.BroadcastTransaction;
 
     protected readonly opcode: CommonPackets = CommonPackets.TRANSACTION;
 

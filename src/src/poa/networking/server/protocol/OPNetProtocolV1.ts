@@ -43,6 +43,9 @@ export class OPNetProtocolV1 {
             /** Sync */
             [ServerInBound.SYNC_BLOCK_HEADERS_REQUEST]: this.handleSyncBlockHeadersRequest,
             [ServerOutBound.SYNC_BLOCK_HEADERS_RESPONSE]: this.handleSyncBlockHeadersResponse,
+
+            /** Transaction */
+            [CommonPackets.BROADCAST_TRANSACTION]: this.handleTransactionBroadcast,
         };
     }
 
@@ -71,6 +74,10 @@ export class OPNetProtocolV1 {
         return packetHandler() as Packet<T, PackedMessage, PackedMessage>;
     }
 
+    private handleTransactionBroadcast(): TransactionPacket {
+        return PacketManager.getPacketBuilder(Packets.BroadcastTransaction) as TransactionPacket;
+    }
+
     private handleSyncBlockHeadersRequest(): SyncBlockHeadersRequest {
         return PacketManager.getPacketBuilder(
             Packets.SyncBlockHeadersRequest,
@@ -94,7 +101,7 @@ export class OPNetProtocolV1 {
     }
 
     private handleTransactionPacket(): TransactionPacket {
-        return PacketManager.getPacketBuilder(Packets.Transaction) as TransactionPacket;
+        return PacketManager.getPacketBuilder(Packets.BroadcastTransaction) as TransactionPacket;
     }
 
     private handleDiscoveryPacket(): DiscoverPacket {

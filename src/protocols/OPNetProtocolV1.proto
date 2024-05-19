@@ -90,7 +90,7 @@ message Discover {
 /*
   BLOCKCHAIN
 */
-message Transaction {
+message BroadcastTransaction {
   bytes transaction = 1;
 }
 

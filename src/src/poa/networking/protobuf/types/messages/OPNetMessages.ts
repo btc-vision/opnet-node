@@ -29,7 +29,7 @@ export enum ServerOutBound {
     SERVER_CIPHER_EXCHANGE = 0x81,
 
     /** Peering */
-    DISCOVERY_RESPONSE = 0x0f,
+    DISCOVERY_RESPONSE = 0x83,
 
     /** SYNC */
     SYNC_BLOCK_HEADERS_RESPONSE = 0x10,

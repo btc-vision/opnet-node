@@ -54,7 +54,9 @@ export class OPNetPacketManager extends ProtobufLoader {
         /**
          * Blockchain
          */
-        [Packets.Transaction]: new TransactionPacket(this.getProtobufType(TransactionPacket.TYPE)),
+        [Packets.BroadcastTransaction]: new TransactionPacket(
+            this.getProtobufType(TransactionPacket.TYPE),
+        ),
         [Packets.BlockHeaderWitness]: new BlockHeaderWitnessPacket(
             this.getProtobufType(BlockHeaderWitnessPacket.TYPE),
         ),
