@@ -12,7 +12,7 @@ import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/com
 import { OPNetPathFinder } from './OPNetPathFinder.js';
 
 export class OPNetIdentity extends OPNetPathFinder {
-    private keyPairGenerator: KeyPairGenerator = new KeyPairGenerator();
+    private keyPairGenerator: KeyPairGenerator;
 
     private readonly opnetAuthKeyBin: Uint8Array;
     private readonly opnetWallet: ECPairInterface;
@@ -22,6 +22,11 @@ export class OPNetIdentity extends OPNetPathFinder {
 
     public constructor(private readonly config: BtcIndexerConfig) {
         super();
+
+        this.keyPairGenerator = new KeyPairGenerator(
+            this.config.OP_NET.CHAIN_ID,
+            this.config.BLOCKCHAIN.BITCOIND_NETWORK,
+        );
 
         this.opnetWallet = this.loadOPNetWallet();
         this.deriveKey(this.opnetWallet.privateKey);

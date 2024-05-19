@@ -1,6 +1,8 @@
 import crypto, { KeyPairSyncResult, Sign } from 'crypto';
 import sodium from 'sodium-native';
 import { P2PVersion, TRUSTED_PUBLIC_KEYS } from '../../configurations/P2PVersion.js';
+import { ChainIds } from '../../../config/enums/ChainIds';
+import { BitcoinNetwork } from '@btc-vision/bsi-common';
 
 export interface OPNetKeyPair {
     publicKey: Buffer;
@@ -29,7 +31,10 @@ export class KeyPairGenerator {
 
     private precomputedTrustedPublicKeys: { [key: string]: string } = {};
 
-    constructor() {
+    constructor(
+        private readonly chainId: ChainIds,
+        private readonly network: BitcoinNetwork,
+    ) {
         this.loadTrustedPublicKeys();
     }
 
@@ -94,13 +99,11 @@ export class KeyPairGenerator {
         signature: Buffer | Uint8Array,
         pubKey: Buffer | Uint8Array,
     ): boolean {
-        const sign: boolean = sodium.crypto_sign_verify_detached(
+        return sodium.crypto_sign_verify_detached(
             Buffer.from(signature.buffer, signature.byteOffset, signature.byteLength),
             data,
             Buffer.from(pubKey.buffer, pubKey.byteOffset, pubKey.byteLength),
         );
-        
-        return sign;
     }
 
     public verifyTrustedSignature(
@@ -167,11 +170,19 @@ export class KeyPairGenerator {
             throw new Error('Current version not found.');
         }
 
-        if (currentVersion.length <= 0) {
+        const currentNetwork = currentVersion[this.chainId];
+        if (!currentNetwork) throw new Error('Current network not found.');
+
+        const currentNetworkVersion: string[] | undefined = currentNetwork[this.network];
+        if (!currentNetworkVersion) {
+            throw new Error('Trusted key for current network version not found.');
+        }
+
+        if (currentNetworkVersion.length <= 0) {
             throw new Error('There is no trusted public keys for the current version.');
         }
 
-        this.trustedPublicKeys = currentVersion.map((key) => key.trim());
+        this.trustedPublicKeys = currentNetworkVersion.map((key: string) => key.trim());
 
         this.computeTrustedPublicKeys();
     }
