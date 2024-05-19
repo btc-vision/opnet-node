@@ -1,5 +1,6 @@
 import { BitcoinNetwork } from '@btc-vision/bsi-common';
 import { ChainIds } from '../../config/enums/ChainIds.js';
+import { MainnetTrustedKeys001 } from './keys/0.0.1/MainnetTrustedKeys001.js';
 import { RegTestTrustedKeys001 } from './keys/0.0.1/RegtestTrustedKeys001.js';
 import { TestNetTrustedKeys001 } from './keys/0.0.1/TestnetTrustedKeys001.js';
 import { TrustedPublicKeys } from './types/TrustedPublicKeys.js';
@@ -18,7 +19,7 @@ export const TRUSTED_CHECKSUM: { [key: string]: string } = {
 export const TRUSTED_PUBLIC_KEYS: { [key: string]: TrustedPublicKeys } = {
     '0.0.1': {
         [ChainIds.Bitcoin]: {
-            [BitcoinNetwork.Mainnet]: RegTestTrustedKeys001,
+            [BitcoinNetwork.Mainnet]: MainnetTrustedKeys001,
             [BitcoinNetwork.TestNet]: TestNetTrustedKeys001,
             [BitcoinNetwork.Regtest]: RegTestTrustedKeys001,
             [BitcoinNetwork.Signet]: [],
