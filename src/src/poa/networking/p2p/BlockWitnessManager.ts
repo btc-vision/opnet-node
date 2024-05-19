@@ -261,8 +261,6 @@ export class BlockWitnessManager extends Logger {
             return !trusted.includes(w.identity || '');
         });
 
-        //console.log(opnetWitnesses, trustedWitnesses, trusted);
-
         return {
             ...blockWitness,
             validatorWitnesses: opnetWitnesses,
@@ -618,7 +616,7 @@ export class BlockWitnessManager extends Logger {
             Buffer.from(data.checksumHash.replace('0x', ''), 'hex'),
             Buffer.from(data.previousBlockChecksum.replace('0x', ''), 'hex'),
         ]);
-        
+
         return this.identity.hash(generatedChecksum);
     }
 }
