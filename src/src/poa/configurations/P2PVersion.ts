@@ -17,8 +17,8 @@ export const TRUSTED_CHECKSUM: { [key: string]: string } = {
 export const TRUSTED_PUBLIC_KEYS: { [key: string]: TrustedPublicKeys } = {
     '0.0.1': {
         [ChainIds.Bitcoin]: {
-            [BitcoinNetwork.Mainnet]: [],
-            [BitcoinNetwork.TestNet]: [],
+            [BitcoinNetwork.Mainnet]: RegTestTrustedKeys001,
+            [BitcoinNetwork.TestNet]: RegTestTrustedKeys001,
             [BitcoinNetwork.Regtest]: RegTestTrustedKeys001,
             [BitcoinNetwork.Signet]: [],
         },
