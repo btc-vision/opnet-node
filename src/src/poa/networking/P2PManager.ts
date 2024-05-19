@@ -43,11 +43,13 @@ import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/Th
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { P2PConfigurations } from '../configurations/P2PConfigurations.js';
+import { CommonHandlers } from '../events/CommonHandlers.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { OPNetPeer } from '../peer/OPNetPeer.js';
 import { DisconnectionCode } from './enums/DisconnectionCode.js';
 import { BlockWitnessManager } from './p2p/BlockWitnessManager.js';
 import { IBlockHeaderWitness } from './protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { ITransactionPacket } from './protobuf/packets/blockchain/common/TransactionPacket.js';
 import { OPNetPeerInfo } from './protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
 
@@ -138,6 +140,17 @@ export class P2PManager extends Logger {
         }
 
         super.info(...args);
+    }
+
+    public async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<void> {
+        const broadcastPromises: Promise<void>[] = [];
+        for (let peer of this.peers.values()) {
+            if (!peer.isAuthenticated) continue;
+
+            broadcastPromises.push(peer.broadcastMempoolTransaction(transaction));
+        }
+
+        await Promise.all(broadcastPromises);
     }
 
     private async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
@@ -236,6 +249,7 @@ export class P2PManager extends Logger {
         }
 
         const peer: OPNetPeer = new OPNetPeer(peerInfo, this.identity);
+        /** Convert all these to event listeners. */
         peer.disconnectPeer = this.disconnectPeer.bind(this);
         peer.sendMsg = this.sendToPeer.bind(this);
         peer.reportAuthenticatedPeer = this.reportAuthenticatedPeer.bind(this);
@@ -250,11 +264,16 @@ export class P2PManager extends Logger {
         peer.requestBlockWitnesses = this.blockWitnessManager.requestBlockWitnesses.bind(
             this.blockWitnessManager,
         );
+        /** ------------------------------- */
+
+        peer.on(CommonHandlers.MEMPOOL_BROADCAST, this.onBroadcastTransaction.bind(this));
 
         this.peers.set(peerIdStr, peer);
 
         await peer.init();
     }
+
+    private async onBroadcastTransaction(transaction: ITransactionPacket): Promise<void> {}
 
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
@@ -397,10 +416,9 @@ export class P2PManager extends Logger {
                 addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
             };
 
-            /*if (!peerInfo.addresses.length) {
-                this.fail(`No addresses found for peer ${peerData.id.toString()}`);
+            if (!peerInfo.addresses.length) {
                 continue;
-            }*/
+            }
 
             peers.push(peerInfo);
         }

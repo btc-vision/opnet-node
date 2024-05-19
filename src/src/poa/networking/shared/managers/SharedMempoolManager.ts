@@ -1,10 +1,16 @@
+import { CommonHandlers } from '../../../events/CommonHandlers.js';
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../../default/AbstractPacketManager.js';
+import {
+    ITransactionPacket,
+    TransactionPacket,
+} from '../../protobuf/packets/blockchain/common/TransactionPacket.js';
+import { Packets } from '../../protobuf/types/enums/Packets.js';
 import { CommonPackets } from '../../protobuf/types/messages/OPNetMessages.js';
 import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { OPNetProtocolV1 } from '../../server/protocol/OPNetProtocolV1.js';
 
-export class SharedTransactionManager extends AbstractPacketManager {
+export class SharedMempoolManager extends AbstractPacketManager {
     constructor(
         protocol: OPNetProtocolV1,
         peerId: string,
@@ -30,30 +36,23 @@ export class SharedTransactionManager extends AbstractPacketManager {
         super.destroy();
     }
 
-    private async onTransactionBroadcast(packet: OPNetPacket): Promise<void> {
-        console.log('Transaction broadcasted', packet);
-    }
+    public async broadcastTransaction(transaction: ITransactionPacket): Promise<void> {
+        console.log(`BROADCASTING TRANSACTION`, transaction);
 
-    /*public async discoverPeers(): Promise<void> {
-        const packet = this.protocol.getPacketBuilder(Packets.Discover);
+        const packet = this.protocol.getPacketBuilder(Packets.BroadcastTransaction);
         if (!packet) {
             return;
         }
 
-        const discoverData: IDiscover = {
-            version: AuthenticationManager.CURRENT_PROTOCOL_VERSION,
-            trustedChecksum: this.getTrustedChecksum(),
-        };
-
-        await this.sendMsg(packet.pack(discoverData));
+        await this.sendMsg(packet.pack(transaction));
     }
 
-    private async onDiscoveryResponse(packet: OPNetPacket): Promise<void> {
-        this.info(`Peer ${this.peerId} got discovery a response.`);
+    private async onTransactionBroadcast(packet: OPNetPacket): Promise<void> {
+        console.log('Received transaction', packet);
 
-        const discoveryPacket = (await this.protocol.onIncomingPacket<IDiscoveryResponse>(
+        const discoveryPacket = (await this.protocol.onIncomingPacket<ITransactionPacket>(
             packet,
-        )) as DiscoveryResponsePacket;
+        )) as TransactionPacket;
 
         if (!discoveryPacket) {
             return;
@@ -64,6 +63,6 @@ export class SharedTransactionManager extends AbstractPacketManager {
             return;
         }
 
-        await this.emit(PeerHandlerEvents.PEERS_DISCOVERED, unpackedPacket.peers);
-    }*/
+        await this.emit(CommonHandlers.MEMPOOL_BROADCAST, unpackedPacket);
+    }
 }

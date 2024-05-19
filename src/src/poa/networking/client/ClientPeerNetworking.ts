@@ -3,6 +3,7 @@ import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../default/AbstractPacketManager.js';
 import { DisconnectionCode } from '../enums/DisconnectionCode.js';
 import { IBlockHeaderWitness } from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { ITransactionPacket } from '../protobuf/packets/blockchain/common/TransactionPacket.js';
 import { ISyncBlockHeaderRequest } from '../protobuf/packets/blockchain/requests/SyncBlockHeadersRequest.js';
 import {
     ISyncBlockHeaderResponse,
@@ -11,6 +12,7 @@ import {
 import { OPNetPeerInfo } from '../protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { Packets } from '../protobuf/types/enums/Packets.js';
 import { SharedBlockHeaderManager } from '../shared/managers/SharedBlockHeaderManager.js';
+import { SharedMempoolManager } from '../shared/managers/SharedMempoolManager.js';
 import { PeerHandlerEvents } from './events/PeerHandlerEvents.js';
 import { ClientAuthenticationManager } from './managers/ClientAuthenticationManager.js';
 import { ClientPeerManager } from './managers/ClientPeerManager.js';
@@ -20,6 +22,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
 
     private _blockHeaderManager: SharedBlockHeaderManager | undefined;
     private _peerManager: ClientPeerManager | undefined;
+    private _mempoolManager: SharedMempoolManager | undefined;
 
     constructor(peerId: string, selfIdentity: OPNetIdentity | undefined) {
         super(selfIdentity, peerId);
@@ -73,6 +76,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         this.onClientAuthenticationCompleted = () => {};
 
         delete this._peerManager;
+        delete this._mempoolManager;
         delete this._blockHeaderManager;
     }
 
@@ -88,9 +92,26 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         await this._peerManager.discoverPeers();
     }
 
+    /**
+     * Broadcast a valid transaction to the network.
+     * @param transaction
+     */
+    public async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<void> {
+        if (this.destroyed) {
+            throw new Error('Client peer networking is destroyed.');
+        }
+
+        if (!this._mempoolManager) {
+            throw new Error('Mempool manager not found.');
+        }
+
+        await this._mempoolManager.broadcastTransaction(transaction);
+    }
+
     protected createSession(): void {
         this.networkHandlers.push(this.createPeerManager());
         this.networkHandlers.push(this.createBlockWitnessManager());
+        this.networkHandlers.push(this.createMempoolManager());
 
         this.onClientAuthenticationCompleted();
     }
@@ -136,6 +157,19 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
 
     private listenToManagerEvents(manager: AbstractPacketManager): void {
         manager.on(CommonHandlers.SEND, this.sendMsg.bind(this));
+    }
+
+    private createMempoolManager(): SharedMempoolManager {
+        const mempoolManager: SharedMempoolManager = new SharedMempoolManager(
+            this.protocol,
+            this.peerId,
+            this.selfIdentity,
+        );
+
+        this.listenToManagerEvents(mempoolManager);
+        this._mempoolManager = mempoolManager;
+
+        return mempoolManager;
     }
 
     private createBlockWitnessManager(): SharedBlockHeaderManager {

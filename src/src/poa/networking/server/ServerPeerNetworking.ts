@@ -10,6 +10,7 @@ import {
 import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { Packets } from '../protobuf/types/enums/Packets.js';
+import { SharedMempoolManager } from '../shared/managers/SharedMempoolManager.js';
 import { AuthenticationManager } from './managers/AuthenticationManager.js';
 import { ServerBlockHeaderWitnessManager } from './managers/ServerBlockHeaderWitnessManager.js';
 import { ServerPeerManager } from './managers/ServerPeerManager.js';
@@ -17,6 +18,7 @@ import { ServerPeerManager } from './managers/ServerPeerManager.js';
 export class ServerPeerNetworking extends AuthenticationManager {
     private _blockHeaderManager: ServerBlockHeaderWitnessManager | undefined;
     private _peerManager: ServerPeerManager | undefined;
+    private _mempoolManager: SharedMempoolManager | undefined;
 
     constructor(
         protected readonly peerId: string,
@@ -63,6 +65,7 @@ export class ServerPeerNetworking extends AuthenticationManager {
 
         delete this._peerManager;
         delete this._blockHeaderManager;
+        delete this._mempoolManager;
 
         this.onServerAuthenticationCompleted = () => {};
         this.getOPNetPeers = () => {
@@ -92,8 +95,22 @@ export class ServerPeerNetworking extends AuthenticationManager {
     protected createSession(): void {
         this.networkHandlers.push(this.createPeerManager());
         this.networkHandlers.push(this.createBlockWitnessManager());
+        this.networkHandlers.push(this.createMempoolManager());
 
         this.onServerAuthenticationCompleted();
+    }
+
+    private createMempoolManager(): SharedMempoolManager {
+        const mempoolManager: SharedMempoolManager = new SharedMempoolManager(
+            this.protocol,
+            this.peerId,
+            this.selfIdentity,
+        );
+
+        this.listenToManagerEvents(mempoolManager);
+        this._mempoolManager = mempoolManager;
+
+        return mempoolManager;
     }
 
     private createPeerManager(): ServerPeerManager {

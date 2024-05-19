@@ -3,6 +3,7 @@ import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { AbstractPacketManager } from '../../default/AbstractPacketManager.js';
 import { EncryptemClient } from '../../encryptem/EncryptemClient.js';
 import { EncryptemServer } from '../../encryptem/EncryptemServer.js';
+import { NetworkingEventHandler } from '../../interfaces/IEventHandler.js';
 import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { OPNetProtocolV1 } from '../../server/protocol/OPNetProtocolV1.js';
 import { PeerNetworkingManager } from '../PeerNetworkingManager.js';
@@ -12,11 +13,13 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
 
     protected encryptionStarted: boolean = false;
     protected destroyed: boolean = false;
-    protected networkHandlers: AbstractPacketManager[] = [];
 
+    protected networkHandlers: AbstractPacketManager[] = [];
     protected isAuthenticated: boolean = false;
 
     protected abstract _encryptem: EncryptemServer | EncryptemClient | undefined;
+
+    private eventHandlers: Map<string, NetworkingEventHandler<object>[]> = new Map();
 
     protected constructor(protected selfIdentity: OPNetIdentity | undefined) {
         super();
@@ -39,6 +42,17 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
         }
 
         return checksum;
+    }
+
+    public on<T extends string, U extends object>(
+        event: T,
+        eventHandler: NetworkingEventHandler<U>,
+    ): void {
+        if (!this.eventHandlers.has(event)) {
+            this.eventHandlers.set(event, []);
+        }
+
+        this.eventHandlers.get(event)?.push(eventHandler as NetworkingEventHandler<object>);
     }
 
     public decrypt(_raw: Uint8Array): Uint8Array {
@@ -81,6 +95,17 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
             }
         }
         return managed;
+    }
+
+    protected async emit<T extends string, U extends object>(event: T, data: U): Promise<void> {
+        if (!this.eventHandlers.has(event)) return;
+
+        const promises: Promise<void>[] = [];
+        for (const handler of this.eventHandlers.get(event)!) {
+            promises.push(handler(data));
+        }
+
+        await Promise.all(promises);
     }
 
     protected async sendMsg(buffer: Buffer | Uint8Array): Promise<void> {
@@ -127,6 +152,8 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
 
             delete this._protocol;
         }
+
+        this.eventHandlers.clear();
 
         this.destroyNetworkHandlers();
     }

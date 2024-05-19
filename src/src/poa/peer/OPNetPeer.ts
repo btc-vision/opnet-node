@@ -2,11 +2,17 @@ import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { PeerId } from '@libp2p/interface';
 import { Config } from '../../config/Config.js';
 import { ChainIds } from '../../config/enums/ChainIds.js';
+import { CommonHandlers } from '../events/CommonHandlers.js';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { ClientPeerNetworking } from '../networking/client/ClientPeerNetworking.js';
 import { DisconnectionCode } from '../networking/enums/DisconnectionCode.js';
+import { NetworkingEventHandler } from '../networking/interfaces/IEventHandler.js';
 import { OPNetConnectionInfo } from '../networking/P2PManager.js';
 import { IBlockHeaderWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import {
+    ITransactionPacket,
+    TransactionPacket,
+} from '../networking/protobuf/packets/blockchain/common/TransactionPacket.js';
 import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
@@ -22,6 +28,8 @@ export class OPNetPeer extends Logger {
 
     private clientNetworkingManager: ClientPeerNetworking;
     private serverNetworkingManager: ServerPeerNetworking;
+
+    private eventHandlers: Map<string, NetworkingEventHandler<object>[]> = new Map();
 
     constructor(
         private _peerIdentity: OPNetConnectionInfo | undefined,
@@ -116,6 +124,10 @@ export class OPNetPeer extends Logger {
         return await this.clientNetworkingManager.login();
     }
 
+    public async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<void> {
+        return await this.clientNetworkingManager.broadcastMempoolTransaction(transaction);
+    }
+
     public async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
         return this.serverNetworkingManager.requestBlockWitnessesFromPeer(blockNumber);
     }
@@ -179,6 +191,17 @@ export class OPNetPeer extends Logger {
         await this.destroy(true);
     }
 
+    public on<T extends string, U extends object>(
+        event: T,
+        eventHandler: NetworkingEventHandler<U>,
+    ): void {
+        if (!this.eventHandlers.has(event)) {
+            this.eventHandlers.set(event, []);
+        }
+
+        this.eventHandlers.get(event)?.push(eventHandler as NetworkingEventHandler<object>);
+    }
+
     public async destroy(shouldDisconnect: boolean = true): Promise<void> {
         if (this.isDestroyed) return;
         this.selfIdentity = undefined;
@@ -198,7 +221,20 @@ export class OPNetPeer extends Logger {
         this.getOPNetPeers = () => Promise.resolve([]);
         this.onBlockWitness = async () => {};
 
+        this.eventHandlers.clear();
+
         delete this._peerIdentity;
+    }
+
+    protected async emit<T extends string, U extends object>(event: T, data: U): Promise<void> {
+        if (!this.eventHandlers.has(event)) return;
+
+        const promises: Promise<void>[] = [];
+        for (const handler of this.eventHandlers.get(event)!) {
+            promises.push(handler(data));
+        }
+
+        await Promise.all(promises);
     }
 
     protected async sendInternal(data: Uint8Array | Buffer): Promise<void> {
@@ -239,9 +275,16 @@ export class OPNetPeer extends Logger {
 
         this.serverNetworkingManager.onBlockWitnessResponse = async (
             packet: ISyncBlockHeaderResponse,
-        ) => {
+        ): Promise<void> => {
             return this.onBlockWitnessResponse(packet);
         };
+
+        this.serverNetworkingManager.on(
+            CommonHandlers.MEMPOOL_BROADCAST,
+            async (packet: TransactionPacket): Promise<void> => {
+                await this.emit(CommonHandlers.MEMPOOL_BROADCAST, packet);
+            },
+        );
     }
 
     private async onPeersDiscoveredInternal(peers: OPNetPeerInfo[]): Promise<void> {
