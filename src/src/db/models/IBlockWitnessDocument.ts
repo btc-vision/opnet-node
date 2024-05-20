@@ -2,7 +2,7 @@ import { Binary, Decimal128 } from 'mongodb';
 
 interface IOPNetWitnessDocument {
     readonly blockNumber: Decimal128 | bigint;
-    readonly trusted: boolean;
+    trusted: boolean;
 
     readonly signature: Binary;
 

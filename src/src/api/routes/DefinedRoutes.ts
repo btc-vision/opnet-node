@@ -9,6 +9,7 @@ import { ChainId } from './api/v1/chain/ChainId.js';
 import { ReorgRoute } from './api/v1/chain/ReorgRoute.js';
 import { JSONRpc } from './api/v1/json-rpc/JSONRpc.js';
 import { NotImplemented } from './api/v1/not-implemented/NotImplemented.js';
+import { OPNetWitnessRoute } from './api/v1/opnet/OPNetWitnessRoute.js';
 import { ProtobufSchema } from './api/v1/protobuf/ProtobufSchema.js';
 import { Call } from './api/v1/states/Call.js';
 import { GetCode } from './api/v1/states/GetCode.js';
@@ -23,6 +24,9 @@ export const DefinedRoutes: { [key in Routes]: Route<key, JSONRpcMethods, unknow
 
     [Routes.BLOCK_BY_ID]: new BlockById(),
     [Routes.BLOCK_BY_HASH]: new BlockByHash(),
+
+    /** OPNet */
+    [Routes.BLOCK_WITNESS]: new OPNetWitnessRoute(),
 
     /** Address */
     [Routes.UTXOS]: new UTXOsRoute(),
@@ -40,8 +44,6 @@ export const DefinedRoutes: { [key in Routes]: Route<key, JSONRpcMethods, unknow
     /** Transactions */
     [Routes.TRANSACTION_BY_HASH]: new TransactionByHash(),
     [Routes.TRANSACTION_RECEIPT]: new TransactionReceipt(),
-    //[Routes.SEND_RAW_TRANSACTION]: new NotImplemented(),
-    //[Routes.SIMULATE_TRANSACTION]: new NotImplemented(),
 
     /** Others */
     [Routes.PROTOBUF_SCHEMA]: new ProtobufSchema(),

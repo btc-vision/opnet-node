@@ -1,4 +1,5 @@
-import { BaseRepository } from '@btc-vision/bsi-common';
+import { BaseRepository, PagingQueryInfo, PagingQueryResult } from '@btc-vision/bsi-common';
+
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary, BulkWriteOptions, BulkWriteResult, Collection, Db, Filter } from 'mongodb';
 import { OPNetBlockWitness } from '../../poa/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
@@ -22,6 +23,38 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
         };
 
         await this.delete(criteria);
+    }
+
+    public async getWitnesses(
+        height: bigint,
+        trusted?: boolean,
+        limit?: number,
+        page?: number,
+    ): Promise<IParsedBlockWitnessDocument[]> {
+        const criteria: Partial<Filter<IBlockWitnessDocument>> = {
+            blockNumber: DataConverter.toDecimal128(height),
+        };
+
+        if (trusted !== undefined) {
+            criteria.trusted = trusted;
+        }
+
+        let result: PagingQueryResult<IBlockWitnessDocument> | IBlockWitnessDocument[];
+        if (limit) {
+            const queryInfo: PagingQueryInfo = new PagingQueryInfo(limit, page || 0);
+
+            result = await this.queryManyAndSortPaged(criteria, { blockNumber: 1 }, queryInfo);
+        } else {
+            result = await this.queryMany(criteria, undefined, { blockNumber: 1 });
+        }
+
+        if (!result) {
+            return [];
+        }
+
+        const witnesses = result instanceof Array ? result : result.results;
+
+        return this.parseBlockWitnesses(witnesses);
     }
 
     public async getBlockWitnesses(

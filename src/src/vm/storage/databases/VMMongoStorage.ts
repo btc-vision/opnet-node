@@ -16,6 +16,7 @@ import {
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../../db/interfaces/IReorgDocument.js';
 import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
+import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockchainInformationRepository } from '../../../db/repositories/BlockchainInformationRepository.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { BlockWitnessRepository } from '../../../db/repositories/BlockWitnessRepository.js';
@@ -99,6 +100,24 @@ export class VMMongoStorage extends VMStorage {
         ];
 
         await Promise.all(promises);
+    }
+
+    public async getWitnesses(
+        height: bigint | -1,
+        trusted?: boolean,
+        limit?: number,
+        page?: number,
+    ): Promise<IParsedBlockWitnessDocument[]> {
+        if (!this.blockWitnessRepository) {
+            throw new Error('Block witness repository not initialized');
+        }
+
+        if (height === -1 || height === -1n) {
+            const lastBlock = await this.getLatestBlock();
+            height = BigInt(lastBlock.height);
+        }
+
+        return await this.blockWitnessRepository.getWitnesses(height, trusted, limit, page);
     }
 
     public resumeWrites(): void {

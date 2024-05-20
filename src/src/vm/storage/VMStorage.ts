@@ -11,6 +11,7 @@ import {
 } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
 import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
+import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocument.js';
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
@@ -23,7 +24,15 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     }
 
     public abstract resumeWrites(): void;
+
     public abstract revertDataUntilBlock(height: bigint): Promise<void>;
+
+    public abstract getWitnesses(
+        height: bigint | -1,
+        trusted?: boolean,
+        limit?: number,
+        page?: number,
+    ): Promise<IParsedBlockWitnessDocument[]>;
 
     public abstract getStorage(
         address: BitcoinAddress,

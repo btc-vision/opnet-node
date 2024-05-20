@@ -1,8 +1,7 @@
-import { DataConverter } from '@btc-vision/bsi-db';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import { IReorgDocument } from '../../../../../db/interfaces/IReorgDocument.js';
+import { IParsedBlockWitnessDocument } from '../../../../../db/models/IBlockWitnessDocument.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import {
@@ -10,33 +9,41 @@ import {
     BlockWitnessAsObject,
     BlockWitnessParams,
 } from '../../../../json-rpc/types/interfaces/params/opnet/BlockWitnessParams.js';
-import { ReorgResult } from '../../../../json-rpc/types/interfaces/results/chain/ReorgResult.js';
+import {
+    BlockWitnessResult,
+    IBlockWitnessAPI,
+} from '../../../../json-rpc/types/interfaces/results/opnet/BlockWitnessResult.js';
 import { Route } from '../../../Route.js';
 
 export class OPNetWitnessRoute extends Route<
     Routes.BLOCK_WITNESS,
     JSONRpcMethods.BLOCK_WITNESS,
-    ReorgResult | undefined
+    BlockWitnessResult | undefined
 > {
     constructor() {
         super(Routes.BLOCK_WITNESS, RouteType.GET);
     }
 
-    public async getData(params: BlockWitnessParams): Promise<ReorgResult | undefined> {
+    public async getData(params: BlockWitnessParams): Promise<BlockWitnessResult | undefined> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
 
-        /*const [fromBlock, toBlock] = this.getDecodedParams(params);
-        const rawResult: IReorgDocument[] | undefined = await this.storage.getReorgs(
-            fromBlock,
-            toBlock,
-        );
+        let [height, trusted, limit, page] = this.getDecodedParams(params);
+        if (typeof height === 'string') height = BigInt(height);
 
-        return rawResult ? this.parseRawResult(rawResult) : [];*/
+        const witnesses: IParsedBlockWitnessDocument[] = await this.storage.getWitnesses(
+            height,
+            trusted,
+            limit,
+            page,
+        );
+        if (!witnesses) return undefined;
+
+        return this.parseResult(witnesses);
     }
 
-    public async getDataRPC(params: BlockWitnessParams): Promise<ReorgResult | undefined> {
+    public async getDataRPC(params: BlockWitnessParams): Promise<BlockWitnessResult | undefined> {
         const data = await this.getData(params);
         if (!data) throw new Error(`Contract bytecode not found at the specified address.`);
 
@@ -46,12 +53,15 @@ export class OPNetWitnessRoute extends Route<
     protected initialize(): void {}
 
     /**
-     * GET /api/v1/block/witness
+     * GET /api/v1/block/block-witness
      * @tag Block
-     * @summary
-     * @description
-     * @queryParam
-     * @response 200 -
+     * @summary Get block witness
+     * @description Return a list of opnet block witnesses
+     * @queryParam height {number} Height of the block
+     * @queryParam [trusted] {boolean} Trusted block
+     * @queryParam [limit] {number} Limit of witnesses
+     * @queryParam [page] {number} Page number
+     * @response 200 - Returns the block witnesses
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
      * @responseContent {object} 200.application/json
@@ -104,14 +114,47 @@ export class OPNetWitnessRoute extends Route<
         };
     }
 
-    private getDecodedParams(params: BlockWitnessParams): BlockWitnessAsArray {
-        const
+    private parseResult(witnesses: IParsedBlockWitnessDocument[]): BlockWitnessResult {
+        const result: BlockWitnessResult = {};
 
+        for (const witness of witnesses) {
+            const blockNumber: string = witness.blockNumber.toString(16);
 
-        if (Array.isArray(params)) {
-            return params;
+            if (!result[blockNumber]) {
+                result[blockNumber] = [];
+            }
+
+            const parsedWitness: IBlockWitnessAPI = {
+                signature: witness.signature.toString('base64'),
+                opnetPubKey: witness.opnetPubKey?.toString('base64'),
+                identity: witness.identity,
+                trusted: witness.trusted,
+            };
+
+            result[blockNumber].push(parsedWitness);
         }
 
-        return [params.height, params.trusted, params.limit, params.page];
+        return result;
+    }
+
+    private getDecodedParams(params: BlockWitnessParams): BlockWitnessAsArray {
+        let height: bigint | -1 | string = -1;
+        let trusted: boolean | undefined;
+        let limit: number | undefined;
+        let page: number | undefined;
+
+        if (Array.isArray(params)) {
+            height = params[0];
+            trusted = params[1];
+            limit = params[2];
+            page = params[3];
+        } else {
+            height = params.height;
+            trusted = params.trusted;
+            limit = params.limit;
+            page = params.page;
+        }
+
+        return [height, trusted, limit, page];
     }
 }
