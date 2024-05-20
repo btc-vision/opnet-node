@@ -10,6 +10,9 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     /** Blocks */
     [JSONRpcMethods.GET_BLOCK_BY_HASH]: Routes.BLOCK_BY_HASH,
     [JSONRpcMethods.GET_BLOCK_BY_NUMBER]: Routes.BLOCK_BY_ID,
+    
+    /** OPNet */
+    [JSONRpcMethods.BLOCK_WITNESS]: Routes.BLOCK_WITNESS,
 
     /** Chain */
     [JSONRpcMethods.CHAIN_ID]: Routes.CHAIN_ID,

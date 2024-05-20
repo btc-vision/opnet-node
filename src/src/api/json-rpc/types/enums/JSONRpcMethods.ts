@@ -18,6 +18,9 @@ export enum JSONRpcMethods {
     /** Historical */
     GET_UTXOS = 'btc_getUTXOs',
 
+    /** PoA */
+    BLOCK_WITNESS = 'btc_blockWitness',
+
     /** State Methods */
     GET_TRANSACTION_RECEIPT = 'btc_getTransactionReceipt',
     GET_CODE = 'btc_getCode',
