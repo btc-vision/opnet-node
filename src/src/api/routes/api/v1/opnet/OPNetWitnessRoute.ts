@@ -12,6 +12,7 @@ import {
 import {
     BlockWitnessResult,
     IBlockWitnessAPI,
+    IBlockWitnessResultAPI,
 } from '../../../../json-rpc/types/interfaces/results/opnet/BlockWitnessResult.js';
 import { Route } from '../../../Route.js';
 
@@ -115,7 +116,7 @@ export class OPNetWitnessRoute extends Route<
     }
 
     private parseResult(witnesses: IParsedBlockWitnessDocument[]): BlockWitnessResult {
-        const result: BlockWitnessResult = {};
+        const result: IBlockWitnessResultAPI = {};
 
         for (const witness of witnesses) {
             const blockNumber: string = witness.blockNumber.toString(16);
@@ -134,7 +135,12 @@ export class OPNetWitnessRoute extends Route<
             result[blockNumber].push(parsedWitness);
         }
 
-        return result;
+        return Object.keys(result).map((blockNumber) => {
+            return {
+                blockNumber,
+                witnesses: result[blockNumber],
+            };
+        });
     }
 
     private getDecodedParams(params: BlockWitnessParams): BlockWitnessAsArray {

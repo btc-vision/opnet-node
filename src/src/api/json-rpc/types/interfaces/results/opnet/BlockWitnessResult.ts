@@ -13,4 +13,8 @@ export interface IBlockWitnessResultAPI {
     [key: string]: IBlockWitnessAPI[];
 }
 
-export type BlockWitnessResult = JSONRpc2ResultData<JSONRpcMethods.REORG> & IBlockWitnessResultAPI;
+export type BlockWitnessResult = JSONRpc2ResultData<JSONRpcMethods.REORG> &
+    {
+        readonly blockNumber: string;
+        readonly witnesses: IBlockWitnessAPI[];
+    }[];
