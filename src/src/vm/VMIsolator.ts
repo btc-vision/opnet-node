@@ -18,7 +18,6 @@ interface IsolatedMethods {
     READ_VIEW: IsolatedVM.Reference<VMRuntime['readView']>;
     GET_VIEW_ABI: IsolatedVM.Reference<VMRuntime['getViewABI']>;
     GET_WRITE_METHODS: IsolatedVM.Reference<VMRuntime['getWriteMethods']>;
-    GROW_MEMORY: IsolatedVM.Reference<VMRuntime['growMemory']>;
     GET_METHOD_ABI: IsolatedVM.Reference<VMRuntime['getMethodABI']>;
     ALLOCATE_MEMORY: IsolatedVM.Reference<VMRuntime['allocateMemory']>;
     INITIALIZE_STORAGE: IsolatedVM.Reference<VMRuntime['initializeStorage']>;
@@ -146,7 +145,6 @@ export class VMIsolator {
             GET_REQUIRED_STORAGE: this.reference.getSync('getRequiredStorage', { reference: true }),
             GET_MODIFIED_STORAGE: this.reference.getSync('getModifiedStorage', { reference: true }),
             INITIALIZE_STORAGE: this.reference.getSync('initializeStorage', { reference: true }),
-            GROW_MEMORY: this.reference.getSync('growMemory', { reference: true }),
             LOAD_STORAGE: this.reference.getSync('loadStorage', { reference: true }),
             ALLOCATE_MEMORY: this.reference.getSync('allocateMemory', { reference: true }),
             IS_INITIALIZED: this.reference.getSync('isInitialized', { reference: true }),
@@ -198,6 +196,8 @@ export class VMIsolator {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
+
+        console.log('readMethod', method, contract, Buffer.from(data).toString('hex'), caller);
 
         const externalCopy = new ivm.ExternalCopy(data);
         const externalContract = new ivm.ExternalCopy(contract);
@@ -379,14 +379,6 @@ export class VMIsolator {
         return this.methods.IS_INITIALIZED.applySync(undefined, [], this.getCallOptions());
     }
 
-    private growMemory(size: number): number {
-        if (!this.methods) {
-            throw new Error('Methods not defined');
-        }
-
-        return this.methods.GROW_MEMORY.applySync(undefined, [size], this.getCallOptions());
-    }
-
     private purgeMemory(): void {
         if (!this.methods) {
             throw new Error('Methods not defined');
@@ -408,7 +400,6 @@ export class VMIsolator {
             getRequiredStorage: this.getRequiredStorage.bind(this),
             getModifiedStorage: this.getModifiedStorage.bind(this),
             initializeStorage: this.initializeStorage.bind(this),
-            growMemory: this.growMemory.bind(this),
             loadStorage: this.loadStorage.bind(this),
             allocateMemory: this.allocateMemory.bind(this),
             isInitialized: this.isInitialized.bind(this),
