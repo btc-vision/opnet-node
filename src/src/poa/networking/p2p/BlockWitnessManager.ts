@@ -162,9 +162,12 @@ export class BlockWitnessManager extends Logger {
         isSelf: boolean,
     ): Promise<void> {
         if (isSelf) {
-            this.currentBlock = data.blockNumber;
+            // if the current block is higher than the block number, this mean a reorg happened. We have to purge the known trusted witnesses.
+            if (this.currentBlock >= data.blockNumber) {
+                this.revertKnownWitnessesReorg(data.blockNumber);
+            }
 
-            this.purgeOldWitnesses();
+            this.currentBlock = data.blockNumber;
         }
 
         const blockChecksumHash = this.generateBlockHeaderChecksumHash(data);
@@ -200,12 +203,21 @@ export class BlockWitnessManager extends Logger {
         await this.processQueuedWitnesses();
     }
 
+    private revertKnownWitnessesReorg(toBlock: bigint): void {
+        const blocks: bigint[] = Array.from(this.knownTrustedWitnesses.keys());
+
+        for (let blockNumber of blocks) {
+            if (blockNumber >= toBlock) {
+                this.knownTrustedWitnesses.delete(blockNumber);
+            }
+        }
+    }
+
     private purgeOldWitnesses(): void {
-        const currentBlock = this.currentBlock;
         const blocks = Array.from(this.knownTrustedWitnesses.keys());
 
         blocks.forEach((block) => {
-            if (currentBlock - block > this.pendingBlockThreshold) {
+            if (this.currentBlock - block > this.pendingBlockThreshold) {
                 this.knownTrustedWitnesses.delete(block);
             }
         });
