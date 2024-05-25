@@ -22,12 +22,10 @@ export class GasTracker {
         }
 
         if (this.#gasUsed + gas > this.#maxGas) {
-            console.log(`out of gas ${this.#gasUsed + gas} > ${this.#maxGas}`);
             throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.#maxGas}`);
         }
 
         if (this.#gasUsed + gas > this.MAX_GAS) {
-            console.log(`out of gas ${this.#gasUsed + gas} > ${this.MAX_GAS} (max)`);
             throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.MAX_GAS} (max)`);
         }
 
