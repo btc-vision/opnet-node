@@ -20,7 +20,7 @@ import { VMRuntime } from '../wasmRuntime/runDebug.js';
 import { GasTracker } from './GasTracker.js';
 
 export class ContractEvaluator {
-    private static readonly SAT_TO_GAS_RATIO: bigint = 100000000000000n; //204030n; //611805;
+    private static readonly SAT_TO_GAS_RATIO: bigint = 30750n; //204030n; //611805;
 
     private contractInstance: VMRuntime | null = null;
     private binaryWriter: BinaryWriter = new BinaryWriter();
