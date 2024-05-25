@@ -473,13 +473,13 @@ export class VMIsolator {
 
                         nop: 1,
                         block: 1,
-                        loop: 50000,
+                        loop: 1,
                         if: 1,
                         then: 200,
                         else: 200,
-                        br: 300,
-                        br_if: 450,
-                        br_table: 350,
+                        br: 200,
+                        br_if: 300,
+                        br_table: 200,
                         return: 200,
 
                         call: 200,
