@@ -34,7 +34,7 @@ const code: string = fs.readFileSync(codePath, 'utf-8');
 export class VMIsolator {
     private static readonly MAX_GAS: bigint = 900000000000n; // Default gas limit
     private static readonly EXECUTION_TIMEOUT: number = 60 * 60000; // 1h
-    private static readonly SAT_TO_GAS_RATIO: bigint = 860000n;
+    private static readonly SAT_TO_GAS_RATIO: bigint = 1000000n;
 
     private contract: ContractEvaluator | null = null;
     private isolatedVM: Isolate = this.createVM();
