@@ -308,7 +308,10 @@ export class ContractEvaluator {
         const initialStorage: BlockchainStorage = this.getDefaultInitialStorage();
         const sameStorage: boolean = this.isStorageRequiredTheSame(initialStorage);
 
-        if (!result && sameStorage) {
+        if (
+            (!result && sameStorage) ||
+            (error && typeof error === 'object' && error.message.includes('out of gas'))
+        ) {
             throw error;
         }
 
