@@ -4,4 +4,5 @@ export interface EvaluatedResult {
     changedStorage: BlockchainStorage;
     result: Uint8Array | undefined;
     events: NetEvent[] | undefined;
+    gasUsed: bigint;
 }

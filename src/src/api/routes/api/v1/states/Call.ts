@@ -53,14 +53,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         const [to, calldata] = this.getDecodedParams(_params);
         const res: CallRequestResponse = await this.requestThreadExecution(to, calldata);
 
-        /*let promise: Promise<CallRequestResponse>[] = [];
-        for (let i = 0; i < 100; i++) {
-            promise.push(this.requestThreadExecution(to, calldata));
-        }
-
-        const a = await Promise.all(promise);
-        console.log(a);*/
-
         return this.convertDataToResult(res);
     }
 
@@ -145,6 +137,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             result: result,
             events: data.events || [],
             accessList,
+            estimatedGas: '0x' + (data.gasUsed || 0).toString(16),
         };
     }
 

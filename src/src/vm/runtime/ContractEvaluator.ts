@@ -17,6 +17,7 @@ import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { VMIsolator } from '../VMIsolator.js';
 import { VMRuntime } from '../wasmRuntime/runDebug.js';
+import { GasTracker } from './GasTracker.js';
 
 export class ContractEvaluator {
     private contractInstance: VMRuntime | null = null;
@@ -35,12 +36,29 @@ export class ContractEvaluator {
     private contractOwner: Address | undefined;
     private contractAddress: Address | undefined;
 
+    /** Gas tracking. */
+    private gasTracker: GasTracker = new GasTracker();
+    private initialGasTracker: GasTracker = new GasTracker();
+
     private readonly enableTracing: boolean = false;
 
-    constructor(private readonly vmIsolator: VMIsolator) {}
+    constructor(private readonly vmIsolator: VMIsolator) {
+        this.vmIsolator.onGasUsed = (gas: bigint): void => {
+            this.gasTracker.gasUsed += gas;
+            this.initialGasTracker.gasUsed += gas;
+        };
+    }
 
     public async init(runtime: VMRuntime): Promise<void> {
         this.contractInstance = runtime;
+    }
+
+    public setMaxGas(maxGas: bigint): void {
+        if (!this.contractInstance) {
+            throw new Error('Contract not initialized');
+        }
+
+        this.contractInstance.setMaxGas(maxGas);
     }
 
     public async getStorage(
@@ -76,6 +94,8 @@ export class ContractEvaluator {
             throw new Error('Owner and contract address are required');
         }
 
+        this.initialGasTracker.reset();
+
         this.contractOwner = owner;
         this.contractAddress = contractAddress;
 
@@ -87,7 +107,13 @@ export class ContractEvaluator {
             throw new Error('Contract already initialized');
         }
 
-        this.contractInstance.INIT(owner, contractAddress);
+        await this.initialGasTracker.track(() => {
+            if (!this.contractInstance) {
+                throw new Error('Contract not initialized');
+            }
+
+            this.contractInstance.INIT(owner, contractAddress);
+        });
 
         this.contractRef = this.contractInstance.getContract();
 
@@ -95,7 +121,9 @@ export class ContractEvaluator {
         this.methodAbi = this.getMethodABI();
         this.writeMethods = this.getWriteMethodABI();
 
-        this.originalStorageState = this.getDefaultInitialStorage();
+        await this.initialGasTracker.track(() => {
+            this.originalStorageState = this.getDefaultInitialStorage();
+        });
 
         this.initializeContract = true;
     }
@@ -106,10 +134,12 @@ export class ContractEvaluator {
 
     public clear(): void {
         this.currentStorageState.clear();
+        this.gasTracker.reset();
     }
 
     public dispose(): void {
         this.vmIsolator.dispose();
+        this.gasTracker.reset();
     }
 
     public getViewSelectors(): SelectorsMap {
@@ -199,6 +229,9 @@ export class ContractEvaluator {
             this.initializeContract = false;
             this.contractRef = 0;
 
+            this.gasTracker.reset();
+            this.initialGasTracker.reset();
+
             await this.vmIsolator.reset();
             await this.setupContract(this.contractOwner, this.contractAddress);
         } catch (e) {
@@ -233,9 +266,7 @@ export class ContractEvaluator {
             throw new Error('Contract not initialized');
         }
 
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
+        this.gasTracker.reset(); // We reset the gas tracker before executing anything.
 
         const contract = this.methodAbi.get(contractAddress);
         const isInitialized = this.isInitialized();
@@ -244,23 +275,32 @@ export class ContractEvaluator {
             throw new Error('Contract not initialized');
         }
 
-        this.writeCurrentStorageState();
+        await this.gasTracker.track(() => {
+            this.writeCurrentStorageState();
+        });
 
         const hasSelectorInMethods = contract?.has(abi) ?? false;
 
-        let result: Uint8Array | undefined = undefined;
-        let error: Error | undefined = undefined;
+        let result: Uint8Array | undefined;
+        let error: Error | undefined;
+
         try {
-            if (hasSelectorInMethods) {
-                result = await this.contractInstance.readMethod(
-                    abi,
-                    this.getContract(),
-                    calldata as Uint8Array,
-                    caller,
-                );
-            } else {
-                result = this.contractInstance.readView(abi);
-            }
+            result = await this.gasTracker.track(async () => {
+                if (!this.contractInstance) {
+                    throw new Error('Contract not initialized');
+                }
+
+                if (hasSelectorInMethods) {
+                    return await this.contractInstance.readMethod(
+                        abi,
+                        this.getContract(),
+                        calldata as Uint8Array,
+                        caller,
+                    );
+                }
+
+                return this.contractInstance.readView(abi);
+            });
         } catch (e) {
             error = e as Error;
         }
@@ -336,11 +376,12 @@ export class ContractEvaluator {
 
         this.clear();
 
-        const events = this.getEvents();
+        const events: NetEvent[] = this.getEvents();
         return {
             changedStorage: modifiedStorage,
             result: result,
             events: events,
+            gasUsed: this.gasTracker.gasUsed + this.initialGasTracker.gasUsed,
         };
     }
 

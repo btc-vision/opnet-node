@@ -17,6 +17,7 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     readonly revert: string | undefined;
 
     readonly events: ReceiptDataForAPI[];
+    readonly gasUsed: string;
 
     blockHeight: undefined;
     deployedTransactionHash: undefined;

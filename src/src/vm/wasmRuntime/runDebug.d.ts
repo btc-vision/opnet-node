@@ -45,6 +45,8 @@ export type VMRuntime = {
     isInitialized(): boolean;
 
     purgeMemory(): void;
+
+    setMaxGas(maxGas: bigint): void;
 };
 
 export declare function instantiate(bytecode: Buffer, state: {}): Promise<VMRuntime>;

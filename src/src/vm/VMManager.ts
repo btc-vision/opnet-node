@@ -215,6 +215,11 @@ export class VMManager extends Logger {
                 )}`,
             );
 
+            const errorMsg = e instanceof Error ? e.message : (e as string);
+            if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
+                throw new Error(`execution reverted (${errorMsg})`);
+            }
+
             throw new Error('execution reverted');
         }
     }
@@ -231,6 +236,11 @@ export class VMManager extends Logger {
         const contractAddress: Address = interactionTransaction.contractAddress;
         if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
+        }
+
+        const burnedBitcoins: bigint = interactionTransaction.burnedFee;
+        if (!burnedBitcoins) {
+            throw new Error('execution reverted (out of gas)');
         }
 
         // Get the contract evaluator
@@ -271,17 +281,26 @@ export class VMManager extends Logger {
             );
         }
 
+        vmEvaluator.setMaxGas(burnedBitcoins);
+
+        let error: string = 'execution reverted';
         // Execute the function
         const result: EvaluatedResult | null = await vmEvaluator
             .execute(contractAddress, isView, selector, finalBuffer, interactionTransaction.from)
-            .catch(() => {
+            .catch((e) => {
+                const errorMsg = e instanceof Error ? e.message : (e as string);
+
+                if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
+                    error = `execution reverted (${errorMsg})`;
+                }
+
                 return null;
             });
 
         if (!result) {
             await this.resetContractVM(vmEvaluator);
 
-            throw new Error('execution reverted.');
+            throw new Error(error);
         }
 
         this.updateBlockValuesFromResult(

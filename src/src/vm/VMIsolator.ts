@@ -1,3 +1,4 @@
+import { MeterType, meterWASM } from '@btc-vision/wasm-metering';
 import fs from 'fs';
 import IsolatedVM from 'isolated-vm';
 import ivm, { Context, Isolate, Reference, ReferenceApplyOptions } from 'isolated-vm';
@@ -24,14 +25,18 @@ interface IsolatedMethods {
     IS_INITIALIZED: IsolatedVM.Reference<VMRuntime['isInitialized']>;
     GET_EVENTS: IsolatedVM.Reference<VMRuntime['getEvents']>;
     PURGE_MEMORY: IsolatedVM.Reference<VMRuntime['purgeMemory']>;
+    SET_MAX_GAS: IsolatedVM.Reference<VMRuntime['setMaxGas']>;
 }
 
 const codePath = path.resolve(__dirname, '../vm/isolated/IsolatedManager.js');
 const code: string = fs.readFileSync(codePath, 'utf-8');
 
 export class VMIsolator {
-    private contract: ContractEvaluator | null = null;
+    private static readonly MAX_GAS: bigint = 900000000000n; // Default gas limit
+    private static readonly EXECUTION_TIMEOUT: number = 60 * 60000; // 1h
+    private static readonly SAT_TO_GAS_RATIO: bigint = 860000n;
 
+    private contract: ContractEvaluator | null = null;
     private isolatedVM: Isolate = this.createVM();
     private context: Context = this.createContext();
 
@@ -46,6 +51,8 @@ export class VMIsolator {
         public readonly contractAddress: string,
         private readonly contractBytecode: Buffer,
     ) {}
+
+    public onGasUsed: (gas: bigint) => void = () => {};
 
     public getStorage(
         _address: string,
@@ -95,6 +102,12 @@ export class VMIsolator {
             console.log(...args);
         });
 
+        this.jail.setSync('gasCallback', (gas: bigint): void => {
+            this.onGasUsed(gas);
+        });
+
+        this.jail.setSync('MAX_GAS', VMIsolator.MAX_GAS);
+
         let errored = await this.loadContractFromBytecode();
         if (errored) {
             return errored;
@@ -104,8 +117,7 @@ export class VMIsolator {
 
         this.contract = new ContractEvaluator(this);
 
-        const runTime = this.getRuntime();
-
+        const runTime: VMRuntime = this.getRuntime();
         await this.contract.init(runTime);
 
         return false;
@@ -118,6 +130,10 @@ export class VMIsolator {
         this.context.release();
 
         this.isolatedVM.dispose();
+    }
+
+    private convertSatToGas(sat: bigint): bigint {
+        return sat * VMIsolator.SAT_TO_GAS_RATIO;
     }
 
     private createVM(): Isolate {
@@ -149,12 +165,13 @@ export class VMIsolator {
             ALLOCATE_MEMORY: this.reference.getSync('allocateMemory', { reference: true }),
             IS_INITIALIZED: this.reference.getSync('isInitialized', { reference: true }),
             PURGE_MEMORY: this.reference.getSync('purgeMemory', { reference: true }),
+            SET_MAX_GAS: this.reference.getSync('setMaxGas', { reference: true }),
         };
     }
 
     private getCallOptions(): ReferenceApplyOptions {
         return {
-            timeout: 20,
+            timeout: VMIsolator.EXECUTION_TIMEOUT,
         };
     }
 
@@ -196,8 +213,6 @@ export class VMIsolator {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
-
-        console.log('readMethod', method, contract, Buffer.from(data).toString('hex'), caller);
 
         const externalCopy = new ivm.ExternalCopy(data);
         const externalContract = new ivm.ExternalCopy(contract);
@@ -387,6 +402,18 @@ export class VMIsolator {
         this.methods.PURGE_MEMORY.applySync(undefined, [], this.getCallOptions());
     }
 
+    private setMaxGas(maxGas: bigint): void {
+        if (!this.methods) {
+            throw new Error('Methods not defined');
+        }
+
+        this.methods.SET_MAX_GAS.applySync(
+            undefined,
+            [new ivm.ExternalCopy(this.convertSatToGas(maxGas)).copyInto({ release: true })],
+            this.getCallOptions(),
+        );
+    }
+
     private getRuntime(): VMRuntime {
         return {
             INIT: this.INIT.bind(this),
@@ -404,13 +431,26 @@ export class VMIsolator {
             allocateMemory: this.allocateMemory.bind(this),
             isInitialized: this.isInitialized.bind(this),
             purgeMemory: this.purgeMemory.bind(this),
+            setMaxGas: this.setMaxGas.bind(this),
         };
+    }
+
+    private async injectOPNetDeps(bytecode: Buffer): Promise<WebAssembly.Module> {
+        const meteredWasm: Buffer = meterWASM(bytecode, {
+            meterType: MeterType.I64,
+        });
+
+        if (!meteredWasm) {
+            throw new Error('Failed to inject gas tracker into contract bytecode.');
+        }
+
+        return await WebAssembly.compile(meteredWasm);
     }
 
     private async loadContractFromBytecode(): Promise<boolean> {
         let errored: boolean = false;
         try {
-            const wasmModule = await WebAssembly.compile(this.contractBytecode);
+            const wasmModule = await this.injectOPNetDeps(this.contractBytecode);
             const externalCopy = new ivm.ExternalCopy(wasmModule);
 
             this.jail.setSync('module', externalCopy.copyInto({ release: true }));
@@ -421,13 +461,12 @@ export class VMIsolator {
                 this.context,
                 (specifier: string, _referrer: ivm.Module) => {
                     throw new Error(`Module ${specifier} not found`);
-                    //return this.getModuleFromCache(this.isolatedVM, this.context, specifier);
                 },
             );
 
             await this.module
                 .evaluate({
-                    timeout: 500,
+                    timeout: VMIsolator.EXECUTION_TIMEOUT,
                 })
                 .catch(() => {
                     errored = true;
@@ -440,44 +479,4 @@ export class VMIsolator {
 
         return errored;
     }
-
-    /*private getModuleFromCache(
-        isolatedVM: Isolate,
-        context: ivm.Context,
-        specifier: string,
-        parentModulePath?: string,
-    ): Module {
-        let modulePath: string;
-
-        specifier = specifier.replace('node:', '');
-
-        if (parentModulePath && specifier.startsWith('.')) {
-            modulePath = path.join(path.dirname(parentModulePath), specifier);
-        } else {
-            modulePath = import.meta
-                .resolve(specifier)
-                .replace('file:///', '')
-                .replace('file://', '');
-        }
-
-        let code: string;
-        if (moduleCodeCache.has(modulePath)) {
-            code = moduleCodeCache.get(modulePath) as string;
-        } else {
-            code = fs.readFileSync(modulePath, 'utf-8');
-            moduleCodeCache.set(modulePath, code);
-        }
-
-        try {
-            const module = isolatedVM.compileModuleSync(code);
-            module.instantiateSync(context, (specifier: string, _referrer: ivm.Module) => {
-                return this.getModuleFromCache(isolatedVM, context, specifier, modulePath);
-            });
-
-            return module;
-        } catch (e) {
-            console.log(e);
-            throw e;
-        }
-    }*/
 }

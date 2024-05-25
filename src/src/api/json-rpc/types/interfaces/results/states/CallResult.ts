@@ -18,6 +18,7 @@ export interface CallResultData {
     readonly result: string;
     readonly events: NetEvent[];
     readonly accessList: AccessList;
+    readonly estimatedGas: string;
 }
 
 export type CallResult = JSONRpc2ResultData<JSONRpcMethods.CALL> &

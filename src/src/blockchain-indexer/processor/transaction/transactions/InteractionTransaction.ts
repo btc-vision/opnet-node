@@ -7,6 +7,7 @@ import {
     InteractionTransactionDocument,
     NetEventDocument,
 } from '../../../../db/interfaces/ITransactionDocument.js';
+import { EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
@@ -85,6 +86,15 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         return this._contractAddress as string;
     }
 
+    public get gasUsed(): bigint {
+        if (!this.receipt) {
+            return 0n;
+        }
+
+        const receiptData: EvaluatedResult | undefined = this.receipt;
+        return receiptData?.gasUsed || 0n;
+    }
+
     public static is(data: TransactionData): TransactionInformation | undefined {
         const vIndex = this._is(data, this.LEGACY_INTERACTION);
 
@@ -106,9 +116,10 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
      * Convert the transaction to a document.
      */
     public toDocument(): InteractionTransactionDocument {
-        const receiptData = this.receipt;
-        const events = receiptData?.events || [];
-        const receipt = receiptData?.result;
+        const receiptData: EvaluatedResult | undefined = this.receipt;
+        const events: NetEvent[] = receiptData?.events || [];
+        const receipt: Uint8Array | undefined = receiptData?.result;
+        const gasUsed: bigint = receiptData?.gasUsed || 0n;
 
         const receiptProofs: string[] = this.receiptProofs || [];
 
@@ -124,6 +135,8 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
             wasCompressed: this.wasCompressed,
             receiptProofs: receiptProofs,
+
+            gasUsed: DataConverter.toDecimal128(gasUsed),
 
             receipt: receipt ? new Binary(receipt) : undefined,
             events: this.convertEvents(events),
