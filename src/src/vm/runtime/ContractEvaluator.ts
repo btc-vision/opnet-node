@@ -20,6 +20,8 @@ import { VMRuntime } from '../wasmRuntime/runDebug.js';
 import { GasTracker } from './GasTracker.js';
 
 export class ContractEvaluator {
+    private static readonly SAT_TO_GAS_RATIO: bigint = 186271770n;
+
     private contractInstance: VMRuntime | null = null;
     private binaryWriter: BinaryWriter = new BinaryWriter();
 
@@ -37,16 +39,20 @@ export class ContractEvaluator {
     private contractAddress: Address | undefined;
 
     /** Gas tracking. */
-    private gasTracker: GasTracker = new GasTracker();
-    private initialGasTracker: GasTracker = new GasTracker();
+    private gasTracker: GasTracker = new GasTracker(VMIsolator.MAX_GAS);
+    private initialGasTracker: GasTracker = new GasTracker(VMIsolator.MAX_GAS);
 
     private readonly enableTracing: boolean = false;
 
     constructor(private readonly vmIsolator: VMIsolator) {
         this.vmIsolator.onGasUsed = (gas: bigint): void => {
-            this.gasTracker.gasUsed += gas;
-            this.initialGasTracker.gasUsed += gas;
+            this.gasTracker.gasUsed = gas;
+            this.initialGasTracker.gasUsed = gas;
         };
+    }
+
+    public get getGasUsed(): bigint {
+        return this.gasTracker.gasUsed;
     }
 
     public async init(runtime: VMRuntime): Promise<void> {
@@ -58,7 +64,10 @@ export class ContractEvaluator {
             throw new Error('Contract not initialized');
         }
 
-        this.contractInstance.setMaxGas(maxGas);
+        const rlGas: bigint = this.convertSatToGas(maxGas);
+
+        this.gasTracker.maxGas = rlGas;
+        this.contractInstance.setMaxGas(rlGas);
     }
 
     public async getStorage(
@@ -94,8 +103,6 @@ export class ContractEvaluator {
             throw new Error('Owner and contract address are required');
         }
 
-        this.initialGasTracker.reset();
-
         this.contractOwner = owner;
         this.contractAddress = contractAddress;
 
@@ -107,13 +114,11 @@ export class ContractEvaluator {
             throw new Error('Contract already initialized');
         }
 
-        await this.initialGasTracker.track(() => {
-            if (!this.contractInstance) {
-                throw new Error('Contract not initialized');
-            }
+        if (!this.contractInstance) {
+            throw new Error('Contract not initialized');
+        }
 
-            this.contractInstance.INIT(owner, contractAddress);
-        });
+        this.contractInstance.INIT(owner, contractAddress);
 
         this.contractRef = this.contractInstance.getContract();
 
@@ -121,9 +126,9 @@ export class ContractEvaluator {
         this.methodAbi = this.getMethodABI();
         this.writeMethods = this.getWriteMethodABI();
 
-        await this.initialGasTracker.track(() => {
-            this.originalStorageState = this.getDefaultInitialStorage();
-        });
+        this.originalStorageState = this.getDefaultInitialStorage();
+
+        this.initialGasTracker.disableTracking();
 
         this.initializeContract = true;
     }
@@ -134,12 +139,10 @@ export class ContractEvaluator {
 
     public clear(): void {
         this.currentStorageState.clear();
-        this.gasTracker.reset();
     }
 
     public dispose(): void {
         this.vmIsolator.dispose();
-        this.gasTracker.reset();
     }
 
     public getViewSelectors(): SelectorsMap {
@@ -229,14 +232,15 @@ export class ContractEvaluator {
             this.initializeContract = false;
             this.contractRef = 0;
 
-            this.gasTracker.reset();
-            this.initialGasTracker.reset();
-
             await this.vmIsolator.reset();
             await this.setupContract(this.contractOwner, this.contractAddress);
         } catch (e) {
             console.error(`UNABLE TO PURGE MEMORY: ${e}`);
         }
+    }
+
+    private convertSatToGas(sat: bigint): bigint {
+        return sat * ContractEvaluator.SAT_TO_GAS_RATIO;
     }
 
     private async restoreOriginalStorageState(): Promise<void> {
@@ -267,17 +271,19 @@ export class ContractEvaluator {
         }
 
         this.gasTracker.reset(); // We reset the gas tracker before executing anything.
+        this.gasTracker.gasUsed += this.initialGasTracker.gasUsed; // We add the initial gas used to the current gas used.
 
         const contract = this.methodAbi.get(contractAddress);
         const isInitialized = this.isInitialized();
-
         if (!isInitialized) {
             throw new Error('Contract not initialized');
         }
 
-        await this.gasTracker.track(() => {
-            this.writeCurrentStorageState();
-        });
+        if (!this.contractInstance) {
+            throw new Error('Contract not initialized');
+        }
+
+        this.writeCurrentStorageState();
 
         const hasSelectorInMethods = contract?.has(abi) ?? false;
 
@@ -285,33 +291,28 @@ export class ContractEvaluator {
         let error: Error | undefined;
 
         try {
-            result = await this.gasTracker.track(async () => {
-                if (!this.contractInstance) {
-                    throw new Error('Contract not initialized');
-                }
-
-                if (hasSelectorInMethods) {
-                    return await this.contractInstance.readMethod(
-                        abi,
-                        this.getContract(),
-                        calldata as Uint8Array,
-                        caller,
-                    );
-                }
-
-                return this.contractInstance.readView(abi);
-            });
+            if (hasSelectorInMethods) {
+                result = await this.contractInstance.readMethod(
+                    abi,
+                    this.getContract(),
+                    calldata as Uint8Array,
+                    caller,
+                );
+            } else {
+                result = this.contractInstance.readView(abi);
+            }
         } catch (e) {
             error = e as Error;
+        }
+
+        if (error && typeof error === 'object' && error.message.includes('out of gas')) {
+            throw error;
         }
 
         const initialStorage: BlockchainStorage = this.getDefaultInitialStorage();
         const sameStorage: boolean = this.isStorageRequiredTheSame(initialStorage);
 
-        if (
-            (!result && sameStorage) ||
-            (error && typeof error === 'object' && error.message.includes('out of gas'))
-        ) {
+        if (!result && sameStorage) {
             throw error;
         }
 
@@ -377,6 +378,8 @@ export class ContractEvaluator {
             });
         }
 
+        const gasUsed: bigint = this.gasTracker.gasUsed + this.initialGasTracker.gasUsed;
+
         this.clear();
 
         const events: NetEvent[] = this.getEvents();
@@ -384,7 +387,7 @@ export class ContractEvaluator {
             changedStorage: modifiedStorage,
             result: result,
             events: events,
-            gasUsed: this.gasTracker.gasUsed + this.initialGasTracker.gasUsed,
+            gasUsed: gasUsed,
         };
     }
 

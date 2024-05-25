@@ -32,9 +32,8 @@ const codePath = path.resolve(__dirname, '../vm/isolated/IsolatedManager.js');
 const code: string = fs.readFileSync(codePath, 'utf-8');
 
 export class VMIsolator {
-    private static readonly MAX_GAS: bigint = 900000000000n; // Default gas limit
-    private static readonly EXECUTION_TIMEOUT: number = 60 * 60000; // 1h
-    private static readonly SAT_TO_GAS_RATIO: bigint = 1500000n;
+    public static readonly MAX_GAS: bigint = 100000000000n; // Default gas limit
+    private static readonly EXECUTION_TIMEOUT: number = 60000; //60 * 60000; // 1h
 
     private contract: ContractEvaluator | null = null;
     private isolatedVM: Isolate = this.createVM();
@@ -130,10 +129,6 @@ export class VMIsolator {
         this.context.release();
 
         this.isolatedVM.dispose();
-    }
-
-    private convertSatToGas(sat: bigint): bigint {
-        return sat * VMIsolator.SAT_TO_GAS_RATIO;
     }
 
     private createVM(): Isolate {
@@ -409,7 +404,7 @@ export class VMIsolator {
 
         this.methods.SET_MAX_GAS.applySync(
             undefined,
-            [new ivm.ExternalCopy(this.convertSatToGas(maxGas)).copyInto({ release: true })],
+            [new ivm.ExternalCopy(maxGas).copyInto({ release: true })],
             this.getCallOptions(),
         );
     }
@@ -438,6 +433,98 @@ export class VMIsolator {
     private async injectOPNetDeps(bytecode: Buffer): Promise<WebAssembly.Module> {
         const meteredWasm: Buffer = meterWASM(bytecode, {
             meterType: MeterType.I64,
+            costTable: {
+                start: 0,
+                type: {
+                    params: {
+                        DEFAULT: 0,
+                    },
+                    return_type: {
+                        DEFAULT: 0,
+                    },
+                },
+                import: 0,
+                code: {
+                    locals: {
+                        DEFAULT: 1,
+                    },
+                    code: {
+                        get_local: 300,
+                        set_local: 300,
+                        tee_local: 300,
+                        get_global: 300,
+                        set_global: 300,
+
+                        load8_s: 300,
+                        load8_u: 300,
+                        load16_s: 300,
+                        load16_u: 300,
+                        load32_s: 300,
+                        load32_u: 300,
+                        load: 300,
+
+                        store8: 300,
+                        store16: 300,
+                        store32: 300,
+                        store: 300,
+
+                        grow_memory: 20000,
+                        current_memory: 200,
+
+                        nop: 1,
+                        block: 1,
+                        loop: 50000,
+                        if: 1,
+                        then: 200,
+                        else: 200,
+                        br: 300,
+                        br_if: 450,
+                        br_table: 350,
+                        return: 200,
+
+                        call: 200,
+                        call_indirect: 20000,
+
+                        const: 1,
+
+                        add: 100,
+                        sub: 100,
+                        mul: 300,
+                        div_s: 8000,
+                        div_u: 8000,
+                        rem_s: 8000,
+                        rem_u: 8000,
+                        and: 100,
+                        or: 100,
+                        xor: 100,
+                        shl: 150,
+                        shr_u: 150,
+                        shr_s: 150,
+                        rotl: 200,
+                        rotr: 200,
+                        eq: 100,
+                        eqz: 100,
+                        ne: 100,
+                        lt_s: 100,
+                        lt_u: 100,
+                        le_s: 100,
+                        le_u: 100,
+                        gt_s: 100,
+                        gt_u: 100,
+                        ge_s: 100,
+                        ge_u: 100,
+                        clz: 300,
+                        ctz: 10500,
+                        popcnt: 300,
+
+                        drop: 300,
+                        select: 300,
+
+                        unreachable: 100000000000000,
+                    },
+                },
+                data: 0,
+            },
         });
 
         if (!meteredWasm) {
@@ -474,7 +561,7 @@ export class VMIsolator {
 
             this.reference = this.module.namespace;
         } catch (e) {
-            console.log(e);
+            console.log(`Unable to load contract from bytecode: ${e}`);
         }
 
         return errored;

@@ -25,6 +25,10 @@ class GasTracker {
             throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.#maxGas}`);
         }
 
+        if (this.#gasUsed + gas > MAX_GAS) {
+            throw new Error(`out of gas ${this.#gasUsed + gas} > ${MAX_GAS} (max)`);
+        }
+
         this.#gasUsed += gas;
     }
 

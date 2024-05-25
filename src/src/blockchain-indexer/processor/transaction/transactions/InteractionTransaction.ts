@@ -119,7 +119,6 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         const receiptData: EvaluatedResult | undefined = this.receipt;
         const events: NetEvent[] = receiptData?.events || [];
         const receipt: Uint8Array | undefined = receiptData?.result;
-        const gasUsed: bigint = receiptData?.gasUsed || 0n;
 
         const receiptProofs: string[] = this.receiptProofs || [];
 
@@ -136,7 +135,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             wasCompressed: this.wasCompressed,
             receiptProofs: receiptProofs,
 
-            gasUsed: DataConverter.toDecimal128(gasUsed),
+            gasUsed: DataConverter.toDecimal128(this.gasUsed),
 
             receipt: receipt ? new Binary(receipt) : undefined,
             events: this.convertEvents(events),

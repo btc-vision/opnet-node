@@ -1,9 +1,12 @@
 export class GasTracker {
     #gasUsed: bigint = 0n;
+    #maxGas: bigint;
 
-    private canTrack: boolean = false;
+    private canTrack: boolean = true;
 
-    constructor() {}
+    constructor(private readonly MAX_GAS: bigint) {
+        this.#maxGas = MAX_GAS;
+    }
 
     public get gasUsed(): bigint {
         return this.#gasUsed;
@@ -14,20 +17,30 @@ export class GasTracker {
             return;
         }
 
-        this.#gasUsed = gas;
+        if (gas < 0n) {
+            throw new Error('Gas used cannot be negative.');
+        }
+
+        if (this.#gasUsed + gas > this.#maxGas) {
+            console.log(`out of gas ${this.#gasUsed + gas} > ${this.#maxGas}`);
+            throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.#maxGas}`);
+        }
+
+        if (this.#gasUsed + gas > this.MAX_GAS) {
+            console.log(`out of gas ${this.#gasUsed + gas} > ${this.MAX_GAS} (max)`);
+            throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.MAX_GAS} (max)`);
+        }
+
+        this.#gasUsed += gas;
     }
 
-    public async track<T = void>(fn: () => Promise<T> | T): Promise<T> {
-        this.enableTracking();
-
-        let resp: Awaited<T> = await fn();
-        this.disableTracking();
-
-        return resp;
+    public set maxGas(maxGas: bigint) {
+        this.#maxGas = maxGas;
     }
 
     public reset(): void {
         this.#gasUsed = 0n;
+        this.#maxGas = this.MAX_GAS;
     }
 
     public enableTracking(): void {

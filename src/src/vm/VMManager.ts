@@ -168,6 +168,8 @@ export class VMManager extends Logger {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
         }
 
+        vmEvaluator.setMaxGas(VMIsolator.MAX_GAS);
+
         const isInitialized: boolean = vmEvaluator.isInitialized();
         if (!isInitialized) {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
@@ -207,6 +209,8 @@ export class VMManager extends Logger {
             vmEvaluator.dispose();
             return response;
         } catch (e) {
+            console.log(e);
+
             await this.resetContractVM(vmEvaluator);
 
             this.error(
@@ -220,7 +224,7 @@ export class VMManager extends Logger {
                 throw new Error(`execution reverted (${errorMsg})`);
             }
 
-            throw new Error('execution reverted');
+            throw new Error(`execution reverted (gas used: ${vmEvaluator.getGasUsed}`);
         }
     }
 
@@ -253,6 +257,8 @@ export class VMManager extends Logger {
             );
         }
 
+        vmEvaluator.setMaxGas(burnedBitcoins);
+
         const isInitialized: boolean = vmEvaluator.isInitialized();
         if (!isInitialized) {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
@@ -281,22 +287,23 @@ export class VMManager extends Logger {
             );
         }
 
-        vmEvaluator.setMaxGas(burnedBitcoins);
-
         let error: string = 'execution reverted';
         // Execute the function
         const result: EvaluatedResult | null = await vmEvaluator
             .execute(contractAddress, isView, selector, finalBuffer, interactionTransaction.from)
             .catch((e) => {
-                const errorMsg = e instanceof Error ? e.message : (e as string);
+                const errorMsg: string = e instanceof Error ? e.message : (e as string);
 
                 if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
                     error = `execution reverted (${errorMsg})`;
+                } else {
+                    error = `execution reverted (gas used: ${vmEvaluator.getGasUsed})`;
                 }
 
                 return null;
             });
 
+        /** Reset contract to prevent damage on states. TODO: Add concurrence to initialisation. */
         if (!result) {
             await this.resetContractVM(vmEvaluator);
 
@@ -310,9 +317,13 @@ export class VMManager extends Logger {
             interactionTransaction.transactionId,
         );
 
+        if (result?.gasUsed === 0n) {
+            console.log('GAS USED IS 0', result);
+        }
+
         if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debug(
-                `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute)`,
+                `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute, ${result.gasUsed} gas used)`,
             );
         }
 
