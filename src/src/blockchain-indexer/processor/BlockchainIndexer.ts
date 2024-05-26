@@ -41,7 +41,7 @@ export class BlockchainIndexer extends Logger {
     private readonly vmManager: VMManager;
     private readonly vmStorage: VMStorage;
 
-    private readonly processOnlyOneBlock: boolean = false;
+    private readonly processOnlyOneBlock: boolean = true;
 
     private readonly maximumPrefetchBlocks: number;
     private readonly prefetchedBlocks: Map<number, Promise<BlockDataWithTransactionData | null>> =
@@ -238,7 +238,7 @@ export class BlockchainIndexer extends Logger {
     }
 
     private async getLastBlockHash(height: bigint): Promise<LastBlock | undefined> {
-        if (height === -1n) {
+        if (height === -1n || this.processOnlyOneBlock) {
             return;
         } else if (this.lastBlock.hash && this.lastBlock.checksum) {
             return {

@@ -28,7 +28,7 @@ interface IsolatedMethods {
     SET_MAX_GAS: IsolatedVM.Reference<VMRuntime['setMaxGas']>;
 }
 
-const codePath = path.resolve(__dirname, '../vm/isolated/IsolatedManager.js');
+const codePath: string = path.resolve(__dirname, '../vm/isolated/IsolatedManager.js');
 const code: string = fs.readFileSync(codePath, 'utf-8');
 
 export class VMIsolator {
@@ -46,10 +46,19 @@ export class VMIsolator {
 
     private methods: IsolatedMethods | null = null;
 
+    private readonly opnetContractBytecode: Buffer | null = null;
+
     constructor(
         public readonly contractAddress: string,
-        private readonly contractBytecode: Buffer,
-    ) {}
+        contractBytecode: Buffer,
+    ) {
+        // Prevent having to recompute this every time we need to reset the VM
+        this.opnetContractBytecode = this.injectOPNetDeps(contractBytecode);
+    }
+
+    public get CPUTime(): bigint {
+        return this.isolatedVM.cpuTime;
+    }
 
     public onGasUsed: (gas: bigint) => void = () => {};
 
@@ -114,7 +123,9 @@ export class VMIsolator {
 
         this.defineMethods();
 
-        this.contract = new ContractEvaluator(this);
+        if (!this.contract) {
+            this.contract = new ContractEvaluator(this);
+        }
 
         const runTime: VMRuntime = this.getRuntime();
         await this.contract.init(runTime);
@@ -209,6 +220,8 @@ export class VMIsolator {
             throw new Error('Methods not defined');
         }
 
+        //this.isolatedVM.startCpuProfiler('test');
+
         const externalCopy = new ivm.ExternalCopy(data);
         const externalContract = new ivm.ExternalCopy(contract);
 
@@ -225,6 +238,9 @@ export class VMIsolator {
 
         const resp = result.copySync();
         result.release();
+
+        //const profiles = await this.isolatedVM.stopCpuProfiler('test');
+        //console.log('profiles', profiles);
 
         return resp;
     }
@@ -289,6 +305,7 @@ export class VMIsolator {
             [],
             this.getCallOptions(),
         ) as Reference<Uint8Array>;
+
         const resp = result.copySync();
         result.release();
 
@@ -430,7 +447,7 @@ export class VMIsolator {
         };
     }
 
-    private async injectOPNetDeps(bytecode: Buffer): Promise<WebAssembly.Module> {
+    private injectOPNetDeps(bytecode: Buffer): Buffer {
         const meteredWasm: Buffer = meterWASM(bytecode, {
             meterType: MeterType.I64,
             costTable: {
@@ -449,59 +466,59 @@ export class VMIsolator {
                         DEFAULT: 1,
                     },
                     code: {
-                        get_local: 300,
-                        set_local: 300,
-                        tee_local: 300,
-                        get_global: 300,
-                        set_global: 300,
+                        get_local: 75,
+                        set_local: 210,
+                        tee_local: 75,
+                        get_global: 225,
+                        set_global: 575,
 
-                        load8_s: 300,
-                        load8_u: 300,
-                        load16_s: 300,
-                        load16_u: 300,
-                        load32_s: 300,
-                        load32_u: 300,
-                        load: 300,
+                        load8_s: 680,
+                        load8_u: 680,
+                        load16_s: 680,
+                        load16_u: 680,
+                        load32_s: 680,
+                        load32_u: 680,
+                        load: 680,
 
-                        store8: 300,
-                        store16: 300,
-                        store32: 300,
-                        store: 300,
+                        store8: 950,
+                        store16: 950,
+                        store32: 950,
+                        store: 950,
 
-                        grow_memory: 20000,
-                        current_memory: 200,
+                        grow_memory: 8050,
+                        current_memory: 3000,
 
                         nop: 1,
                         block: 1,
                         loop: 1,
-                        if: 1,
-                        then: 200,
-                        else: 200,
-                        br: 200,
-                        br_if: 300,
-                        br_table: 200,
-                        return: 200,
+                        if: 765,
+                        then: 1,
+                        else: 1,
+                        br: 765,
+                        br_if: 765,
+                        br_table: 2400,
+                        return: 1,
 
-                        call: 200,
-                        call_indirect: 20000,
+                        call: 3800,
+                        call_indirect: 13610,
 
                         const: 1,
 
                         add: 100,
                         sub: 100,
-                        mul: 300,
-                        div_s: 8000,
-                        div_u: 8000,
-                        rem_s: 8000,
-                        rem_u: 8000,
+                        mul: 160,
+                        div_s: 1270,
+                        div_u: 1270,
+                        rem_s: 1270,
+                        rem_u: 1270,
                         and: 100,
                         or: 100,
                         xor: 100,
-                        shl: 150,
-                        shr_u: 150,
-                        shr_s: 150,
-                        rotl: 200,
-                        rotr: 200,
+                        shl: 100,
+                        shr_u: 100,
+                        shr_s: 100,
+                        rotl: 100,
+                        rotr: 100,
                         eq: 100,
                         eqz: 100,
                         ne: 100,
@@ -513,14 +530,14 @@ export class VMIsolator {
                         gt_u: 100,
                         ge_s: 100,
                         ge_u: 100,
-                        clz: 300,
-                        ctz: 10500,
-                        popcnt: 300,
+                        clz: 210,
+                        ctz: 6000,
+                        popcnt: 6000,
 
-                        drop: 300,
-                        select: 300,
+                        drop: 9,
+                        select: 1250,
 
-                        unreachable: 100000000000000,
+                        unreachable: 1,
                     },
                 },
                 data: 0,
@@ -531,13 +548,17 @@ export class VMIsolator {
             throw new Error('Failed to inject gas tracker into contract bytecode.');
         }
 
-        return await WebAssembly.compile(meteredWasm);
+        return meteredWasm;
     }
 
     private async loadContractFromBytecode(): Promise<boolean> {
+        if (!this.opnetContractBytecode) {
+            throw new Error('Contract bytecode not loaded');
+        }
+
         let errored: boolean = false;
         try {
-            const wasmModule = await this.injectOPNetDeps(this.contractBytecode);
+            const wasmModule = await WebAssembly.compile(this.opnetContractBytecode);
             const externalCopy = new ivm.ExternalCopy(wasmModule);
 
             this.jail.setSync('module', externalCopy.copyInto({ release: true }));

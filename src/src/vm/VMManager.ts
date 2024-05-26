@@ -170,11 +170,6 @@ export class VMManager extends Logger {
 
         vmEvaluator.setMaxGas(VMIsolator.MAX_GAS);
 
-        const isInitialized: boolean = vmEvaluator.isInitialized();
-        if (!isInitialized) {
-            throw new Error(`Unable to initialize contract ${contractAddress}`);
-        }
-
         // Get the function selector
         const calldata: Buffer = Buffer.from(calldataString, 'hex');
         if (calldata.byteLength < 4) {
@@ -258,11 +253,6 @@ export class VMManager extends Logger {
         }
 
         vmEvaluator.setMaxGas(burnedBitcoins);
-
-        const isInitialized: boolean = vmEvaluator.isInitialized();
-        if (!isInitialized) {
-            throw new Error(`Unable to initialize contract ${contractAddress}`);
-        }
 
         // Trace the execution time
         const startBeforeExecution = Date.now();

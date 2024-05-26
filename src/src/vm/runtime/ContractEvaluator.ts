@@ -20,7 +20,7 @@ import { VMRuntime } from '../wasmRuntime/runDebug.js';
 import { GasTracker } from './GasTracker.js';
 
 export class ContractEvaluator {
-    private static readonly SAT_TO_GAS_RATIO: bigint = 30750n; //204030n; //611805;
+    private static readonly SAT_TO_GAS_RATIO: bigint = 100030750n; //30750n; //611805;
 
     private contractInstance: VMRuntime | null = null;
     private binaryWriter: BinaryWriter = new BinaryWriter();
@@ -39,17 +39,12 @@ export class ContractEvaluator {
     private contractAddress: Address | undefined;
 
     /** Gas tracking. */
-    private gasTracker: GasTracker = new GasTracker(VMIsolator.MAX_GAS);
+    private gasTracker: GasTracker = new GasTracker(VMIsolator.MAX_GAS); // TODO: Remove this from the class, must be passed as a parameter instead.
     private initialGasTracker: GasTracker = new GasTracker(VMIsolator.MAX_GAS);
 
     private readonly enableTracing: boolean = false;
 
-    constructor(private readonly vmIsolator: VMIsolator) {
-        this.vmIsolator.onGasUsed = (gas: bigint): void => {
-            this.gasTracker.gasUsed = gas;
-            this.initialGasTracker.gasUsed = gas;
-        };
-    }
+    constructor(private readonly vmIsolator: VMIsolator) {}
 
     public get getGasUsed(): bigint {
         return this.gasTracker.gasUsed;
@@ -57,6 +52,26 @@ export class ContractEvaluator {
 
     public async init(runtime: VMRuntime): Promise<void> {
         this.contractInstance = runtime;
+
+        this.gasTracker.disableTracking(this.vmIsolator.CPUTime);
+        this.vmIsolator.onGasUsed = (gas: bigint): void => {
+            this.gasTracker.addGasUsed(gas);
+            this.initialGasTracker.addGasUsed(gas);
+
+            if (!this.initialGasTracker.isEnabled() && !this.gasTracker.isEnabled()) {
+                throw new Error('Gas used is not being tracked.');
+            }
+
+            if (this.initialGasTracker.isEnabled()) {
+                console.log(
+                    `INIT CONTRACT GAS USED: ${gas} - TOTAL GAS: ${this.initialGasTracker.gasUsed}`,
+                );
+            }
+
+            if (this.gasTracker.isEnabled()) {
+                console.log(`EXECUTION GAS USED: ${gas} - TOTAL GAS: ${this.gasTracker.gasUsed}`);
+            }
+        };
     }
 
     public setMaxGas(maxGas: bigint): void {
@@ -65,6 +80,9 @@ export class ContractEvaluator {
         }
 
         const rlGas: bigint = this.convertSatToGas(maxGas);
+
+        this.gasTracker.reset();
+        this.gasTracker.enableTracking(this.vmIsolator.CPUTime);
 
         this.gasTracker.maxGas = rlGas;
         this.contractInstance.setMaxGas(rlGas);
@@ -103,6 +121,12 @@ export class ContractEvaluator {
             throw new Error('Owner and contract address are required');
         }
 
+        this.originalStorageState.clear();
+        this.currentStorageState.clear();
+
+        this.initialGasTracker.reset();
+        this.initialGasTracker.enableTracking(this.vmIsolator.CPUTime);
+
         this.contractOwner = owner;
         this.contractAddress = contractAddress;
 
@@ -128,7 +152,8 @@ export class ContractEvaluator {
 
         this.originalStorageState = this.getDefaultInitialStorage();
 
-        this.initialGasTracker.disableTracking();
+        this.initialGasTracker.disableTracking(this.vmIsolator.CPUTime);
+        console.log('final.');
 
         this.initializeContract = true;
     }
@@ -217,6 +242,13 @@ export class ContractEvaluator {
                 canWrite,
             );
 
+            this.gasTracker.disableTracking(this.vmIsolator.CPUTime);
+            if (resp) {
+                console.log(
+                    `INITIAL GAS USED: ${this.initialGasTracker.gasUsed} - EXECUTION GAS USED: ${this.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${resp.gasUsed} - TOOK ${this.gasTracker.timeSpent}ns`,
+                );
+            }
+
             this.isProcessing = false;
 
             return resp;
@@ -235,7 +267,7 @@ export class ContractEvaluator {
             await this.vmIsolator.reset();
             await this.setupContract(this.contractOwner, this.contractAddress);
         } catch (e) {
-            console.error(`UNABLE TO PURGE MEMORY: ${e}`);
+            console.error(`UNABLE TO PURGE MEMORY: ${(e as Error).stack}`);
         }
     }
 
@@ -269,9 +301,6 @@ export class ContractEvaluator {
         if (!this.initializeContract) {
             throw new Error('Contract not initialized');
         }
-
-        this.gasTracker.reset(); // We reset the gas tracker before executing anything.
-        this.gasTracker.gasUsed += this.initialGasTracker.gasUsed; // We add the initial gas used to the current gas used.
 
         const contract = this.methodAbi.get(contractAddress);
         const isInitialized = this.isInitialized();
@@ -378,11 +407,11 @@ export class ContractEvaluator {
             });
         }
 
+        const events: NetEvent[] = this.getEvents();
         const gasUsed: bigint = this.gasTracker.gasUsed + this.initialGasTracker.gasUsed;
 
         this.clear();
 
-        const events: NetEvent[] = this.getEvents();
         return {
             changedStorage: modifiedStorage,
             result: result,

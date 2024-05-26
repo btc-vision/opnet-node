@@ -2,6 +2,9 @@ export class GasTracker {
     #gasUsed: bigint = 0n;
     #maxGas: bigint;
 
+    #startedAt: bigint = 0n;
+    #timeSpent: bigint = 0n;
+
     private canTrack: boolean = true;
 
     constructor(private readonly MAX_GAS: bigint) {
@@ -12,7 +15,19 @@ export class GasTracker {
         return this.#gasUsed;
     }
 
-    public set gasUsed(gas: bigint) {
+    public set maxGas(maxGas: bigint) {
+        this.#maxGas = maxGas;
+    }
+
+    public get timeSpent(): bigint {
+        return this.#timeSpent;
+    }
+
+    public isEnabled(): boolean {
+        return this.canTrack;
+    }
+
+    public addGasUsed(gas: bigint) {
         if (!this.canTrack) {
             return;
         }
@@ -32,20 +47,22 @@ export class GasTracker {
         this.#gasUsed += gas;
     }
 
-    public set maxGas(maxGas: bigint) {
-        this.#maxGas = maxGas;
-    }
-
     public reset(): void {
         this.#gasUsed = 0n;
         this.#maxGas = this.MAX_GAS;
+        this.#timeSpent = 0n;
+        this.#startedAt = 0n;
     }
 
-    public enableTracking(): void {
+    public enableTracking(cpuTimeStart: bigint): void {
         this.canTrack = true;
+        this.#startedAt = cpuTimeStart;
     }
 
-    public disableTracking(): void {
+    public disableTracking(cpuStopTime: bigint): void {
         this.canTrack = false;
+
+        this.#timeSpent += cpuStopTime - this.#startedAt;
+        this.#startedAt = 0n;
     }
 }
