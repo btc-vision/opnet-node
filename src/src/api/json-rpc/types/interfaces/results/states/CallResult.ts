@@ -1,6 +1,6 @@
-import { NetEvent } from '@btc-vision/bsi-binary';
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
+import { EventReceiptDataForAPI } from '../../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 
 export interface CallRequestError {
     readonly error: string;
@@ -15,7 +15,7 @@ export interface AccessList {
 }
 
 export interface ContractEvents {
-    [key: string]: NetEvent[];
+    [key: string]: EventReceiptDataForAPI[];
 }
 
 export interface CallResultData {

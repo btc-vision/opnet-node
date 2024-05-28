@@ -1,4 +1,4 @@
-import { Address, BlockchainStorage, BufferHelper, NetEvent } from '@btc-vision/bsi-binary';
+import { Address, BlockchainStorage, BufferHelper } from '@btc-vision/bsi-binary';
 import bitcoin from 'bitcoinjs-lib';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
@@ -25,6 +25,7 @@ import {
 } from '../../../../json-rpc/types/interfaces/results/states/CallResult.js';
 import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
+import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private readonly network: bitcoin.networks.Network = bitcoin.networks.testnet;
@@ -148,10 +149,17 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
         if (events) {
             for (const [contract, contractEventsList] of events) {
-                const contractEventsListResult: NetEvent[] = [];
+                const contractEventsListResult: EventReceiptDataForAPI[] = [];
 
                 for (const event of contractEventsList) {
-                    contractEventsListResult.push(event);
+                    const eventResult: EventReceiptDataForAPI = {
+                        contractAddress: contract,
+                        eventType: event.eventType,
+                        eventDataSelector: event.eventDataSelector.toString(),
+                        eventData: Buffer.from(event.eventData).toString('base64'),
+                    };
+
+                    contractEventsListResult.push(eventResult);
                 }
 
                 contractEvents[contract] = contractEventsListResult;

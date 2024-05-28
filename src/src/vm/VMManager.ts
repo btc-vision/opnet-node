@@ -219,7 +219,7 @@ export class VMManager extends Logger {
                 throw new Error(`execution reverted (${errorMsg})`);
             }
 
-            throw new Error(`execution reverted (gas used: ${vmEvaluator.getGasUsed}`);
+            throw new Error(`execution reverted (gas used: ${vmEvaluator.getGasUsed})`);
         }
     }
 
@@ -300,12 +300,15 @@ export class VMManager extends Logger {
             throw new Error(error);
         }
 
-        this.updateBlockValuesFromResult(
-            result,
-            contractAddress,
-            this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
-            interactionTransaction.transactionId,
-        );
+        // Executors can not save block state changes.
+        if (!this.isExecutor) {
+            this.updateBlockValuesFromResult(
+                result,
+                contractAddress,
+                this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+                interactionTransaction.transactionId,
+            );
+        }
 
         if (result?.gasUsed === 0n) {
             console.log('GAS USED IS 0', result);
@@ -730,6 +733,10 @@ export class VMManager extends Logger {
 
     /** We must save the final state changes to the storage */
     private async saveBlockStateChanges(): Promise<void> {
+        if (this.isExecutor) {
+            throw new Error('Executor can not save block state changes.');
+        }
+
         if (!this.blockState) {
             throw new Error('Block state not found');
         }
@@ -783,6 +790,10 @@ export class VMManager extends Logger {
         pointer: StoragePointer,
         value: MemoryValue,
     ): Promise<void> {
+        if (this.isExecutor) {
+            return;
+        }
+
         /** We must internally change the corresponding storage */
         if (!this.blockState) {
             throw new Error('Block state not found');
