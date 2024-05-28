@@ -20,7 +20,7 @@ import { VMRuntime } from '../wasmRuntime/runDebug.js';
 import { GasTracker } from './GasTracker.js';
 
 export class ContractEvaluator {
-    private static readonly SAT_TO_GAS_RATIO: bigint = 1030750n; //30750n; //611805;
+    private static readonly SAT_TO_GAS_RATIO: bigint = 18416666n; //100000000n; //30750n; //611805;
 
     private contractInstance: VMRuntime | null = null;
     private binaryWriter: BinaryWriter = new BinaryWriter();
@@ -74,7 +74,7 @@ export class ContractEvaluator {
         };
     }
 
-    public setMaxGas(maxGas: bigint): void {
+    public async setMaxGas(maxGas: bigint): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
@@ -84,8 +84,8 @@ export class ContractEvaluator {
         this.gasTracker.reset();
         this.gasTracker.enableTracking(this.vmIsolator.CPUTime);
 
-        this.gasTracker.maxGas = rlGas;
-        this.contractInstance.setMaxGas(rlGas);
+        this.gasTracker.maxGas = rlGas < VMIsolator.MAX_GAS ? rlGas : VMIsolator.MAX_GAS;
+        await this.contractInstance.setMaxGas(rlGas);
     }
 
     public async getStorage(
@@ -142,15 +142,15 @@ export class ContractEvaluator {
             throw new Error('Contract not initialized');
         }
 
-        this.contractInstance.INIT(owner, contractAddress);
+        await this.contractInstance.INIT(owner, contractAddress);
 
-        this.contractRef = this.contractInstance.getContract();
+        this.contractRef = await this.contractInstance.getContract();
 
-        this.viewAbi = this.getViewABI();
-        this.methodAbi = this.getMethodABI();
-        this.writeMethods = this.getWriteMethodABI();
+        this.viewAbi = await this.getViewABI();
+        this.methodAbi = await this.getMethodABI();
+        this.writeMethods = await this.getWriteMethodABI();
 
-        this.originalStorageState = this.getDefaultInitialStorage();
+        this.originalStorageState = await this.getDefaultInitialStorage();
 
         this.initialGasTracker.disableTracking(this.vmIsolator.CPUTime);
         this.initializeContract = true;
@@ -180,12 +180,12 @@ export class ContractEvaluator {
         return this.writeMethods;
     }
 
-    public isInitialized(): boolean {
+    public async isInitialized(): Promise<boolean> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        return this.contractInstance.isInitialized();
+        return await this.contractInstance.isInitialized();
     }
 
     public isViewMethod(abi: Selector): boolean {
@@ -302,7 +302,7 @@ export class ContractEvaluator {
 
         const events: EvaluatedEvents = new Map();
         const contract = this.methodAbi.get(contractAddress);
-        const isInitialized = this.isInitialized();
+        const isInitialized = await this.isInitialized();
         if (!isInitialized) {
             throw new Error('Contract not initialized');
         }
@@ -311,7 +311,7 @@ export class ContractEvaluator {
             throw new Error('Contract not initialized');
         }
 
-        this.writeCurrentStorageState();
+        await this.writeCurrentStorageState();
 
         const hasSelectorInMethods = contract?.has(abi) ?? false;
 
@@ -327,7 +327,7 @@ export class ContractEvaluator {
                     caller,
                 );
             } else {
-                result = this.contractInstance.readView(abi);
+                result = await this.contractInstance.readView(abi);
             }
         } catch (e) {
             error = e as Error;
@@ -337,7 +337,7 @@ export class ContractEvaluator {
             throw error;
         }
 
-        const initialStorage: BlockchainStorage = this.getDefaultInitialStorage();
+        const initialStorage: BlockchainStorage = await this.getDefaultInitialStorage();
         const sameStorage: boolean = this.isStorageRequiredTheSame(initialStorage);
 
         if (!result && sameStorage) {
@@ -378,7 +378,7 @@ export class ContractEvaluator {
         events: EvaluatedEvents,
         tries: number,
     ): Promise<EvaluatedResult> {
-        const modifiedStorage: BlockchainStorage = this.getCurrentModifiedStorageState();
+        const modifiedStorage: BlockchainStorage = await this.getCurrentModifiedStorageState();
         if (!sameStorage) {
             if (this.enableTracing) {
                 console.log(
@@ -409,35 +409,44 @@ export class ContractEvaluator {
             });
         }
 
-        const selfEvents: NetEvent[] = this.getEvents();
+        const selfEvents: NetEvent[] = await this.getEvents();
         events.set(contractAddress, selfEvents);
 
         const gasUsed: bigint = this.gasTracker.gasUsed + this.initialGasTracker.gasUsed;
+
+        // round up to 10000000 bigint
+        const gasUsedRounded: bigint =
+            ((gasUsed + (ContractEvaluator.SAT_TO_GAS_RATIO - 1n)) /
+                ContractEvaluator.SAT_TO_GAS_RATIO) *
+            ContractEvaluator.SAT_TO_GAS_RATIO;
+
         this.clear();
 
         return {
             changedStorage: modifiedStorage,
             result: result,
             events: events,
-            gasUsed: gasUsed,
+            gasUsed: gasUsedRounded,
         };
     }
 
-    private getEvents(): NetEvent[] {
+    private async getEvents(): Promise<NetEvent[]> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const abi = this.contractInstance.getEvents();
+        const abi = await this.contractInstance.getEvents();
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readEvents();
     }
 
-    private writeCurrentStorageState(): void {
+    private async writeCurrentStorageState(): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
+
+        await this.contractInstance.purgeMemory();
 
         this.binaryWriter.writeStorage(this.currentStorageState);
 
@@ -446,7 +455,7 @@ export class ContractEvaluator {
         }
 
         const buf: Uint8Array = this.binaryWriter.getBuffer();
-        this.contractInstance.loadStorage(buf);
+        await this.contractInstance.loadStorage(buf);
     }
 
     private hasSameKeysMap(map1: Map<unknown, unknown>, map2: Map<unknown, unknown>): boolean {
@@ -568,23 +577,23 @@ export class ContractEvaluator {
         await this.setStorage(address, rawData, valueBuffer);
     }
 
-    private getCurrentModifiedStorageState(): BlockchainStorage {
+    private async getCurrentModifiedStorageState(): Promise<BlockchainStorage> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const storage: Uint8Array = this.contractInstance.getModifiedStorage();
+        const storage: Uint8Array = await this.contractInstance.getModifiedStorage();
         const binaryReader = new BinaryReader(storage);
 
         return binaryReader.readStorage();
     }
 
-    private getDefaultInitialStorage(): BlockchainStorage {
+    private async getDefaultInitialStorage(): Promise<BlockchainStorage> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const storage: Uint8Array = this.contractInstance.initializeStorage();
+        const storage: Uint8Array = await this.contractInstance.initializeStorage();
         const binaryReader = new BinaryReader(storage);
 
         const resp = binaryReader.readStorage();
@@ -632,34 +641,34 @@ export class ContractEvaluator {
         return writeMethodContract.has(abi);
     }
 
-    private getViewABI(): SelectorsMap {
+    private async getViewABI(): Promise<SelectorsMap> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const abi = this.contractInstance.getViewABI();
+        const abi = await this.contractInstance.getViewABI();
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readViewSelectorsMap();
     }
 
-    private getMethodABI(): MethodMap {
+    private async getMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const abi = this.contractInstance.getMethodABI();
+        const abi = await this.contractInstance.getMethodABI();
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readMethodSelectorsMap();
     }
 
-    private getWriteMethodABI(): MethodMap {
+    private async getWriteMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const abi = this.contractInstance.getWriteMethods();
+        const abi = await this.contractInstance.getWriteMethods();
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readMethodSelectorsMap();

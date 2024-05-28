@@ -32,7 +32,7 @@ const codePath: string = path.resolve(__dirname, '../vm/isolated/IsolatedManager
 const code: string = fs.readFileSync(codePath, 'utf-8');
 
 export class VMIsolator {
-    public static readonly MAX_GAS: bigint = 100000000000n; // Max gas allowed for a contract execution
+    public static readonly MAX_GAS: bigint = 480076812288n; // Max gas allowed for a contract execution
     private static readonly EXECUTION_TIMEOUT: number = 2 * 60 * 60000; // 2h
 
     private contract: ContractEvaluator | null = null;
@@ -181,30 +181,34 @@ export class VMIsolator {
         };
     }
 
-    private INIT(owner: string, contractAddress: string): void {
+    private async INIT(owner: string, contractAddress: string): Promise<void> {
         if (!this.methods) {
             throw new Error('Methods not defined [INIT]');
         }
 
-        this.methods.INIT_METHOD.applySync(
+        //console.log('INIT');
+
+        await this.methods.INIT_METHOD.apply(
             undefined,
             [owner, contractAddress],
             this.getCallOptions(),
         );
     }
 
-    private getContractWasm(): Number {
+    private async getContractWasm(): Promise<Number> {
         if (!this.methods) {
             throw new Error('Methods not defined [GET_CONTRACT]');
         }
 
-        const result = this.methods.GET_CONTRACT_METHOD.applySync(
+        //console.log('getContractWasm');
+
+        const result = (await this.methods.GET_CONTRACT_METHOD.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Number>;
+        )) as Reference<Number>;
 
-        const resp = result.copySync();
+        const resp = await result.copy();
         result.release();
 
         return resp;
@@ -219,6 +223,8 @@ export class VMIsolator {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
+
+        //console.log('readMethod');
 
         //this.isolatedVM.startCpuProfiler('test');
 
@@ -236,190 +242,227 @@ export class VMIsolator {
             this.getCallOptions(),
         )) as Reference<Uint8Array>;
 
-        const resp = result.copySync();
+        const resp = await result.copy();
         result.release();
 
         //const profiles = await this.isolatedVM.stopCpuProfiler('test');
-        //console.log('profiles', profiles);
+        //console.dir(profiles, { depth: 100, colors: true });
 
         return resp;
     }
 
-    private getViewABI(): Uint8Array {
+    private async getViewABI(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_VIEW_ABI.applySync(
+        //console.log('getViewABI');
+
+        const result = (await this.methods.GET_VIEW_ABI.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private readView(method: number, contract?: Number | null): Uint8Array {
+    private async readView(method: number, contract?: Number | null): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
+        //console.log('readView');
+
         const externalCopy = new ivm.ExternalCopy(contract);
-        const result = this.methods.READ_VIEW.applySync(
+        const result = (await this.methods.READ_VIEW.apply(
             undefined,
             [method, externalCopy.copyInto({ release: true })],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
+        )) as Reference<Uint8Array>;
 
-        const resp = result.copySync();
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private getEvents(): Uint8Array {
+    private async getEvents(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_EVENTS.applySync(
+        //console.log('getEvents');
+
+        const result = (await this.methods.GET_EVENTS.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private getMethodABI(): Uint8Array {
+    private async getMethodABI(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_METHOD_ABI.applySync(
+        //console.log('getMethodABI');
+
+        const result = (await this.methods.GET_METHOD_ABI.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
+        )) as Reference<Uint8Array>;
 
-        const resp = result.copySync();
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private getWriteMethods(): Uint8Array {
+    private async getWriteMethods(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_WRITE_METHODS.applySync(
+        //console.log('getWriteMethods');
+
+        const result = (await this.methods.GET_WRITE_METHODS.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private getRequiredStorage(): Uint8Array {
+    private async getRequiredStorage(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_REQUIRED_STORAGE.applySync(
+        //console.log('getRequiredStorage');
+
+        const result = (await this.methods.GET_REQUIRED_STORAGE.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private getModifiedStorage(): Uint8Array {
+    private async getModifiedStorage(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_MODIFIED_STORAGE.applySync(
+        //console.log('getModifiedStorage');
+
+        const result = (await this.methods.GET_MODIFIED_STORAGE.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private initializeStorage(): Uint8Array {
+    private async initializeStorage(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.INITIALIZE_STORAGE.applySync(
+        //console.log('initializeStorage');
+
+        const result = (await this.methods.INITIALIZE_STORAGE.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
+        )) as Reference<Uint8Array>;
 
-        const resp = result.copySync();
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private loadStorage(data: Uint8Array): void {
+    private async loadStorage(data: Uint8Array): Promise<void> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
+
+        //console.log('loadStorage');
 
         const externalCopy = new ivm.ExternalCopy(data);
-        this.methods.LOAD_STORAGE.applySync(
+        await this.methods.LOAD_STORAGE.apply(
             undefined,
             [externalCopy.copyInto({ release: true })],
             this.getCallOptions(),
         );
     }
 
-    private allocateMemory(size: number): number {
+    private async allocateMemory(size: number): Promise<number> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        return this.methods.ALLOCATE_MEMORY.applySync(undefined, [size], this.getCallOptions());
+        //console.log('allocateMemory');
+
+        return (await this.methods.ALLOCATE_MEMORY.apply(
+            undefined,
+            [size],
+            this.getCallOptions(),
+        )) as number;
     }
 
-    private isInitialized(): boolean {
+    private async isInitialized(): Promise<boolean> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        return this.methods.IS_INITIALIZED.applySync(undefined, [], this.getCallOptions());
+        //console.log('isInitialized');
+
+        return (await this.methods.IS_INITIALIZED.apply(
+            undefined,
+            [],
+            this.getCallOptions(),
+        )) as boolean;
     }
 
-    private purgeMemory(): void {
+    private async purgeMemory(): Promise<void> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        this.methods.PURGE_MEMORY.applySync(undefined, [], this.getCallOptions());
+        //console.log('purgeMemory');
+
+        await this.methods.PURGE_MEMORY.apply(undefined, [], this.getCallOptions());
     }
 
-    private setMaxGas(maxGas: bigint): void {
+    private async setMaxGas(maxGas: bigint): Promise<void> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        this.methods.SET_MAX_GAS.applySync(
+        //console.log('setMaxGas');
+
+        await this.methods.SET_MAX_GAS.apply(
             undefined,
             [new ivm.ExternalCopy(maxGas).copyInto({ release: true })],
             this.getCallOptions(),

@@ -168,7 +168,7 @@ export class VMManager extends Logger {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
         }
 
-        vmEvaluator.setMaxGas(VMIsolator.MAX_GAS);
+        await vmEvaluator.setMaxGas(VMIsolator.MAX_GAS);
 
         // Get the function selector
         const calldata: Buffer = Buffer.from(calldataString, 'hex');
@@ -252,7 +252,7 @@ export class VMManager extends Logger {
             );
         }
 
-        vmEvaluator.setMaxGas(burnedBitcoins);
+        await vmEvaluator.setMaxGas(burnedBitcoins);
 
         // Trace the execution time
         const startBeforeExecution = Date.now();

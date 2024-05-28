@@ -59,7 +59,7 @@ class GasTracker {
 }
 
 const imports = {};
-const ENABLE_LOGGING = false;
+const ENABLE_LOGGING = true;
 const gasTracker = new GasTracker(MAX_GAS);
 
 const adaptedImports = {
