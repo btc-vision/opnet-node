@@ -1,6 +1,6 @@
 import { BufferHelper } from '@btc-vision/bsi-binary';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
-import { ClientSession } from 'mongodb';
+import { ClientSession, TransactionOptions } from 'mongodb';
 import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { SafeBigInt } from '../../../api/routes/safe/SafeMath.js';
 import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
@@ -276,8 +276,12 @@ export class VMMongoStorage extends VMStorage {
 
         await this.pushTransactionSession(this.transactionSession, blockId);
 
-        this.currentSession.startTransaction();
-        this.transactionSession.startTransaction();
+        const options: TransactionOptions = {
+            maxCommitTimeMS: 29 * 60000,
+        };
+
+        this.currentSession.startTransaction(options);
+        this.transactionSession.startTransaction(options);
     }
 
     public async terminateBlock(blockId: bigint): Promise<void> {
