@@ -62,7 +62,7 @@ export class ContractEvaluator {
                 throw new Error('Gas used is not being tracked.');
             }
 
-            if (this.initialGasTracker.isEnabled()) {
+            /*if (this.initialGasTracker.isEnabled()) {
                 console.log(
                     `INIT CONTRACT GAS USED: ${gas} - TOTAL GAS: ${this.initialGasTracker.gasUsed}`,
                 );
@@ -70,7 +70,7 @@ export class ContractEvaluator {
 
             if (this.gasTracker.isEnabled()) {
                 console.log(`EXECUTION GAS USED: ${gas} - TOTAL GAS: ${this.gasTracker.gasUsed}`);
-            }
+            }*/
         };
     }
 
@@ -153,8 +153,6 @@ export class ContractEvaluator {
         this.originalStorageState = this.getDefaultInitialStorage();
 
         this.initialGasTracker.disableTracking(this.vmIsolator.CPUTime);
-        console.log('final.');
-
         this.initializeContract = true;
     }
 
