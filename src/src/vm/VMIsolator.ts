@@ -32,8 +32,8 @@ const codePath: string = path.resolve(__dirname, '../vm/isolated/IsolatedManager
 const code: string = fs.readFileSync(codePath, 'utf-8');
 
 export class VMIsolator {
-    public static readonly MAX_GAS: bigint = 100000000000n; //100000000000n; // Default gas limit
-    private static readonly EXECUTION_TIMEOUT: number = 400000; //60 * 60000; // 1h
+    public static readonly MAX_GAS: bigint = 100000000000n; // Max gas allowed for a contract execution
+    private static readonly EXECUTION_TIMEOUT: number = 2 * 60 * 60000; // 2h
 
     private contract: ContractEvaluator | null = null;
     private isolatedVM: Isolate = this.createVM();

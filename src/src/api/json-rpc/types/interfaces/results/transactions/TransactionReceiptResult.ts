@@ -1,11 +1,11 @@
-import { ReceiptDataForAPI } from '../../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
+import { EventReceiptDataForAPI } from '../../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
 
 export interface TransactionReceiptResultAPI {
     readonly receipt: string | null;
     readonly receiptProofs: string[];
-    readonly events: ReceiptDataForAPI[];
+    readonly events: EventReceiptDataForAPI[];
 
     readonly revert?: string;
     readonly gasUsed: string;

@@ -14,9 +14,13 @@ export interface AccessList {
     [key: string]: AccessListItem;
 }
 
+export interface ContractEvents {
+    [key: string]: NetEvent[];
+}
+
 export interface CallResultData {
     readonly result: string;
-    readonly events: NetEvent[];
+    readonly events: ContractEvents;
     readonly accessList: AccessList;
     readonly estimatedGas: string;
 }

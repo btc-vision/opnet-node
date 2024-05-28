@@ -1,4 +1,4 @@
-import { Address, BlockchainStorage, BufferHelper } from '@btc-vision/bsi-binary';
+import { Address, BlockchainStorage, BufferHelper, NetEvent } from '@btc-vision/bsi-binary';
 import bitcoin from 'bitcoinjs-lib';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
@@ -13,6 +13,7 @@ import {
 } from '../../../../../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
+import { EvaluatedEvents } from '../../../../../vm/evaluated/EvaluatedResult.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { CallParams } from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
@@ -20,6 +21,7 @@ import {
     AccessList,
     AccessListItem,
     CallResult,
+    ContractEvents,
 } from '../../../../json-rpc/types/interfaces/results/states/CallResult.js';
 import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
@@ -135,10 +137,28 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
         return {
             result: result,
-            events: data.events || [],
+            events: this.convertEventToResult(data.events),
             accessList,
             estimatedGas: '0x' + (data.gasUsed || 0).toString(16),
         };
+    }
+
+    private convertEventToResult(events: EvaluatedEvents | undefined): ContractEvents {
+        const contractEvents: ContractEvents = {};
+
+        if (events) {
+            for (const [contract, contractEventsList] of events) {
+                const contractEventsListResult: NetEvent[] = [];
+
+                for (const event of contractEventsList) {
+                    contractEventsListResult.push(event);
+                }
+
+                contractEvents[contract] = contractEventsListResult;
+            }
+        }
+
+        return contractEvents;
     }
 
     private getAccessList(changedStorage: BlockchainStorage): AccessList {

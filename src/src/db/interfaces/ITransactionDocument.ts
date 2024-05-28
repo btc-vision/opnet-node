@@ -47,6 +47,7 @@ export interface NetEventDocument {
     readonly eventType: string;
     readonly eventDataSelector: Decimal128;
     readonly eventData: Binary;
+    readonly contractAddress: string;
 }
 
 export interface InteractionTransactionDocument

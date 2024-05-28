@@ -12,7 +12,7 @@ import {
     Selector,
     SelectorsMap,
 } from '@btc-vision/bsi-binary';
-import { EvaluatedResult } from '../evaluated/EvaluatedResult.js';
+import { EvaluatedEvents, EvaluatedResult } from '../evaluated/EvaluatedResult.js';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { VMIsolator } from '../VMIsolator.js';
@@ -20,7 +20,7 @@ import { VMRuntime } from '../wasmRuntime/runDebug.js';
 import { GasTracker } from './GasTracker.js';
 
 export class ContractEvaluator {
-    private static readonly SAT_TO_GAS_RATIO: bigint = 100030750n; //30750n; //611805;
+    private static readonly SAT_TO_GAS_RATIO: bigint = 1030750n; //30750n; //611805;
 
     private contractInstance: VMRuntime | null = null;
     private binaryWriter: BinaryWriter = new BinaryWriter();
@@ -289,7 +289,7 @@ export class ContractEvaluator {
         }
     }
 
-    // TODO: Move all these function parameter into an object
+    // TODO: IMPORTANT. Move all these function parameter into an object, create the class EvaluatedTransaction
     private async evaluate(
         contractAddress: Address,
         abi: Selector,
@@ -302,6 +302,7 @@ export class ContractEvaluator {
             throw new Error('Contract not initialized');
         }
 
+        const events: EvaluatedEvents = new Map();
         const contract = this.methodAbi.get(contractAddress);
         const isInitialized = this.isInitialized();
         if (!isInitialized) {
@@ -351,6 +352,7 @@ export class ContractEvaluator {
             return await this.evaluate(contractAddress, abi, calldata, caller, canWrite, tries + 1);
         }
 
+        // TODO: IMPORTANT. Move that to a method in the class EvaluatedTransaction
         return await this.evaluateTransaction(
             result,
             initialStorage,
@@ -360,11 +362,12 @@ export class ContractEvaluator {
             calldata,
             caller,
             canWrite,
+            events,
             tries,
         );
     }
 
-    // TODO: Move all these function parameter into an object
+    // TODO: IMPORTANT. Move all these function parameter into an object, create the class EvaluatedTransaction
     private async evaluateTransaction(
         result: Uint8Array,
         initialStorage: BlockchainStorage,
@@ -374,6 +377,7 @@ export class ContractEvaluator {
         calldata: Uint8Array | null,
         caller: Address | null = null,
         canWrite: boolean,
+        events: EvaluatedEvents,
         tries: number,
     ): Promise<EvaluatedResult> {
         const modifiedStorage: BlockchainStorage = this.getCurrentModifiedStorageState();
@@ -407,9 +411,10 @@ export class ContractEvaluator {
             });
         }
 
-        const events: NetEvent[] = this.getEvents();
-        const gasUsed: bigint = this.gasTracker.gasUsed + this.initialGasTracker.gasUsed;
+        const selfEvents: NetEvent[] = this.getEvents();
+        events.set(contractAddress, selfEvents);
 
+        const gasUsed: bigint = this.gasTracker.gasUsed + this.initialGasTracker.gasUsed;
         this.clear();
 
         return {
