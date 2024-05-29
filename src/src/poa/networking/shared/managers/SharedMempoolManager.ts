@@ -37,14 +37,17 @@ export class SharedMempoolManager extends AbstractPacketManager {
     }
 
     public async broadcastTransaction(transaction: ITransactionPacket): Promise<void> {
-        console.log(`BROADCASTING TRANSACTION`, transaction);
+        console.log(`[broadcastTransaction] BROADCASTING TRANSACTION`, transaction);
 
         const packet = this.protocol.getPacketBuilder(Packets.BroadcastTransaction);
         if (!packet) {
             return;
         }
 
-        await this.sendMsg(packet.pack(transaction));
+        const packed = packet.pack(transaction);
+        console.log(packed);
+
+        //await this.sendMsg(packed);
     }
 
     private async onTransactionBroadcast(packet: OPNetPacket): Promise<void> {

@@ -37,7 +37,6 @@ export class OPNetProtocolV1 {
             ...this.commonProtocol(),
             [ServerInBound.DISCOVER]: this.handleDiscoveryPacket,
             [ServerOutBound.DISCOVERY_RESPONSE]: this.handleDiscoveryResponsePacket,
-            [CommonPackets.TRANSACTION]: this.handleTransactionPacket,
             [CommonPackets.BLOCK_HEADER_WITNESS]: this.handleBlockHeaderWitnessPacket,
 
             /** Sync */
@@ -98,10 +97,6 @@ export class OPNetProtocolV1 {
 
     private handleDiscoveryResponsePacket(): DiscoveryResponsePacket {
         return PacketManager.getPacketBuilder(Packets.DiscoveryResponse) as DiscoveryResponsePacket;
-    }
-
-    private handleTransactionPacket(): TransactionPacket {
-        return PacketManager.getPacketBuilder(Packets.BroadcastTransaction) as TransactionPacket;
     }
 
     private handleDiscoveryPacket(): DiscoverPacket {

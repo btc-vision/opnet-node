@@ -15,7 +15,7 @@ export class TransactionPacket extends Packet<
 > {
     public static TYPE: Packets = Packets.BroadcastTransaction;
 
-    protected readonly opcode: CommonPackets = CommonPackets.TRANSACTION;
+    protected readonly opcode: CommonPackets = CommonPackets.BROADCAST_TRANSACTION;
 
     constructor(protobufType: Type) {
         super(protobufType);
