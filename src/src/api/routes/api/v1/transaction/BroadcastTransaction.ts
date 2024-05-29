@@ -42,30 +42,23 @@ export class BroadcastTransaction extends Route<
 
         const [data, psbt] = this.getDecodedParams(params);
 
-        let result: BroadcastResponse | null = null;
+        let result: BroadcastResponse | null;
         if (!psbt) {
-            result = await this.broadcastTransactionToBitcoinCore(data);
-        } else {
-            const isValidPSBT: boolean = this.psbtVerifier.verify(data);
-
-            if (!isValidPSBT) {
                 result = {
-                    success: false,
-                    result: 'Invalid PSBT transaction.',
-                };
-            } else {
-                result = {
-                    success: true,
-                    result: 'Valid PSBT transaction.',
-                };
-            }
-        }
-
-        if (!result) {
-            return {
+            result = (await this.broadcastTransactionToBitcoinCore(data)) || {
                 success: false,
                 result: 'Could not broadcast transaction to the network.',
             };
+        } else {
+            result = this.psbtVerifier.verify(data)
+                ? {
+                      success: true,
+                      result: 'Valid PSBT transaction.',
+                  }
+                : {
+                      success: false,
+                      result: 'Invalid PSBT transaction.',
+                  };
         }
 
         if (!result.error) {
