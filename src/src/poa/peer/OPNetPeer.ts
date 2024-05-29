@@ -285,13 +285,6 @@ export class OPNetPeer extends Logger {
                 await this.emit(CommonHandlers.MEMPOOL_BROADCAST, packet);
             },
         );
-
-        this.clientNetworkingManager.on(
-            CommonHandlers.MEMPOOL_BROADCAST,
-            async (packet: TransactionPacket): Promise<void> => {
-                await this.emit(CommonHandlers.MEMPOOL_BROADCAST, packet);
-            },
-        );
     }
 
     private async onPeersDiscoveredInternal(peers: OPNetPeerInfo[]): Promise<void> {
@@ -322,6 +315,13 @@ export class OPNetPeer extends Logger {
         this.clientNetworkingManager.requestBlockWitnesses = async (blockNumber: bigint) => {
             return this.requestBlockWitnesses(blockNumber);
         };
+
+        this.clientNetworkingManager.on(
+            CommonHandlers.MEMPOOL_BROADCAST,
+            async (packet: TransactionPacket): Promise<void> => {
+                await this.emit(CommonHandlers.MEMPOOL_BROADCAST, packet);
+            },
+        );
     }
 
     private onAuth(): void {
