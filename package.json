@@ -20,7 +20,7 @@
         "@asyncapi/generator": "^1.17.13",
         "@asyncapi/html-template": "^2.2.1",
         "@btc-vision/bsi-binary": "latest",
-        "@btc-vision/bsi-bitcoin-rpc": "^1.0.13",
+        "@btc-vision/bsi-bitcoin-rpc": "^1.0.15",
         "@btc-vision/bsi-common": "^1.0.13",
         "@btc-vision/bsi-db": "latest",
         "@btc-vision/bsi-transaction": "latest",
