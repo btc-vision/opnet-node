@@ -54,14 +54,10 @@ export class SharedMempoolManager extends AbstractPacketManager {
             return;
         }
 
-        console.log(transactionPacket);
-
         const unpackedPacket = transactionPacket.unpack(packet.packet);
         if (!unpackedPacket) {
             return;
         }
-
-        console.log(unpackedPacket);
 
         await this.emit(CommonHandlers.MEMPOOL_BROADCAST, unpackedPacket);
     }
