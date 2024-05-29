@@ -52,6 +52,10 @@ import { IBlockHeaderWitness } from './protobuf/packets/blockchain/common/BlockH
 import { ITransactionPacket } from './protobuf/packets/blockchain/common/TransactionPacket.js';
 import { OPNetPeerInfo } from './protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
+import {
+    OPNetBroadcastData,
+    OPNetBroadcastResponse,
+} from '../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -142,7 +146,17 @@ export class P2PManager extends Logger {
         super.info(...args);
     }
 
-    public async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<void> {
+    public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
+        const rawToUint8Array = Uint8Array.from(Buffer.from(data.raw, 'hex'));
+
+        return {
+            sentTo: await this.broadcastMempoolTransaction({
+                transaction: rawToUint8Array,
+            }),
+        };
+    }
+
+    private async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<number> {
         const broadcastPromises: Promise<void>[] = [];
         for (let peer of this.peers.values()) {
             if (!peer.isAuthenticated) continue;
@@ -151,6 +165,8 @@ export class P2PManager extends Logger {
         }
 
         await Promise.all(broadcastPromises);
+
+        return broadcastPromises.length;
     }
 
     private async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
@@ -273,7 +289,9 @@ export class P2PManager extends Logger {
         await peer.init();
     }
 
-    private async onBroadcastTransaction(transaction: ITransactionPacket): Promise<void> {}
+    private async onBroadcastTransaction(transaction: ITransactionPacket): Promise<void> {
+        console.log(`Received transaction broadcast:`, transaction);
+    }
 
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');

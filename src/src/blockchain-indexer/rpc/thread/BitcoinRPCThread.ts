@@ -22,6 +22,7 @@ import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../../../threading/thread/Thread.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { BitcoinRPCThreadMessageType } from './messages/BitcoinRPCThreadMessage.js';
+import { BroadcastResponse } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     public readonly threadType: ThreadTypes.BITCOIN_RPC = ThreadTypes.BITCOIN_RPC;
@@ -123,6 +124,26 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
         };
     }
 
+    private async broadcastTransaction(transaction: string): Promise<BroadcastResponse> {
+        const response: BroadcastResponse = {
+            success: false,
+        };
+
+        const result: string | null = await this.bitcoinRPC
+            .sendRawTransaction({ hexstring: transaction })
+            .catch((e) => {
+                const error = e as Error;
+                response.error = error.message || 'Unknown error';
+                
+                return null;
+            });
+
+        response.success = result !== null;
+        if (result) response.result = result;
+
+        return response;
+    }
+
     private getChecksumProofs(rawProofs: ChecksumProof[]): BlockHeaderChecksumProof {
         const proofs: BlockHeaderChecksumProof = [];
 
@@ -158,6 +179,10 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
             case BitcoinRPCThreadMessageType.CALL: {
                 return await this.onCallRequest(message.data.data as CallRequestData);
+            }
+
+            case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE: {
+                return await this.broadcastTransaction(message.data.data as string);
             }
 
             default:
