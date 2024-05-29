@@ -169,7 +169,7 @@ export class OPNetPeer extends Logger {
             }
         } catch (e) {
             if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                //console.log(`BAD PACKET`, e);
+                console.log(`BAD PACKET`, e);
             }
 
             await this.disconnect(DisconnectionCode.BAD_PACKET, 'Bad packet.');
