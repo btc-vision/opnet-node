@@ -159,6 +159,13 @@ export class P2PManager extends Logger {
     }
 
     public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
+        if (this.broadcastedIdentifiers.has(data.identifier)) {
+            return {
+                peers: 0,
+            };
+        }
+        this.broadcastedIdentifiers.add(data.identifier);
+
         return {
             peers: await this.broadcastMempoolTransaction({
                 transaction: data.raw,
@@ -173,12 +180,6 @@ export class P2PManager extends Logger {
             identifier: bigint;
         },
     ): Promise<number> {
-        if (this.broadcastedIdentifiers.has(transaction.identifier)) {
-            return 0;
-        }
-
-        this.broadcastedIdentifiers.add(transaction.identifier);
-
         const broadcastPromises: Promise<void>[] = [];
         for (let peer of this.peers.values()) {
             if (!peer.isAuthenticated) continue;
