@@ -35,8 +35,25 @@ export class BroadcastTransaction extends Route<
         }
 
         const [data, psbt] = this.getDecodedParams(params);
+        const parsedData: Uint8Array = Uint8Array.from(Buffer.from(data, 'hex'));
 
-        return await this.broadcastOPNetTransaction(data, psbt ?? false);
+        const verification = await this.verifyOPNetTransaction(parsedData, psbt ?? false);
+        if (!verification) {
+            return {
+                success: false,
+                error: 'Could not broadcast transaction',
+                identifier: 0n,
+            };
+        }
+
+        if (verification.success) {
+            return {
+                ...verification,
+                ...(await this.broadcastOPNetTransaction(parsedData, psbt ?? false)),
+            };
+        }
+
+        return verification;
     }
 
     public async getDataRPC(
@@ -97,7 +114,7 @@ export class BroadcastTransaction extends Route<
     }
 
     private async broadcastOPNetTransaction(
-        data: string,
+        data: Uint8Array,
         psbt: boolean,
     ): Promise<BroadcastResponse | undefined> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
@@ -106,7 +123,28 @@ export class BroadcastTransaction extends Route<
                 data: {
                     rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET,
                     data: {
-                        raw: Uint8Array.from(Buffer.from(data, 'hex')),
+                        raw: data,
+                        psbt,
+                    },
+                } as BroadcastOPNetRequest,
+            };
+
+        return (await ServerThread.sendMessageToThread(ThreadTypes.PoA, currentBlockMsg)) as
+            | BroadcastResponse
+            | undefined;
+    }
+
+    private async verifyOPNetTransaction(
+        raw: Uint8Array,
+        psbt: boolean,
+    ): Promise<BroadcastResponse | undefined> {
+        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
+            {
+                type: MessageType.RPC_METHOD,
+                data: {
+                    rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET,
+                    data: {
+                        raw: raw,
                         psbt,
                     },
                 } as BroadcastOPNetRequest,

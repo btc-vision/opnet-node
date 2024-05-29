@@ -12,10 +12,7 @@ import {
     RPCMessageData,
 } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import {
-    BroadcastOPNetRequest,
-    OPNetBroadcastData,
-} from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { PSBTTransactionVerifier } from '../psbt/PSBTTransactionVerifier.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
@@ -105,34 +102,12 @@ export class Mempool extends Logger {
 
         if (!result.error) {
             return {
-                ...(await this.broadcastOPNetTransaction(raw, psbt ?? false)),
                 ...result,
                 identifier: identifier,
             };
         } else {
             return result;
         }
-    }
-
-    private async broadcastOPNetTransaction(
-        data: Uint8Array,
-        psbt: boolean,
-    ): Promise<BroadcastResponse | undefined> {
-        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
-            {
-                type: MessageType.RPC_METHOD,
-                data: {
-                    rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET,
-                    data: {
-                        raw: data,
-                        psbt,
-                    },
-                } as BroadcastOPNetRequest,
-            };
-
-        return (await this.sendMessageToThread(ThreadTypes.PoA, currentBlockMsg)) as
-            | BroadcastResponse
-            | undefined;
     }
 
     private async broadcastBitcoinTransaction(

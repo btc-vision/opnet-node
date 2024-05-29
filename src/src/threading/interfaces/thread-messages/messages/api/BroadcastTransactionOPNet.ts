@@ -5,6 +5,7 @@ import { ThreadData } from '../../../ThreadData.js';
 export interface OPNetBroadcastData {
     readonly raw: Uint8Array;
     readonly psbt: boolean;
+    readonly identifier: bigint;
 }
 
 export type OPNetBroadcastResponse = ThreadData & {

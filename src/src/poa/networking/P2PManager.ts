@@ -161,11 +161,20 @@ export class P2PManager extends Logger {
             sentTo: await this.broadcastMempoolTransaction({
                 transaction: data.raw,
                 psbt: data.psbt,
+                identifier: data.identifier,
             }),
         };
     }
 
-    private async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<number> {
+    private async broadcastMempoolTransaction(
+        transaction: ITransactionPacket & {
+            identifier: bigint;
+        },
+    ): Promise<number> {
+        if (this.broadcastIdentifiers.has(transaction.identifier)) {
+            return 0;
+        }
+
         const broadcastPromises: Promise<void>[] = [];
         for (let peer of this.peers.values()) {
             if (!peer.isAuthenticated) continue;
@@ -299,8 +308,6 @@ export class P2PManager extends Logger {
     }
 
     private async onBroadcastTransaction(transaction: ITransactionPacket): Promise<void> {
-        console.log(`Received transaction broadcast:`, transaction);
-
         const verifiedTransaction = await this.verifyOPNetTransaction(
             transaction.transaction,
             transaction.psbt,
@@ -312,17 +319,15 @@ export class P2PManager extends Logger {
 
         /** Already broadcasted. */
         if (this.broadcastIdentifiers.has(verifiedTransaction.identifier)) {
-            this.info(`Transaction ${verifiedTransaction.identifier} already entered mempool.`);
             return;
         }
-
-        this.info(`Transaction ${verifiedTransaction.identifier} entered mempool.`);
 
         this.broadcastIdentifiers.add(verifiedTransaction.identifier);
 
         const broadcastData: OPNetBroadcastData = {
             raw: transaction.transaction,
             psbt: transaction.psbt,
+            identifier: verifiedTransaction.identifier,
         };
 
         await this.broadcastTransaction(broadcastData);
