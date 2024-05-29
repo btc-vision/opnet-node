@@ -4,23 +4,23 @@ import { MiddlewareNext } from 'hyper-express/types/components/middleware/Middle
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { Route } from '../../../Route.js';
-import { BroadcastTransactionResult } from '../../../../json-rpc/types/interfaces/results/transactions/BroadcastTransactionResult';
+import { BroadcastTransactionResult } from '../../../../json-rpc/types/interfaces/results/transactions/BroadcastTransactionResult.js';
 import {
     BroadcastTransactionParams,
     BroadcastTransactionParamsAsArray,
     BroadcastTransactionParamsAsObject,
-} from '../../../../json-rpc/types/interfaces/params/transactions/BroadcastTransactionParams';
-import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage';
-import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage';
-import { MessageType } from '../../../../../threading/enum/MessageType';
-import { ServerThread } from '../../../../ServerThread';
-import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes';
+} from '../../../../json-rpc/types/interfaces/params/transactions/BroadcastTransactionParams.js';
+import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { MessageType } from '../../../../../threading/enum/MessageType.js';
+import { ServerThread } from '../../../../ServerThread.js';
+import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
 import {
     BroadcastRequest,
     BroadcastResponse,
-} from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest';
-import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet';
-import { PSBTTransactionVerifier } from '../../../../../blockchain-indexer/processor/transaction/psbt/PSBTTransactionVerifier';
+} from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+import { PSBTTransactionVerifier } from '../../../../../blockchain-indexer/processor/transaction/psbt/PSBTTransactionVerifier.js';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,

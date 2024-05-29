@@ -1,6 +1,6 @@
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { RPCMessageData } from './RPCMessage.js';
-import { ThreadData } from '../../../ThreadData';
+import { ThreadData } from '../../../ThreadData.js';
 
 export interface OPNetBroadcastData {
     readonly raw: string;

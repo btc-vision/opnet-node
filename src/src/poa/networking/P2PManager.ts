@@ -55,7 +55,7 @@ import { AuthenticationManager } from './server/managers/AuthenticationManager.j
 import {
     OPNetBroadcastData,
     OPNetBroadcastResponse,
-} from '../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet';
+} from '../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 

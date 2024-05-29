@@ -6,9 +6,9 @@ import { ThreadMessageBase } from '../threading/interfaces/thread-messages/Threa
 import { ThreadData } from '../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { P2PManager } from './networking/P2PManager.js';
-import { RPCMessage } from '../threading/interfaces/thread-messages/messages/api/RPCMessage';
-import { BitcoinRPCThreadMessageType } from '../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage';
-import { OPNetBroadcastData } from '../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet';
+import { RPCMessage } from '../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+import { BitcoinRPCThreadMessageType } from '../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { OPNetBroadcastData } from '../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 
 export class PoA extends Logger {
     public readonly logColor: string = '#00ffe1';

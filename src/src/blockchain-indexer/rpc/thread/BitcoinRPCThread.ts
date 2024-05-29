@@ -22,7 +22,7 @@ import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../../../threading/thread/Thread.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { BitcoinRPCThreadMessageType } from './messages/BitcoinRPCThreadMessage.js';
-import { BroadcastResponse } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest';
+import { BroadcastResponse } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     public readonly threadType: ThreadTypes.BITCOIN_RPC = ThreadTypes.BITCOIN_RPC;
@@ -134,7 +134,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             .catch((e) => {
                 const error = e as Error;
                 response.error = error.message || 'Unknown error';
-                
+
                 return null;
             });
 
