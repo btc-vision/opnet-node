@@ -44,7 +44,6 @@ export class BroadcastTransaction extends Route<
 
         let result: BroadcastResponse | null;
         if (!psbt) {
-                result = {
             result = (await this.broadcastTransactionToBitcoinCore(data)) || {
                 success: false,
                 result: 'Could not broadcast transaction to the network.',
