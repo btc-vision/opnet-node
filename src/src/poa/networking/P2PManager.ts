@@ -172,6 +172,7 @@ export class P2PManager extends Logger {
         },
     ): Promise<number> {
         if (this.broadcastIdentifiers.has(transaction.identifier)) {
+            this.info(`Transaction ${transaction.identifier} already known.`);
             return 0;
         }
 
@@ -313,14 +314,19 @@ export class P2PManager extends Logger {
             transaction.psbt,
         );
 
+        console.log(verifiedTransaction);
+
         if (!verifiedTransaction) {
             return;
         }
 
         /** Already broadcasted. */
         if (this.broadcastIdentifiers.has(verifiedTransaction.identifier)) {
+            this.info(`Transaction ${verifiedTransaction.identifier} already known.`);
             return;
         }
+
+        this.info(`Transaction ${verifiedTransaction.identifier} entered mempool.`);
 
         this.broadcastIdentifiers.add(verifiedTransaction.identifier);
 
