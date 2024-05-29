@@ -85,7 +85,8 @@ export class P2PManager extends Logger {
     private readonly identity: OPNetIdentity;
     private startedIndexer: boolean = false;
 
-    private broadcastIdentifiers: Set<bigint> = new Set();
+    private knownMempoolIdentifiers: Set<bigint> = new Set();
+    private broadcastedIdentifiers: Set<bigint> = new Set();
 
     private readonly blockWitnessManager: BlockWitnessManager;
 
@@ -100,7 +101,8 @@ export class P2PManager extends Logger {
         this.blockWitnessManager.sendMessageToThread = this.internalSendMessageToThread.bind(this);
 
         setInterval(() => {
-            this.broadcastIdentifiers.clear();
+            this.knownMempoolIdentifiers.clear();
+            this.broadcastedIdentifiers.clear();
         }, 15000);
     }
 
@@ -171,10 +173,11 @@ export class P2PManager extends Logger {
             identifier: bigint;
         },
     ): Promise<number> {
-        if (this.broadcastIdentifiers.has(transaction.identifier)) {
-            this.info(`Transaction ${transaction.identifier} already known.`);
+        if (this.broadcastedIdentifiers.has(transaction.identifier)) {
             return 0;
         }
+
+        this.broadcastedIdentifiers.add(transaction.identifier);
 
         const broadcastPromises: Promise<void>[] = [];
         for (let peer of this.peers.values()) {
@@ -314,21 +317,18 @@ export class P2PManager extends Logger {
             transaction.psbt,
         );
 
-        console.log(verifiedTransaction);
-
         if (!verifiedTransaction) {
             return;
         }
 
         /** Already broadcasted. */
-        if (this.broadcastIdentifiers.has(verifiedTransaction.identifier)) {
+        if (this.knownMempoolIdentifiers.has(verifiedTransaction.identifier)) {
             this.info(`Transaction ${verifiedTransaction.identifier} already known.`);
             return;
         }
 
         this.info(`Transaction ${verifiedTransaction.identifier} entered mempool.`);
-
-        this.broadcastIdentifiers.add(verifiedTransaction.identifier);
+        this.knownMempoolIdentifiers.add(verifiedTransaction.identifier);
 
         const broadcastData: OPNetBroadcastData = {
             raw: transaction.transaction,
