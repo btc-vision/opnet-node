@@ -68,10 +68,11 @@ export class BroadcastTransaction extends Route<
     protected initialize(): void {}
 
     /**
-     * GET /api/v1/transaction/broadcast
+     * POST /api/v1/transactions/broadcast
      * @tag Transaction
      * @summary Broadcast a transaction to the network.
      * @description Broadcast a fully signed transaction or a psbt transaction to the network.
+     * @bodyContent {BroadcastTransactionParams} application/json
      * @response 200 - Return
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
