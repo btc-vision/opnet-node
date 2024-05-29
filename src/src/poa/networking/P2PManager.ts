@@ -60,6 +60,7 @@ import {
 import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { cyrb53a, u8 } from '@btc-vision/bsi-binary';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -312,29 +313,28 @@ export class P2PManager extends Logger {
         await peer.init();
     }
 
-    private async onBroadcastTransaction(transaction: ITransactionPacket): Promise<void> {
-        const verifiedTransaction = await this.verifyOPNetTransaction(
-            transaction.transaction,
-            transaction.psbt,
-        );
+    private async onBroadcastTransaction(tx: ITransactionPacket): Promise<void> {
+        const verifiedTransaction = await this.verifyOPNetTransaction(tx.transaction, tx.psbt);
 
         if (!verifiedTransaction) {
             return;
         }
 
+        const identifier: bigint = verifiedTransaction.identifier;
+
         /** Already broadcasted. */
-        if (this.knownMempoolIdentifiers.has(verifiedTransaction.identifier)) {
-            this.info(`Transaction ${verifiedTransaction.identifier} already known.`);
+        if (this.knownMempoolIdentifiers.has(identifier)) {
+            this.info(`Transaction ${identifier} already known.`);
             return;
         }
 
-        this.info(`Transaction ${verifiedTransaction.identifier} entered mempool.`);
-        this.knownMempoolIdentifiers.add(verifiedTransaction.identifier);
+        this.info(`Transaction ${identifier} entered mempool.`);
+        this.knownMempoolIdentifiers.add(identifier);
 
         const broadcastData: OPNetBroadcastData = {
-            raw: transaction.transaction,
-            psbt: transaction.psbt,
-            identifier: verifiedTransaction.identifier,
+            raw: tx.transaction,
+            psbt: tx.psbt,
+            identifier: identifier,
         };
 
         await this.broadcastTransaction(broadcastData);
@@ -343,6 +343,7 @@ export class P2PManager extends Logger {
     private async verifyOPNetTransaction(
         data: Uint8Array,
         psbt: boolean,
+        identifier?: bigint,
     ): Promise<BroadcastResponse | undefined> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
             {
@@ -352,6 +353,7 @@ export class P2PManager extends Logger {
                     data: {
                         raw: data,
                         psbt,
+                        identifier,
                     },
                 } as BroadcastOPNetRequest,
             };
@@ -376,11 +378,6 @@ export class P2PManager extends Logger {
 
                 // Is self.
                 if (this.node.peerId.equals(peerId)) continue;
-
-                /*const knownPeer: Peer | null = await this.node.peerStore
-                    .get(peerId)
-                    .catch(() => null);
-                if (knownPeer) continue;*/
 
                 if (peerInfo.addresses.length === 0) {
                     this.fail(`No addresses found for peer ${peerId.toString()}`);

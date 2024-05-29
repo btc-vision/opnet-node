@@ -74,8 +74,7 @@ export class Mempool extends Logger {
 
         const raw: Uint8Array = data.raw;
         const psbt: boolean = data.psbt;
-
-        const identifier: bigint = cyrb53a(data.raw as unknown as u8[]);
+        const identifier: bigint = data.identifier || cyrb53a(data.raw as unknown as u8[]);
 
         let result: BroadcastResponse | null;
         if (!psbt) {
