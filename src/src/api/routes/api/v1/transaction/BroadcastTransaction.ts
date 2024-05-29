@@ -68,8 +68,8 @@ export class BroadcastTransaction extends Route<
     protected initialize(): void {}
 
     /**
-     * POST /api/v1/transactions/broadcast
-     * @tag Transaction
+     * POST /api/v1/transaction/broadcast
+     * @tag Transactions
      * @summary Broadcast a transaction to the network.
      * @description Broadcast a fully signed transaction or a psbt transaction to the network.
      * @bodyContent {BroadcastTransactionParams} application/json
