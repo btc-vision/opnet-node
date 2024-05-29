@@ -15,20 +15,14 @@ import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/r
 import { MessageType } from '../../../../../threading/enum/MessageType.js';
 import { ServerThread } from '../../../../ServerThread.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
-import {
-    BroadcastRequest,
-    BroadcastResponse,
-} from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import { BroadcastResponse } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
-import { PSBTTransactionVerifier } from '../../../../../blockchain-indexer/processor/transaction/psbt/PSBTTransactionVerifier.js';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,
     JSONRpcMethods.BROADCAST_TRANSACTION,
     BroadcastTransactionResult | undefined
 > {
-    private readonly psbtVerifier: PSBTTransactionVerifier = new PSBTTransactionVerifier();
-
     constructor() {
         super(Routes.BROADCAST_TRANSACTION, RouteType.POST);
     }
@@ -42,39 +36,14 @@ export class BroadcastTransaction extends Route<
 
         const [data, psbt] = this.getDecodedParams(params);
 
-        let result: BroadcastResponse | null;
-        if (!psbt) {
-            result = (await this.broadcastTransactionToBitcoinCore(data)) || {
-                success: false,
-                result: 'Could not broadcast transaction to the network.',
-            };
-        } else {
-            result = this.psbtVerifier.verify(data)
-                ? {
-                      success: true,
-                      result: 'Valid PSBT transaction.',
-                  }
-                : {
-                      success: false,
-                      result: 'Invalid PSBT transaction.',
-                  };
-        }
-
-        if (!result.error) {
-            return {
-                ...(await this.broadcastOPNetTransaction(data, psbt ?? false)),
-                ...result,
-            };
-        } else {
-            return result;
-        }
+        return await this.broadcastOPNetTransaction(data, psbt ?? false);
     }
 
     public async getDataRPC(
         params: BroadcastTransactionParams,
     ): Promise<BroadcastTransactionResult | undefined> {
         const data = await this.getData(params);
-        if (!data) throw new Error(`Contract bytecode not found at the specified address.`);
+        if (!data) throw new Error(`Could not broadcast transaction`);
 
         return data;
     }
@@ -137,33 +106,15 @@ export class BroadcastTransaction extends Route<
                 data: {
                     rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET,
                     data: {
-                        raw: data,
+                        raw: Uint8Array.from(Buffer.from(data, 'hex')),
                         psbt,
                     },
                 } as BroadcastOPNetRequest,
             };
 
-        return (await ServerThread.sendMessageToThread(ThreadTypes.PoA, currentBlockMsg)) as
+        return (await ServerThread.sendMessageToThread(ThreadTypes.MEMPOOL, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
-    }
-
-    private async broadcastTransactionToBitcoinCore(
-        data: string,
-    ): Promise<BroadcastResponse | null> {
-        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE> =
-            {
-                type: MessageType.RPC_METHOD,
-                data: {
-                    rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE,
-                    data: data,
-                } as BroadcastRequest,
-            };
-
-        return (await ServerThread.sendMessageToThread(
-            ThreadTypes.BITCOIN_RPC,
-            currentBlockMsg,
-        )) as BroadcastResponse | null;
     }
 
     private getDecodedParams(

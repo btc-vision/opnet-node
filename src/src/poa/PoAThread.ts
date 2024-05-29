@@ -41,6 +41,9 @@ export class PoAThread extends Thread<ThreadTypes.PoA> {
             case ThreadTypes.API: {
                 return await this.handleBitcoinIndexerMessage(m);
             }
+            case ThreadTypes.MEMPOOL: {
+                return await this.handleBitcoinIndexerMessage(m);
+            }
             default: {
                 throw new Error(`Unknown message sent by thread of type: ${type}`);
             }

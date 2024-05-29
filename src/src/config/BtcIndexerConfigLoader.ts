@@ -44,6 +44,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         POA: {
             ENABLED: false,
+            MEMPOOL_THREADS: 2,
         },
 
         RPC: {
@@ -206,6 +207,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.POA.ENABLED !== 'boolean'
             ) {
                 throw new Error(`Oops the property POA.ENABLED is not a boolean.`);
+            }
+
+            if(
+                parsedConfig.POA.MEMPOOL_THREADS !== undefined &&
+                typeof parsedConfig.POA.MEMPOOL_THREADS !== 'number'
+            ) {
+                throw new Error(`Oops the property POA.MEMPOOL_THREADS is not a number.`);
             }
         }
 

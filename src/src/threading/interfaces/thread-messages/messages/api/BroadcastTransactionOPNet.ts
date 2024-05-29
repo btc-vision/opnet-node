@@ -3,7 +3,7 @@ import { RPCMessageData } from './RPCMessage.js';
 import { ThreadData } from '../../../ThreadData.js';
 
 export interface OPNetBroadcastData {
-    readonly raw: string;
+    readonly raw: Uint8Array;
     readonly psbt: boolean;
 }
 

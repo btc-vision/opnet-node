@@ -18,7 +18,7 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
     constructor() {
         super();
 
-        void this.init();
+        void this.createAllThreads();
     }
 
     public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
@@ -54,7 +54,12 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.BITCOIN_INDEXER);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }
+
+    private async createAllThreads(): Promise<void> {
+        await this.init();
+
+        await this.threadManager.createThreads();
+    }
 }
 
-const manager = new PoAThreadManager();
-void manager.createThreads();
+new PoAThreadManager();

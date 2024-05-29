@@ -36,6 +36,12 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
         target: './src/poa/PoAThread.js',
         managerTarget: './src/poa/PoAThreadManager.js',
     },
+
+    [ThreadTypes.MEMPOOL]: {
+        maxInstance: Config.POA.MEMPOOL_THREADS,
+        target: './src/poa/mempool/MempoolThread.js',
+        managerTarget: './src/poa/mempool/MempoolThreadManager.js',
+    },
 };
 
 export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
@@ -82,6 +88,14 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
     [ThreadTypes.PoA]: {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 4,
+            maxYoungGenerationSizeMb: 1024,
+            stackSizeMb: 256,
+        },
+    },
+
+    [ThreadTypes.MEMPOOL]: {
+        resourceLimits: {
+            maxOldGenerationSizeMb: 1024 * 2,
             maxYoungGenerationSizeMb: 1024,
             stackSizeMb: 256,
         },

@@ -6,6 +6,8 @@ interface IBroadcastTransactionResult {
     result?: string;
     error?: string;
     sentTo?: number;
+
+    identifier: bigint;
 }
 
 export type BroadcastTransactionResult = JSONRpc2ResultData<JSONRpcMethods.GET_CODE> &

@@ -5,6 +5,7 @@ import { PackedMessage, Packet } from '../../Packet.js';
 
 export interface ITransactionPacket extends PackedMessage {
     readonly transaction: Uint8Array;
+    readonly psbt: boolean;
 }
 
 /** Broadcast goes both ways */

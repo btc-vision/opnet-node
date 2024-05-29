@@ -10,25 +10,17 @@ import { ThreadManager } from '../../threading/manager/ThreadManager.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../../threading/Threader.js';
 
-export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_RPC> {
-    public readonly logColor: string = '#bc00fa';
+export class MempoolThreadManager extends ThreadManager<ThreadTypes.MEMPOOL> {
+    public readonly logColor: string = '#00f2fa';
 
-    protected readonly threadManager: Threader<ThreadTypes.BITCOIN_RPC> = new Threader(
-        ThreadTypes.BITCOIN_RPC,
+    protected readonly threadManager: Threader<ThreadTypes.MEMPOOL> = new Threader(
+        ThreadTypes.MEMPOOL,
     );
 
     constructor() {
         super();
 
-        void this.init();
-    }
-
-    public sendLinkToZeroMQThread(_message: LinkThreadMessage<LinkType>): void {
-        throw new Error('Method not implemented.');
-    }
-
-    public sendMessageToZeroMQThread(_message: LinkThreadRequestMessage): void {
-        throw new Error('Method not implemented.');
+        void this.createMempoolThreads();
     }
 
     public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
@@ -51,13 +43,9 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
 
     protected async sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
-        message: LinkThreadRequestMessage,
+        _message: LinkThreadRequestMessage,
     ): Promise<boolean> {
         switch (threadType) {
-            case ThreadTypes.ZERO_MQ: {
-                this.sendMessageToZeroMQThread(message);
-                return true;
-            }
             default: {
                 return false;
             }
@@ -65,9 +53,15 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
     }
 
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.BITCOIN_INDEXER);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
-        //await this.threadManager.createLinkBetweenThreads(ThreadTypes.ZERO_MQ);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }
+
+    private async createMempoolThreads(): Promise<void> {
+        await this.createThreads();
+        await this.init();
+    }
 }
+
+new MempoolThreadManager();

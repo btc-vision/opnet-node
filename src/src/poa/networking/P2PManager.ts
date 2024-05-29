@@ -53,9 +53,13 @@ import { ITransactionPacket } from './protobuf/packets/blockchain/common/Transac
 import { OPNetPeerInfo } from './protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
 import {
+    BroadcastOPNetRequest,
     OPNetBroadcastData,
     OPNetBroadcastResponse,
 } from '../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -81,6 +85,8 @@ export class P2PManager extends Logger {
     private readonly identity: OPNetIdentity;
     private startedIndexer: boolean = false;
 
+    private broadcastIdentifiers: Set<bigint> = new Set();
+
     private readonly blockWitnessManager: BlockWitnessManager;
 
     constructor(private readonly config: BtcIndexerConfig) {
@@ -92,6 +98,10 @@ export class P2PManager extends Logger {
         this.blockWitnessManager = new BlockWitnessManager(this.config, this.identity);
         this.blockWitnessManager.broadcastBlockWitness = this.broadcastBlockWitness.bind(this);
         this.blockWitnessManager.sendMessageToThread = this.internalSendMessageToThread.bind(this);
+
+        setInterval(() => {
+            this.broadcastIdentifiers.clear();
+        }, 15000);
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -147,11 +157,10 @@ export class P2PManager extends Logger {
     }
 
     public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
-        const rawToUint8Array = Uint8Array.from(Buffer.from(data.raw, 'hex'));
-
         return {
             sentTo: await this.broadcastMempoolTransaction({
-                transaction: rawToUint8Array,
+                transaction: data.raw,
+                psbt: data.psbt,
             }),
         };
     }
@@ -291,6 +300,53 @@ export class P2PManager extends Logger {
 
     private async onBroadcastTransaction(transaction: ITransactionPacket): Promise<void> {
         console.log(`Received transaction broadcast:`, transaction);
+
+        const verifiedTransaction = await this.verifyOPNetTransaction(
+            transaction.transaction,
+            transaction.psbt,
+        );
+
+        if (!verifiedTransaction) {
+            return;
+        }
+
+        /** Already broadcasted. */
+        if (this.broadcastIdentifiers.has(verifiedTransaction.identifier)) {
+            this.info(`Transaction ${verifiedTransaction.identifier} already entered mempool.`);
+            return;
+        }
+
+        this.info(`Transaction ${verifiedTransaction.identifier} entered mempool.`);
+
+        this.broadcastIdentifiers.add(verifiedTransaction.identifier);
+
+        const broadcastData: OPNetBroadcastData = {
+            raw: transaction.transaction,
+            psbt: transaction.psbt,
+        };
+
+        await this.broadcastTransaction(broadcastData);
+    }
+
+    private async verifyOPNetTransaction(
+        data: Uint8Array,
+        psbt: boolean,
+    ): Promise<BroadcastResponse | undefined> {
+        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
+            {
+                type: MessageType.RPC_METHOD,
+                data: {
+                    rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET,
+                    data: {
+                        raw: data,
+                        psbt,
+                    },
+                } as BroadcastOPNetRequest,
+            };
+
+        return (await this.sendMessageToThread(ThreadTypes.MEMPOOL, currentBlockMsg)) as
+            | BroadcastResponse
+            | undefined;
     }
 
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {

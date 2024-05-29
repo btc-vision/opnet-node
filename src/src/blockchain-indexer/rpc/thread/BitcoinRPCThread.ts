@@ -62,6 +62,9 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             case ThreadTypes.PoA: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
+            case ThreadTypes.MEMPOOL: {
+                return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
+            }
             default:
                 this.log(`Unknown thread message received. {Type: ${m.type}}`);
                 break;
@@ -127,6 +130,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     private async broadcastTransaction(transaction: string): Promise<BroadcastResponse> {
         const response: BroadcastResponse = {
             success: false,
+            identifier: 0n,
         };
 
         const result: string | null = await this.bitcoinRPC
