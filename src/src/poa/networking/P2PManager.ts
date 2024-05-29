@@ -158,7 +158,7 @@ export class P2PManager extends Logger {
 
     public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
         return {
-            sentTo: await this.broadcastMempoolTransaction({
+            peers: await this.broadcastMempoolTransaction({
                 transaction: data.raw,
                 psbt: data.psbt,
                 identifier: data.identifier,

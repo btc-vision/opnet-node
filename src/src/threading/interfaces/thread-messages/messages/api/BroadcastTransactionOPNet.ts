@@ -9,7 +9,7 @@ export interface OPNetBroadcastData {
 }
 
 export type OPNetBroadcastResponse = ThreadData & {
-    readonly sentTo: number;
+    readonly peers: number;
 };
 
 export interface BroadcastOPNetRequest

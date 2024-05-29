@@ -5,7 +5,7 @@ interface IBroadcastTransactionResult {
     success: boolean;
     result?: string;
     error?: string;
-    sentTo?: number;
+    peers?: number;
 
     identifier: bigint;
 }
