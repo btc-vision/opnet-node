@@ -163,12 +163,12 @@ export class EncryptemClient extends Logger {
     }
 
     public verifyAuth(out: Buffer, input: Buffer): boolean {
-        if (!this.#clientSignaturePublicKey) {
+        if (!this.#serverSignaturePublicKey) {
             throw new Error('Client signature public key is null.');
         }
 
         const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
-        this.sodium.randombytes_buf_deterministic(k, this.#clientSignaturePublicKey);
+        this.sodium.randombytes_buf_deterministic(k, this.#serverSignaturePublicKey);
 
         return this.sodium.crypto_auth_verify(out, input, k);
     }
