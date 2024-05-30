@@ -168,10 +168,7 @@ export class VMManager extends Logger {
             throw new Error(`Unable to initialize contract ${contractAddress}`);
         }
 
-        const isInitialized: boolean = vmEvaluator.isInitialized();
-        if (!isInitialized) {
-            throw new Error(`Unable to initialize contract ${contractAddress}`);
-        }
+        await vmEvaluator.setMaxGas(VMIsolator.MAX_GAS);
 
         // Get the function selector
         const calldata: Buffer = Buffer.from(calldataString, 'hex');
@@ -207,6 +204,8 @@ export class VMManager extends Logger {
             vmEvaluator.dispose();
             return response;
         } catch (e) {
+            console.log(e);
+
             await this.resetContractVM(vmEvaluator);
 
             this.error(
@@ -215,7 +214,12 @@ export class VMManager extends Logger {
                 )}`,
             );
 
-            throw new Error('execution reverted');
+            const errorMsg = e instanceof Error ? e.message : (e as string);
+            if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
+                throw new Error(`execution reverted (${errorMsg})`);
+            }
+
+            throw new Error(`execution reverted (gas used: ${vmEvaluator.getGasUsed})`);
         }
     }
 
@@ -233,6 +237,11 @@ export class VMManager extends Logger {
             this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
         }
 
+        const burnedBitcoins: bigint = interactionTransaction.burnedFee;
+        if (!burnedBitcoins) {
+            throw new Error('execution reverted (out of gas)');
+        }
+
         // Get the contract evaluator
         const vmEvaluator: ContractEvaluator | null =
             await this.getVMEvaluatorFromCache(contractAddress);
@@ -243,10 +252,7 @@ export class VMManager extends Logger {
             );
         }
 
-        const isInitialized: boolean = vmEvaluator.isInitialized();
-        if (!isInitialized) {
-            throw new Error(`Unable to initialize contract ${contractAddress}`);
-        }
+        await vmEvaluator.setMaxGas(burnedBitcoins);
 
         // Trace the execution time
         const startBeforeExecution = Date.now();
@@ -271,29 +277,46 @@ export class VMManager extends Logger {
             );
         }
 
+        let error: string = 'execution reverted';
         // Execute the function
         const result: EvaluatedResult | null = await vmEvaluator
             .execute(contractAddress, isView, selector, finalBuffer, interactionTransaction.from)
-            .catch(() => {
+            .catch((e) => {
+                const errorMsg: string = e instanceof Error ? e.message : (e as string);
+
+                if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
+                    error = `execution reverted (${errorMsg})`;
+                } else {
+                    error = `execution reverted (gas used: ${vmEvaluator.getGasUsed})`;
+                }
+
                 return null;
             });
 
+        /** Reset contract to prevent damage on states. TODO: Add concurrence to initialisation. */
         if (!result) {
             await this.resetContractVM(vmEvaluator);
 
-            throw new Error('execution reverted.');
+            throw new Error(error);
         }
 
-        this.updateBlockValuesFromResult(
-            result,
-            contractAddress,
-            this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
-            interactionTransaction.transactionId,
-        );
+        // Executors can not save block state changes.
+        if (!this.isExecutor) {
+            this.updateBlockValuesFromResult(
+                result,
+                contractAddress,
+                this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+                interactionTransaction.transactionId,
+            );
+        }
+
+        if (result?.gasUsed === 0n) {
+            console.log('GAS USED IS 0', result);
+        }
 
         if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debug(
-                `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute)`,
+                `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute, ${result.gasUsed} gas used)`,
             );
         }
 
@@ -710,6 +733,10 @@ export class VMManager extends Logger {
 
     /** We must save the final state changes to the storage */
     private async saveBlockStateChanges(): Promise<void> {
+        if (this.isExecutor) {
+            throw new Error('Executor can not save block state changes.');
+        }
+
         if (!this.blockState) {
             throw new Error('Block state not found');
         }
@@ -763,6 +790,10 @@ export class VMManager extends Logger {
         pointer: StoragePointer,
         value: MemoryValue,
     ): Promise<void> {
+        if (this.isExecutor) {
+            return;
+        }
+
         /** We must internally change the corresponding storage */
         if (!this.blockState) {
             throw new Error('Block state not found');

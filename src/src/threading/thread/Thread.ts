@@ -166,18 +166,15 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
     private createInternalThreadLink(m: LinkThreadMessage<LinkType>): void {
         const data = m.data;
-        // const linkType = data.type;
+        const linkType = data.type;
         const threadType = data.sourceThreadType;
 
-        /*if (data.mainTargetThreadType === this.threadType) {
-            console.log(`Main target thread type is this thread type.`, data.mainTargetThreadType);
-            //void this.createLinkBetweenThreads(data.targetThreadType, m);
-            console.log(m);
-        } else {*/
         if (this.threadType !== data.targetThreadType) {
-            throw new Error(
-                `Thread type mismatch. {ThreadType: ${this.threadType}, SourceThreadType: ${threadType}}`,
-            );
+            /*throw new Error(
+                `Thread type ${this.threadType} is not the target thread type ${data.targetThreadType}.`,
+            );*/
+
+            return;
         }
 
         const type = m.data.type;
@@ -192,7 +189,6 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         /*this.important(
             `Thread link created. {ThreadType: ${this.threadType}, SourceThreadType: ${data.sourceThreadType}, LinkType: ${linkType}, ThreadId: ${data.targetThreadId}}`,
         );*/
-        //}
     }
 
     private createEvents(threadType: ThreadTypes, messagePort: MessagePort): void {

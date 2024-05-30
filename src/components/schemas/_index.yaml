@@ -167,3 +167,16 @@ components:
           type: string
         data:
           type: string
+    BroadcastTransactionParams:
+      type: object
+      properties:
+        data:
+          type: string
+          description: The transaction to broadcast.
+          example: "02000000000101"
+          required: true
+        psbt:
+          type: boolean
+          description: Is this transaction a PSBT?
+          example: false
+          required: false

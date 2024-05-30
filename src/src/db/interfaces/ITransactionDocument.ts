@@ -30,6 +30,7 @@ export interface TransactionDocument<T extends OPNetTransactionTypes>
     extends TransactionDocumentBase<T> {
     readonly blockHeight: Decimal128;
     readonly burnedBitcoin: Decimal128;
+    readonly gasUsed: Decimal128;
 
     readonly revert: Binary | undefined;
 }
@@ -46,6 +47,7 @@ export interface NetEventDocument {
     readonly eventType: string;
     readonly eventDataSelector: Decimal128;
     readonly eventData: Binary;
+    readonly contractAddress: string;
 }
 
 export interface InteractionTransactionDocument
@@ -60,6 +62,8 @@ export interface InteractionTransactionDocument
     readonly events: NetEventDocument[];
     readonly receipt?: Binary;
     readonly receiptProofs?: string[];
+
+    readonly gasUsed: Decimal128;
 }
 
 export type ITransactionDocument<T extends OPNetTransactionTypes> = TransactionDocument<T> &

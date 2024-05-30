@@ -1,5 +1,66 @@
+class GasTracker {
+    #gasUsed = 0n;
+
+    #canTrack = false;
+    #maxGas = 0n;
+
+    constructor(maxGas = 0n) {
+        this.#maxGas = maxGas;
+    }
+
+    get gasUsed() {
+        return this.#gasUsed;
+    }
+
+    set maxGas(maxGas) {
+        this.#maxGas = maxGas;
+    }
+
+    addGas(gas) {
+        if (!this.#canTrack) {
+            return;
+        }
+
+        if (this.#gasUsed + gas > this.#maxGas) {
+            throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.#maxGas}`);
+        }
+
+        if (this.#gasUsed + gas > MAX_GAS) {
+            throw new Error(`out of gas ${this.#gasUsed + gas} > ${MAX_GAS} (max)`);
+        }
+
+        this.#gasUsed += gas;
+    }
+
+    track(fn) {
+        gasTracker.reset();
+
+        this.enableTracking();
+
+        let resp = fn();
+        this.disableTracking();
+
+        gasCallback(this.gasUsed);
+
+        return resp;
+    }
+
+    reset() {
+        this.#gasUsed = 0n;
+    }
+
+    enableTracking() {
+        this.#canTrack = true;
+    }
+
+    disableTracking() {
+        this.#canTrack = false;
+    }
+}
+
 const imports = {};
-const ENABLE_LOGGING = false;
+const ENABLE_LOGGING = true;
+const gasTracker = new GasTracker(MAX_GAS);
 
 const adaptedImports = {
     env: Object.assign(Object.create(globalThis), imports.env || {}, {
@@ -29,6 +90,11 @@ const adaptedImports = {
             })();
         },
     }),
+    metering: {
+        usegas: (gas) => {
+            gasTracker.addGas(gas);
+        },
+    },
 };
 
 const { exports } = await WebAssembly.instantiate(module, adaptedImports);
@@ -172,8 +238,6 @@ function __lowerInternref(value) {
     if (value instanceof Internref) return value.valueOf();
     if (value instanceof Number) return value.valueOf();
 
-    //log('val', value.valueOf());
-
     throw TypeError('internref expected');
 }
 
@@ -223,75 +287,79 @@ function __getU32(pointer) {
 
 export function getContract() {
     // src/index/getContract() => src/btc/contracts/BTCContract/BTCContract
-    return adaptedExports.getContract();
+    return gasTracker.track(() => adaptedExports.getContract());
 }
 
 export function readMethod(method, contract, data, caller) {
     // src/btc/exports/index/readMethod(u32, src/btc/contracts/BTCContract/BTCContract | null, ~lib/typedarray/Uint8Array, ~lib/string/String | null) => ~lib/typedarray/Uint8Array
-    return adaptedExports.readMethod(method, contract, data, caller);
+    return gasTracker.track(() => adaptedExports.readMethod(method, contract, data, caller));
 }
 
 export function INIT(owner, contractAddress) {
     // src/btc/exports/index/INIT(~lib/string/String, ~lib/string/String) => void
-    adaptedExports.INIT(owner, contractAddress);
+    gasTracker.track(() => adaptedExports.INIT(owner, contractAddress));
 }
 
 export function readView(method, contract) {
     // src/btc/exports/index/readView(u32, src/btc/contracts/BTCContract/BTCContract | null) => ~lib/typedarray/Uint8Array
-    return adaptedExports.readView(method, contract);
+    return gasTracker.track(() => adaptedExports.readView(method, contract));
 }
 
 export function getViewABI() {
     // src/btc/exports/index/getViewABI() => ~lib/typedarray/Uint8Array
-    return adaptedExports.getViewABI();
+    return gasTracker.track(() => adaptedExports.getViewABI());
 }
 
 export function getEvents() {
     // src/btc/exports/index/getEvents() => ~lib/typedarray/Uint8Array
-    return adaptedExports.getEvents();
+    return gasTracker.track(() => adaptedExports.getEvents());
 }
 
 export function getMethodABI() {
     // src/btc/exports/index/getMethodABI() => ~lib/typedarray/Uint8Array
-    return adaptedExports.getMethodABI();
+    return gasTracker.track(() => adaptedExports.getMethodABI());
 }
 
 export function getWriteMethods() {
     // src/btc/exports/index/getMethodABI() => ~lib/typedarray/Uint8Array
-    return adaptedExports.getWriteMethods();
+    return gasTracker.track(() => adaptedExports.getWriteMethods());
 }
 
 export function getRequiredStorage() {
     // src/btc/exports/index/getRequiredStorage() => ~lib/typedarray/Uint8Array
-    return adaptedExports.getRequiredStorage();
+    return gasTracker.track(() => adaptedExports.getRequiredStorage());
 }
 
 export function getModifiedStorage() {
     // src/btc/exports/index/getModifiedStorage() => ~lib/typedarray/Uint8Array
-    return adaptedExports.getModifiedStorage();
+    return gasTracker.track(() => adaptedExports.getModifiedStorage());
 }
 
 export function initializeStorage() {
     // src/btc/exports/index/initializeStorage() => ~lib/typedarray/Uint8Array
-    return adaptedExports.initializeStorage();
+    return gasTracker.track(() => adaptedExports.initializeStorage());
 }
 
 export function loadStorage(data) {
     // src/btc/exports/index/loadStorage(~lib/typedarray/Uint8Array) => void
-    adaptedExports.loadStorage(data);
+    gasTracker.track(() => adaptedExports.loadStorage(data));
 }
 
 export function allocateMemory(size) {
     // src/btc/exports/index/allocateMemory(usize) => usize
-    return adaptedExports.allocateMemory(size);
+    return gasTracker.track(() => adaptedExports.allocateMemory(size));
 }
 
 export function isInitialized() {
     // src/btc/exports/index/isInitialized() => bool
-    return adaptedExports.isInitialized();
+    return gasTracker.track(() => adaptedExports.isInitialized());
 }
 
 export function purgeMemory() {
     // src/btc/exports/index/purgeMemory() => void
-    return adaptedExports.purgeMemory();
+    return gasTracker.track(() => adaptedExports.purgeMemory());
+}
+
+export function setMaxGas(maxGas) {
+    gasTracker.maxGas = maxGas;
 }

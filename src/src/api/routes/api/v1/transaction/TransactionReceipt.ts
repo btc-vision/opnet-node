@@ -3,7 +3,7 @@ import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { ReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
+import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import {
     InteractionTransactionDocument,
     ITransactionDocument,
@@ -107,18 +107,23 @@ export class TransactionReceipt extends Route<
         }
 
         const interaction: InteractionTransactionDocument = data as InteractionTransactionDocument;
+        const gasUsed: bigint = interaction.gasUsed
+            ? DataConverter.fromDecimal128(interaction.gasUsed)
+            : 0n;
 
         return {
             receipt: interaction.receipt?.toString('base64') ?? null,
             receiptProofs: interaction.receiptProofs || [],
             events: this.restoreEvents(interaction.events),
             revert: interaction.revert ? interaction.revert.toString('base64') : undefined,
+            gasUsed: '0x' + gasUsed.toString(16),
         };
     }
 
-    private restoreEvents(events: NetEventDocument[]): ReceiptDataForAPI[] {
-        return events.map((event: NetEventDocument): ReceiptDataForAPI => {
+    private restoreEvents(events: NetEventDocument[]): EventReceiptDataForAPI[] {
+        return events.map((event: NetEventDocument): EventReceiptDataForAPI => {
             return {
+                contractAddress: event.contractAddress,
                 eventType: event.eventType,
                 eventDataSelector: DataConverter.fromDecimal128(event.eventDataSelector).toString(),
                 eventData: event.eventData.toString('base64'),
@@ -131,6 +136,7 @@ export class TransactionReceipt extends Route<
             receipt: null,
             receiptProofs: [],
             events: [],
+            gasUsed: '0x0',
         };
     }
 

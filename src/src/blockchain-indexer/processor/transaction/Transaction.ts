@@ -248,6 +248,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             index: this.index,
             burnedBitcoin: DataConverter.toDecimal128(this.burnedFee),
+            gasUsed: DataConverter.toDecimal128(
+                this.receipt && this.receipt.gasUsed ? this.receipt.gasUsed : 0n,
+            ),
 
             inputs: this.inputs,
             outputs: outputDocuments,

@@ -1,4 +1,4 @@
-import { NetEvent } from '@btc-vision/bsi-binary';
+import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { TransactionDocumentForAPI } from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
@@ -23,8 +23,9 @@ export class TransactionConverterForAPI {
                     value: output.value.toString(),
                 };
             }),
-            events: transaction.events?.map((event: NetEvent | NetEventDocument) => {
+            events: transaction.events?.map((event: NetEventDocument) => {
                 return {
+                    contractAddress: event.contractAddress,
                     eventType: event.eventType,
                     eventDataSelector: event.eventDataSelector.toString(),
                     eventData: (event.eventData instanceof Uint8Array
@@ -34,7 +35,9 @@ export class TransactionConverterForAPI {
                 };
             }),
             revert: revert?.toString('base64'),
-            burnedBitcoin: transaction.burnedBitcoin.toString(),
+            burnedBitcoin:
+                '0x' + DataConverter.fromDecimal128(transaction.burnedBitcoin || 0n).toString(16),
+            gasUsed: '0x' + DataConverter.fromDecimal128(transaction.gasUsed || 0n).toString(16),
             _id: undefined,
             blockHeight: undefined,
             deployedTransactionHash: undefined,

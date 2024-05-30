@@ -1,4 +1,3 @@
-import { NetEvent } from '@btc-vision/bsi-binary';
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
 import bitcoin, { address, opcodes, payments } from 'bitcoinjs-lib';
@@ -7,6 +6,7 @@ import {
     InteractionTransactionDocument,
     NetEventDocument,
 } from '../../../../db/interfaces/ITransactionDocument.js';
+import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
@@ -85,6 +85,15 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         return this._contractAddress as string;
     }
 
+    public get gasUsed(): bigint {
+        if (!this.receipt) {
+            return 0n;
+        }
+
+        const receiptData: EvaluatedResult | undefined = this.receipt;
+        return receiptData?.gasUsed || 0n;
+    }
+
     public static is(data: TransactionData): TransactionInformation | undefined {
         const vIndex = this._is(data, this.LEGACY_INTERACTION);
 
@@ -106,9 +115,9 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
      * Convert the transaction to a document.
      */
     public toDocument(): InteractionTransactionDocument {
-        const receiptData = this.receipt;
-        const events = receiptData?.events || [];
-        const receipt = receiptData?.result;
+        const receiptData: EvaluatedResult | undefined = this.receipt;
+        const events: EvaluatedEvents | undefined = receiptData?.events;
+        const receipt: Uint8Array | undefined = receiptData?.result;
 
         const receiptProofs: string[] = this.receiptProofs || [];
 
@@ -124,6 +133,8 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
             wasCompressed: this.wasCompressed,
             receiptProofs: receiptProofs,
+
+            gasUsed: DataConverter.toDecimal128(this.gasUsed),
 
             receipt: receipt ? new Binary(receipt) : undefined,
             events: this.convertEvents(events),
@@ -241,14 +252,24 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
      * @param events NetEvent[]
      * @private
      */
-    private convertEvents(events: NetEvent[]): NetEventDocument[] {
-        return events.map((event) => {
-            return {
-                eventType: event.eventType,
-                eventDataSelector: DataConverter.toDecimal128(event.eventDataSelector),
-                eventData: new Binary(event.eventData),
-            };
-        });
+    private convertEvents(events: EvaluatedEvents | undefined): NetEventDocument[] {
+        if (!events) {
+            return [];
+        }
+
+        const netEvents: NetEventDocument[] = [];
+        for (const [contractAddress, contractEvents] of events) {
+            for (const event of contractEvents) {
+                netEvents.push({
+                    contractAddress,
+                    eventData: new Binary(event.eventData),
+                    eventDataSelector: DataConverter.toDecimal128(event.eventDataSelector),
+                    eventType: event.eventType,
+                });
+            }
+        }
+
+        return netEvents;
     }
 
     /**

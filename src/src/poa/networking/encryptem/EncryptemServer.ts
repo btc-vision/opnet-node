@@ -2,6 +2,7 @@ import { Logger } from '@btc-vision/bsi-common';
 import { Buffer } from 'buffer';
 import sodium from 'sodium-native';
 
+/** Merge client and server encryption and decryption into one class */
 export class EncryptemServer extends Logger {
     public logColor: string = `#f61a3b`;
 
@@ -97,8 +98,13 @@ export class EncryptemServer extends Logger {
         }
     }
 
-    public verifyAuth(k: Buffer, input: Buffer): boolean {
-        const out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
+    public verifyAuth(out: Buffer, input: Buffer): boolean {
+        if (!this.#clientSignaturePublicKey) {
+            throw new Error('Client signature public key is null.');
+        }
+
+        const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
+        this.sodium.randombytes_buf_deterministic(k, this.#clientSignaturePublicKey);
 
         return this.sodium.crypto_auth_verify(out, input, k);
     }
@@ -111,9 +117,13 @@ export class EncryptemServer extends Logger {
             this.#serverPrivateKey &&
             this.#clientSignaturePublicKey
         ) {
-            const auth = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
-            const signature = Buffer.from(msg.slice(auth.length, auth.length + 64));
-            const data = Buffer.from(msg.slice(auth.length + 64, msg.length));
+            const auth: Buffer = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
+            const signature: Buffer = Buffer.from(msg.slice(auth.length, auth.length + 64));
+            const data: Buffer = Buffer.from(msg.slice(auth.length + 64, msg.length));
+
+            if (!this.verifyAuth(auth, signature)) {
+                throw new Error('[Server] Bad AHEAD authentication.');
+            }
 
             try {
                 const decryptedBuffer = this.#decrypt(
@@ -157,6 +167,10 @@ export class EncryptemServer extends Logger {
     }
 
     #encrypt(m: Buffer, receiverPublicKey: Buffer, senderPrivateKey: Buffer): Uint8Array | null {
+        if (!this.#serverSignaturePublicKey) {
+            throw new Error('Server signature public key is null.');
+        }
+
         try {
             const nonce = this.generateNonce();
             const cipherMsg = this.sodium.sodium_malloc(m.length + this.sodium.crypto_box_MACBYTES);
@@ -170,7 +184,7 @@ export class EncryptemServer extends Logger {
                 throw new Error(`Failed to sign message.`);
             }
 
-            const auth = this.#authenticate(signedMessage);
+            const auth = this.#authenticate(signedMessage, this.#serverSignaturePublicKey);
             const finalMessageBuffer = Buffer.concat([auth, signedMessage, finalMsg]);
 
             return new Uint8Array(finalMessageBuffer);
@@ -202,8 +216,8 @@ export class EncryptemServer extends Logger {
             throw 'Invalid signature';
         }
 
-        const nonce = msg.slice(0, this.sodium.crypto_box_NONCEBYTES);
-        const cipher = msg.slice(this.sodium.crypto_box_NONCEBYTES);
+        const nonce = msg.subarray(0, this.sodium.crypto_box_NONCEBYTES);
+        const cipher = msg.subarray(this.sodium.crypto_box_NONCEBYTES);
 
         const decryptedMessage = this.sodium.sodium_malloc(
             cipher.length - this.sodium.crypto_box_MACBYTES,
@@ -225,10 +239,10 @@ export class EncryptemServer extends Logger {
         }
     }
 
-    #authenticate(input: Buffer): Buffer {
-        const out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
-        const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
-        this.sodium.randombytes_buf(k);
+    #authenticate(input: Buffer, sender: Buffer): Buffer {
+        let out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
+        let k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
+        this.sodium.randombytes_buf_deterministic(k, sender);
 
         this.sodium.crypto_auth(out, input, k);
 

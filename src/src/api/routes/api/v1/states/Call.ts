@@ -13,6 +13,7 @@ import {
 } from '../../../../../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
+import { EvaluatedEvents } from '../../../../../vm/evaluated/EvaluatedResult.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { CallParams } from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
@@ -20,9 +21,11 @@ import {
     AccessList,
     AccessListItem,
     CallResult,
+    ContractEvents,
 } from '../../../../json-rpc/types/interfaces/results/states/CallResult.js';
 import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
+import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private readonly network: bitcoin.networks.Network = bitcoin.networks.testnet;
@@ -52,14 +55,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
         const [to, calldata] = this.getDecodedParams(_params);
         const res: CallRequestResponse = await this.requestThreadExecution(to, calldata);
-
-        /*let promise: Promise<CallRequestResponse>[] = [];
-        for (let i = 0; i < 100; i++) {
-            promise.push(this.requestThreadExecution(to, calldata));
-        }
-
-        const a = await Promise.all(promise);
-        console.log(a);*/
 
         return this.convertDataToResult(res);
     }
@@ -143,9 +138,35 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
         return {
             result: result,
-            events: data.events || [],
+            events: this.convertEventToResult(data.events),
             accessList,
+            estimatedGas: '0x' + (data.gasUsed || 0).toString(16),
         };
+    }
+
+    private convertEventToResult(events: EvaluatedEvents | undefined): ContractEvents {
+        const contractEvents: ContractEvents = {};
+
+        if (events) {
+            for (const [contract, contractEventsList] of events) {
+                const contractEventsListResult: EventReceiptDataForAPI[] = [];
+
+                for (const event of contractEventsList) {
+                    const eventResult: EventReceiptDataForAPI = {
+                        contractAddress: contract,
+                        eventType: event.eventType,
+                        eventDataSelector: event.eventDataSelector.toString(),
+                        eventData: Buffer.from(event.eventData).toString('base64'),
+                    };
+
+                    contractEventsListResult.push(eventResult);
+                }
+
+                contractEvents[contract] = contractEventsListResult;
+            }
+        }
+
+        return contractEvents;
     }
 
     private getAccessList(changedStorage: BlockchainStorage): AccessList {

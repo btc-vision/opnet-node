@@ -5,6 +5,7 @@ import { PackedMessage, Packet } from '../../Packet.js';
 
 export interface ITransactionPacket extends PackedMessage {
     readonly transaction: Uint8Array;
+    readonly psbt: boolean;
 }
 
 /** Broadcast goes both ways */
@@ -15,7 +16,7 @@ export class TransactionPacket extends Packet<
 > {
     public static TYPE: Packets = Packets.BroadcastTransaction;
 
-    protected readonly opcode: CommonPackets = CommonPackets.TRANSACTION;
+    protected readonly opcode: CommonPackets = CommonPackets.BROADCAST_TRANSACTION;
 
     constructor(protobufType: Type) {
         super(protobufType);

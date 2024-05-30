@@ -52,6 +52,14 @@ import { IBlockHeaderWitness } from './protobuf/packets/blockchain/common/BlockH
 import { ITransactionPacket } from './protobuf/packets/blockchain/common/TransactionPacket.js';
 import { OPNetPeerInfo } from './protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { AuthenticationManager } from './server/managers/AuthenticationManager.js';
+import {
+    BroadcastOPNetRequest,
+    OPNetBroadcastData,
+    OPNetBroadcastResponse,
+} from '../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -77,6 +85,9 @@ export class P2PManager extends Logger {
     private readonly identity: OPNetIdentity;
     private startedIndexer: boolean = false;
 
+    private knownMempoolIdentifiers: Set<bigint> = new Set();
+    private broadcastedIdentifiers: Set<bigint> = new Set();
+
     private readonly blockWitnessManager: BlockWitnessManager;
 
     constructor(private readonly config: BtcIndexerConfig) {
@@ -88,6 +99,11 @@ export class P2PManager extends Logger {
         this.blockWitnessManager = new BlockWitnessManager(this.config, this.identity);
         this.blockWitnessManager.broadcastBlockWitness = this.broadcastBlockWitness.bind(this);
         this.blockWitnessManager.sendMessageToThread = this.internalSendMessageToThread.bind(this);
+
+        setInterval(() => {
+            this.knownMempoolIdentifiers.clear();
+            this.broadcastedIdentifiers.clear();
+        }, 15000);
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -142,7 +158,28 @@ export class P2PManager extends Logger {
         super.info(...args);
     }
 
-    public async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<void> {
+    public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
+        if (this.broadcastedIdentifiers.has(data.identifier)) {
+            return {
+                peers: 0,
+            };
+        }
+        this.broadcastedIdentifiers.add(data.identifier);
+
+        return {
+            peers: await this.broadcastMempoolTransaction({
+                transaction: data.raw,
+                psbt: data.psbt,
+                identifier: data.identifier,
+            }),
+        };
+    }
+
+    private async broadcastMempoolTransaction(
+        transaction: ITransactionPacket & {
+            identifier: bigint;
+        },
+    ): Promise<number> {
         const broadcastPromises: Promise<void>[] = [];
         for (let peer of this.peers.values()) {
             if (!peer.isAuthenticated) continue;
@@ -151,6 +188,8 @@ export class P2PManager extends Logger {
         }
 
         await Promise.all(broadcastPromises);
+
+        return broadcastPromises.length;
     }
 
     private async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
@@ -273,7 +312,55 @@ export class P2PManager extends Logger {
         await peer.init();
     }
 
-    private async onBroadcastTransaction(transaction: ITransactionPacket): Promise<void> {}
+    private async onBroadcastTransaction(tx: ITransactionPacket): Promise<void> {
+        const verifiedTransaction = await this.verifyOPNetTransaction(tx.transaction, tx.psbt);
+
+        if (!verifiedTransaction) {
+            return;
+        }
+
+        const identifier: bigint = verifiedTransaction.identifier;
+
+        /** Already broadcasted. */
+        if (this.knownMempoolIdentifiers.has(identifier)) {
+            this.info(`Transaction ${identifier} already known.`);
+            return;
+        }
+
+        this.info(`Transaction ${identifier} entered mempool.`);
+        this.knownMempoolIdentifiers.add(identifier);
+
+        const broadcastData: OPNetBroadcastData = {
+            raw: tx.transaction,
+            psbt: tx.psbt,
+            identifier: identifier,
+        };
+
+        await this.broadcastTransaction(broadcastData);
+    }
+
+    private async verifyOPNetTransaction(
+        data: Uint8Array,
+        psbt: boolean,
+        identifier?: bigint,
+    ): Promise<BroadcastResponse | undefined> {
+        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
+            {
+                type: MessageType.RPC_METHOD,
+                data: {
+                    rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET,
+                    data: {
+                        raw: data,
+                        psbt,
+                        identifier,
+                    },
+                } as BroadcastOPNetRequest,
+            };
+
+        return (await this.sendMessageToThread(ThreadTypes.MEMPOOL, currentBlockMsg)) as
+            | BroadcastResponse
+            | undefined;
+    }
 
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
@@ -290,11 +377,6 @@ export class P2PManager extends Logger {
 
                 // Is self.
                 if (this.node.peerId.equals(peerId)) continue;
-
-                /*const knownPeer: Peer | null = await this.node.peerStore
-                    .get(peerId)
-                    .catch(() => null);
-                if (knownPeer) continue;*/
 
                 if (peerInfo.addresses.length === 0) {
                     this.fail(`No addresses found for peer ${peerId.toString()}`);
@@ -364,7 +446,7 @@ export class P2PManager extends Logger {
                 `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
                 `\nThis node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
-                `Your OPNet trusted certificate is\n ${this.identity.rsaPublicKey}\n`,
+                `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n`,
                 `Looking for peers...\n\n`,
             );
 
@@ -473,7 +555,7 @@ export class P2PManager extends Logger {
                 `\n\nThis node is running in bootstrap mode. This means it will not connect to other peers automatically. It will only accept incoming connections.\n`,
                 `This node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
-                `Your OPNet trusted certificate is\n ${this.identity.rsaPublicKey}\n\n`,
+                `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n\n`,
             );
         }
 

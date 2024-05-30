@@ -3,7 +3,6 @@ export enum CommonPackets {
     PONG = 0x00,
 
     /** Blockchain */
-    TRANSACTION = 0x0a,
     BLOCK_HEADER_WITNESS = 0x0b,
 
     /** Transactions */

@@ -2,9 +2,9 @@ import { Selector } from '../buffer/BinaryReader.js';
 import { Address } from '../buffer/types/math.js';
 
 export type VMRuntime = {
-    INIT(owner: string, contractAddress: string): void;
+    INIT(owner: string, contractAddress: string): Promise<void>;
 
-    getContract(): Number;
+    getContract(): Promise<Number>;
 
     readMethod(
         method: Selector,
@@ -13,38 +13,40 @@ export type VMRuntime = {
         caller?: Address | null,
     ): Promise<Uint8Array>;
 
-    readView(method: Selector, contract?: Number | null): Uint8Array;
+    readView(method: Selector, contract?: Number | null): Promise<Uint8Array>;
 
-    getViewABI(): Uint8Array;
-    getEvents(): Uint8Array;
-    getMethodABI(): Uint8Array;
-    getWriteMethods(): Uint8Array;
+    getViewABI(): Promise<Uint8Array>;
+    getEvents(): Promise<Uint8Array>;
+    getMethodABI(): Promise<Uint8Array>;
+    getWriteMethods(): Promise<Uint8Array>;
 
     /**
      * src/btc/exports/index/getRequiredStorage
      * @returns `~lib/typedarray/Uint8Array`
      */
-    getRequiredStorage(): Uint8Array;
+    getRequiredStorage(): Promise<Uint8Array>;
 
     /**
      * src/btc/exports/index/getModifiedStorage
      * @returns `~lib/typedarray/Uint8Array`
      */
-    getModifiedStorage(): Uint8Array;
+    getModifiedStorage(): Promise<Uint8Array>;
 
     /**
      * src/btc/exports/index/initializeStorage
      * @returns `~lib/typedarray/Uint8Array`
      */
-    initializeStorage(): Uint8Array;
+    initializeStorage(): Promise<Uint8Array>;
 
-    loadStorage(data: Uint8Array): void;
+    loadStorage(data: Uint8Array): Promise<void>;
 
-    allocateMemory(size: number): number;
+    allocateMemory(size: number): Promise<number>;
 
-    isInitialized(): boolean;
+    isInitialized(): Promise<boolean>;
 
-    purgeMemory(): void;
+    purgeMemory(): Promise<void>;
+
+    setMaxGas(maxGas: bigint): Promise<void>;
 };
 
 export declare function instantiate(bytecode: Buffer, state: {}): Promise<VMRuntime>;

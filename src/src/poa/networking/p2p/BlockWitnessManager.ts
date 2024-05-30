@@ -409,7 +409,7 @@ export class BlockWitnessManager extends Logger {
              * We should not broadcast the generated witness by this trusted node twice. This would leak our identity.
              */
             return (
-                w.identity !== this.identity.rsaOPNetIdentity &&
+                w.identity !== this.identity.trustedOPNetIdentity &&
                 !rawWitnesses.find((witness) => witness.identity === w.identity)
             );
         });

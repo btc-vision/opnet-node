@@ -40,15 +40,16 @@ export class Core extends Logger {
         }
 
         if (Config.API.ENABLED) {
-            await this.createThread(0, ThreadTypes.API);
+            await this.createThread(1, ThreadTypes.API);
         }
 
         if (Config.INDEXER.ENABLED) {
-            await this.createThread(0, ThreadTypes.BITCOIN_INDEXER);
+            await this.createThread(2, ThreadTypes.BITCOIN_INDEXER);
         }
 
         if (Config.POA.ENABLED) {
-            await this.createThread(0, ThreadTypes.PoA);
+            await this.createThread(3, ThreadTypes.MEMPOOL);
+            await this.createThread(4, ThreadTypes.PoA);
         }
     }
 

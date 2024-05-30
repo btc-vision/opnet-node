@@ -17,6 +17,7 @@ import { GetStorageAt } from './api/v1/states/GetStorageAt.js';
 import { TransactionByHash } from './api/v1/transaction/TransactionByHash.js';
 import { TransactionReceipt } from './api/v1/transaction/TransactionReceipt.js';
 import { Route } from './Route.js';
+import { BroadcastTransaction } from './api/v1/transaction/BroadcastTransaction.js';
 
 export const DefinedRoutes: { [key in Routes]: Route<key, JSONRpcMethods, unknown> } = {
     /** Blocks */
@@ -44,6 +45,7 @@ export const DefinedRoutes: { [key in Routes]: Route<key, JSONRpcMethods, unknow
     /** Transactions */
     [Routes.TRANSACTION_BY_HASH]: new TransactionByHash(),
     [Routes.TRANSACTION_RECEIPT]: new TransactionReceipt(),
+    [Routes.BROADCAST_TRANSACTION]: new BroadcastTransaction(),
 
     /** Others */
     [Routes.PROTOBUF_SCHEMA]: new ProtobufSchema(),

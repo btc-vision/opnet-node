@@ -41,6 +41,8 @@ export interface OPNetConfig {
 
 export interface PoA {
     readonly ENABLED: boolean;
+
+    readonly MEMPOOL_THREADS: number;
 }
 
 export interface P2P {

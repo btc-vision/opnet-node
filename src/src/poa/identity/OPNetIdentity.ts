@@ -14,11 +14,11 @@ import { OPNetPathFinder } from './OPNetPathFinder.js';
 export class OPNetIdentity extends OPNetPathFinder {
     private keyPairGenerator: KeyPairGenerator;
 
-    private readonly opnetAuthKeyBin: Uint8Array;
+    private readonly opnetAuthKeyBin: Buffer;
     private readonly opnetWallet: ECPairInterface;
 
     private readonly keyPair: OPNetKeyPair;
-    private readonly rsaIdentity: string;
+    private readonly trustedIdentity: string;
 
     public constructor(private readonly config: BtcIndexerConfig) {
         super();
@@ -34,9 +34,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         this.opnetAuthKeyBin = this.loadOPNetAuthKeys();
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
 
-        this.rsaIdentity = this.keyPairGenerator.opnetHash(
-            Buffer.from(this.keyPair.rsa.publicKey.trim(), 'utf-8'),
-        );
+        this.trustedIdentity = this.keyPairGenerator.opnetHash(this.keyPair.trusted.publicKey);
     }
 
     public get peerType(): number {
@@ -77,12 +75,12 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.config.OP_NET.CHAIN_ID;
     }
 
-    public get rsaOPNetIdentity(): string {
-        return this.rsaIdentity;
+    public get trustedOPNetIdentity(): string {
+        return this.trustedIdentity;
     }
 
-    public get rsaPublicKey(): string {
-        return this.keyPair.rsa.publicKey.trim();
+    public get trustedPublicKey(): string {
+        return this.keyPair.trusted.publicKey.toString('base64');
     }
 
     public get tapAddress(): string {
@@ -192,11 +190,8 @@ export class OPNetIdentity extends OPNetPathFinder {
         if (!this.opnetWallet.privateKey) throw new Error('Private key not found');
 
         return {
-            signature: this.keyPairGenerator.signRSA(data, this.keyPair.rsa.privateKey, {
-                privateKey: this.keyPair.privateKey,
-                publicKey: this.keyPair.publicKey,
-            }),
-            identity: this.rsaIdentity,
+            signature: this.keyPairGenerator.sign(data, this.keyPair.trusted.privateKey),
+            identity: this.trustedIdentity,
         };
     }
 
@@ -208,10 +203,10 @@ export class OPNetIdentity extends OPNetPathFinder {
         return path.join(this.getBinPath(), 'wallet.bin');
     }
 
-    private loadOPNetAuthKeys(): Uint8Array {
+    private loadOPNetAuthKeys(): Buffer {
         try {
             const lastKeys = fs.readFileSync(this.getOPNetAuthKeysPath());
-            return this.decrypt(new Uint8Array(lastKeys));
+            return Buffer.from(this.decrypt(new Uint8Array(lastKeys)));
         } catch (e) {
             const error = e as Error;
             if (error.message.includes('no such file or directory')) {
@@ -262,8 +257,8 @@ export class OPNetIdentity extends OPNetPathFinder {
         return out;
     }
 
-    private generateNewOPNetIdentity(): Uint8Array {
-        const key = this.generateDefaultOPNetAuthKeys();
+    private generateNewOPNetIdentity(): Buffer {
+        const key: Buffer = this.generateDefaultOPNetAuthKeys();
 
         if (fs.existsSync(this.getOPNetAuthKeysPath())) {
             throw new Error(
@@ -276,39 +271,39 @@ export class OPNetIdentity extends OPNetPathFinder {
         return key;
     }
 
-    private restoreKeyPair(buf: Buffer | Uint8Array): OPNetKeyPair {
-        const privateKey = buf.slice(0, 64);
-        const publicKey = buf.slice(64, 96);
+    private restoreKeyPair(buf: Buffer): OPNetKeyPair {
+        const privateKey = buf.subarray(0, 64);
+        const publicKey = buf.subarray(64, 96);
 
-        const identity = buf.slice(96, 224);
-        const rsaKey = Buffer.from(buf.slice(224));
+        const identity = buf.subarray(96, 224);
 
-        const regeneratedRsa = JSON.parse(rsaKey.toString('utf-8'));
+        const trustedPublicKey = buf.subarray(224, 256);
+        const trustedPrivateKey = buf.subarray(256);
 
         return {
             privateKey: Buffer.from(privateKey),
             publicKey: Buffer.from(publicKey),
             identity: {
-                hash: Buffer.from(identity.slice(0, 64)),
-                proof: Buffer.from(identity.slice(64)),
+                hash: Buffer.from(identity.subarray(0, 64)),
+                proof: Buffer.from(identity.subarray(64)),
             },
-            rsa: {
-                privateKey: regeneratedRsa.privateKey,
-                publicKey: regeneratedRsa.publicKey,
+            trusted: {
+                privateKey: trustedPrivateKey,
+                publicKey: trustedPublicKey,
             },
         };
     }
 
     private generateDefaultOPNetAuthKeys(): Buffer {
         const keyPair = this.keyPairGenerator.generateKey();
-        const rsaBuffer = Buffer.from(JSON.stringify(keyPair.rsa), `utf-8`);
 
         return Buffer.concat([
             keyPair.privateKey, // 64 bytes
             keyPair.publicKey, // 32 bytes
             keyPair.identity.hash, // 64 bytes
             keyPair.identity.proof, // 64 bytes
-            rsaBuffer, // variable
+            keyPair.trusted.publicKey, // 32 bytes
+            keyPair.trusted.privateKey, // 32 bytes
         ]);
     }
 }

@@ -12,7 +12,7 @@ export enum JSONRpcMethods {
 
     /** Transactions */
     GET_TRANSACTION_BY_HASH = 'btc_getTransactionByHash',
-    SEND_RAW_TRANSACTION = 'btc_sendRawTransaction', // TODO: Implement
+    BROADCAST_TRANSACTION = 'btc_sendRawTransaction',
 
     /** Historical */
     GET_UTXOS = 'btc_getUTXOs',

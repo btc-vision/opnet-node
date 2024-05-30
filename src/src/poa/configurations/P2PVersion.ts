@@ -22,7 +22,7 @@ export const TRUSTED_PUBLIC_KEYS: { [key: string]: TrustedPublicKeys } = {
             [BitcoinNetwork.Mainnet]: MainnetTrustedKeys001,
             [BitcoinNetwork.TestNet]: TestNetTrustedKeys001,
             [BitcoinNetwork.Regtest]: RegTestTrustedKeys001,
-            [BitcoinNetwork.Signet]: [],
+            [BitcoinNetwork.Signet]: {},
         },
     },
 };

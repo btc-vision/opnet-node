@@ -20,7 +20,7 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
 
     /** Transactions */
     [JSONRpcMethods.GET_TRANSACTION_BY_HASH]: Routes.TRANSACTION_BY_HASH,
-    [JSONRpcMethods.SEND_RAW_TRANSACTION]: Routes.NOT_IMPLEMENTED,
+    [JSONRpcMethods.BROADCAST_TRANSACTION]: Routes.BROADCAST_TRANSACTION,
 
     /** Historical */
     [JSONRpcMethods.GET_UTXOS]: Routes.UTXOS,

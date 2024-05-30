@@ -1,3 +1,4 @@
+import { MeterType, meterWASM } from '@btc-vision/wasm-metering';
 import fs from 'fs';
 import IsolatedVM from 'isolated-vm';
 import ivm, { Context, Isolate, Reference, ReferenceApplyOptions } from 'isolated-vm';
@@ -24,14 +25,17 @@ interface IsolatedMethods {
     IS_INITIALIZED: IsolatedVM.Reference<VMRuntime['isInitialized']>;
     GET_EVENTS: IsolatedVM.Reference<VMRuntime['getEvents']>;
     PURGE_MEMORY: IsolatedVM.Reference<VMRuntime['purgeMemory']>;
+    SET_MAX_GAS: IsolatedVM.Reference<VMRuntime['setMaxGas']>;
 }
 
-const codePath = path.resolve(__dirname, '../vm/isolated/IsolatedManager.js');
+const codePath: string = path.resolve(__dirname, '../vm/isolated/IsolatedManager.js');
 const code: string = fs.readFileSync(codePath, 'utf-8');
 
 export class VMIsolator {
-    private contract: ContractEvaluator | null = null;
+    public static readonly MAX_GAS: bigint = 480076812288n; // Max gas allowed for a contract execution
+    private static readonly EXECUTION_TIMEOUT: number = 2 * 60 * 60000; // 2h
 
+    private contract: ContractEvaluator | null = null;
     private isolatedVM: Isolate = this.createVM();
     private context: Context = this.createContext();
 
@@ -42,10 +46,21 @@ export class VMIsolator {
 
     private methods: IsolatedMethods | null = null;
 
+    private readonly opnetContractBytecode: Buffer | null = null;
+
     constructor(
         public readonly contractAddress: string,
-        private readonly contractBytecode: Buffer,
-    ) {}
+        contractBytecode: Buffer,
+    ) {
+        // Prevent having to recompute this every time we need to reset the VM
+        this.opnetContractBytecode = this.injectOPNetDeps(contractBytecode);
+    }
+
+    public get CPUTime(): bigint {
+        return this.isolatedVM.cpuTime;
+    }
+
+    public onGasUsed: (gas: bigint) => void = () => {};
 
     public getStorage(
         _address: string,
@@ -95,6 +110,12 @@ export class VMIsolator {
             console.log(...args);
         });
 
+        this.jail.setSync('gasCallback', (gas: bigint): void => {
+            this.onGasUsed(gas);
+        });
+
+        this.jail.setSync('MAX_GAS', VMIsolator.MAX_GAS);
+
         let errored = await this.loadContractFromBytecode();
         if (errored) {
             return errored;
@@ -102,10 +123,11 @@ export class VMIsolator {
 
         this.defineMethods();
 
-        this.contract = new ContractEvaluator(this);
+        if (!this.contract) {
+            this.contract = new ContractEvaluator(this);
+        }
 
-        const runTime = this.getRuntime();
-
+        const runTime: VMRuntime = this.getRuntime();
         await this.contract.init(runTime);
 
         return false;
@@ -149,39 +171,44 @@ export class VMIsolator {
             ALLOCATE_MEMORY: this.reference.getSync('allocateMemory', { reference: true }),
             IS_INITIALIZED: this.reference.getSync('isInitialized', { reference: true }),
             PURGE_MEMORY: this.reference.getSync('purgeMemory', { reference: true }),
+            SET_MAX_GAS: this.reference.getSync('setMaxGas', { reference: true }),
         };
     }
 
     private getCallOptions(): ReferenceApplyOptions {
         return {
-            timeout: 20,
+            timeout: VMIsolator.EXECUTION_TIMEOUT,
         };
     }
 
-    private INIT(owner: string, contractAddress: string): void {
+    private async INIT(owner: string, contractAddress: string): Promise<void> {
         if (!this.methods) {
             throw new Error('Methods not defined [INIT]');
         }
 
-        this.methods.INIT_METHOD.applySync(
+        //console.log('INIT');
+
+        await this.methods.INIT_METHOD.apply(
             undefined,
             [owner, contractAddress],
             this.getCallOptions(),
         );
     }
 
-    private getContractWasm(): Number {
+    private async getContractWasm(): Promise<Number> {
         if (!this.methods) {
             throw new Error('Methods not defined [GET_CONTRACT]');
         }
 
-        const result = this.methods.GET_CONTRACT_METHOD.applySync(
+        //console.log('getContractWasm');
+
+        const result = (await this.methods.GET_CONTRACT_METHOD.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Number>;
+        )) as Reference<Number>;
 
-        const resp = result.copySync();
+        const resp = await result.copy();
         result.release();
 
         return resp;
@@ -197,7 +224,9 @@ export class VMIsolator {
             throw new Error('Methods not defined');
         }
 
-        console.log('readMethod', method, contract, Buffer.from(data).toString('hex'), caller);
+        //console.log('readMethod');
+
+        //this.isolatedVM.startCpuProfiler('test');
 
         const externalCopy = new ivm.ExternalCopy(data);
         const externalContract = new ivm.ExternalCopy(contract);
@@ -213,178 +242,231 @@ export class VMIsolator {
             this.getCallOptions(),
         )) as Reference<Uint8Array>;
 
-        const resp = result.copySync();
+        const resp = await result.copy();
         result.release();
+
+        //const profiles = await this.isolatedVM.stopCpuProfiler('test');
+        //console.dir(profiles, { depth: 100, colors: true });
 
         return resp;
     }
 
-    private getViewABI(): Uint8Array {
+    private async getViewABI(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_VIEW_ABI.applySync(
+        //console.log('getViewABI');
+
+        const result = (await this.methods.GET_VIEW_ABI.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private readView(method: number, contract?: Number | null): Uint8Array {
+    private async readView(method: number, contract?: Number | null): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
+        //console.log('readView');
+
         const externalCopy = new ivm.ExternalCopy(contract);
-        const result = this.methods.READ_VIEW.applySync(
+        const result = (await this.methods.READ_VIEW.apply(
             undefined,
             [method, externalCopy.copyInto({ release: true })],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
+        )) as Reference<Uint8Array>;
 
-        const resp = result.copySync();
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private getEvents(): Uint8Array {
+    private async getEvents(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_EVENTS.applySync(
+        //console.log('getEvents');
+
+        const result = (await this.methods.GET_EVENTS.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private getMethodABI(): Uint8Array {
+    private async getMethodABI(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_METHOD_ABI.applySync(
+        //console.log('getMethodABI');
+
+        const result = (await this.methods.GET_METHOD_ABI.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private getWriteMethods(): Uint8Array {
+    private async getWriteMethods(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_WRITE_METHODS.applySync(
+        //console.log('getWriteMethods');
+
+        const result = (await this.methods.GET_WRITE_METHODS.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private getRequiredStorage(): Uint8Array {
+    private async getRequiredStorage(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_REQUIRED_STORAGE.applySync(
+        //console.log('getRequiredStorage');
+
+        const result = (await this.methods.GET_REQUIRED_STORAGE.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private getModifiedStorage(): Uint8Array {
+    private async getModifiedStorage(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.GET_MODIFIED_STORAGE.applySync(
+        //console.log('getModifiedStorage');
+
+        const result = (await this.methods.GET_MODIFIED_STORAGE.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
-        const resp = result.copySync();
+        )) as Reference<Uint8Array>;
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private initializeStorage(): Uint8Array {
+    private async initializeStorage(): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        const result = this.methods.INITIALIZE_STORAGE.applySync(
+        //console.log('initializeStorage');
+
+        const result = (await this.methods.INITIALIZE_STORAGE.apply(
             undefined,
             [],
             this.getCallOptions(),
-        ) as Reference<Uint8Array>;
+        )) as Reference<Uint8Array>;
 
-        const resp = result.copySync();
+        const resp = await result.copy();
         result.release();
 
         return resp;
     }
 
-    private loadStorage(data: Uint8Array): void {
+    private async loadStorage(data: Uint8Array): Promise<void> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
+
+        //console.log('loadStorage');
 
         const externalCopy = new ivm.ExternalCopy(data);
-        this.methods.LOAD_STORAGE.applySync(
+        await this.methods.LOAD_STORAGE.apply(
             undefined,
             [externalCopy.copyInto({ release: true })],
             this.getCallOptions(),
         );
     }
 
-    private allocateMemory(size: number): number {
+    private async allocateMemory(size: number): Promise<number> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        return this.methods.ALLOCATE_MEMORY.applySync(undefined, [size], this.getCallOptions());
+        //console.log('allocateMemory');
+
+        return (await this.methods.ALLOCATE_MEMORY.apply(
+            undefined,
+            [size],
+            this.getCallOptions(),
+        )) as number;
     }
 
-    private isInitialized(): boolean {
+    private async isInitialized(): Promise<boolean> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        return this.methods.IS_INITIALIZED.applySync(undefined, [], this.getCallOptions());
+        //console.log('isInitialized');
+
+        return (await this.methods.IS_INITIALIZED.apply(
+            undefined,
+            [],
+            this.getCallOptions(),
+        )) as boolean;
     }
 
-    private purgeMemory(): void {
+    private async purgeMemory(): Promise<void> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        this.methods.PURGE_MEMORY.applySync(undefined, [], this.getCallOptions());
+        //console.log('purgeMemory');
+
+        await this.methods.PURGE_MEMORY.apply(undefined, [], this.getCallOptions());
+    }
+
+    private async setMaxGas(maxGas: bigint): Promise<void> {
+        if (!this.methods) {
+            throw new Error('Methods not defined');
+        }
+
+        //console.log('setMaxGas');
+
+        await this.methods.SET_MAX_GAS.apply(
+            undefined,
+            [new ivm.ExternalCopy(maxGas).copyInto({ release: true })],
+            this.getCallOptions(),
+        );
     }
 
     private getRuntime(): VMRuntime {
@@ -404,13 +486,122 @@ export class VMIsolator {
             allocateMemory: this.allocateMemory.bind(this),
             isInitialized: this.isInitialized.bind(this),
             purgeMemory: this.purgeMemory.bind(this),
+            setMaxGas: this.setMaxGas.bind(this),
         };
     }
 
+    private injectOPNetDeps(bytecode: Buffer): Buffer {
+        const meteredWasm: Buffer = meterWASM(bytecode, {
+            meterType: MeterType.I64,
+            costTable: {
+                start: 0,
+                type: {
+                    params: {
+                        DEFAULT: 0,
+                    },
+                    return_type: {
+                        DEFAULT: 0,
+                    },
+                },
+                import: 0,
+                code: {
+                    locals: {
+                        DEFAULT: 1,
+                    },
+                    code: {
+                        get_local: 75,
+                        set_local: 210,
+                        tee_local: 75,
+                        get_global: 225,
+                        set_global: 575,
+
+                        load8_s: 680,
+                        load8_u: 680,
+                        load16_s: 680,
+                        load16_u: 680,
+                        load32_s: 680,
+                        load32_u: 680,
+                        load: 680,
+
+                        store8: 950,
+                        store16: 950,
+                        store32: 950,
+                        store: 950,
+
+                        grow_memory: 8050,
+                        current_memory: 3000,
+
+                        nop: 1,
+                        block: 1,
+                        loop: 1,
+                        if: 765,
+                        then: 1,
+                        else: 1,
+                        br: 765,
+                        br_if: 765,
+                        br_table: 2400,
+                        return: 1,
+
+                        call: 3800,
+                        call_indirect: 13610,
+
+                        const: 1,
+
+                        add: 100,
+                        sub: 100,
+                        mul: 160,
+                        div_s: 1270,
+                        div_u: 1270,
+                        rem_s: 1270,
+                        rem_u: 1270,
+                        and: 100,
+                        or: 100,
+                        xor: 100,
+                        shl: 100,
+                        shr_u: 100,
+                        shr_s: 100,
+                        rotl: 100,
+                        rotr: 100,
+                        eq: 100,
+                        eqz: 100,
+                        ne: 100,
+                        lt_s: 100,
+                        lt_u: 100,
+                        le_s: 100,
+                        le_u: 100,
+                        gt_s: 100,
+                        gt_u: 100,
+                        ge_s: 100,
+                        ge_u: 100,
+                        clz: 210,
+                        ctz: 6000,
+                        popcnt: 6000,
+
+                        drop: 9,
+                        select: 1250,
+
+                        unreachable: 1,
+                    },
+                },
+                data: 0,
+            },
+        });
+
+        if (!meteredWasm) {
+            throw new Error('Failed to inject gas tracker into contract bytecode.');
+        }
+
+        return meteredWasm;
+    }
+
     private async loadContractFromBytecode(): Promise<boolean> {
+        if (!this.opnetContractBytecode) {
+            throw new Error('Contract bytecode not loaded');
+        }
+
         let errored: boolean = false;
         try {
-            const wasmModule = await WebAssembly.compile(this.contractBytecode);
+            const wasmModule = await WebAssembly.compile(this.opnetContractBytecode);
             const externalCopy = new ivm.ExternalCopy(wasmModule);
 
             this.jail.setSync('module', externalCopy.copyInto({ release: true }));
@@ -421,13 +612,12 @@ export class VMIsolator {
                 this.context,
                 (specifier: string, _referrer: ivm.Module) => {
                     throw new Error(`Module ${specifier} not found`);
-                    //return this.getModuleFromCache(this.isolatedVM, this.context, specifier);
                 },
             );
 
             await this.module
                 .evaluate({
-                    timeout: 500,
+                    timeout: VMIsolator.EXECUTION_TIMEOUT,
                 })
                 .catch(() => {
                     errored = true;
@@ -435,49 +625,9 @@ export class VMIsolator {
 
             this.reference = this.module.namespace;
         } catch (e) {
-            console.log(e);
+            console.log(`Unable to load contract from bytecode: ${e}`);
         }
 
         return errored;
     }
-
-    /*private getModuleFromCache(
-        isolatedVM: Isolate,
-        context: ivm.Context,
-        specifier: string,
-        parentModulePath?: string,
-    ): Module {
-        let modulePath: string;
-
-        specifier = specifier.replace('node:', '');
-
-        if (parentModulePath && specifier.startsWith('.')) {
-            modulePath = path.join(path.dirname(parentModulePath), specifier);
-        } else {
-            modulePath = import.meta
-                .resolve(specifier)
-                .replace('file:///', '')
-                .replace('file://', '');
-        }
-
-        let code: string;
-        if (moduleCodeCache.has(modulePath)) {
-            code = moduleCodeCache.get(modulePath) as string;
-        } else {
-            code = fs.readFileSync(modulePath, 'utf-8');
-            moduleCodeCache.set(modulePath, code);
-        }
-
-        try {
-            const module = isolatedVM.compileModuleSync(code);
-            module.instantiateSync(context, (specifier: string, _referrer: ivm.Module) => {
-                return this.getModuleFromCache(isolatedVM, context, specifier, modulePath);
-            });
-
-            return module;
-        } catch (e) {
-            console.log(e);
-            throw e;
-        }
-    }*/
 }

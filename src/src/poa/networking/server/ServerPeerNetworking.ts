@@ -14,6 +14,7 @@ import { SharedMempoolManager } from '../shared/managers/SharedMempoolManager.js
 import { AuthenticationManager } from './managers/AuthenticationManager.js';
 import { ServerBlockHeaderWitnessManager } from './managers/ServerBlockHeaderWitnessManager.js';
 import { ServerPeerManager } from './managers/ServerPeerManager.js';
+import { TransactionPacket } from '../protobuf/packets/blockchain/common/TransactionPacket.js';
 
 export class ServerPeerNetworking extends AuthenticationManager {
     private _blockHeaderManager: ServerBlockHeaderWitnessManager | undefined;
@@ -109,6 +110,13 @@ export class ServerPeerNetworking extends AuthenticationManager {
 
         this.listenToManagerEvents(mempoolManager);
         this._mempoolManager = mempoolManager;
+
+        this._mempoolManager.on(
+            CommonHandlers.MEMPOOL_BROADCAST,
+            async (packet: TransactionPacket): Promise<void> => {
+                await this.emit(CommonHandlers.MEMPOOL_BROADCAST, packet);
+            },
+        );
 
         return mempoolManager;
     }

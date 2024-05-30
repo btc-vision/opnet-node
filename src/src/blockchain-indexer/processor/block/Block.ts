@@ -361,6 +361,7 @@ export class Block extends Logger {
         transaction: InteractionTransaction,
         vmManager: VMManager,
     ): Promise<void> {
+        const start = Date.now();
         try {
             /** We must create a transaction receipt. */
             transaction.receipt = await vmManager.executeTransaction(this.height, transaction);
@@ -368,7 +369,9 @@ export class Block extends Logger {
             const error: Error = e as Error;
 
             if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.error(`Failed to execute transaction ${transaction.txid}: ${error.message}`);
+                this.error(
+                    `Failed to execute transaction ${transaction.txid} (took ${Date.now() - start}): ${error.message}`,
+                );
             }
 
             transaction.revert = error;
