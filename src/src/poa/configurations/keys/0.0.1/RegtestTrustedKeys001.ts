@@ -6,6 +6,7 @@ export const RegTestTrustedKeys001: Partial<ProvenAuthorityKeys> = {
         keys: [
             'GNwrQoTHZv7fxM4P3nsSdrHDtnLYdP0n7YJqWBc4NVI=',
             '5BtduXr1lGbuiHf3qz9EFE11niebe5tDmvXkyMnj7S4=',
+            'mnJZPF0NlBXQsdZKioaJjbtJxLiWh5HWZ84oNQIu4V8=',
         ],
     },
 };
