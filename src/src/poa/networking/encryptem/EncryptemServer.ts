@@ -2,6 +2,7 @@ import { Logger } from '@btc-vision/bsi-common';
 import { Buffer } from 'buffer';
 import sodium from 'sodium-native';
 
+/** Merge client and server encryption and decryption into one class */
 export class EncryptemServer extends Logger {
     public logColor: string = `#f61a3b`;
 
@@ -121,7 +122,7 @@ export class EncryptemServer extends Logger {
             const data: Buffer = Buffer.from(msg.slice(auth.length + 64, msg.length));
 
             if (!this.verifyAuth(auth, signature)) {
-                throw new Error('Bad AHEAD authentication.');
+                throw new Error('[Server] Bad AHEAD authentication.');
             }
 
             try {
@@ -166,6 +167,10 @@ export class EncryptemServer extends Logger {
     }
 
     #encrypt(m: Buffer, receiverPublicKey: Buffer, senderPrivateKey: Buffer): Uint8Array | null {
+        if (!this.#serverSignaturePublicKey) {
+            throw new Error('Server signature public key is null.');
+        }
+
         try {
             const nonce = this.generateNonce();
             const cipherMsg = this.sodium.sodium_malloc(m.length + this.sodium.crypto_box_MACBYTES);
@@ -179,7 +184,7 @@ export class EncryptemServer extends Logger {
                 throw new Error(`Failed to sign message.`);
             }
 
-            const auth = this.#authenticate(signedMessage);
+            const auth = this.#authenticate(signedMessage, this.#serverSignaturePublicKey);
             const finalMessageBuffer = Buffer.concat([auth, signedMessage, finalMsg]);
 
             return new Uint8Array(finalMessageBuffer);
@@ -234,10 +239,10 @@ export class EncryptemServer extends Logger {
         }
     }
 
-    #authenticate(input: Buffer): Buffer {
-        const out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
-        const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
-        this.sodium.randombytes_buf(k);
+    #authenticate(input: Buffer, sender: Buffer): Buffer {
+        let out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
+        let k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
+        this.sodium.randombytes_buf_deterministic(k, sender);
 
         this.sodium.crypto_auth(out, input, k);
 

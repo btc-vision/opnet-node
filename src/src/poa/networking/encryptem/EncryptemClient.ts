@@ -162,6 +162,17 @@ export class EncryptemClient extends Logger {
         this.#serverSignaturePublicKey = null;
     }
 
+    public verifyAuth(out: Buffer, input: Buffer): boolean {
+        if (!this.#clientSignaturePublicKey) {
+            throw new Error('Client signature public key is null.');
+        }
+
+        const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
+        this.sodium.randombytes_buf_deterministic(k, this.#clientSignaturePublicKey);
+
+        return this.sodium.crypto_auth_verify(out, input, k);
+    }
+
     private async generateNewCipherKey(): Promise<{
         publicKey: Buffer;
         privateKey: Buffer;
@@ -236,6 +247,10 @@ export class EncryptemClient extends Logger {
         const decryptedMessage = this.sodium.sodium_malloc(
             cipher.length - this.sodium.crypto_box_MACBYTES,
         );
+
+        if (!this.verifyAuth(auth, signature)) {
+            throw new Error('[Client] Bad AHEAD authentication.');
+        }
 
         this.sodium.crypto_box_open_easy(
             decryptedMessage,
