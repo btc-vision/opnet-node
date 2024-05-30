@@ -60,7 +60,6 @@ import {
 import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { cyrb53a, u8 } from '@btc-vision/bsi-binary';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -447,7 +446,7 @@ export class P2PManager extends Logger {
                 `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
                 `\nThis node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
-                `Your OPNet trusted certificate is\n ${this.identity.rsaPublicKey}\n`,
+                `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n`,
                 `Looking for peers...\n\n`,
             );
 
@@ -556,7 +555,7 @@ export class P2PManager extends Logger {
                 `\n\nThis node is running in bootstrap mode. This means it will not connect to other peers automatically. It will only accept incoming connections.\n`,
                 `This node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
-                `Your OPNet trusted certificate is\n ${this.identity.rsaPublicKey}\n\n`,
+                `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n\n`,
             );
         }
 

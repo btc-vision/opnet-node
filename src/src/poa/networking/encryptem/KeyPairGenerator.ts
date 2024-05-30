@@ -1,18 +1,21 @@
-import crypto, { KeyPairSyncResult, Sign } from 'crypto';
+import crypto from 'crypto';
 import sodium from 'sodium-native';
 import { P2PVersion, TRUSTED_PUBLIC_KEYS } from '../../configurations/P2PVersion.js';
 import { ChainIds } from '../../../config/enums/ChainIds';
-import { BitcoinNetwork } from '@btc-vision/bsi-common';
+import { BitcoinNetwork, Logger } from '@btc-vision/bsi-common';
+import {
+    ProvenAuthorityKeys,
+    ProvenAuthorityKeysAsBytes,
+    TrustedNetworkPublicKeys,
+} from '../../configurations/types/TrustedPublicKeys.js';
+import { TrustedCompanies } from '../../configurations/TrustedCompanies.js';
 
 export interface OPNetKeyPair {
     publicKey: Buffer;
     privateKey: Buffer;
 
     identity: OPNetProvenIdentity;
-    rsa: {
-        publicKey: string;
-        privateKey: string;
-    };
+    trusted: SodiumKeyPair;
 }
 
 export type OPNetProvenIdentity = {
@@ -25,47 +28,34 @@ type SodiumKeyPair = {
     privateKey: Buffer;
 };
 
-export class KeyPairGenerator {
-    private signatureAlgorithm: string = 'rsa-sha512';
-    private trustedPublicKeys: string[] = [];
+export class KeyPairGenerator extends Logger {
+    public readonly logColor: string = '#ffcc00';
 
-    private precomputedTrustedPublicKeys: { [key: string]: string } = {};
+    private trustedPublicKeys: Partial<ProvenAuthorityKeysAsBytes> = {};
+
+    private precomputedTrustedPublicKeys: Partial<ProvenAuthorityKeys> = {};
 
     constructor(
         private readonly chainId: ChainIds,
         private readonly network: BitcoinNetwork,
     ) {
+        super();
+
         this.loadTrustedPublicKeys();
     }
 
     public generateKey(): OPNetKeyPair {
-        const keyPair = this.generateKeyPair(this.generateAuthKey());
-        const rsaKeyPair = this.generateRSAKeyPair(this.#passphrase(keyPair));
+        const keyPair: SodiumKeyPair = this.generateKeyPair(this.generateAuthKey());
+        const trustedKeyPair: SodiumKeyPair = this.generateTrustedKeypair();
 
-        const identity = this.generateIdentity(keyPair);
+        const identity: OPNetProvenIdentity = this.generateIdentity(keyPair);
 
         return {
             publicKey: keyPair.publicKey,
             privateKey: keyPair.privateKey,
             identity: identity,
-            rsa: {
-                publicKey: rsaKeyPair.publicKey,
-                privateKey: rsaKeyPair.privateKey,
-            },
+            trusted: trustedKeyPair,
         };
-    }
-
-    public verifySignatureRSA(data: Buffer, signature: Buffer, publicKey: string): boolean {
-        const verify = crypto.createVerify(this.signatureAlgorithm);
-        verify.update(data);
-
-        return verify.verify(
-            {
-                key: publicKey,
-                padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-            },
-            signature,
-        );
     }
 
     public verifyOPNetIdentity(identity: string, pubKey: Buffer): boolean {
@@ -110,30 +100,36 @@ export class KeyPairGenerator {
         data: Buffer,
         signature: Buffer,
     ): { validity: boolean; identity: string } {
-        for (const trustedPublicKey of this.trustedPublicKeys) {
-            try {
-                if (this.verifySignatureRSA(data, signature, trustedPublicKey)) {
-                    return {
-                        validity: true,
-                        identity: this.precomputedTrustedPublicKeys[trustedPublicKey],
-                    };
-                }
-            } catch (e) {}
+        for (const trustedPublicKeyCompany in this.trustedPublicKeys) {
+            const trustedPublicKeys =
+                this.trustedPublicKeys[trustedPublicKeyCompany as TrustedCompanies];
+
+            const precomputedTrustedPublicKeysForCompany =
+                this.precomputedTrustedPublicKeys[trustedPublicKeyCompany as TrustedCompanies];
+
+            if (!trustedPublicKeys || !precomputedTrustedPublicKeysForCompany) continue;
+
+            for (let i = 0; i < trustedPublicKeys.keys.length; i++) {
+                const trustedPublicKey = trustedPublicKeys.keys[i];
+
+                try {
+                    if (this.verifyOPNetSignature(data, signature, trustedPublicKey)) {
+                        const precomputedKey: string =
+                            precomputedTrustedPublicKeysForCompany.keys[i];
+
+                        return {
+                            validity: true,
+                            identity: precomputedKey,
+                        };
+                    }
+                } catch (e) {}
+            }
         }
 
         return {
             validity: false,
             identity: '',
         };
-    }
-
-    public signRSA(data: Buffer, privateKey: string, keypair: SodiumKeyPair): Buffer {
-        const signObj: Sign = this.getRSASignature(data);
-        return signObj.sign({
-            key: privateKey,
-            padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-            passphrase: this.#passphrase(keypair),
-        });
     }
 
     public hash(data: Buffer): Buffer {
@@ -157,10 +153,20 @@ export class KeyPairGenerator {
     }
 
     private computeTrustedPublicKeys(): void {
-        for (const trustedPublicKey of this.trustedPublicKeys) {
-            this.precomputedTrustedPublicKeys[trustedPublicKey] = this.opnetHash(
-                Buffer.from(trustedPublicKey.trim(), 'utf-8'),
+        for (const trustedPublicKey in this.trustedPublicKeys) {
+            const trustedPublicKeys = this.trustedPublicKeys[trustedPublicKey as TrustedCompanies];
+
+            if (!trustedPublicKeys) continue;
+
+            const precomputedTrustedPublicKeys: string[] = trustedPublicKeys.keys.map(
+                (key: Buffer) => {
+                    return this.opnetHash(key);
+                },
             );
+
+            this.precomputedTrustedPublicKeys[trustedPublicKey as TrustedCompanies] = {
+                keys: precomputedTrustedPublicKeys,
+            };
         }
     }
 
@@ -170,19 +176,40 @@ export class KeyPairGenerator {
             throw new Error('Current version not found.');
         }
 
-        const currentNetwork = currentVersion[this.chainId];
+        const currentNetwork: Partial<TrustedNetworkPublicKeys> = currentVersion[this.chainId];
         if (!currentNetwork) throw new Error('Current network not found.');
 
-        const currentNetworkVersion: string[] | undefined = currentNetwork[this.network];
+        const currentNetworkVersion: Partial<ProvenAuthorityKeys> | undefined =
+            currentNetwork[this.network];
+
         if (!currentNetworkVersion) {
             throw new Error('Trusted key for current network version not found.');
         }
 
-        if (currentNetworkVersion.length <= 0) {
-            throw new Error('There is no trusted public keys for the current version.');
+        if (Object.keys(currentNetworkVersion).length === 0) {
+            throw new Error('No trusted keys found for current network version.');
         }
 
-        this.trustedPublicKeys = currentNetworkVersion.map((key: string) => key.trim());
+        for (const trustedCompany in currentNetworkVersion) {
+            const trustedKeys = currentNetworkVersion[trustedCompany as TrustedCompanies];
+            if (!trustedKeys) continue;
+
+            const keys: Buffer[] = trustedKeys.keys.map((key: string) => {
+                return Buffer.from(key, 'base64');
+            });
+
+            if (keys.length === 0) continue;
+
+            this.trustedPublicKeys[trustedCompany as TrustedCompanies] = {
+                keys: keys,
+            };
+
+            this.log(`Loaded ${keys.length} trusted keys for ${trustedCompany}`);
+        }
+
+        if (Object.keys(this.trustedPublicKeys).length === 0) {
+            throw new Error('No trusted keys found for current network version.');
+        }
 
         this.computeTrustedPublicKeys();
     }
@@ -195,24 +222,13 @@ export class KeyPairGenerator {
         return hash.digest();
     }
 
-    #passphrase(keyPair: SodiumKeyPair): string {
-        return Buffer.concat([keyPair.privateKey]).toString('hex');
-    }
+    private generateTrustedKeypair(): SodiumKeyPair {
+        const seedBuffer: Buffer = crypto.randomBytes(sodium.crypto_sign_SEEDBYTES);
 
-    private generateRSAKeyPair(passphrase: string): KeyPairSyncResult<string, string> {
-        return crypto.generateKeyPairSync('rsa', {
-            modulusLength: 4096,
-            publicKeyEncoding: {
-                type: 'spki',
-                format: 'pem',
-            },
-            privateKeyEncoding: {
-                type: 'pkcs8',
-                format: 'pem',
-                cipher: 'aes-256-cbc',
-                passphrase: passphrase,
-            },
-        });
+        const seed = sodium.sodium_malloc(sodium.crypto_sign_SEEDBYTES);
+        sodium.randombytes_buf_deterministic(seed, seedBuffer);
+
+        return this.generateKeyPair(seed);
     }
 
     private generateAuthKey(): Buffer {
@@ -232,13 +248,6 @@ export class KeyPairGenerator {
             hash,
             proof: proof,
         };
-    }
-
-    private getRSASignature(data: Buffer): Sign {
-        const sign = crypto.createSign(this.signatureAlgorithm);
-        sign.update(data);
-
-        return sign;
     }
 
     private generateKeyPair(seed: Buffer): SodiumKeyPair {

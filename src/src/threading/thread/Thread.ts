@@ -186,9 +186,9 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         this.threadRelations[threadType] = relation;
 
         this.createEvents(threadType, data.port);
-        this.important(
+        /*this.important(
             `Thread link created. {ThreadType: ${this.threadType}, SourceThreadType: ${data.sourceThreadType}, LinkType: ${linkType}, ThreadId: ${data.targetThreadId}}`,
-        );
+        );*/
     }
 
     private createEvents(threadType: ThreadTypes, messagePort: MessagePort): void {
