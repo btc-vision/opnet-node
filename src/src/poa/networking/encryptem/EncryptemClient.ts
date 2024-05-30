@@ -206,7 +206,7 @@ export class EncryptemClient extends Logger {
                 throw new Error(`Failed to sign message.`);
             }
 
-            let auth = this.#authenticate(signedMessage);
+            let auth = this.#authenticate(signedMessage, senderPublicKey);
             let finalMessageBuffer = Buffer.concat([auth, signedMessage, finalMsg]);
 
             return new Uint8Array(finalMessageBuffer);
@@ -230,8 +230,8 @@ export class EncryptemClient extends Logger {
             throw new Error('Short message');
         }
 
-        const nonce: Buffer = msg.slice(0, this.sodium.crypto_box_NONCEBYTES);
-        const cipher: Buffer = msg.slice(this.sodium.crypto_box_NONCEBYTES);
+        const nonce: Buffer = msg.subarray(0, this.sodium.crypto_box_NONCEBYTES);
+        const cipher: Buffer = msg.subarray(this.sodium.crypto_box_NONCEBYTES);
 
         const decryptedMessage = this.sodium.sodium_malloc(
             cipher.length - this.sodium.crypto_box_MACBYTES,
@@ -253,10 +253,10 @@ export class EncryptemClient extends Logger {
         }
     }
 
-    #authenticate(input: Buffer): Buffer {
+    #authenticate(input: Buffer, sender: Buffer): Buffer {
         let out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
         let k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
-        this.sodium.randombytes_buf(k);
+        this.sodium.randombytes_buf_deterministic(k, sender);
 
         this.sodium.crypto_auth(out, input, k);
 

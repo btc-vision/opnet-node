@@ -97,8 +97,13 @@ export class EncryptemServer extends Logger {
         }
     }
 
-    public verifyAuth(k: Buffer, input: Buffer): boolean {
-        const out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
+    public verifyAuth(out: Buffer, input: Buffer): boolean {
+        if (!this.#clientSignaturePublicKey) {
+            throw new Error('Client signature public key is null.');
+        }
+
+        const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
+        this.sodium.randombytes_buf_deterministic(k, this.#clientSignaturePublicKey);
 
         return this.sodium.crypto_auth_verify(out, input, k);
     }
@@ -111,9 +116,11 @@ export class EncryptemServer extends Logger {
             this.#serverPrivateKey &&
             this.#clientSignaturePublicKey
         ) {
-            const auth = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
-            const signature = Buffer.from(msg.slice(auth.length, auth.length + 64));
-            const data = Buffer.from(msg.slice(auth.length + 64, msg.length));
+            const auth: Buffer = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
+            const signature: Buffer = Buffer.from(msg.slice(auth.length, auth.length + 64));
+            const data: Buffer = Buffer.from(msg.slice(auth.length + 64, msg.length));
+
+            console.log(this.verifyAuth(auth, signature));
 
             try {
                 const decryptedBuffer = this.#decrypt(
@@ -202,8 +209,8 @@ export class EncryptemServer extends Logger {
             throw 'Invalid signature';
         }
 
-        const nonce = msg.slice(0, this.sodium.crypto_box_NONCEBYTES);
-        const cipher = msg.slice(this.sodium.crypto_box_NONCEBYTES);
+        const nonce = msg.subarray(0, this.sodium.crypto_box_NONCEBYTES);
+        const cipher = msg.subarray(this.sodium.crypto_box_NONCEBYTES);
 
         const decryptedMessage = this.sodium.sodium_malloc(
             cipher.length - this.sodium.crypto_box_MACBYTES,
