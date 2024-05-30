@@ -194,9 +194,13 @@ export class KeyPairGenerator extends Logger {
             const trustedKeys = currentNetworkVersion[trustedCompany as TrustedCompanies];
             if (!trustedKeys) continue;
 
-            const keys: Buffer[] = trustedKeys.keys.map((key: string) => {
-                return Buffer.from(key, 'base64');
-            });
+            const keys: Buffer[] = trustedKeys.keys
+                .filter((key: string) => {
+                    return key.length > 0;
+                })
+                .map((key: string) => {
+                    return Buffer.from(key, 'base64');
+                });
 
             if (keys.length === 0) continue;
 
