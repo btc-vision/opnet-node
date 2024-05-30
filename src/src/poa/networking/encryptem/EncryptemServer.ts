@@ -120,7 +120,9 @@ export class EncryptemServer extends Logger {
             const signature: Buffer = Buffer.from(msg.slice(auth.length, auth.length + 64));
             const data: Buffer = Buffer.from(msg.slice(auth.length + 64, msg.length));
 
-            console.log(this.verifyAuth(auth, signature));
+            if (!this.verifyAuth(auth, signature)) {
+                throw new Error('Bad AHEAD authentication.');
+            }
 
             try {
                 const decryptedBuffer = this.#decrypt(
