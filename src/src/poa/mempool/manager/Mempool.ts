@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
@@ -23,6 +23,8 @@ export class Mempool extends Logger {
 
     private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
     private readonly psbtVerifier: PSBTTransactionVerifier = new PSBTTransactionVerifier();
+
+    private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
 
     constructor() {
         super();
@@ -53,6 +55,9 @@ export class Mempool extends Logger {
 
     public async init(): Promise<void> {
         this.log(`Starting Mempool...`);
+
+        await this.db.setup(Config.DATABASE.CONNECTION_TYPE);
+        await this.db.connect();
 
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
     }
