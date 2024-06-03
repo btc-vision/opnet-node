@@ -60,6 +60,8 @@ import {
 import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
+import { AuthorityManager } from '../configurations/manager/AuthorityManager.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -89,12 +91,13 @@ export class P2PManager extends Logger {
     private broadcastedIdentifiers: Set<bigint> = new Set();
 
     private readonly blockWitnessManager: BlockWitnessManager;
+    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
 
         this.p2pConfigurations = new P2PConfigurations(this.config);
-        this.identity = new OPNetIdentity(this.config);
+        this.identity = new OPNetIdentity(this.config, this.currentAuthority);
 
         this.blockWitnessManager = new BlockWitnessManager(this.config, this.identity);
         this.blockWitnessManager.broadcastBlockWitness = this.broadcastBlockWitness.bind(this);

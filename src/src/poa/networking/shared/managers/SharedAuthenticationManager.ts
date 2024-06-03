@@ -7,9 +7,10 @@ import { NetworkingEventHandler } from '../../interfaces/IEventHandler.js';
 import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { OPNetProtocolV1 } from '../../server/protocol/OPNetProtocolV1.js';
 import { PeerNetworkingManager } from '../PeerNetworkingManager.js';
+import { TrustedVersion } from '../../../configurations/version/TrustedVersion.js';
 
 export abstract class SharedAuthenticationManager extends PeerNetworkingManager {
-    public static readonly CURRENT_PROTOCOL_VERSION: string = '1.0.0';
+    public static readonly CURRENT_PROTOCOL_VERSION: TrustedVersion = P2PVersion;
 
     protected encryptionStarted: boolean = false;
     protected destroyed: boolean = false;
@@ -36,7 +37,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
     }
 
     public trustedChecksum(): string {
-        const checksum = TRUSTED_CHECKSUM[P2PVersion];
+        const checksum = TRUSTED_CHECKSUM[SharedAuthenticationManager.CURRENT_PROTOCOL_VERSION];
         if (!checksum) {
             throw new Error('Trusted checksum not found.');
         }

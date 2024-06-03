@@ -1,8 +1,14 @@
-import { ProvenAuthorityKeys } from '../../types/TrustedPublicKeys.js';
+import { NetworkAuthorityConfiguration } from '../../types/TrustedPublicKeys.js';
 import { TrustedCompanies } from '../../TrustedCompanies.js';
 
-export const TestNetTrustedKeys001: Partial<ProvenAuthorityKeys> = {
-    [TrustedCompanies.OPNet]: {
-        keys: [],
+export const TestNetTrustedKeys001: NetworkAuthorityConfiguration = {
+    minimum: 1,
+    transactionMinimum: 1,
+    maximumValidatorPerTrustedEntities: 1,
+
+    trusted: {
+        [TrustedCompanies.OPNet]: {
+            keys: [],
+        },
     },
 };

@@ -26,6 +26,7 @@ import { Packets } from '../../protobuf/types/enums/Packets.js';
 import { ServerInBound } from '../../protobuf/types/messages/OPNetMessages.js';
 import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { SharedAuthenticationManager } from '../../shared/managers/SharedAuthenticationManager.js';
+import { TrustedVersion } from '../../../configurations/version/TrustedVersion.js';
 
 export abstract class AuthenticationManager extends SharedAuthenticationManager {
     private static readonly VERIFY_NETWORK: boolean = true;
@@ -50,16 +51,16 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
 
     private _clientIdentity: string | undefined;
 
-    public get hasAuthenticated(): boolean {
-        return this.isAuthenticated;
-    }
-
     public get clientIdentity(): string {
         if (!this._clientIdentity) {
             throw new Error(`Peer identity not defined.`);
         }
 
         return this._clientIdentity;
+    }
+
+    public get hasAuthenticated(): boolean {
+        return this.isAuthenticated;
     }
 
     protected _encryptem: EncryptemServer = new EncryptemServer();
@@ -369,8 +370,8 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return false;
         }
 
-        /** If the minor version is different, we must reject the connection. */
-        if (peerVersionSplit[1] !== protocolVersionSplit[1]) {
+        /** If the minor version is lower than the protocol version, we must reject the connection. */
+        if (peerVersionSplit[1] < protocolVersionSplit[1]) {
             return false;
         }
 
@@ -384,7 +385,10 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         await this.createFullAuthentication();
     }
 
-    private mayAcceptTrustedChecksum(peerVersion: string, trustedChecksum: string): boolean {
+    private mayAcceptTrustedChecksum(
+        peerVersion: TrustedVersion,
+        trustedChecksum: string,
+    ): boolean {
         const requestedVersionChecksum: string = TRUSTED_CHECKSUM[peerVersion];
         if (!requestedVersionChecksum) {
             return false;

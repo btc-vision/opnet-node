@@ -2,9 +2,10 @@ import { Type } from 'protobufjs';
 import { Packets } from '../../types/enums/Packets.js';
 import { ServerInBound, ServerOutBound } from '../../types/messages/OPNetMessages.js';
 import { PackedMessage, Packet } from '../Packet.js';
+import { TrustedVersion } from '../../../../configurations/version/TrustedVersion.js';
 
 export interface IAuthenticationPacket extends PackedMessage {
-    readonly version: string;
+    readonly version: TrustedVersion;
     readonly clientAuthCipher: Uint8Array;
     readonly trustedChecksum: string;
     readonly type: number;

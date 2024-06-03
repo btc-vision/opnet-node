@@ -10,6 +10,8 @@ import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { KeyPairGenerator, OPNetKeyPair } from '../networking/encryptem/KeyPairGenerator.js';
 import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { OPNetPathFinder } from './OPNetPathFinder.js';
+import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
+import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 
 export class OPNetIdentity extends OPNetPathFinder {
     private keyPairGenerator: KeyPairGenerator;
@@ -20,13 +22,13 @@ export class OPNetIdentity extends OPNetPathFinder {
     private readonly keyPair: OPNetKeyPair;
     private readonly trustedIdentity: string;
 
-    public constructor(private readonly config: BtcIndexerConfig) {
+    public constructor(
+        private readonly config: BtcIndexerConfig,
+        private readonly currentAuthority: TrustedAuthority,
+    ) {
         super();
 
-        this.keyPairGenerator = new KeyPairGenerator(
-            this.config.OP_NET.CHAIN_ID,
-            this.config.BLOCKCHAIN.BITCOIND_NETWORK,
-        );
+        this.keyPairGenerator = new KeyPairGenerator();
 
         this.opnetWallet = this.loadOPNetWallet();
         this.deriveKey(this.opnetWallet.privateKey);
@@ -79,8 +81,25 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.trustedIdentity;
     }
 
-    public get trustedPublicKey(): string {
+    public get opnetPubKey(): string {
         return this.keyPair.trusted.publicKey.toString('base64');
+    }
+
+    public get xPubKey(): string {
+        return toXOnly(this.opnetWallet.publicKey).toString('base64');
+    }
+
+    public get signedTrustedWalletConfirmation(): string {
+        const signature: Buffer = this.keyPairGenerator.sign(
+            toXOnly(this.opnetWallet.publicKey),
+            this.keyPair.trusted.privateKey,
+        );
+
+        return signature.toString('base64');
+    }
+
+    public get trustedPublicKey(): string {
+        return `${this.opnetPubKey}|${this.xPubKey}|${this.signedTrustedWalletConfirmation}`;
     }
 
     public get tapAddress(): string {
@@ -168,7 +187,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         if (!identity) return false;
 
         // We protect the identity of trusted validators by not revealing their public keys.
-        const validWitness = this.keyPairGenerator.verifyTrustedSignature(data, witness.signature);
+        const validWitness = this.currentAuthority.verifyTrustedSignature(data, witness.signature);
         if (!validWitness.validity) return false;
 
         return validWitness.identity === identity;
