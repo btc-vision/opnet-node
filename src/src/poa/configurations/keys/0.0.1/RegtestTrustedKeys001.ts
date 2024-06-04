@@ -20,9 +20,9 @@ export const RegTestTrustedKeys001: NetworkAuthorityConfiguration = {
             keys: [
                 {
                     opnet: 'GNwrQoTHZv7fxM4P3nsSdrHDtnLYdP0n7YJqWBc4NVI=',
-                    publicKey: 'A+aO4jb8w0kz1JOzBabwx1YSWUcdE+zRDf4ON2M6fL4=',
+                    publicKey: 'AgPmjuI2/MNJM9STswWm8MdWEllHHRPs0Q3+DjdjOny+',
                     signature:
-                        'wCBN461YcY+4WFoTAjEgfVX7N1RVka5nNRmtBrKdJJHSlZAtuhMDmebTjvlqTpK8AhHdyTTBzJBw63z3knrcDw==',
+                        '2z0mncHxbBwps/81dVPKQcManzjcJ+r+4dmkD+MxZJ3ZdbEoeDlRhy6xa362JVRiBZtdyeQV7q6mckpohvUNCw==',
                 },
                 {
                     opnet: '5BtduXr1lGbuiHf3qz9EFE11niebe5tDmvXkyMnj7S4=',

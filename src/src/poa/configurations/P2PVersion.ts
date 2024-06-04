@@ -18,6 +18,23 @@ export const TRUSTED_CHECKSUM: { [key in TrustedVersion]: string } = {
     [TrustedVersion.V0_0_1]: '0x00000000',
 };
 
+export const WBTC_CONTRACT_ADDRESS: {
+    [key in ChainIds]: Partial<{ [key in BitcoinNetwork]: string }>;
+} = {
+    [ChainIds.Bitcoin]: {
+        [BitcoinNetwork.Mainnet]:
+            'bcrt1pyrs3eqwnrmd4ql3nwvx66yzp0wc24xd2t9pf8699ln340pjs7f3sar3tum',
+        
+        [BitcoinNetwork.TestNet]:
+            'bcrt1pyrs3eqwnrmd4ql3nwvx66yzp0wc24xd2t9pf8699ln340pjs7f3sar3tum',
+
+        [BitcoinNetwork.Regtest]:
+            'bcrt1pyrs3eqwnrmd4ql3nwvx66yzp0wc24xd2t9pf8699ln340pjs7f3sar3tum',
+
+        [BitcoinNetwork.Signet]: 'bcrt1pyrs3eqwnrmd4ql3nwvx66yzp0wc24xd2t9pf8699ln340pjs7f3sar3tum',
+    },
+};
+
 export const TRUSTED_PUBLIC_KEYS: { [key in TrustedVersion]: TrustedPublicKeys } = {
     [TrustedVersion.V0_0_1]: {
         [ChainIds.Bitcoin]: {

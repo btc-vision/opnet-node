@@ -11,7 +11,6 @@ import { KeyPairGenerator, OPNetKeyPair } from '../networking/encryptem/KeyPairG
 import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { OPNetPathFinder } from './OPNetPathFinder.js';
 import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 
 export class OPNetIdentity extends OPNetPathFinder {
     private keyPairGenerator: KeyPairGenerator;
@@ -86,12 +85,12 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public get xPubKey(): string {
-        return toXOnly(this.opnetWallet.publicKey).toString('base64');
+        return this.opnetWallet.publicKey.toString('base64');
     }
 
     public get signedTrustedWalletConfirmation(): string {
         const signature: Buffer = this.keyPairGenerator.sign(
-            toXOnly(this.opnetWallet.publicKey),
+            this.opnetWallet.publicKey,
             this.keyPair.trusted.privateKey,
         );
 

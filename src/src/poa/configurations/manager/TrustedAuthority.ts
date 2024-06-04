@@ -8,7 +8,7 @@ import {
     TrustedNetworkPublicKeys,
 } from '../types/TrustedPublicKeys.js';
 import { TrustedCompanies } from '../TrustedCompanies.js';
-import { P2PVersion, TRUSTED_PUBLIC_KEYS } from '../P2PVersion.js';
+import { P2PVersion, TRUSTED_PUBLIC_KEYS, WBTC_CONTRACT_ADDRESS } from '../P2PVersion.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { KeyPairGenerator } from '../../networking/encryptem/KeyPairGenerator.js';
 import { TrustedVersion } from '../version/TrustedVersion.js';
@@ -29,10 +29,10 @@ export class TrustedAuthority extends Logger {
     private precomputedTrustedPublicKeys: Partial<PrecomputedAuthorityKeys> = {};
 
     private readonly authorityConfig: NetworkAuthorityConfiguration;
-
     private readonly publicKeys: TrustedPublicKeys;
 
     private keypairGenerator: KeyPairGenerator = new KeyPairGenerator();
+    private readonly wbtcContractAddress: string;
 
     constructor(
         public readonly version: TrustedVersion,
@@ -42,9 +42,14 @@ export class TrustedAuthority extends Logger {
         super();
 
         this.authorityConfig = this.getAuthorityConfig();
+        this.wbtcContractAddress = this.getWBTCAddress();
 
         this.loadTrustedPublicKeys();
         this.publicKeys = this.getTrustedPublicKeys();
+    }
+
+    public get WBTC_CONTRACT_ADDRESS(): string {
+        return this.wbtcContractAddress;
     }
 
     public get trustedCompanies(): TrustedCompanies[] {
@@ -224,6 +229,20 @@ export class TrustedAuthority extends Logger {
             validity: false,
             identity: '',
         };
+    }
+
+    private getWBTCAddress(): string {
+        const wbtcChainId = WBTC_CONTRACT_ADDRESS[this.chainId];
+        if (!wbtcChainId) {
+            throw new Error('WBTC contract address not found');
+        }
+
+        const wbtcAddress = wbtcChainId[this.network];
+        if (!wbtcAddress) {
+            throw new Error('WBTC contract address not found');
+        }
+
+        return wbtcAddress;
     }
 
     private shuffleArray(array: Buffer[]): Buffer[] {
