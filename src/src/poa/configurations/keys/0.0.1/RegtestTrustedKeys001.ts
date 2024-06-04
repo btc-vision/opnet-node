@@ -26,9 +26,9 @@ export const RegTestTrustedKeys001: NetworkAuthorityConfiguration = {
                 },
                 {
                     opnet: '5BtduXr1lGbuiHf3qz9EFE11niebe5tDmvXkyMnj7S4=',
-                    publicKey: '046lsOyeItuzZAa6o8W7sCcI4r2U1JKX6m8+vSbRjHc=',
+                    publicKey: 'AtOOpbDsniLbs2QGuqPFu7AnCOK9lNSSl+pvPr0m0Yx3',
                     signature:
-                        'UDpGNaD6TwRfzSl3g/Z5J6jXPGJONnBZZaqjptMnmerzQbww+GJIY72KhKa2xWCBmMjZg/+F2l7nkIqVgVUDBg==',
+                        'JRIpK00+4EZIto8ZvFWOWQLIyIjr6MjqEPqyHCOcDUdQtOTL0d/pOxZYQ/GZN2hE1POk6SE7TDWPufSOqWt/AA==',
                 },
             ],
         },
@@ -36,9 +36,9 @@ export const RegTestTrustedKeys001: NetworkAuthorityConfiguration = {
             keys: [
                 {
                     opnet: 'mnJZPF0NlBXQsdZKioaJjbtJxLiWh5HWZ84oNQIu4V8=',
-                    publicKey: 'gkTBMHBPHlBosIU5FOjDbtRC+QtBZmC6HPo353wVzMg=',
+                    publicKey: 'A4JEwTBwTx5QaLCFORTow27UQvkLQWZguhz6N+d8FczI',
                     signature:
-                        'ksXFJ5/g9GfgA2DONBZYSlW/vIWPoOhKwgNUnDW+SvWvoYviuF1WAHdIuXWq2uyBZD4cOzG+CwREoUjaI1Y+Bw==',
+                        'VyIjWk39b99diOcRElMXOCg3Tmhv8Ifib7dG9HWQ4KyXl4rii4+fdvdJE2p9hhonn4qwj5v9gF4MLzJFXnsHDA==',
                 },
             ],
         },
