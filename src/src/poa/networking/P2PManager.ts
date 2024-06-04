@@ -894,10 +894,16 @@ export class P2PManager extends Logger {
     > {
         const peerId = await this.p2pConfigurations.peerIdConfigurations();
 
-        const peerDiscovery: [
-            (components: MulticastDNSComponents) => PeerDiscovery,
-            BootstrapDiscoveryMethod?,
-        ] = [mdns(this.p2pConfigurations.multicastDnsConfiguration)];
+        const peerDiscovery: Partial<
+            [(components: MulticastDNSComponents) => PeerDiscovery, BootstrapDiscoveryMethod]
+        > = [];
+
+        if (this.config.P2P.MDNS) {
+            this.warn(
+                `MDNS is enabled. This may cause issues with some networks. This might be vulnerable to DNS rebinding attacks.`,
+            );
+            peerDiscovery.push(mdns(this.p2pConfigurations.multicastDnsConfiguration));
+        }
 
         if (this.p2pConfigurations.bootstrapConfiguration.list.length) {
             peerDiscovery.push(bootstrap(this.p2pConfigurations.bootstrapConfiguration));

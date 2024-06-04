@@ -32,7 +32,7 @@ export const RegTestTrustedKeys001: NetworkAuthorityConfiguration = {
                 },
             ],
         },
-        [TrustedCompanies.OPNetTest]: {
+        [TrustedCompanies.SatoshiNakamoto]: {
             keys: [
                 {
                     opnet: 'mnJZPF0NlBXQsdZKioaJjbtJxLiWh5HWZ84oNQIu4V8=',

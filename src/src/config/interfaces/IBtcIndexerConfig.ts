@@ -49,6 +49,8 @@ export interface P2P {
     readonly IS_BOOTSTRAP_NODE: boolean;
     readonly CLIENT_MODE: boolean;
 
+    readonly MDNS: boolean;
+
     readonly ENABLE_IPV6: boolean;
     readonly P2P_HOST_V6: string;
     readonly P2P_PORT_V6: number;

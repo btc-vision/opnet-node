@@ -1,4 +1,4 @@
 export enum TrustedCompanies {
     OPNet = 'OPNet',
-    OPNetTest = 'OPNetTest',
+    SatoshiNakamoto = 'SatoshiNakamoto',
 }

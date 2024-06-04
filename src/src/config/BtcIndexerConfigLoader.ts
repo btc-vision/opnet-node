@@ -21,6 +21,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             CLIENT_MODE: false,
             ENABLE_IPV6: false,
 
+            MDNS: false,
+
             P2P_HOST_V6: '::',
             P2P_PORT_V6: 9801,
 
@@ -192,12 +194,20 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 );
             }
 
-            if(parsedConfig.OP_NET.CHAIN_ID !== undefined && typeof parsedConfig.OP_NET.CHAIN_ID !== 'number') {
+            if (
+                parsedConfig.OP_NET.CHAIN_ID !== undefined &&
+                typeof parsedConfig.OP_NET.CHAIN_ID !== 'number'
+            ) {
                 throw new Error(`Oops the property OP_NET.CHAIN_ID is not a number.`);
             }
 
-            if(parsedConfig.OP_NET.CHAIN_ID !== undefined && parsedConfig.OP_NET.CHAIN_ID in ChainIds) {
-                throw new Error(`Oops the property OP_NET.CHAIN_ID is not a valid ChainIds enum value.`);
+            if (
+                parsedConfig.OP_NET.CHAIN_ID !== undefined &&
+                parsedConfig.OP_NET.CHAIN_ID in ChainIds
+            ) {
+                throw new Error(
+                    `Oops the property OP_NET.CHAIN_ID is not a valid ChainIds enum value.`,
+                );
             }
         }
 
@@ -209,7 +219,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(`Oops the property POA.ENABLED is not a boolean.`);
             }
 
-            if(
+            if (
                 parsedConfig.POA.MEMPOOL_THREADS !== undefined &&
                 typeof parsedConfig.POA.MEMPOOL_THREADS !== 'number'
             ) {
@@ -223,6 +233,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.P2P.CLIENT_MODE !== 'boolean'
             ) {
                 throw new Error(`Oops the property P2P.CLIENT_MODE is not a boolean.`);
+            }
+
+            if (parsedConfig.P2P.MDNS !== undefined && typeof parsedConfig.P2P.MDNS !== 'boolean') {
+                throw new Error(`Oops the property P2P.MDNS is not a boolean.`);
             }
 
             if (
