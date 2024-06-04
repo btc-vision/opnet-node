@@ -35,10 +35,19 @@ export type ProvenAuthorityKeys = {
 };
 
 export interface NetworkAuthorityConfiguration {
+    /** Minimum different trusted validators */
     readonly minimum: number;
+
+    /** Minimum different trusted validator in a new generated transaction */
     readonly transactionMinimum: number;
+
+    /** Minimum different entities in a transaction */
+    readonly minimumValidatorTransactionGeneration: number;
+
+    /** Maximum trusted validator per entity in a transaction */
     readonly maximumValidatorPerTrustedEntities: number;
 
+    /** Trusted entities */
     readonly trusted: Partial<ProvenAuthorityKeys>;
 }
 

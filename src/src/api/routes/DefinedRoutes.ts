@@ -18,6 +18,7 @@ import { TransactionByHash } from './api/v1/transaction/TransactionByHash.js';
 import { TransactionReceipt } from './api/v1/transaction/TransactionReceipt.js';
 import { Route } from './Route.js';
 import { BroadcastTransaction } from './api/v1/transaction/BroadcastTransaction.js';
+import { GenerateRoute } from './api/v1/opnet/GenerateRoute.js';
 
 export const DefinedRoutes: { [key in Routes]: Route<key, JSONRpcMethods, unknown> } = {
     /** Blocks */
@@ -28,6 +29,7 @@ export const DefinedRoutes: { [key in Routes]: Route<key, JSONRpcMethods, unknow
 
     /** OPNet */
     [Routes.BLOCK_WITNESS]: new OPNetWitnessRoute(),
+    [Routes.GENERATE]: new GenerateRoute(),
 
     /** Address */
     [Routes.UTXOS]: new UTXOsRoute(),

@@ -13,6 +13,7 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
 
     /** OPNet */
     [JSONRpcMethods.BLOCK_WITNESS]: Routes.BLOCK_WITNESS,
+    [JSONRpcMethods.GENERATE]: Routes.GENERATE,
 
     /** Chain */
     [JSONRpcMethods.CHAIN_ID]: Routes.CHAIN_ID,

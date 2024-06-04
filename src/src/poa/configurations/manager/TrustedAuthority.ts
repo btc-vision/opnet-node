@@ -17,6 +17,11 @@ export type TrustedPublicKeys = {
     [key in TrustedCompanies]: Buffer[];
 };
 
+export interface TrustedPublicKeysWithConstraints {
+    keys: Buffer[];
+    entities: TrustedCompanies[];
+}
+
 export class TrustedAuthority extends Logger {
     public readonly logColor: string = '#5dbcef';
 
@@ -58,14 +63,20 @@ export class TrustedAuthority extends Logger {
         return this.authorityConfig.transactionMinimum;
     }
 
+    public get minimumValidatorTransactionGeneration(): number {
+        return this.authorityConfig.minimumValidatorTransactionGeneration;
+    }
+
     public get maximumValidatorPerTrustedEntities(): number {
         return this.authorityConfig.maximumValidatorPerTrustedEntities;
     }
 
-    public get trustedPublicKeysRespectingConstraints(): TrustedPublicKeys {
+    public get trustedPublicKeysRespectingConstraints(): TrustedPublicKeysWithConstraints {
         const trustedPublicKeys: Partial<TrustedPublicKeys> = {};
         const maximumValidatorPerTrustedEntities = this.maximumValidatorPerTrustedEntities;
 
+        let totalKeys: number = 0;
+        let totalEntitiesUsed: number = 0;
         for (const trustedCompany in this.trustedKeys) {
             const trustedPublicKeysForCompany =
                 this.trustedKeys[trustedCompany as TrustedCompanies];
@@ -89,15 +100,49 @@ export class TrustedAuthority extends Logger {
                 shuffledPublicKeys.splice(0, keysToRemove);
             }
 
-            trustedPublicKeys[trustedCompany as TrustedCompanies] = shuffledPublicKeys;
+            if (shuffledPublicKeys.length) {
+                totalKeys += shuffledPublicKeys.length;
+                totalEntitiesUsed++;
+
+                trustedPublicKeys[trustedCompany as TrustedCompanies] = shuffledPublicKeys;
+            }
         }
 
-        return trustedPublicKeys as TrustedPublicKeys;
+        if (totalKeys < this.minimum || totalKeys < this.transactionMinimum) {
+            throw new Error(
+                `Not enough trusted keys to satisfy the minimum requirement for a transaction. Provided ${totalKeys} keys but need at least ${this.minimum} keys - ${this.transactionMinimum} keys for a transaction.`,
+            );
+        }
+
+        if (totalEntitiesUsed < this.minimumValidatorTransactionGeneration) {
+            this.error(
+                `Less than ${this.minimumValidatorTransactionGeneration} trusted entities used. Please make sure that your OPNet validator is up to date.`,
+            );
+
+            throw new Error(
+                'Not enough trusted entities to satisfy the transaction minimum requirement',
+            );
+        }
+
+        const allKeys: Buffer[][] = [];
+        for (const key of Object.values(trustedPublicKeys)) {
+            allKeys.push(key);
+        }
+
+        const keys: Buffer[] = allKeys.flat();
+        const companies: TrustedCompanies[] = Object.keys(trustedPublicKeys) as TrustedCompanies[];
+
+        return {
+            keys,
+            entities: companies,
+        };
     }
 
     public verifyPublicKeysConstraints(publicKeys: Buffer[]): boolean {
         // we need to verify that the public keys are less than or equal to the maximumValidatorPerTrustedEntities for each trusted company
         let differentTrustedKeysInList: number = 0;
+        let totalEntitiesUsed: number = 0;
+
         for (const trustedCompany in this.trustedKeys) {
             const trustedPublicKeysForCompany =
                 this.trustedKeys[trustedCompany as TrustedCompanies];
@@ -115,13 +160,15 @@ export class TrustedAuthority extends Logger {
                 return keys.includes(publicKey);
             });
 
+            if (matchingKeys.length === 0) continue;
+
             if (matchingKeys.length > this.maximumValidatorPerTrustedEntities) {
-                return false;
+                differentTrustedKeysInList += this.maximumValidatorPerTrustedEntities;
+            } else {
+                differentTrustedKeysInList += matchingKeys.length;
             }
 
-            if (matchingKeys.length !== 0) {
-                differentTrustedKeysInList++;
-            }
+            totalEntitiesUsed++;
         }
 
         // we need to verify that the public keys are greater than or equal to the minimum number of trusted keys
@@ -129,7 +176,13 @@ export class TrustedAuthority extends Logger {
             return false;
         }
 
-        return differentTrustedKeysInList >= this.transactionMinimum;
+        if (differentTrustedKeysInList < this.transactionMinimum) {
+            this.warn(
+                `Less than ${this.transactionMinimum} validator were used in this transaction, is this value reach the minimum, the transaction will be lost.`,
+            );
+        }
+
+        return totalEntitiesUsed >= this.minimumValidatorTransactionGeneration;
     }
 
     public verifyTrustedSignature(
@@ -275,6 +328,26 @@ export class TrustedAuthority extends Logger {
             };
 
             this.log(`Loaded ${keys.length} trusted keys for ${trustedCompany}`);
+        }
+
+        // We must verify that there is no duplicate key between the different trusted companies and themself
+        const allKeys: string[] = [];
+        for (const trustedCompany in this.trustedKeys) {
+            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedCompanies];
+            if (!trustedPublicKeys) continue;
+
+            for (let i = 0; i < trustedPublicKeys.keys.length; i++) {
+                const key = trustedPublicKeys.keys[i];
+                const keyHash = this.keypairGenerator.opnetHash(key.opnet);
+
+                if (allKeys.includes(keyHash)) {
+                    throw new Error(
+                        `Duplicate key found for ${trustedCompany} -> ${key.opnet.toString('base64')}`,
+                    );
+                }
+
+                allKeys.push(keyHash);
+            }
         }
 
         if (Object.keys(this.trustedKeys).length === 0) {
