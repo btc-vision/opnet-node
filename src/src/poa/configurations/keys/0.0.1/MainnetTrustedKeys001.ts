@@ -26,7 +26,7 @@ export const MainnetTrustedKeys001: NetworkAuthorityConfiguration = {
             ],
         },
         /** Fictional company */
-        /*[TrustedCompanies.MotoSwap]: {
+        [TrustedCompanies.MotoSwap]: {
             keys: [
                 {
                     opnet: 'GNwrQoTHZv7fxM4P3nsSdrHDtnLYdP0n7YJqWBc4NVI=',
