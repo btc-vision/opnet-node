@@ -32,5 +32,8 @@ export interface WrappedGenerationParameters {
     readonly constraints: GenerationConstraints;
 }
 
-export type GeneratedResult = JSONRpc2ResultData<JSONRpcMethods.GENERATE> &
-    WrappedGenerationParameters;
+export type GeneratedResult =
+    | (JSONRpc2ResultData<JSONRpcMethods.GENERATE> & WrappedGenerationParameters)
+    | {
+          error: string;
+      };

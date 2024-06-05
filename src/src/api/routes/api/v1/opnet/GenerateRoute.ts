@@ -48,7 +48,7 @@ export class GenerateRoute extends Route<
         }
 
         const [target, amount] = decodedParams;
-        if (GenerateTarget[target] === undefined) {
+        if (GenerateTarget[target as GenerateTarget] === undefined) {
             throw new Error('Invalid target.');
         }
 
@@ -61,10 +61,18 @@ export class GenerateRoute extends Route<
     }
 
     public async getDataRPC(params: GenerateParams): Promise<GeneratedResult | undefined> {
-        const data = await this.getData(params);
-        if (!data) throw new Error(`Failed to generate transaction`);
+        try {
+            const data = await this.getData(params);
+            if (!data) throw new Error(`Could not generate transaction`);
 
-        return data;
+            return data;
+        } catch (e) {
+            const error = e as Error;
+
+            return {
+                error: error.message,
+            };
+        }
     }
 
     protected initialize(): void {}
@@ -151,10 +159,10 @@ export class GenerateRoute extends Route<
         let target: GenerateTarget;
 
         if (Array.isArray(params)) {
-            target = params[0];
+            target = parseInt(params[0] as string) as GenerateTarget;
             amount = params[1];
         } else {
-            target = params.target;
+            target = parseInt(params.target as string) as GenerateTarget;
             amount = params.amount;
         }
 
