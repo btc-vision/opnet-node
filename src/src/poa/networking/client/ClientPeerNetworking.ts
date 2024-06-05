@@ -185,13 +185,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
             this.selfIdentity,
         );
 
-        blockWitnessManager.on(
-            CommonHandlers.BLOCK_WITNESS,
-            async (blockWitness: IBlockHeaderWitness) => {
-                console.log('event received. BlockWitness', blockWitness);
-                await this.onBlockWitness(blockWitness);
-            },
-        );
+        blockWitnessManager.on(CommonHandlers.BLOCK_WITNESS, this.onBlockWitness.bind(this));
 
         blockWitnessManager.on(
             CommonHandlers.SYNC_BLOCK_HEADERS_REQUEST,

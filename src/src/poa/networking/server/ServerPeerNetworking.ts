@@ -43,7 +43,7 @@ export class ServerPeerNetworking extends AuthenticationManager {
         throw new Error('onBlockWitnessResponse not implemented.');
     };
 
-    public async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
+    public async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<Uint8Array> {
         if (this.destroyed) {
             throw new Error('Server peer networking is destroyed.');
         }
@@ -52,7 +52,7 @@ export class ServerPeerNetworking extends AuthenticationManager {
             throw new Error('Block witness manager not found.');
         }
 
-        await this._blockHeaderManager.onBlockHeaderWitness(blockWitness);
+        return this._blockHeaderManager.packMessageBlockHeaderWitness(blockWitness);
     }
 
     /**

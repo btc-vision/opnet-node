@@ -75,8 +75,6 @@ export class BlockWitnessManager extends Logger {
             throw new Error('BlockHeaderRepository not initialized.');
         }
 
-        console.log('(sync) On block witness', packet);
-
         const trustedWitnesses = packet.trustedWitnesses;
         const validatorsWitnesses = packet.validatorWitnesses;
         const blockNumber: bigint = BigInt(packet.blockNumber.toString());

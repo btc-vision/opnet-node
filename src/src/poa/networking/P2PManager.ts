@@ -218,12 +218,29 @@ export class P2PManager extends Logger {
     }
 
     private async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
-        const promises: Promise<void>[] = [];
+        if (this.peers.size === 0) {
+            return;
+        }
 
+        let generatedWitness: Uint8Array | undefined;
         for (const [_peerId, peer] of this.peers) {
             if (!peer.isAuthenticated) continue;
 
-            promises.push(peer.broadcastBlockWitness(blockWitness));
+            generatedWitness = await peer.generateWitnessToBroadcast(blockWitness);
+            if (generatedWitness) break;
+        }
+
+        if (!generatedWitness) {
+            this.error('Failed to generate block witness. Will not broadcast.');
+            return;
+        }
+
+        // send to all peers
+        const promises: Promise<void>[] = [];
+        for (const [_peerId, peer] of this.peers) {
+            if (!peer.isAuthenticated) continue;
+
+            promises.push(peer.sendInternal(generatedWitness));
         }
 
         await Promise.all(promises);
