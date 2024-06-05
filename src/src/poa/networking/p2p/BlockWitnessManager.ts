@@ -75,7 +75,7 @@ export class BlockWitnessManager extends Logger {
             throw new Error('BlockHeaderRepository not initialized.');
         }
 
-        console.log('witness', packet);
+        console.log('(sync) On block witness', packet);
 
         const trustedWitnesses = packet.trustedWitnesses;
         const validatorsWitnesses = packet.validatorWitnesses;
@@ -189,6 +189,7 @@ export class BlockWitnessManager extends Logger {
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
+        console.log('Block witness received', blockWitness);
         if (this.currentBlock === -1n) {
             return;
         }

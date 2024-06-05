@@ -144,7 +144,10 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         const blockWitnesses: ISyncBlockHeaderResponse =
             await this.requestBlockWitnesses(blockNumber);
 
-        console.log('request blockWitnesses', blockWitnesses);
+        /** No witness found, we don't reply. */
+        if (blockWitnesses.validatorWitnesses.length === 0) {
+            return;
+        }
 
         const packetBuilder = this.protocol.getPacketBuilder(
             Packets.SyncBlockHeadersResponse,
