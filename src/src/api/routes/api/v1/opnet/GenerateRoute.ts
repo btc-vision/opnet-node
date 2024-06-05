@@ -74,6 +74,7 @@ export class GenerateRoute extends Route<
      * @tag OPNet
      * @summary Generate an opnet transaction with the given parameters
      * @description Generate an opnet transaction with the given parameters
+     * @bodyContent {WrapGenerateParams} application/json
      * @response 200 - Returns the generated transaction
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
