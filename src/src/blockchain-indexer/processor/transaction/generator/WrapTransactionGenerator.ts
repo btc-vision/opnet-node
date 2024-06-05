@@ -8,6 +8,7 @@ import { GeneratedResult } from '../../../../api/json-rpc/types/interfaces/resul
 import { Network, networks } from 'bitcoinjs-lib';
 import { EcKeyPair } from '@btc-vision/bsi-transaction';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
+import { KeyPairGenerator } from '../../../../poa/networking/encryptem/KeyPairGenerator.js';
 
 export interface WrapTransactionParameters {
     readonly amount: bigint;
@@ -20,6 +21,7 @@ export class WrapTransactionGenerator extends Logger {
     private readonly wbtcContractAddress: string = this.currentAuthority.WBTC_CONTRACT_ADDRESS;
 
     private readonly network: Network;
+    private readonly generator: KeyPairGenerator = new KeyPairGenerator();
 
     constructor(bitcoinNetwork: BitcoinNetwork) {
         super();
@@ -41,7 +43,7 @@ export class WrapTransactionGenerator extends Logger {
     }
 
     public async generateWrapParameters(
-        _params: WrapTransactionParameters,
+        params: WrapTransactionParameters,
     ): Promise<GeneratedResult | undefined> {
         this.log(`Generating wrap transaction... (WBTC: ${this.wbtcContractAddress})`);
 
@@ -51,23 +53,53 @@ export class WrapTransactionGenerator extends Logger {
         if (!trustedValidators) return;
 
         // TODO: Add a signature that prove the authority of the generated parameters
-        const signature: string = '';
+        const timestamp: number = Date.now();
+        const vaultAddress: string = this.generateVaultAddress(
+            trustedValidators.keys,
+            trustedValidators.constraints.minimum,
+        );
 
+        const salt: Buffer = this.generateChecksumSalt(
+            trustedValidators,
+            params.amount,
+            vaultAddress,
+            timestamp,
+        );
+
+        const checksum: string = this.generator.opnetHash(salt);
         return {
             keys: trustedValidators.keys.map((validator) => validator.toString('base64')),
-            vault: this.generateVaultAddress(
-                trustedValidators.keys,
-                trustedValidators.constraints.minimum,
-            ),
+            vault: vaultAddress,
             entities: trustedValidators.entities,
-            signature: signature,
+            signature: checksum,
             constraints: {
-                timestamp: Date.now(),
+                timestamp: timestamp,
                 version: P2PVersion,
                 minimum: trustedValidators.constraints.minimum,
                 transactionMinimum: trustedValidators.constraints.minimumSignatureRequired,
             },
         };
+    }
+
+    private generateChecksumSalt(
+        trustedValidators: TrustedPublicKeysWithConstraints,
+        amount: bigint,
+        vault: string,
+        timestamp: number,
+    ): Buffer {
+        const params: Buffer = Buffer.alloc(8 + P2PVersion.length);
+        params.writeUint32BE(timestamp, 0);
+        params.writeInt16BE(trustedValidators.constraints.minimum, 4);
+        params.writeInt16BE(trustedValidators.constraints.minimumSignatureRequired, 6);
+        params.write(P2PVersion, 8, P2PVersion.length, 'utf-8');
+
+        return Buffer.concat([
+            ...trustedValidators.keys,
+            ...trustedValidators.entities.map((entity) => Buffer.from(entity, 'utf-8')),
+            params,
+            Buffer.from(amount.toString(), 'utf-8'),
+            Buffer.from(vault, 'utf-8'),
+        ]);
     }
 
     private generateVaultAddress(keys: Buffer[], minimumSignatureRequired: number): string {

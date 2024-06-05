@@ -37,7 +37,7 @@ export class GenerateRoute extends Route<
         }
 
         if (!params) {
-            throw new Error('Invalid params.');
+            throw new Error('No params provided.');
         }
 
         const decodedParams = this.getDecodedParams(params);
@@ -82,9 +82,12 @@ export class GenerateRoute extends Route<
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
+            req.body = await req.json();
+
             const params = this.getParams(req, res);
+
             if (!params) {
-                throw new Error('Invalid params.');
+                throw new Error('No params provided.');
             }
 
             const data = await this.getData(params);
@@ -103,7 +106,7 @@ export class GenerateRoute extends Route<
 
     protected getParams(req: Request, res: Response): GenerateParamsAsObject | undefined {
         if (!req.body) {
-            throw new Error('Invalid params.');
+            throw new Error('Params not provided.');
         }
 
         const amount: string | bigint = req.body.amount;
