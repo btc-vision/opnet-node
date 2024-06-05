@@ -18,10 +18,10 @@ export const TestNetTrustedKeys001: NetworkAuthorityConfiguration = {
         [TrustedCompanies.OPNet]: {
             keys: [
                 {
-                    opnet: 'I5OERYp1DnFWqDvAG6qJtJV9ULCGy9nrJMMbkH+NZTw=',
-                    publicKey: 'A2dUn+gKx6b7DySYl1PjO715I0YnAd+fyViSa7TDFLbR',
+                    opnet: 'ebWtJ4qxy0HKEgE72BRFQZhCIaO/6zVjrBwd64K1UMA=',
+                    publicKey: 'Awl4XAeELLnpyUvXXWnW5hWLZsGJBRuA36+YFMYk6dSA',
                     signature:
-                        'fpxsBHQsGE5Ooo04BOmyaK9KS2oNE5VygtuDN6Qypirzyr5JD5wmm6vc5N8SiAjSMXsVDzoThYQbJe+w5DHSCQ==',
+                        '1yclNUxjodcDkY9L+Kg7rq/VW7f3kfFnz+ftuBsekDGW0kXdLNGN7qYO8Hc482gcwQHVB4nz0G7XM/xyYnTMDg==',
                 },
             ],
         },
