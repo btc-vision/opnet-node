@@ -44,6 +44,16 @@ export class TransactionConverterForAPI {
             deployedTransactionId: undefined,
         };
 
+        if (transaction.wrappingFees) {
+            newTx.wrappingFees =
+                '0x' + DataConverter.fromDecimal128(transaction.wrappingFees).toString(16);
+        }
+
+        if (transaction.depositAmount) {
+            newTx.depositAmount =
+                '0x' + DataConverter.fromDecimal128(transaction.depositAmount).toString(16);
+        }
+
         delete newTx._id;
         delete newTx.blockHeight;
 
