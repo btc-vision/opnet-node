@@ -59,6 +59,10 @@ export class UTXOsRoute extends Route<
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
+            if (!req.query) {
+                throw new Error('Invalid params.');
+            }
+
             const address = req.query.address as string | undefined;
             if (!address) {
                 res.status(400);

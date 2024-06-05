@@ -36,6 +36,10 @@ export class GenerateRoute extends Route<
             throw new Error('Storage not initialized');
         }
 
+        if (!params) {
+            throw new Error('Invalid params.');
+        }
+
         const decodedParams = this.getDecodedParams(params);
         try {
             if (typeof decodedParams[1] === 'string') decodedParams[1] = BigInt(decodedParams[1]);
@@ -78,7 +82,9 @@ export class GenerateRoute extends Route<
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
             const params = this.getParams(req, res);
-            if (!params) return;
+            if (!params) {
+                throw new Error('Invalid params.');
+            }
 
             const data = await this.getData(params);
 
