@@ -187,8 +187,6 @@ export class BlockWitnessManager extends Logger {
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
-        console.log('Block witness received', blockWitness);
-
         if (this.currentBlock === -1n) {
             return;
         }
