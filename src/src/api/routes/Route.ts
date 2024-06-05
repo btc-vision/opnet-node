@@ -63,7 +63,7 @@ export abstract class Route<
         }
 
         res.status(500);
-        res.json({ error: `Something went wrong.` });
+        res.json({ error: `Something went wrong: ${error.message}` });
     }
 
     protected abstract onRequest(

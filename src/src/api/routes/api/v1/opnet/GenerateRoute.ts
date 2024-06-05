@@ -96,7 +96,6 @@ export class GenerateRoute extends Route<
             req.body = req.query; //await req.json();
 
             const params = this.getParams(req, res);
-
             if (!params) {
                 throw new Error('No params provided.');
             }
