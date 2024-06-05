@@ -75,6 +75,8 @@ export class BlockWitnessManager extends Logger {
             throw new Error('BlockHeaderRepository not initialized.');
         }
 
+        console.log('witness', packet);
+
         const trustedWitnesses = packet.trustedWitnesses;
         const validatorsWitnesses = packet.validatorWitnesses;
         const blockNumber: bigint = BigInt(packet.blockNumber.toString());
@@ -415,12 +417,11 @@ export class BlockWitnessManager extends Logger {
             );
         });
 
-        console.log('newTrustedWitnesses', newTrustedWitnesses);
-
         if (newTrustedWitnesses.length > 0) {
             const knownWitnesses: OPNetBlockWitness[] = this.convertKnownWitnessesToOPNetWitness(
                 rawWitnesses || [],
             );
+
             const trustedWitness: OPNetBlockWitness[] = this.mergeAndDedupeTrustedWitnesses(
                 newTrustedWitnesses,
                 knownWitnesses,
