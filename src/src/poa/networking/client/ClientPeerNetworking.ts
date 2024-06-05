@@ -4,11 +4,11 @@ import { AbstractPacketManager } from '../default/AbstractPacketManager.js';
 import { DisconnectionCode } from '../enums/DisconnectionCode.js';
 import { IBlockHeaderWitness } from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { ITransactionPacket } from '../protobuf/packets/blockchain/common/TransactionPacket.js';
-import { ISyncBlockHeaderRequest } from '../protobuf/packets/blockchain/requests/SyncBlockHeadersRequest.js';
 import {
-    ISyncBlockHeaderResponse,
-    SyncBlockHeadersResponse,
-} from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
+    ISyncBlockHeaderRequest,
+    SyncBlockHeadersRequest,
+} from '../protobuf/packets/blockchain/requests/SyncBlockHeadersRequest.js';
+import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { Packets } from '../protobuf/types/enums/Packets.js';
 import { SharedBlockHeaderManager } from '../shared/managers/SharedBlockHeaderManager.js';
@@ -145,8 +145,9 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
             await this.requestBlockWitnesses(blockNumber);
 
         const packetBuilder = this.protocol.getPacketBuilder(
-            Packets.SyncBlockHeadersResponse,
-        ) as SyncBlockHeadersResponse;
+            Packets.SyncBlockHeadersRequest,
+        ) as SyncBlockHeadersRequest;
+
         if (!packetBuilder) {
             throw new Error('SyncBlockHeadersResponse not found.');
         }
