@@ -234,7 +234,11 @@ export class OPNetPeer extends Logger {
         delete this._peerIdentity;
     }
 
-    public async sendInternal(data: Uint8Array | Buffer): Promise<void> {
+    public sendFromServer(data: Uint8Array | Buffer): Promise<void> {
+        return this.serverNetworkingManager.sendPacket(data);
+    }
+
+    protected async sendInternal(data: Uint8Array | Buffer): Promise<void> {
         if (this.isDestroyed) return;
 
         await this.sendMsg(this.peerId, data);

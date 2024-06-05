@@ -76,6 +76,10 @@ export class ServerPeerNetworking extends AuthenticationManager {
         super.destroy();
     }
 
+    public async sendPacket(packet: Uint8Array): Promise<void> {
+        await this.sendMsg(packet);
+    }
+
     public async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
         const requestBlockWitnesses: ISyncBlockHeaderRequest = {
             blockNumber: Long.fromString(blockNumber.toString()),

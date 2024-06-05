@@ -240,7 +240,7 @@ export class P2PManager extends Logger {
         for (const [_peerId, peer] of this.peers) {
             if (!peer.isAuthenticated) continue;
 
-            promises.push(peer.sendInternal(generatedWitness));
+            promises.push(peer.sendFromServer(generatedWitness));
         }
 
         await Promise.all(promises);
