@@ -8,3 +8,8 @@ export enum OPNetTransactionTypes {
 export type InteractionTransactionType =
     | OPNetTransactionTypes.Interaction
     | OPNetTransactionTypes.WrapInteraction;
+
+export const OPNetInteractionTypeValues: OPNetTransactionTypes[] = [
+    OPNetTransactionTypes.Interaction,
+    OPNetTransactionTypes.WrapInteraction,
+];

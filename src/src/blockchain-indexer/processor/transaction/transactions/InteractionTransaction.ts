@@ -125,6 +125,10 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
         const receiptProofs: string[] = this.receiptProofs || [];
 
+        if (receipt && receiptProofs.length === 0) {
+            throw new Error(`No receipt proofs found for transaction ${this.txid}`);
+        }
+
         return {
             ...super.toDocument(),
             from: this.from,

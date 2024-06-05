@@ -11,7 +11,10 @@ import {
 import { TransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedStates } from '../../../vm/evaluated/EvaluatedStates.js';
 import { VMManager } from '../../../vm/VMManager.js';
-import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
+import {
+    OPNetInteractionTypeValues,
+    OPNetTransactionTypes,
+} from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
 import { TransactionSorter } from '../transaction/transaction-sorter/TransactionSorter.js';
 import { Transaction } from '../transaction/Transaction.js';
@@ -468,20 +471,20 @@ export class Block extends Logger {
         }
 
         for (const transaction of this.transactions) {
-            if (transaction.transactionType === OPNetTransactionTypes.Interaction) {
-                const interactionTransaction = transaction as InteractionTransaction;
-                const contractProofs = this.#_receiptProofs.get(
-                    interactionTransaction.contractAddress,
-                );
-
-                if (!contractProofs) {
-                    // Transaction reverted.
-                    continue;
-                }
-
-                const proofs = contractProofs.get(interactionTransaction.transactionId);
-                interactionTransaction.setReceiptProofs(proofs);
+            if (!OPNetInteractionTypeValues.includes(transaction.transactionType)) {
+                continue;
             }
+
+            const interactionTransaction = transaction as InteractionTransaction;
+            const contractProofs = this.#_receiptProofs.get(interactionTransaction.contractAddress);
+
+            if (!contractProofs) {
+                // Transaction reverted.
+                continue;
+            }
+
+            const proofs = contractProofs.get(interactionTransaction.transactionId);
+            interactionTransaction.setReceiptProofs(proofs);
         }
     }
 
