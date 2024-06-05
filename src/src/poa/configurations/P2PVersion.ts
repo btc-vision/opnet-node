@@ -22,16 +22,14 @@ export const WBTC_CONTRACT_ADDRESS: {
     [key in ChainIds]: Partial<{ [key in BitcoinNetwork]: string }>;
 } = {
     [ChainIds.Bitcoin]: {
-        [BitcoinNetwork.Mainnet]:
-            'bcrt1pyrs3eqwnrmd4ql3nwvx66yzp0wc24xd2t9pf8699ln340pjs7f3sar3tum',
-        
-        [BitcoinNetwork.TestNet]:
-            'bcrt1pyrs3eqwnrmd4ql3nwvx66yzp0wc24xd2t9pf8699ln340pjs7f3sar3tum',
+        [BitcoinNetwork.Mainnet]: 'unknown',
+
+        [BitcoinNetwork.TestNet]: 'tb1pq64lx73fwyrdp4asvl7xt5r5qvxvt9wy82x75taqtzvd64f58nasansurj',
 
         [BitcoinNetwork.Regtest]:
-            'bcrt1pyrs3eqwnrmd4ql3nwvx66yzp0wc24xd2t9pf8699ln340pjs7f3sar3tum',
+            'bcrt1pcw0828yjrtlrc6mkp3lkq30j7wc7slsh7k7dyh53mrs4f8d74l6qumhqp4',
 
-        [BitcoinNetwork.Signet]: 'bcrt1pyrs3eqwnrmd4ql3nwvx66yzp0wc24xd2t9pf8699ln340pjs7f3sar3tum',
+        [BitcoinNetwork.Signet]: 'unknown',
     },
 };
 
