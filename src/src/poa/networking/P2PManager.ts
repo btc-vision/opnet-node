@@ -218,6 +218,9 @@ export class P2PManager extends Logger {
     }
 
     private async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
+        this.info(`Broadcasting block witness for block ${blockWitness.blockNumber.toString()}`);
+        console.log('Broadcasting block witness:', blockWitness);
+
         const promises: Promise<void>[] = [];
 
         for (const [_peerId, peer] of this.peers) {
