@@ -296,10 +296,7 @@ export class BlockWitnessManager extends Logger {
         }
 
         const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
-        if (
-            filteredBlockWitnesses.trustedWitnesses.length === 0 ||
-            filteredBlockWitnesses.validatorWitnesses.length === 0
-        ) {
+        if (filteredBlockWitnesses.validatorWitnesses.length === 0) {
             return;
         }
 
