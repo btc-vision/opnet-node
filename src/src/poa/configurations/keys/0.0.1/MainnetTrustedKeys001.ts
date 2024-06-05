@@ -16,7 +16,14 @@ export const MainnetTrustedKeys001: NetworkAuthorityConfiguration = {
 
     trusted: {
         [TrustedCompanies.OPNet]: {
-            keys: [],
+            keys: [
+                {
+                    opnet: 'GNwrQoTHZv7fxM4P3nsSdrHDtnLYdP0n7YJqWBc4NVI=',
+                    publicKey: 'AgPmjuI2/MNJM9STswWm8MdWEllHHRPs0Q3+DjdjOny+',
+                    signature:
+                        '2z0mncHxbBwps/81dVPKQcManzjcJ+r+4dmkD+MxZJ3ZdbEoeDlRhy6xa362JVRiBZtdyeQV7q6mckpohvUNCw==',
+                },
+            ],
         },
     },
 };
