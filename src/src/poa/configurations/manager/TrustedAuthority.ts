@@ -18,8 +18,13 @@ export type TrustedPublicKeys = {
 };
 
 export interface TrustedPublicKeysWithConstraints {
-    keys: Buffer[];
-    entities: TrustedCompanies[];
+    readonly keys: Buffer[];
+    readonly entities: TrustedCompanies[];
+
+    readonly constraints: {
+        readonly minimum: number;
+        readonly minimumSignatureRequired: number;
+    };
 }
 
 export class TrustedAuthority extends Logger {
@@ -140,6 +145,10 @@ export class TrustedAuthority extends Logger {
         return {
             keys,
             entities: companies,
+            constraints: {
+                minimum: this.minimum,
+                minimumSignatureRequired: this.transactionMinimum,
+            },
         };
     }
 

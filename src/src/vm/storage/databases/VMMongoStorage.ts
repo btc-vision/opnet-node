@@ -89,6 +89,10 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Block witness repository not initialized');
         }
 
+        if (!this.reorgRepository) {
+            throw new Error('Reorg repository not initialized');
+        }
+
         await this.updateBlockchainInfo(Number(blockId));
 
         const promises: Promise<void>[] = [
@@ -97,6 +101,7 @@ export class VMMongoStorage extends VMStorage {
             this.pointerRepository.deletePointerFromBlockHeight(blockId),
             this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
             this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId),
+            this.reorgRepository.deleteReorgs(blockId),
         ];
 
         await Promise.all(promises);

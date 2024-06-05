@@ -23,7 +23,7 @@
         "@btc-vision/bsi-bitcoin-rpc": "github:btc-vision/bsi-bitcoin-rpc",
         "@btc-vision/bsi-common": "^1.0.13",
         "@btc-vision/bsi-db": "latest",
-        "@btc-vision/bsi-transaction": "latest",
+        "@btc-vision/bsi-transaction": "^1.0.14",
         "@btc-vision/wasm-metering": "github:btc-vision/wasm-metering",
         "@chainsafe/libp2p-noise": "^15.0.0",
         "@chainsafe/libp2p-yamux": "^6.0.2",

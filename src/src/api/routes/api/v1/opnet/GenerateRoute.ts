@@ -15,6 +15,7 @@ import {
     WrapTransactionGenerator,
     WrapTransactionParameters,
 } from '../../../../../blockchain-indexer/processor/transaction/generator/WrapTransactionGenerator.js';
+import { Config } from '../../../../../config/Config.js';
 
 export class GenerateRoute extends Route<
     Routes.GENERATE,
@@ -22,7 +23,8 @@ export class GenerateRoute extends Route<
     GeneratedResult | undefined
 > {
     private readonly wrapTransactionGenerator: WrapTransactionGenerator =
-        new WrapTransactionGenerator();
+        new WrapTransactionGenerator(Config.BLOCKCHAIN.BITCOIND_NETWORK);
+
     private readonly MINIMUM_AMOUNT_WRAP: bigint = 330n;
 
     constructor() {
@@ -119,13 +121,12 @@ export class GenerateRoute extends Route<
             amount: amount,
         };
 
-        const generated: string | undefined =
-            await this.wrapTransactionGenerator.generateWrapTransaction(params);
+        const generated: GeneratedResult | undefined =
+            await this.wrapTransactionGenerator.generateWrapParameters(params);
+
         if (!generated) throw new Error('Failed to generate wrap transaction');
 
-        return {
-            generatedTransaction: generated,
-        };
+        return generated;
     }
 
     private getDecodedParams(params: GenerateParams): GenerateParamsAsArray {
