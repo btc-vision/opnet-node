@@ -441,6 +441,12 @@ export class Block extends Logger {
                 await this.executeInteractionTransaction(interactionTransaction, vmManager);
                 break;
             }
+            case OPNetTransactionTypes.WrapInteraction: {
+                const interactionTransaction = _transaction as InteractionTransaction;
+
+                await this.executeInteractionTransaction(interactionTransaction, vmManager);
+                break;
+            }
             case OPNetTransactionTypes.Deployment: {
                 const deploymentTransaction = _transaction as DeploymentTransaction;
 

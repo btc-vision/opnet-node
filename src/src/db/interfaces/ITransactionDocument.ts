@@ -1,6 +1,9 @@
 import { IBaseDocument } from '@btc-vision/bsi-common';
 import { Binary, Decimal128 } from 'mongodb';
-import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import {
+    InteractionTransactionType,
+    OPNetTransactionTypes,
+} from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
     APIDocumentInput,
     TransactionInput,
@@ -9,6 +12,7 @@ import {
     APIDocumentOutput,
     ITransactionOutput,
 } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import { Address } from '@btc-vision/bsi-binary';
 
 export interface TransactionDocumentBase<T extends OPNetTransactionTypes> {
     readonly id: string;
@@ -51,7 +55,7 @@ export interface NetEventDocument {
 }
 
 export interface InteractionTransactionDocument
-    extends ExtendedBaseInfo<OPNetTransactionTypes.Interaction> {
+    extends ExtendedBaseInfo<InteractionTransactionType> {
     readonly calldata: Binary;
     readonly senderPubKeyHash: Binary;
     readonly contractSecret: Binary;
@@ -64,6 +68,18 @@ export interface InteractionTransactionDocument
     readonly receiptProofs?: string[];
 
     readonly gasUsed: Decimal128;
+}
+
+export interface IWrapInteractionTransactionDocument extends InteractionTransactionDocument {
+    readonly pubKeys: Binary[];
+    readonly vault: string;
+    readonly depositAmount: Decimal128;
+    readonly minimumSignatures: number;
+
+    readonly wrappingFees: Decimal128;
+
+    readonly penalized: boolean;
+    readonly depositAddress: Address;
 }
 
 export type ITransactionDocument<T extends OPNetTransactionTypes> = TransactionDocument<T> &

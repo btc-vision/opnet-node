@@ -1,4 +1,4 @@
-import { BitcoinNetwork, Logger } from '@btc-vision/bsi-common';
+import { BitcoinNetwork, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import {
     AuthorityBufferKey,
     AuthorityKey,
@@ -12,6 +12,7 @@ import { P2PVersion, TRUSTED_PUBLIC_KEYS, WBTC_CONTRACT_ADDRESS } from '../P2PVe
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { KeyPairGenerator } from '../../networking/encryptem/KeyPairGenerator.js';
 import { TrustedVersion } from '../version/TrustedVersion.js';
+import { Config } from '../../../config/Config.js';
 
 export type TrustedPublicKeys = {
     [key in TrustedCompanies]: Buffer[];
@@ -170,12 +171,16 @@ export class TrustedAuthority extends Logger {
 
             if (keys.length === 0) continue;
 
-            const matchingKeys: Buffer[] = publicKeys.filter((publicKey: Buffer) => {
-                return keys.includes(publicKey);
-            });
+            const matchingKeys: Buffer[] = [];
+            for (const publicKey of publicKeys) {
+                for (const key of keys) {
+                    if (publicKey.equals(key)) {
+                        matchingKeys.push(publicKey);
+                    }
+                }
+            }
 
             if (matchingKeys.length === 0) continue;
-
             if (matchingKeys.length > this.maximumValidatorPerTrustedEntities) {
                 differentTrustedKeysInList += this.maximumValidatorPerTrustedEntities;
             } else {
@@ -187,13 +192,21 @@ export class TrustedAuthority extends Logger {
 
         // we need to verify that the public keys are greater than or equal to the minimum number of trusted keys
         if (differentTrustedKeysInList < this.minimum) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                this.warn(
+                    `Less than ${this.minimum} validator were used in this transaction. Used ${differentTrustedKeysInList} validators.`,
+                );
+            }
+
             return false;
         }
 
         if (differentTrustedKeysInList < this.transactionMinimum) {
-            this.warn(
-                `Less than ${this.transactionMinimum} validator were used in this transaction, is this value reach the minimum, the transaction will be lost.`,
-            );
+            if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
+                this.warn(
+                    `Less than ${this.transactionMinimum} validator were used, if this value reach the minimum, the funds will be lost and unrecognized by opnet.`,
+                );
+            }
         }
 
         return totalEntitiesUsed >= this.minimumValidatorTransactionGeneration;
