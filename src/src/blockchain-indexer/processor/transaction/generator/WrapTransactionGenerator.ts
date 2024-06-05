@@ -87,11 +87,11 @@ export class WrapTransactionGenerator extends Logger {
         vault: string,
         timestamp: number,
     ): Buffer {
-        const params: Buffer = Buffer.alloc(8 + P2PVersion.length);
-        params.writeUint32BE(timestamp, 0);
-        params.writeInt16BE(trustedValidators.constraints.minimum, 4);
-        params.writeInt16BE(trustedValidators.constraints.minimumSignatureRequired, 6);
-        params.write(P2PVersion, 8, P2PVersion.length, 'utf-8');
+        const params: Buffer = Buffer.alloc(12 + P2PVersion.length);
+        params.writeBigInt64BE(BigInt(timestamp), 0);
+        params.writeInt16BE(trustedValidators.constraints.minimum, 8);
+        params.writeInt16BE(trustedValidators.constraints.minimumSignatureRequired, 10);
+        params.write(P2PVersion, 12, P2PVersion.length, 'utf-8');
 
         return Buffer.concat([
             ...trustedValidators.keys,
