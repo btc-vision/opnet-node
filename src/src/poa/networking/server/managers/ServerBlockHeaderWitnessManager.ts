@@ -19,6 +19,8 @@ export class ServerBlockHeaderWitnessManager extends SharedBlockHeaderManager {
             return;
         }
 
+        console.log('BlockHeaderWitness sent');
+
         await this.sendMsg(packet.pack(blockHeader));
     }
 }

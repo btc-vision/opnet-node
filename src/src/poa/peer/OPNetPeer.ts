@@ -145,8 +145,14 @@ export class OPNetPeer extends Logger {
 
     public async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
         try {
+            this.info(
+                `Broadcasting block witness for block ${blockWitness.blockNumber.toString()}`,
+            );
+
             await this.serverNetworkingManager.broadcastBlockWitness(blockWitness);
-        } catch (e) {}
+        } catch (e) {
+            this.error(`Failed to broadcast block witness. ${e}`);
+        }
     }
 
     public async onMessage(rawBuf: ArrayBuffer): Promise<void> {

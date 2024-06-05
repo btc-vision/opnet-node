@@ -142,8 +142,6 @@ export class ServerPeerNetworking extends AuthenticationManager {
             throw new Error('Block witness manager not found.');
         }
 
-        console.log('received block witness response', packet);
-
         await this.onBlockWitnessResponse(packet);
     }
 
