@@ -103,6 +103,10 @@ export class BroadcastTransaction extends Route<
         req: Request,
         res: Response,
     ): BroadcastTransactionParamsAsObject | undefined {
+        if (!req.body) {
+            throw new Error('Invalid params.');
+        }
+
         const data: string = req.body.data as string;
         if (!data) {
             res.status(400);

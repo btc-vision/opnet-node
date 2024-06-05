@@ -106,6 +106,10 @@ export class GetCode extends Route<
     }
 
     protected getParams(req: Request, res: Response): GetCodeParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const address = req.query.address as string;
 
         if (!address || address.length < 50) {

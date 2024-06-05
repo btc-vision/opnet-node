@@ -105,6 +105,10 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     }
 
     protected getParams(req: Request, res: Response): CallParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const to = req.query.to as string;
         const data = req.query.data as string;
 

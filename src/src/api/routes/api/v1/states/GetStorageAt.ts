@@ -89,6 +89,10 @@ export class GetStorageAt extends Route<
     }
 
     protected getParams(req: Request, res: Response): GetStorageAtParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const address = req.query.address as string;
 
         if (!address || (address && address.length !== 64)) {

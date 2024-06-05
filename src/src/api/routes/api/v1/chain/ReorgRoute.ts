@@ -71,6 +71,10 @@ export class ReorgRoute extends Route<Routes.REORG, JSONRpcMethods.REORG, ReorgR
     }
 
     protected getParams(req: Request, res: Response): ReorgParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const fromBlock = req.query.fromBlock as string | undefined;
         const toBlock = req.query.toBlock as string | undefined;
 

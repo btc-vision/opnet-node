@@ -80,6 +80,10 @@ export class TransactionByHash extends Route<
     }
 
     protected getParams(req: Request, res: Response): TransactionByHashParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const hash = req.query.hash as string;
 
         if (!hash || (hash && hash.length !== 64)) {

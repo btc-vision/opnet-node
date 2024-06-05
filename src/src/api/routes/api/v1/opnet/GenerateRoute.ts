@@ -101,6 +101,10 @@ export class GenerateRoute extends Route<
     }
 
     protected getParams(req: Request, res: Response): GenerateParamsAsObject | undefined {
+        if (!req.body) {
+            throw new Error('Invalid params.');
+        }
+
         const amount: string | bigint = req.body.amount;
         const target: GenerateTarget = req.body.target;
 

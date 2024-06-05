@@ -89,6 +89,10 @@ export class OPNetWitnessRoute extends Route<
     }
 
     protected getParams(req: Request, res: Response): BlockWitnessAsObject | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const height = req.query.height as string | undefined;
         if (height === undefined) {
             res.status(400);
