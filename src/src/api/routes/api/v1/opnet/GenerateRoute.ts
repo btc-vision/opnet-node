@@ -61,18 +61,10 @@ export class GenerateRoute extends Route<
     }
 
     public async getDataRPC(params: GenerateParams): Promise<GeneratedResult | undefined> {
-        try {
-            const data = await this.getData(params);
-            if (!data) throw new Error(`Could not generate transaction`);
+        const data = await this.getData(params);
+        if (!data) throw new Error(`Could not generate transaction`);
 
-            return data;
-        } catch (e) {
-            const error = e as Error;
-
-            return {
-                error: error.message,
-            };
-        }
+        return data;
     }
 
     protected initialize(): void {}
