@@ -28,7 +28,7 @@ export class GenerateRoute extends Route<
     private readonly MINIMUM_AMOUNT_WRAP: bigint = 330n;
 
     constructor() {
-        super(Routes.GENERATE, RouteType.POST);
+        super(Routes.GENERATE, RouteType.GET);
     }
 
     public async getData(params: GenerateParams): Promise<GeneratedResult | undefined> {
@@ -69,12 +69,15 @@ export class GenerateRoute extends Route<
 
     protected initialize(): void {}
 
+    //* @bodyContent {WrapGenerateParams} application/json
+
     /**
-     * POST /api/v1/opnet/generate
+     * GET /api/v1/opnet/generate
      * @tag OPNet
      * @summary Generate an opnet transaction with the given parameters
      * @description Generate an opnet transaction with the given parameters
-     * @bodyContent {WrapGenerateParams} application/json
+     * @queryParam {number} target - The target (0: wrap)
+     * @queryParam {number} amount - The amount in satoshis
      * @response 200 - Returns the generated transaction
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
@@ -82,7 +85,7 @@ export class GenerateRoute extends Route<
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
-            req.body = await req.json();
+            req.body = req.query; //await req.json();
 
             const params = this.getParams(req, res);
 
