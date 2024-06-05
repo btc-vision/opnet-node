@@ -10,5 +10,5 @@ interface IBroadcastTransactionResult {
     identifier: bigint;
 }
 
-export type BroadcastTransactionResult = JSONRpc2ResultData<JSONRpcMethods.GET_CODE> &
+export type BroadcastTransactionResult = JSONRpc2ResultData<JSONRpcMethods.BROADCAST_TRANSACTION> &
     IBroadcastTransactionResult;
