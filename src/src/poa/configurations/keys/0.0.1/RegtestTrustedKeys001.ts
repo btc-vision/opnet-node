@@ -12,7 +12,7 @@ export const RegTestTrustedKeys001: NetworkAuthorityConfiguration = {
     minimumValidatorTransactionGeneration: 2,
 
     /** Maximum trusted validator per entity in a transaction */
-    maximumValidatorPerTrustedEntities: 1,
+    maximumValidatorPerTrustedEntities: 3,
 
     /** Trusted entities */
     trusted: {
