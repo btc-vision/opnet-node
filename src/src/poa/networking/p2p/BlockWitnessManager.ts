@@ -416,9 +416,13 @@ export class BlockWitnessManager extends Logger {
             );
         });
 
+        console.log('newTrustedWitnesses', newTrustedWitnesses);
+
         if (newTrustedWitnesses.length > 0) {
-            const knownWitnesses = this.convertKnownWitnessesToOPNetWitness(rawWitnesses || []);
-            const trustedWitness = this.mergeAndDedupeTrustedWitnesses(
+            const knownWitnesses: OPNetBlockWitness[] = this.convertKnownWitnessesToOPNetWitness(
+                rawWitnesses || [],
+            );
+            const trustedWitness: OPNetBlockWitness[] = this.mergeAndDedupeTrustedWitnesses(
                 newTrustedWitnesses,
                 knownWitnesses,
             );
