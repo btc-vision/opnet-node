@@ -184,7 +184,6 @@ export class BlockWitnessManager extends Logger {
         };
 
         await this.processBlockWitnesses(data.blockNumber, blockWitness);
-        //await this.broadcastBlockWitness(blockWitness);
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
@@ -437,6 +436,13 @@ export class BlockWitnessManager extends Logger {
 
             const blockChecksumHash: Buffer = this.generateBlockHeaderChecksumHash(witnessData);
             const selfSignedWitness = this.identity.acknowledgeData(blockChecksumHash);
+
+            console.log(
+                'newTrustedWitnesses',
+                blockChecksumHash,
+                selfSignedWitness,
+                trustedWitness,
+            );
 
             /**
              * We spoof the validatorWitnesses to include the self-signed witness. This way, the identity of the trusted validators is not revealed.
