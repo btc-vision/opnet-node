@@ -82,8 +82,6 @@ export class Mempool extends Logger {
     }
 
     private async onTransactionReceived(data: OPNetBroadcastData): Promise<BroadcastResponse> {
-        console.log('Mempool.onTransactionReceived', data);
-
         const raw: Uint8Array = data.raw;
         const psbt: boolean = data.psbt;
         const identifier: bigint = data.identifier || cyrb53a(data.raw as unknown as u8[]);

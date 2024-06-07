@@ -1,18 +1,12 @@
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import { ContractInformation } from '../../../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
     BlockHeaderAPIDocumentWithTransactions,
     BlockWithTransactions,
     TransactionDocumentForAPI,
 } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
-import { IContractAPIDocument } from '../../../../../db/documents/interfaces/IContractDocument.js';
-import {
-    DeploymentTransactionDocument,
-    TransactionDocument,
-} from '../../../../../db/interfaces/ITransactionDocument.js';
 import { TransactionConverterForAPI } from '../../../../data-converter/TransactionConverterForAPI.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
@@ -21,6 +15,7 @@ import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/bl
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { Route } from '../../../Route.js';
 import { SafeBigInt } from '../../../safe/SafeMath.js';
+import { DeploymentTxEncoder } from '../shared/DeploymentTxEncoder.js';
 
 export abstract class BlockRoute<T extends Routes> extends Route<
     T,
@@ -32,6 +27,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
     protected maxCacheSize: number = 100;
 
     protected currentBlockData: BlockHeaderAPIDocumentWithTransactions | undefined;
+    protected readonly deploymentTxEncoder: DeploymentTxEncoder = new DeploymentTxEncoder();
 
     protected constructor(route: T) {
         super(route, RouteType.GET);
@@ -48,11 +44,11 @@ export abstract class BlockRoute<T extends Routes> extends Route<
     protected initialize(): void {
         setInterval(() => {
             this.purgeCache();
-        }, 60000);
+        }, 30000);
 
         setInterval(() => {
             this.currentBlockData = undefined;
-        }, 1000);
+        }, 2000);
     }
 
     protected abstract onRequest(
@@ -82,33 +78,20 @@ export abstract class BlockRoute<T extends Routes> extends Route<
     protected async convertToBlockHeaderAPIDocumentWithTransactions(
         data: BlockWithTransactions,
     ): Promise<BlockHeaderAPIDocumentWithTransactions> {
-        const transactions: TransactionDocumentForAPI<OPNetTransactionTypes>[] = [];
+        if (!this.storage) {
+            throw new Error('Storage not initialized');
+        }
 
+        const transactions: TransactionDocumentForAPI<OPNetTransactionTypes>[] = [];
         if (data.transactions) {
             for (const transaction of data.transactions) {
                 let newTx = TransactionConverterForAPI.convertTransactionToAPI(transaction);
 
-                if (newTx.OPNetType === OPNetTransactionTypes.Deployment) {
-                    const txDeployment =
-                        newTx as unknown as TransactionDocument<OPNetTransactionTypes> as DeploymentTransactionDocument;
-
-                    const contractData = await this.getContractData(
-                        txDeployment.contractAddress,
-                        BigInt(data.block.height) + 1n,
-                    );
-
-                    if (contractData) {
-                        newTx = {
-                            ...newTx,
-                            ...contractData,
-                            deployedTransactionHash: undefined,
-                            deployedTransactionId: undefined,
-                        };
-
-                        delete newTx.deployedTransactionId;
-                        delete newTx.deployedTransactionHash;
-                    }
-                }
+                newTx = await this.deploymentTxEncoder.addDeploymentData(
+                    newTx,
+                    BigInt(data.block.height),
+                    this.storage,
+                );
 
                 transactions.push(newTx);
             }
@@ -139,40 +122,5 @@ export abstract class BlockRoute<T extends Routes> extends Route<
 
     private purgeCache() {
         this.cachedBlocks.clear();
-    }
-
-    private async getContractData(
-        contractAddress: string,
-        height: bigint,
-    ): Promise<IContractAPIDocument | undefined> {
-        if (!this.storage) {
-            throw new Error('Storage not initialized');
-        }
-
-        const transactions: ContractInformation | undefined = await this.storage.getContractAt(
-            contractAddress,
-            height,
-        );
-
-        if (!transactions) return undefined;
-
-        return this.convertToBlockHeaderAPIDocument(transactions);
-    }
-
-    private convertToBlockHeaderAPIDocument(data: ContractInformation): IContractAPIDocument {
-        const document: IContractAPIDocument = {
-            ...data,
-            bytecode: data.bytecode.toString('base64'),
-            deployerPubKey: data.deployerPubKey.toString('base64'),
-            contractSeed: data.contractSeed.toString('base64'),
-            contractSaltHash: data.contractSaltHash.toString('hex'),
-            blockHeight: undefined,
-            _id: undefined,
-        };
-
-        delete document.blockHeight;
-        delete document._id;
-
-        return document;
     }
 }

@@ -162,7 +162,7 @@ export class GetStorageAt extends Route<
             if (params.height) height = BigInt(params.height);
         }
 
-        if (!address || address.length < 50) throw new Error(`Invalid address specified.`);
+        if (!address || address.length < 20) throw new Error(`Invalid address specified.`);
 
         return [address, Binary.createFromBase64(pointer), sendProofs ?? true, height || undefined];
     }

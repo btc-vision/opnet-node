@@ -45,6 +45,7 @@ export class GetCode extends Route<
             result = {
                 contractAddress: document.contractAddress.toString(),
                 virtualAddress: document.virtualAddress.toString(),
+                p2trAddress: document.p2trAddress.toString(),
 
                 contractSeed: document.contractSeed.toString('base64'),
                 contractSaltHash: document.contractSaltHash.toString('hex'),
@@ -112,7 +113,7 @@ export class GetCode extends Route<
 
         const address = req.query.address as string;
 
-        if (!address || address.length < 50) {
+        if (!address || address.length < 20) {
             res.status(400);
             res.json({ error: 'Invalid address.' });
             return;
@@ -139,7 +140,7 @@ export class GetCode extends Route<
             onlyBytecode = params.onlyBytecode ?? false;
         }
 
-        if (!address || address.length < 50) throw new Error(`Invalid address specified.`);
+        if (!address || address.length < 20) throw new Error(`Invalid address specified.`);
 
         const startsWith = address.startsWith('0x');
         return [address, onlyBytecode, startsWith];

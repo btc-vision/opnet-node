@@ -49,6 +49,8 @@ export class VMManager extends Logger {
 
     private vmEvaluators: Map<Address, Promise<ContractEvaluator>> = new Map();
 
+    private contractAddressCache: Map<Address, Address> = new Map();
+
     constructor(
         private readonly config: IBtcIndexerConfig,
         private readonly isExecutor: boolean = false,
@@ -147,13 +149,20 @@ export class VMManager extends Logger {
 
     /** This method is allowed to read only. It can not modify any states. */
     public async execute(
-        contractAddress: Address,
+        potentialContractAddress: Address,
         calldataString: string,
         height?: bigint,
         from?: Address,
     ): Promise<EvaluatedResult> {
         if (height === undefined) {
             height = await this.getChainCurrentBlockHeight();
+        }
+
+        const contractAddress: Address | undefined =
+            await this.getContractAddress(potentialContractAddress);
+
+        if (!contractAddress) {
+            throw new Error('Contract not found');
         }
 
         // Get the contract evaluator
@@ -232,7 +241,19 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        const contractAddress: Address = interactionTransaction.contractAddress;
+        const contractAddress: Address | undefined = await this.getContractAddress(
+            interactionTransaction.contractAddress,
+        );
+
+        if (!contractAddress) {
+            throw new Error('Contract not found');
+        }
+
+        // If the interaction is using the p2tr address, we must change it to the segwit address.
+        if (interactionTransaction.contractAddress !== contractAddress) {
+            interactionTransaction.contractAddress = contractAddress;
+        }
+
         if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
         }
@@ -502,13 +523,13 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        if (!contractDeploymentTransaction.contractAddress) {
+        if (!contractDeploymentTransaction.p2trAddress) {
             throw new Error('Contract address not found');
         }
 
         if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debugBright(
-                `Attempting to deploy contract ${contractDeploymentTransaction.contractAddress}`,
+                `Attempting to deploy contract ${contractDeploymentTransaction.p2trAddress}`,
             );
         }
 
@@ -582,6 +603,7 @@ export class VMManager extends Logger {
         this.blockState = undefined;
         this.receiptState = undefined;
 
+        this.contractAddressCache.clear();
         this.cachedBlockHeader.clear();
         this.verifiedBlockHeights.clear();
         this.contractCache.clear();
@@ -592,6 +614,19 @@ export class VMManager extends Logger {
         }
 
         this.vmEvaluators.clear();
+    }
+
+    private async getContractAddress(
+        potentialContractAddress: Address,
+    ): Promise<Address | undefined> {
+        let address: Address | undefined = this.contractAddressCache.get(potentialContractAddress);
+        if (!address) {
+            address = await this.vmStorage.getContractAddressAt(potentialContractAddress);
+
+            if (address) this.contractAddressCache.set(potentialContractAddress, address);
+        }
+
+        return address;
     }
 
     private async resetContractVM(vmEvaluator: ContractEvaluator): Promise<void> {

@@ -9,12 +9,16 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { TransactionByHashParams } from '../../../../json-rpc/types/interfaces/params/transactions/TransactionByHashParams.js';
 import { TransactionByHashResult } from '../../../../json-rpc/types/interfaces/results/transactions/TransactionByHashResult.js';
 import { Route } from '../../../Route.js';
+import { DeploymentTxEncoder } from '../shared/DeploymentTxEncoder.js';
+import { DataConverter } from '@btc-vision/bsi-db';
 
 export class TransactionByHash extends Route<
     Routes.TRANSACTION_BY_HASH,
     JSONRpcMethods.GET_TRANSACTION_BY_HASH,
     TransactionByHashResult | undefined
 > {
+    protected readonly deploymentTxEncoder: DeploymentTxEncoder = new DeploymentTxEncoder();
+
     constructor() {
         super(Routes.TRANSACTION_BY_HASH, RouteType.GET);
     }
@@ -33,7 +37,14 @@ export class TransactionByHash extends Route<
             return undefined;
         }
 
-        return this.convertRawTransactionData(data);
+        let convertedTx = this.convertRawTransactionData(data);
+        convertedTx = await this.deploymentTxEncoder.addDeploymentData(
+            convertedTx,
+            DataConverter.fromDecimal128(data.blockHeight),
+            this.storage,
+        );
+
+        return convertedTx;
     }
 
     public async getDataRPC(

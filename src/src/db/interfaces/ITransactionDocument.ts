@@ -45,7 +45,10 @@ export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocum
 };
 
 export interface DeploymentTransactionDocument
-    extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment> {}
+    extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment> {
+    readonly virtualAddress: string;
+    readonly p2trAddress: string;
+}
 
 export interface NetEventDocument {
     readonly eventType: string;

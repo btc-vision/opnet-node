@@ -41,6 +41,10 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     protected async init(): Promise<void> {
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
         await this.vmManager.init();
+
+        setInterval(() => {
+            this.vmManager.clear();
+        }, 20000);
     }
 
     protected async onLinkMessage(

@@ -236,7 +236,13 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             calldata = params.calldata;
         }
 
-        if (!address || !DataValidator.isValidP2TRAddress(address, this.network)) {
+        if (
+            !address ||
+            !(
+                DataValidator.validatePKHAddress(address, this.network) ||
+                DataValidator.isValidP2TRAddress(address, this.network)
+            )
+        ) {
             throw new Error(`Invalid address specified. Address must be P2TR (taproot).`);
         }
 

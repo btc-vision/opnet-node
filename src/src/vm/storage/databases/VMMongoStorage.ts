@@ -1,4 +1,4 @@
-import { BufferHelper } from '@btc-vision/bsi-binary';
+import { Address, BufferHelper } from '@btc-vision/bsi-binary';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession, TransactionOptions } from 'mongodb';
 import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
@@ -482,6 +482,21 @@ export class VMMongoStorage extends VMStorage {
         }
 
         return await this.contractRepository.getContract(
+            contractAddress,
+            height,
+            this.currentSession,
+        );
+    }
+
+    public async getContractAddressAt(
+        contractAddress: BitcoinAddress,
+        height?: bigint,
+    ): Promise<Address | undefined> {
+        if (!this.contractRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        return await this.contractRepository.getContractAddressAt(
             contractAddress,
             height,
             this.currentSession,

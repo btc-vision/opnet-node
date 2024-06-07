@@ -89,6 +89,10 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return this._contractAddress as string;
     }
 
+    public set contractAddress(contractAddress: string) {
+        this._contractAddress = contractAddress;
+    }
+
     public get gasUsed(): bigint {
         if (!this.receipt) {
             return 0n;
@@ -122,7 +126,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         const receiptData: EvaluatedResult | undefined = this.receipt;
         const events: EvaluatedEvents | undefined = receiptData?.events;
         const receipt: Uint8Array | undefined = receiptData?.result;
-
         const receiptProofs: string[] = this.receiptProofs || [];
 
         if (receipt && receiptProofs.length === 0) {

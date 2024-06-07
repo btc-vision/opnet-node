@@ -15,6 +15,7 @@ import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocume
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
+import { Address } from '@btc-vision/bsi-binary';
 
 export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public readonly logColor: string = '#ff00ff';
@@ -61,6 +62,11 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         address: BitcoinAddress,
         height?: bigint,
     ): Promise<ContractInformation | undefined>;
+
+    public abstract getContractAddressAt(
+        address: BitcoinAddress,
+        height?: bigint,
+    ): Promise<Address | undefined>;
 
     public abstract getTransactionByHash(
         hash: string,

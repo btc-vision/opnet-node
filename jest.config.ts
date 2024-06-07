@@ -1,9 +1,13 @@
 import type { Config } from '@jest/types';
 import { BabelConfig } from 'ts-jest';
 
-const esModules = ['chalk', 'supports-color', '@btc-vision/bsi-common', '@btc-vision/bsi-db'].join(
-    '|',
-);
+const esModules = [
+    'chalk',
+    'supports-color',
+    '@btc-vision/bsi-common',
+    '@btc-vision/bsi-db',
+    '@btc-vision/logger',
+].join('|');
 
 const babelConfig: BabelConfig = {
     presets: ['@babel/preset-env'],

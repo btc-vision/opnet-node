@@ -4,8 +4,8 @@ import { Address } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
 export type EvaluatedEvents = Map<Address, NetEvent[]>;
 
 export interface EvaluatedResult {
-    changedStorage: BlockchainStorage;
-    result: Uint8Array | undefined;
-    events: EvaluatedEvents | undefined;
-    gasUsed: bigint;
+    readonly changedStorage: BlockchainStorage;
+    readonly result: Uint8Array | undefined;
+    readonly events: EvaluatedEvents | undefined;
+    readonly gasUsed: bigint;
 }
