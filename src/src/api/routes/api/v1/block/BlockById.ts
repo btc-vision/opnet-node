@@ -71,6 +71,10 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
+            if (!req.query) {
+                throw new Error('Invalid params.');
+            }
+
             const height = req.query.height as string | undefined;
             const bigintHeight = height ? BigInt(height) : -1;
 

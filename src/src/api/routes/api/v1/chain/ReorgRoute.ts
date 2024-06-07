@@ -52,7 +52,9 @@ export class ReorgRoute extends Route<Routes.REORG, JSONRpcMethods.REORG, ReorgR
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
             const params = this.getParams(req, res);
-            if (!params) return;
+            if (!params) {
+                throw new Error('Invalid params.');
+            }
 
             const data = await this.getData(params);
 
@@ -69,6 +71,10 @@ export class ReorgRoute extends Route<Routes.REORG, JSONRpcMethods.REORG, ReorgR
     }
 
     protected getParams(req: Request, res: Response): ReorgParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const fromBlock = req.query.fromBlock as string | undefined;
         const toBlock = req.query.toBlock as string | undefined;
 

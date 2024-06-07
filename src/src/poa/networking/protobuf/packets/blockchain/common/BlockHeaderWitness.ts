@@ -17,6 +17,7 @@ export interface ChecksumProof {
 
 export interface IBlockHeaderWitness extends PackedMessage {
     readonly blockNumber: Long | bigint;
+
     readonly blockHash: string;
     readonly previousBlockHash?: string;
 

@@ -143,10 +143,18 @@ export class OPNetPeer extends Logger {
         throw new Error('Method not implemented.');
     };
 
-    public async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
+    public async generateWitnessToBroadcast(
+        blockWitness: IBlockHeaderWitness,
+    ): Promise<Uint8Array | undefined> {
         try {
-            await this.serverNetworkingManager.broadcastBlockWitness(blockWitness);
-        } catch (e) {}
+            this.info(
+                `Broadcasting block witness for block ${blockWitness.blockNumber.toString()}`,
+            );
+
+            return await this.serverNetworkingManager.broadcastBlockWitness(blockWitness);
+        } catch (e) {
+            this.error(`Failed to broadcast block witness. ${e}`);
+        }
     }
 
     public async onMessage(rawBuf: ArrayBuffer): Promise<void> {
@@ -226,6 +234,16 @@ export class OPNetPeer extends Logger {
         delete this._peerIdentity;
     }
 
+    public sendFromServer(data: Uint8Array | Buffer): Promise<void> {
+        return this.serverNetworkingManager.sendPacket(data);
+    }
+
+    protected async sendInternal(data: Uint8Array | Buffer): Promise<void> {
+        if (this.isDestroyed) return;
+
+        await this.sendMsg(this.peerId, data);
+    }
+
     protected async emit<T extends string, U extends object>(event: T, data: U): Promise<void> {
         if (!this.eventHandlers.has(event)) return;
 
@@ -235,12 +253,6 @@ export class OPNetPeer extends Logger {
         }
 
         await Promise.all(promises);
-    }
-
-    protected async sendInternal(data: Uint8Array | Buffer): Promise<void> {
-        if (this.isDestroyed) return;
-
-        await this.sendMsg(this.peerId, data);
     }
 
     protected async disconnect(code: DisconnectionCode, reason?: string): Promise<void> {

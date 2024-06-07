@@ -70,7 +70,9 @@ export class OPNetWitnessRoute extends Route<
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
             const params = this.getParams(req, res);
-            if (!params) return;
+            if (!params) {
+                throw new Error('Invalid params.');
+            }
 
             const data = await this.getData(params);
 
@@ -87,6 +89,10 @@ export class OPNetWitnessRoute extends Route<
     }
 
     protected getParams(req: Request, res: Response): BlockWitnessAsObject | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const height = req.query.height as string | undefined;
         if (height === undefined) {
             res.status(400);

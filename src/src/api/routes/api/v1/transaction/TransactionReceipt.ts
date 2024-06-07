@@ -69,7 +69,9 @@ export class TransactionReceipt extends Route<
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
             const params = this.getParams(req, res);
-            if (!params) return;
+            if (!params) {
+                throw new Error('Invalid params.');
+            }
 
             const data = await this.getData(params);
 
@@ -86,6 +88,10 @@ export class TransactionReceipt extends Route<
     }
 
     protected getParams(req: Request, res: Response): TransactionReceiptsParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const hash = req.query.hash as string;
 
         if (!hash || (hash && hash.length !== 64)) {
@@ -102,7 +108,10 @@ export class TransactionReceipt extends Route<
     private getReceipt(
         data: ITransactionDocument<OPNetTransactionTypes>,
     ): TransactionReceiptResult {
-        if (data.OPNetType !== OPNetTransactionTypes.Interaction) {
+        if (
+            data.OPNetType !== OPNetTransactionTypes.Interaction &&
+            data.OPNetType !== OPNetTransactionTypes.WrapInteraction
+        ) {
             return this.buildEmptyReceipt();
         }
 

@@ -180,3 +180,18 @@ components:
           description: Is this transaction a PSBT?
           example: false
           required: false
+    WrapGenerateParams:
+      type: object
+      properties:
+        target:
+          type: number
+          description: The generation target
+          example: 0
+          default: 0
+          required: true
+        amount:
+          type: number
+          description: The amount to wrap in satoshis
+          example: "0"
+          default: 1000
+          required: true

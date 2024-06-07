@@ -17,6 +17,7 @@ import { IndexedContracts } from './required/IndexedContracts.js';
 import { IndexedInternalPointers } from './required/IndexedInternalPointers.js';
 import { IndexedReorgs } from './required/IndexedReorgs.js';
 import { IndexedTransactions } from './required/IndexedTransactions.js';
+import { IndexedMempool } from './required/IndexedMempool.js';
 
 /** This class job is to create the required indexes for the database */
 export class IndexManager extends Logger {
@@ -30,6 +31,7 @@ export class IndexManager extends Logger {
         new IndexedBlockWitnesses(),
         new IndexedInternalPointers(),
         new IndexedReorgs(),
+        new IndexedMempool(),
     ];
 
     constructor(private readonly opnetDB: ConfigurableDBManager) {
@@ -114,7 +116,7 @@ export class IndexManager extends Logger {
 
         const existingIndexes: Document[] = await collection.indexes();
         const existingIndexNames: string[] = existingIndexes.map((index) => index.name);
-        
+
         for (const index of indexedCollection.getIndexes()) {
             const indexName: string = index.name || this.getIndexName(index);
 

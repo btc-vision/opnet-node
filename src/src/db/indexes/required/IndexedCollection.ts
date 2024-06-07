@@ -8,6 +8,7 @@ export enum OPNetCollections {
     InternalPointers = 'InternalPointers',
     BlockchainInformation = 'BlockchainInformation',
     Reorgs = 'Reorgs',
+    Mempool = 'Mempool',
 }
 
 export abstract class IndexedCollection<T extends OPNetCollections> {

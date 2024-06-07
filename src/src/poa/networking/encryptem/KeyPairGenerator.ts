@@ -1,14 +1,6 @@
 import crypto from 'crypto';
 import sodium from 'sodium-native';
-import { P2PVersion, TRUSTED_PUBLIC_KEYS } from '../../configurations/P2PVersion.js';
-import { ChainIds } from '../../../config/enums/ChainIds';
-import { BitcoinNetwork, Logger } from '@btc-vision/bsi-common';
-import {
-    ProvenAuthorityKeys,
-    ProvenAuthorityKeysAsBytes,
-    TrustedNetworkPublicKeys,
-} from '../../configurations/types/TrustedPublicKeys.js';
-import { TrustedCompanies } from '../../configurations/TrustedCompanies.js';
+import { Logger } from '@btc-vision/bsi-common';
 
 export interface OPNetKeyPair {
     publicKey: Buffer;
@@ -31,17 +23,8 @@ type SodiumKeyPair = {
 export class KeyPairGenerator extends Logger {
     public readonly logColor: string = '#ffcc00';
 
-    private trustedPublicKeys: Partial<ProvenAuthorityKeysAsBytes> = {};
-
-    private precomputedTrustedPublicKeys: Partial<ProvenAuthorityKeys> = {};
-
-    constructor(
-        private readonly chainId: ChainIds,
-        private readonly network: BitcoinNetwork,
-    ) {
+    constructor() {
         super();
-
-        this.loadTrustedPublicKeys();
     }
 
     public generateKey(): OPNetKeyPair {
@@ -96,42 +79,6 @@ export class KeyPairGenerator extends Logger {
         );
     }
 
-    public verifyTrustedSignature(
-        data: Buffer,
-        signature: Buffer,
-    ): { validity: boolean; identity: string } {
-        for (const trustedPublicKeyCompany in this.trustedPublicKeys) {
-            const trustedPublicKeys =
-                this.trustedPublicKeys[trustedPublicKeyCompany as TrustedCompanies];
-
-            const precomputedTrustedPublicKeysForCompany =
-                this.precomputedTrustedPublicKeys[trustedPublicKeyCompany as TrustedCompanies];
-
-            if (!trustedPublicKeys || !precomputedTrustedPublicKeysForCompany) continue;
-
-            for (let i = 0; i < trustedPublicKeys.keys.length; i++) {
-                const trustedPublicKey = trustedPublicKeys.keys[i];
-
-                try {
-                    if (this.verifyOPNetSignature(data, signature, trustedPublicKey)) {
-                        const precomputedKey: string =
-                            precomputedTrustedPublicKeysForCompany.keys[i];
-
-                        return {
-                            validity: true,
-                            identity: precomputedKey,
-                        };
-                    }
-                } catch (e) {}
-            }
-        }
-
-        return {
-            validity: false,
-            identity: '',
-        };
-    }
-
     public hash(data: Buffer): Buffer {
         const hash = crypto.createHash('sha512');
         hash.update(data);
@@ -152,70 +99,8 @@ export class KeyPairGenerator extends Logger {
         return signature;
     }
 
-    private computeTrustedPublicKeys(): void {
-        for (const trustedPublicKey in this.trustedPublicKeys) {
-            const trustedPublicKeys = this.trustedPublicKeys[trustedPublicKey as TrustedCompanies];
-
-            if (!trustedPublicKeys) continue;
-
-            const precomputedTrustedPublicKeys: string[] = trustedPublicKeys.keys.map(
-                (key: Buffer) => {
-                    return this.opnetHash(key);
-                },
-            );
-
-            this.precomputedTrustedPublicKeys[trustedPublicKey as TrustedCompanies] = {
-                keys: precomputedTrustedPublicKeys,
-            };
-        }
-    }
-
-    private loadTrustedPublicKeys(): void {
-        const currentVersion = TRUSTED_PUBLIC_KEYS[P2PVersion];
-        if (!currentVersion) {
-            throw new Error('Current version not found.');
-        }
-
-        const currentNetwork: Partial<TrustedNetworkPublicKeys> = currentVersion[this.chainId];
-        if (!currentNetwork) throw new Error('Current network not found.');
-
-        const currentNetworkVersion: Partial<ProvenAuthorityKeys> | undefined =
-            currentNetwork[this.network];
-
-        if (!currentNetworkVersion) {
-            throw new Error('Trusted key for current network version not found.');
-        }
-
-        if (Object.keys(currentNetworkVersion).length === 0) {
-            throw new Error('No trusted keys found for current network version.');
-        }
-
-        for (const trustedCompany in currentNetworkVersion) {
-            const trustedKeys = currentNetworkVersion[trustedCompany as TrustedCompanies];
-            if (!trustedKeys) continue;
-
-            const keys: Buffer[] = trustedKeys.keys
-                .filter((key: string) => {
-                    return key.length > 0;
-                })
-                .map((key: string) => {
-                    return Buffer.from(key, 'base64');
-                });
-
-            if (keys.length === 0) continue;
-
-            this.trustedPublicKeys[trustedCompany as TrustedCompanies] = {
-                keys: keys,
-            };
-
-            this.log(`Loaded ${keys.length} trusted keys for ${trustedCompany}`);
-        }
-
-        if (Object.keys(this.trustedPublicKeys).length === 0) {
-            throw new Error('No trusted keys found for current network version.');
-        }
-
-        this.computeTrustedPublicKeys();
+    public secureRandomBytes(length: number): Buffer {
+        return crypto.randomBytes(length);
     }
 
     private hashWithPubKey(pubKey: Buffer | Uint8Array, data: Buffer | Uint8Array): Buffer {

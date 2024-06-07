@@ -7,6 +7,7 @@ export enum Routes {
 
     /** OPNet */
     BLOCK_WITNESS = 'block/block-witness',
+    GENERATE = 'opnet/generate',
 
     /** Chain */
     CHAIN_ID = 'chain/id',

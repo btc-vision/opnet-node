@@ -60,6 +60,8 @@ import {
 import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
+import { AuthorityManager } from '../configurations/manager/AuthorityManager.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -89,12 +91,13 @@ export class P2PManager extends Logger {
     private broadcastedIdentifiers: Set<bigint> = new Set();
 
     private readonly blockWitnessManager: BlockWitnessManager;
+    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
 
         this.p2pConfigurations = new P2PConfigurations(this.config);
-        this.identity = new OPNetIdentity(this.config);
+        this.identity = new OPNetIdentity(this.config, this.currentAuthority);
 
         this.blockWitnessManager = new BlockWitnessManager(this.config, this.identity);
         this.blockWitnessManager.broadcastBlockWitness = this.broadcastBlockWitness.bind(this);
@@ -215,12 +218,29 @@ export class P2PManager extends Logger {
     }
 
     private async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
-        const promises: Promise<void>[] = [];
+        if (this.peers.size === 0) {
+            return;
+        }
 
+        let generatedWitness: Uint8Array | undefined;
         for (const [_peerId, peer] of this.peers) {
             if (!peer.isAuthenticated) continue;
 
-            promises.push(peer.broadcastBlockWitness(blockWitness));
+            generatedWitness = await peer.generateWitnessToBroadcast(blockWitness);
+            if (generatedWitness) break;
+        }
+
+        if (!generatedWitness) {
+            this.error('Failed to generate block witness. Will not broadcast.');
+            return;
+        }
+
+        // send to all peers
+        const promises: Promise<void>[] = [];
+        for (const [_peerId, peer] of this.peers) {
+            if (!peer.isAuthenticated) continue;
+
+            promises.push(peer.sendFromServer(generatedWitness));
         }
 
         await Promise.all(promises);
@@ -891,10 +911,16 @@ export class P2PManager extends Logger {
     > {
         const peerId = await this.p2pConfigurations.peerIdConfigurations();
 
-        const peerDiscovery: [
-            (components: MulticastDNSComponents) => PeerDiscovery,
-            BootstrapDiscoveryMethod?,
-        ] = [mdns(this.p2pConfigurations.multicastDnsConfiguration)];
+        const peerDiscovery: Partial<
+            [(components: MulticastDNSComponents) => PeerDiscovery, BootstrapDiscoveryMethod]
+        > = [];
+
+        if (this.config.P2P.MDNS) {
+            this.warn(
+                `MDNS is enabled. This may cause issues with some networks. This might be vulnerable to DNS rebinding attacks.`,
+            );
+            peerDiscovery.push(mdns(this.p2pConfigurations.multicastDnsConfiguration));
+        }
 
         if (this.p2pConfigurations.bootstrapConfiguration.list.length) {
             peerDiscovery.push(bootstrap(this.p2pConfigurations.bootstrapConfiguration));

@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { MiddlewareHandler } from 'hyper-express';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
@@ -11,6 +11,7 @@ import { JSONRpcMethods } from '../json-rpc/types/enums/JSONRpcMethods.js';
 import { JSONRpc2RequestParams } from '../json-rpc/types/interfaces/JSONRpc2Request.js';
 import { JSONRpc2ResultData } from '../json-rpc/types/interfaces/JSONRpc2ResultData.js';
 import { JSONRpcParams } from '../json-rpc/types/interfaces/JSONRpcParams.js';
+import { Config } from '../../config/Config.js';
 
 export abstract class Route<
     T extends Routes,
@@ -57,10 +58,12 @@ export abstract class Route<
     }
 
     protected handleDefaultError(res: Response, error: Error): void {
-        this.error(`Error in route ${this.routePath}: ${error.stack}`);
+        if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            this.error(`Error in route ${this.routePath}: ${error.stack}`);
+        }
 
         res.status(500);
-        res.json({ error: `Something went wrong.` });
+        res.json({ error: `Something went wrong: ${error.message}` });
     }
 
     protected abstract onRequest(

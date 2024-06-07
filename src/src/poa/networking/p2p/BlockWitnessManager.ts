@@ -48,6 +48,8 @@ export class BlockWitnessManager extends Logger {
     private blockHeaderRepository: BlockRepository | undefined;
     private knownTrustedWitnesses: Map<bigint, string[]> = new Map();
 
+    private MAXIMUM_WITNESSES_PER_MESSAGE: number = 20;
+
     constructor(
         private readonly config: BtcIndexerConfig,
         private readonly identity: OPNetIdentity,
@@ -182,7 +184,6 @@ export class BlockWitnessManager extends Logger {
         };
 
         await this.processBlockWitnesses(data.blockNumber, blockWitness);
-        //await this.broadcastBlockWitness(blockWitness);
     }
 
     public async onBlockWitness(blockWitness: IBlockHeaderWitness): Promise<void> {
@@ -293,10 +294,7 @@ export class BlockWitnessManager extends Logger {
         }
 
         const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
-        if (
-            filteredBlockWitnesses.trustedWitnesses.length === 0 ||
-            filteredBlockWitnesses.validatorWitnesses.length === 0
-        ) {
+        if (filteredBlockWitnesses.validatorWitnesses.length === 0) {
             return;
         }
 
@@ -415,8 +413,11 @@ export class BlockWitnessManager extends Logger {
         });
 
         if (newTrustedWitnesses.length > 0) {
-            const knownWitnesses = this.convertKnownWitnessesToOPNetWitness(rawWitnesses || []);
-            const trustedWitness = this.mergeAndDedupeTrustedWitnesses(
+            const knownWitnesses: OPNetBlockWitness[] = this.convertKnownWitnessesToOPNetWitness(
+                rawWitnesses || [],
+            );
+
+            const trustedWitness: OPNetBlockWitness[] = this.mergeAndDedupeTrustedWitnesses(
                 newTrustedWitnesses,
                 knownWitnesses,
             );
@@ -514,7 +515,7 @@ export class BlockWitnessManager extends Logger {
         const validatorWitnesses: OPNetBlockWitness[] = blockWitness.validatorWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = blockWitness.trustedWitnesses;
 
-        if (validatorWitnesses.length <= 0 || trustedWitnesses.length <= 0) {
+        if (validatorWitnesses.length <= 0 || trustedWitnesses.length <= 0 || !blockChecksumHash) {
             return;
         }
 
@@ -542,6 +543,13 @@ export class BlockWitnessManager extends Logger {
         blockChecksumHash: Buffer,
         witnesses: OPNetBlockWitness[],
     ): OPNetBlockWitness[] {
+        if (witnesses.length === 0) return [];
+        if (witnesses.length > this.MAXIMUM_WITNESSES_PER_MESSAGE) {
+            // reduce the number of trusted witnesses to MAXIMUM_WITNESSES_PER_MESSAGE.
+
+            witnesses = witnesses.slice(0, 20);
+        }
+
         return witnesses.filter((witness) => {
             return this.identity.verifyTrustedAcknowledgment(
                 blockChecksumHash,
@@ -555,6 +563,12 @@ export class BlockWitnessManager extends Logger {
         blockChecksumHash: Buffer,
         witnesses: OPNetBlockWitness[],
     ): OPNetBlockWitness[] {
+        if (witnesses.length === 0) return [];
+        if (witnesses.length > this.MAXIMUM_WITNESSES_PER_MESSAGE) {
+            // reduce the number of witnesses to MAXIMUM_WITNESSES_PER_MESSAGE.
+            witnesses = witnesses.slice(0, 20);
+        }
+
         return witnesses.filter((witness) => {
             return this.identity.verifyAcknowledgment(blockChecksumHash, witness);
         });

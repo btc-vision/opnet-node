@@ -3,23 +3,58 @@ import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { TrustedCompanies } from '../TrustedCompanies.js';
 
 export type TrustedNetworkPublicKeys = {
-    [key in BitcoinNetwork]: Partial<ProvenAuthorityKeys>;
+    [key in BitcoinNetwork]: NetworkAuthorityConfiguration;
 };
 
 export type TrustedPublicKeys = {
     [key in ChainIds]: Partial<TrustedNetworkPublicKeys>;
 };
 
+export interface AuthorityKey {
+    readonly opnet: string;
+    readonly publicKey: string;
+    readonly signature: string;
+}
+
+export interface AuthorityBufferKey {
+    readonly opnet: Buffer;
+    readonly publicKey: Buffer;
+    readonly signature: Buffer;
+}
+
 export interface AuthorityKeys {
-    readonly keys: string[];
+    readonly keys: AuthorityKey[];
 }
 
 export interface AuthorityKeysAsBytes {
-    readonly keys: Buffer[];
+    readonly keys: AuthorityBufferKey[];
 }
 
 export type ProvenAuthorityKeys = {
     [key in TrustedCompanies]: AuthorityKeys;
+};
+
+export interface NetworkAuthorityConfiguration {
+    /** Minimum different trusted validators */
+    readonly minimum: number;
+
+    /** Minimum different trusted validator in a new generated transaction */
+    readonly transactionMinimum: number;
+
+    /** Minimum different entities in a transaction */
+    readonly minimumValidatorTransactionGeneration: number;
+
+    /** Maximum trusted validator per entity in a transaction */
+    readonly maximumValidatorPerTrustedEntities: number;
+
+    /** Trusted entities */
+    readonly trusted: Partial<ProvenAuthorityKeys>;
+}
+
+export type PrecomputedAuthorityKeys = {
+    [key in TrustedCompanies]: {
+        readonly keys: string[];
+    };
 };
 
 export type ProvenAuthorityKeysAsBytes = {

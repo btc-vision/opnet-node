@@ -84,7 +84,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
             const params = this.getParams(req, res);
-            if (!params) return;
+            if (!params) {
+                throw new Error('Invalid params.');
+            }
 
             const data = await this.getData(params);
 
@@ -103,6 +105,10 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     }
 
     protected getParams(req: Request, res: Response): CallParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const to = req.query.to as string;
         const data = req.query.data as string;
 

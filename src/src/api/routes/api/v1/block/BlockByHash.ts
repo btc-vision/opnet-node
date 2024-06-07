@@ -79,6 +79,10 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
+            if (!req.query) {
+                throw new Error('Invalid params.');
+            }
+
             const hash = req.query.hash as string | undefined;
             if (!hash) {
                 res.status(400);

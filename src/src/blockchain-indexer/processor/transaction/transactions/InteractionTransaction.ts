@@ -7,7 +7,10 @@ import {
     NetEventDocument,
 } from '../../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
-import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
+import {
+    InteractionTransactionType,
+    OPNetTransactionTypes,
+} from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
@@ -22,7 +25,7 @@ export interface InteractionWitnessData {
 }
 
 /* TODO: Potentially allow multiple contract interaction per transaction since BTC supports that? Maybe, in the future, for now let's stick with one. */
-export class InteractionTransaction extends Transaction<OPNetTransactionTypes.Interaction> {
+export class InteractionTransaction extends Transaction<InteractionTransactionType> {
     public static LEGACY_INTERACTION: Buffer = Buffer.from([
         opcodes.OP_CHECKSIGVERIFY,
         opcodes.OP_CHECKSIGVERIFY,
@@ -45,8 +48,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         opcodes.OP_ENDIF,
     ]);
 
-    public readonly transactionType: OPNetTransactionTypes.Interaction =
-        InteractionTransaction.getType();
+    public readonly transactionType: InteractionTransactionType = InteractionTransaction.getType();
 
     protected senderPubKeyHash: Buffer | undefined;
     protected senderPubKey: Buffer | undefined;
@@ -55,6 +57,8 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
     protected interactionPubKey: Buffer | undefined;
 
     protected receiptProofs: string[] | undefined;
+
+    protected interactionWitnessData: InteractionWitnessData | undefined;
 
     constructor(
         rawTransactionData: TransactionData,
@@ -107,7 +111,7 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         };
     }
 
-    private static getType(): OPNetTransactionTypes.Interaction {
+    protected static getType(): InteractionTransactionType {
         return OPNetTransactionTypes.Interaction;
     }
 
@@ -120,6 +124,10 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         const receipt: Uint8Array | undefined = receiptData?.result;
 
         const receiptProofs: string[] = this.receiptProofs || [];
+
+        if (receipt && receiptProofs.length === 0) {
+            throw new Error(`No receipt proofs found for transaction ${this.txid}`);
+        }
 
         return {
             ...super.toDocument(),
@@ -148,6 +156,10 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         super.parseTransaction(vIn, vOuts);
 
+        this.parseTransactionData();
+    }
+
+    protected parseTransactionData(): void {
         const inputOPNetWitnessTransactions = this.getInputWitnessTransactions();
         if (inputOPNetWitnessTransactions.length === 0) {
             throw new Error(
@@ -168,14 +180,14 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             throw new Error(`No script data found for deployment transaction ${this.txid}`);
         }
 
-        const interactionWitnessData = this.getInteractionWitnessData(scriptData);
-        if (!interactionWitnessData) {
+        this.interactionWitnessData = this.getInteractionWitnessData(scriptData);
+        if (!this.interactionWitnessData) {
             throw new Error(
                 `Failed to parse interaction witness data for transaction ${this.txid}`,
             );
         }
 
-        this._calldata = interactionWitnessData.calldata;
+        this._calldata = this.interactionWitnessData.calldata;
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
         const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
@@ -185,13 +197,13 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
         /** Verify witness data */
         const hashSenderPubKey = bitcoin.crypto.hash160(senderPubKey);
-        if (!hashSenderPubKey.equals(interactionWitnessData.senderPubKeyHash160)) {
+        if (!hashSenderPubKey.equals(this.interactionWitnessData.senderPubKeyHash160)) {
             throw new Error(`Sender public key hash mismatch for transaction ${this.txid}`);
         }
 
-        if (!senderPubKey.equals(interactionWitnessData.senderPubKey)) {
+        if (!senderPubKey.equals(this.interactionWitnessData.senderPubKey)) {
             throw new Error(
-                `Sender public key mismatch for transaction ${this.txid}. Expected ${interactionWitnessData.senderPubKey.toString(
+                `Sender public key mismatch for transaction ${this.txid}. Expected ${this.interactionWitnessData.senderPubKey.toString(
                     'hex',
                 )} but got ${senderPubKey.toString('hex')}`,
             );
@@ -204,21 +216,21 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
 
         this._from = address as string;
 
-        this.senderPubKeyHash = interactionWitnessData.senderPubKeyHash160;
-        this.senderPubKey = interactionWitnessData.senderPubKey;
+        this.senderPubKeyHash = this.interactionWitnessData.senderPubKeyHash160;
+        this.senderPubKey = this.interactionWitnessData.senderPubKey;
 
         /** Verify contract salt */
         const hashContractSalt = bitcoin.crypto.hash160(contractSecret);
-        if (!hashContractSalt.equals(interactionWitnessData.contractSecretHash160)) {
+        if (!hashContractSalt.equals(this.interactionWitnessData.contractSecretHash160)) {
             throw new Error(
-                `Contract salt hash mismatch for transaction ${this.txid}. Expected ${interactionWitnessData.contractSecretHash160.toString(
+                `Contract salt hash mismatch for transaction ${this.txid}. Expected ${this.interactionWitnessData.contractSecretHash160.toString(
                     'hex',
                 )} but got ${hashContractSalt.toString('hex')}`,
             );
         }
 
-        this.interactionPubKey = interactionWitnessData.interactionSaltPubKey;
-        this.contractSecretHash = interactionWitnessData.contractSecretHash160;
+        this.interactionPubKey = this.interactionWitnessData.interactionSaltPubKey;
+        this.contractSecretHash = this.interactionWitnessData.contractSecretHash160;
         this.contractSecret = contractSecret;
 
         /** We must verify that the contract secret match with at least one output. */
@@ -247,68 +259,9 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         this.decompressCalldata();
     }
 
-    /**
-     * Convert the events to the document format.
-     * @param events NetEvent[]
-     * @private
-     */
-    private convertEvents(events: EvaluatedEvents | undefined): NetEventDocument[] {
-        if (!events) {
-            return [];
-        }
-
-        const netEvents: NetEventDocument[] = [];
-        for (const [contractAddress, contractEvents] of events) {
-            for (const event of contractEvents) {
-                netEvents.push({
-                    contractAddress,
-                    eventData: new Binary(event.eventData),
-                    eventDataSelector: DataConverter.toDecimal128(event.eventDataSelector),
-                    eventType: event.eventType,
-                });
-            }
-        }
-
-        return netEvents;
-    }
-
-    /**
-     * Get the output witness from the secret. Note: If there is multiple interaction in the same transaction, there should be only one output that match the secret.
-     * @param secret Buffer
-     * @private
-     */
-    private getOutputWitnessFromSecret(secret: Buffer): TransactionOutput | undefined {
-        for (let i = 0; i < this.outputs.length; i++) {
-            const output = this.outputs[i];
-
-            const scriptPubKey = output.scriptPubKey;
-            const outAddress = scriptPubKey.address;
-
-            if (!outAddress) {
-                continue;
-            }
-
-            const bech32Address = address.fromBech32(outAddress);
-            if (!bech32Address) {
-                continue;
-            }
-
-            if (secret.equals(bech32Address.data)) {
-                return output;
-            }
-        }
-
-        return undefined;
-    }
-
-    /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */
-    private decompressCalldata(): void {
-        this._calldata = this.decompressData(this._calldata);
-    }
-
-    private getInteractionWitnessData(
+    protected getInteractionWitnessDataHeader(
         scriptData: Array<number | Buffer>,
-    ): InteractionWitnessData | undefined {
+    ): Omit<InteractionWitnessData, 'calldata'> | undefined {
         const senderPubKey: Buffer = scriptData.shift() as Buffer;
         if (!Buffer.isBuffer(senderPubKey)) {
             return;
@@ -367,6 +320,22 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
             return;
         }
 
+        return {
+            senderPubKey,
+            interactionSaltPubKey,
+            senderPubKeyHash160,
+            contractSecretHash160: contractSaltHash160,
+        };
+    }
+
+    protected getInteractionWitnessData(
+        scriptData: Array<number | Buffer>,
+    ): InteractionWitnessData | undefined {
+        const header = this.getInteractionWitnessDataHeader(scriptData);
+        if (!header) {
+            return;
+        }
+
         // ... Future implementation before this opcode
         if (scriptData.shift() !== opcodes.OP_1NEGATE) {
             return;
@@ -378,12 +347,71 @@ export class InteractionTransaction extends Transaction<OPNetTransactionTypes.In
         }
 
         return {
-            senderPubKey,
-            interactionSaltPubKey,
-            senderPubKeyHash160,
-            contractSecretHash160: contractSaltHash160,
+            senderPubKey: header.senderPubKey,
+            interactionSaltPubKey: header.interactionSaltPubKey,
+            senderPubKeyHash160: header.senderPubKeyHash160,
+            contractSecretHash160: header.contractSecretHash160,
             calldata,
         };
+    }
+
+    /**
+     * Convert the events to the document format.
+     * @param events NetEvent[]
+     * @protected
+     */
+    protected convertEvents(events: EvaluatedEvents | undefined): NetEventDocument[] {
+        if (!events) {
+            return [];
+        }
+
+        const netEvents: NetEventDocument[] = [];
+        for (const [contractAddress, contractEvents] of events) {
+            for (const event of contractEvents) {
+                netEvents.push({
+                    contractAddress,
+                    eventData: new Binary(event.eventData),
+                    eventDataSelector: DataConverter.toDecimal128(event.eventDataSelector),
+                    eventType: event.eventType,
+                });
+            }
+        }
+
+        return netEvents;
+    }
+
+    /**
+     * Get the output witness from the secret. Note: If there is multiple interaction in the same transaction, there should be only one output that match the secret.
+     * @param secret Buffer
+     * @private
+     */
+    private getOutputWitnessFromSecret(secret: Buffer): TransactionOutput | undefined {
+        for (let i = 0; i < this.outputs.length; i++) {
+            const output = this.outputs[i];
+
+            const scriptPubKey = output.scriptPubKey;
+            const outAddress = scriptPubKey.address;
+
+            if (!outAddress) {
+                continue;
+            }
+
+            const bech32Address = address.fromBech32(outAddress);
+            if (!bech32Address) {
+                continue;
+            }
+
+            if (secret.equals(bech32Address.data)) {
+                return output;
+            }
+        }
+
+        return undefined;
+    }
+
+    /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */
+    private decompressCalldata(): void {
+        this._calldata = this.decompressData(this._calldata);
     }
 
     /* For future implementation we return an array here. */

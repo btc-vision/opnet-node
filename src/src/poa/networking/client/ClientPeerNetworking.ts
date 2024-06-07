@@ -144,9 +144,15 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         const blockWitnesses: ISyncBlockHeaderResponse =
             await this.requestBlockWitnesses(blockNumber);
 
+        /** No witness found, we don't reply. */
+        if (blockWitnesses.validatorWitnesses.length === 0) {
+            return;
+        }
+
         const packetBuilder = this.protocol.getPacketBuilder(
             Packets.SyncBlockHeadersResponse,
         ) as SyncBlockHeadersResponse;
+
         if (!packetBuilder) {
             throw new Error('SyncBlockHeadersResponse not found.');
         }
@@ -180,6 +186,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         );
 
         blockWitnessManager.on(CommonHandlers.BLOCK_WITNESS, this.onBlockWitness.bind(this));
+
         blockWitnessManager.on(
             CommonHandlers.SYNC_BLOCK_HEADERS_REQUEST,
             this.onSyncBlockHeadersRequest.bind(this),

@@ -1,6 +1,6 @@
 import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin, { opcodes, script } from 'bitcoinjs-lib';
+import { Network, opcodes, script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
 import { Binary } from 'mongodb';
 import * as zlib from 'zlib';
@@ -11,8 +11,8 @@ import { TransactionInput } from './inputs/TransactionInput.js';
 import { TransactionOutput } from './inputs/TransactionOutput.js';
 
 const OPNet_MAGIC: Buffer = Buffer.from('bsi', 'utf-8');
-
 const textEncoder = new TextEncoder();
+const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
 
 export abstract class Transaction<T extends OPNetTransactionTypes> {
     public abstract readonly transactionType: T;
@@ -50,7 +50,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         vInputIndex: number,
         blockHash: string,
         public readonly blockHeight: bigint,
-        protected readonly network: bitcoin.networks.Network,
+        protected readonly network: Network,
     ) {
         if (rawTransactionData.blockhash && rawTransactionData.blockhash !== blockHash) {
             throw new Error(
@@ -271,9 +271,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             throw new Error('Buffer is undefined. Can not decompress.');
         }
 
-        const zlibHeader = buffer.slice(0, 2);
-        if (zlibHeader.equals(Buffer.from([0x1f, 0x8b]))) {
-            buffer = zlib.unzipSync(buffer);
+        const zlibHeader = buffer.subarray(0, 2);
+        if (zlibHeader.equals(GZIP_HEADER)) {
+            buffer = zlib.unzipSync(buffer, {
+                finishFlush: zlib.constants.Z_SYNC_FLUSH,
+                maxOutputLength: 1024 * 1024 * 16, // limit to 16mb no matter what.
+            });
 
             this.wasCompressed = true;
         }
@@ -344,10 +347,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
     }
 
-    protected getDataFromWitness(scriptData: Array<number | Buffer>): Buffer | undefined {
+    protected getDataFromWitness(
+        scriptData: Array<number | Buffer>,
+        breakWhenReachOpcode: number = opcodes.OP_ELSE,
+    ): Buffer | undefined {
         let contractBytecode: Buffer | undefined = undefined;
         for (let i = 0; i < scriptData.length; i++) {
-            if (scriptData[i] === opcodes.OP_ELSE) {
+            if (scriptData[i] === breakWhenReachOpcode) {
                 break;
             }
 

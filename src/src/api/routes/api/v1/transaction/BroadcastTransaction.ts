@@ -80,8 +80,12 @@ export class BroadcastTransaction extends Route<
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
+            req.body = await req.json();
+
             const params = this.getParams(req, res);
-            if (!params) return;
+            if (!params) {
+                throw new Error('Invalid params.');
+            }
 
             const data = await this.getData(params);
 
@@ -101,6 +105,10 @@ export class BroadcastTransaction extends Route<
         req: Request,
         res: Response,
     ): BroadcastTransactionParamsAsObject | undefined {
+        if (!req.body) {
+            throw new Error('Invalid params.');
+        }
+
         const data: string = req.body.data as string;
         if (!data) {
             res.status(400);

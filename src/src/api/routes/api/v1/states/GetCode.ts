@@ -87,7 +87,9 @@ export class GetCode extends Route<
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
             const params = this.getParams(req, res);
-            if (!params) return;
+            if (!params) {
+                throw new Error('Invalid params.');
+            }
 
             const data = await this.getData(params);
 
@@ -104,6 +106,10 @@ export class GetCode extends Route<
     }
 
     protected getParams(req: Request, res: Response): GetCodeParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const address = req.query.address as string;
 
         if (!address || address.length < 50) {

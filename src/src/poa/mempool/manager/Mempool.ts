@@ -17,6 +17,7 @@ import { PSBTTransactionVerifier } from '../psbt/PSBTTransactionVerifier.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { cyrb53a, u8 } from '@btc-vision/bsi-binary';
+import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 
 export class Mempool extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -25,6 +26,8 @@ export class Mempool extends Logger {
     private readonly psbtVerifier: PSBTTransactionVerifier = new PSBTTransactionVerifier();
 
     private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
+
+    private mempoolRepository: MempoolRepository | undefined;
 
     constructor() {
         super();
@@ -59,7 +62,11 @@ export class Mempool extends Logger {
         await this.db.setup(Config.DATABASE.CONNECTION_TYPE);
         await this.db.connect();
 
+        if (!this.db.db) throw new Error('Database connection not established.');
+
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
+
+        this.mempoolRepository = new MempoolRepository(this.db.db);
     }
 
     private async onRPCMethod(m: RPCMessageData<BitcoinRPCThreadMessageType>): Promise<ThreadData> {
@@ -91,7 +98,7 @@ export class Mempool extends Logger {
                 identifier: identifier,
             };
         } else {
-            result = this.psbtVerifier.verify(raw)
+            result = (await this.psbtVerifier.verify(raw))
                 ? {
                       success: true,
                       result: 'Valid PSBT transaction.',
