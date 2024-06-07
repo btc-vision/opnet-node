@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin, { opcodes } from 'bitcoinjs-lib';
+import { Network, opcodes } from 'bitcoinjs-lib';
 import { Binary } from 'mongodb';
 import { IWrapInteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
@@ -69,7 +69,7 @@ export class WrapTransaction extends InteractionTransaction {
         vIndexIn: number,
         blockHash: string,
         blockHeight: bigint,
-        network: bitcoin.networks.Network,
+        network: Network,
     ) {
         super(rawTransactionData, vIndexIn, blockHash, blockHeight, network);
     }

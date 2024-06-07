@@ -1,6 +1,6 @@
 import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin, { opcodes, script } from 'bitcoinjs-lib';
+import { Network, opcodes, script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
 import { Binary } from 'mongodb';
 import * as zlib from 'zlib';
@@ -50,7 +50,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         vInputIndex: number,
         blockHash: string,
         public readonly blockHeight: bigint,
-        protected readonly network: bitcoin.networks.Network,
+        protected readonly network: Network,
     ) {
         if (rawTransactionData.blockhash && rawTransactionData.blockhash !== blockHash) {
             throw new Error(
