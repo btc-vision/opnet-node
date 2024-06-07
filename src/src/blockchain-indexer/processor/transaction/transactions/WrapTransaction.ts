@@ -5,7 +5,6 @@ import { Binary } from 'mongodb';
 import { IWrapInteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { InteractionTransaction, InteractionWitnessData } from './InteractionTransaction.js';
-import { EcKeyPair } from '@btc-vision/bsi-transaction';
 import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
 import { Address, BinaryReader, BinaryWriter } from '@btc-vision/bsi-binary';
@@ -15,6 +14,7 @@ import {
     WRAPPING_INDEXER_PERCENTAGE_FEE_BASE,
     WRAPPING_INVALID_AMOUNT_PENALTY,
 } from '../../../../poa/wbtc/WBTCRules.js';
+import { EcKeyPair } from '@btc-vision/transaction';
 
 export interface WrapWitnessData extends InteractionWitnessData {
     readonly pubKeys: Buffer;

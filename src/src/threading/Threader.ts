@@ -1,4 +1,4 @@
-import { Logger, UtilsConfigurations } from '@btc-vision/bsi-common';
+import { Logger } from '@btc-vision/bsi-common';
 import fs from 'fs';
 import { MessageChannel, MessagePort, parentPort, Worker, WorkerOptions } from 'worker_threads';
 import {
@@ -19,6 +19,7 @@ import { ThreadMessageBase } from './interfaces/thread-messages/ThreadMessageBas
 import { ThreadData } from './interfaces/ThreadData.js';
 import { ThreaderConfigurations } from './interfaces/ThreaderConfigurations.js';
 import { ThreadTypes } from './thread/enums/ThreadTypes.js';
+import { ThreadConfigurations } from './interfaces/ThreadConfigurations.js';
 
 export type ThreadTaskCallback = {
     timeout: ReturnType<typeof setTimeout>;
@@ -224,7 +225,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
 
                     const specificConfig: WorkerOptions = WorkerConfigurations[this.threadType];
                     const workerOpts: WorkerOptions = {
-                        ...UtilsConfigurations.WORKER_OPTIONS,
+                        ...ThreadConfigurations.WORKER_OPTIONS,
                         ...specificConfig,
                     };
 

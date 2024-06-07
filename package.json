@@ -14,16 +14,36 @@
     "engines": {
         "node": ">=20.0.0 <22.0.0"
     },
+    "homepage": "https://opnet.org",
+    "keywords": [
+        "opnet indexer",
+        "opnet",
+        "bsi",
+        "bsi-binary",
+        "bsi-bitcoin-rpc",
+        "bitcoin transaction",
+        "transaction builder",
+        "transaction signer",
+        "bitcoin",
+        "btc",
+        "bitcoin smart contracts",
+        "smart inscriptions"
+    ],
     "author": "BlobMaster41",
     "license": "LICENSE.MD",
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/btc-vision/bsi-indexer.git"
+    },
     "dependencies": {
         "@asyncapi/generator": "^1.17.13",
         "@asyncapi/html-template": "^2.2.1",
         "@btc-vision/bsi-binary": "latest",
         "@btc-vision/bsi-bitcoin-rpc": "github:btc-vision/bsi-bitcoin-rpc",
-        "@btc-vision/bsi-common": "^1.0.13",
-        "@btc-vision/bsi-db": "latest",
-        "@btc-vision/bsi-transaction": "^1.0.14",
+        "@btc-vision/bsi-common": "^1.0.14",
+        "@btc-vision/bsi-db": "^1.0.4",
+        "@btc-vision/logger": "github:btc-vision/logger",
+        "@btc-vision/transaction": "^1.0.1",
         "@btc-vision/wasm-metering": "github:btc-vision/wasm-metering",
         "@chainsafe/libp2p-noise": "^15.0.0",
         "@chainsafe/libp2p-yamux": "^6.0.2",
@@ -68,14 +88,12 @@
         "libp2p": "^1.5.1",
         "long": "^5.2.3",
         "mongodb": "^6.5.0",
-        "node-cache": "^5.1.2",
         "openapi-comment-parser": "^1.0.0",
         "protobufjs": "^7.2.6",
         "sodium-native": "^4.1.1",
         "swagger-ui-express": "^5.0.0",
         "toml": "^3.0.0",
-        "ts-jest": "^29.1.2",
-        "zeromq": "^6.0.0-beta.19"
+        "ts-jest": "^29.1.2"
     },
     "devDependencies": {
         "@babel/preset-env": "^7.24.3",

@@ -1,14 +1,14 @@
-import { BSIContractScriptBuilder } from '@btc-vision/bsi-transaction';
-import bitcoin, { opcodes, Payment, payments, script } from 'bitcoinjs-lib';
+import { networks, opcodes, Payment, payments, script } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 import { Taptree } from 'bitcoinjs-lib/src/types.js';
+import { DeploymentGenerator } from '@btc-vision/transaction';
 
 export interface ContractAddressVerificationParams {
     deployerPubKeyXOnly: Buffer;
     contractSaltPubKey: Buffer;
     originalSalt: Buffer;
     bytecode: Buffer;
-    network?: bitcoin.networks.Network;
+    network?: networks.Network;
 }
 
 export class TapscriptVerificator {
@@ -18,8 +18,8 @@ export class TapscriptVerificator {
     public static getContractAddress(
         params: ContractAddressVerificationParams,
     ): string | undefined {
-        const network = params.network || bitcoin.networks.bitcoin;
-        const scriptBuilder = new BSIContractScriptBuilder(
+        const network = params.network || networks.bitcoin;
+        const scriptBuilder: DeploymentGenerator = new DeploymentGenerator(
             params.deployerPubKeyXOnly,
             toXOnly(params.contractSaltPubKey),
             network,

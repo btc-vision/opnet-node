@@ -1,5 +1,4 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
-import { EcKeyPair } from '@btc-vision/bsi-transaction';
 import bitcoin, { opcodes, payments } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
 import { DeploymentTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
@@ -12,6 +11,7 @@ import {
     ContractAddressVerificationParams,
     TapscriptVerificator,
 } from '../verification/TapscriptVerificator.js';
+import { EcKeyPair } from '@btc-vision/transaction';
 
 interface DeploymentWitnessData {
     deployerPubKey: Buffer;

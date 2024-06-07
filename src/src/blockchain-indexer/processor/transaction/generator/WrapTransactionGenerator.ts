@@ -6,9 +6,9 @@ import {
 } from '../../../../poa/configurations/manager/TrustedAuthority.js';
 import { GeneratedResult } from '../../../../api/json-rpc/types/interfaces/results/opnet/GenerateResult.js';
 import { Network, networks } from 'bitcoinjs-lib';
-import { EcKeyPair } from '@btc-vision/bsi-transaction';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
 import { KeyPairGenerator } from '../../../../poa/networking/encryptem/KeyPairGenerator.js';
+import { EcKeyPair } from '@btc-vision/transaction';
 
 export interface WrapTransactionParameters {
     readonly amount: bigint;

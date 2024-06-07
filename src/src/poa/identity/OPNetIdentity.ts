@@ -1,5 +1,4 @@
 import { BitcoinNetwork } from '@btc-vision/bsi-common';
-import { EcKeyPair } from '@btc-vision/bsi-transaction';
 import { networks } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
 import fs from 'fs';
@@ -11,6 +10,7 @@ import { KeyPairGenerator, OPNetKeyPair } from '../networking/encryptem/KeyPairG
 import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { OPNetPathFinder } from './OPNetPathFinder.js';
 import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
+import { EcKeyPair } from '@btc-vision/transaction';
 
 export class OPNetIdentity extends OPNetPathFinder {
     private keyPairGenerator: KeyPairGenerator;
