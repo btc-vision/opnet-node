@@ -223,7 +223,10 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         this.setBurnedFee(outputWitness);
 
         // We get the sender address
-        const { address } = payments.p2tr({ pubkey: deployerPubKey, network: this.network });
+        const { address } = payments.p2tr({
+            internalPubkey: deployerPubKey,
+            network: this.network,
+        });
         if (!address) {
             throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
         }

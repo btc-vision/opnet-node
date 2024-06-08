@@ -212,7 +212,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             );
         }
 
-        const { address } = payments.p2tr({ pubkey: senderPubKey, network: this.network });
+        const { address } = payments.p2tr({ internalPubkey: senderPubKey, network: this.network });
         if (!address) {
             throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
         }

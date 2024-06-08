@@ -320,6 +320,8 @@ export class ContractEvaluator {
 
         try {
             if (hasSelectorInMethods) {
+                console.log('CALLING METHOD', abi, calldata, caller);
+
                 result = await this.contractInstance.readMethod(
                     abi,
                     this.getContract(),

@@ -8,11 +8,11 @@ import { ContractEvaluator } from './runtime/ContractEvaluator.js';
 import { MemoryValue } from './storage/types/MemoryValue.js';
 import { StoragePointer } from './storage/types/StoragePointer.js';
 import { VMRuntime } from './wasmRuntime/runDebug.js';
+import { Address } from '@btc-vision/bsi-binary';
 
 interface IsolatedMethods {
     INIT_METHOD: IsolatedVM.Reference<VMRuntime['INIT']>;
     GET_CONTRACT_METHOD: IsolatedVM.Reference<VMRuntime['getContract']>;
-    GET_REQUIRED_STORAGE: IsolatedVM.Reference<VMRuntime['getRequiredStorage']>;
     LOAD_STORAGE: IsolatedVM.Reference<VMRuntime['loadStorage']>;
     GET_MODIFIED_STORAGE: IsolatedVM.Reference<VMRuntime['getModifiedStorage']>;
     READ_METHOD: IsolatedVM.Reference<VMRuntime['readMethod']>;
@@ -20,7 +20,6 @@ interface IsolatedMethods {
     GET_VIEW_ABI: IsolatedVM.Reference<VMRuntime['getViewABI']>;
     GET_WRITE_METHODS: IsolatedVM.Reference<VMRuntime['getWriteMethods']>;
     GET_METHOD_ABI: IsolatedVM.Reference<VMRuntime['getMethodABI']>;
-    ALLOCATE_MEMORY: IsolatedVM.Reference<VMRuntime['allocateMemory']>;
     INITIALIZE_STORAGE: IsolatedVM.Reference<VMRuntime['initializeStorage']>;
     IS_INITIALIZED: IsolatedVM.Reference<VMRuntime['isInitialized']>;
     GET_EVENTS: IsolatedVM.Reference<VMRuntime['getEvents']>;
@@ -63,7 +62,7 @@ export class VMIsolator {
     public onGasUsed: (gas: bigint) => void = () => {};
 
     public getStorage(
-        _address: string,
+        _address: Address,
         _pointer: StoragePointer,
         _defaultValue: MemoryValue | null,
         _setIfNotExit: boolean,
@@ -72,7 +71,7 @@ export class VMIsolator {
     }
 
     public setStorage(
-        _address: string,
+        _address: Address,
         _pointer: StoragePointer,
         _value: MemoryValue,
     ): Promise<void> {
@@ -164,11 +163,9 @@ export class VMIsolator {
             GET_EVENTS: this.reference.getSync('getEvents', { reference: true }),
             GET_METHOD_ABI: this.reference.getSync('getMethodABI', { reference: true }),
             GET_WRITE_METHODS: this.reference.getSync('getWriteMethods', { reference: true }),
-            GET_REQUIRED_STORAGE: this.reference.getSync('getRequiredStorage', { reference: true }),
             GET_MODIFIED_STORAGE: this.reference.getSync('getModifiedStorage', { reference: true }),
             INITIALIZE_STORAGE: this.reference.getSync('initializeStorage', { reference: true }),
             LOAD_STORAGE: this.reference.getSync('loadStorage', { reference: true }),
-            ALLOCATE_MEMORY: this.reference.getSync('allocateMemory', { reference: true }),
             IS_INITIALIZED: this.reference.getSync('isInitialized', { reference: true }),
             PURGE_MEMORY: this.reference.getSync('purgeMemory', { reference: true }),
             SET_MAX_GAS: this.reference.getSync('setMaxGas', { reference: true }),
@@ -181,12 +178,10 @@ export class VMIsolator {
         };
     }
 
-    private async INIT(owner: string, contractAddress: string): Promise<void> {
+    private async INIT(owner: Address, contractAddress: Address): Promise<void> {
         if (!this.methods) {
             throw new Error('Methods not defined [INIT]');
         }
-
-        //console.log('INIT');
 
         await this.methods.INIT_METHOD.apply(
             undefined,
@@ -199,8 +194,6 @@ export class VMIsolator {
         if (!this.methods) {
             throw new Error('Methods not defined [GET_CONTRACT]');
         }
-
-        //console.log('getContractWasm');
 
         const result = (await this.methods.GET_CONTRACT_METHOD.apply(
             undefined,
@@ -218,15 +211,11 @@ export class VMIsolator {
         method: number,
         contract: Number,
         data: Uint8Array,
-        caller: string | null,
+        caller: Address | null,
     ): Promise<Uint8Array> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
-
-        //console.log('readMethod');
-
-        //this.isolatedVM.startCpuProfiler('test');
 
         const externalCopy = new ivm.ExternalCopy(data);
         const externalContract = new ivm.ExternalCopy(contract);
@@ -256,8 +245,6 @@ export class VMIsolator {
             throw new Error('Methods not defined');
         }
 
-        //console.log('getViewABI');
-
         const result = (await this.methods.GET_VIEW_ABI.apply(
             undefined,
             [],
@@ -274,8 +261,6 @@ export class VMIsolator {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
-
-        //console.log('readView');
 
         const externalCopy = new ivm.ExternalCopy(contract);
         const result = (await this.methods.READ_VIEW.apply(
@@ -295,8 +280,6 @@ export class VMIsolator {
             throw new Error('Methods not defined');
         }
 
-        //console.log('getEvents');
-
         const result = (await this.methods.GET_EVENTS.apply(
             undefined,
             [],
@@ -312,8 +295,6 @@ export class VMIsolator {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
-
-        //console.log('getMethodABI');
 
         const result = (await this.methods.GET_METHOD_ABI.apply(
             undefined,
@@ -332,28 +313,7 @@ export class VMIsolator {
             throw new Error('Methods not defined');
         }
 
-        //console.log('getWriteMethods');
-
         const result = (await this.methods.GET_WRITE_METHODS.apply(
-            undefined,
-            [],
-            this.getCallOptions(),
-        )) as Reference<Uint8Array>;
-
-        const resp = await result.copy();
-        result.release();
-
-        return resp;
-    }
-
-    private async getRequiredStorage(): Promise<Uint8Array> {
-        if (!this.methods) {
-            throw new Error('Methods not defined');
-        }
-
-        //console.log('getRequiredStorage');
-
-        const result = (await this.methods.GET_REQUIRED_STORAGE.apply(
             undefined,
             [],
             this.getCallOptions(),
@@ -370,8 +330,6 @@ export class VMIsolator {
             throw new Error('Methods not defined');
         }
 
-        //console.log('getModifiedStorage');
-
         const result = (await this.methods.GET_MODIFIED_STORAGE.apply(
             undefined,
             [],
@@ -387,8 +345,6 @@ export class VMIsolator {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
-
-        //console.log('initializeStorage');
 
         const result = (await this.methods.INITIALIZE_STORAGE.apply(
             undefined,
@@ -407,8 +363,6 @@ export class VMIsolator {
             throw new Error('Methods not defined');
         }
 
-        //console.log('loadStorage');
-
         const externalCopy = new ivm.ExternalCopy(data);
         await this.methods.LOAD_STORAGE.apply(
             undefined,
@@ -417,26 +371,10 @@ export class VMIsolator {
         );
     }
 
-    private async allocateMemory(size: number): Promise<number> {
-        if (!this.methods) {
-            throw new Error('Methods not defined');
-        }
-
-        //console.log('allocateMemory');
-
-        return (await this.methods.ALLOCATE_MEMORY.apply(
-            undefined,
-            [size],
-            this.getCallOptions(),
-        )) as number;
-    }
-
     private async isInitialized(): Promise<boolean> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
-
-        //console.log('isInitialized');
 
         return (await this.methods.IS_INITIALIZED.apply(
             undefined,
@@ -450,8 +388,6 @@ export class VMIsolator {
             throw new Error('Methods not defined');
         }
 
-        //console.log('purgeMemory');
-
         await this.methods.PURGE_MEMORY.apply(undefined, [], this.getCallOptions());
     }
 
@@ -459,8 +395,6 @@ export class VMIsolator {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
-
-        //console.log('setMaxGas');
 
         await this.methods.SET_MAX_GAS.apply(
             undefined,
@@ -479,11 +413,9 @@ export class VMIsolator {
             getEvents: this.getEvents.bind(this),
             getMethodABI: this.getMethodABI.bind(this),
             getWriteMethods: this.getWriteMethods.bind(this),
-            getRequiredStorage: this.getRequiredStorage.bind(this),
             getModifiedStorage: this.getModifiedStorage.bind(this),
             initializeStorage: this.initializeStorage.bind(this),
             loadStorage: this.loadStorage.bind(this),
-            allocateMemory: this.allocateMemory.bind(this),
             isInitialized: this.isInitialized.bind(this),
             purgeMemory: this.purgeMemory.bind(this),
             setMaxGas: this.setMaxGas.bind(this),

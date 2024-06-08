@@ -151,10 +151,6 @@ const adaptedExports = Object.setPrototypeOf(
             // src/btc/exports/index/getMethodABI() => ~lib/typedarray/Uint8Array
             return __liftTypedArray(Uint8Array, exports.getWriteMethods() >>> 0);
         },
-        getRequiredStorage() {
-            // src/btc/exports/index/getRequiredStorage() => ~lib/typedarray/Uint8Array
-            return __liftTypedArray(Uint8Array, exports.getRequiredStorage() >>> 0);
-        },
         getModifiedStorage() {
             // src/btc/exports/index/getModifiedStorage() => ~lib/typedarray/Uint8Array
             return __liftTypedArray(Uint8Array, exports.getModifiedStorage() >>> 0);
@@ -323,11 +319,6 @@ export function getMethodABI() {
 export function getWriteMethods() {
     // src/btc/exports/index/getMethodABI() => ~lib/typedarray/Uint8Array
     return gasTracker.track(() => adaptedExports.getWriteMethods());
-}
-
-export function getRequiredStorage() {
-    // src/btc/exports/index/getRequiredStorage() => ~lib/typedarray/Uint8Array
-    return gasTracker.track(() => adaptedExports.getRequiredStorage());
 }
 
 export function getModifiedStorage() {

@@ -21,12 +21,6 @@ export type VMRuntime = {
     getWriteMethods(): Promise<Uint8Array>;
 
     /**
-     * src/btc/exports/index/getRequiredStorage
-     * @returns `~lib/typedarray/Uint8Array`
-     */
-    getRequiredStorage(): Promise<Uint8Array>;
-
-    /**
      * src/btc/exports/index/getModifiedStorage
      * @returns `~lib/typedarray/Uint8Array`
      */
@@ -39,8 +33,6 @@ export type VMRuntime = {
     initializeStorage(): Promise<Uint8Array>;
 
     loadStorage(data: Uint8Array): Promise<void>;
-
-    allocateMemory(size: number): Promise<number>;
 
     isInitialized(): Promise<boolean>;
 

@@ -43,7 +43,7 @@
         "@btc-vision/bsi-common": "^1.0.14",
         "@btc-vision/bsi-db": "^1.0.4",
         "@btc-vision/logger": "github:btc-vision/logger",
-        "@btc-vision/transaction": "^1.0.4",
+        "@btc-vision/transaction": "^1.0.14",
         "@btc-vision/wasm-metering": "github:btc-vision/wasm-metering",
         "@chainsafe/libp2p-noise": "^15.0.0",
         "@chainsafe/libp2p-yamux": "^6.0.2",
