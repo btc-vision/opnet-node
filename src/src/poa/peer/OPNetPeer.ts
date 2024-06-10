@@ -17,6 +17,8 @@ import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockch
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
 
+const PEER_DISCOVERY_TIMEOUT = 1000 * 60 * 2; // 2 minutes
+
 export class OPNetPeer extends Logger {
     public isClientAuthenticated: boolean = false;
     public isServerAuthenticated: boolean = false;
@@ -28,6 +30,8 @@ export class OPNetPeer extends Logger {
 
     private clientNetworkingManager: ClientPeerNetworking;
     private serverNetworkingManager: ServerPeerNetworking;
+
+    private peerDiscoveryTimeout: NodeJS.Timeout | undefined;
 
     private eventHandlers: Map<string, NetworkingEventHandler<object>[]> = new Map();
 
@@ -223,6 +227,8 @@ export class OPNetPeer extends Logger {
         this.isDestroyed = true;
         this.clientNetworkingManager.destroy();
 
+        clearTimeout(this.peerDiscoveryTimeout);
+
         this.disconnectPeer = () => Promise.resolve();
         this.sendMsg = () => Promise.resolve();
         this.reportAuthenticatedPeer = () => {};
@@ -333,8 +339,20 @@ export class OPNetPeer extends Logger {
         if (this.isAuthenticated) {
             this.reportAuthenticatedPeer(this.peerId);
 
-            void this.clientNetworkingManager.discoverPeers();
+            void this.discoverPeers();
         }
+    }
+
+    private async discoverPeers(): Promise<void> {
+        if (this.isDestroyed) return;
+
+        this.info(`Discovering peers for peer ${this.peerId}.`);
+        await this.clientNetworkingManager.discoverPeers();
+
+        if (this.isDestroyed) return;
+        this.peerDiscoveryTimeout = setTimeout(() => {
+            this.discoverPeers();
+        }, PEER_DISCOVERY_TIMEOUT);
     }
 
     private onServerAuthenticationCompleted(): void {

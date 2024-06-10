@@ -286,10 +286,6 @@ export class BlockWitnessManager extends Logger {
         blockWitness: IBlockHeaderWitness,
     ): Promise<void> {
         if (blockNumber < this.currentBlock - this.pendingBlockThreshold) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.fail(`Block ${blockNumber} is too far behind the current block.`);
-            }
-
             return; // we do not process old witnesses.
         }
 

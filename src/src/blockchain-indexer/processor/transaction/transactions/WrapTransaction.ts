@@ -138,7 +138,7 @@ export class WrapTransaction extends InteractionTransaction {
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         super.parseTransaction(vIn, vOuts);
 
-        if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
+        if (!authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
             throw new Error(`Invalid contract address found in wrap transaction.`);
         }
 
