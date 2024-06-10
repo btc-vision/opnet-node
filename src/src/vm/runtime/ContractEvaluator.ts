@@ -50,6 +50,12 @@ export class ContractEvaluator {
         return this.gasTracker.gasUsed;
     }
 
+    public get owner(): Address {
+        if (!this.contractOwner) throw new Error('Contract owner not set');
+
+        return this.contractOwner;
+    }
+
     public async init(runtime: VMRuntime): Promise<void> {
         this.contractInstance = runtime;
 
@@ -320,8 +326,6 @@ export class ContractEvaluator {
 
         try {
             if (hasSelectorInMethods) {
-                console.log('CALLING METHOD', abi, calldata, caller);
-
                 result = await this.contractInstance.readMethod(
                     abi,
                     this.getContract(),

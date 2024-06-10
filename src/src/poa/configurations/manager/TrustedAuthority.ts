@@ -38,7 +38,8 @@ export class TrustedAuthority extends Logger {
     private readonly publicKeys: TrustedPublicKeys;
 
     private keypairGenerator: KeyPairGenerator = new KeyPairGenerator();
-    private readonly wbtcContractAddress: string;
+    private readonly wbtcContractAddresses: string[];
+    private readonly wbtcDeployer: string;
 
     constructor(
         public readonly version: TrustedVersion,
@@ -48,14 +49,21 @@ export class TrustedAuthority extends Logger {
         super();
 
         this.authorityConfig = this.getAuthorityConfig();
-        this.wbtcContractAddress = this.getWBTCAddress();
+        const deploymentInfo = this.getWBTCDeploymentInfo();
+
+        this.wbtcContractAddresses = deploymentInfo.addresses;
+        this.wbtcDeployer = deploymentInfo.deployer;
 
         this.loadTrustedPublicKeys();
         this.publicKeys = this.getTrustedPublicKeys();
     }
 
-    public get WBTC_CONTRACT_ADDRESS(): string {
-        return this.wbtcContractAddress;
+    public get WBTC_CONTRACT_ADDRESSES(): string[] {
+        return this.wbtcContractAddresses;
+    }
+
+    public get WBTC_DEPLOYER(): string {
+        return this.wbtcDeployer;
     }
 
     public get trustedCompanies(): TrustedCompanies[] {
@@ -253,7 +261,7 @@ export class TrustedAuthority extends Logger {
         };
     }
 
-    private getWBTCAddress(): string {
+    private getWBTCDeploymentInfo(): { addresses: string[]; deployer: string } {
         const wbtcChainId = WBTC_CONTRACT_ADDRESS[this.chainId];
         if (!wbtcChainId) {
             throw new Error('WBTC contract address not found');

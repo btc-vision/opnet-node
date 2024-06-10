@@ -5,7 +5,6 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { Config } from '../../../../../config/Config.js';
-import { DataValidator } from '../../../../../data-validator/DataValidator.js';
 import { MessageType } from '../../../../../threading/enum/MessageType.js';
 import {
     CallRequest,
@@ -26,6 +25,7 @@ import {
 import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
+import { AddressVerificator } from '@btc-vision/transaction';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private readonly network: bitcoin.networks.Network = bitcoin.networks.testnet;
@@ -239,8 +239,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         if (
             !address ||
             !(
-                DataValidator.validatePKHAddress(address, this.network) ||
-                DataValidator.isValidP2TRAddress(address, this.network)
+                AddressVerificator.validatePKHAddress(address, this.network) ||
+                AddressVerificator.isValidP2TRAddress(address, this.network)
             )
         ) {
             throw new Error(`Invalid address specified. Address must be P2TR (taproot).`);

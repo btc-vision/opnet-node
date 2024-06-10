@@ -31,6 +31,7 @@ import { StoragePointer } from './storage/types/StoragePointer.js';
 import { VMStorage } from './storage/VMStorage.js';
 import { VMBitcoinBlock } from './VMBitcoinBlock.js';
 import { VMIsolator } from './VMIsolator.js';
+import { WrapTransaction } from '../blockchain-indexer/processor/transaction/transactions/WrapTransaction.js';
 
 Globals.register();
 
@@ -234,7 +235,7 @@ export class VMManager extends Logger {
 
     public async executeTransaction(
         blockHeight: bigint,
-        interactionTransaction: InteractionTransaction,
+        interactionTransaction: InteractionTransaction | WrapTransaction,
     ): Promise<EvaluatedResult> {
         const start = Date.now();
         if (this.vmBitcoinBlock.height !== blockHeight) {
@@ -298,10 +299,13 @@ export class VMManager extends Logger {
             );
         }
 
+        // we define the caller here.
+        const caller: Address = interactionTransaction.from;
+
         let error: string = 'execution reverted';
         // Execute the function
         const result: EvaluatedResult | null = await vmEvaluator
-            .execute(contractAddress, isView, selector, finalBuffer, interactionTransaction.from)
+            .execute(contractAddress, isView, selector, finalBuffer, caller)
             .catch((e) => {
                 const errorMsg: string = e instanceof Error ? e.message : (e as string);
 

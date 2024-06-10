@@ -18,7 +18,6 @@ export class WrapTransactionGenerator extends Logger {
     public readonly logColor: string = '#5dbcef';
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
-    private readonly wbtcContractAddress: string = this.currentAuthority.WBTC_CONTRACT_ADDRESS;
 
     private readonly network: Network;
     private readonly generator: KeyPairGenerator = new KeyPairGenerator();
@@ -45,8 +44,6 @@ export class WrapTransactionGenerator extends Logger {
     public async generateWrapParameters(
         params: WrapTransactionParameters,
     ): Promise<GeneratedResult | undefined> {
-        this.log(`Generating wrap transaction... (WBTC: ${this.wbtcContractAddress})`);
-
         const trustedValidators: TrustedPublicKeysWithConstraints =
             this.currentAuthority.trustedPublicKeysRespectingConstraints;
 

@@ -15,6 +15,10 @@ import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
+import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
+import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
+import { BinaryReader } from '@btc-vision/bsi-binary';
+import { WBTC_UNWRAP_SELECTOR, WBTC_WRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
 
 export interface InteractionWitnessData {
     senderPubKey: Buffer;
@@ -23,6 +27,8 @@ export interface InteractionWitnessData {
     contractSecretHash160: Buffer;
     calldata: Buffer;
 }
+
+const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 
 /* TODO: Potentially allow multiple contract interaction per transaction since BTC supports that? Maybe, in the future, for now let's stick with one. */
 export class InteractionTransaction extends Transaction<InteractionTransactionType> {
@@ -260,6 +266,8 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
         /** Decompress calldata if needed */
         this.decompressCalldata();
+
+        this.verifyUnallowed();
     }
 
     protected getInteractionWitnessDataHeader(
@@ -420,5 +428,26 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     /* For future implementation we return an array here. */
     private getInputWitnessTransactions(): TransactionInput[] {
         return [this.inputs[this.vInputIndex]];
+    }
+
+    /** We must verify that the transaction is not bypassing another transaction type. */
+    private verifyUnallowed(): void {
+        // We handle wbtc checks here.
+        if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
+            this.verifyWBTC();
+        }
+    }
+
+    /**
+     * Verify that the WBTC transaction is valid.
+     */
+    private verifyWBTC(): void {
+        const selectorBytes = this.calldata.subarray(0, 4);
+        const reader = new BinaryReader(selectorBytes);
+
+        const selector = reader.readSelector();
+        if (selector === WBTC_WRAP_SELECTOR && selector === WBTC_UNWRAP_SELECTOR) {
+            throw new Error(`Invalid WBTC mint/burn transaction.`);
+        }
     }
 }

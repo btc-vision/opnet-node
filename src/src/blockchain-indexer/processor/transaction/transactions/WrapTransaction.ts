@@ -138,7 +138,7 @@ export class WrapTransaction extends InteractionTransaction {
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         super.parseTransaction(vIn, vOuts);
 
-        if (this.contractAddress !== authorityManager.WBTC_CONTRACT_ADDRESS) {
+        if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
             throw new Error(`Invalid contract address found in wrap transaction.`);
         }
 
@@ -285,6 +285,10 @@ export class WrapTransaction extends InteractionTransaction {
         this.decodeCalldata();
     }
 
+    /**
+     * Decode the calldata of the transaction.
+     * @private
+     */
     private decodeCalldata(): void {
         const reader: BinaryReader = new BinaryReader(this.calldata);
         const selector = reader.readSelector();
@@ -320,6 +324,10 @@ export class WrapTransaction extends InteractionTransaction {
         this.subtractWBTCWrappingFees();
     }
 
+    /**
+     * Subtract the WBTC wrapping fees from the deposit amount.
+     * @private
+     */
     private subtractWBTCWrappingFees(): void {
         const fees: bigint =
             (this.depositAmount * WRAPPING_INDEXER_PERCENTAGE_FEE) /
@@ -345,7 +353,7 @@ export class WrapTransaction extends InteractionTransaction {
         writer.writeU256(this.depositAmount);
 
         this._calldata = Buffer.from(writer.getBuffer());
-        this.interactionWitnessData = undefined; // free up some memory.
+        delete this.interactionWitnessData; // free up some memory.
     }
 
     private getVaultVOut(): void {

@@ -19,17 +19,36 @@ export const TRUSTED_CHECKSUM: { [key in TrustedVersion]: string } = {
 };
 
 export const WBTC_CONTRACT_ADDRESS: {
-    [key in ChainIds]: Partial<{ [key in BitcoinNetwork]: string }>;
+    [key in ChainIds]: Partial<{
+        [key in BitcoinNetwork]: { addresses: string[]; deployer: string };
+    }>;
 } = {
     [ChainIds.Bitcoin]: {
-        [BitcoinNetwork.Mainnet]: 'unknown',
+        [BitcoinNetwork.Mainnet]: {
+            addresses: ['unknown'],
+            deployer: 'unknown',
+        },
 
-        [BitcoinNetwork.TestNet]: 'tb1pq64lx73fwyrdp4asvl7xt5r5qvxvt9wy82x75taqtzvd64f58nasansurj',
+        [BitcoinNetwork.TestNet]: {
+            addresses: [
+                'tb1qh9xlcw7ne5u4eky0ylu5j7fzxjkrcumal2zhcr',
+                'tb1ptyk6dw20slnfz2cj2sn8lym8kznsuvrlw25jk2z4j0zh3es6trdqxp0hlv',
+            ],
+            deployer: 'tb1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gszlcezf',
+        },
 
-        [BitcoinNetwork.Regtest]:
-            'bcrt1pcw0828yjrtlrc6mkp3lkq30j7wc7slsh7k7dyh53mrs4f8d74l6qumhqp4',
+        [BitcoinNetwork.Regtest]: {
+            addresses: [
+                'bcrt1qg8p5h65hffqmczyctrdenjx5e5teaz8a7rvrr2',
+                'bcrt1p7u5qn2ydc9g5fc3yj6qy858s5jlp3uu6em6wh0hd2e9t5l4er0fq5t3zgf',
+            ],
+            deployer: 'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gs0xjlhn',
+        },
 
-        [BitcoinNetwork.Signet]: 'unknown',
+        [BitcoinNetwork.Signet]: {
+            addresses: ['unknown'],
+            deployer: 'unknown',
+        },
     },
 };
 

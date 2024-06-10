@@ -23,6 +23,7 @@ import { InteractionTransaction } from '../transaction/transactions/InteractionT
 import { BlockHeader } from './classes/BlockHeader.js';
 import { ChecksumMerkle } from './merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from './types/ZeroValue.js';
+import { WrapTransaction } from '../transaction/transactions/WrapTransaction.js';
 
 export class Block extends Logger {
     // Block Header
@@ -361,7 +362,7 @@ export class Block extends Logger {
 
     /** We execute interaction transactions with this method */
     protected async executeInteractionTransaction(
-        transaction: InteractionTransaction,
+        transaction: InteractionTransaction | WrapTransaction,
         vmManager: VMManager,
     ): Promise<void> {
         const start = Date.now();
@@ -445,7 +446,7 @@ export class Block extends Logger {
                 break;
             }
             case OPNetTransactionTypes.WrapInteraction: {
-                const interactionTransaction = _transaction as InteractionTransaction;
+                const interactionTransaction = _transaction as WrapTransaction;
 
                 await this.executeInteractionTransaction(interactionTransaction, vmManager);
                 break;
