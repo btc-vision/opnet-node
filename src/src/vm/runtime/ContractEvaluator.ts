@@ -513,8 +513,6 @@ export class ContractEvaluator extends Logger {
                         calldata: Buffer.from(externCall[i].buffer),
                     };
 
-                    this.info(`CALLING EXTERNAL CONTRACT ${externCallAddress} (${i})`);
-
                     const response = await this.vmIsolator.callExternal(externalCallParams);
                     if (!response) throw new Error('external call reverted.');
 
