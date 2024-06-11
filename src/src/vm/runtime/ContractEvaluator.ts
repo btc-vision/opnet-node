@@ -24,12 +24,9 @@ import {
     InternalContractCallParameters,
 } from './types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
-import { ExternalCallResponse, ExternalCalls, ExternalCallsResult } from './types/ExternalCall.js';
+import { ExternalCalls, ExternalCallsResult } from './types/ExternalCall.js';
 
 export class ContractEvaluator extends Logger {
-    public static readonly SAT_TO_GAS_RATIO: bigint = 18416666n; //100000000n; //30750n; //611805;
-
-    private static readonly MAX_CALL_DEPTH: number = 10;
     private static readonly MAX_ERROR_DEPTH: number = 100;
     private static readonly MAX_CONTRACT_EXTERN_CALLS: number = 8;
 
@@ -54,8 +51,8 @@ export class ContractEvaluator extends Logger {
     private externalCallsResponse: ExternalCallsResult = new Map();
 
     /** Gas tracking. */
-    private gasTracker: GasTracker = new GasTracker(VMIsolator.MAX_GAS); // TODO: Remove this from the class, must be passed as a parameter instead.
-    private initialGasTracker: GasTracker = new GasTracker(VMIsolator.MAX_GAS);
+    private gasTracker: GasTracker = new GasTracker(); // TODO: Remove this from the class, must be passed as a parameter instead.
+    private initialGasTracker: GasTracker = new GasTracker();
 
     private readonly enableTracing: boolean = false;
 
@@ -95,7 +92,7 @@ export class ContractEvaluator extends Logger {
         this.gasTracker.reset();
         this.gasTracker.enableTracking(this.vmIsolator.CPUTime);
 
-        this.gasTracker.maxGas = rlGas < VMIsolator.MAX_GAS ? rlGas : VMIsolator.MAX_GAS;
+        this.gasTracker.maxGas = rlGas;
         if (currentGasUsage) this.gasTracker.gasUsed = currentGasUsage;
 
         await this.contractInstance.setMaxGas(rlGas, currentGasUsage);
@@ -122,10 +119,6 @@ export class ContractEvaluator extends Logger {
         pointer: StoragePointer,
         value: MemoryValue,
     ): Promise<void> {
-        if (address !== this.vmIsolator.contractAddress) {
-            throw new Error('Contract attempted to set storage for another contract.');
-        }
-
         return this.vmIsolator.setStorage(address, pointer, value);
     }
 
@@ -222,7 +215,7 @@ export class ContractEvaluator extends Logger {
         return false;
     }
 
-    public async execute(params: ExecutionParameters): Promise<EvaluatedResult> {
+    public async execute(params: ExecutionParameters): Promise<ContractEvaluation> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
@@ -251,7 +244,7 @@ export class ContractEvaluator extends Logger {
             const resp: EvaluatedResult | undefined = await this.evaluate(evaluation);
 
             this.gasTracker.disableTracking(this.vmIsolator.CPUTime);
-            if (resp) {
+            if (resp && this.enableTracing) {
                 console.log(
                     `INITIAL GAS USED: ${this.initialGasTracker.gasUsed} - EXECUTION GAS USED: ${this.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${resp.gasUsed} - TOOK ${this.gasTracker.timeSpent}ns`,
                 );
@@ -259,7 +252,7 @@ export class ContractEvaluator extends Logger {
 
             this.isProcessing = false;
 
-            return resp;
+            return evaluation;
         } catch (e) {
             this.isProcessing = false;
             throw e;
@@ -315,8 +308,8 @@ export class ContractEvaluator extends Logger {
             throw new Error('Contract not initialized');
         }
 
-        await this.writeCallsResponse(evaluation.caller);
         await this.writeCurrentStorageState();
+        await this.writeCallsResponse(evaluation.caller);
         await this.setEnvironment(evaluation.caller, evaluation.callee);
 
         const hasSelectorInMethods = contract?.has(evaluation.abi) ?? false;
@@ -390,7 +383,24 @@ export class ContractEvaluator extends Logger {
             evaluation.incrementTries();
 
             return await this.evaluate(evaluation);
-        } else if (evaluation.canWrite) {
+        }
+
+        if (evaluation.canWrite) {
+            if (this.verifyIfStorageModifiedDoesNotModifyAnOtherContract(modifiedStorage)) {
+                throw new Error('execution reverted (unable to modify)');
+            }
+        }
+
+        const selfEvents: NetEvent[] = await this.getEvents();
+        evaluation.setEvent(evaluation.contractAddress, selfEvents);
+
+        const gasUsed: bigint = this.gasTracker.gasUsed + this.initialGasTracker.gasUsed;
+
+        evaluation.setModifiedStorage(modifiedStorage);
+        evaluation.processExternalCalls(this.externalCallsResponse);
+        evaluation.setGasUsed(gasUsed);
+
+        if (evaluation.canWrite) {
             if (this.enableTracing) {
                 console.log(
                     `FINAL CALL STORAGE ACCESS LIST FOR ${evaluation.abi} (took ${evaluation.tries}) -> initialStorage:`,
@@ -406,15 +416,6 @@ export class ContractEvaluator extends Logger {
                 throw e;
             });
         }
-
-        const selfEvents: NetEvent[] = await this.getEvents();
-        evaluation.setEvent(evaluation.contractAddress, selfEvents);
-
-        const gasUsed: bigint = this.gasTracker.gasUsed + this.initialGasTracker.gasUsed;
-
-        evaluation.setModifiedStorage(modifiedStorage);
-        evaluation.processExternalCalls(this.externalCallsResponse);
-        evaluation.setGasUsed(gasUsed);
 
         this.clear();
 
@@ -487,13 +488,17 @@ export class ContractEvaluator extends Logger {
                 throw new Error('Too many external calls');
             }
 
-            const responses: ExternalCallResponse[] =
+            const responses: ContractEvaluation[] =
                 this.externalCallsResponse.get(externCallAddress) || [];
 
             if (responses.length !== externCall.length) {
                 // We have to do more calls
 
                 for (let i = responses.length; i < externCall.length; i++) {
+                    if (this.gasTracker.gasUsed >= this.gasTracker.maxGas) {
+                        throw new Error('execution reverted (out of gas)');
+                    }
+
                     const externalCallParams: InternalContractCallParameters = {
                         contractAddress: externCallAddress,
                         from: caller,
@@ -510,8 +515,12 @@ export class ContractEvaluator extends Logger {
 
                     this.info(`CALLING EXTERNAL CONTRACT ${externCallAddress} (${i})`);
 
-                    const response: ExternalCallResponse =
-                        await this.vmIsolator.callExternal(externalCallParams);
+                    const response = await this.vmIsolator.callExternal(externalCallParams);
+                    if (!response) throw new Error('external call reverted.');
+
+                    // we add the gas used to the gas tracker
+                    this.gasTracker.addGasUsed(response.gasUsed);
+
                     responses.push(response);
                 }
             }
@@ -520,7 +529,8 @@ export class ContractEvaluator extends Logger {
         }
 
         const binaryWriter: BinaryWriter = new BinaryWriter();
-        binaryWriter.writeLimitedAddressBytesMap(this.getExternalCallResponses());
+        const responses = this.getExternalCallResponses();
+        binaryWriter.writeLimitedAddressBytesMap(responses);
 
         const buf: Uint8Array = binaryWriter.getBuffer();
         await this.contractInstance.loadCallsResponse(buf);
@@ -532,7 +542,8 @@ export class ContractEvaluator extends Logger {
         for (let [contract, calls] of this.externalCallsResponse) {
             const responses: Uint8Array[] = [];
             for (let response of calls) {
-                responses.push(response.response);
+                if (!response.result) throw new Error('external call reverted.');
+                responses.push(response.result);
             }
 
             externalCalls.set(contract, responses);
@@ -709,6 +720,18 @@ export class ContractEvaluator extends Logger {
         }
 
         return resp;
+    }
+
+    private verifyIfStorageModifiedDoesNotModifyAnOtherContract(
+        modifiedStorage: BlockchainStorage,
+    ): boolean {
+        for (const [key] of modifiedStorage) {
+            if (key !== this.vmIsolator.contractAddress) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private async updateStorage(modifiedStorage: BlockchainStorage): Promise<void> {

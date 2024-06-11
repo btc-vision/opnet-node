@@ -56,7 +56,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         };
 
         if (height !== undefined) {
-            criteria.blockHeight = { $lt: DataConverter.toDecimal128(height) };
+            criteria.blockHeight = { $lte: DataConverter.toDecimal128(height) };
         }
 
         const contract = await this.queryOne(criteria, currentSession);

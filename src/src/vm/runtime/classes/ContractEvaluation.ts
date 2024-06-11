@@ -65,6 +65,10 @@ export class ContractEvaluation implements IEvaluationParameters {
 
     public setModifiedStorage(storage: BlockchainStorage): void {
         this.modifiedStorage = storage;
+
+        if (this.modifiedStorage.size > 1) {
+            throw new Error(`execution reverted (storage is too big)`);
+        }
     }
 
     public setGasUsed(gasUsed: bigint): void {
@@ -72,7 +76,35 @@ export class ContractEvaluation implements IEvaluationParameters {
     }
 
     public processExternalCalls(extern: ExternalCallsResult): void {
-        console.log('Processing external calls', extern);
+        // we must merge the storage of the external calls
+        for (const [contract, call] of extern) {
+            if (contract === this.contractAddress) {
+                throw new Error('Cannot call self');
+            }
+
+            for (let i = 0; i < call.length; i++) {
+                const c = call[i];
+                if (!c) {
+                    throw new Error('External call not found');
+                }
+
+                if (!c.canWrite) {
+                    continue;
+                }
+
+                const storage = c.modifiedStorage;
+                if (!storage) {
+                    throw new Error('Storage not set');
+                }
+
+                this.mergeStorage(storage);
+
+                const events = c.events;
+                if (events) {
+                    this.mergeEvents(events);
+                }
+            }
+        }
     }
 
     public getEvaluationResult(): EvaluatedResult {
@@ -86,5 +118,35 @@ export class ContractEvaluation implements IEvaluationParameters {
             events: this.events,
             gasUsed: this.gasUsed,
         };
+    }
+
+    private mergeEvents(events: EvaluatedEvents): void {
+        if (!this.events) {
+            this.events = new Map();
+        }
+
+        for (const [key, value] of events) {
+            const current = this.events.get(key) || [];
+            for (const v of value) {
+                current.push(v);
+            }
+
+            this.events.set(key, current);
+        }
+    }
+
+    private mergeStorage(storage: BlockchainStorage): void {
+        if (!this.modifiedStorage) {
+            throw new Error('Modified storage not set');
+        }
+
+        for (const [key, value] of storage) {
+            const current = this.modifiedStorage.get(key) || new Map();
+            for (const [k, v] of value) {
+                current.set(k, v);
+            }
+
+            this.modifiedStorage.set(key, current);
+        }
     }
 }

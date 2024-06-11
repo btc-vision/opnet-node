@@ -1,6 +1,9 @@
-import { ContractEvaluator } from './ContractEvaluator.js';
+import { VMIsolator } from '../VMIsolator.js';
 
 export class GasTracker {
+    public static readonly MAX_GAS: bigint = 480076812288n; // Max gas allowed for a contract execution
+    public static readonly SAT_TO_GAS_RATIO: bigint = 18416666n; //100000000n; //30750n; //611805;
+
     #gasUsed: bigint = 0n;
     #maxGas: bigint;
 
@@ -9,7 +12,7 @@ export class GasTracker {
 
     private canTrack: boolean = true;
 
-    constructor(private readonly MAX_GAS: bigint) {
+    constructor(private readonly MAX_GAS: bigint = GasTracker.MAX_GAS) {
         this.#maxGas = MAX_GAS;
     }
 
@@ -21,20 +24,27 @@ export class GasTracker {
         this.#gasUsed = gasUsed;
     }
 
+    public get maxGas(): bigint {
+        return this.#maxGas;
+    }
+
     public set maxGas(maxGas: bigint) {
-        this.#maxGas = maxGas;
+        this.#maxGas = maxGas < GasTracker.MAX_GAS ? maxGas : GasTracker.MAX_GAS;
     }
 
     public get timeSpent(): bigint {
         return this.#timeSpent;
     }
 
+    public static convertSatToGas(sat: bigint): bigint {
+        return sat * GasTracker.SAT_TO_GAS_RATIO;
+    }
+
     // round up to 10000000
     public static round(gasUsed: bigint) {
         return (
-            ((gasUsed + (ContractEvaluator.SAT_TO_GAS_RATIO - 1n)) /
-                ContractEvaluator.SAT_TO_GAS_RATIO) *
-            ContractEvaluator.SAT_TO_GAS_RATIO
+            ((gasUsed + (GasTracker.SAT_TO_GAS_RATIO - 1n)) / GasTracker.SAT_TO_GAS_RATIO) *
+            GasTracker.SAT_TO_GAS_RATIO
         );
     }
 

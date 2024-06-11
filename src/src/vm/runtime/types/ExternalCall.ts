@@ -1,8 +1,5 @@
 import { Address } from '@btc-vision/bsi-binary';
+import { ContractEvaluation } from '../classes/ContractEvaluation.js';
 
-export interface ExternalCallResponse {
-    readonly response: Uint8Array;
-}
-
-export type ExternalCallsResult = Map<Address, ExternalCallResponse[]>;
+export type ExternalCallsResult = Map<Address, ContractEvaluation[]>;
 export type ExternalCalls = Map<Address, Uint8Array[]>;

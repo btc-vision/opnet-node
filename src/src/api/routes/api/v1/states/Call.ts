@@ -215,6 +215,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             } as CallRequest,
         };
 
+        const start = Date.now();
         const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
             ThreadTypes.BITCOIN_RPC,
             currentBlockMsg,
@@ -223,6 +224,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         if (!currentBlock) {
             throw new Error(`Failed to execute the given calldata at the requested contract.`);
         }
+
+        this.info(`Call request executed. {To: ${to.toString()}, Time: ${Date.now() - start}ms}`);
 
         return currentBlock;
     }

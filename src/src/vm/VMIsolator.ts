@@ -10,7 +10,8 @@ import { StoragePointer } from './storage/types/StoragePointer.js';
 import { Address } from '@btc-vision/bsi-binary';
 import { VMRuntime } from './wasmRuntime/VMRuntime.js';
 import { InternalContractCallParameters } from './runtime/types/InternalContractCallParameters.js';
-import { ExternalCallResponse } from './runtime/types/ExternalCall.js';
+import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
+import { GasTracker } from './runtime/GasTracker.js';
 
 interface IsolatedMethods {
     INIT_METHOD: IsolatedVM.Reference<VMRuntime['INIT']>;
@@ -36,7 +37,6 @@ const codePath: string = path.resolve(__dirname, '../vm/isolated/IsolatedManager
 const code: string = fs.readFileSync(codePath, 'utf-8');
 
 export class VMIsolator {
-    public static readonly MAX_GAS: bigint = 480076812288n; // Max gas allowed for a contract execution
     private static readonly EXECUTION_TIMEOUT: number = 2 * 60 * 60000; // 2h
 
     private contract: ContractEvaluator | null = null;
@@ -93,7 +93,7 @@ export class VMIsolator {
 
     public async callExternal(
         _params: InternalContractCallParameters,
-    ): Promise<ExternalCallResponse> {
+    ): Promise<ContractEvaluation> {
         throw new Error('Method not implemented. [callExternal]');
     }
 
@@ -124,7 +124,7 @@ export class VMIsolator {
             this.onGasUsed(gas);
         });
 
-        this.jail.setSync('MAX_GAS', VMIsolator.MAX_GAS);
+        this.jail.setSync('MAX_GAS', GasTracker.MAX_GAS);
 
         let errored = await this.loadContractFromBytecode();
         if (errored) {

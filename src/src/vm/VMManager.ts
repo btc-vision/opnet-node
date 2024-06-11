@@ -36,7 +36,8 @@ import {
     ExecutionParameters,
     InternalContractCallParameters,
 } from './runtime/types/InternalContractCallParameters.js';
-import { ExternalCallResponse } from './runtime/types/ExternalCall.js';
+import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
+import { GasTracker } from './runtime/GasTracker.js';
 
 Globals.register();
 
@@ -54,7 +55,6 @@ export class VMManager extends Logger {
     private contractCache: Map<string, ContractInformation> = new Map();
 
     private vmEvaluators: Map<Address, Promise<ContractEvaluator>> = new Map();
-
     private contractAddressCache: Map<Address, Address> = new Map();
 
     constructor(
@@ -161,32 +161,30 @@ export class VMManager extends Logger {
         calldataString: string,
         height?: bigint,
     ): Promise<EvaluatedResult> {
-        if (height === undefined) {
+        /*if (height === undefined) {
             height = await this.getChainCurrentBlockHeight();
-        }
+        }*/
 
         const contractAddress: Address | undefined = await this.getContractAddress(to);
         if (!contractAddress) {
             throw new Error('Contract not found');
         }
 
-        const maxGas: bigint = VMIsolator.MAX_GAS;
-
         // Get the contract evaluator
         const params: InternalContractCallParameters = {
             contractAddress: contractAddress,
             from: from,
             callee: from,
-            maxGas: maxGas,
+            maxGas: GasTracker.MAX_GAS,
             calldata: Buffer.from(calldataString, 'hex'),
             blockHeight: height,
-            transactionId: '',
             allowCached: false,
             externalCall: false,
         };
 
         // Execute the function
-        return await this.executeCallInternal(params);
+        const evaluation = await this.executeCallInternal(params);
+        return evaluation.getEvaluationResult();
     }
 
     public async executeTransaction(
@@ -222,7 +220,7 @@ export class VMManager extends Logger {
 
         // Trace the execution time
         const startBeforeExecution = Date.now();
-        const maxGas: bigint = this.convertSatToGas(burnedBitcoins);
+        const maxGas: bigint = GasTracker.convertSatToGas(burnedBitcoins);
 
         // Define the parameters for the internal call.
         const params: InternalContractCallParameters = {
@@ -237,14 +235,14 @@ export class VMManager extends Logger {
             externalCall: false,
         };
 
-        const result: EvaluatedResult = await this.executeCallInternal(params);
+        const result: ContractEvaluation = await this.executeCallInternal(params);
         if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debug(
                 `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute, ${result.gasUsed} gas used)`,
             );
         }
 
-        return result;
+        return result.getEvaluationResult();
     }
 
     public updateBlockValuesFromResult(
@@ -267,11 +265,11 @@ export class VMManager extends Logger {
         }
 
         for (const [contract, val] of result.changedStorage) {
-            if (contract !== contractAddress) {
+            /*if (contract !== contractAddress) {
                 throw new Error(
                     `Possible attack detected: Contract ${contract} tried to change storage of ${contractAddress}`,
                 );
-            }
+            }*/
 
             this.blockState.updateValues(contract, val);
         }
@@ -521,21 +519,24 @@ export class VMManager extends Logger {
 
     private async callExternal(
         params: InternalContractCallParameters,
-    ): Promise<ExternalCallResponse> {
-        console.log('External call!', params);
-
+    ): Promise<ContractEvaluation> {
         params.allowCached = !this.isExecutor;
 
-        throw new Error('External calls are not allowed.');
+        const result = await this.executeCallInternal(params);
+        if (!result.result) {
+            throw new Error('execution reverted (external call)');
+        }
+
+        return result;
     }
 
     private async executeCallInternal(
         params: InternalContractCallParameters,
-    ): Promise<EvaluatedResult> {
+    ): Promise<ContractEvaluation> {
         // Get the contract evaluator
         const vmEvaluator: ContractEvaluator | null = params.allowCached
             ? await this.getVMEvaluatorFromCache(params.contractAddress)
-            : await this.getVMEvaluator(params.contractAddress, params.blockHeight).catch(() => {
+            : await this.getVMEvaluator(params.contractAddress, params.blockHeight).catch((e) => {
                   return null;
               });
 
@@ -583,19 +584,32 @@ export class VMManager extends Logger {
         };
 
         // Execute the function
-        const result: EvaluatedResult | null = await vmEvaluator
+        const evaluation: ContractEvaluation | null = await vmEvaluator
             .execute(executionParams)
             .catch((e) => {
                 const errorMsg: string = e instanceof Error ? e.message : (e as string);
-
                 if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
                     error = `execution reverted (${errorMsg})`;
                 } else {
                     error = `execution reverted (gas used: ${vmEvaluator.getGasUsed})`;
                 }
 
+                if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                    this.error(
+                        `Error executing function selector ${selector} for contract ${params.contractAddress} at block ${params.blockHeight || 'latest'} with calldata ${calldata.toString('hex')}: ${e}`,
+                    );
+                }
+
                 return null;
             });
+
+        if (!evaluation) {
+            await this.resetContractVM(vmEvaluator);
+
+            throw new Error(error);
+        }
+
+        const result = evaluation.getEvaluationResult();
 
         /** Reset contract to prevent damage on states. TODO: Add concurrence to initialisation. */
         if (!result) {
@@ -620,11 +634,7 @@ export class VMManager extends Logger {
             vmEvaluator.dispose();
         }
 
-        return result;
-    }
-
-    private convertSatToGas(sat: bigint): bigint {
-        return sat * ContractEvaluator.SAT_TO_GAS_RATIO;
+        return evaluation;
     }
 
     private async getContractAddress(
@@ -656,13 +666,14 @@ export class VMManager extends Logger {
 
     private async getVMEvaluator(
         contractAddress: Address,
-        height?: bigint,
+        height: bigint | undefined,
     ): Promise<ContractEvaluator | null> {
         // TODO: Add a caching layer for this.
         const contractInformation: ContractInformation | undefined =
             await this.getContractInformation(contractAddress, height);
 
         if (!contractInformation) {
+            this.warn(`Contract ${contractAddress} not found.`);
             return null;
         }
 
@@ -670,17 +681,17 @@ export class VMManager extends Logger {
             await this.loadContractFromBytecode(contractAddress, contractInformation.bytecode);
 
         if (vmIsolatorObj.errored) {
-            return null;
+            throw new Error(`Failed to load contract ${contractAddress} bytecode. (errored)`);
         }
 
         const vmIsolator: VMIsolator | null = vmIsolatorObj.isolator;
         if (!vmIsolator) {
-            throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
+            throw new Error(`Failed to load contract ${contractAddress} bytecode. (isolator)`);
         }
 
         const vmEvaluator = vmIsolator.getContract();
         if (!vmEvaluator) {
-            throw new Error(`Failed to load contract ${contractAddress} bytecode.`);
+            throw new Error(`Failed to load contract ${contractAddress} bytecode. (evaluator)`);
         }
 
         // We use pub the pub key as the deployer address.
@@ -704,7 +715,10 @@ export class VMManager extends Logger {
             return vmEvaluator;
         }
 
-        const newVmEvaluator = this.getVMEvaluator(contractAddress).catch(() => {
+        const newVmEvaluator = this.getVMEvaluator(
+            contractAddress,
+            this.vmBitcoinBlock.height,
+        ).catch(() => {
             return null;
         });
 
@@ -741,7 +755,7 @@ export class VMManager extends Logger {
 
     private async getContractInformation(
         contractAddress: BitcoinAddress,
-        height: bigint = this.vmBitcoinBlock.height,
+        height: bigint | undefined,
     ): Promise<ContractInformation | undefined> {
         if (this.contractCache.has(contractAddress)) {
             return this.contractCache.get(contractAddress);
