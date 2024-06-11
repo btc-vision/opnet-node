@@ -337,7 +337,7 @@ export class VMMongoStorage extends VMStorage {
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = false,
-        height?: bigint,
+        height: bigint,
     ): Promise<ProvenMemoryValue | null> {
         if (setIfNotExit && defaultValue === null) {
             throw new Error('Default value buffer is required');

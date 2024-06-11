@@ -161,10 +161,7 @@ export class VMManager extends Logger {
         calldataString: string,
         height?: bigint,
     ): Promise<EvaluatedResult> {
-        /*if (height === undefined) {
-            height = await this.getChainCurrentBlockHeight();
-        }*/
-
+        const currentHeight: bigint = height || 1n + (await this.getChainCurrentBlockHeight());
         const contractAddress: Address | undefined = await this.getContractAddress(to);
         if (!contractAddress) {
             throw new Error('Contract not found');
@@ -177,7 +174,7 @@ export class VMManager extends Logger {
             callee: from,
             maxGas: GasTracker.MAX_GAS,
             calldata: Buffer.from(calldataString, 'hex'),
-            blockHeight: height,
+            blockHeight: currentHeight,
             allowCached: false,
             externalCall: false,
         };
@@ -581,12 +578,15 @@ export class VMManager extends Logger {
             caller: caller,
             callee: params.callee,
             externalCall: params.externalCall,
+            blockNumber: params.blockHeight,
         };
 
         // Execute the function
         const evaluation: ContractEvaluation | null = await vmEvaluator
             .execute(executionParams)
             .catch((e) => {
+                console.log(e);
+
                 const errorMsg: string = e instanceof Error ? e.message : (e as string);
                 if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
                     error = `execution reverted (${errorMsg})`;
@@ -870,13 +870,14 @@ export class VMManager extends Logger {
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,
+        blockNumber: bigint,
     ): Promise<{ memory?: MemoryValue; proven?: ProvenMemoryValue } | null> {
         const valueFromDB = await this.vmStorage.getStorage(
             address,
             pointer,
             defaultValue,
             setIfNotExit,
-            this.vmBitcoinBlock.height,
+            blockNumber,
         );
 
         if (!valueFromDB) {
@@ -907,6 +908,7 @@ export class VMManager extends Logger {
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,
+        blockNumber: bigint,
     ): Promise<MemoryValue | null> {
         /** We must check if we have the value in the current block state */
         if (!this.blockState && !this.isExecutor) {
@@ -923,6 +925,7 @@ export class VMManager extends Logger {
                 pointer,
                 defaultValue,
                 setIfNotExit,
+                blockNumber,
             );
 
             if (result?.memory) return result.memory;

@@ -71,6 +71,7 @@ export class VMIsolator {
         _pointer: StoragePointer,
         _defaultValue: MemoryValue | null,
         _setIfNotExit: boolean,
+        _blockNumber: bigint,
     ): Promise<MemoryValue | null> {
         throw new Error('Method not implemented. [getStorage]');
     }

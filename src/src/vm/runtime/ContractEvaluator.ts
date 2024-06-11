@@ -103,6 +103,7 @@ export class ContractEvaluator extends Logger {
         pointer: StoragePointer,
         defaultValueBuffer: MemoryValue | null,
         setIfNotExit: boolean = true,
+        blockNumber: bigint,
     ): Promise<MemoryValue | null> {
         if (setIfNotExit && defaultValueBuffer === null) {
             throw new Error('Default value buffer is required');
@@ -111,7 +112,13 @@ export class ContractEvaluator extends Logger {
         const canInitialize: boolean =
             address === this.vmIsolator.contractAddress ? setIfNotExit : false;
 
-        return this.vmIsolator.getStorage(address, pointer, defaultValueBuffer, canInitialize);
+        return this.vmIsolator.getStorage(
+            address,
+            pointer,
+            defaultValueBuffer,
+            canInitialize,
+            blockNumber,
+        );
     }
 
     public async setStorage(
@@ -227,7 +234,7 @@ export class ContractEvaluator extends Logger {
         this.isProcessing = true;
 
         // We restore the original storage state before executing the method.
-        await this.restoreOriginalStorageState();
+        await this.restoreOriginalStorageState(params.blockNumber);
 
         if (!params.calldata && !params.isView) {
             throw new Error('Calldata is required.');
@@ -272,14 +279,18 @@ export class ContractEvaluator extends Logger {
         }
     }
 
-    private async restoreOriginalStorageState(): Promise<void> {
+    private async restoreOriginalStorageState(blockNumber: bigint): Promise<void> {
         // We clear the current storage state, this make sure that we are not using any previous storage state.
         this.clear();
 
         /** We update persistent storage state in case we want to do future call on the same contract instance. */
 
         // The current persistent default storage is the same as the original storage state.
-        this.currentStorageState = await this.getCurrentStorageStates(this.originalStorageState);
+        this.currentStorageState = await this.getCurrentStorageStates(
+            this.originalStorageState,
+            false,
+            blockNumber,
+        );
 
         if (this.enableTracing) {
             console.log('RESTORED INITIAL', this.currentStorageState);
@@ -309,8 +320,8 @@ export class ContractEvaluator extends Logger {
         }
 
         await this.writeCurrentStorageState();
-        await this.writeCallsResponse(evaluation.caller);
-        await this.setEnvironment(evaluation.caller, evaluation.callee);
+        await this.writeCallsResponse(evaluation.caller, evaluation.blockNumber);
+        await this.setEnvironment(evaluation.caller, evaluation.callee, evaluation.blockNumber);
 
         const hasSelectorInMethods = contract?.has(evaluation.abi) ?? false;
 
@@ -348,7 +359,11 @@ export class ContractEvaluator extends Logger {
         }
 
         this.externalCalls = externalCalls;
-        this.currentStorageState = await this.getCurrentStorageStates(initialStorage);
+        this.currentStorageState = await this.getCurrentStorageStates(
+            initialStorage,
+            false,
+            evaluation.blockNumber,
+        );
 
         if (!result) {
             evaluation.incrementTries();
@@ -478,7 +493,7 @@ export class ContractEvaluator extends Logger {
         await this.contractInstance.loadStorage(buf);
     }
 
-    private async writeCallsResponse(caller: Address): Promise<void> {
+    private async writeCallsResponse(caller: Address, blockNumber: bigint): Promise<void> {
         if (!this.contractInstance || !this.contractAddress) {
             throw new Error('Contract not initialized');
         }
@@ -508,6 +523,7 @@ export class ContractEvaluator extends Logger {
                         gasUsed: this.gasTracker.gasUsed,
 
                         externalCall: true,
+                        blockHeight: blockNumber,
 
                         // data
                         calldata: Buffer.from(externCall[i].buffer),
@@ -550,7 +566,11 @@ export class ContractEvaluator extends Logger {
         return externalCalls;
     }
 
-    private async setEnvironment(caller: Address, callee: Address): Promise<void> {
+    private async setEnvironment(
+        caller: Address,
+        callee: Address,
+        blockNumber: bigint,
+    ): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
@@ -558,6 +578,7 @@ export class ContractEvaluator extends Logger {
         const binaryWriter: BinaryWriter = new BinaryWriter();
         binaryWriter.writeAddress(caller);
         binaryWriter.writeAddress(callee);
+        binaryWriter.writeU256(blockNumber);
 
         await this.contractInstance.setEnvironment(binaryWriter.getBuffer());
     }
@@ -625,6 +646,7 @@ export class ContractEvaluator extends Logger {
     private async getCurrentStorageStates(
         defaultStorage: BlockchainStorage,
         isView: boolean = false,
+        blockNumber: bigint,
     ): Promise<BlockchainStorage> {
         const currentStorage: BlockchainStorage = new Map();
         const loadedPromises: Promise<void>[] = [];
@@ -636,7 +658,7 @@ export class ContractEvaluator extends Logger {
             // We iterate over all the storage keys and get the current value
             for (let [k, v] of value) {
                 // We get the current value of the storage slot
-                loadedPromises.push(this.getStorageState(key, k, v, storage, isView));
+                loadedPromises.push(this.getStorageState(key, k, v, storage, isView, blockNumber));
             }
 
             currentStorage.set(key, storage);
@@ -653,6 +675,7 @@ export class ContractEvaluator extends Logger {
         defaultValue: MemorySlotData<bigint>,
         pointerStorage: PointerStorage,
         isView: boolean,
+        blockNumber: bigint,
     ): Promise<void> {
         const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
         const defaultValueBuffer: MemoryValue = BufferHelper.valueToUint8Array(defaultValue);
@@ -662,6 +685,7 @@ export class ContractEvaluator extends Logger {
             rawData,
             defaultValueBuffer,
             !isView,
+            blockNumber,
         );
 
         const valHex = value ? BufferHelper.uint8ArrayToValue(value) : null;

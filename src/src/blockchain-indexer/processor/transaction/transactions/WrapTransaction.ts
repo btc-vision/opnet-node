@@ -10,6 +10,8 @@ import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
 import { Address, BinaryReader, BinaryWriter } from '@btc-vision/bsi-binary';
 import {
     WBTC_WRAP_SELECTOR,
+    WRAPPING_FEE_STACKING,
+    WRAPPING_INDEXER_FEES,
     WRAPPING_INDEXER_PERCENTAGE_FEE,
     WRAPPING_INDEXER_PERCENTAGE_FEE_BASE,
     WRAPPING_INVALID_AMOUNT_PENALTY,
@@ -63,6 +65,9 @@ export class WrapTransaction extends InteractionTransaction {
     #wrappingFees: bigint = 0n;
 
     private penalized: boolean = false;
+    private opnetFee: bigint = 0n;
+    private stackingFee: bigint = 0n;
+    private indexerFee: bigint = 0n;
 
     constructor(
         rawTransactionData: TransactionData,
@@ -341,6 +346,8 @@ export class WrapTransaction extends InteractionTransaction {
         this.#wrappingFees = fees;
         this.#depositAmount -= fees;
 
+        this.calculateFees();
+
         // regenerate calldata.
         this.adjustCalldata();
     }
@@ -351,9 +358,59 @@ export class WrapTransaction extends InteractionTransaction {
         writer.writeSelector(WBTC_WRAP_SELECTOR);
         writer.writeAddress(this.depositAddress);
         writer.writeU256(this.depositAmount);
+        writer.writeAddressValueTupleMap(this.giveFeesToIndexer());
+        writer.writeU256(this.stackingFee);
 
         this._calldata = Buffer.from(writer.getBuffer());
         delete this.interactionWitnessData; // free up some memory.
+
+        this._callee = authorityManager.WBTC_DEPLOYER; // authorize the mint.
+    }
+
+    private calculateFees(): void {
+        this.indexerFee = (this.#wrappingFees * WRAPPING_INDEXER_FEES) / 100n;
+        this.stackingFee = (this.#wrappingFees * WRAPPING_FEE_STACKING) / 100n;
+
+        this.opnetFee = (this.#wrappingFees * 10n) / 100n;
+        const dust: bigint =
+            this.#wrappingFees - (this.indexerFee + this.stackingFee + this.opnetFee);
+
+        this.opnetFee += dust;
+    }
+
+    private giveFeesToIndexer(): Map<Address, bigint> {
+        const fees: Map<Address, bigint> = new Map<Address, bigint>();
+
+        let indexerWallets: Set<Address> = new Set<Address>();
+        for (const validators of this.pubKeys) {
+            const address: Address | undefined =
+                authorityManager.getWalletFromPublicKey(validators);
+
+            if (!address) throw new Error(`Invalid fee recipient found in wrap transaction.`);
+            if (!indexerWallets.has(address)) indexerWallets.add(address);
+        }
+
+        const initial: bigint = this.indexerFee * 100n;
+        const split: bigint = initial / BigInt(indexerWallets.size);
+        const dust: bigint = (initial - split * BigInt(indexerWallets.size)) / 100n;
+
+        for (const wallet of indexerWallets) {
+            fees.set(wallet, split / 100n);
+        }
+
+        const opnetWallet = authorityManager.opnetFeeWallet();
+        if (!opnetWallet) throw new Error(`Invalid fee recipient found in wrap transaction.`);
+        const currentOpnetFee = fees.get(opnetWallet) || 0n;
+        fees.set(opnetWallet, currentOpnetFee + this.opnetFee + dust);
+
+        const totalFees = Array.from(fees.values()).reduce((acc, fee) => acc + fee, 0n);
+        if (totalFees !== this.#wrappingFees - this.stackingFee) {
+            throw new Error(
+                `Invalid fee distribution found in wrap transaction. ${totalFees} !== ${this.#wrappingFees - this.stackingFee}`,
+            );
+        }
+
+        return fees;
     }
 
     private getVaultVOut(): void {

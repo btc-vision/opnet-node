@@ -13,6 +13,8 @@ export class ContractEvaluation implements IEvaluationParameters {
     public readonly callee: Address;
     public readonly canWrite: boolean;
 
+    public readonly blockNumber: bigint;
+
     public readonly externalCall: boolean;
 
     public initialStorage: BlockchainStorage | undefined;
@@ -35,6 +37,7 @@ export class ContractEvaluation implements IEvaluationParameters {
         this.callee = params.callee;
         this.canWrite = params.canWrite;
         this.externalCall = params.externalCall;
+        this.blockNumber = params.blockNumber;
     }
 
     public incrementTries(): void {

@@ -13,6 +13,8 @@ import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { KeyPairGenerator } from '../../networking/encryptem/KeyPairGenerator.js';
 import { TrustedVersion } from '../version/TrustedVersion.js';
 import { Config } from '../../../config/Config.js';
+import { Address } from '@btc-vision/bsi-binary';
+import { OPNET_FEE_WALLET } from '../../wbtc/WBTCRules.js';
 
 export type TrustedPublicKeys = {
     [key in TrustedCompanies]: Buffer[];
@@ -159,6 +161,31 @@ export class TrustedAuthority extends Logger {
                 minimumSignatureRequired: this.transactionMinimum,
             },
         };
+    }
+
+    public opnetFeeWallet(): Address {
+        const wallet = OPNET_FEE_WALLET[this.chainId][this.network];
+
+        if (!wallet) {
+            throw new Error('OPNet fee wallet not found');
+        }
+
+        return wallet.address;
+    }
+
+    public getWalletFromPublicKey(publicKey: Buffer): string | undefined {
+        for (const trustedCompany in this.trustedKeys) {
+            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedCompanies];
+            if (!trustedPublicKeys) continue;
+
+            for (const key of trustedPublicKeys.keys) {
+                if (key.publicKey.equals(publicKey)) {
+                    return key.wallet;
+                }
+            }
+        }
+
+        return;
     }
 
     public verifyPublicKeysConstraints(publicKeys: Buffer[]): boolean {
@@ -359,6 +386,7 @@ export class TrustedAuthority extends Logger {
                         publicKey: Buffer.from(key.publicKey, 'base64'),
                         opnet: Buffer.from(key.opnet, 'base64'),
                         signature: Buffer.from(key.signature, 'base64'),
+                        wallet: key.wallet,
                     };
                 })
                 .filter((key: AuthorityBufferKey) => {
