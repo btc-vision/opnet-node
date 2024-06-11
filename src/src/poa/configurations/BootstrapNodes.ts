@@ -18,7 +18,8 @@ export const BootstrapNodes: BootstrapNodes = {
         ],
 
         [BitcoinNetwork.Regtest]: [
-            '/ip4/192.168.50.136/tcp/9800/p2p/12D3KooWLtuynNCXkRB7YzC8SQnR8b8GSHFBqt4DcZnNHd6rJjyy', // real
+            '/ip4/192.168.50.136/tcp/9800/p2p/12D3KooWLtuynNCXkRB7YzC8SQnR8b8GSHFBqt4DcZnNHd6rJjyy',
+            '/ip4/15.204.163.30/tcp/9800/p2p/12D3KooWBFBxUeNoZmrui2ReVDQZcg93AjPqA1gbMFVLmFsU2y5K',
         ],
 
         [BitcoinNetwork.Signet]: [],
