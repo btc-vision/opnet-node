@@ -8,6 +8,7 @@ import { RPCMessageData } from './RPCMessage.js';
 export interface CallRequestData {
     readonly to: Address;
     readonly calldata: string;
+    readonly from?: Address;
 }
 
 export type CallRequestResponse = ThreadData & (CallRequestError | EvaluatedResult);

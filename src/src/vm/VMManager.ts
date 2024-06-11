@@ -32,6 +32,11 @@ import { VMStorage } from './storage/VMStorage.js';
 import { VMBitcoinBlock } from './VMBitcoinBlock.js';
 import { VMIsolator } from './VMIsolator.js';
 import { WrapTransaction } from '../blockchain-indexer/processor/transaction/transactions/WrapTransaction.js';
+import {
+    ExecutionParameters,
+    InternalContractCallParameters,
+} from './runtime/types/InternalContractCallParameters.js';
+import { ExternalCallResponse } from './runtime/types/ExternalCallRequest.js';
 
 Globals.register();
 
@@ -139,6 +144,7 @@ export class VMManager extends Logger {
         const isolator = new VMIsolator(contractAddress, contractBytecode);
         isolator.getStorage = this.getStorage.bind(this);
         isolator.setStorage = this.setStorage.bind(this);
+        isolator.callExternal = this.callExternal.bind(this);
 
         let errored = await isolator.setupJail();
 
@@ -150,87 +156,37 @@ export class VMManager extends Logger {
 
     /** This method is allowed to read only. It can not modify any states. */
     public async execute(
-        potentialContractAddress: Address,
+        to: Address,
+        from: Address,
         calldataString: string,
         height?: bigint,
-        from?: Address,
     ): Promise<EvaluatedResult> {
         if (height === undefined) {
             height = await this.getChainCurrentBlockHeight();
         }
 
-        const contractAddress: Address | undefined =
-            await this.getContractAddress(potentialContractAddress);
-
+        const contractAddress: Address | undefined = await this.getContractAddress(to);
         if (!contractAddress) {
             throw new Error('Contract not found');
         }
 
+        const maxGas: bigint = VMIsolator.MAX_GAS;
+
         // Get the contract evaluator
-        const vmEvaluator: ContractEvaluator | null = await this.getVMEvaluator(
-            contractAddress,
-            height,
-        ).catch(() => {
-            return null;
-        }); //await this.getVMEvaluatorFromCache(contractAddress);
-
-        if (!vmEvaluator) {
-            throw new Error(`Unable to initialize contract ${contractAddress}`);
-        }
-
-        await vmEvaluator.setMaxGas(VMIsolator.MAX_GAS);
-
-        // Get the function selector
-        const calldata: Buffer = Buffer.from(calldataString, 'hex');
-        if (calldata.byteLength < 4) {
-            throw new Error('Calldata too short');
-        }
-
-        const finalBuffer: Buffer = Buffer.alloc(calldata.byteLength - 4);
-        calldata.copy(finalBuffer, 0, 4, calldata.byteLength);
-
-        const selector: Selector = calldata.readUInt32BE(0);
-        const isView: boolean = vmEvaluator.isViewMethod(selector);
-
-        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            this.debugBright(
-                `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${contractAddress} at block ${height} with calldata ${calldata.toString(
-                    'hex',
-                )}`,
-            );
-        }
+        const params: InternalContractCallParameters = {
+            contractAddress: contractAddress,
+            from: from,
+            callee: from,
+            maxGas: maxGas,
+            calldata: Buffer.from(calldataString, 'hex'),
+            blockHeight: height,
+            transactionId: '',
+            allowCached: false,
+            externalCall: false,
+        };
 
         // Execute the function
-        try {
-            const response = await vmEvaluator.execute(
-                contractAddress,
-                isView,
-                selector,
-                finalBuffer,
-                from || null,
-            );
-
-            vmEvaluator.clear();
-            vmEvaluator.dispose();
-            return response;
-        } catch (e) {
-            console.log(e);
-
-            await this.resetContractVM(vmEvaluator);
-
-            this.error(
-                `Error executing contract ${contractAddress} at block ${height} with calldata ${calldata.toString(
-                    'hex',
-                )}`,
-            );
-
-            const errorMsg = e instanceof Error ? e.message : (e as string);
-            if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
-                throw new Error(`execution reverted (${errorMsg})`);
-            }
-
-            throw new Error(`execution reverted (gas used: ${vmEvaluator.getGasUsed})`);
-        }
+        return await this.executeCallInternal(params);
     }
 
     public async executeTransaction(
@@ -264,81 +220,24 @@ export class VMManager extends Logger {
             throw new Error('execution reverted (out of gas)');
         }
 
-        // Get the contract evaluator
-        const vmEvaluator: ContractEvaluator | null =
-            await this.getVMEvaluatorFromCache(contractAddress);
-
-        if (!vmEvaluator) {
-            throw new Error(
-                `[executeTransaction] Unable to initialize contract ${contractAddress}`,
-            );
-        }
-
-        await vmEvaluator.setMaxGas(burnedBitcoins);
-
         // Trace the execution time
         const startBeforeExecution = Date.now();
+        const maxGas: bigint = this.convertSatToGas(burnedBitcoins);
 
-        // Get the function selector
-        const calldata: Buffer = interactionTransaction.calldata;
-        if (calldata.byteLength < 4) {
-            throw new Error('Calldata too short');
-        }
+        // Define the parameters for the internal call.
+        const params: InternalContractCallParameters = {
+            contractAddress: contractAddress,
+            from: interactionTransaction.from,
+            callee: interactionTransaction.callee,
+            maxGas: maxGas,
+            calldata: interactionTransaction.calldata,
+            blockHeight: blockHeight,
+            transactionId: interactionTransaction.transactionId,
+            allowCached: true,
+            externalCall: false,
+        };
 
-        const finalBuffer: Buffer = Buffer.alloc(calldata.byteLength - 4);
-        calldata.copy(finalBuffer, 0, 4, calldata.byteLength);
-
-        const selector: Selector = calldata.readUInt32BE(0);
-        const isView: boolean = vmEvaluator.isViewMethod(selector);
-
-        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            this.debugBright(
-                `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${contractAddress} at block ${blockHeight} with calldata ${calldata.toString(
-                    'hex',
-                )}`,
-            );
-        }
-
-        // we define the caller here.
-        const caller: Address = interactionTransaction.from;
-
-        let error: string = 'execution reverted';
-        // Execute the function
-        const result: EvaluatedResult | null = await vmEvaluator
-            .execute(contractAddress, isView, selector, finalBuffer, caller)
-            .catch((e) => {
-                const errorMsg: string = e instanceof Error ? e.message : (e as string);
-
-                if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
-                    error = `execution reverted (${errorMsg})`;
-                } else {
-                    error = `execution reverted (gas used: ${vmEvaluator.getGasUsed})`;
-                }
-
-                return null;
-            });
-
-        /** Reset contract to prevent damage on states. TODO: Add concurrence to initialisation. */
-        if (!result) {
-            await this.resetContractVM(vmEvaluator);
-
-            throw new Error(error);
-        }
-
-        // Executors can not save block state changes.
-        if (!this.isExecutor) {
-            this.updateBlockValuesFromResult(
-                result,
-                contractAddress,
-                this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
-                interactionTransaction.transactionId,
-            );
-        }
-
-        if (result?.gasUsed === 0n) {
-            console.log('GAS USED IS 0', result);
-        }
-
+        const result: EvaluatedResult = await this.executeCallInternal(params);
         if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debug(
                 `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute, ${result.gasUsed} gas used)`,
@@ -618,6 +517,114 @@ export class VMManager extends Logger {
         }
 
         this.vmEvaluators.clear();
+    }
+
+    private async callExternal(
+        params: InternalContractCallParameters,
+    ): Promise<ExternalCallResponse> {
+        console.log('External call!', params);
+
+        params.allowCached = !this.isExecutor;
+
+        throw new Error('External calls are not allowed.');
+    }
+
+    private async executeCallInternal(
+        params: InternalContractCallParameters,
+    ): Promise<EvaluatedResult> {
+        // Get the contract evaluator
+        const vmEvaluator: ContractEvaluator | null = params.allowCached
+            ? await this.getVMEvaluatorFromCache(params.contractAddress)
+            : await this.getVMEvaluator(params.contractAddress, params.blockHeight).catch(() => {
+                  return null;
+              });
+
+        if (!vmEvaluator) {
+            throw new Error(
+                `[executeTransaction] Unable to initialize contract ${params.contractAddress}`,
+            );
+        }
+
+        await vmEvaluator.setMaxGas(params.maxGas, params.gasUsed);
+
+        // Get the function selector
+        const calldata: Buffer = params.calldata;
+        if (calldata.byteLength < 4) {
+            throw new Error('Calldata too short');
+        }
+
+        const finalBuffer: Buffer = Buffer.alloc(calldata.byteLength - 4);
+        calldata.copy(finalBuffer, 0, 4, calldata.byteLength);
+
+        const selector: Selector = calldata.readUInt32BE(0);
+        const isView: boolean = vmEvaluator.isViewMethod(selector);
+
+        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            this.debugBright(
+                `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${params.contractAddress} at block ${params.blockHeight || 'latest'} with calldata ${calldata.toString(
+                    'hex',
+                )}`,
+            );
+        }
+
+        // we define the caller here.
+        const caller: Address = params.from;
+
+        let error: string = 'execution reverted';
+
+        const executionParams: ExecutionParameters = {
+            contractAddress: params.contractAddress,
+            isView: isView,
+            abi: selector,
+            calldata: finalBuffer,
+            caller: caller,
+            callee: params.callee,
+            externalCall: params.externalCall,
+        };
+
+        // Execute the function
+        const result: EvaluatedResult | null = await vmEvaluator
+            .execute(executionParams)
+            .catch((e) => {
+                const errorMsg: string = e instanceof Error ? e.message : (e as string);
+
+                if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
+                    error = `execution reverted (${errorMsg})`;
+                } else {
+                    error = `execution reverted (gas used: ${vmEvaluator.getGasUsed})`;
+                }
+
+                return null;
+            });
+
+        /** Reset contract to prevent damage on states. TODO: Add concurrence to initialisation. */
+        if (!result) {
+            await this.resetContractVM(vmEvaluator);
+
+            throw new Error(error);
+        }
+
+        // Executors can not save block state changes.
+        if (!this.isExecutor && !params.externalCall) {
+            this.updateBlockValuesFromResult(
+                result,
+                params.contractAddress,
+                this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+                params.transactionId,
+            );
+        }
+
+        // Clear the VM evaluator if we are not allowing cached.
+        if (!params.allowCached) {
+            vmEvaluator.clear();
+            vmEvaluator.dispose();
+        }
+
+        return result;
+    }
+
+    private convertSatToGas(sat: bigint): bigint {
+        return sat * ContractEvaluator.SAT_TO_GAS_RATIO;
     }
 
     private async getContractAddress(

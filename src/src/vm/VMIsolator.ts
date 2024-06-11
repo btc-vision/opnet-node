@@ -1,14 +1,16 @@
 import { MeterType, meterWASM } from '@btc-vision/wasm-metering';
 import fs from 'fs';
 import IsolatedVM from 'isolated-vm';
-import ivm, { Context, Isolate, Reference, ReferenceApplyOptions } from 'isolated-vm';
+import ivm, { ArgumentType, Context, Isolate, Reference, ReferenceApplyOptions } from 'isolated-vm';
 import path from 'path';
 
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
 import { MemoryValue } from './storage/types/MemoryValue.js';
 import { StoragePointer } from './storage/types/StoragePointer.js';
-import { VMRuntime } from './wasmRuntime/runDebug.js';
 import { Address } from '@btc-vision/bsi-binary';
+import { VMRuntime } from './wasmRuntime/VMRuntime.js';
+import { ExternalCallResponse } from './runtime/types/ExternalCallRequest.js';
+import { InternalContractCallParameters } from './runtime/types/InternalContractCallParameters.js';
 
 interface IsolatedMethods {
     INIT_METHOD: IsolatedVM.Reference<VMRuntime['INIT']>;
@@ -25,6 +27,9 @@ interface IsolatedMethods {
     GET_EVENTS: IsolatedVM.Reference<VMRuntime['getEvents']>;
     PURGE_MEMORY: IsolatedVM.Reference<VMRuntime['purgeMemory']>;
     SET_MAX_GAS: IsolatedVM.Reference<VMRuntime['setMaxGas']>;
+    LOAD_CALLS_RESPONSE: IsolatedVM.Reference<VMRuntime['loadCallsResponse']>;
+    GET_CALLS: IsolatedVM.Reference<VMRuntime['getCalls']>;
+    SET_ENVIRONMENT: IsolatedVM.Reference<VMRuntime['setEnvironment']>;
 }
 
 const codePath: string = path.resolve(__dirname, '../vm/isolated/IsolatedManager.js');
@@ -84,6 +89,12 @@ export class VMIsolator {
         }
 
         return this.contract;
+    }
+
+    public async callExternal(
+        _params: InternalContractCallParameters,
+    ): Promise<ExternalCallResponse> {
+        throw new Error('Method not implemented. [callExternal]');
     }
 
     /**
@@ -169,6 +180,9 @@ export class VMIsolator {
             IS_INITIALIZED: this.reference.getSync('isInitialized', { reference: true }),
             PURGE_MEMORY: this.reference.getSync('purgeMemory', { reference: true }),
             SET_MAX_GAS: this.reference.getSync('setMaxGas', { reference: true }),
+            LOAD_CALLS_RESPONSE: this.reference.getSync('loadCallsResponse', { reference: true }),
+            GET_CALLS: this.reference.getSync('getCalls', { reference: true }),
+            SET_ENVIRONMENT: this.reference.getSync('setEnvironment', { reference: true }),
         };
     }
 
@@ -391,14 +405,62 @@ export class VMIsolator {
         await this.methods.PURGE_MEMORY.apply(undefined, [], this.getCallOptions());
     }
 
-    private async setMaxGas(maxGas: bigint): Promise<void> {
+    private async setMaxGas(maxGas: bigint, usedGas?: bigint): Promise<void> {
         if (!this.methods) {
             throw new Error('Methods not defined');
         }
 
-        await this.methods.SET_MAX_GAS.apply(
+        const args: [
+            maxGas: ArgumentType<{}, bigint>,
+            currentGasUsage?: ArgumentType<{}, bigint | undefined>,
+        ] = [new ivm.ExternalCopy(maxGas).copyInto({ release: true })];
+
+        if (usedGas) {
+            args.push(new ivm.ExternalCopy(usedGas).copyInto({ release: true }));
+        }
+
+        await this.methods.SET_MAX_GAS.apply(undefined, args, this.getCallOptions());
+    }
+
+    private async loadCallsResponse(data: Uint8Array): Promise<void> {
+        if (!this.methods) {
+            throw new Error('Methods not defined');
+        }
+
+        const externalCopy = new ivm.ExternalCopy(data);
+        await this.methods.LOAD_CALLS_RESPONSE.apply(
             undefined,
-            [new ivm.ExternalCopy(maxGas).copyInto({ release: true })],
+            [externalCopy.copyInto({ release: true })],
+            this.getCallOptions(),
+        );
+    }
+
+    private async getCalls(): Promise<Uint8Array> {
+        if (!this.methods) {
+            throw new Error('Methods not defined');
+        }
+
+        const result = (await this.methods.GET_CALLS.apply(
+            undefined,
+            [],
+            this.getCallOptions(),
+        )) as Reference<Uint8Array>;
+
+        const resp = await result.copy();
+        result.release();
+
+        return resp;
+    }
+
+    private async setEnvironment(data: Uint8Array): Promise<void> {
+        if (!this.methods) {
+            throw new Error('Methods not defined');
+        }
+
+        const externalCopy = new ivm.ExternalCopy(data);
+        await this.methods.SET_ENVIRONMENT.apply(
+            undefined,
+            [externalCopy.copyInto({ release: true })],
             this.getCallOptions(),
         );
     }
@@ -419,6 +481,11 @@ export class VMIsolator {
             isInitialized: this.isInitialized.bind(this),
             purgeMemory: this.purgeMemory.bind(this),
             setMaxGas: this.setMaxGas.bind(this),
+
+            // contract calls
+            loadCallsResponse: this.loadCallsResponse.bind(this),
+            getCalls: this.getCalls.bind(this),
+            setEnvironment: this.setEnvironment.bind(this),
         };
     }
 

@@ -18,6 +18,7 @@ import { IndexedInternalPointers } from './required/IndexedInternalPointers.js';
 import { IndexedReorgs } from './required/IndexedReorgs.js';
 import { IndexedTransactions } from './required/IndexedTransactions.js';
 import { IndexedMempool } from './required/IndexedMempool.js';
+import { IndexedWBTCUTXO } from './required/IndexedWBTCUTXO.js';
 
 /** This class job is to create the required indexes for the database */
 export class IndexManager extends Logger {
@@ -32,6 +33,7 @@ export class IndexManager extends Logger {
         new IndexedInternalPointers(),
         new IndexedReorgs(),
         new IndexedMempool(),
+        new IndexedWBTCUTXO(),
     ];
 
     constructor(private readonly opnetDB: ConfigurableDBManager) {

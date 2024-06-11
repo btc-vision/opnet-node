@@ -9,6 +9,7 @@ export enum OPNetCollections {
     BlockchainInformation = 'BlockchainInformation',
     Reorgs = 'Reorgs',
     Mempool = 'Mempool',
+    WBTCUTXO = 'WBTCUTXO',
 }
 
 export abstract class IndexedCollection<T extends OPNetCollections> {

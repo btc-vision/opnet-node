@@ -1,5 +1,6 @@
 class GasTracker {
     #gasUsed = 0n;
+    #initialGas = 0n;
 
     #canTrack = false;
     #maxGas = 0n;
@@ -12,6 +13,10 @@ class GasTracker {
         return this.#gasUsed;
     }
 
+    set initialGas(gasUsed) {
+        this.#initialGas = gasUsed;
+    }
+
     set maxGas(maxGas) {
         this.#maxGas = maxGas;
     }
@@ -21,12 +26,13 @@ class GasTracker {
             return;
         }
 
-        if (this.#gasUsed + gas > this.#maxGas) {
-            throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.#maxGas}`);
+        const gasUsed = this.#gasUsed + this.#initialGas;
+        if (gasUsed + gas > this.#maxGas) {
+            throw new Error(`out of gas ${gasUsed + gas} > ${this.#maxGas}`);
         }
 
-        if (this.#gasUsed + gas > MAX_GAS) {
-            throw new Error(`out of gas ${this.#gasUsed + gas} > ${MAX_GAS} (max)`);
+        if (gasUsed + gas > MAX_GAS) {
+            throw new Error(`out of gas ${gasUsed + gas} > ${MAX_GAS} (max)`);
         }
 
         this.#gasUsed += gas;
@@ -164,13 +170,23 @@ const adaptedExports = Object.setPrototypeOf(
             data = __lowerTypedArray(Uint8Array, 13, 0, data) || __notnull();
             exports.loadStorage(data);
         },
-        allocateMemory(size) {
-            // src/btc/exports/index/allocateMemory(usize) => usize
-            return exports.allocateMemory(size) >>> 0;
+        loadCallsResponse(data) {
+            // src/btc/exports/index/loadCallsResponse(~lib/typedarray/Uint8Array) => void
+            data = __lowerTypedArray(Uint8Array, 13, 0, data) || __notnull();
+            exports.loadCallsResponse(data);
+        },
+        getCalls() {
+            // src/btc/exports/index/getCalls() => ~lib/typedarray/Uint8Array
+            return __liftTypedArray(Uint8Array, exports.getCalls() >>> 0);
+        },
+        setEnvironment(data) {
+            // src/btc/exports/index/setEnvironment(~lib/typedarray/Uint8Array) => void
+            data = __lowerTypedArray(Uint8Array, 13, 0, data) || __notnull();
+            exports.setEnvironment(data);
         },
         isInitialized() {
             // src/btc/exports/index/isInitialized() => bool
-            return exports.isInitialized() != 0;
+            return exports.isInitialized() !== 0;
         },
     },
     exports,
@@ -336,11 +352,6 @@ export function loadStorage(data) {
     gasTracker.track(() => adaptedExports.loadStorage(data));
 }
 
-export function allocateMemory(size) {
-    // src/btc/exports/index/allocateMemory(usize) => usize
-    return gasTracker.track(() => adaptedExports.allocateMemory(size));
-}
-
 export function isInitialized() {
     // src/btc/exports/index/isInitialized() => bool
     return gasTracker.track(() => adaptedExports.isInitialized());
@@ -351,6 +362,22 @@ export function purgeMemory() {
     return gasTracker.track(() => adaptedExports.purgeMemory());
 }
 
-export function setMaxGas(maxGas) {
+export function loadCallsResponse(data) {
+    gasTracker.track(() => adaptedExports.loadCallsResponse(data));
+}
+
+export function getCalls() {
+    return gasTracker.track(() => adaptedExports.getCalls());
+}
+
+export function setEnvironment(data) {
+    gasTracker.track(() => adaptedExports.setEnvironment(data));
+}
+
+export function setMaxGas(maxGas, gasUsed) {
     gasTracker.maxGas = maxGas;
+
+    if (gasUsed) {
+        gasTracker.initialGas = gasUsed;
+    }
 }

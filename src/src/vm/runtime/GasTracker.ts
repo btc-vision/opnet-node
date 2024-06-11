@@ -1,3 +1,5 @@
+import { ContractEvaluator } from './ContractEvaluator.js';
+
 export class GasTracker {
     #gasUsed: bigint = 0n;
     #maxGas: bigint;
@@ -15,12 +17,25 @@ export class GasTracker {
         return this.#gasUsed;
     }
 
+    public set gasUsed(gasUsed: bigint) {
+        this.#gasUsed = gasUsed;
+    }
+
     public set maxGas(maxGas: bigint) {
         this.#maxGas = maxGas;
     }
 
     public get timeSpent(): bigint {
         return this.#timeSpent;
+    }
+
+    // round up to 10000000
+    public static round(gasUsed: bigint) {
+        return (
+            ((gasUsed + (ContractEvaluator.SAT_TO_GAS_RATIO - 1n)) /
+                ContractEvaluator.SAT_TO_GAS_RATIO) *
+            ContractEvaluator.SAT_TO_GAS_RATIO
+        );
     }
 
     public isEnabled(): boolean {

@@ -1,5 +1,4 @@
-import { Selector } from '../buffer/BinaryReader.js';
-import { Address } from '../buffer/types/math.js';
+import { Address, Selector } from '@btc-vision/bsi-binary';
 
 export type VMRuntime = {
     INIT(owner: string, contractAddress: string): Promise<void>;
@@ -20,25 +19,18 @@ export type VMRuntime = {
     getMethodABI(): Promise<Uint8Array>;
     getWriteMethods(): Promise<Uint8Array>;
 
-    /**
-     * src/btc/exports/index/getModifiedStorage
-     * @returns `~lib/typedarray/Uint8Array`
-     */
     getModifiedStorage(): Promise<Uint8Array>;
-
-    /**
-     * src/btc/exports/index/initializeStorage
-     * @returns `~lib/typedarray/Uint8Array`
-     */
     initializeStorage(): Promise<Uint8Array>;
 
     loadStorage(data: Uint8Array): Promise<void>;
+    loadCallsResponse(data: Uint8Array): Promise<void>;
+
+    getCalls(): Promise<Uint8Array>;
+    setEnvironment(environment: Uint8Array): Promise<void>;
 
     isInitialized(): Promise<boolean>;
 
     purgeMemory(): Promise<void>;
 
-    setMaxGas(maxGas: bigint): Promise<void>;
+    setMaxGas(maxGas: bigint, currentGasUsage?: bigint): Promise<void>;
 };
-
-export declare function instantiate(bytecode: Buffer, state: {}): Promise<VMRuntime>;

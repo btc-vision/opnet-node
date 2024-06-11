@@ -17,7 +17,7 @@ import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
 import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
-import { BinaryReader } from '@btc-vision/bsi-binary';
+import { Address, BinaryReader } from '@btc-vision/bsi-binary';
 import { WBTC_UNWRAP_SELECTOR, WBTC_WRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
 
 export interface InteractionWitnessData {
@@ -89,14 +89,20 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return newCalldata;
     }
 
-    protected _contractAddress: string | undefined;
+    protected _contractAddress: Address | undefined;
 
-    public get contractAddress(): string {
+    public get contractAddress(): Address {
         return this._contractAddress as string;
     }
 
-    public set contractAddress(contractAddress: string) {
+    public set contractAddress(contractAddress: Address) {
         this._contractAddress = contractAddress;
+    }
+
+    protected _callee: Address | undefined;
+
+    public get callee(): Address {
+        return this._callee || this.from;
     }
 
     public get gasUsed(): bigint {
