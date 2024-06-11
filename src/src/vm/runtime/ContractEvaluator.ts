@@ -19,13 +19,12 @@ import { VMIsolator } from '../VMIsolator.js';
 import { GasTracker } from './GasTracker.js';
 import { VMRuntime } from '../wasmRuntime/VMRuntime.js';
 import { Logger } from '@btc-vision/bsi-common';
-import { ExternalCallResponse } from './types/ExternalCallRequest.js';
 import {
     ExecutionParameters,
     InternalContractCallParameters,
 } from './types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
-import { ExternalCalls, ExternalCallsResult } from './types/ExternalCall.js';
+import { ExternalCallResponse, ExternalCalls, ExternalCallsResult } from './types/ExternalCall.js';
 
 export class ContractEvaluator extends Logger {
     public static readonly SAT_TO_GAS_RATIO: bigint = 18416666n; //100000000n; //30750n; //611805;

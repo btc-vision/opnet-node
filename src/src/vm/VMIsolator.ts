@@ -9,8 +9,8 @@ import { MemoryValue } from './storage/types/MemoryValue.js';
 import { StoragePointer } from './storage/types/StoragePointer.js';
 import { Address } from '@btc-vision/bsi-binary';
 import { VMRuntime } from './wasmRuntime/VMRuntime.js';
-import { ExternalCallResponse } from './runtime/types/ExternalCallRequest.js';
 import { InternalContractCallParameters } from './runtime/types/InternalContractCallParameters.js';
+import { ExternalCallResponse } from './runtime/types/ExternalCall.js';
 
 interface IsolatedMethods {
     INIT_METHOD: IsolatedVM.Reference<VMRuntime['INIT']>;

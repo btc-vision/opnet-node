@@ -23,7 +23,7 @@ export class ContractEvaluation implements IEvaluationParameters {
 
     public result: Uint8Array | undefined;
 
-    public gasUsed: bigint = 0;
+    public gasUsed: bigint = 0n;
     public tries: number = 0;
 
     constructor(params: IEvaluationParameters) {

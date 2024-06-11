@@ -36,7 +36,7 @@ import {
     ExecutionParameters,
     InternalContractCallParameters,
 } from './runtime/types/InternalContractCallParameters.js';
-import { ExternalCallResponse } from './runtime/types/ExternalCallRequest.js';
+import { ExternalCallResponse } from './runtime/types/ExternalCall.js';
 
 Globals.register();
 
@@ -605,7 +605,7 @@ export class VMManager extends Logger {
         }
 
         // Executors can not save block state changes.
-        if (!this.isExecutor && !params.externalCall) {
+        if (!this.isExecutor && !params.externalCall && params.transactionId) {
             this.updateBlockValuesFromResult(
                 result,
                 params.contractAddress,

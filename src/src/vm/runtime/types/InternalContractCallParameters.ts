@@ -8,8 +8,9 @@ export interface InternalContractCallParameters {
     readonly maxGas: bigint;
 
     readonly calldata: Buffer;
-    readonly transactionId: string;
     readonly externalCall: boolean;
+
+    readonly transactionId?: string; // external call have this empty
 
     readonly blockHeight?: bigint;
     readonly gasUsed?: bigint;
