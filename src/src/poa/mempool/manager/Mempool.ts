@@ -97,10 +97,7 @@ export class Mempool extends Logger {
     private async onRPCMethod(m: RPCMessageData<BitcoinRPCThreadMessageType>): Promise<ThreadData> {
         switch (m.rpcMethod) {
             case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET: {
-                const resp = await this.onTransactionReceived(m.data as OPNetBroadcastData);
-                console.log(resp);
-
-                return resp;
+                return await this.onTransactionReceived(m.data as OPNetBroadcastData);
             }
 
             default: {
