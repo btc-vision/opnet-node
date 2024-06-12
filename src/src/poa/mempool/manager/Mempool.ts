@@ -158,12 +158,15 @@ export class Mempool extends Logger {
                         Buffer.from(base64, 'base64'),
                     ]);
 
+                    const isvalid = await this.psbtVerifier.verify(modifiedTransaction);
+                    console.log('isvalid', isvalid);
+
                     return {
                         success: true,
                         result: 'PSBT decoded successfully',
                         identifier: cyrb53a(modifiedTransaction as unknown as u8[]),
                         modifiedTransaction: modifiedTransaction.toString('base64'),
-                        finalizedTransaction: processed.finalized ?? false
+                        finalizedTransaction: processed.finalized ?? false,
                     };
                 } else {
                     // unchanged.
