@@ -2,7 +2,6 @@ import { PSBTVerificator } from './PSBTVerificator.js';
 import bitcoin, { initEccLib, Network, networks, payments, Psbt, script } from 'bitcoinjs-lib';
 import * as ecc from 'tiny-secp256k1';
 import { PSBTTypes } from '../psbt/PSBTTypes.js';
-import { Transaction } from '../../../blockchain-indexer/processor/transaction/Transaction.js';
 import {
     InteractionTransaction,
     InteractionWitnessData,
@@ -10,6 +9,7 @@ import {
 import { Input } from 'bitcoinjs-lib/src/transaction.js';
 import { ABICoder, Address, BinaryReader } from '@btc-vision/bsi-binary';
 import { KnownPSBTObject, PSBTDecodedData } from '../psbt/PSBTTransactionVerifier.js';
+import { Transaction } from '../../../blockchain-indexer/processor/transaction/Transaction.js';
 
 initEccLib(ecc);
 
@@ -53,8 +53,19 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
     }
 
     private async verifyConformity(data: Psbt): Promise<UnwrapPSBTDecodedData> {
-        const tx = data.extractTransaction();
+        const clone = data.clone();
 
+        let newInputs = [];
+        for (const input of clone.data.inputs) {
+            if (!input.partialSig) {
+                newInputs.push(input);
+            }
+        }
+
+        // @ts-ignore - Get rid of unsigned inputs for verification. TODO: Add a feature in bitcoinjs-lib to ignore unsigned inputs.
+        clone.data.inputs = newInputs;
+
+        const tx = clone.extractTransaction(true);
         const firstInput = tx.ins[0];
         if (!firstInput) {
             throw new Error(`No inputs found`);
