@@ -13,7 +13,7 @@ export class PSBTProcessorManager {
         this.verificator.push(new UnwrapProcessor(authority, db, network));
     }
 
-    public async processPSBT(data: KnownPSBTObject): Promise<void> {
+    public async processPSBT(data: KnownPSBTObject): Promise<boolean> {
         const processor = this.verificator.find((v) => v.type === data.type);
         if (processor) {
             return await processor.process(data.psbt, data.data);

@@ -17,5 +17,5 @@ export abstract class PSBTProcessor<T extends PSBTTypes> extends Logger {
 
     public abstract createRepositories(): void;
 
-    public abstract process(psbt: Psbt, data: PSBTDecodedData): Promise<void>;
+    public abstract process(psbt: Psbt, data: PSBTDecodedData): Promise<boolean>;
 }

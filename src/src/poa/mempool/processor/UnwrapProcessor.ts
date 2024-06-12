@@ -29,7 +29,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         this.#utxoRepository = new WBTCUTXORepository(this.db.db);
     }
 
-    public async process(psbt: Psbt, data: UnwrapPSBTDecodedData): Promise<void> {
+    public async process(psbt: Psbt, data: UnwrapPSBTDecodedData): Promise<boolean> {
         if (!this.#utxoRepository) throw new Error('UTXO repository not created.');
 
         this.log(`Processing Unwrap PSBT:`);
@@ -37,5 +37,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
 
         const utxos = await this.#utxoRepository.queryVaultsUTXOs(data.amount);
         console.log(utxos);
+
+        return false;
     }
 }

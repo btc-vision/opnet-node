@@ -132,6 +132,13 @@ export class Mempool extends Logger {
                 }
 
                 const processed = await this.psbtProcessorManager.processPSBT(decodedPsbt);
+                if (!processed) {
+                    return {
+                        success: false,
+                        result: 'Could not process PSBT',
+                        identifier: identifier,
+                    };
+                }
 
                 result = {
                     success: true,
