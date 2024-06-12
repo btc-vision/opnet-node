@@ -162,7 +162,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
             }
         }
 
-        console.log(tx.data.inputs);
+        console.log('inputs', tx.data.inputs);
 
         if (signed) {
             this.success('WBTC PSBT signed!');
@@ -175,7 +175,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
             const tx = transaction.transaction;
 
             const finalized = tx.extractTransaction();
-            console.log(finalized);
+            console.log('final tx', finalized);
         }
 
         return {

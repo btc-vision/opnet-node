@@ -50,7 +50,7 @@ export class WrapManager extends AbstractSpecialManager<OPNetTransactionTypes.Wr
             vault: transaction.vault,
             blockId: DataConverter.toDecimal128(transaction.blockHeight),
             value: DataConverter.toDecimal128(transaction.depositTotal),
-            hash: transaction.hash,
+            hash: transaction.txid,
             outputIndex: transaction.wrapIndex,
             output: Binary.createFromHexString(output.hex),
         };
