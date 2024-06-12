@@ -20,7 +20,7 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
     ): Promise<void> {
         const criteria: Partial<Filter<IBlockHeaderBlockDocument>> = {
             height: {
-                $gt: DataConverter.toDecimal128(height),
+                $gte: DataConverter.toDecimal128(height),
             },
         };
 

@@ -34,7 +34,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         currentSession?: ClientSession,
     ): Promise<void> {
         const criteria: Partial<Filter<IContractPointerValueDocument>> = {
-            lastSeenAt: { $gt: DataConverter.toDecimal128(blockHeight) },
+            lastSeenAt: { $gte: DataConverter.toDecimal128(blockHeight) },
         };
 
         await this.delete(criteria, currentSession);

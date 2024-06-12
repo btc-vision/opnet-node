@@ -10,6 +10,7 @@ export enum OPNetCollections {
     Reorgs = 'Reorgs',
     Mempool = 'Mempool',
     WBTCUTXO = 'WBTCUTXO',
+    Vaults = 'Vaults',
 }
 
 export abstract class IndexedCollection<T extends OPNetCollections> {

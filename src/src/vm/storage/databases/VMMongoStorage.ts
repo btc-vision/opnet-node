@@ -27,6 +27,10 @@ import { TransactionRepository } from '../../../db/repositories/TransactionRepos
 import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
 import { VMStorage } from '../VMStorage.js';
+import { IWBTCUTXODocument } from '../../../db/interfaces/IWBTCUTXODocument.js';
+import { IVaultDocument } from '../../../db/interfaces/IVaultDocument.js';
+import { VaultRepository } from '../../../db/repositories/VaultRepository.js';
+import { WBTCUTXORepository } from '../../../db/repositories/WBTCUTXORepository.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -44,6 +48,9 @@ export class VMMongoStorage extends VMStorage {
     private blockchainInfoRepository: BlockchainInformationRepository | undefined;
     private reorgRepository: ReorgsRepository | undefined;
     private blockWitnessRepository: BlockWitnessRepository | undefined;
+
+    private vaultRepository: VaultRepository | undefined;
+    private wbtcUTXORepository: WBTCUTXORepository | undefined;
 
     private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
     private readonly maxTransactionSessions: number;
@@ -93,6 +100,14 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Reorg repository not initialized');
         }
 
+        if (!this.vaultRepository) {
+            throw new Error('Vault repository not initialized');
+        }
+
+        if (!this.wbtcUTXORepository) {
+            throw new Error('WBTC UTXO repository not initialized');
+        }
+
         await this.updateBlockchainInfo(Number(blockId));
 
         const promises: Promise<void>[] = [
@@ -102,6 +117,8 @@ export class VMMongoStorage extends VMStorage {
             this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
             this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId),
             this.reorgRepository.deleteReorgs(blockId),
+            this.vaultRepository.deleteVaultsSeenAfter(blockId),
+            this.wbtcUTXORepository.deleteWBTCUTXOs(blockId),
         ];
 
         await Promise.all(promises);
@@ -163,6 +180,8 @@ export class VMMongoStorage extends VMStorage {
 
         this.reorgRepository = new ReorgsRepository(this.databaseManager.db);
         this.blockWitnessRepository = new BlockWitnessRepository(this.databaseManager.db);
+        this.vaultRepository = new VaultRepository(this.databaseManager.db);
+        this.wbtcUTXORepository = new WBTCUTXORepository(this.databaseManager.db);
     }
 
     public async getLatestBlock(): Promise<BlockHeaderAPIBlockDocument> {
@@ -546,6 +565,38 @@ export class VMMongoStorage extends VMStorage {
         }
 
         return await this.transactionRepository.getWalletUnspentUTXOS(address, optimize);
+    }
+
+    public async setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void> {
+        if (!this.wbtcUTXORepository) {
+            throw new Error('WBTC UTXO repository not initialized');
+        }
+
+        await this.wbtcUTXORepository.setWBTCUTXO(wbtcUTXO);
+    }
+
+    public async setVault(vault: IVaultDocument): Promise<void> {
+        if (!this.vaultRepository) {
+            throw new Error('Vault repository not initialized');
+        }
+
+        await this.vaultRepository.setVault(vault);
+    }
+
+    public async getWBTCUTXOs(requestedAmount: bigint): Promise<IWBTCUTXODocument[] | undefined> {
+        if (!this.wbtcUTXORepository) {
+            throw new Error('WBTC UTXO repository not initialized');
+        }
+
+        return await this.wbtcUTXORepository.queryBestUTXOs(requestedAmount);
+    }
+
+    public async getVault(vault: Address): Promise<IVaultDocument | undefined> {
+        if (!this.vaultRepository) {
+            throw new Error('Vault repository not initialized');
+        }
+
+        return await this.vaultRepository.getVault(vault);
     }
 
     public async getBalanceOf(address: BitcoinAddress): Promise<bigint | undefined> {

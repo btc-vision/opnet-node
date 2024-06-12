@@ -18,7 +18,7 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
     public async deleteBlockWitnessesFromHeight(height: bigint): Promise<void> {
         const criteria: Partial<Filter<IBlockWitnessDocument>> = {
             blockNumber: {
-                $gt: DataConverter.toDecimal128(height),
+                $gte: DataConverter.toDecimal128(height),
             },
         };
 

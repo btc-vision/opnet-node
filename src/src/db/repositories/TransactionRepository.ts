@@ -40,7 +40,7 @@ export class TransactionRepository extends BaseRepository<
         currentSession?: ClientSession,
     ): Promise<void> {
         const criteria: Partial<Filter<ITransactionDocument<OPNetTransactionTypes>>> = {
-            blockHeight: { $gt: DataConverter.toDecimal128(blockHeight) },
+            blockHeight: { $gte: DataConverter.toDecimal128(blockHeight) },
         };
 
         await this.delete(criteria, currentSession);

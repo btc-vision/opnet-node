@@ -1,4 +1,4 @@
-import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
+import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Network, opcodes } from 'bitcoinjs-lib';
 import { Binary } from 'mongodb';
@@ -17,6 +17,7 @@ import {
     WRAPPING_INVALID_AMOUNT_PENALTY,
 } from '../../../../poa/wbtc/WBTCRules.js';
 import { EcKeyPair } from '@btc-vision/transaction';
+import { TransactionOutput } from '../inputs/TransactionOutput.js';
 
 export interface WrapWitnessData extends InteractionWitnessData {
     readonly pubKeys: Buffer;
@@ -59,6 +60,9 @@ export class WrapTransaction extends InteractionTransaction {
     #minimumSignatures: number = 0;
     #vault: string = '';
 
+    #wrapIndex: number = 0;
+    #wrapOutput: ScriptPubKey | undefined;
+    #depositTotal: bigint = 0n;
     #depositAmount: bigint = 0n;
     #depositAddress: string = '';
 
@@ -81,6 +85,26 @@ export class WrapTransaction extends InteractionTransaction {
 
     public get wrappingFees(): bigint {
         return this.#wrappingFees;
+    }
+
+    public get wrapIndex(): number {
+        return this.#wrapIndex;
+    }
+
+    public get wrapOutput(): ScriptPubKey {
+        if (!this.#wrapOutput) {
+            throw new Error(`Wrap output is not set.`);
+        }
+
+        return this.#wrapOutput;
+    }
+
+    public get depositTotal(): bigint {
+        return this.#depositTotal;
+    }
+
+    public get publicKeys(): Binary[] {
+        return this.pubKeys.map((pubKey) => new Binary(pubKey));
     }
 
     public get minimumSignatures(): number {
@@ -132,7 +156,7 @@ export class WrapTransaction extends InteractionTransaction {
 
             vault: this.vault,
 
-            pubKeys: this.pubKeys.map((pubKey) => new Binary(pubKey)),
+            pubKeys: this.publicKeys,
             minimumSignatures: this.minimumSignatures,
 
             depositAmount: DataConverter.toDecimal128(this.depositAmount),
@@ -319,8 +343,8 @@ export class WrapTransaction extends InteractionTransaction {
             this.#depositAmount -= WRAPPING_INVALID_AMOUNT_PENALTY;
             this.penalized = true;
 
-            if (this.depositAmount < 0n) {
-                throw new Error(`Transaction does not have to be penalized.`); // we reject the transaction
+            if (this.#depositAmount < 0n) {
+                throw new Error(`Not enough.`); // we reject the transaction
             }
         } else {
             this.#depositAmount = amount;
@@ -414,11 +438,21 @@ export class WrapTransaction extends InteractionTransaction {
     }
 
     private getVaultVOut(): void {
-        const vaultVOut = this.outputs.find((vOut) => vOut.scriptPubKey.address === this.vault);
+        const vaultVOut: TransactionOutput | undefined = this.outputs.find(
+            (vOut) => vOut.scriptPubKey.address === this.vault,
+        );
         if (!vaultVOut) {
             throw new Error(`Missing (or invalid) vault deposit in wrap transaction.`);
         }
 
-        this.#depositAmount = BigInt(vaultVOut.value);
+        if (vaultVOut.scriptPubKey.address !== this.vault) {
+            throw new Error(`Invalid vault address found in wrap transaction.`);
+        }
+
+        this.#wrapIndex = vaultVOut.index;
+        this.#wrapOutput = vaultVOut.scriptPubKey;
+
+        this.#depositTotal = vaultVOut.value;
+        this.#depositAmount = this.#depositTotal;
     }
 }

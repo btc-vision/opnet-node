@@ -17,7 +17,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         currentSession?: ClientSession,
     ): Promise<void> {
         const criteria: Partial<Filter<IContractDocument>> = {
-            blockHeight: { $gt: DataConverter.toDecimal128(blockHeight) },
+            blockHeight: { $gte: DataConverter.toDecimal128(blockHeight) },
         };
 
         await this.delete(criteria, currentSession);

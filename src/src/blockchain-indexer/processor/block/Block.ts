@@ -24,6 +24,7 @@ import { BlockHeader } from './classes/BlockHeader.js';
 import { ChecksumMerkle } from './merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from './types/ZeroValue.js';
 import { WrapTransaction } from '../transaction/transactions/WrapTransaction.js';
+import { SpecialManager } from '../special-transaction/SpecialManager.js';
 
 export class Block extends Logger {
     // Block Header
@@ -52,6 +53,9 @@ export class Block extends Logger {
 
     private genericTransactions: Transaction<OPNetTransactionTypes>[] = [];
     private opnetTransactions: Transaction<OPNetTransactionTypes>[] = [];
+    private specialTransaction: Transaction<OPNetTransactionTypes>[] = [];
+
+    private specialExecutionPromise: Promise<void> | undefined;
 
     #_storageRoot: string | undefined;
     #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
@@ -233,7 +237,7 @@ export class Block extends Logger {
     }
 
     /** Block Execution */
-    public async execute(vmManager: VMManager): Promise<boolean> {
+    public async execute(vmManager: VMManager, specialManager: SpecialManager): Promise<boolean> {
         this.ensureNotExecuted();
 
         // Prepare the vm for the block execution
@@ -245,7 +249,9 @@ export class Block extends Logger {
             const timeBeforeExecution = Date.now();
 
             // Execute each transaction of the block.
-            await this.executeTransactions(vmManager);
+            await this.executeTransactions(vmManager, specialManager);
+
+            this.specialExecutionPromise = this.executeSpecialTransactions(specialManager);
 
             const timeAfterExecution = Date.now();
             this.timeForTransactionExecution = timeAfterExecution - timeBeforeExecution;
@@ -351,10 +357,17 @@ export class Block extends Logger {
     }
 
     /** Transactions Execution */
-    protected async executeTransactions(vmManager: VMManager): Promise<void> {
+    protected async executeTransactions(
+        vmManager: VMManager,
+        specialManager: SpecialManager,
+    ): Promise<void> {
         const promises: Promise<void>[] = [
-            this.executeThreadedGenericTransactions(this.genericTransactions, vmManager),
-            this.executeOPNetTransactions(this.opnetTransactions, vmManager),
+            this.executeThreadedGenericTransactions(
+                this.genericTransactions,
+                vmManager,
+                specialManager,
+            ),
+            this.executeOPNetTransactions(this.opnetTransactions, vmManager, specialManager),
         ];
 
         await Promise.all(promises);
@@ -397,9 +410,25 @@ export class Block extends Logger {
         }
     }
 
+    private async executeSpecialTransactions(specialManager: SpecialManager): Promise<void> {
+        const promises: Promise<void>[] = [];
+
+        /** Concurrently execute the special transactions */
+        for (const transaction of this.specialTransaction) {
+            if (!specialManager.requireAdditionalSteps(transaction.transactionType)) {
+                throw new Error('Special execution not found');
+            }
+
+            promises.push(specialManager.execute(transaction));
+        }
+
+        await Promise.all(promises);
+    }
+
     private async executeThreadedGenericTransactions(
         transactions: Transaction<OPNetTransactionTypes>[],
         vmManager: VMManager,
+        specialManager: SpecialManager,
     ): Promise<void> {
         const groups = this.divideIntoSubArray(
             Config.OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT,
@@ -409,7 +438,9 @@ export class Block extends Logger {
         for (const group of groups) {
             const promises: Promise<void>[] = [];
             for (const transaction of group) {
-                promises.push(this.executeOPNetSingleTransaction(transaction, vmManager));
+                promises.push(
+                    this.executeOPNetSingleTransaction(transaction, vmManager, specialManager),
+                );
             }
 
             await Promise.all(promises);
@@ -428,15 +459,17 @@ export class Block extends Logger {
     private async executeOPNetTransactions(
         transactions: Transaction<OPNetTransactionTypes>[],
         vmManager: VMManager,
+        specialManager: SpecialManager,
     ): Promise<void> {
         for (const transaction of transactions) {
-            await this.executeOPNetSingleTransaction(transaction, vmManager);
+            await this.executeOPNetSingleTransaction(transaction, vmManager, specialManager);
         }
     }
 
     private async executeOPNetSingleTransaction(
         _transaction: Transaction<OPNetTransactionTypes>,
         vmManager: VMManager,
+        specialManager: SpecialManager,
     ): Promise<void> {
         switch (_transaction.transactionType) {
             case OPNetTransactionTypes.Interaction: {
@@ -463,6 +496,13 @@ export class Block extends Logger {
             default: {
                 throw new Error(`Unsupported transaction type: ${_transaction.transactionType}`);
             }
+        }
+
+        if (
+            !_transaction.revert &&
+            specialManager.requireAdditionalSteps(_transaction.transactionType)
+        ) {
+            this.specialTransaction.push(_transaction);
         }
     }
 
@@ -514,6 +554,9 @@ export class Block extends Logger {
         );
 
         this.#_checksumProofs = this.#_checksumMerkle.getProofs();
+
+        await this.specialExecutionPromise;
+        this.specialTransaction = []; // clear up some memory
 
         /*const isValid = vmManager.validateBlockChecksum({
             height: DataConverter.toDecimal128(this.height),

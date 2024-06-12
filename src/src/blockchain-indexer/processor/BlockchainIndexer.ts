@@ -24,6 +24,7 @@ import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { VMManager } from '../../vm/VMManager.js';
 import { Block } from './block/Block.js';
+import { SpecialManager } from './special-transaction/SpecialManager.js';
 
 interface LastBlock {
     hash?: string;
@@ -40,6 +41,7 @@ export class BlockchainIndexer extends Logger {
 
     private readonly vmManager: VMManager;
     private readonly vmStorage: VMStorage;
+    private readonly specialTransactionManager: SpecialManager;
 
     private readonly processOnlyOneBlock: boolean = false;
 
@@ -62,6 +64,8 @@ export class BlockchainIndexer extends Logger {
 
         this.vmManager = new VMManager(config);
         this.vmStorage = this.vmManager.getVMStorage();
+
+        this.specialTransactionManager = new SpecialManager(this.vmManager);
 
         switch (this.network) {
             case 'mainnet':
@@ -439,6 +443,7 @@ export class BlockchainIndexer extends Logger {
     private async processBlock(
         blockData: BlockDataWithTransactionData,
         chosenManager: VMManager,
+        chosenSpecialManager: SpecialManager = this.specialTransactionManager,
     ): Promise<Block | null> {
         const block: Block = new Block(blockData, this.bitcoinNetwork);
 
@@ -446,10 +451,12 @@ export class BlockchainIndexer extends Logger {
         block.deserialize();
 
         // Execute the block and save the changes.
-        const success = await block.execute(chosenManager);
+        const success = await block.execute(chosenManager, chosenSpecialManager);
         if (!success) {
             return null;
         }
+
+        chosenSpecialManager.reset();
 
         // We must write the block to the database before returning it.
         const finalized = await block.finalizeBlock(chosenManager);

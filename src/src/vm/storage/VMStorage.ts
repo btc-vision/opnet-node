@@ -16,6 +16,8 @@ import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
 import { Address } from '@btc-vision/bsi-binary';
+import { IWBTCUTXODocument } from '../../db/interfaces/IWBTCUTXODocument.js';
+import { IVaultDocument } from '../../db/interfaces/IVaultDocument.js';
 
 export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public readonly logColor: string = '#ff00ff';
@@ -126,4 +128,12 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public abstract setReorg(reorgData: IReorgData): Promise<void>;
 
     public abstract awaitPendingWrites(): Promise<void>;
+
+    public abstract setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void>;
+
+    public abstract setVault(vault: IVaultDocument): Promise<void>;
+
+    public abstract getWBTCUTXOs(requestedAmount: bigint): Promise<IWBTCUTXODocument[] | undefined>;
+
+    public abstract getVault(vault: string): Promise<IVaultDocument | undefined>;
 }

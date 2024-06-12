@@ -1,6 +1,8 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
-import { Collection, Db } from 'mongodb';
+import { ClientSession, Collection, Db } from 'mongodb';
 import { IWBTCUTXODocument } from '../interfaces/IWBTCUTXODocument.js';
+import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
+import { DataConverter } from '@btc-vision/bsi-db';
 
 export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
     public readonly logColor: string = '#afeeee';
@@ -9,45 +11,35 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         super(db);
     }
 
-    /*public async getReorgs(
-        fromBlock: bigint = 0n,
-        toBlock: bigint = 0n,
-    ): Promise<IReorgDocument[] | undefined> {
-        const criteria: Filter<IReorgDocument> = {
-            fromBlock: { $gte: DataConverter.toDecimal128(fromBlock) },
+    public async setWBTCUTXO(
+        utxo: IWBTCUTXODocument,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria = {
+            hash: utxo.hash,
         };
 
-        if (toBlock > 0n) criteria.toBlock = { $lte: DataConverter.toDecimal128(toBlock) };
-
-        const reorgs = await this.queryMany(criteria);
-        if (!reorgs) {
-            return;
-        }
-
-        return reorgs;
+        await this.updatePartial(criteria, utxo, currentSession);
     }
 
-    public async deleteReorgs(fromBlock: bigint): Promise<void> {
-        const filter: Filter<IReorgDocument> = {
-            fromBlock: DataConverter.toDecimal128(fromBlock),
-        };
-
-        await this.delete(filter);
+    public async queryBestUTXOs(
+        requestedAmount: bigint,
+        currentSession?: ClientSession,
+    ): Promise<IWBTCUTXODocument[]> {
+        return [];
     }
 
-    public async setReorg(reorgData: IReorgData): Promise<void> {
-        const reorg: IReorgDocument = {
-            fromBlock: DataConverter.toDecimal128(reorgData.fromBlock),
-            toBlock: DataConverter.toDecimal128(reorgData.toBlock),
-            timestamp: reorgData.timestamp,
+    public async deleteWBTCUTXOs(blockId: bigint): Promise<void> {
+        const criteria = {
+            blockId: {
+                $gte: DataConverter.toDecimal128(blockId),
+            },
         };
 
-        const filter = { fromBlock: reorg.fromBlock, toBlock: reorg.toBlock };
-
-        await this.updatePartial(filter, reorg);
-    }*/
+        await this.delete(criteria);
+    }
 
     protected override getCollection(): Collection<IWBTCUTXODocument> {
-        return this._db.collection('WBTCUTXO');
+        return this._db.collection(OPNetCollections.WBTCUTXO);
     }
 }
