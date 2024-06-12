@@ -139,42 +139,7 @@ export class WrapTransaction extends InteractionTransaction {
         return this.#depositAmount;
     }
 
-    protected static getType(): OPNetTransactionTypes.WrapInteraction {
-        return OPNetTransactionTypes.WrapInteraction;
-    }
-
-    /**
-     * Convert the transaction to a document.
-     */
-    public toDocument(): IWrapInteractionTransactionDocument {
-        return {
-            ...super.toDocument(),
-
-            /** WBTC */
-            penalized: this.penalized,
-            wrappingFees: DataConverter.toDecimal128(this.wrappingFees),
-
-            vault: this.vault,
-
-            pubKeys: this.publicKeys,
-            minimumSignatures: this.minimumSignatures,
-
-            depositAmount: DataConverter.toDecimal128(this.depositAmount),
-            depositAddress: this.depositAddress,
-        };
-    }
-
-    public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
-        super.parseTransaction(vIn, vOuts);
-
-        if (!authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
-            throw new Error(`Invalid contract address found in wrap transaction.`);
-        }
-
-        this.decodeWrappingTransaction();
-    }
-
-    protected getPublicKeysFromScriptData(
+    public static getPublicKeysFromScriptData(
         scriptData: Array<number | Buffer>,
         breakWhenReachOpcode: number,
     ): Buffer | undefined {
@@ -205,10 +170,10 @@ export class WrapTransaction extends InteractionTransaction {
         return contractBytecode;
     }
 
-    protected getInteractionWitnessData(
+    public static getInteractionWitnessData(
         scriptData: Array<number | Buffer>,
     ): WrapWitnessData | undefined {
-        const header = this.getInteractionWitnessDataHeader(scriptData);
+        const header = WrapTransaction.getInteractionWitnessDataHeader(scriptData);
         if (!header) {
             return;
         }
@@ -243,7 +208,7 @@ export class WrapTransaction extends InteractionTransaction {
             return;
         }
 
-        const calldata: Buffer | undefined = this.getDataFromWitness(scriptData);
+        const calldata: Buffer | undefined = WrapTransaction.getDataFromWitness(scriptData);
         if (!calldata) {
             throw new Error(`No contract bytecode found in wrap transaction.`);
         }
@@ -257,6 +222,41 @@ export class WrapTransaction extends InteractionTransaction {
             contractSecretHash160: header.contractSecretHash160,
             calldata,
         };
+    }
+
+    protected static getType(): OPNetTransactionTypes.WrapInteraction {
+        return OPNetTransactionTypes.WrapInteraction;
+    }
+
+    /**
+     * Convert the transaction to a document.
+     */
+    public toDocument(): IWrapInteractionTransactionDocument {
+        return {
+            ...super.toDocument(),
+
+            /** WBTC */
+            penalized: this.penalized,
+            wrappingFees: DataConverter.toDecimal128(this.wrappingFees),
+
+            vault: this.vault,
+
+            pubKeys: this.publicKeys,
+            minimumSignatures: this.minimumSignatures,
+
+            depositAmount: DataConverter.toDecimal128(this.depositAmount),
+            depositAddress: this.depositAddress,
+        };
+    }
+
+    public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
+        super.parseTransaction(vIn, vOuts, WrapTransaction);
+
+        if (!authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
+            throw new Error(`Invalid contract address found in wrap transaction.`);
+        }
+
+        this.decodeWrappingTransaction();
     }
 
     private getVaultAddress(): string {

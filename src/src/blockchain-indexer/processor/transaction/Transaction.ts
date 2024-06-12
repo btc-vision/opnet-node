@@ -170,25 +170,67 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this.transactionHashBuffer;
     }
 
-    protected static getDataChecksum(data: Array<Buffer | number>): Buffer {
-        let checksum: number[] = [];
+    public static verifyChecksum(scriptData: (number | Buffer)[], typeChecksum: Buffer): boolean {
+        const checksum: Buffer = this.getDataChecksum(scriptData);
+        
+        return checksum.equals(typeChecksum);
+    }
 
-        for (let i = 0; i < data.length; i++) {
-            if (typeof data[i] === 'number') {
-                checksum.push(data[i] as number);
+    public static dataIncludeOPNetMagic(data: Array<Buffer | number>): boolean {
+        return data.some((value) => {
+            if (typeof value === 'number') {
+                return false;
+            }
+
+            const buffer: Buffer = Buffer.isBuffer(value) ? value : Buffer.from(value);
+            if (buffer.byteLength !== OPNet_MAGIC.byteLength) {
+                return false;
+            }
+
+            return buffer.equals(OPNet_MAGIC);
+        });
+    }
+
+    public static decompressBuffer(buffer: Buffer): { out: Buffer; compressed: boolean } {
+        if (!buffer) {
+            throw new Error('Buffer is undefined. Can not decompress.');
+        }
+
+        const zlibHeader = buffer.subarray(0, 2);
+        if (zlibHeader.equals(GZIP_HEADER)) {
+            buffer = zlib.unzipSync(buffer, {
+                finishFlush: zlib.constants.Z_SYNC_FLUSH,
+                maxOutputLength: 1024 * 1024 * 16, // limit to 16mb no matter what.
+            });
+
+            return { out: buffer, compressed: true };
+        }
+
+        return { out: buffer, compressed: false };
+    }
+
+    public static getDataFromWitness(
+        scriptData: Array<number | Buffer>,
+        breakWhenReachOpcode: number = opcodes.OP_ELSE,
+    ): Buffer | undefined {
+        let contractBytecode: Buffer | undefined = undefined;
+        for (let i = 0; i < scriptData.length; i++) {
+            if (scriptData[i] === breakWhenReachOpcode) {
+                break;
+            }
+
+            if (Buffer.isBuffer(scriptData[i])) {
+                if (!contractBytecode) {
+                    contractBytecode = scriptData[i] as Buffer;
+                } else {
+                    contractBytecode = Buffer.concat([contractBytecode, scriptData[i] as Buffer]);
+                }
+            } else {
+                throw new Error(`Invalid contract bytecode found in deployment transaction.`);
             }
         }
 
-        return Buffer.from(checksum);
-    }
-
-    protected static verifyChecksum(
-        scriptData: (number | Buffer)[],
-        typeChecksum: Buffer,
-    ): boolean {
-        const checksum: Buffer = this.getDataChecksum(scriptData);
-
-        return checksum.equals(typeChecksum);
+        return contractBytecode;
     }
 
     protected static _is(data: TransactionData, typeChecksum: Buffer): number {
@@ -222,19 +264,16 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return isCorrectType;
     }
 
-    protected static dataIncludeOPNetMagic(data: Array<Buffer | number>): boolean {
-        return data.some((value) => {
-            if (typeof value === 'number') {
-                return false;
-            }
+    protected static getDataChecksum(data: Array<Buffer | number>): Buffer {
+        let checksum: number[] = [];
 
-            const buffer: Buffer = Buffer.isBuffer(value) ? value : Buffer.from(value);
-            if (buffer.byteLength !== OPNet_MAGIC.byteLength) {
-                return false;
+        for (let i = 0; i < data.length; i++) {
+            if (typeof data[i] === 'number') {
+                checksum.push(data[i] as number);
             }
+        }
 
-            return buffer.equals(OPNet_MAGIC);
-        });
+        return Buffer.from(checksum);
     }
 
     public toDocument(): TransactionDocument<T> {
@@ -271,17 +310,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             throw new Error('Buffer is undefined. Can not decompress.');
         }
 
-        const zlibHeader = buffer.subarray(0, 2);
-        if (zlibHeader.equals(GZIP_HEADER)) {
-            buffer = zlib.unzipSync(buffer, {
-                finishFlush: zlib.constants.Z_SYNC_FLUSH,
-                maxOutputLength: 1024 * 1024 * 16, // limit to 16mb no matter what.
-            });
-
+        const decompressed = Transaction.decompressBuffer(buffer);
+        if (decompressed.compressed) {
             this.wasCompressed = true;
         }
 
-        return buffer;
+        return decompressed.out;
     }
 
     protected getWitnessOutput(originalContractAddress: string): TransactionOutput {
@@ -352,30 +386,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         for (let i = 0; i < vOuts.length; i++) {
             this.outputs.push(new TransactionOutput(vOuts[i]));
         }
-    }
-
-    protected getDataFromWitness(
-        scriptData: Array<number | Buffer>,
-        breakWhenReachOpcode: number = opcodes.OP_ELSE,
-    ): Buffer | undefined {
-        let contractBytecode: Buffer | undefined = undefined;
-        for (let i = 0; i < scriptData.length; i++) {
-            if (scriptData[i] === breakWhenReachOpcode) {
-                break;
-            }
-
-            if (Buffer.isBuffer(scriptData[i])) {
-                if (!contractBytecode) {
-                    contractBytecode = scriptData[i] as Buffer;
-                } else {
-                    contractBytecode = Buffer.concat([contractBytecode, scriptData[i] as Buffer]);
-                }
-            } else {
-                throw new Error(`Invalid contract bytecode found in deployment transaction.`);
-            }
-        }
-
-        return contractBytecode;
     }
 
     private computeHashForTransaction(): Buffer {

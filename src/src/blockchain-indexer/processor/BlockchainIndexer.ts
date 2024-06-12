@@ -3,7 +3,7 @@ import {
     BlockchainInfo,
     BlockDataWithTransactionData,
 } from '@btc-vision/bsi-bitcoin-rpc';
-import { DebugLevel, Logger } from '@btc-vision/bsi-common';
+import { BitcoinNetwork, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { Config } from '../../config/Config.js';
@@ -25,6 +25,7 @@ import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { VMManager } from '../../vm/VMManager.js';
 import { Block } from './block/Block.js';
 import { SpecialManager } from './special-transaction/SpecialManager.js';
+import { NetworkConverter } from '../../config/NetworkConverter.js';
 
 interface LastBlock {
     hash?: string;
@@ -34,7 +35,7 @@ interface LastBlock {
 export class BlockchainIndexer extends Logger {
     public readonly logColor: string = '#00ff00';
 
-    private readonly network: string;
+    private readonly network: BitcoinNetwork;
     private readonly rpcClient: BitcoinRPC = new BitcoinRPC();
 
     private readonly bitcoinNetwork: bitcoin.networks.Network;
@@ -66,20 +67,7 @@ export class BlockchainIndexer extends Logger {
         this.vmStorage = this.vmManager.getVMStorage();
 
         this.specialTransactionManager = new SpecialManager(this.vmManager);
-
-        switch (this.network) {
-            case 'mainnet':
-                this.bitcoinNetwork = bitcoin.networks.bitcoin;
-                break;
-            case 'testnet':
-                this.bitcoinNetwork = bitcoin.networks.testnet;
-                break;
-            case 'regtest':
-                this.bitcoinNetwork = bitcoin.networks.regtest;
-                break;
-            default:
-                throw new Error(`Invalid network ${this.network}`);
-        }
+        this.bitcoinNetwork = NetworkConverter.getNetwork(this.network);
     }
 
     private _blockchainInfoRepository: BlockchainInformationRepository | undefined;

@@ -337,7 +337,8 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             return;
         }
 
-        const contractBytecode: Buffer | undefined = this.getDataFromWitness(scriptData);
+        const contractBytecode: Buffer | undefined =
+            DeploymentTransaction.getDataFromWitness(scriptData);
         if (!contractBytecode) {
             throw new Error(`No contract bytecode found in deployment transaction.`);
         }

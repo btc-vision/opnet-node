@@ -1,4 +1,4 @@
-import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
+import { ConfigurableDBManager, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
@@ -18,19 +18,43 @@ import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { cyrb53a, u8 } from '@btc-vision/bsi-binary';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
+import { NetworkConverter } from '../../../config/NetworkConverter.js';
+import { PSBTProcessorManager } from '../PSBTProcessorManager.js';
+import { Network } from 'bitcoinjs-lib';
+import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
+import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.js';
+import { AuthorityManager } from '../../configurations/manager/AuthorityManager.js';
 
 export class Mempool extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
-    private readonly psbtVerifier: PSBTTransactionVerifier = new PSBTTransactionVerifier();
+    private readonly psbtVerifier: PSBTTransactionVerifier;
+    private readonly psbtProcessorManager: PSBTProcessorManager;
 
     private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
 
     private mempoolRepository: MempoolRepository | undefined;
 
+    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
+    private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
+        Config,
+        this.currentAuthority,
+    );
+
+    private readonly network: Network = NetworkConverter.getNetwork(
+        Config.BLOCKCHAIN.BITCOIND_NETWORK,
+    );
+
     constructor() {
         super();
+
+        this.psbtVerifier = new PSBTTransactionVerifier(this.network);
+        this.psbtProcessorManager = new PSBTProcessorManager(
+            this.opnetIdentity,
+            this.db,
+            this.network,
+        );
     }
 
     public sendMessageToThread: (
@@ -67,6 +91,7 @@ export class Mempool extends Logger {
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
 
         this.mempoolRepository = new MempoolRepository(this.db.db);
+        this.psbtProcessorManager.createRepositories();
     }
 
     private async onRPCMethod(m: RPCMessageData<BitcoinRPCThreadMessageType>): Promise<ThreadData> {
@@ -86,36 +111,53 @@ export class Mempool extends Logger {
         const psbt: boolean = data.psbt;
         const identifier: bigint = data.identifier || cyrb53a(data.raw as unknown as u8[]);
 
-        let result: BroadcastResponse | null;
-        if (!psbt) {
-            const rawHex: string = Buffer.from(raw).toString('hex');
+        try {
+            let result: BroadcastResponse | null;
+            if (!psbt) {
+                const rawHex: string = Buffer.from(raw).toString('hex');
 
-            result = (await this.broadcastBitcoinTransaction(rawHex)) || {
-                success: false,
-                result: 'Could not broadcast transaction to the network.',
-                identifier: identifier,
-            };
-        } else {
-            result = (await this.psbtVerifier.verify(raw))
-                ? {
-                      success: true,
-                      result: 'Valid PSBT transaction.',
-                      identifier: identifier,
-                  }
-                : {
-                      success: false,
-                      result: 'Invalid PSBT transaction.',
-                      identifier: identifier,
-                  };
-        }
+                result = (await this.broadcastBitcoinTransaction(rawHex)) || {
+                    success: false,
+                    result: 'Could not broadcast transaction to the network.',
+                    identifier: identifier,
+                };
+            } else {
+                const decodedPsbt = await this.psbtVerifier.verify(raw);
+                if (!decodedPsbt) {
+                    return {
+                        success: false,
+                        result: 'Could not decode PSBT',
+                        identifier: identifier,
+                    };
+                }
 
-        if (!result.error) {
+                const processed = await this.psbtProcessorManager.processPSBT(decodedPsbt);
+
+                result = {
+                    success: true,
+                    result: 'PSBT decoded successfully',
+                    identifier: identifier,
+                };
+            }
+
+            if (!result.error) {
+                return {
+                    ...result,
+                    identifier: identifier,
+                };
+            } else {
+                return result;
+            }
+        } catch (e) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                this.error(`Error processing transaction: ${(e as Error).stack}`);
+            }
+
             return {
-                ...result,
+                success: false,
+                result: `Bad transaction.`,
                 identifier: identifier,
             };
-        } else {
-            return result;
         }
     }
 

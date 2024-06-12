@@ -127,6 +127,102 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         };
     }
 
+    public static getInteractionWitnessDataHeader(
+        scriptData: Array<number | Buffer>,
+    ): Omit<InteractionWitnessData, 'calldata'> | undefined {
+        const senderPubKey: Buffer = scriptData.shift() as Buffer;
+        if (!Buffer.isBuffer(senderPubKey)) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_CHECKSIGVERIFY) {
+            return;
+        }
+
+        const interactionSaltPubKey: Buffer = scriptData.shift() as Buffer;
+        if (!Buffer.isBuffer(interactionSaltPubKey)) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_CHECKSIGVERIFY) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_HASH160) {
+            return;
+        }
+
+        const senderPubKeyHash160: Buffer = scriptData.shift() as Buffer;
+        if (scriptData.shift() !== opcodes.OP_EQUALVERIFY) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_HASH160) {
+            return;
+        }
+
+        // hash of bech32 contract address.
+        const contractSaltHash160: Buffer = scriptData.shift() as Buffer;
+        if (scriptData.shift() !== opcodes.OP_EQUALVERIFY) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_DEPTH) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_1) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_NUMEQUAL) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_IF) {
+            return;
+        }
+
+        const magic = scriptData.shift();
+        if (!Buffer.isBuffer(magic)) {
+            return;
+        }
+
+        return {
+            senderPubKey,
+            interactionSaltPubKey,
+            senderPubKeyHash160,
+            contractSecretHash160: contractSaltHash160,
+        };
+    }
+
+    public static getInteractionWitnessData(
+        scriptData: Array<number | Buffer>,
+    ): InteractionWitnessData | undefined {
+        const header = this.getInteractionWitnessDataHeader(scriptData);
+        if (!header) {
+            return;
+        }
+
+        // ... Future implementation before this opcode
+        if (scriptData.shift() !== opcodes.OP_1NEGATE) {
+            return;
+        }
+
+        const calldata: Buffer | undefined = this.getDataFromWitness(scriptData);
+        if (!calldata) {
+            throw new Error(`No contract bytecode found in deployment transaction.`);
+        }
+
+        return {
+            senderPubKey: header.senderPubKey,
+            interactionSaltPubKey: header.interactionSaltPubKey,
+            senderPubKeyHash160: header.senderPubKeyHash160,
+            contractSecretHash160: header.contractSecretHash160,
+            calldata,
+        };
+    }
+
     protected static getType(): InteractionTransactionType {
         return OPNetTransactionTypes.Interaction;
     }
@@ -168,13 +264,17 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this.receiptProofs = proofs;
     }
 
-    public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
+    public parseTransaction(
+        vIn: VIn[],
+        vOuts: VOut[],
+        self: typeof InteractionTransaction = InteractionTransaction,
+    ): void {
         super.parseTransaction(vIn, vOuts);
 
-        this.parseTransactionData();
+        this.parseTransactionData(self);
     }
 
-    protected parseTransactionData(): void {
+    protected parseTransactionData(self: typeof InteractionTransaction): void {
         const inputOPNetWitnessTransactions = this.getInputWitnessTransactions();
         if (inputOPNetWitnessTransactions.length === 0) {
             throw new Error(
@@ -195,7 +295,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             throw new Error(`No script data found for deployment transaction ${this.txid}`);
         }
 
-        this.interactionWitnessData = this.getInteractionWitnessData(scriptData);
+        this.interactionWitnessData = self.getInteractionWitnessData(scriptData);
         if (!this.interactionWitnessData) {
             throw new Error(
                 `Failed to parse interaction witness data for transaction ${this.txid}`,
@@ -274,102 +374,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this.decompressCalldata();
 
         this.verifyUnallowed();
-    }
-
-    protected getInteractionWitnessDataHeader(
-        scriptData: Array<number | Buffer>,
-    ): Omit<InteractionWitnessData, 'calldata'> | undefined {
-        const senderPubKey: Buffer = scriptData.shift() as Buffer;
-        if (!Buffer.isBuffer(senderPubKey)) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_CHECKSIGVERIFY) {
-            return;
-        }
-
-        const interactionSaltPubKey: Buffer = scriptData.shift() as Buffer;
-        if (!Buffer.isBuffer(interactionSaltPubKey)) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_CHECKSIGVERIFY) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_HASH160) {
-            return;
-        }
-
-        const senderPubKeyHash160: Buffer = scriptData.shift() as Buffer;
-        if (scriptData.shift() !== opcodes.OP_EQUALVERIFY) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_HASH160) {
-            return;
-        }
-
-        // hash of bech32 contract address.
-        const contractSaltHash160: Buffer = scriptData.shift() as Buffer;
-        if (scriptData.shift() !== opcodes.OP_EQUALVERIFY) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_DEPTH) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_1) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_NUMEQUAL) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_IF) {
-            return;
-        }
-
-        const magic = scriptData.shift();
-        if (!Buffer.isBuffer(magic)) {
-            return;
-        }
-
-        return {
-            senderPubKey,
-            interactionSaltPubKey,
-            senderPubKeyHash160,
-            contractSecretHash160: contractSaltHash160,
-        };
-    }
-
-    protected getInteractionWitnessData(
-        scriptData: Array<number | Buffer>,
-    ): InteractionWitnessData | undefined {
-        const header = this.getInteractionWitnessDataHeader(scriptData);
-        if (!header) {
-            return;
-        }
-
-        // ... Future implementation before this opcode
-        if (scriptData.shift() !== opcodes.OP_1NEGATE) {
-            return;
-        }
-
-        const calldata: Buffer | undefined = this.getDataFromWitness(scriptData);
-        if (!calldata) {
-            throw new Error(`No contract bytecode found in deployment transaction.`);
-        }
-
-        return {
-            senderPubKey: header.senderPubKey,
-            interactionSaltPubKey: header.interactionSaltPubKey,
-            senderPubKeyHash160: header.senderPubKeyHash160,
-            contractSecretHash160: header.contractSecretHash160,
-            calldata,
-        };
     }
 
     /**
