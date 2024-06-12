@@ -15,6 +15,7 @@ import {
     PsbtTransactionData,
 } from '@btc-vision/transaction/src/transaction/processor/PsbtTransaction.js';
 import { DataConverter } from '@btc-vision/bsi-db';
+import { Address } from '@btc-vision/bsi-binary';
 
 interface FinalizedPSBT {
     readonly modified: boolean;
@@ -51,14 +52,14 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
             let modified: boolean;
             let finalized: FinalizedPSBT | undefined;
             if (amountOfInputs === 1) {
-                const result = await this.selectUTXOs(data.amount, psbt);
+                const result = await this.selectUTXOs(data.amount, data.receiver, psbt);
 
                 // do something with the utxos.
                 psbt = result.newPsbt;
 
                 modified = true;
             } else {
-                finalized = await this.finalizePSBT(psbt, data.amount);
+                finalized = await this.finalizePSBT(psbt, data.amount, data.receiver);
                 modified = finalized.modified;
             }
 
@@ -79,6 +80,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
      */
     public async selectUTXOs(
         amount: bigint,
+        receiver: Address,
         psbt: Psbt,
     ): Promise<{ newPsbt: Psbt; usedUTXOs: SelectedUTXOs }> {
         const utxos = await this.utxoRepository.queryVaultsUTXOs(amount);
@@ -87,7 +89,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         }
 
         // We must generate the new psbt.
-        const newPsbt = await this.adaptPSBT(psbt, utxos, amount);
+        const newPsbt = await this.adaptPSBT(psbt, utxos, amount, receiver);
 
         return {
             newPsbt: newPsbt,
@@ -121,7 +123,11 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         return adaptedVaultUTXOs;
     }
 
-    private async finalizePSBT(psbt: Psbt, amount: bigint): Promise<FinalizedPSBT> {
+    private async finalizePSBT(
+        psbt: Psbt,
+        amount: bigint,
+        recevier: Address,
+    ): Promise<FinalizedPSBT> {
         // Attempt to sign all inputs.
 
         const signer: Signer = this.authority.getSigner();
@@ -130,24 +136,15 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
             amountRequested: amount,
             signer: signer,
             psbt: psbt,
+            receiver: recevier,
+            feesAddition: 0n,
         };
+
+        console.log('amount', amount);
 
         const transaction = new PsbtTransaction(transactionParams);
         const signed: boolean = transaction.attemptSignAllInputs();
         const finalized: boolean = transaction.attemptFinalizeInputs();
-
-        /*try {
-            // @ts-ignore
-            const inputs = transaction.transaction.txInputs;
-            for (let i = 1; i < inputs.length; i++) {
-                // @ts-ignore
-                transaction.transaction.finalizeInput(i);
-            }
-
-            finalized = true;
-        } catch (e) {
-            this.warn(e);
-        }*/
 
         if (signed) {
             this.success('WBTC PSBT signed!');
@@ -163,7 +160,12 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         };
     }
 
-    private async adaptPSBT(psbt: Psbt, utxos: SelectedUTXOs, amount: bigint): Promise<Psbt> {
+    private async adaptPSBT(
+        psbt: Psbt,
+        utxos: SelectedUTXOs,
+        amount: bigint,
+        receiver: Address,
+    ): Promise<Psbt> {
         const utxosArray = this.convertVaultUTXOsToAdaptedVaultUTXOs(Array.from(utxos.values()));
 
         // add fees.
@@ -172,7 +174,9 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         const transactionParams: FromBase64Params = {
             network: this.network,
             amountRequested: amount,
+            receiver: receiver,
             signer: signer,
+            feesAddition: 0n,
         };
 
         const transaction = PsbtTransaction.fromBase64(psbt.toBase64(), transactionParams);
