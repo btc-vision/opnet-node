@@ -57,7 +57,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
 
         let newInputs = [];
         for (const input of clone.data.inputs) {
-            if (!input.partialSig) {
+            if (input.finalScriptWitness) {
                 newInputs.push(input);
             }
         }
