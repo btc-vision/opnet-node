@@ -59,7 +59,6 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
                 modified = true;
             } else {
                 finalized = await this.finalizePSBT(psbt, data.amount);
-                console.log('finalized', finalized);
                 modified = finalized.modified;
             }
 

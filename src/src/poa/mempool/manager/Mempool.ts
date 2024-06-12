@@ -129,8 +129,6 @@ export class Mempool extends Logger {
                     }
                 );
             } else {
-                console.log(raw);
-
                 const decodedPsbt = await this.psbtVerifier.verify(raw);
                 if (!decodedPsbt) {
                     return {

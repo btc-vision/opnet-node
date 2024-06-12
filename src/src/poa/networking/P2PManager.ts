@@ -345,8 +345,6 @@ export class P2PManager extends Logger {
         const identifier: bigint = verifiedTransaction.identifier;
         const isPsbt: boolean = tx.psbt ? !verifiedTransaction.finalizedTransaction : false;
 
-        console.log('Transaction verified:', tx, verifiedTransaction, isPsbt, identifier);
-
         /** Already broadcasted. */
         if (this.knownMempoolIdentifiers.has(identifier)) {
             this.info(`Transaction ${identifier} already known.`);
