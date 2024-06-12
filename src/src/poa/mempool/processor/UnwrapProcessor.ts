@@ -176,7 +176,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
             amountRequested: amount,
             receiver: receiver,
             signer: signer,
-            feesAddition: 0n,
+            feesAddition: amount - 330n,
         };
 
         const transaction = PsbtTransaction.fromBase64(psbt.toBase64(), transactionParams);
