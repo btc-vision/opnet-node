@@ -285,16 +285,21 @@ export class BlockchainIndexer extends Logger {
         if (!previousOpnetBlock || !bitcoinReorged) return bitcoinReorged;
 
         // Verify opnet checksum proofs.
-        const verifiedProofs: boolean =
-            await this.vmManager.validateBlockChecksum(previousOpnetBlock);
+        try {
+            const verifiedProofs: boolean =
+                await this.vmManager.validateBlockChecksum(previousOpnetBlock);
 
-        if (opnetChecksum) {
-            const opnetBadChecksum = previousOpnetBlock.checksumRoot !== opnetChecksum;
+            if (opnetChecksum) {
+                const opnetBadChecksum = previousOpnetBlock.checksumRoot !== opnetChecksum;
 
-            return opnetBadChecksum || !verifiedProofs;
+                return opnetBadChecksum || !verifiedProofs;
+            }
+
+            return !verifiedProofs;
+        } catch (e) {
+            this.panic(`Error validating block checksum: ${e}`);
+            return true;
         }
-
-        return !verifiedProofs;
     }
 
     /**
