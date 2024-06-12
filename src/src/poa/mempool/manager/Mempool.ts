@@ -195,8 +195,6 @@ export class Mempool extends Logger {
     private async broadcastBitcoinTransaction(
         data: string,
     ): Promise<BroadcastResponse | undefined> {
-        this.info(`Broadcasting transaction: ${data}`);
-
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE> =
             {
                 type: MessageType.RPC_METHOD,
