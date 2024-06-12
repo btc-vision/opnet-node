@@ -463,6 +463,21 @@ export class BlockchainIndexer extends Logger {
                 Config.OP_NET.REINDEX = false;
             }
 
+            const blockHash: string | null = await this.rpcClient.getBlockHash(
+                blockHeightInProgress - 1,
+            );
+            if (blockHash == null) {
+                throw new Error(`Error fetching block hash.`);
+            }
+
+            if (this.lastBlock.hash !== blockHash) {
+                this.panic(
+                    `Last block hash mismatch. Expected: ${this.lastBlock.hash}, got: ${blockHash}.`,
+                );
+
+                return await this.restoreBlockchain(blockHeightInProgress);
+            }
+
             this.success(`Indexer synchronized. Network height at: ${chainCurrentBlockHeight}.`);
         } else if (!this.processOnlyOneBlock) {
             await this.processBlocks(blockHeightInProgress);
@@ -499,7 +514,6 @@ export class BlockchainIndexer extends Logger {
 
     private async getBlock(blockHeight: number): Promise<BlockDataWithTransactionData | null> {
         const blockHash: string | null = await this.rpcClient.getBlockHash(blockHeight);
-
         if (blockHash == null) {
             throw new Error(`Error fetching block hash.`);
         }
