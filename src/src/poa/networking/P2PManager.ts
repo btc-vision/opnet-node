@@ -334,12 +334,15 @@ export class P2PManager extends Logger {
 
     private async onBroadcastTransaction(tx: ITransactionPacket): Promise<void> {
         const verifiedTransaction = await this.verifyOPNetTransaction(tx.transaction, tx.psbt);
-
         if (!verifiedTransaction) {
             return;
         }
 
+        const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64') : tx.transaction;
         const identifier: bigint = verifiedTransaction.identifier;
+        const isPsbt: boolean = verifiedTransaction.finalizedTransaction ?? tx.psbt;
+
+        console.log('Transaction verified:', verifiedTransaction);
 
         /** Already broadcasted. */
         if (this.knownMempoolIdentifiers.has(identifier)) {
@@ -351,8 +354,8 @@ export class P2PManager extends Logger {
         this.knownMempoolIdentifiers.add(identifier);
 
         const broadcastData: OPNetBroadcastData = {
-            raw: tx.transaction,
-            psbt: tx.psbt,
+            raw: modifiedTransaction,
+            psbt: isPsbt,
             identifier: identifier,
         };
 

@@ -110,7 +110,6 @@ export class Mempool extends Logger {
         const raw: Uint8Array = data.raw;
         const psbt: boolean = data.psbt;
         const identifier: bigint = data.identifier || cyrb53a(data.raw as unknown as u8[]);
-        console.log(identifier);
 
         try {
             let result: BroadcastResponse = {
@@ -140,8 +139,6 @@ export class Mempool extends Logger {
                 }
 
                 const processed = await this.psbtProcessorManager.processPSBT(decodedPsbt);
-                console.log(processed);
-
                 if (processed.finalized) {
                     const finalized = processed.psbt.extractTransaction();
                     const finalizedHex = finalized.toHex();
@@ -166,6 +163,7 @@ export class Mempool extends Logger {
                         result: 'PSBT decoded successfully',
                         identifier: cyrb53a(modifiedTransaction as unknown as u8[]),
                         modifiedTransaction: modifiedTransaction.toString('base64'),
+                        finalizedTransaction: processed.finalized ?? false
                     };
                 } else {
                     // unchanged.
