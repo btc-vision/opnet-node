@@ -144,6 +144,10 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         const signed: boolean = transaction.attemptSignAllInputs();
         const finalized: boolean = transaction.attemptFinalizeInputs();
 
+        // @ts-ignore
+        const tx = transaction.transaction;
+        console.log(tx.data.inputs);
+        
         if (signed) {
             this.success('WBTC PSBT signed!');
         }
