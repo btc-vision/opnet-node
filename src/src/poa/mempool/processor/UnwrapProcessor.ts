@@ -150,6 +150,12 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
 
         if (finalized) {
             this.success('WBTC PSBT finalized!');
+
+            // @ts-ignore
+            const tx = transaction.transaction;
+
+            const finalized = tx.extractTransaction();
+            console.log(finalized.ins);
         }
 
         return {
