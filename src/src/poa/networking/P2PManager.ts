@@ -343,9 +343,7 @@ export class P2PManager extends Logger {
             : tx.transaction;
 
         const identifier: bigint = verifiedTransaction.identifier;
-        const isPsbt: boolean = tx.psbt
-            ? verifiedTransaction.finalizedTransaction === false
-            : false;
+        const isPsbt: boolean = tx.psbt ? !verifiedTransaction.finalizedTransaction : false;
 
         console.log('Transaction verified:', tx, verifiedTransaction, isPsbt, identifier);
 
