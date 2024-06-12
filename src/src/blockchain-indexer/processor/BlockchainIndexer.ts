@@ -264,13 +264,37 @@ export class BlockchainIndexer extends Logger {
         };
     }
 
-    private async verifyChainReorg(block: BlockDataWithTransactionData): Promise<boolean> {
-        const previousBlockHash: LastBlock | undefined = await this.getLastBlockHash(
-            BigInt(block.height) - 1n,
-        );
+    private async verifyChainReorg(
+        block: BlockDataWithTransactionData,
+        opnetChecksum?: string,
+    ): Promise<boolean> {
+        const previousBlock = BigInt(block.height) - 1n;
+        if (previousBlock <= 0n) {
+            return false; // Genesis block reached.
+        }
+
+        const [previousBlockHash, previousOpnetBlock] = await Promise.all([
+            this.getLastBlockHash(previousBlock),
+            this.vmStorage.getBlockHeader(previousBlock),
+        ]);
 
         if (!previousBlockHash) return false;
-        return block.previousblockhash !== previousBlockHash.hash;
+
+        // Verify if the previous block hash is the same as the current block's previous block hash.
+        const bitcoinReorged = block.previousblockhash !== previousBlockHash.hash;
+        if (!previousOpnetBlock || !bitcoinReorged) return bitcoinReorged;
+
+        // Verify opnet checksum proofs.
+        const verifiedProofs: boolean =
+            await this.vmManager.validateBlockChecksum(previousOpnetBlock);
+
+        if (opnetChecksum) {
+            const opnetBadChecksum = previousOpnetBlock.checksumRoot !== opnetChecksum;
+
+            return opnetBadChecksum || !verifiedProofs;
+        }
+
+        return !verifiedProofs;
     }
 
     /**

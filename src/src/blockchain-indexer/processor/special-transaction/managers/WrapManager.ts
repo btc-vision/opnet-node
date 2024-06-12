@@ -20,8 +20,6 @@ export class WrapManager extends AbstractSpecialManager<OPNetTransactionTypes.Wr
     }
 
     public async execute(transaction: WrapTransaction): Promise<void> {
-        this.log(`Executing WrapManager with transaction: ${transaction.hash}`);
-
         const promises: Promise<void>[] = [];
         if (!this.hasVault(transaction.vault)) {
             promises.push(this.addVault(transaction));
@@ -33,8 +31,6 @@ export class WrapManager extends AbstractSpecialManager<OPNetTransactionTypes.Wr
     }
 
     public reset(): void {
-        this.log('Resetting WrapManager');
-
         this.cachedVaults.clear();
     }
 
