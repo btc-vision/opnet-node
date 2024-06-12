@@ -134,8 +134,8 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
 
         const transaction = new PsbtTransaction(transactionParams);
         const signed: boolean = transaction.attemptSignAllInputs();
-        const finalized: boolean = transaction.attemptSignAllInputs();
-        
+        const finalized: boolean = transaction.attemptFinalizeInputs();
+
         /*try {
             // @ts-ignore
             const inputs = transaction.transaction.txInputs;
