@@ -142,6 +142,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             identifier: 0n,
         };
 
+        console.log('sending', transaction);
+
         const result: string | null = await this.bitcoinRPC
             .sendRawTransaction({ hexstring: transaction })
             .catch((e) => {
