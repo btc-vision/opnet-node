@@ -1,13 +1,5 @@
-import { ScriptPubKey } from '@btc-vision/bsi-bitcoin-rpc';
-import { Decimal128, Document } from 'mongodb';
+import { Document } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
-
-export interface WBTCUTXOAggregationResponse {
-    readonly transactionId: string;
-    readonly outputIndex: number;
-    readonly value: Decimal128;
-    readonly scriptPubKey: ScriptPubKey;
-}
 
 export class WBTCUTXOAggregation extends Aggregation {
     constructor() {
@@ -43,6 +35,7 @@ export class WBTCUTXOAggregation extends Aggregation {
                     },
                 },
             },
+            // Step 2: Union with PENDING_WBTC_UTXO collection
             {
                 $unionWith: {
                     coll: 'PENDING_WBTC_UTXO',
@@ -65,39 +58,36 @@ export class WBTCUTXOAggregation extends Aggregation {
                                 as: 'used',
                             },
                         },
+                        {
+                            $match: {
+                                used: {
+                                    $eq: [],
+                                },
+                            },
+                        },
                     ],
                 },
             },
             // Step 4: Sort by vault minimum value and UTXO value descending
             {
                 $sort: {
-                    'vaultDetails.minimum': 1,
-                    value: -1,
+                    value: 1,
                 },
             },
-            // Step 5: Group by vault and limit UTXOs to 500 per vault
+            /*
             {
-                $group: {
-                    _id: '$vault',
-                    utxos: {
-                        $push: '$$ROOT',
-                    },
-                    totalValue: {
-                        $sum: '$value',
+                $addFields: {
+                    random: {
+                        $rand: {},
                     },
                 },
             },
+            // Step 7: Sort by random value to introduce randomness
             {
-                $project: {
-                    utxos: {
-                        $slice: ['$utxos', 500],
-                    },
-                    totalValue: 1,
+                $sort: {
+                    random: 1,
                 },
-            },
-            {
-                $limit: 100,
-            },
+            },*/
         ];
     }
 }

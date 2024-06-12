@@ -1,6 +1,6 @@
 import { KnownPSBTObject } from './psbt/PSBTTransactionVerifier.js';
 import { PSBTTypes } from './psbt/PSBTTypes.js';
-import { PSBTProcessor } from './processor/PSBTProcessor.js';
+import { PSBTProcessedResponse, PSBTProcessor } from './processor/PSBTProcessor.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { UnwrapProcessor } from './processor/UnwrapProcessor.js';
 import { Network } from 'bitcoinjs-lib';
@@ -13,7 +13,7 @@ export class PSBTProcessorManager {
         this.verificator.push(new UnwrapProcessor(authority, db, network));
     }
 
-    public async processPSBT(data: KnownPSBTObject): Promise<boolean> {
+    public async processPSBT(data: KnownPSBTObject): Promise<PSBTProcessedResponse> {
         const processor = this.verificator.find((v) => v.type === data.type);
         if (processor) {
             return await processor.process(data.psbt, data.data);

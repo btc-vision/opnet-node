@@ -112,15 +112,22 @@ export class Mempool extends Logger {
         const identifier: bigint = data.identifier || cyrb53a(data.raw as unknown as u8[]);
 
         try {
-            let result: BroadcastResponse | null;
+            let result: BroadcastResponse = {
+                success: false,
+                result: 'Could not broadcast transaction to the network.',
+                identifier: identifier,
+            };
+
             if (!psbt) {
                 const rawHex: string = Buffer.from(raw).toString('hex');
 
-                result = (await this.broadcastBitcoinTransaction(rawHex)) || {
-                    success: false,
-                    result: 'Could not broadcast transaction to the network.',
-                    identifier: identifier,
-                };
+                return (
+                    (await this.broadcastBitcoinTransaction(rawHex)) || {
+                        success: false,
+                        result: 'Could not broadcast transaction to the network.',
+                        identifier: identifier,
+                    }
+                );
             } else {
                 const decodedPsbt = await this.psbtVerifier.verify(raw);
                 if (!decodedPsbt) {
@@ -132,29 +139,44 @@ export class Mempool extends Logger {
                 }
 
                 const processed = await this.psbtProcessorManager.processPSBT(decodedPsbt);
-                if (!processed) {
+                if (processed.finalized) {
+                    const finalized = processed.psbt.extractTransaction();
+                    const finalizedHex = finalized.toHex();
+                    const broadcastResult = await this.broadcastBitcoinTransaction(finalizedHex);
+
+                    if (broadcastResult) {
+                        return {
+                            ...broadcastResult,
+                            identifier: identifier,
+                        };
+                    }
+                } else if (processed.modified) {
+                    const base64 = processed.psbt.toBase64();
+                    const header = Buffer.from([decodedPsbt.type]);
+                    const modifiedTransaction = Buffer.concat([
+                        header,
+                        Buffer.from(base64, 'base64'),
+                    ]).toString('base64');
+
+                    return {
+                        success: true,
+                        result: 'PSBT decoded successfully',
+                        identifier: identifier,
+                        modifiedTransaction: modifiedTransaction,
+                    };
+                } else {
+                    // unchanged.
+                    this.info(`PSBT unchanged: ${identifier}`);
+
                     return {
                         success: false,
-                        result: 'Could not process PSBT',
+                        result: 'PSBT unchanged',
                         identifier: identifier,
                     };
                 }
-
-                result = {
-                    success: true,
-                    result: 'PSBT decoded successfully',
-                    identifier: identifier,
-                };
             }
 
-            if (!result.error) {
-                return {
-                    ...result,
-                    identifier: identifier,
-                };
-            } else {
-                return result;
-            }
+            return result;
         } catch (e) {
             if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.error(`Error processing transaction: ${(e as Error).stack}`);

@@ -35,7 +35,7 @@ export class BroadcastTransaction extends Route<
         }
 
         const [data, psbt] = this.getDecodedParams(params);
-        const parsedData: Uint8Array = Uint8Array.from(Buffer.from(data, 'hex'));
+        let parsedData: Uint8Array = Uint8Array.from(Buffer.from(data, 'hex'));
 
         const verification = await this.verifyOPNetTransaction(parsedData, psbt ?? false);
         if (!verification) {
@@ -44,6 +44,10 @@ export class BroadcastTransaction extends Route<
                 error: 'Could not broadcast transaction',
                 identifier: 0n,
             };
+        }
+
+        if (psbt && verification.modifiedTransaction) {
+            parsedData = Buffer.from(verification.modifiedTransaction, 'base64');
         }
 
         if (verification.success) {

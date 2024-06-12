@@ -30,7 +30,7 @@ import { VMStorage } from '../VMStorage.js';
 import { IWBTCUTXODocument } from '../../../db/interfaces/IWBTCUTXODocument.js';
 import { IVaultDocument } from '../../../db/interfaces/IVaultDocument.js';
 import { VaultRepository } from '../../../db/repositories/VaultRepository.js';
-import { WBTCUTXORepository } from '../../../db/repositories/WBTCUTXORepository.js';
+import { SelectedUTXOs, WBTCUTXORepository } from '../../../db/repositories/WBTCUTXORepository.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -583,7 +583,7 @@ export class VMMongoStorage extends VMStorage {
         await this.vaultRepository.setVault(vault);
     }
 
-    public async getWBTCUTXOs(requestedAmount: bigint): Promise<IWBTCUTXODocument[] | undefined> {
+    public async getWBTCUTXOs(requestedAmount: bigint): Promise<SelectedUTXOs | undefined> {
         if (!this.wbtcUTXORepository) {
             throw new Error('WBTC UTXO repository not initialized');
         }

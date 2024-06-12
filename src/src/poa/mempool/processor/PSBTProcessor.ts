@@ -4,6 +4,12 @@ import { Network, Psbt } from 'bitcoinjs-lib';
 import { PSBTDecodedData } from '../psbt/PSBTTransactionVerifier.js';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 
+export interface PSBTProcessedResponse {
+    readonly psbt: Psbt;
+    readonly modified: boolean;
+    readonly finalized: boolean;
+}
+
 export abstract class PSBTProcessor<T extends PSBTTypes> extends Logger {
     public abstract readonly type: T;
 
@@ -17,5 +23,5 @@ export abstract class PSBTProcessor<T extends PSBTTypes> extends Logger {
 
     public abstract createRepositories(): void;
 
-    public abstract process(psbt: Psbt, data: PSBTDecodedData): Promise<boolean>;
+    public abstract process(psbt: Psbt, data: PSBTDecodedData): Promise<PSBTProcessedResponse>;
 }

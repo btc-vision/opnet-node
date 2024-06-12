@@ -8,6 +8,7 @@ interface IBroadcastTransactionResult {
     peers?: number;
 
     identifier: bigint;
+    modifiedTransaction?: string;
 }
 
 export type BroadcastTransactionResult = JSONRpc2ResultData<JSONRpcMethods.BROADCAST_TRANSACTION> &

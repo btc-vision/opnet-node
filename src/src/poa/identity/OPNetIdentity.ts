@@ -1,5 +1,5 @@
 import { BitcoinNetwork } from '@btc-vision/bsi-common';
-import { networks } from 'bitcoinjs-lib';
+import { networks, Signer } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
 import fs from 'fs';
 import path from 'path';
@@ -144,6 +144,10 @@ export class OPNetIdentity extends OPNetPathFinder {
             default:
                 throw new Error('Invalid network');
         }
+    }
+
+    public getSigner(): Signer {
+        return this.opnetWallet;
     }
 
     public hash(data: Buffer): Buffer {
