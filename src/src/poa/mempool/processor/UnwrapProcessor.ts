@@ -147,11 +147,8 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         // @ts-ignore
         const tx = transaction.transaction;
         let signed = false;
-        for (let i = 0; i < tx.data.inputs.length; i++) {
+        for (let i = 1; i < tx.data.inputs.length; i++) {
             const input = tx.data.inputs[i];
-            if (!input.partialSig) {
-                continue;
-            }
 
             try {
                 // @ts-ignore
