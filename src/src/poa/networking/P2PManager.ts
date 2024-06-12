@@ -163,10 +163,13 @@ export class P2PManager extends Logger {
 
     public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
         if (this.broadcastedIdentifiers.has(data.identifier)) {
+            this.warn(`Transaction ${data.identifier} already broadcasted.`);
+            
             return {
                 peers: 0,
             };
         }
+
         this.broadcastedIdentifiers.add(data.identifier);
 
         return {

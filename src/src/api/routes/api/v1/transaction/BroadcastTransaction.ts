@@ -50,10 +50,16 @@ export class BroadcastTransaction extends Route<
             parsedData = Buffer.from(verification.modifiedTransaction, 'base64');
         }
 
+        const isPsbt = verification.finalizedTransaction
+            ? !verification.modifiedTransaction
+            : !!psbt;
+
+        console.log('Broadcasting transaction', verification);
+
         if (verification.success) {
             return {
                 ...verification,
-                ...(await this.broadcastOPNetTransaction(parsedData, psbt ?? false)),
+                ...(await this.broadcastOPNetTransaction(parsedData, isPsbt)),
             };
         }
 

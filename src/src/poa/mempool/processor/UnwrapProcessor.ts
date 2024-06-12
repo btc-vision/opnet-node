@@ -137,7 +137,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
             signer: signer,
             psbt: psbt,
             receiver: recevier,
-            feesAddition: 0n,
+            feesAddition: amount - 330n,
         };
 
         console.log('amount', amount);
