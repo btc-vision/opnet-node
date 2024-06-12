@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin, { address, opcodes, payments } from 'bitcoinjs-lib';
+import bitcoin, { address, initEccLib, opcodes, payments } from 'bitcoinjs-lib';
 import { Binary } from 'mongodb';
 import {
     InteractionTransactionDocument,
@@ -19,6 +19,7 @@ import { AuthorityManager } from '../../../../poa/configurations/manager/Authori
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
 import { Address, BinaryReader } from '@btc-vision/bsi-binary';
 import { WBTC_UNWRAP_SELECTOR, WBTC_WRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
+import * as ecc from 'tiny-secp256k1';
 
 export interface InteractionWitnessData {
     senderPubKey: Buffer;
@@ -27,6 +28,8 @@ export interface InteractionWitnessData {
     contractSecretHash160: Buffer;
     calldata: Buffer;
 }
+
+initEccLib(ecc);
 
 const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 
