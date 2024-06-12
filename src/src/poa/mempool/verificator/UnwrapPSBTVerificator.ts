@@ -55,7 +55,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
     private async verifyConformity(data: Psbt): Promise<UnwrapPSBTDecodedData> {
         const clone = data.clone();
 
-        /*let newInputs = [];
+        let newInputs = [];
         for (const input of clone.data.inputs) {
             if (!input.partialSig) {
                 newInputs.push(input);
@@ -69,7 +69,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
         }
 
         // @ts-ignore - Get rid of unsigned inputs for verification. TODO: Add a feature in bitcoinjs-lib to ignore unsigned inputs.
-        clone.data.inputs = newInputs;*/
+        clone.data.inputs = newInputs;
 
         const tx = clone.extractTransaction(true, true);
         const firstInput = tx.ins[0];

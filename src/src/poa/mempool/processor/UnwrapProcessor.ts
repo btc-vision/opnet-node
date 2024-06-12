@@ -146,6 +146,9 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
 
         if (signed) {
             this.success('WBTC PSBT signed!');
+
+            // @ts-ignore
+            psbt.combine(transaction.transaction);
         }
 
         if (finalized) {
