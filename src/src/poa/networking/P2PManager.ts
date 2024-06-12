@@ -162,16 +162,15 @@ export class P2PManager extends Logger {
     }
 
     public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
-        if (this.broadcastedIdentifiers.has(data.identifier)) {
+        if (this.broadcastedIdentifiers.has(data.identifier) && data.identifier) {
             this.warn(`Transaction already broadcasted.`);
-            console.log(data);
 
             return {
                 peers: 0,
             };
         }
 
-        this.broadcastedIdentifiers.add(data.identifier);
+        if (data.identifier) this.broadcastedIdentifiers.add(data.identifier);
 
         return {
             peers: await this.broadcastMempoolTransaction({

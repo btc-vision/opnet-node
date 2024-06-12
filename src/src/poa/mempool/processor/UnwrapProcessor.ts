@@ -140,8 +140,6 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
             feesAddition: amount - 330n,
         };
 
-        console.log('amount', amount);
-
         const transaction = new PsbtTransaction(transactionParams);
         const signed: boolean = transaction.attemptSignAllInputs();
         const finalized: boolean = transaction.attemptFinalizeInputs();

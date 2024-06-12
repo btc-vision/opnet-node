@@ -54,12 +54,14 @@ export class BroadcastTransaction extends Route<
             ? !verification.modifiedTransaction
             : !!psbt;
 
-        console.log('Broadcasting transaction', verification);
-
         if (verification.success) {
             return {
                 ...verification,
-                ...(await this.broadcastOPNetTransaction(parsedData, isPsbt)),
+                ...(await this.broadcastOPNetTransaction(
+                    parsedData,
+                    isPsbt,
+                    verification.identifier,
+                )),
             };
         }
 
@@ -135,6 +137,7 @@ export class BroadcastTransaction extends Route<
     private async broadcastOPNetTransaction(
         data: Uint8Array,
         psbt: boolean,
+        identifier?: bigint,
     ): Promise<BroadcastResponse | undefined> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
             {
@@ -144,6 +147,7 @@ export class BroadcastTransaction extends Route<
                     data: {
                         raw: data,
                         psbt,
+                        identifier,
                     },
                 } as BroadcastOPNetRequest,
             };
