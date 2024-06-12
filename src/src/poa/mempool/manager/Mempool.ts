@@ -129,6 +129,8 @@ export class Mempool extends Logger {
                     }
                 );
             } else {
+                console.log(raw);
+
                 const decodedPsbt = await this.psbtVerifier.verify(raw);
                 if (!decodedPsbt) {
                     return {
@@ -153,13 +155,11 @@ export class Mempool extends Logger {
                 } else if (processed.modified) {
                     const base64 = processed.psbt.toBase64();
                     const header = Buffer.from([decodedPsbt.type]);
-                    const modifiedTransaction = Buffer.concat([
-                        header,
-                        Buffer.from(base64, 'base64'),
-                    ]);
+                    const buffer = Buffer.from(base64, 'base64');
 
-                    const isvalid = await this.psbtVerifier.verify(modifiedTransaction);
-                    console.log('isvalid', isvalid);
+                    const modifiedTransaction = processed.finalized
+                        ? buffer
+                        : Buffer.concat([header, buffer]);
 
                     return {
                         success: true,
