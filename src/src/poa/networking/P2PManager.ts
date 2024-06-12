@@ -338,11 +338,16 @@ export class P2PManager extends Logger {
             return;
         }
 
-        const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64') : tx.transaction;
-        const identifier: bigint = verifiedTransaction.identifier;
-        const isPsbt: boolean = verifiedTransaction.finalizedTransaction ?? tx.psbt;
+        const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction
+            ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64')
+            : tx.transaction;
 
-        console.log('Transaction verified:', verifiedTransaction);
+        const identifier: bigint = verifiedTransaction.identifier;
+        const isPsbt: boolean = tx.psbt
+            ? verifiedTransaction.finalizedTransaction === false
+            : false;
+
+        console.log('Transaction verified:', tx, verifiedTransaction, isPsbt, identifier);
 
         /** Already broadcasted. */
         if (this.knownMempoolIdentifiers.has(identifier)) {
