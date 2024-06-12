@@ -346,6 +346,29 @@ export class BlockchainIndexer extends Logger {
             }
         } while (shouldContinue);
 
+        do {
+            const opnetHeaders = await this.vmStorage.getBlockHeader(BigInt(previousBlock));
+
+            if (!opnetHeaders) {
+                this.warn(`No OPNet headers found for block ${previousBlock}.`);
+                break;
+            }
+
+            try {
+                const verifiedProofs: boolean =
+                    await this.vmManager.validateBlockChecksum(opnetHeaders);
+
+                if (verifiedProofs) {
+                    this.success(`Validated checksum proofs for block ${previousBlock}... (GOOD)`);
+                    break;
+                } else {
+                    this.fail(`Validated checksum proofs for block ${previousBlock}... (BAD)`);
+                }
+            } catch (e) {
+                this.fail(`Validated checksum proofs for block ${previousBlock}... (BAD)`);
+            }
+        } while (previousBlock-- > 0);
+
         return BigInt(previousBlock);
     }
 
@@ -470,7 +493,7 @@ export class BlockchainIndexer extends Logger {
                 throw new Error(`Error fetching block hash.`);
             }
 
-            if (this.lastBlock.hash !== blockHash) {
+            if (this.lastBlock && this.lastBlock.hash && this.lastBlock.hash !== blockHash) {
                 this.panic(
                     `Last block hash mismatch. Expected: ${this.lastBlock.hash}, got: ${blockHash}.`,
                 );

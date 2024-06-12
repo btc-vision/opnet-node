@@ -10,6 +10,8 @@ export enum OPNetCollections {
     Reorgs = 'Reorgs',
     Mempool = 'Mempool',
     WBTCUTXO = 'WBTCUTXO',
+    PENDING_WBTC_UTXO = 'PENDING_WBTC_UTXO',
+    USED_WBTC_UTXO = 'USED_WBTC_UTXO',
     Vaults = 'Vaults',
 }
 

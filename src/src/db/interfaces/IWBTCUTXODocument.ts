@@ -11,3 +11,9 @@ export interface IWBTCUTXODocument {
 
     readonly output: Binary;
 }
+
+export interface IUsedWBTCUTXODocument {
+    readonly vault: Address;
+    readonly hash: string;
+    readonly outputIndex: number;
+}
