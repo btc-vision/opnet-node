@@ -9,13 +9,15 @@ import {
     VaultUTXOs,
     WBTCUTXORepository,
 } from '../../../db/repositories/WBTCUTXORepository.js';
-import { PsbtTransaction, VaultUTXOs as AdaptedVaultUTXOs } from '@btc-vision/transaction';
 import {
-    FromBase64Params,
-    PsbtTransactionData,
-} from '@btc-vision/transaction/src/transaction/processor/PsbtTransaction.js';
+    MultiSignFromBase64Params,
+    MultiSignTransaction,
+    PsbtTransaction,
+    VaultUTXOs as AdaptedVaultUTXOs,
+} from '@btc-vision/transaction';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Address } from '@btc-vision/bsi-binary';
+import { ECPairInterface } from 'ecpair';
 
 interface FinalizedPSBT {
     readonly modified: boolean;
@@ -131,32 +133,13 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         // Attempt to sign all inputs.
 
         const signer: Signer = this.authority.getSigner();
-        const transactionParams: PsbtTransactionData = {
-            network: this.network,
-            amountRequested: amount,
-            signer: signer,
-            psbt: psbt,
-            receiver: recevier,
-            feesAddition: amount - 330n,
-        };
-
-        const transaction = new PsbtTransaction(transactionParams);
-        const signed: boolean = transaction.attemptSignAllInputs();
+        const signed: boolean = MultiSignTransaction.signPartial(psbt, signer, 1, this.network);
 
         let finalized: boolean = false;
-        /*try {
-            //@ts-ignore
-            transaction.transaction.finalizeAllInputs();
-
-            finalized = true;
-        } catch (e) {
-            this.error(`Error finalizing PSBT: ${(e as Error).stack}`);
-        }*/
-
         if (signed) {
             this.success('WBTC PSBT signed!');
 
-            finalized = transaction.attemptFinalizeInputs();
+            finalized = MultiSignTransaction.finalizeTransactionInputs();
             if (finalized) {
                 this.success('WBTC PSBT finalized!');
 
@@ -182,10 +165,13 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
     ): Promise<Psbt> {
         const utxosArray = this.convertVaultUTXOsToAdaptedVaultUTXOs(Array.from(utxos.values()));
 
+        const signer: ECPairInterface = this.authority.getSigner();
+        const privKey = signer.toWIF();
+        console.log('privKey', privKey);
+
         // add fees.
         const psbtBase64 = psbt.toBase64();
-        const signer: Signer = this.authority.getSigner();
-        const transactionParams: FromBase64Params = {
+        const transactionParams: MultiSignFromBase64Params = {
             network: this.network,
             amountRequested: amount,
             receiver: receiver,

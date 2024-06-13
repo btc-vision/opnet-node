@@ -161,6 +161,8 @@ export class BroadcastTransaction extends Route<
         raw: Uint8Array,
         psbt: boolean,
     ): Promise<BroadcastResponse | undefined> {
+        console.log(Buffer.from(raw).toString('hex'));
+
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
             {
                 type: MessageType.RPC_METHOD,

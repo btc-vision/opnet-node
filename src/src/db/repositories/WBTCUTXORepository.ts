@@ -38,42 +38,51 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
 
     public async queryVaultsUTXOs(
         requestedAmount: bigint,
-        currentSession?: ClientSession,
+        _currentSession?: ClientSession,
     ): Promise<SelectedUTXOs | undefined> {
-        const aggregation = this.utxosAggregation.getAggregation();
+        try {
+            const aggregation = this.utxosAggregation.getAggregation();
 
-        const collection = this.getCollection();
-        const options: AggregateOptions = this.getOptions(currentSession) as AggregateOptions;
-        options.allowDiskUse = true;
+            const collection = this.getCollection();
+            const options: AggregateOptions = this.getOptions() as AggregateOptions;
+            options.allowDiskUse = true;
 
-        const aggregatedDocument = collection.aggregate<IWBTCUTXODocument>(aggregation, options);
+            const aggregatedDocument = collection.aggregate<IWBTCUTXODocument>(
+                aggregation,
+                options,
+            );
 
-        let currentAmount: bigint = 0n;
-        let fulfilled: boolean = false;
-        let selectedUTXOs: IWBTCUTXODocument[] = [];
-        do {
-            const results = await this.nextBatch(aggregatedDocument);
-            if (!results || results.length === 0) {
-                break;
-            }
-
-            for (const utxo of results) {
-                if (!utxo) {
-                    fulfilled = true;
+            let currentAmount: bigint = 0n;
+            let fulfilled: boolean = false;
+            let selectedUTXOs: IWBTCUTXODocument[] = [];
+            do {
+                const results = await this.nextBatch(aggregatedDocument);
+                if (!results || results.length === 0) {
                     break;
                 }
 
-                currentAmount += DataConverter.fromDecimal128(utxo.value);
-                selectedUTXOs.push(utxo);
+                for (const utxo of results) {
+                    if (!utxo) {
+                        fulfilled = true;
+                        break;
+                    }
 
-                if (currentAmount >= requestedAmount) {
-                    fulfilled = true;
-                    break;
+                    currentAmount += DataConverter.fromDecimal128(utxo.value);
+                    selectedUTXOs.push(utxo);
+
+                    if (currentAmount >= requestedAmount) {
+                        fulfilled = true;
+                        break;
+                    }
                 }
-            }
-        } while (!fulfilled);
+            } while (!fulfilled);
+            
+            return await this.sortUTXOsByVaults(selectedUTXOs);
+        } catch (e) {
+            console.log('Can not fetch UTXOs', e);
+        }
 
-        return await this.sortUTXOsByVaults(selectedUTXOs);
+        return undefined;
     }
 
     public async deleteWBTCUTXOs(blockId: bigint): Promise<void> {
@@ -103,7 +112,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         };
 
         const opts = this.getOptions();
-        opts.session = currentSession;
+        if (currentSession) opts.session = currentSession;
 
         return this.getVaultCollection().findOne(criteria, opts);
     }
@@ -153,8 +162,8 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
     ): Promise<(IWBTCUTXODocument | null)[]> {
         const promises: Promise<IWBTCUTXODocument | null>[] = [];
 
-        for (let i = 0; i < 6; i++) {
-            promises.push(aggregatedDocument.next());
+        for (let i = 0; i < 1; i++) {
+            promises.push(aggregatedDocument.next()); // TODO: fix when to low.
         }
 
         const res = await Promise.all(promises);
