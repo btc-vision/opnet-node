@@ -10,14 +10,13 @@ import {
     WBTCUTXORepository,
 } from '../../../db/repositories/WBTCUTXORepository.js';
 import {
-    MultiSignFromBase64Params,
-    MultiSignTransaction,
+    FromBase64Params,
     PsbtTransaction,
+    PsbtTransactionData,
     VaultUTXOs as AdaptedVaultUTXOs,
 } from '@btc-vision/transaction';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Address } from '@btc-vision/bsi-binary';
-import { ECPairInterface } from 'ecpair';
 
 interface FinalizedPSBT {
     readonly modified: boolean;
@@ -133,13 +132,23 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         // Attempt to sign all inputs.
 
         const signer: Signer = this.authority.getSigner();
-        const signed: boolean = MultiSignTransaction.signPartial(psbt, signer, 1, this.network);
+        const transactionParams: PsbtTransactionData = {
+            network: this.network,
+            amountRequested: amount,
+            signer: signer,
+            psbt: psbt,
+            receiver: recevier,
+            feesAddition: amount - 330n,
+        };
+
+        const transaction = new PsbtTransaction(transactionParams);
+        const signed: boolean = transaction.attemptSignAllInputs();
 
         let finalized: boolean = false;
         if (signed) {
             this.success('WBTC PSBT signed!');
 
-            finalized = MultiSignTransaction.finalizeTransactionInputs();
+            finalized = transaction.attemptFinalizeInputs();
             if (finalized) {
                 this.success('WBTC PSBT finalized!');
 
@@ -165,13 +174,11 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
     ): Promise<Psbt> {
         const utxosArray = this.convertVaultUTXOsToAdaptedVaultUTXOs(Array.from(utxos.values()));
 
-        const signer: ECPairInterface = this.authority.getSigner();
-        const privKey = signer.toWIF();
-        console.log('privKey', privKey);
+        const signer: Signer = this.authority.getSigner();
 
         // add fees.
         const psbtBase64 = psbt.toBase64();
-        const transactionParams: MultiSignFromBase64Params = {
+        const transactionParams: FromBase64Params = {
             network: this.network,
             amountRequested: amount,
             receiver: receiver,
