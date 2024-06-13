@@ -5,6 +5,7 @@ import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { UnwrapProcessor } from './processor/UnwrapProcessor.js';
 import { Network } from 'bitcoinjs-lib';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
+import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 
 export class PSBTProcessorManager {
     private readonly verificator: PSBTProcessor<PSBTTypes>[] = [];
@@ -22,7 +23,9 @@ export class PSBTProcessorManager {
         throw new Error('Unknown PSBT type');
     }
 
-    public createRepositories(): void {
-        this.verificator.forEach((v) => v.createRepositories());
+    public async createRepositories(rpc: BitcoinRPC): Promise<void> {
+        const promises = this.verificator.map((v) => v.createRepositories(rpc));
+
+        await Promise.all(promises);
     }
 }

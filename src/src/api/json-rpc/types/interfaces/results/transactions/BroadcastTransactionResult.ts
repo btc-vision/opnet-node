@@ -8,6 +8,7 @@ interface IBroadcastTransactionResult {
     peers?: number;
 
     identifier: bigint;
+    created?: boolean;
     modifiedTransaction?: string;
     finalizedTransaction?: boolean;
 }

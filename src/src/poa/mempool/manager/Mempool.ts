@@ -91,7 +91,7 @@ export class Mempool extends Logger {
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
 
         this.mempoolRepository = new MempoolRepository(this.db.db);
-        this.psbtProcessorManager.createRepositories();
+        await this.psbtProcessorManager.createRepositories(this.bitcoinRPC);
     }
 
     private async onRPCMethod(m: RPCMessageData<BitcoinRPCThreadMessageType>): Promise<ThreadData> {
@@ -150,20 +150,21 @@ export class Mempool extends Logger {
                             identifier: identifier,
                         };
                     }
-                } else if (processed.modified) {
-                    const base64 = processed.psbt.toBase64();
+                } else if (processed.modified || processed.created) {
+                    const buffer = processed.psbt.toBuffer();
                     const header = Buffer.from([decodedPsbt.type]);
-                    const buffer = Buffer.from(base64, 'base64');
 
-                    const modifiedTransaction = processed.finalized
-                        ? buffer
-                        : Buffer.concat([header, buffer]);
+                    const modifiedTransaction =
+                        processed.finalized || processed.created
+                            ? buffer
+                            : Buffer.concat([header, buffer]);
 
                     return {
                         success: true,
                         result: 'PSBT decoded successfully',
                         identifier: cyrb53a(modifiedTransaction as unknown as u8[]),
                         modifiedTransaction: modifiedTransaction.toString('base64'),
+                        created: processed.created ?? false,
                         finalizedTransaction: processed.finalized ?? false,
                     };
                 } else {

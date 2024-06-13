@@ -46,8 +46,12 @@ export class BroadcastTransaction extends Route<
             };
         }
 
-        if (psbt && verification.modifiedTransaction) {
-            parsedData = Buffer.from(verification.modifiedTransaction, 'base64');
+        if (psbt) {
+            if (verification.created) {
+                return verification;
+            } else if (verification.modifiedTransaction) {
+                parsedData = Buffer.from(verification.modifiedTransaction, 'base64');
+            }
         }
 
         const isPsbt = verification.finalizedTransaction

@@ -39,7 +39,7 @@
         "@asyncapi/generator": "^1.17.13",
         "@asyncapi/html-template": "^2.2.1",
         "@btc-vision/bsi-binary": "^1.0.17",
-        "@btc-vision/bsi-bitcoin-rpc": "github:btc-vision/bsi-bitcoin-rpc",
+        "@btc-vision/bsi-bitcoin-rpc": "^1.0.18",
         "@btc-vision/bsi-common": "^1.0.14",
         "@btc-vision/bsi-db": "^1.0.4",
         "@btc-vision/logger": "github:btc-vision/logger",

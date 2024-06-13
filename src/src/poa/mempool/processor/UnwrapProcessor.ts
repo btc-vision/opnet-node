@@ -17,6 +17,7 @@ import {
 } from '@btc-vision/transaction';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Address } from '@btc-vision/bsi-binary';
+import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 
 interface FinalizedPSBT {
     readonly modified: boolean;
@@ -28,6 +29,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
 
     public readonly type: PSBTTypes.UNWRAP = PSBTTypes.UNWRAP;
 
+    #rpc: BitcoinRPC | undefined;
     #utxoRepository: WBTCUTXORepository | undefined;
 
     public constructor(authority: OPNetIdentity, db: ConfigurableDBManager, network: Network) {
@@ -40,17 +42,25 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         return this.#utxoRepository;
     }
 
-    public createRepositories(): void {
+    private get rpc(): BitcoinRPC {
+        if (!this.#rpc) throw new Error('Bitcoin RPC not created.');
+
+        return this.#rpc;
+    }
+
+    public async createRepositories(rpc: BitcoinRPC): Promise<void> {
         if (!this.db.db) throw new Error('Database connection not established.');
 
         this.#utxoRepository = new WBTCUTXORepository(this.db.db);
+        this.#rpc = rpc;
     }
 
     public async process(psbt: Psbt, data: UnwrapPSBTDecodedData): Promise<PSBTProcessedResponse> {
         try {
             const amountOfInputs = psbt.inputCount;
 
-            let modified: boolean;
+            let modified: boolean = false;
+            let created: boolean = false;
             let finalized: FinalizedPSBT | undefined;
             if (amountOfInputs === 1) {
                 const result = await this.selectUTXOs(data.amount, data.receiver, psbt);
@@ -58,7 +68,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
                 // do something with the utxos.
                 psbt = result.newPsbt;
 
-                modified = true;
+                created = true;
             } else {
                 finalized = await this.finalizePSBT(psbt, data.amount, data.receiver);
                 modified = finalized.modified;
@@ -68,6 +78,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
                 psbt: psbt,
                 finalized: finalized?.finalized ?? false,
                 modified: modified,
+                created: created,
             };
         } catch (e) {
             this.error(`Error processing Unwrap PSBT: ${(e as Error).stack}`);
@@ -186,8 +197,16 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
             feesAddition: amount - 330n,
         };
 
-        const transaction = PsbtTransaction.fromBase64(psbt.toBase64(), transactionParams);
+        const transaction = PsbtTransaction.from(transactionParams);
         transaction.mergeVaults(utxosArray, signer);
+
+        const base64 = transaction.toBase64();
+        const merged = await this.rpc.joinPSBTs([psbtBase64, base64]);
+        if (!merged) {
+            throw new Error('Could not merge PSBTs');
+        }
+
+        console.log('MERGED!', merged);
 
         const resultingBase64 = transaction.toBase64();
         if (psbtBase64 === resultingBase64) {
