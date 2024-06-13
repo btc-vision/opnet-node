@@ -11,8 +11,10 @@ import {
 } from '../../../db/repositories/WBTCUTXORepository.js';
 import {
     FromBase64Params,
+    IUnwrapParameters,
     PsbtTransaction,
     PsbtTransactionData,
+    UnwrapTransaction,
     VaultUTXOs as AdaptedVaultUTXOs,
 } from '@btc-vision/transaction';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -68,7 +70,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
                 // do something with the utxos.
                 psbt = result.newPsbt;
 
-                created = true;
+                modified = true;
             } else {
                 finalized = await this.finalizePSBT(psbt, data.amount, data.receiver);
                 modified = finalized.modified;
@@ -184,7 +186,6 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         receiver: Address,
     ): Promise<Psbt> {
         const utxosArray = this.convertVaultUTXOsToAdaptedVaultUTXOs(Array.from(utxos.values()));
-
         const signer: Signer = this.authority.getSigner();
 
         // add fees.
@@ -198,17 +199,39 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         };
 
         const transaction = PsbtTransaction.from(transactionParams);
-        transaction.mergeVaults(utxosArray, signer);
+        transaction.mergeVaults(utxosArray);
 
-        const base64 = transaction.toBase64();
+        const params: IUnwrapParameters = {
+            from: receiver,
+
+            utxos: [],
+            signer: signer,
+            network: this.network,
+            feeRate: 100,
+
+            priorityFee: 10000n,
+            //nonWitnessUtxo: Buffer.from(''),
+            feeProvision: 0n,
+
+            amount: amount,
+        };
+
+        const unwrap2 = new UnwrapTransaction(params);
+        unwrap2.ignoreSignatureError();
+        unwrap2.setPSBT(transaction.getPSBT());
+
+        const psbt2 = unwrap2.signPSBT();
+        console.log(psbt2);
+
+        /*const base64 = transaction.toBase64();
         const merged = await this.rpc.joinPSBTs([psbtBase64, base64]);
         if (!merged) {
             throw new Error('Could not merge PSBTs');
         }
 
-        console.log('MERGED!', merged);
+        console.log('MERGED!', merged);*/
 
-        const resultingBase64 = transaction.toBase64();
+        const resultingBase64 = psbt2.toBase64();
         if (psbtBase64 === resultingBase64) {
             throw new Error('No UTXOs were added to the PSBT');
         }
