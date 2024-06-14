@@ -510,7 +510,10 @@ export class VMManager extends Logger {
 
         for (let vmEvaluator of this.vmEvaluators.values()) {
             const evaluator = await vmEvaluator;
-            if (evaluator) evaluator.dispose();
+            if (evaluator) {
+                evaluator.clear();
+                evaluator.dispose();
+            }
         }
 
         this.vmEvaluators.clear();
@@ -534,7 +537,10 @@ export class VMManager extends Logger {
     ): Promise<ContractEvaluation> {
         // Get the contract evaluator
         const vmEvaluator: ContractEvaluator | null = params.allowCached
-            ? await this.getVMEvaluatorFromCache(params.contractAddress)
+            ? await this.getVMEvaluatorFromCache(
+                  params.contractAddress,
+                  this.vmBitcoinBlock.height || params.blockHeight,
+              )
             : await this.getVMEvaluator(params.contractAddress, params.blockHeight).catch(() => {
                   return null;
               });
@@ -670,11 +676,10 @@ export class VMManager extends Logger {
     }
 
     private async fetchCachedBlockHeight(): Promise<bigint> {
-        if (this.cachedLastBlockHeight !== undefined) {
-            return await this.cachedLastBlockHeight;
+        if (this.cachedLastBlockHeight === undefined) {
+            this.cachedLastBlockHeight = this.getChainCurrentBlockHeight();
         }
 
-        this.cachedLastBlockHeight = this.getChainCurrentBlockHeight();
         return this.cachedLastBlockHeight;
     }
 
@@ -687,7 +692,7 @@ export class VMManager extends Logger {
             await this.getContractInformation(contractAddress, height);
 
         if (!contractInformation) {
-            this.warn(`Contract ${contractAddress} not found.`);
+            this.warn(`Could not get contract ${contractAddress}.`);
             return null;
         }
 
@@ -715,24 +720,24 @@ export class VMManager extends Logger {
         }
 
         await vmEvaluator.setupContract(contractDeployer, contractAddress);
-
         return vmEvaluator;
     }
 
     private async getVMEvaluatorFromCache(
         contractAddress: Address,
+        height: bigint,
     ): Promise<ContractEvaluator | null> {
         const vmEvaluator: Promise<ContractEvaluator | null> | undefined =
             this.vmEvaluators.get(contractAddress);
 
         if (vmEvaluator) {
+            console.log('From cache!');
             return vmEvaluator;
         }
 
-        const newVmEvaluator = this.getVMEvaluator(
-            contractAddress,
-            this.vmBitcoinBlock.height,
-        ).catch(() => {
+        console.log(`Cache miss for ${contractAddress}`);
+
+        const newVmEvaluator = this.getVMEvaluator(contractAddress, height).catch(() => {
             return null;
         });
 

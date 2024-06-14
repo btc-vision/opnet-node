@@ -20,6 +20,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     public abstract readonly threadType: T;
 
     protected threadRelations: Partial<Record<ThreadTypes, Map<number, MessagePort>>> = {};
+    protected threadRelationsArray: Partial<Record<ThreadTypes, MessagePort[]>> = {};
 
     private messagePort: MessagePort | null = null;
     private tasks: Map<string, ThreadTaskCallback> = new Map<string, ThreadTaskCallback>();
@@ -36,13 +37,11 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData | null> {
         const relation = this.threadRelations[threadType];
-
         if (relation) {
-            const threadId = this.getNextAvailableThread(threadType);
-            const port = relation.get(threadId);
+            const port = this.getNextAvailableThread(threadType);
 
             if (!port) {
-                this.error(`Thread not found. {ThreadType: ${threadType}, ThreadId: ${threadId}}`);
+                this.error(`Thread not found. {ThreadType: ${threadType}}`);
 
                 return null;
             }
@@ -116,28 +115,21 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         m: ThreadMessageBase<MessageType>,
     ): Promise<void | ThreadData>;
 
-    private getNextAvailableThread(threadType: ThreadTypes): number {
-        let threadId = this.availableThreads[threadType] || 0;
+    private getNextAvailableThread(threadType: ThreadTypes): MessagePort {
+        const relation = this.threadRelationsArray[threadType];
+        if (!relation) {
+            throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
+        }
 
-        this.availableThreads[threadType] = threadId + 1;
-
-        const relation = this.threadRelations[threadType];
-        const length = relation ? relation.size : 0;
-
-        const keys = relation ? Array.from(relation.keys()) : [];
-        this.availableThreads[threadType] = threadId >= length ? 0 : threadId;
-
-        return keys[threadId] || 0;
+        let currentIndex = this.availableThreads[threadType] || 0;
+        this.availableThreads[threadType] = (currentIndex + 1) % relation.length;
+        
+        return relation[currentIndex];
     }
 
     private generateTaskId(): string {
         return genRanHex(8);
     }
-
-    /*protected abstract createLinkBetweenThreads(
-        threadType: ThreadTypes,
-        m: LinkThreadMessage<LinkType>,
-    ): Promise<void>;*/
 
     private setMessagePort(msg: SetMessagePort): void {
         this.messagePort = msg.data;
@@ -180,9 +172,12 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         const type = m.data.type;
         const id = type === LinkType.TX ? data.sourceThreadId : data.targetThreadId;
         const relation = this.threadRelations[threadType] || new Map<number, MessagePort>();
-
         relation.set(id, data.port);
 
+        const array = this.threadRelationsArray[threadType] || [];
+        if (!array.includes(data.port)) array.push(data.port);
+
+        this.threadRelationsArray[threadType] = array;
         this.threadRelations[threadType] = relation;
 
         this.createEvents(threadType, data.port);

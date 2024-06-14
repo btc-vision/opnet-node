@@ -101,7 +101,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
                 const vmManager = this.vmManagers[i];
                 vmManager.clear();
             }
-        }, 20000);
+        }, 60000); //clear ever minute
     }
 
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
