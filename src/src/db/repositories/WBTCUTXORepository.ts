@@ -54,9 +54,27 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
 
         setTimeout(() => {
             this.cachedVaultQuery = undefined;
-        }, 30); // cache for 50ms. this will prevent massive spamming of the database.
+        }, 25); // cache for 25ms. this will prevent massive spamming of the database.
 
         return result;
+    }
+
+    public async deleteWBTCUTXOs(blockId: bigint): Promise<void> {
+        const criteria = {
+            blockId: {
+                $gte: DataConverter.toDecimal128(blockId),
+            },
+        };
+
+        await this.delete(criteria);
+    }
+
+    protected override getCollection(): Collection<IWBTCUTXODocument> {
+        return this._db.collection(OPNetCollections.WBTCUTXO);
+    }
+
+    protected getVaultCollection(): Collection<IVaultDocument> {
+        return this._db.collection(OPNetCollections.Vaults);
     }
 
     private async _queryVaultsUTXOs(
@@ -106,24 +124,6 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         }
 
         return undefined;
-    }
-
-    public async deleteWBTCUTXOs(blockId: bigint): Promise<void> {
-        const criteria = {
-            blockId: {
-                $gte: DataConverter.toDecimal128(blockId),
-            },
-        };
-
-        await this.delete(criteria);
-    }
-
-    protected override getCollection(): Collection<IWBTCUTXODocument> {
-        return this._db.collection(OPNetCollections.WBTCUTXO);
-    }
-
-    protected getVaultCollection(): Collection<IVaultDocument> {
-        return this._db.collection(OPNetCollections.Vaults);
     }
 
     private async fetchVault(
