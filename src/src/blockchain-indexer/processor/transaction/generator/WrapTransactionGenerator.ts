@@ -1,11 +1,11 @@
-import { BitcoinNetwork, Logger } from '@btc-vision/bsi-common';
+import { Logger } from '@btc-vision/bsi-common';
 import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
 import {
     TrustedAuthority,
     TrustedPublicKeysWithConstraints,
 } from '../../../../poa/configurations/manager/TrustedAuthority.js';
-import { GeneratedResult } from '../../../../api/json-rpc/types/interfaces/results/opnet/GenerateResult.js';
-import { Network, networks } from 'bitcoinjs-lib';
+import { WrappedGenerationResult } from '../../../../api/json-rpc/types/interfaces/results/opnet/GenerateResult.js';
+import { Network } from 'bitcoinjs-lib';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
 import { KeyPairGenerator } from '../../../../poa/networking/encryptem/KeyPairGenerator.js';
 import { EcKeyPair } from '@btc-vision/transaction';
@@ -18,32 +18,15 @@ export class WrapTransactionGenerator extends Logger {
     public readonly logColor: string = '#5dbcef';
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
-
-    private readonly network: Network;
     private readonly generator: KeyPairGenerator = new KeyPairGenerator();
 
-    constructor(bitcoinNetwork: BitcoinNetwork) {
+    constructor(private readonly network: Network) {
         super();
-
-        /** Move this to its own class with all the duplicates */
-        switch (bitcoinNetwork) {
-            case BitcoinNetwork.Mainnet:
-                this.network = networks.bitcoin;
-                break;
-            case BitcoinNetwork.Regtest:
-                this.network = networks.regtest;
-                break;
-            case BitcoinNetwork.TestNet:
-                this.network = networks.testnet;
-                break;
-            default:
-                throw new Error(`Invalid network: ${bitcoinNetwork}`);
-        }
     }
 
     public async generateWrapParameters(
         params: WrapTransactionParameters,
-    ): Promise<GeneratedResult | undefined> {
+    ): Promise<WrappedGenerationResult | undefined> {
         const trustedValidators: TrustedPublicKeysWithConstraints =
             this.currentAuthority.trustedPublicKeysRespectingConstraints;
 

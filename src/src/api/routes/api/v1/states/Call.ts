@@ -26,6 +26,7 @@ import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 import { AddressVerificator } from '@btc-vision/transaction';
+import { NetworkConverter } from '../../../../../config/NetworkConverter.js';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private readonly network: bitcoin.networks.Network = bitcoin.networks.testnet;
@@ -33,19 +34,36 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     constructor() {
         super(Routes.CALL, RouteType.GET);
 
-        switch (Config.BLOCKCHAIN.BITCOIND_NETWORK) {
-            case 'mainnet':
-                this.network = bitcoin.networks.bitcoin;
-                break;
-            case 'testnet':
-                this.network = bitcoin.networks.testnet;
-                break;
-            case 'regtest':
-                this.network = bitcoin.networks.regtest;
-                break;
-            default:
-                throw new Error(`Invalid network ${Config.BLOCKCHAIN.BITCOIND_NETWORK}`);
+        this.network = NetworkConverter.getNetwork(Config.BLOCKCHAIN.BITCOIND_NETWORK);
+    }
+
+    public static async requestThreadExecution(
+        to: Address,
+        calldata: string,
+        from?: Address,
+    ): Promise<CallRequestResponse> {
+        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
+            type: MessageType.RPC_METHOD,
+            data: {
+                rpcMethod: BitcoinRPCThreadMessageType.CALL,
+                data: {
+                    to: to,
+                    calldata: calldata,
+                    from: from,
+                },
+            } as CallRequest,
+        };
+
+        const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
+            ThreadTypes.BITCOIN_RPC,
+            currentBlockMsg,
+        )) as CallRequestResponse | null;
+
+        if (!currentBlock) {
+            throw new Error(`Failed to execute the given calldata at the requested contract.`);
         }
+
+        return currentBlock;
     }
 
     public async getData(_params: CallParams): Promise<CallResult | undefined> {
@@ -54,7 +72,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         }
 
         const [to, calldata, from] = this.getDecodedParams(_params);
-        const res: CallRequestResponse = await this.requestThreadExecution(to, calldata, from);
+        const res: CallRequestResponse = await Call.requestThreadExecution(to, calldata, from);
 
         return this.convertDataToResult(res);
     }
@@ -196,38 +214,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         }
 
         return accessList;
-    }
-
-    private async requestThreadExecution(
-        to: Address,
-        calldata: string,
-        from?: Address,
-    ): Promise<CallRequestResponse> {
-        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
-            type: MessageType.RPC_METHOD,
-            data: {
-                rpcMethod: BitcoinRPCThreadMessageType.CALL,
-                data: {
-                    to: to,
-                    calldata: calldata,
-                    from: from,
-                },
-            } as CallRequest,
-        };
-
-        const start = Date.now();
-        const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
-            ThreadTypes.BITCOIN_RPC,
-            currentBlockMsg,
-        )) as CallRequestResponse | null;
-
-        if (!currentBlock) {
-            throw new Error(`Failed to execute the given calldata at the requested contract.`);
-        }
-
-        this.info(`Call request executed. {To: ${to.toString()}, Time: ${Date.now() - start}ms}`);
-
-        return currentBlock;
     }
 
     private getDecodedParams(params: CallParams): [Address, string, Address | undefined] {

@@ -60,8 +60,18 @@ export class TrustedAuthority extends Logger {
         this.publicKeys = this.getTrustedPublicKeys();
     }
 
-    public get WBTC_CONTRACT_ADDRESSES(): string[] {
+    public get WBTC_CONTRACT_ADDRESSES(): Address[] {
         return this.wbtcContractAddresses;
+    }
+
+    public get WBTC_SEGWIT_CONTRACT_ADDRESS(): Address {
+        const address = this.wbtcContractAddresses[0];
+
+        if (!address) {
+            throw new Error('WBTC segwit contract address not found');
+        }
+
+        return address;
     }
 
     public get WBTC_DEPLOYER(): string {

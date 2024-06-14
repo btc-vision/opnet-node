@@ -4,20 +4,8 @@ import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { Network, Psbt, Signer } from 'bitcoinjs-lib';
 import { UnwrapPSBTDecodedData } from '../verificator/UnwrapPSBTVerificator.js';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
-import {
-    SelectedUTXOs,
-    VaultUTXOs,
-    WBTCUTXORepository,
-} from '../../../db/repositories/WBTCUTXORepository.js';
-import {
-    FromBase64Params,
-    IUnwrapParameters,
-    PsbtTransaction,
-    PsbtTransactionData,
-    UnwrapTransaction,
-    VaultUTXOs as AdaptedVaultUTXOs,
-} from '@btc-vision/transaction';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { SelectedUTXOs, WBTCUTXORepository } from '../../../db/repositories/WBTCUTXORepository.js';
+import { PsbtTransaction, PsbtTransactionData } from '@btc-vision/transaction';
 import { Address } from '@btc-vision/bsi-binary';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 
@@ -111,32 +99,6 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         };
     }
 
-    private convertVaultUTXOsToAdaptedVaultUTXOs(utxos: VaultUTXOs[]): AdaptedVaultUTXOs[] {
-        const adaptedVaultUTXOs: AdaptedVaultUTXOs[] = [];
-
-        for (const vault of utxos) {
-            const adapted: AdaptedVaultUTXOs = {
-                vault: vault.vault,
-                publicKeys: vault.publicKeys,
-                minimum: vault.minimum,
-                utxos: vault.utxos.map((utxo) => {
-                    return {
-                        vault: vault.vault,
-                        blockId: DataConverter.fromDecimal128(utxo.blockId),
-                        hash: utxo.hash,
-                        value: DataConverter.fromDecimal128(utxo.value),
-                        outputIndex: utxo.outputIndex,
-                        output: utxo.output.toString('base64'),
-                    };
-                }),
-            };
-
-            adaptedVaultUTXOs.push(adapted);
-        }
-
-        return adaptedVaultUTXOs;
-    }
-
     private async finalizePSBT(
         psbt: Psbt,
         amount: bigint,
@@ -185,7 +147,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         amount: bigint,
         receiver: Address,
     ): Promise<Psbt> {
-        const utxosArray = this.convertVaultUTXOsToAdaptedVaultUTXOs(Array.from(utxos.values()));
+        /*const utxosArray = this.convertVaultUTXOsToAdaptedVaultUTXOs(Array.from(utxos.values()));
         const signer: Signer = this.authority.getSigner();
 
         // add fees.
@@ -223,14 +185,6 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         const psbt2 = unwrap2.signPSBT();
         console.log(psbt2);
 
-        /*const base64 = transaction.toBase64();
-        const merged = await this.rpc.joinPSBTs([psbtBase64, base64]);
-        if (!merged) {
-            throw new Error('Could not merge PSBTs');
-        }
-
-        console.log('MERGED!', merged);*/
-
         const resultingBase64 = psbt2.toBase64();
         if (psbtBase64 === resultingBase64) {
             throw new Error('No UTXOs were added to the PSBT');
@@ -238,6 +192,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
 
         this.success(`WBTC PSBT adapted with UTXOs`);
 
-        return Psbt.fromBase64(resultingBase64, { network: this.network });
+        return Psbt.fromBase64(resultingBase64, { network: this.network });*/
+        throw new Error('Not implemented');
     }
 }

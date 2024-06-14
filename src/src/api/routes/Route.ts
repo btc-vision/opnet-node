@@ -25,8 +25,6 @@ export abstract class Route<
         private readonly routeType: RouteType,
     ) {
         super();
-
-        this.initialize();
     }
 
     public getPath(): T {
@@ -38,6 +36,8 @@ export abstract class Route<
         handler: Router | MiddlewareHandler | MiddlewareHandler[];
     } {
         this.storage = storage;
+
+        this.initialize();
 
         return {
             type: this.routeType,

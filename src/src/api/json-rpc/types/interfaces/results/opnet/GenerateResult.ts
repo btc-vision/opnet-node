@@ -1,5 +1,7 @@
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
+import { GenerateTarget } from '../../params/opnet/GenerateParams.js';
+import { VaultUTXOs as AdaptedVaultUTXOs } from '@btc-vision/transaction';
 
 export interface GenerationConstraints {
     /** Timestamp of the generation */
@@ -15,7 +17,7 @@ export interface GenerationConstraints {
     readonly transactionMinimum: number;
 }
 
-export interface WrappedGenerationParameters {
+export interface WrappedGenerationResult {
     /** Public trusted keys */
     readonly keys: string[];
 
@@ -32,8 +34,22 @@ export interface WrappedGenerationParameters {
     readonly constraints: GenerationConstraints;
 }
 
-export type GeneratedResult =
-    | (JSONRpc2ResultData<JSONRpcMethods.GENERATE> & WrappedGenerationParameters)
+export interface UnwrappedGenerationResult {
+    /** Selected vault UTXOs */
+    readonly vaultUTXOs: AdaptedVaultUTXOs[];
+
+    /** WBTC balance */
+    readonly balance: string;
+}
+
+export type PartialGeneratedResult<T extends GenerateTarget> = T extends GenerateTarget.WRAP
+    ? WrappedGenerationResult
+    : T extends GenerateTarget.UNWRAP
+      ? UnwrappedGenerationResult
+      : never;
+
+export type GeneratedResult<T extends GenerateTarget> =
+    | (JSONRpc2ResultData<JSONRpcMethods.GENERATE> & PartialGeneratedResult<T>)
     | {
           error: string;
       };
