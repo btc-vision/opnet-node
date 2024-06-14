@@ -56,6 +56,7 @@ export class VMManager extends Logger {
 
     private vmEvaluators: Map<Address, Promise<ContractEvaluator>> = new Map();
     private contractAddressCache: Map<Address, Address> = new Map();
+    private cachedLastBlockHeight: Promise<bigint> | undefined;
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -162,7 +163,7 @@ export class VMManager extends Logger {
         calldataString: string,
         height?: bigint,
     ): Promise<EvaluatedResult> {
-        const currentHeight: bigint = height || 1n + (await this.getChainCurrentBlockHeight());
+        const currentHeight: bigint = height || 1n + (await this.fetchCachedBlockHeight());
         const contractAddress: Address | undefined = await this.getContractAddress(to);
         if (!contractAddress) {
             throw new Error('Contract not found');
@@ -176,7 +177,7 @@ export class VMManager extends Logger {
             maxGas: GasTracker.MAX_GAS,
             calldata: Buffer.from(calldataString, 'hex'),
             blockHeight: currentHeight,
-            allowCached: false,
+            allowCached: true,
             externalCall: false,
         };
 
@@ -657,12 +658,24 @@ export class VMManager extends Logger {
 
     private async getChainCurrentBlockHeight(): Promise<bigint> {
         const block = await this.vmStorage.getLatestBlock();
-
         if (!block) {
             throw new Error('Block not found');
         }
 
+        setTimeout(() => {
+            this.cachedLastBlockHeight = undefined;
+        }, 2000);
+
         return BigInt(block.height);
+    }
+
+    private async fetchCachedBlockHeight(): Promise<bigint> {
+        if (this.cachedLastBlockHeight !== undefined) {
+            return await this.cachedLastBlockHeight;
+        }
+
+        this.cachedLastBlockHeight = this.getChainCurrentBlockHeight();
+        return this.cachedLastBlockHeight;
     }
 
     private async getVMEvaluator(
