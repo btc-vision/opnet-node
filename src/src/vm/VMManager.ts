@@ -60,10 +60,11 @@ export class VMManager extends Logger {
     constructor(
         private readonly config: IBtcIndexerConfig,
         private readonly isExecutor: boolean = false,
+        vmStorage?: VMStorage,
     ) {
         super();
 
-        this.vmStorage = this.getVMStorage();
+        this.vmStorage = vmStorage || this.getVMStorage();
         this.vmBitcoinBlock = new VMBitcoinBlock(this.vmStorage);
         this.contractCache = new Map();
     }
@@ -533,7 +534,7 @@ export class VMManager extends Logger {
         // Get the contract evaluator
         const vmEvaluator: ContractEvaluator | null = params.allowCached
             ? await this.getVMEvaluatorFromCache(params.contractAddress)
-            : await this.getVMEvaluator(params.contractAddress, params.blockHeight).catch((e) => {
+            : await this.getVMEvaluator(params.contractAddress, params.blockHeight).catch(() => {
                   return null;
               });
 

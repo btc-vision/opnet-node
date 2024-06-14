@@ -24,12 +24,16 @@ import { VMManager } from '../../../vm/VMManager.js';
 import { BitcoinRPCThreadMessageType } from './messages/BitcoinRPCThreadMessage.js';
 import { BroadcastResponse } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { BTC_FAKE_ADDRESS } from '../../processor/block/types/ZeroValue.js';
+import { VMStorage } from '../../../vm/storage/VMStorage.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     public readonly threadType: ThreadTypes.BITCOIN_RPC = ThreadTypes.BITCOIN_RPC;
 
     private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
-    private readonly vmManager: VMManager = new VMManager(Config, true);
+    private readonly vmManagers: VMManager[] = [];
+    private currentVMManagerIndex: number = 0;
+
+    private readonly CONCURRENT_VMS: number = 10;
 
     constructor() {
         super();
@@ -41,11 +45,14 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
     protected async init(): Promise<void> {
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
-        await this.vmManager.init();
+        await this.createVMManagers();
+    }
 
-        setInterval(() => {
-            this.vmManager.clear();
-        }, 20000);
+    protected getNextVMManager(): VMManager {
+        const vmManager = this.vmManagers[this.currentVMManagerIndex];
+        this.currentVMManagerIndex = (this.currentVMManagerIndex + 1) % this.CONCURRENT_VMS;
+
+        return vmManager;
     }
 
     protected async onLinkMessage(
@@ -76,10 +83,32 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
         }
     }
 
+    private async createVMManagers(): Promise<void> {
+        let vmStorage: VMStorage | undefined = undefined;
+        for (let i = 0; i < this.CONCURRENT_VMS; i++) {
+            const vmManager: VMManager = new VMManager(Config, true, vmStorage);
+            await vmManager.init();
+
+            if (!vmStorage) {
+                vmStorage = vmManager.getVMStorage();
+            }
+
+            this.vmManagers.push(vmManager);
+        }
+
+        setInterval(() => {
+            for (let i = 0; i < this.vmManagers.length; i++) {
+                const vmManager = this.vmManagers[i];
+                vmManager.clear();
+            }
+        }, 20000);
+    }
+
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
         this.info(`Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`);
 
-        if (!this.vmManager.initiated) {
+        const vmManager = this.getNextVMManager();
+        if (!vmManager.initiated) {
             return {
                 error: 'Not ready to process call requests',
             };
@@ -87,11 +116,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
         let result: CallRequestResponse | void;
         try {
-            result = await this.vmManager.execute(
-                data.to,
-                data.from || BTC_FAKE_ADDRESS,
-                data.calldata,
-            );
+            result = await vmManager.execute(data.to, data.from || BTC_FAKE_ADDRESS, data.calldata);
         } catch (e) {
             const error = e as Error;
 
@@ -119,20 +144,27 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             checksumProofs: this.getChecksumProofs(blockHeader.checksumProofs),
         };
 
-        const hasValidProofs: boolean | null = await this.vmManager
-            .validateBlockChecksum(vmBlockHeader)
-            .catch((e) => {
-                console.log(e);
-                return null;
-            });
+        const vmManager = this.getNextVMManager();
 
-        const fetchedBlockHeader = await this.vmManager.getBlockHeader(blockNumber).catch(() => {
-            return null;
-        });
+        try {
+            const requests: [
+                Promise<boolean | null>,
+                Promise<BlockHeaderBlockDocument | undefined>,
+            ] = [
+                vmManager.validateBlockChecksum(vmBlockHeader),
+                vmManager.getBlockHeader(blockNumber),
+            ];
+
+            const [hasValidProofs, fetchedBlockHeader] = await Promise.all(requests);
+            return {
+                hasValidProofs: hasValidProofs,
+                storedBlockHeader: fetchedBlockHeader ?? null,
+            };
+        } catch (e) {}
 
         return {
-            hasValidProofs: hasValidProofs,
-            storedBlockHeader: fetchedBlockHeader ?? null,
+            hasValidProofs: false,
+            storedBlockHeader: null,
         };
     }
 
@@ -141,8 +173,6 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             success: false,
             identifier: 0n,
         };
-
-        console.log('sending', transaction);
 
         const result: string | null = await this.bitcoinRPC
             .sendRawTransaction({ hexstring: transaction })
