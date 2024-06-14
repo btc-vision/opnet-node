@@ -48,11 +48,38 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
         await this.createVMManagers();
     }
 
-    protected getNextVMManager(): VMManager {
-        const vmManager = this.vmManagers[this.currentVMManagerIndex];
-        this.currentVMManagerIndex = (this.currentVMManagerIndex + 1) % this.CONCURRENT_VMS;
+    protected async getNextVMManager(tries: number = 0): Promise<VMManager> {
+        if (tries > 10) {
+            throw new Error('Failed to get a VMManager');
+        }
 
-        return vmManager;
+        return new Promise<VMManager>((resolve) => {
+            let startNumber = this.currentVMManagerIndex;
+            let nextCurrent: number = this.currentVMManagerIndex;
+            let vmManager: VMManager | undefined;
+
+            do {
+                vmManager = this.vmManagers[this.currentVMManagerIndex];
+                nextCurrent = (nextCurrent + 1) % this.CONCURRENT_VMS;
+
+                if (!vmManager.busy() && vmManager.initiated) {
+                    break;
+                }
+            } while (nextCurrent !== startNumber);
+
+            if (!vmManager) {
+                setTimeout(async () => {
+                    this.warn(
+                        `High load detected. Try to increase your RPC thread limit or do fewer requests.`,
+                    );
+
+                    const vmManager = await this.getNextVMManager(tries + 1);
+                    resolve(vmManager);
+                }, 100);
+            }
+
+            resolve(vmManager);
+        });
     }
 
     protected async onLinkMessage(
@@ -107,12 +134,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
         this.info(`Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`);
 
-        const vmManager = this.getNextVMManager();
-        if (!vmManager.initiated) {
-            return {
-                error: 'Not ready to process call requests',
-            };
-        }
+        const vmManager = await this.getNextVMManager();
 
         let result: CallRequestResponse | void;
         try {
@@ -144,7 +166,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             checksumProofs: this.getChecksumProofs(blockHeader.checksumProofs),
         };
 
-        const vmManager = this.getNextVMManager();
+        const vmManager = await this.getNextVMManager();
 
         try {
             const requests: [

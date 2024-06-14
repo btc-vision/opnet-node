@@ -57,6 +57,7 @@ export class VMManager extends Logger {
     private vmEvaluators: Map<Address, Promise<ContractEvaluator>> = new Map();
     private contractAddressCache: Map<Address, Address> = new Map();
     private cachedLastBlockHeight: Promise<bigint> | undefined;
+    private isProcessing: boolean = false;
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -156,6 +157,10 @@ export class VMManager extends Logger {
         };
     }
 
+    public busy(): boolean {
+        return this.isProcessing;
+    }
+
     /** This method is allowed to read only. It can not modify any states. */
     public async execute(
         to: Address,
@@ -163,85 +168,113 @@ export class VMManager extends Logger {
         calldataString: string,
         height?: bigint,
     ): Promise<EvaluatedResult> {
-        const currentHeight: bigint = height || 1n + (await this.fetchCachedBlockHeight());
-        const contractAddress: Address | undefined = await this.getContractAddress(to);
-        if (!contractAddress) {
-            throw new Error('Contract not found');
+        if (this.isProcessing) {
+            throw new Error('VM is already processing');
         }
 
-        // Get the contract evaluator
-        const params: InternalContractCallParameters = {
-            contractAddress: contractAddress,
-            from: from,
-            callee: from,
-            maxGas: GasTracker.MAX_GAS,
-            calldata: Buffer.from(calldataString, 'hex'),
-            blockHeight: currentHeight,
-            allowCached: true,
-            externalCall: false,
-        };
+        try {
+            this.isProcessing = true;
 
-        // Execute the function
-        const evaluation = await this.executeCallInternal(params);
-        return evaluation.getEvaluationResult();
+            const currentHeight: bigint = height || 1n + (await this.fetchCachedBlockHeight());
+            const contractAddress: Address | undefined = await this.getContractAddress(to);
+            if (!contractAddress) {
+                throw new Error('Contract not found');
+            }
+
+            // Get the contract evaluator
+            const params: InternalContractCallParameters = {
+                contractAddress: contractAddress,
+                from: from,
+                callee: from,
+                maxGas: GasTracker.MAX_GAS,
+                calldata: Buffer.from(calldataString, 'hex'),
+                blockHeight: currentHeight,
+                allowCached: true,
+                externalCall: false,
+            };
+
+            // Execute the function
+            const evaluation = await this.executeCallInternal(params);
+            const result = evaluation.getEvaluationResult();
+            this.isProcessing = false;
+
+            return result;
+        } catch (e) {
+            this.isProcessing = false;
+            throw e;
+        }
     }
 
     public async executeTransaction(
         blockHeight: bigint,
         interactionTransaction: InteractionTransaction | WrapTransaction,
     ): Promise<EvaluatedResult> {
-        const start = Date.now();
-        if (this.vmBitcoinBlock.height !== blockHeight) {
-            throw new Error('Block height mismatch');
+        if (this.isProcessing) {
+            throw new Error('VM is already processing');
         }
 
-        const contractAddress: Address | undefined = await this.getContractAddress(
-            interactionTransaction.contractAddress,
-        );
+        try {
+            const start = Date.now();
+            if (this.vmBitcoinBlock.height !== blockHeight) {
+                throw new Error('Block height mismatch');
+            }
 
-        if (!contractAddress) {
-            throw new Error('Contract not found');
-        }
-
-        // If the interaction is using the p2tr address, we must change it to the segwit address.
-        if (interactionTransaction.contractAddress !== contractAddress) {
-            interactionTransaction.contractAddress = contractAddress;
-        }
-
-        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.debugBright(`Attempting to execute transaction for contract ${contractAddress}`);
-        }
-
-        const burnedBitcoins: bigint = interactionTransaction.burnedFee;
-        if (!burnedBitcoins) {
-            throw new Error('execution reverted (out of gas)');
-        }
-
-        // Trace the execution time
-        const startBeforeExecution = Date.now();
-        const maxGas: bigint = GasTracker.convertSatToGas(burnedBitcoins);
-
-        // Define the parameters for the internal call.
-        const params: InternalContractCallParameters = {
-            contractAddress: contractAddress,
-            from: interactionTransaction.from,
-            callee: interactionTransaction.callee,
-            maxGas: maxGas,
-            calldata: interactionTransaction.calldata,
-            blockHeight: blockHeight,
-            transactionId: interactionTransaction.transactionId,
-            allowCached: true,
-            externalCall: false,
-        };
-
-        const result: ContractEvaluation = await this.executeCallInternal(params);
-        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            this.debug(
-                `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute, ${result.gasUsed} gas used)`,
+            const contractAddress: Address | undefined = await this.getContractAddress(
+                interactionTransaction.contractAddress,
             );
-        }
 
-        return result.getEvaluationResult();
+            if (!contractAddress) {
+                throw new Error('Contract not found');
+            }
+
+            // If the interaction is using the p2tr address, we must change it to the segwit address.
+            if (interactionTransaction.contractAddress !== contractAddress) {
+                interactionTransaction.contractAddress = contractAddress;
+            }
+
+            if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                this.debugBright(
+                    `Attempting to execute transaction for contract ${contractAddress}`,
+                );
+            }
+
+            const burnedBitcoins: bigint = interactionTransaction.burnedFee;
+            if (!burnedBitcoins) {
+                throw new Error('execution reverted (out of gas)');
+            }
+
+            // Trace the execution time
+            const startBeforeExecution = Date.now();
+            const maxGas: bigint = GasTracker.convertSatToGas(burnedBitcoins);
+
+            // Define the parameters for the internal call.
+            const params: InternalContractCallParameters = {
+                contractAddress: contractAddress,
+                from: interactionTransaction.from,
+                callee: interactionTransaction.callee,
+                maxGas: maxGas,
+                calldata: interactionTransaction.calldata,
+                blockHeight: blockHeight,
+                transactionId: interactionTransaction.transactionId,
+                allowCached: true,
+                externalCall: false,
+            };
+
+            const result: ContractEvaluation = await this.executeCallInternal(params);
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.debug(
+                    `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute, ${result.gasUsed} gas used)`,
+                );
+            }
+
+            const response = result.getEvaluationResult();
+            this.isProcessing = false;
+
+            return response;
+        } catch (e) {
+            this.isProcessing = false;
+            throw e;
+        }
     }
 
     public updateBlockValuesFromResult(
