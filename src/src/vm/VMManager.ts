@@ -764,11 +764,8 @@ export class VMManager extends Logger {
             this.vmEvaluators.get(contractAddress);
 
         if (vmEvaluator) {
-            console.log('From cache!');
             return vmEvaluator;
         }
-
-        console.log(`Cache miss for ${contractAddress}`);
 
         const newVmEvaluator = this.getVMEvaluator(contractAddress, height).catch(() => {
             return null;

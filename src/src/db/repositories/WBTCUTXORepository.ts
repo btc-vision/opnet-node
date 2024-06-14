@@ -20,6 +20,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
     public readonly logColor: string = '#afeeee';
 
     private readonly utxosAggregation: WBTCUTXOAggregation = new WBTCUTXOAggregation();
+    private cachedVaultQuery: Promise<SelectedUTXOs | undefined> | undefined;
 
     constructor(db: Db) {
         super(db);
@@ -36,7 +37,29 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         await this.updatePartial(criteria, utxo, currentSession);
     }
 
+    /** In case someone sends a lot of requests, we can cache the query for a short period of time. */
     public async queryVaultsUTXOs(
+        requestedAmount: bigint,
+        _currentSession?: ClientSession,
+    ): Promise<SelectedUTXOs | undefined> {
+        if (this.cachedVaultQuery) {
+            this.warn(
+                `High load detected. Used cached query for vault request. Increase your capacity. You should not see this message often.`,
+            );
+            return await this.cachedVaultQuery;
+        }
+
+        this.cachedVaultQuery = this._queryVaultsUTXOs(requestedAmount, _currentSession);
+        const result = await this.cachedVaultQuery;
+
+        setTimeout(() => {
+            this.cachedVaultQuery = undefined;
+        }, 30); // cache for 50ms. this will prevent massive spamming of the database.
+
+        return result;
+    }
+
+    private async _queryVaultsUTXOs(
         requestedAmount: bigint,
         _currentSession?: ClientSession,
     ): Promise<SelectedUTXOs | undefined> {
@@ -76,7 +99,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
                     }
                 }
             } while (!fulfilled);
-            
+
             return await this.sortUTXOsByVaults(selectedUTXOs);
         } catch (e) {
             console.log('Can not fetch UTXOs', e);
