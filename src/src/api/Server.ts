@@ -37,7 +37,9 @@ export class Server extends Logger {
     private apiPrefix: string = '/api/v1';
 
     private serverPort: number = 0;
-    private app: HyperExpress.Server = new HyperExpress.Server();
+    private app: HyperExpress.Server = new HyperExpress.Server({
+        max_body_length: 1024 * 1024, // 1mb.
+    });
 
     private readonly storage: VMStorage = new VMMongoStorage(Config);
 

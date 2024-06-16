@@ -81,7 +81,7 @@ export class GenerateRoute extends Route<
             case GenerateTarget.WRAP:
                 return await this.onGenerateWrap(amount);
             case GenerateTarget.UNWRAP:
-                return await this.generateUnwrapParameters(amount, receiver);
+                return await this.generateUnwrapParameters(BigInt(amount), receiver);
             default:
                 throw new Error('Invalid target.');
         }
@@ -191,8 +191,6 @@ export class GenerateRoute extends Route<
             throw new Error(`Amount must be at least ${this.MINIMUM_AMOUNT} sat.`);
         }
 
-        this.log(`Getting unwrap UTXOs to fulfill amount: ${amount}`);
-
         const balanceOfCalldata: string = this.generateGetBalanceCalldata(receiver);
         const balanceOfResult: CallRequestResponse = await Call.requestThreadExecution(
             this.currentAuthority.WBTC_SEGWIT_CONTRACT_ADDRESS,
@@ -218,8 +216,6 @@ export class GenerateRoute extends Route<
     }
 
     private async onGenerateWrap(amount: bigint): Promise<WrappedGenerationResult | undefined> {
-        this.log(`Generating wrap transaction with amount: ${amount}`);
-
         if (amount < this.MINIMUM_AMOUNT) {
             throw new Error(`Amount must be at least ${this.MINIMUM_AMOUNT} sat.`);
         }

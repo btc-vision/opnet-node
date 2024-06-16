@@ -34,7 +34,7 @@ export const WBTC_CONTRACT_ADDRESS: {
                 'tb1qs4d69qpw57cm3pxyeuamenkv0aswtnhpgxry06',
                 'tb1ptyk6dw20slnfz2cj2sn8lym8kznsuvrlw25jk2z4j0zh3es6trdqxp0hlv',
             ],
-            deployer: 'tb1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gszlcezf',
+            deployer: 'tb1p5gsptxjfx4slghcw444umy6pzspy6yfq5cv95mu26rpcpgtduzds8y5h90',
         },
 
         [BitcoinNetwork.Regtest]: {

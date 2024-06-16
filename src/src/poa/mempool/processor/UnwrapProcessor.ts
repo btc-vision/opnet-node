@@ -109,11 +109,8 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         const signer: Signer = this.authority.getSigner();
         const transactionParams: PsbtTransactionData = {
             network: this.network,
-            amountRequested: amount,
             signer: signer,
             psbt: psbt,
-            receiver: recevier,
-            feesAddition: amount - 330n,
         };
 
         const transaction = new PsbtTransaction(transactionParams);

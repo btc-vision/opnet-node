@@ -16,7 +16,7 @@ import {
     WRAPPING_INDEXER_PERCENTAGE_FEE_BASE,
     WRAPPING_INVALID_AMOUNT_PENALTY,
 } from '../../../../poa/wbtc/WBTCRules.js';
-import { EcKeyPair } from '@btc-vision/transaction';
+import { P2TR_MS } from '@btc-vision/transaction';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 
 export interface WrapWitnessData extends InteractionWitnessData {
@@ -260,11 +260,7 @@ export class WrapTransaction extends InteractionTransaction {
     }
 
     private getVaultAddress(): string {
-        return EcKeyPair.generateMultiSigAddress(
-            this.pubKeys,
-            this.minimumSignatures,
-            this.network,
-        );
+        return P2TR_MS.generateMultiSigAddress(this.pubKeys, this.minimumSignatures, this.network);
     }
 
     private decodeWrappingTransaction(): void {
@@ -286,8 +282,8 @@ export class WrapTransaction extends InteractionTransaction {
         }
 
         const minimumSignatures: number = interactionWitnessData.minimumSignatures;
-        if (minimumSignatures > 255) {
-            throw new Error(`Minimum signatures is greater than 255.`);
+        if (minimumSignatures > 19) {
+            throw new Error(`Minimum signatures is greater than 19.`);
         }
 
         this.#minimumSignatures = minimumSignatures;
@@ -416,7 +412,8 @@ export class WrapTransaction extends InteractionTransaction {
 
         const initial: bigint = this.indexerFee * 100n;
         const split: bigint = initial / BigInt(indexerWallets.size);
-        const dust: bigint = (initial - split * BigInt(indexerWallets.size)) / 100n;
+        const each: bigint = split / 100n;
+        const dust: bigint = this.indexerFee - each * BigInt(indexerWallets.size); //(initial - (split / 100n) * BigInt(indexerWallets.size)) / 100n;
 
         for (const wallet of indexerWallets) {
             fees.set(wallet, split / 100n);

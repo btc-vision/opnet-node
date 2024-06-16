@@ -22,6 +22,8 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
     private readonly utxosAggregation: WBTCUTXOAggregation = new WBTCUTXOAggregation();
     private cachedVaultQuery: Promise<SelectedUTXOs | undefined> | undefined;
 
+    private readonly CONSOLIDATION_MINIMUM: bigint = 200000n;
+
     constructor(db: Db) {
         super(db);
     }
@@ -110,8 +112,9 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
 
                     currentAmount += DataConverter.fromDecimal128(utxo.value);
                     selectedUTXOs.push(utxo);
-
-                    if (currentAmount >= requestedAmount) {
+                    
+                    if (currentAmount >= requestedAmount + this.CONSOLIDATION_MINIMUM) {
+                        // ensure we dont end up with a lot of small UTXOs.
                         fulfilled = true;
                         break;
                     }

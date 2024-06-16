@@ -8,7 +8,7 @@ import { WrappedGenerationResult } from '../../../../api/json-rpc/types/interfac
 import { Network } from 'bitcoinjs-lib';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
 import { KeyPairGenerator } from '../../../../poa/networking/encryptem/KeyPairGenerator.js';
-import { EcKeyPair } from '@btc-vision/transaction';
+import { P2TR_MS } from '@btc-vision/transaction';
 
 export interface WrapTransactionParameters {
     readonly amount: bigint;
@@ -83,6 +83,6 @@ export class WrapTransactionGenerator extends Logger {
     }
 
     private generateVaultAddress(keys: Buffer[], minimumSignatureRequired: number): string {
-        return EcKeyPair.generateMultiSigAddress(keys, minimumSignatureRequired, this.network);
+        return P2TR_MS.generateMultiSigAddress(keys, minimumSignatureRequired, this.network);
     }
 }

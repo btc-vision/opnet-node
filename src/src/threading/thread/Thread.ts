@@ -68,7 +68,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                         );
 
                         resolve(null);
-                    }, 3000);
+                    }, 160000);
 
                     const task: ThreadTaskCallback = {
                         timeout: timeout,
@@ -123,7 +123,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
         let currentIndex = this.availableThreads[threadType] || 0;
         this.availableThreads[threadType] = (currentIndex + 1) % relation.length;
-        
+
         return relation[currentIndex];
     }
 
