@@ -16,7 +16,7 @@ import {
     WRAPPING_INDEXER_PERCENTAGE_FEE_BASE,
     WRAPPING_INVALID_AMOUNT_PENALTY,
 } from '../../../../poa/wbtc/WBTCRules.js';
-import { P2TR_MS } from '@btc-vision/transaction';
+import { EcKeyPair } from '@btc-vision/transaction';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 
 export interface WrapWitnessData extends InteractionWitnessData {
@@ -260,7 +260,11 @@ export class WrapTransaction extends InteractionTransaction {
     }
 
     private getVaultAddress(): string {
-        return P2TR_MS.generateMultiSigAddress(this.pubKeys, this.minimumSignatures, this.network);
+        return EcKeyPair.generateMultiSigAddress(
+            this.pubKeys,
+            this.minimumSignatures,
+            this.network,
+        );
     }
 
     private decodeWrappingTransaction(): void {
