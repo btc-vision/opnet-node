@@ -51,6 +51,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
                 type: this.type,
                 psbt: data,
                 data: decoded,
+                version: version,
             };
         } catch (e) {
             this.warn(`PSBT failed verification checks: ${(e as Error).stack}`);

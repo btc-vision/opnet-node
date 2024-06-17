@@ -3,11 +3,13 @@ import { Network, networks, Psbt } from 'bitcoinjs-lib';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { PSBTVerificator } from '../verificator/PSBTVerificator.js';
 import { UnwrapPSBTVerificator } from '../verificator/UnwrapPSBTVerificator.js';
+import { Consensus } from '../../configurations/consensus/Consensus.js';
 
 export interface PSBTDecodedData {}
 
 export interface KnownPSBTObject {
     readonly type: PSBTTypes;
+    readonly version: Consensus;
     readonly psbt: Psbt;
     readonly data: PSBTDecodedData;
 }

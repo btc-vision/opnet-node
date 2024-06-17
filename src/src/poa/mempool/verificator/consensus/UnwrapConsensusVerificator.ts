@@ -23,9 +23,10 @@ export interface UnwrapPSBTDecodedData extends PSBTDecodedData {
     readonly amount: bigint;
     readonly version: number;
     readonly vaults: Map<Address, VerificationVault>;
+    readonly hashes: string[];
 }
 
-export type PartialUnwrapPSBTDecodedData = Omit<UnwrapPSBTDecodedData, 'vaults'>;
+export type PartialUnwrapPSBTDecodedData = Omit<UnwrapPSBTDecodedData, 'vaults' | 'hashes'>;
 
 export abstract class UnwrapConsensusVerificator<T extends Consensus> extends Logger {
     public abstract readonly consensus: T;

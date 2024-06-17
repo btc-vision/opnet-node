@@ -153,7 +153,7 @@ export class Mempool extends Logger {
                     }
                 } else if (processed.modified) {
                     const buffer = processed.psbt.toBuffer();
-                    const header = Buffer.from([decodedPsbt.type]);
+                    const header = Buffer.from([decodedPsbt.type, decodedPsbt.version]);
 
                     const modifiedTransaction = processed.finalized
                         ? buffer

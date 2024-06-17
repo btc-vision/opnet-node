@@ -39,13 +39,14 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
     ): Promise<UnwrapPSBTDecodedData> {
         const usedVaults = await this.getUsedVaultsFromTx(psbt);
 
-        this.analyzeOutputs(psbt, usedVaults, data.receiver, data.amount);
+        this.analyzeOutputs(psbt, usedVaults.vaults, data.receiver, data.amount);
 
         return {
             receiver: data.receiver,
             amount: data.amount,
             version: data.version,
-            vaults: usedVaults,
+            vaults: usedVaults.vaults,
+            hashes: usedVaults.hashes,
         };
     }
 
@@ -111,7 +112,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         let outputAmount: bigint = 0n;
         for (let i = 0; i < psbt.txOutputs.length; i++) {
             const output = psbt.txOutputs[i];
-            
+
             // Verify that the first output goes to the wbtc contract.
             if (i === 0) {
                 if (output.address !== this.trustedAuthority.WBTC_SEGWIT_CONTRACT_ADDRESS) {
@@ -345,7 +346,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         return hashes;
     }
 
-    private async getUsedVaultsFromTx(tx: Psbt): Promise<Map<Address, VerificationVault>> {
+    private async getUsedVaultsFromTx(tx: Psbt): Promise<{vaults: Map<Address, VerificationVault>, hashes: string[]}> {
         let vaults: Map<Address, VerificationVault> = new Map();
 
         const hashUTXOs: string[] = this.getAllInputHashesFromTx(tx);
@@ -363,6 +364,6 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             vaults.set(vault.vault, vault);
         }
 
-        return vaults;
+        return { vaults, hashes: hashUTXOs };
     }
 }
