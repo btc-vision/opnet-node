@@ -134,7 +134,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
 
     public abstract setVault(vault: IVaultDocument): Promise<void>;
 
-    public abstract getWBTCUTXOs(requestedAmount: bigint): Promise<SelectedUTXOs | undefined>;
+    public abstract getWBTCUTXOs(requestedAmount: bigint, consolidationAcceptance: bigint): Promise<SelectedUTXOs | undefined>;
 
     public abstract getVault(vault: string): Promise<IVaultDocument | undefined>;
 }

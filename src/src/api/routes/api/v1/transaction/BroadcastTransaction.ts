@@ -46,12 +46,8 @@ export class BroadcastTransaction extends Route<
             };
         }
 
-        if (psbt) {
-            if (verification.created) {
-                return verification;
-            } else if (verification.modifiedTransaction) {
-                parsedData = Buffer.from(verification.modifiedTransaction, 'base64');
-            }
+        if (psbt && verification.modifiedTransaction) {
+            parsedData = Buffer.from(verification.modifiedTransaction, 'base64');
         }
 
         const isPsbt = verification.finalizedTransaction
@@ -165,8 +161,6 @@ export class BroadcastTransaction extends Route<
         raw: Uint8Array,
         psbt: boolean,
     ): Promise<BroadcastResponse | undefined> {
-        console.log(Buffer.from(raw).toString('hex'));
-
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
             {
                 type: MessageType.RPC_METHOD,

@@ -583,12 +583,18 @@ export class VMMongoStorage extends VMStorage {
         await this.vaultRepository.setVault(vault);
     }
 
-    public async getWBTCUTXOs(requestedAmount: bigint): Promise<SelectedUTXOs | undefined> {
+    public async getWBTCUTXOs(
+        requestedAmount: bigint,
+        consolidationAcceptance: bigint,
+    ): Promise<SelectedUTXOs | undefined> {
         if (!this.wbtcUTXORepository) {
             throw new Error('WBTC UTXO repository not initialized');
         }
 
-        return await this.wbtcUTXORepository.queryVaultsUTXOs(requestedAmount);
+        return await this.wbtcUTXORepository.queryVaultsUTXOs(
+            requestedAmount,
+            consolidationAcceptance,
+        );
     }
 
     public async getVault(vault: Address): Promise<IVaultDocument | undefined> {

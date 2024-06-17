@@ -4,6 +4,7 @@ import { UnwrappedGenerationResult } from '../../../../api/json-rpc/types/interf
 import { VaultUTXOs } from '../../../../db/repositories/WBTCUTXORepository.js';
 import { VaultUTXOs as AdaptedVaultUTXOs } from '@btc-vision/transaction';
 import { DataConverter } from '@btc-vision/bsi-db';
+import { currentConsensusConfig } from '../../../../poa/configurations/OPNetConsensus.js';
 
 // TODO: Add rate limiting.
 export class UnwrapGenerator extends Logger {
@@ -20,7 +21,11 @@ export class UnwrapGenerator extends Logger {
             throw new Error(`Not enough WBTC balance to unwrap ${amount} > ${wbtcBalance}`);
         }
 
-        const utxos = await this.storage.getWBTCUTXOs(amount);
+        const utxos = await this.storage.getWBTCUTXOs(
+            amount,
+            currentConsensusConfig.VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE,
+        );
+
         if (!utxos) {
             throw new Error('No UTXOs found for requested amount');
         }

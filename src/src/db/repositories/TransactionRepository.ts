@@ -18,9 +18,9 @@ import {
     BalanceOfOutputTransactionFromDB,
 } from '../../vm/storage/databases/aggregation/BalanceOfAggregation.js';
 import {
-    UTXOSAggregation,
+    UTXOsAggregation,
     UTXOSOutputTransactionFromDB,
-} from '../../vm/storage/databases/aggregation/UTXOSAggregation.js';
+} from '../../vm/storage/databases/aggregation/UTXOsAggregation.js';
 import { ITransactionDocument, TransactionDocument } from '../interfaces/ITransactionDocument.js';
 
 export class TransactionRepository extends BaseRepository<
@@ -28,7 +28,7 @@ export class TransactionRepository extends BaseRepository<
 > {
     public readonly logColor: string = '#afeeee';
 
-    private readonly uxtosAggregation: UTXOSAggregation = new UTXOSAggregation();
+    private readonly uxtosAggregation: UTXOsAggregation = new UTXOsAggregation();
     private readonly balanceOfAggregation: BalanceOfAggregation = new BalanceOfAggregation();
 
     constructor(db: Db) {
@@ -131,26 +131,33 @@ export class TransactionRepository extends BaseRepository<
         _optimize: boolean = false,
         currentSession?: ClientSession,
     ): Promise<UTXOsOutputTransactions> {
+        // TODO: Add cursor page support.
         const aggregation: Document[] = this.uxtosAggregation.getAggregation(wallet);
         const collection = this.getCollection();
         const options = this.getOptions(currentSession) as AggregateOptions;
         options.allowDiskUse = true;
 
-        const aggregatedDocument = collection.aggregate<UTXOSOutputTransactionFromDB>(
-            aggregation,
-            options,
-        );
+        try {
+            const aggregatedDocument = collection.aggregate<UTXOSOutputTransactionFromDB>(
+                aggregation,
+                options,
+            );
 
-        const results: UTXOSOutputTransactionFromDB[] = await aggregatedDocument.toArray();
+            const results: UTXOSOutputTransactionFromDB[] = await aggregatedDocument.toArray();
 
-        return results.map((result) => {
-            return {
-                transactionId: result.transactionId,
-                outputIndex: result.outputIndex,
-                value: DataConverter.fromDecimal128(result.value),
-                scriptPubKey: result.scriptPubKey,
-            };
-        });
+            return results.map((result) => {
+                return {
+                    transactionId: result.transactionId,
+                    outputIndex: result.outputIndex,
+                    value: DataConverter.fromDecimal128(result.value),
+                    scriptPubKey: result.scriptPubKey,
+                };
+            });
+        } catch (e) {
+            this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
+
+            throw e;
+        }
     }
 
     protected override getCollection(): Collection<ITransactionDocument<OPNetTransactionTypes>> {

@@ -8,8 +8,14 @@ import {
 } from '../../../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { Input } from 'bitcoinjs-lib/src/transaction.js';
 import { ABICoder, Address, BinaryReader } from '@btc-vision/bsi-binary';
-import { KnownPSBTObject, PSBTDecodedData } from '../psbt/PSBTTransactionVerifier.js';
+import { KnownPSBTObject } from '../psbt/PSBTTransactionVerifier.js';
 import { Transaction } from '../../../blockchain-indexer/processor/transaction/Transaction.js';
+import {
+    PartialUnwrapPSBTDecodedData,
+    UnwrapPSBTDecodedData,
+} from './consensus/UnwrapConsensusVerificator.js';
+import { UnwrapVerificatorRoswell } from './consensus/UnwrapVerificatorRoswell.js';
+import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 
 initEccLib(ecc);
 
@@ -20,25 +26,25 @@ interface DecodedWitnessData {
     readonly calldata: Buffer;
 }
 
-export interface UnwrapPSBTDecodedData extends PSBTDecodedData {
-    readonly receiver: Address;
-    readonly amount: bigint;
-}
-
 const abiCoder: ABICoder = new ABICoder();
 
 export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
     public static readonly UNWRAP_SELECTOR: number = Number(`0x${abiCoder.encodeSelector('burn')}`);
     public static readonly MINIMUM_UNWRAP_AMOUNT: bigint = 330n;
-    public readonly type = PSBTTypes.UNWRAP;
 
-    constructor(protected readonly network: Network = networks.bitcoin) {
-        super(network);
+    public readonly type: PSBTTypes.UNWRAP = PSBTTypes.UNWRAP;
+
+    private readonly consensusVerificator: UnwrapVerificatorRoswell;
+
+    constructor(db: ConfigurableDBManager, network: Network = networks.bitcoin) {
+        super(db, network);
+
+        this.consensusVerificator = new UnwrapVerificatorRoswell(this.db);
     }
 
-    public async verify(data: Psbt): Promise<KnownPSBTObject | false> {
+    public async verify(data: Psbt, version: number): Promise<KnownPSBTObject | false> {
         try {
-            const decoded = await this.verifyConformity(data);
+            const decoded = await this.verifyConformity(data, version);
 
             return {
                 type: this.type,
@@ -52,9 +58,11 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
         return false;
     }
 
-    private async verifyConformity(data: Psbt): Promise<UnwrapPSBTDecodedData> {
-        const clone = data.clone();
+    public async createRepositories(): Promise<void> {
+        await this.consensusVerificator.createRepositories();
+    }
 
+    private removeUnsignedInputs(clone: Psbt): Psbt {
         let newInputs = [];
         for (const input of clone.data.inputs) {
             if (input.finalScriptWitness) {
@@ -62,19 +70,37 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
             }
         }
 
-        // @ts-ignore - Get rid of unsigned inputs for verification. TODO: Add a feature in bitcoinjs-lib to ignore unsigned inputs.
+        // Get rid of unsigned inputs for verification. TODO: Add a feature in bitcoinjs-lib to ignore unsigned inputs.
+        // @ts-ignore
         clone.data.inputs = newInputs;
 
+        return clone;
+    }
+
+    private async verifyConformity(data: Psbt, version: number): Promise<UnwrapPSBTDecodedData> {
+        const clone: Psbt = this.removeUnsignedInputs(data.clone());
+
         const tx = clone.extractTransaction(true, true);
+        const amountOfInputs = tx.ins.length;
+        if (amountOfInputs < 1) {
+            throw new Error(`Not enough inputs to unwrap`);
+        }
+
         const firstInput = tx.ins[0];
         if (!firstInput) {
             throw new Error(`No inputs found`);
         }
 
-        return this.decodeOPNetUnwrapWitnesses(firstInput);
+        const decodedWitnesses = this.decodeOPNetUnwrapWitnesses(firstInput, version);
+
+        // Apply consensus validation rules here.
+        return this.consensusVerificator.verify(decodedWitnesses, data);
     }
 
-    private decodeOPNetUnwrapWitnesses(input: Input): UnwrapPSBTDecodedData {
+    private decodeOPNetUnwrapWitnesses(
+        input: Input,
+        version: number,
+    ): PartialUnwrapPSBTDecodedData {
         const witness = input.witness[input.witness.length - 2];
         if (!witness) {
             throw new Error(`No witness found`);
@@ -113,6 +139,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
         return {
             receiver: decoded.sender,
             amount: amountToUnwrap,
+            version: version,
         };
     }
 
@@ -175,6 +202,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
         const decompressedCalldata = InteractionTransaction.decompressBuffer(
             interactionWitnessData.calldata,
         );
+
         if (!decompressedCalldata) {
             throw new Error(`Failed to decompress calldata`);
         }

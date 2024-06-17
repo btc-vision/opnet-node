@@ -9,7 +9,6 @@ export interface PSBTProcessedResponse {
     readonly psbt: Psbt;
     readonly modified: boolean;
     readonly finalized: boolean;
-    readonly created: boolean;
 }
 
 export abstract class PSBTProcessor<T extends PSBTTypes> extends Logger {
