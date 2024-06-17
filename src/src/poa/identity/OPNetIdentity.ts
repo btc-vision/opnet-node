@@ -11,6 +11,7 @@ import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/com
 import { OPNetPathFinder } from './OPNetPathFinder.js';
 import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { EcKeyPair } from '@btc-vision/transaction';
+import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 
 export class OPNetIdentity extends OPNetPathFinder {
     private keyPairGenerator: KeyPairGenerator;
@@ -20,6 +21,8 @@ export class OPNetIdentity extends OPNetPathFinder {
 
     private readonly keyPair: OPNetKeyPair;
     private readonly trustedIdentity: string;
+
+    readonly #xPubKey: Buffer;
 
     public constructor(
         private readonly config: BtcIndexerConfig,
@@ -36,6 +39,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
 
         this.trustedIdentity = this.keyPairGenerator.opnetHash(this.keyPair.trusted.publicKey);
+        this.#xPubKey = toXOnly(this.opnetWallet.publicKey);
     }
 
     public get peerType(): number {
@@ -84,8 +88,16 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.keyPair.trusted.publicKey.toString('base64');
     }
 
-    public get xPubKey(): string {
+    public get pubKeyBase64(): string {
         return this.opnetWallet.publicKey.toString('base64');
+    }
+
+    public get xPubKey(): Buffer {
+        return this.#xPubKey;
+    }
+
+    public get publicKey(): Buffer {
+        return this.opnetWallet.publicKey;
     }
 
     public get signedTrustedWalletConfirmation(): string {
@@ -98,7 +110,7 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public get trustedPublicKey(): string {
-        return `${this.opnetPubKey}|${this.xPubKey}|${this.signedTrustedWalletConfirmation}`;
+        return `${this.opnetPubKey}|${this.pubKeyBase64}|${this.signedTrustedWalletConfirmation}`;
     }
 
     public get tapAddress(): string {

@@ -1,11 +1,11 @@
 import { Network, Psbt, Signer } from 'bitcoinjs-lib';
 import { FinalizedPSBT, UnwrapConsensus } from './UnwrapConsensus.js';
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
-import { MultiSignTransaction } from '@btc-vision/transaction';
 import { WBTCUTXORepository } from '../../../../db/repositories/WBTCUTXORepository.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import { Consensus } from '../../../configurations/consensus/Consensus.js';
 import { UnwrapPSBTDecodedData } from '../../verificator/consensus/UnwrapConsensusVerificator.js';
+import { MultiSignTransaction } from '@btc-vision/transaction';
 
 export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
     public readonly consensus: Consensus.Roswell = Consensus.Roswell;
@@ -29,20 +29,38 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
      */
     public async finalizePSBT(psbt: Psbt, data: UnwrapPSBTDecodedData): Promise<FinalizedPSBT> {
         // Attempt to sign all inputs.
+        let modified: boolean = false;
+        let finalized: boolean = false;
 
         this.log(`Attempting to sign unwrap transaction.`);
-        const signed = MultiSignTransaction.signPartial(
-            psbt,
-            this.signer,
-            1,
-            this.trustedAuthority.minimum,
-        );
+        for (let vault of data.vaults.values()) {
+            const canSign = vault.publicKeys.find((key) => {
+                return this.authority.publicKey.equals(key);
+            });
 
-        this.info(`Signed PSBT: ${signed.signed}, is final: ${signed.final}`);
+            if (!canSign) {
+                this.warn(`Cannot sign for vault ${vault.vault}`);
+                continue;
+            }
+
+            this.log(`Signing for vault ${vault.vault}`);
+
+            const signed = MultiSignTransaction.signPartial(psbt, this.signer, 1, vault.minimum);
+            if (signed.signed) {
+                this.success(
+                    `Signed for vault ${vault.vault} - Can be finalized: ${signed.final}}`,
+                );
+                modified = true;
+            } else {
+                this.panic(
+                    `Failed to sign for vault ${vault.vault} when it should have been possible.`,
+                );
+            }
+        }
 
         return {
-            modified: signed.signed,
-            finalized: false,
+            modified: modified,
+            finalized: finalized,
         };
     }
 
