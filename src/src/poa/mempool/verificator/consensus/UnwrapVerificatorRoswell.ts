@@ -191,9 +191,9 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
 
         // When an UTXO is consumed, the user get UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT as a refund.
         const userOwnedVaultHoldings = vaultTotalHoldings - consolidationAmount;
-        if (outputAmount < userOwnedVaultHoldings) {
+        if (userOwnedVaultHoldings > outputAmount) {
             throw new Error(
-                `Invalid amount sent back to requester. Expected ${outputAmount} sat, but got ${userOwnedVaultHoldings} sat.`,
+                `Invalid amount sent back to requester. Expected ${userOwnedVaultHoldings} sat, but got ${outputAmount} sat.`,
             );
         }
 
