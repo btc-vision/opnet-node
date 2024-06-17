@@ -94,6 +94,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         return vault;
     }
 
+    // TODO: Make sure this is 100% correct and vuln proof.
     private analyzeOutputs(
         psbt: Psbt,
         usedVaults: Map<Address, VerificationVault>,
@@ -158,10 +159,20 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             }
         }
 
+        const maximumFeeRefund: bigint =
+            this.getMaximumFeeRefund(usedVaults) +
+            (hasConsolidation ? -currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT : 0n);
+
+        const refundedAmount: bigint = outputAmount - amount;
+        if (refundedAmount > maximumFeeRefund) {
+            throw new Error(
+                `Refunded amount is above the maximum fee refund. Expected at most ${maximumFeeRefund}, but got ${refundedAmount}`,
+            );
+        }
+
         // Verify that the total output amount matches the expected amount
         const vaultTotalHoldings: bigint = this.calculateVaultTotalHoldings(usedVaults);
-        const expectedConsolidationAmount: bigint = vaultTotalHoldings - amount;
-
+        const expectedConsolidationAmount: bigint = vaultTotalHoldings - amount - refundedAmount;
         if (hasConsolidation) {
             // Verify that the consolidation amount is correct
             if (consolidationAmount < expectedConsolidationAmount) {
@@ -178,20 +189,13 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             }
         }
 
-        const userOwnedVaultHoldings = vaultTotalHoldings - consolidationAmount;
-        const amountPlusFees: bigint =
-            amount + currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
-
         // When an UTXO is consumed, the user get UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT as a refund.
-        if (userOwnedVaultHoldings > amountPlusFees) {
+        const userOwnedVaultHoldings = vaultTotalHoldings - consolidationAmount;
+        if (outputAmount < userOwnedVaultHoldings) {
             throw new Error(
-                `Invalid amount sent back to requester. Expected ${amountPlusFees} sat, but got ${userOwnedVaultHoldings} sat.`,
+                `Invalid amount sent back to requester. Expected ${outputAmount} sat, but got ${userOwnedVaultHoldings} sat.`,
             );
         }
-
-        const maximumFeeRefund: bigint =
-            this.getMaximumFeeRefund(usedVaults) +
-            (hasConsolidation ? -currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT : 0n);
 
         const targetConsolidation: bigint =
             UnwrapTargetConsolidation.calculateVaultTargetConsolidationAmount(
@@ -201,7 +205,6 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             );
 
         const upperLimitConsolidation: bigint = targetConsolidation * 4n;
-
         console.log(
             'consolidation sent',
             consolidationAmount,
@@ -217,8 +220,6 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             vaultTotalHoldings,
             'request',
             amount,
-            'amount plus fee',
-            amountPlusFees,
             'prepaid fee',
             currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT,
         );
@@ -238,13 +239,6 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         this.info(
             `Maximum fee refund: ${maximumFeeRefund} - target consolidation: ${targetConsolidation}`,
         );
-
-        const refundedAmount: bigint = outputAmount - amount;
-        if (refundedAmount > maximumFeeRefund) {
-            throw new Error(
-                `Refunded amount is above the maximum fee refund. Expected at most ${maximumFeeRefund}, but got ${refundedAmount}`,
-            );
-        }
 
         // All good!
     }
@@ -346,7 +340,10 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         return hashes;
     }
 
-    private async getUsedVaultsFromTx(tx: Psbt): Promise<{vaults: Map<Address, VerificationVault>, hashes: string[]}> {
+    private async getUsedVaultsFromTx(tx: Psbt): Promise<{
+        vaults: Map<Address, VerificationVault>;
+        hashes: string[];
+    }> {
         let vaults: Map<Address, VerificationVault> = new Map();
 
         const hashUTXOs: string[] = this.getAllInputHashesFromTx(tx);
