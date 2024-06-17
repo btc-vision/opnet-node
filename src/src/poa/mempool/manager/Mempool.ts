@@ -143,10 +143,10 @@ export class Mempool extends Logger {
                 if (processed.finalized) {
                     const finalized = processed.psbt.extractTransaction();
                     const finalizedHex = finalized.toHex();
-                    console.log(finalizedHex);
+                    console.log('hex', finalizedHex);
 
                     const broadcastResult = await this.broadcastBitcoinTransaction(finalizedHex);
-                    console.log(broadcastResult);
+                    console.log('result', broadcastResult);
 
                     if (broadcastResult) {
                         return {
