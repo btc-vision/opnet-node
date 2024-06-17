@@ -46,9 +46,9 @@ export class PSBTTransactionVerifier extends Logger {
             }
 
             return await verificator.verify(psbt, version);
+        } else {
+            throw new Error('Unknown PSBT type');
         }
-
-        return false;
     }
 
     private getPSBT(data: Uint8Array): Psbt | undefined {

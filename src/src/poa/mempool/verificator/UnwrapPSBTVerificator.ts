@@ -16,6 +16,7 @@ import {
 } from './consensus/UnwrapConsensusVerificator.js';
 import { UnwrapVerificatorRoswell } from './consensus/UnwrapVerificatorRoswell.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
+import { Consensus } from '../../configurations/consensus/Consensus.js';
 
 initEccLib(ecc);
 
@@ -94,7 +95,12 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
         const decodedWitnesses = this.decodeOPNetUnwrapWitnesses(firstInput, version);
 
         // Apply consensus validation rules here.
-        return this.consensusVerificator.verify(decodedWitnesses, data);
+        switch (version) {
+            case Consensus.Roswell:
+                return this.consensusVerificator.verify(decodedWitnesses, data);
+            default:
+                throw new Error(`Unsupported consensus version`);
+        }
     }
 
     private decodeOPNetUnwrapWitnesses(

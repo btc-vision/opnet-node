@@ -56,19 +56,18 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
     }
 
     public async process(psbt: Psbt, data: UnwrapPSBTDecodedData): Promise<PSBTProcessedResponse> {
-        let modified: boolean = false;
-        let finalized: FinalizedPSBT | undefined;
-
+        let final: FinalizedPSBT;
         switch (data.version) {
             case Consensus.Roswell:
-                finalized = await this.roswell.finalizePSBT(psbt, data);
+                final = await this.roswell.finalizePSBT(psbt, data);
                 break;
+            default:
+                throw new Error('Unsupported consensus');
         }
 
         return {
             psbt: psbt,
-            finalized: finalized?.finalized ?? false,
-            modified: modified,
+            ...final,
         };
     }
 }

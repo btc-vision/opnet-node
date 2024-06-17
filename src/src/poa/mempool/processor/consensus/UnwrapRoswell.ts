@@ -50,6 +50,19 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
                 this.success(
                     `Signed for vault ${vault.vault} - Can be finalized: ${signed.final}}`,
                 );
+
+                finalized =
+                    MultiSignTransaction.attemptFinalizeInputs(
+                        psbt,
+                        1,
+                        vault.publicKeys,
+                        signed.final,
+                    ) && signed.final;
+
+                if (finalized) {
+                    this.success(`Finalized transaction!`);
+                }
+
                 modified = true;
             } else {
                 this.panic(
