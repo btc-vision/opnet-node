@@ -159,10 +159,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             }
         }
 
-        const maximumFeeRefund: bigint =
-            this.getMaximumFeeRefund(usedVaults) +
-            (hasConsolidation ? -currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT : 0n);
-
+        const maximumFeeRefund: bigint = this.getMaximumFeeRefund(usedVaults);
         const refundedAmount: bigint = outputAmount - amount;
         if (refundedAmount > maximumFeeRefund) {
             throw new Error(
@@ -172,7 +169,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
 
         // Verify that the total output amount matches the expected amount
         const vaultTotalHoldings: bigint = this.calculateVaultTotalHoldings(usedVaults);
-        const expectedConsolidationAmount: bigint = vaultTotalHoldings - amount - refundedAmount;
+        const expectedConsolidationAmount: bigint = vaultTotalHoldings - amount - maximumFeeRefund;
         if (hasConsolidation) {
             // Verify that the consolidation amount is correct
             if (consolidationAmount < expectedConsolidationAmount) {
@@ -190,10 +187,16 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         }
 
         // When an UTXO is consumed, the user get UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT as a refund.
-        const userOwnedVaultHoldings = vaultTotalHoldings - consolidationAmount;
+        const userOwnedVaultHoldings = vaultTotalHoldings - consolidationAmount - maximumFeeRefund;
         if (userOwnedVaultHoldings > outputAmount) {
             throw new Error(
                 `Invalid amount sent back to requester. Expected ${userOwnedVaultHoldings} sat, but got ${outputAmount} sat.`,
+            );
+        }
+
+        if (amount + maximumFeeRefund < outputAmount) {
+            throw new Error(
+                `Invalid amount sent back to requester. Expected at most ${amount + maximumFeeRefund} sat, but got ${outputAmount} sat.`,
             );
         }
 
@@ -205,7 +208,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             );
 
         const upperLimitConsolidation: bigint = targetConsolidation * 4n;
-        console.log(
+        /*console.log(
             'consolidation sent',
             consolidationAmount,
             'expected consolidation',
@@ -222,7 +225,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             amount,
             'prepaid fee',
             currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT,
-        );
+        );*/
 
         if (consolidationAmount > upperLimitConsolidation) {
             throw new Error(
@@ -256,7 +259,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
     }
 
     private getMaximumFeeRefund(usedVaults: Map<Address, VerificationVault>): bigint {
-        let refund: bigint = 0n;
+        let refund: bigint = -currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
 
         for (let vault of usedVaults.values()) {
             for (let utxo of vault.utxoDetails) {
