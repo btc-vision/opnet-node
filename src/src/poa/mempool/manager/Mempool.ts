@@ -259,7 +259,7 @@ export class Mempool extends Logger {
 
             const submitData: Promise<unknown>[] = [
                 this.mempoolRepository.deleteTransactionByIdentifier(transaction.identifier, true),
-                this.mempoolRepository.storeTransaction(finalTransaction),
+                this.broadcastBitcoinTransaction(finalizedHex),
             ];
 
             const result = await Promise.all(submitData);
@@ -267,7 +267,7 @@ export class Mempool extends Logger {
             console.log('broadcastResult', broadcastResult);
 
             if (broadcastResult?.success) {
-                await this.broadcastBitcoinTransaction(finalizedHex);
+                await this.mempoolRepository.storeTransaction(finalTransaction);
 
                 return {
                     ...broadcastResult,
