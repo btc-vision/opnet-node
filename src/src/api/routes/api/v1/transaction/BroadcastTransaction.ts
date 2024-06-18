@@ -17,6 +17,8 @@ import { ServerThread } from '../../../../ServerThread.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
 import { BroadcastResponse } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+import { currentConsensusConfig } from '../../../../../poa/configurations/OPNetConsensus.js';
+import { xxHash } from '../../../../../poa/hashing/xxhash.js';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,
@@ -35,14 +37,38 @@ export class BroadcastTransaction extends Route<
         }
 
         const [data, psbt] = this.getDecodedParams(params);
-        let parsedData: Uint8Array = Uint8Array.from(Buffer.from(data, 'hex'));
+        const dataSize = data.length / 2;
+        if (psbt && dataSize > currentConsensusConfig.PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE) {
+            return {
+                success: false,
+                error: 'PSBT transaction too large',
+                identifier: 0n,
+            };
+        } else if (!psbt && dataSize > currentConsensusConfig.MAXIMUM_TRANSACTION_BROADCAST_SIZE) {
+            return {
+                success: false,
+                error: 'Transaction too large',
+                identifier: 0n,
+            };
+        }
 
-        const verification = await this.verifyOPNetTransaction(parsedData, psbt ?? false);
+        let parsedDataAsBuf = Buffer.from(data, 'hex');
+        let parsedData: Uint8Array = Uint8Array.from(parsedDataAsBuf);
+
+        const identifier = xxHash.hash(parsedDataAsBuf);
+        console.log(identifier);
+
+        const verification = await this.verifyOPNetTransaction(
+            parsedData,
+            identifier,
+            psbt ?? false,
+        );
+
         if (!verification) {
             return {
                 success: false,
                 error: 'Could not broadcast transaction',
-                identifier: 0n,
+                identifier: identifier,
             };
         }
 
@@ -137,7 +163,7 @@ export class BroadcastTransaction extends Route<
     private async broadcastOPNetTransaction(
         data: Uint8Array,
         psbt: boolean,
-        identifier?: bigint,
+        identifier: bigint,
     ): Promise<BroadcastResponse | undefined> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
             {
@@ -159,6 +185,7 @@ export class BroadcastTransaction extends Route<
 
     private async verifyOPNetTransaction(
         raw: Uint8Array,
+        identifier: bigint,
         psbt: boolean,
     ): Promise<BroadcastResponse | undefined> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
@@ -167,6 +194,7 @@ export class BroadcastTransaction extends Route<
                 data: {
                     rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET,
                     data: {
+                        identifier,
                         raw: raw,
                         psbt,
                     },

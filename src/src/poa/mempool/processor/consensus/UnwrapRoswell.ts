@@ -82,6 +82,7 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
         return {
             modified: modified,
             finalized: finalized,
+            hash: data.hash,
         };
     }
 

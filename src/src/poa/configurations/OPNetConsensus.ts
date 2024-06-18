@@ -8,4 +8,4 @@ export const OPNetConsensus: IOPNetConsensusObj = {
     [Consensus.Roswell]: RoswellConsensus,
 };
 
-export const currentConsensusConfig: IOPNetConsensus = OPNetConsensus[currentConsensus];
+export const currentConsensusConfig: IOPNetConsensus<Consensus> = OPNetConsensus[currentConsensus];

@@ -11,12 +11,13 @@ import { AuthorityManager } from '../../../configurations/manager/AuthorityManag
 export interface FinalizedPSBT {
     readonly modified: boolean;
     readonly finalized: boolean;
+    readonly hash: string;
 }
 
 export abstract class UnwrapConsensus<T extends Consensus> extends Logger {
     public abstract readonly consensus: T;
     public readonly logColor: string = '#6600ff';
-    
+
     protected readonly trustedAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
 
     protected constructor(

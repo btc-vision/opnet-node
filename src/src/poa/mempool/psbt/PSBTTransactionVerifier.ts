@@ -12,6 +12,7 @@ export interface KnownPSBTObject {
     readonly version: Consensus;
     readonly psbt: Psbt;
     readonly data: PSBTDecodedData;
+    readonly hash: string;
 }
 
 export class PSBTTransactionVerifier extends Logger {

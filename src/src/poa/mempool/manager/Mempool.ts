@@ -16,7 +16,6 @@ import { OPNetBroadcastData } from '../../../threading/interfaces/thread-message
 import { PSBTTransactionVerifier } from '../psbt/PSBTTransactionVerifier.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
-import { cyrb53a, u8 } from '@btc-vision/bsi-binary';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/NetworkConverter.js';
 import { PSBTProcessorManager } from '../PSBTProcessorManager.js';
@@ -24,6 +23,9 @@ import { Network } from 'bitcoinjs-lib';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../configurations/manager/AuthorityManager.js';
+import { currentConsensusConfig } from '../../configurations/OPNetConsensus.js';
+import { xxHash } from '../../hashing/xxhash.js';
+import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 
 export class Mempool extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -34,7 +36,7 @@ export class Mempool extends Logger {
 
     private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
 
-    private mempoolRepository: MempoolRepository | undefined;
+    #mempoolRepository: MempoolRepository | undefined;
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
     private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
@@ -55,6 +57,12 @@ export class Mempool extends Logger {
             this.db,
             this.network,
         );
+    }
+
+    private get mempoolRepository(): MempoolRepository {
+        if (!this.#mempoolRepository) throw new Error('Mempool repository not created.');
+
+        return this.#mempoolRepository;
     }
 
     public sendMessageToThread: (
@@ -90,7 +98,7 @@ export class Mempool extends Logger {
 
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
 
-        this.mempoolRepository = new MempoolRepository(this.db.db);
+        this.#mempoolRepository = new MempoolRepository(this.db.db);
         await this.psbtProcessorManager.createRepositories(this.bitcoinRPC);
         await this.psbtVerifier.createRepositories();
     }
@@ -110,78 +118,50 @@ export class Mempool extends Logger {
     private async onTransactionReceived(data: OPNetBroadcastData): Promise<BroadcastResponse> {
         const raw: Uint8Array = data.raw;
         const psbt: boolean = data.psbt;
-        const identifier: bigint = data.identifier || cyrb53a(data.raw as unknown as u8[]);
+        const identifier = data.identifier;
+
+        if (!identifier) {
+            return {
+                success: false,
+                result: 'No identifier provided',
+                identifier: data.identifier,
+            };
+        }
+
+        // Verify transaction size.
+        if (
+            psbt &&
+            raw.byteLength > currentConsensusConfig.PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE
+        ) {
+            return {
+                success: false,
+                result: 'PSBT too large',
+                identifier: data.identifier,
+            };
+        } else if (
+            !psbt &&
+            raw.byteLength > currentConsensusConfig.MAXIMUM_TRANSACTION_BROADCAST_SIZE
+        ) {
+            return {
+                success: false,
+                result: 'Transaction too large',
+                identifier: data.identifier,
+            };
+        }
 
         try {
-            let result: BroadcastResponse = {
-                success: false,
-                result: 'Could not broadcast transaction to the network.',
+            const transaction: IMempoolTransactionObj = {
                 identifier: identifier,
+                psbt: psbt,
+                data: raw,
+                firstSeen: new Date(),
             };
 
-            if (!psbt) {
-                const rawHex: string = Buffer.from(raw).toString('hex');
-
-                return (
-                    (await this.broadcastBitcoinTransaction(rawHex)) || {
-                        success: false,
-                        result: 'Could not broadcast transaction to the network.',
-                        identifier: identifier,
-                    }
-                );
+            if (psbt) {
+                return this.decodePSBTAndProcess(transaction);
             } else {
-                const decodedPsbt = await this.psbtVerifier.verify(raw);
-                if (!decodedPsbt) {
-                    return {
-                        success: false,
-                        result: 'Could not decode PSBT',
-                        identifier: identifier,
-                    };
-                }
-
-                const processed = await this.psbtProcessorManager.processPSBT(decodedPsbt);
-                if (processed.finalized) {
-                    const finalized = processed.psbt.extractTransaction();
-                    const finalizedHex = finalized.toHex();
-                    console.log('hex', finalizedHex);
-
-                    const broadcastResult = await this.broadcastBitcoinTransaction(finalizedHex);
-                    console.log('result', broadcastResult);
-
-                    if (broadcastResult) {
-                        return {
-                            ...broadcastResult,
-                            identifier: identifier,
-                        };
-                    }
-                } else if (processed.modified) {
-                    const buffer = processed.psbt.toBuffer();
-                    const header = Buffer.from([decodedPsbt.type, decodedPsbt.version]);
-
-                    const modifiedTransaction = processed.finalized
-                        ? buffer
-                        : Buffer.concat([header, buffer]);
-
-                    return {
-                        success: true,
-                        result: 'PSBT decoded successfully',
-                        identifier: cyrb53a(modifiedTransaction as unknown as u8[]),
-                        modifiedTransaction: modifiedTransaction.toString('base64'),
-                        finalizedTransaction: processed.finalized ?? false,
-                    };
-                } else {
-                    // unchanged.
-                    this.info(`PSBT unchanged: ${identifier}`);
-
-                    return {
-                        success: false,
-                        result: 'PSBT unchanged',
-                        identifier: identifier,
-                    };
-                }
+                return this.decodeTransactionAndProcess(transaction);
             }
-
-            return result;
         } catch (e) {
             if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.error(`Error processing transaction: ${(e as Error).stack}`);
@@ -191,6 +171,148 @@ export class Mempool extends Logger {
                 success: false,
                 result: `Bad transaction.`,
                 identifier: identifier,
+            };
+        }
+    }
+
+    private async decodeTransactionAndProcess(
+        transaction: IMempoolTransactionObj,
+    ): Promise<BroadcastResponse> {
+        const exist = await this.mempoolRepository.hasTransactionByIdentifier(
+            transaction.identifier,
+            transaction.psbt,
+        );
+        if (exist) {
+            return {
+                success: false,
+                result: 'Transaction already in mempool',
+                identifier: transaction.identifier,
+            };
+        }
+
+        const rawHex: string = Buffer.from(transaction.data).toString('hex');
+        const broadcasted = await this.broadcastBitcoinTransaction(rawHex);
+
+        if (broadcasted && broadcasted.success && broadcasted.result) {
+            transaction.id = broadcasted.result;
+            console.log(transaction);
+
+            await this.mempoolRepository.storeTransaction(transaction);
+        }
+
+        return (
+            broadcasted || {
+                success: false,
+                result: 'Could not broadcast transaction to the network.',
+                identifier: transaction.identifier,
+            }
+        );
+    }
+
+    private async decodePSBTAndProcess(
+        transaction: IMempoolTransactionObj,
+    ): Promise<BroadcastResponse> {
+        const decodedPsbt = await this.psbtVerifier.verify(transaction.data);
+        if (!decodedPsbt) {
+            return {
+                success: false,
+                result: 'Could not decode PSBT',
+                identifier: transaction.identifier,
+            };
+        }
+
+        transaction.id = decodedPsbt.hash;
+
+        const exist = await this.mempoolRepository.storeIfNotExists(transaction);
+        if (exist) {
+            return {
+                success: false,
+                result: 'PSBT already in mempool',
+                identifier: transaction.identifier,
+            };
+        }
+
+        const processed = await this.psbtProcessorManager.processPSBT(decodedPsbt);
+        if (processed.finalized) {
+            const finalized = processed.psbt.extractTransaction();
+            const finalizedHex = finalized.toHex();
+            const newIdentifier = xxHash.hash(finalized.toBuffer());
+
+            const finalTransaction: IMempoolTransactionObj = {
+                id: finalized.getHash(false).toString('hex'),
+                previousPsbtId: transaction.previousPsbtId || decodedPsbt.hash || transaction.id,
+
+                identifier: newIdentifier,
+                data: finalized.toBuffer(),
+
+                psbt: false,
+                firstSeen: transaction.firstSeen,
+            };
+
+            if (finalTransaction.id === finalTransaction.previousPsbtId) {
+                this.error('Transaction and PSBT hash are the same.');
+                return {
+                    success: false,
+                    result: 'Transaction and PSBT hash are the same.',
+                    identifier: finalTransaction.identifier,
+                };
+            }
+
+            const submitData: Promise<unknown>[] = [
+                this.mempoolRepository.deleteTransactionByIdentifier(transaction.identifier, true),
+                this.mempoolRepository.storeTransaction(finalTransaction),
+                this.broadcastBitcoinTransaction(finalizedHex),
+            ];
+
+            const result = await Promise.all(submitData);
+            const broadcastResult = result[1] as BroadcastResponse | undefined;
+
+            if (broadcastResult) {
+                return {
+                    ...broadcastResult,
+                    identifier: finalTransaction.identifier,
+                    modifiedTransaction: Buffer.from(finalTransaction.data).toString('base64'),
+                    finalizedTransaction: true,
+                };
+            } else {
+                return {
+                    success: false,
+                    result: 'Could not broadcast transaction to the network.',
+                    identifier: finalTransaction.identifier,
+                };
+            }
+        } else if (processed.modified) {
+            const buffer = processed.psbt.toBuffer();
+            const header = Buffer.from([decodedPsbt.type, decodedPsbt.version]);
+
+            const modifiedTransaction = processed.finalized
+                ? buffer
+                : Buffer.concat([header, buffer]);
+
+            const newIdentifier = xxHash.hash(modifiedTransaction);
+            const newTransaction: IMempoolTransactionObj = {
+                identifier: newIdentifier,
+                data: modifiedTransaction,
+                psbt: true,
+                firstSeen: transaction.firstSeen,
+                id: processed.hash,
+            };
+
+            await this.mempoolRepository.storeTransaction(newTransaction);
+
+            return {
+                success: true,
+                result: 'PSBT decoded successfully',
+                identifier: newTransaction.identifier,
+                modifiedTransaction: modifiedTransaction.toString('base64'),
+                finalizedTransaction: processed.finalized ?? false,
+            };
+        } else {
+            return {
+                success: true,
+                result: 'PSBT unchanged',
+                identifier: transaction.identifier,
+                finalizedTransaction: false,
             };
         }
     }

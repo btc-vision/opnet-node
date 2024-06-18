@@ -47,6 +47,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             version: data.version,
             vaults: usedVaults.vaults,
             hashes: usedVaults.hashes,
+            hash: data.hash,
         };
     }
 

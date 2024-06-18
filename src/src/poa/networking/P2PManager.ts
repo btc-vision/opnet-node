@@ -2,8 +2,6 @@ import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap, BootstrapComponents } from '@libp2p/bootstrap';
-import { circuitRelayServer } from '@libp2p/circuit-relay-v2';
-import type { CircuitRelayService } from '@libp2p/circuit-relay-v2/src';
 import { Identify, identify } from '@libp2p/identify';
 import {
     type ConnectionGater,
@@ -62,6 +60,7 @@ import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../configurations/manager/AuthorityManager.js';
+import { xxHash } from '../hashing/xxhash.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -75,9 +74,7 @@ export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly p2pConfigurations: P2PConfigurations;
-    private node:
-        | Libp2p<{ nat: unknown; kadDHT: KadDHT; relay: CircuitRelayService; identify: Identify }>
-        | undefined;
+    private node: Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }> | undefined;
 
     private peers: Map<string, OPNetPeer> = new Map();
 
@@ -106,7 +103,7 @@ export class P2PManager extends Logger {
         setInterval(() => {
             this.knownMempoolIdentifiers.clear();
             this.broadcastedIdentifiers.clear();
-        }, 15000);
+        }, 10000);
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -280,6 +277,8 @@ export class P2PManager extends Logger {
     private async refreshRouting(): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
+        this.info('Refreshing routing table...');
+
         await this.node.services.kadDHT.refreshRoutingTable();
         setTimeout(() => {
             void this.refreshRouting();
@@ -336,19 +335,28 @@ export class P2PManager extends Logger {
     }
 
     private async onBroadcastTransaction(tx: ITransactionPacket): Promise<void> {
-        const verifiedTransaction = await this.verifyOPNetTransaction(tx.transaction, tx.psbt);
-        if (!verifiedTransaction) {
+        const verifiedTransaction = await this.verifyOPNetTransaction(
+            tx.transaction,
+            tx.psbt,
+            xxHash.hash(Buffer.from(tx.transaction)),
+        );
+
+        if (!verifiedTransaction || !verifiedTransaction.success) {
+            // Failed to verify transaction.
             return;
         }
 
+        if (verifiedTransaction.peers) {
+            // Already broadcasted via the verification process.
+            return;
+        }
+
+        const identifier = verifiedTransaction.identifier;
         const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction
             ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64')
             : tx.transaction;
 
-        const identifier: bigint = verifiedTransaction.identifier;
         const isPsbt: boolean = tx.psbt ? !verifiedTransaction.finalizedTransaction : false;
-
-        console.log(`Transaction ${identifier} entered mempool.`, verifiedTransaction, isPsbt);
 
         /** Already broadcasted. */
         if (this.knownMempoolIdentifiers.has(identifier)) {
@@ -371,7 +379,7 @@ export class P2PManager extends Logger {
     private async verifyOPNetTransaction(
         data: Uint8Array,
         psbt: boolean,
-        identifier?: bigint,
+        identifier: bigint,
     ): Promise<BroadcastResponse | undefined> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
             {
@@ -919,7 +927,7 @@ export class P2PManager extends Logger {
     }
 
     private async createNode(): Promise<
-        Libp2p<{ nat: unknown; kadDHT: KadDHT; relay: CircuitRelayService; identify: Identify }>
+        Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }>
     > {
         const peerId = await this.p2pConfigurations.peerIdConfigurations();
 
@@ -963,7 +971,6 @@ export class P2PManager extends Logger {
                 identify: identify(this.p2pConfigurations.identifyConfiguration),
                 nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),
                 kadDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
-                relay: circuitRelayServer(),
             },
         });
     }

@@ -1,10 +1,25 @@
 import { Consensus } from '../consensus/Consensus.js';
 
-export interface IOPNetConsensus {
+export interface IOPNetConsensus<T extends Consensus> {
+    /** Information about the consensus */
+    // The consensus type.
+    readonly CONSENSUS: T;
+
+    // The consensus name.
+    readonly CONSENSUS_NAME: string;
+
+    /** General consensus properties */
     // The block height at which this consensus was enabled.
     readonly ENABLED_AT_BLOCK: bigint;
 
-    /** WBTC vaults */
+    /** Networking */
+    // Define the maximum size of a transaction that can be broadcasted.
+    readonly MAXIMUM_TRANSACTION_BROADCAST_SIZE: number;
+
+    // Define the maximum size of a PSBT transaction that can be broadcasted.
+    readonly PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: number;
+
+    /** Vaults related properties */
     // Defines the minimum amount that can be consolidated in a single transaction.
     readonly VAULT_MINIMUM_AMOUNT: bigint;
 
@@ -23,5 +38,5 @@ export interface IOPNetConsensus {
 }
 
 export type IOPNetConsensusObj = {
-    [key in Consensus]: IOPNetConsensus;
+    [key in Consensus]: IOPNetConsensus<key>;
 };

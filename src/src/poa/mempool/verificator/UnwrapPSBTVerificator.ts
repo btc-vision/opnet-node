@@ -17,6 +17,7 @@ import {
 import { UnwrapVerificatorRoswell } from './consensus/UnwrapVerificatorRoswell.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { Consensus } from '../../configurations/consensus/Consensus.js';
+import { TransactionBuilder } from '@btc-vision/transaction';
 
 initEccLib(ecc);
 
@@ -52,6 +53,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
                 psbt: data,
                 data: decoded,
                 version: version,
+                hash: decoded.hash,
             };
         } catch (e) {
             this.warn(`PSBT failed verification checks: ${(e as Error).stack}`);
@@ -79,10 +81,46 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
         return clone;
     }
 
-    private async verifyConformity(data: Psbt, version: number): Promise<UnwrapPSBTDecodedData> {
+    private generatePSBTHash(data: Psbt): { tx: bitcoin.Transaction; hash: string } {
         const clone: Psbt = this.removeUnsignedInputs(data.clone());
+        const clonedForHash: Psbt = this.removeUnsignedInputs(data.clone());
 
         const tx = clone.extractTransaction(true, true);
+
+        // We need to decode the finalScriptWitnesses, count the witnesses and put the number of witness instead
+        for (const input of clonedForHash.data.inputs) {
+            if (input.partialSig) {
+                input.partialSig = input.partialSig.map(() => {
+                    return {
+                        pubkey: Buffer.alloc(33),
+                        signature: Buffer.alloc(65),
+                    };
+                });
+            } else if (input.finalScriptWitness) {
+                let decodedData = TransactionBuilder.readScriptWitnessToWitnessStack(
+                    input.finalScriptWitness,
+                );
+
+                const decoded = [
+                    Buffer.alloc(decodedData.length - 2),
+                    decodedData[decodedData.length - 1],
+                    decodedData[decodedData.length - 2],
+                ];
+
+                // @ts-ignore
+                input.finalScriptWitness = TransactionBuilder.witnessStackToScriptWitness(decoded);
+            }
+        }
+
+        const txForHash = clonedForHash.extractTransaction(true, true);
+        const txHash: string = txForHash.getHash(false).toString('hex');
+
+        return { tx, hash: txHash };
+    }
+
+    private async verifyConformity(data: Psbt, version: number): Promise<UnwrapPSBTDecodedData> {
+        const { tx, hash: txHash } = this.generatePSBTHash(data);
+
         const amountOfInputs = tx.ins.length;
         if (amountOfInputs < 1) {
             throw new Error(`Not enough inputs to unwrap`);
@@ -93,7 +131,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
             throw new Error(`No inputs found`);
         }
 
-        const decodedWitnesses = this.decodeOPNetUnwrapWitnesses(firstInput, version);
+        const decodedWitnesses = this.decodeOPNetUnwrapWitnesses(firstInput, version, txHash);
 
         // Apply consensus validation rules here.
         switch (version) {
@@ -107,6 +145,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
     private decodeOPNetUnwrapWitnesses(
         input: Input,
         version: number,
+        txHash: string,
     ): PartialUnwrapPSBTDecodedData {
         const witness = input.witness[input.witness.length - 2];
         if (!witness) {
@@ -147,6 +186,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
             receiver: decoded.sender,
             amount: amountToUnwrap,
             version: version,
+            hash: txHash,
         };
     }
 
