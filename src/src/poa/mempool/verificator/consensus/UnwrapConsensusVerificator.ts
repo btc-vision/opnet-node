@@ -25,6 +25,7 @@ export interface UnwrapPSBTDecodedData extends PSBTDecodedData {
     readonly vaults: Map<Address, VerificationVault>;
     readonly hashes: string[];
     readonly hash: string;
+    readonly estimatedFees: bigint;
 }
 
 export type PartialUnwrapPSBTDecodedData = Omit<UnwrapPSBTDecodedData, 'vaults' | 'hashes'>;

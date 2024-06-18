@@ -48,6 +48,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             vaults: usedVaults.vaults,
             hashes: usedVaults.hashes,
             hash: data.hash,
+            estimatedFees: data.estimatedFees,
         };
     }
 
@@ -244,51 +245,6 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
 
         // Since we are creating one output when consolidating, we need to add the fee for that output.
         return refund;
-    }
-
-    /**
-     * Pre-estimate the transaction fees for a Taproot transaction
-     * @param {bigint} feeRate - The fee rate in satoshis per virtual byte
-     * @param {bigint} numInputs - The number of inputs
-     * @param {bigint} numOutputs - The number of outputs
-     * @param {bigint} numWitnessElements - The number of witness elements (e.g., number of control blocks and witnesses)
-     * @param {bigint} witnessElementSize - The average size of each witness element in bytes
-     * @param {bigint} emptyWitness - The amount of empty witnesses
-     * @param {bigint} [taprootControlWitnessSize=139n] - The size of the control block witness in bytes
-     * @param {bigint} [taprootScriptSize=32n] - The size of the taproot script in bytes
-     * @returns {bigint} - The estimated transaction fees
-     */
-    private preEstimateTaprootTransactionFees(
-        feeRate: bigint, // satoshis per virtual byte
-        numInputs: bigint,
-        numOutputs: bigint,
-        numWitnessElements: bigint,
-        witnessElementSize: bigint,
-        emptyWitness: bigint,
-        taprootControlWitnessSize: bigint = 32n,
-        taprootScriptSize: bigint = 139n,
-    ): bigint {
-        const txHeaderSize = 10n;
-        const inputBaseSize = 41n;
-        const outputSize = 68n;
-        const taprootWitnessBaseSize = 1n; // Base witness size per input (without signatures and control blocks)
-
-        // Base transaction size (excluding witness data)
-        const baseTxSize = txHeaderSize + inputBaseSize * numInputs + outputSize * numOutputs;
-
-        // Witness data size for Taproot
-        const witnessSize =
-            numInputs * taprootWitnessBaseSize +
-            numWitnessElements * witnessElementSize +
-            taprootControlWitnessSize * numInputs +
-            taprootScriptSize * numInputs +
-            emptyWitness;
-
-        // Total weight and virtual size
-        const weight = baseTxSize * 3n + (baseTxSize + witnessSize);
-        const vSize = weight / 4n;
-
-        return vSize * feeRate;
     }
 
     private reverseString(str: string): string {

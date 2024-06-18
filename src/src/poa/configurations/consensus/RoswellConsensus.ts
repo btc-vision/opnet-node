@@ -16,6 +16,8 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 1000000, // Cap to 1M bytes.
 
     /** Vaults related properties */
+    MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: 20n,
+
     // Defines the minimum amount that can be consolidated in a single transaction.
     VAULT_MINIMUM_AMOUNT: 200000n,
 
@@ -31,4 +33,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     // Equivalent to 56500 satoshis, calculated from UNWRAP_CONSOLIDATION_PREPAID_FEES.
     UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT: 56500n,
+
+    // The maximum number of UTXOs that can be consolidated in a single transaction.
+    MAXIMUM_CONSOLIDATION_UTXOS: 4,
 };

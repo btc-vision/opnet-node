@@ -1,13 +1,5 @@
 import { BaseRepository, DebugLevel } from '@btc-vision/bsi-common';
-import {
-    AggregateOptions,
-    AggregationCursor,
-    Binary,
-    ClientSession,
-    Collection,
-    Db,
-    Decimal128,
-} from 'mongodb';
+import { AggregateOptions, Binary, ClientSession, Collection, Db, Decimal128 } from 'mongodb';
 import { IWBTCUTXODocument } from '../interfaces/IWBTCUTXODocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -183,84 +175,79 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
 
             // Fees are prepaid up to a certain value. We need to add the consolidation fees to the requested amount.
             let currentAmount: bigint = 0n;
-            let fulfilled: boolean = false;
             let consolidating: boolean = false;
             let selectedUTXOs: IWBTCUTXODocument[] = [];
             let consolidatedInputs: IWBTCUTXODocument[] = [];
             let consolidationAmount: bigint = 0n;
-            do {
-                const results = await this.nextBatch(aggregatedDocument);
-                if (!results || results.length === 0) {
-                    break;
-                }
 
+            const results = await aggregatedDocument.toArray();
+            if (!(!results || results.length === 0)) {
                 for (const utxo of results) {
-                    if (!utxo) {
-                        consolidationAmount = 0n;
-                        consolidatedInputs = [];
-
-                        fulfilled = true;
-                        break;
-                    }
-
                     const utxoValue = DataConverter.fromDecimal128(utxo.value);
-                    if (consolidating) {
-                        if (utxoValue + consolidationAmount > upperConsolidationAcceptanceLimit) {
-                            continue;
-                        }
-
-                        consolidationAmount += utxoValue;
-                        consolidatedInputs.push(utxo);
-
-                        requestedAmount +=
-                            currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
-                    } else {
+                    if (!consolidating) {
                         currentAmount += utxoValue;
                         selectedUTXOs.push(utxo);
 
                         requestedAmount +=
                             currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
-                    }
 
-                    if (currentAmount >= requestedAmount) {
-                        if (minConsolidationAcceptance === 0n) {
-                            fulfilled = true;
-                            break;
-                        }
-
-                        if (!consolidating) {
+                        if (currentAmount >= requestedAmount) {
                             consolidating = true;
                             requestedAmount -=
                                 currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
 
                             consolidationAmount = requestedAmount - currentAmount;
-                        }
-                    }
 
-                    if (!consolidating) continue;
+                            if (minConsolidationAcceptance === 0n) {
+                                this.warn(`minConsolidationAcceptance = 0`);
+                                break;
+                            }
+                        }
+
+                        continue;
+                    } else if (
+                        utxoValue + consolidationAmount <=
+                        upperConsolidationAcceptanceLimit
+                    ) {
+                        consolidationAmount += utxoValue;
+                        consolidatedInputs.push(utxo);
+
+                        requestedAmount +=
+                            currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+                    }
 
                     const totalAmount: bigint = currentAmount + consolidationAmount;
                     const requiredAmount: bigint =
                         requestedAmount + upperConsolidationAcceptanceLimit;
 
-                    // Minimum to consolidate is 2 UTXOs, maximum is 32 UTXOs.
+                    // Minimum to consolidate is 2 UTXOs
                     if (
                         (totalAmount >= requiredAmount && consolidatedInputs.length >= 2) ||
-                        consolidatedInputs.length >= 32
+                        consolidatedInputs.length >=
+                            currentConsensusConfig.MAXIMUM_CONSOLIDATION_UTXOS
                     ) {
-                        // Maximize the consolidation.
-                        if (consolidatedInputs.length <= 32) {
-                            selectedUTXOs = selectedUTXOs.concat(consolidatedInputs);
-                        }
-
                         // TODO: ensure we don't end up with a lot of small UTXOs.
-                        fulfilled = true;
                         break;
                     }
                 }
-            } while (!fulfilled);
+            }
 
-            return await this.sortUTXOsByVaults(selectedUTXOs);
+            // Maximize the consolidation.
+            if (
+                consolidatedInputs.length &&
+                consolidationAmount > upperConsolidationAcceptanceLimit
+            ) {
+                consolidatedInputs.pop();
+            }
+
+            if (consolidatedInputs.length > currentConsensusConfig.MAXIMUM_CONSOLIDATION_UTXOS) {
+                consolidatedInputs = consolidatedInputs.slice(
+                    0,
+                    currentConsensusConfig.MAXIMUM_CONSOLIDATION_UTXOS,
+                );
+            }
+
+            return await this.sortUTXOsByVaults(selectedUTXOs.concat(consolidatedInputs));
         } catch (e) {
             console.log('Can not fetch UTXOs', e);
         }
@@ -287,9 +274,16 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
     ): Promise<SelectedUTXOs | undefined> {
         const selectedUTXOs: SelectedUTXOs = new Map();
         const vaultCache: Map<Address, IVaultDocument> = new Map();
+        const hashes: string[] = [];
 
         for (const utxo of utxos) {
             const vault = utxo.vault;
+
+            if (!hashes.includes(utxo.hash)) {
+                hashes.push(utxo.hash);
+            } else {
+                throw new Error(`Duplicate hash found: ${utxo.hash}`);
+            }
 
             const vaultData = vaultCache.get(vault) ?? (await this.fetchVault(vault));
             if (!vaultData) {
@@ -320,18 +314,5 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         }
 
         return selectedUTXOs;
-    }
-
-    private async nextBatch(
-        aggregatedDocument: AggregationCursor<IWBTCUTXODocument>,
-    ): Promise<(IWBTCUTXODocument | null)[]> {
-        const promises: Promise<IWBTCUTXODocument | null>[] = [];
-
-        for (let i = 0; i < 1; i++) {
-            promises.push(aggregatedDocument.next()); // TODO: fix when to low.
-        }
-
-        const res = await Promise.all(promises);
-        return res.filter((r) => r !== null);
     }
 }

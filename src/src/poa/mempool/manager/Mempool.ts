@@ -48,6 +48,8 @@ export class Mempool extends Logger {
         Config.BLOCKCHAIN.BITCOIND_NETWORK,
     );
 
+    private estimatedBlockFees: bigint = 0n;
+
     constructor() {
         super();
 
@@ -88,6 +90,13 @@ export class Mempool extends Logger {
         }
     }
 
+    private async estimateFees(): Promise<void> {
+        const fees = await this.bitcoinRPC.estimateSmartFee(1);
+        if (fees) {
+            this.estimatedBlockFees = fees;
+        }
+    }
+
     public async init(): Promise<void> {
         this.log(`Starting Mempool...`);
 
@@ -97,6 +106,7 @@ export class Mempool extends Logger {
         if (!this.db.db) throw new Error('Database connection not established.');
 
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
+        await this.estimateFees();
 
         this.#mempoolRepository = new MempoolRepository(this.db.db);
         await this.psbtProcessorManager.createRepositories(this.bitcoinRPC);

@@ -74,6 +74,9 @@ export class WBTCUTXOAggregation extends Aggregation {
                     value: 1,
                 },
             },
+            {
+                $limit: 500,
+            },
             /*
             {
                 $addFields: {

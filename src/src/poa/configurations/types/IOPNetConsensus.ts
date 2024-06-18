@@ -20,6 +20,9 @@ export interface IOPNetConsensus<T extends Consensus> {
     readonly PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: number;
 
     /** Vaults related properties */
+    // Define the minimum fee rate that must be paid for a PSBT to be accepted.
+    readonly MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: bigint;
+
     // Defines the minimum amount that can be consolidated in a single transaction.
     readonly VAULT_MINIMUM_AMOUNT: bigint;
 
@@ -35,6 +38,9 @@ export interface IOPNetConsensus<T extends Consensus> {
 
     // The maximum fee rate for the consolidation.
     readonly UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT: bigint;
+
+    // The maximum number of UTXOs that can be consolidated in a single transaction.
+    readonly MAXIMUM_CONSOLIDATION_UTXOS: number;
 }
 
 export type IOPNetConsensusObj = {
