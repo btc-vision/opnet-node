@@ -234,8 +234,8 @@ export class Mempool extends Logger {
         const processed = await this.psbtProcessorManager.processPSBT(decodedPsbt);
         if (processed.finalized) {
             const finalized = processed.psbt.extractTransaction();
-            const finalizedHex = finalized.toHex();
-            const newIdentifier = xxHash.hash(finalized.toBuffer());
+            const finalizedHex: string = finalized.toHex();
+            const newIdentifier: bigint = xxHash.hash(finalized.toBuffer());
 
             const finalTransaction: IMempoolTransactionObj = {
                 id: finalized.getHash(false).toString('hex'),
