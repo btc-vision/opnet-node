@@ -249,7 +249,7 @@ export class Mempool extends Logger {
                 firstSeen: transaction.firstSeen,
             };
 
-            if (finalTransaction.identifier === finalTransaction.identifier) {
+            if (transaction.identifier === finalTransaction.identifier) {
                 this.error('Transaction and PSBT identifier are the same.');
                 return {
                     success: false,
