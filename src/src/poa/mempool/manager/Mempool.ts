@@ -238,7 +238,7 @@ export class Mempool extends Logger {
             const newIdentifier = xxHash.hash(finalized.toBuffer());
 
             const finalTransaction: IMempoolTransactionObj = {
-                id: finalized.getHash(true).toString('hex'),
+                id: finalized.getHash(false).toString('hex'),
                 previousPsbtId: transaction.previousPsbtId || decodedPsbt.hash || transaction.id,
 
                 identifier: newIdentifier,
