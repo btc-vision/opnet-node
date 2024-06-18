@@ -198,6 +198,10 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
                     `Consolidation amount is above the upper limit. Expected at most ${targetConsolidation}, but got ${consolidationAmount}`,
                 );
             }
+
+            this.success(
+                `Consolidation amount is within the expected range. Expected at most ${targetConsolidation} sat, and got ${consolidationAmount} sat.`,
+            );
         }
 
         // When an UTXO is consumed, the user get UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT as a refund.
@@ -207,8 +211,6 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
                 `Invalid amount sent back to requester. Expected ${userOwnedVaultHoldings} sat, but got ${outputAmount} sat.`,
             );
         }
-
-        console.log(amount, maximumFeeRefund, userOwnedVaultHoldings, outputAmount);
 
         if (amount + maximumFeeRefund < outputAmount) {
             throw new Error(
