@@ -277,7 +277,7 @@ export class P2PManager extends Logger {
     private async refreshRouting(): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
-        this.info('Refreshing routing table...');
+        //this.info('Refreshing routing table...');
 
         await this.node.services.kadDHT.refreshRoutingTable();
         setTimeout(() => {
