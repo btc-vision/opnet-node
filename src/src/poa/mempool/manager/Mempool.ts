@@ -239,7 +239,7 @@ export class Mempool extends Logger {
             const newIdentifier = xxHash.hash(finalized.toBuffer());
 
             const finalTransaction: IMempoolTransactionObj = {
-                id: finalized.getHash(false).toString('hex'),
+                id: finalized.getHash(true).toString('hex'),
                 previousPsbtId: transaction.previousPsbtId || decodedPsbt.hash || transaction.id,
 
                 identifier: newIdentifier,
@@ -249,11 +249,11 @@ export class Mempool extends Logger {
                 firstSeen: transaction.firstSeen,
             };
 
-            if (finalTransaction.id === finalTransaction.previousPsbtId) {
-                this.error('Transaction and PSBT hash are the same.');
+            if (finalTransaction.identifier === finalTransaction.identifier) {
+                this.error('Transaction and PSBT identifier are the same.');
                 return {
                     success: false,
-                    result: 'Transaction and PSBT hash are the same.',
+                    result: 'Transaction and PSBT identifier are the same.',
                     identifier: finalTransaction.identifier,
                 };
             }
@@ -266,8 +266,9 @@ export class Mempool extends Logger {
 
             const result = await Promise.all(submitData);
             const broadcastResult = result[1] as BroadcastResponse | undefined;
+            console.log(broadcastResult);
 
-            if (broadcastResult) {
+            if (broadcastResult?.success) {
                 return {
                     ...broadcastResult,
                     identifier: finalTransaction.identifier,
@@ -276,9 +277,10 @@ export class Mempool extends Logger {
                 };
             } else {
                 return {
+                    ...broadcastResult,
                     success: false,
-                    result: 'Could not broadcast transaction to the network.',
                     identifier: finalTransaction.identifier,
+                    finalizedTransaction: true,
                 };
             }
         } else if (processed.modified) {
