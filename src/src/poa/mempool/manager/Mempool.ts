@@ -14,7 +14,7 @@ import {
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { PSBTTransactionVerifier } from '../psbt/PSBTTransactionVerifier.js';
-import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC, FeeEstimation } from '@btc-vision/bsi-bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/NetworkConverter.js';
@@ -90,13 +90,6 @@ export class Mempool extends Logger {
         }
     }
 
-    private async estimateFees(): Promise<void> {
-        const fees = await this.bitcoinRPC.estimateSmartFee(1);
-        if (fees) {
-            this.estimatedBlockFees = fees;
-        }
-    }
-
     public async init(): Promise<void> {
         this.log(`Starting Mempool...`);
 
@@ -111,6 +104,39 @@ export class Mempool extends Logger {
         this.#mempoolRepository = new MempoolRepository(this.db.db);
         await this.psbtProcessorManager.createRepositories(this.bitcoinRPC);
         await this.psbtVerifier.createRepositories();
+    }
+
+    private async estimateFees(): Promise<void> {
+        try {
+            const fees = await this.bitcoinRPC.estimateSmartFee(2, FeeEstimation.CONSERVATIVE);
+            if ('errors' in fees && fees.errors) {
+                throw new Error(fees.errors.join(' '));
+            }
+
+            if ('feerate' in fees) {
+                const fee: number = fees.feerate as number;
+                const estimatedFee = Math.ceil((fee * 100000000) / 1024);
+
+                this.estimatedBlockFees = BigInt(estimatedFee);
+            }
+
+            // If fee is too low, set it to the minimum. bigint.
+            this.estimatedBlockFees =
+                this.estimatedBlockFees <
+                currentConsensusConfig.MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT
+                    ? currentConsensusConfig.MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT
+                    : this.estimatedBlockFees;
+
+            this.log(`Estimated fees: ${this.estimatedBlockFees}`);
+        } catch (e) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.error(`Error estimating fees: ${(e as Error).message}`);
+            }
+        }
+
+        setTimeout(() => {
+            this.estimateFees();
+        }, 20000);
     }
 
     private async onRPCMethod(m: RPCMessageData<BitcoinRPCThreadMessageType>): Promise<ThreadData> {
@@ -230,7 +256,18 @@ export class Mempool extends Logger {
             };
         }
 
-        transaction.id = decodedPsbt.hash;
+        if (
+            decodedPsbt.data.estimatedFees <
+            this.estimatedBlockFees + currentConsensusConfig.VAULT_MINIMAL_FEE_ADDITION_VB_PER_SAT
+        ) {
+            return {
+                success: false,
+                result: 'Fee too low',
+                identifier: transaction.identifier,
+            };
+        }
+
+        transaction.id = decodedPsbt.data.hash;
 
         const exist = await this.mempoolRepository.storeIfNotExists(transaction);
         if (exist) {
@@ -249,7 +286,8 @@ export class Mempool extends Logger {
 
             const finalTransaction: IMempoolTransactionObj = {
                 id: finalized.getHash(false).toString('hex'),
-                previousPsbtId: transaction.previousPsbtId || decodedPsbt.hash || transaction.id,
+                previousPsbtId:
+                    transaction.previousPsbtId || decodedPsbt.data.hash || transaction.id,
 
                 identifier: newIdentifier,
                 data: finalized.toBuffer(),

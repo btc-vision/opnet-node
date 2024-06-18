@@ -5,14 +5,16 @@ import { PSBTVerificator } from '../verificator/PSBTVerificator.js';
 import { UnwrapPSBTVerificator } from '../verificator/UnwrapPSBTVerificator.js';
 import { Consensus } from '../../configurations/consensus/Consensus.js';
 
-export interface PSBTDecodedData {}
+export interface PSBTDecodedData {
+    readonly hash: string;
+    readonly estimatedFees: bigint;
+}
 
 export interface KnownPSBTObject {
     readonly type: PSBTTypes;
     readonly version: Consensus;
     readonly psbt: Psbt;
     readonly data: PSBTDecodedData;
-    readonly hash: string;
 }
 
 export class PSBTTransactionVerifier extends Logger {

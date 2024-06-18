@@ -12,6 +12,9 @@ export interface IOPNetConsensus<T extends Consensus> {
     // The block height at which this consensus was enabled.
     readonly ENABLED_AT_BLOCK: bigint;
 
+    // Define the minimum fee rate that must be paid for a PSBT to be accepted.
+    readonly MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: bigint;
+
     /** Networking */
     // Define the maximum size of a transaction that can be broadcasted.
     readonly MAXIMUM_TRANSACTION_BROADCAST_SIZE: number;
@@ -20,8 +23,8 @@ export interface IOPNetConsensus<T extends Consensus> {
     readonly PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: number;
 
     /** Vaults related properties */
-    // Define the minimum fee rate that must be paid for a PSBT to be accepted.
-    readonly MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: bigint;
+    
+    readonly VAULT_MINIMAL_FEE_ADDITION_VB_PER_SAT: bigint;
 
     // Defines the minimum amount that can be consolidated in a single transaction.
     readonly VAULT_MINIMUM_AMOUNT: bigint;
