@@ -195,7 +195,6 @@ export class Mempool extends Logger {
 
         if (broadcasted && broadcasted.success && broadcasted.result) {
             transaction.id = broadcasted.result;
-            console.log(transaction);
 
             await this.mempoolRepository.storeTransaction(transaction);
         }
@@ -261,14 +260,15 @@ export class Mempool extends Logger {
             const submitData: Promise<unknown>[] = [
                 this.mempoolRepository.deleteTransactionByIdentifier(transaction.identifier, true),
                 this.mempoolRepository.storeTransaction(finalTransaction),
-                this.broadcastBitcoinTransaction(finalizedHex),
             ];
 
             const result = await Promise.all(submitData);
             const broadcastResult = result[1] as BroadcastResponse | undefined;
-            console.log(broadcastResult);
+            console.log('broadcastResult', broadcastResult);
 
             if (broadcastResult?.success) {
+                await this.broadcastBitcoinTransaction(finalizedHex);
+
                 return {
                     ...broadcastResult,
                     identifier: finalTransaction.identifier,
