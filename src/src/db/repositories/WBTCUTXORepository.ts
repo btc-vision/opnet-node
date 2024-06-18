@@ -243,14 +243,15 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
                     const requiredAmount: bigint =
                         requestedAmount + upperConsolidationAcceptanceLimit;
 
-                    // Minimum to consolidate is 2 UTXOs, maximum is 4 UTXOs.
-                    if (totalAmount >= requiredAmount && consolidatedInputs.length >= 2) {
+                    // Minimum to consolidate is 2 UTXOs, maximum is 32 UTXOs.
+                    if (
+                        (totalAmount >= requiredAmount && consolidatedInputs.length >= 2) ||
+                        consolidatedInputs.length >= 32
+                    ) {
                         // Maximize the consolidation.
-                        if (consolidatedInputs.length < 2) {
-                            continue;
+                        if (consolidatedInputs.length <= 32) {
+                            selectedUTXOs = selectedUTXOs.concat(consolidatedInputs);
                         }
-
-                        selectedUTXOs = selectedUTXOs.concat(consolidatedInputs);
 
                         // TODO: ensure we don't end up with a lot of small UTXOs.
                         fulfilled = true;
