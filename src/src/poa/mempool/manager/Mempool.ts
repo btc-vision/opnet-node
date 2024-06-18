@@ -267,6 +267,8 @@ export class Mempool extends Logger {
             console.log('broadcastResult', broadcastResult);
 
             if (broadcastResult?.success) {
+                console.log('broadcastResult.result', broadcastResult.result, finalTransaction.id);
+                finalTransaction.id = broadcastResult.result;
                 await this.mempoolRepository.storeTransaction(finalTransaction);
 
                 return {
