@@ -487,9 +487,6 @@ export class P2PManager extends Logger {
                 `Looking for peers...\n\n`,
             );
 
-            // @ts-ignore
-            console.log(this.identity.getSigner().privateKey.toString('hex'));
-
             setTimeout(async () => {
                 const startupMessage: StartIndexer = {
                     type: MessageType.START_INDEXER,

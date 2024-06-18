@@ -174,14 +174,12 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
                 options,
             );
 
-            const consolidationAcceptance =
+            const upperConsolidationAcceptanceLimit =
                 UnwrapTargetConsolidation.calculateVaultTargetConsolidationAmount(
                     requestedAmount,
                     currentConsensusConfig.VAULT_MINIMUM_AMOUNT,
                     minConsolidationAcceptance,
-                );
-
-            const upperConsolidationAcceptanceLimit: bigint = consolidationAcceptance * 4n;
+                ) - 1n;
 
             // Fees are prepaid up to a certain value. We need to add the consolidation fees to the requested amount.
             let currentAmount: bigint = 0n;
@@ -225,7 +223,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
                     }
 
                     if (currentAmount >= requestedAmount) {
-                        if (consolidationAcceptance === 0n) {
+                        if (minConsolidationAcceptance === 0n) {
                             fulfilled = true;
                             break;
                         }
@@ -242,7 +240,8 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
                     if (!consolidating) continue;
 
                     const totalAmount: bigint = currentAmount + consolidationAmount;
-                    const requiredAmount: bigint = requestedAmount + consolidationAcceptance;
+                    const requiredAmount: bigint =
+                        requestedAmount + upperConsolidationAcceptanceLimit;
 
                     // Minimum to consolidate is 2 UTXOs, maximum is 4 UTXOs.
                     if (totalAmount >= requiredAmount && consolidatedInputs.length >= 2) {

@@ -185,6 +185,19 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
                     `Consolidation amount is below the minimum required. Expected at least ${currentConsensusConfig.VAULT_MINIMUM_AMOUNT}, but got ${consolidationAmount}`,
                 );
             }
+
+            const targetConsolidation: bigint =
+                UnwrapTargetConsolidation.calculateVaultTargetConsolidationAmount(
+                    amount,
+                    currentConsensusConfig.VAULT_MINIMUM_AMOUNT,
+                    currentConsensusConfig.VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE,
+                );
+
+            if (consolidationAmount > targetConsolidation) {
+                throw new Error(
+                    `Consolidation amount is above the upper limit. Expected at most ${targetConsolidation}, but got ${consolidationAmount}`,
+                );
+            }
         }
 
         // When an UTXO is consumed, the user get UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT as a refund.
@@ -195,54 +208,13 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             );
         }
 
+        console.log(amount, maximumFeeRefund, userOwnedVaultHoldings, outputAmount);
+
         if (amount + maximumFeeRefund < outputAmount) {
             throw new Error(
                 `Invalid amount sent back to requester. Expected at most ${amount + maximumFeeRefund} sat, but got ${outputAmount} sat.`,
             );
         }
-
-        const targetConsolidation: bigint =
-            UnwrapTargetConsolidation.calculateVaultTargetConsolidationAmount(
-                amount,
-                currentConsensusConfig.VAULT_MINIMUM_AMOUNT,
-                currentConsensusConfig.VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE,
-            );
-
-        const upperLimitConsolidation: bigint = targetConsolidation * 4n;
-        /*console.log(
-            'consolidation sent',
-            consolidationAmount,
-            'expected consolidation',
-            expectedConsolidationAmount,
-            'target consolidation',
-            targetConsolidation,
-            'upper limit consolidation',
-            upperLimitConsolidation,
-            'user owned',
-            userOwnedVaultHoldings,
-            'total',
-            vaultTotalHoldings,
-            'request',
-            amount,
-            'prepaid fee',
-            currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT,
-        );*/
-
-        if (consolidationAmount > upperLimitConsolidation) {
-            throw new Error(
-                `Consolidation amount is above the upper limit. Expected at most ${upperLimitConsolidation}, but got ${consolidationAmount}`,
-            );
-        }
-
-        if (consolidationAmount < targetConsolidation) {
-            throw new Error(
-                `Consolidation amount is below the target. Expected at least ${targetConsolidation}, but got ${consolidationAmount}`,
-            );
-        }
-
-        this.info(
-            `Maximum fee refund: ${maximumFeeRefund} - target consolidation: ${targetConsolidation}`,
-        );
 
         // All good!
     }

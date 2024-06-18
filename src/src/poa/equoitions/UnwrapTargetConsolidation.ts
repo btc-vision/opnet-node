@@ -4,7 +4,7 @@ export class UnwrapTargetConsolidation {
         vaultMinimumAmount: bigint,
         vaultNetworkConsolidationAcceptance: bigint,
         k: number = 0.03,
-        A: bigint = 1000000n,
+        A: bigint = 100000000n,
     ): bigint {
         // Ensure the requested amount is not less than the minimum amount
         if (requestedAmount < vaultMinimumAmount) {
