@@ -42,6 +42,7 @@
         "@btc-vision/bsi-bitcoin-rpc": "^1.0.20",
         "@btc-vision/bsi-common": "^1.0.14",
         "@btc-vision/bsi-db": "^1.0.4",
+        "@btc-vision/bsi-wasmer-vm": "github:btc-vision/bsi-wasmer-vm",
         "@btc-vision/logger": "github:btc-vision/logger",
         "@btc-vision/transaction": "^1.0.35",
         "@btc-vision/wasm-metering": "github:btc-vision/wasm-metering",
