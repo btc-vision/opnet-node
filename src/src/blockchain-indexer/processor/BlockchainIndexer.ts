@@ -27,6 +27,8 @@ import { Block } from './block/Block.js';
 import { SpecialManager } from './special-transaction/SpecialManager.js';
 import { NetworkConverter } from '../../config/NetworkConverter.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import figlet, { Fonts } from 'figlet';
+import { Consensus } from '../../poa/configurations/consensus/Consensus.js';
 
 interface LastBlock {
     hash?: string;
@@ -419,14 +421,70 @@ export class BlockchainIndexer extends Logger {
         await this.vmManager.clear();
     }
 
-    private setConsensusBlockHeight(blockHeight: bigint): void {
-        OPNetConsensus.setBlockHeight(blockHeight);
+    private setConsensusBlockHeight(blockHeight: bigint): boolean {
+        try {
+            if (
+                OPNetConsensus.hasConsensus() &&
+                OPNetConsensus.isConsensusBlock() &&
+                !OPNetConsensus.isReadyForNextConsensus()
+            ) {
+                this.panic(
+                    `Consensus is getting applied in this block (${blockHeight}) but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
+                );
+                return true;
+            }
 
-        if (OPNetConsensus.isNextConsensusImminent() && !OPNetConsensus.isReadyForNextConsensus()) {
-            this.warn(
-                `!!! --- Next consensus is imminent. Please prepare for the next consensus by upgrading your node. The next consensus will take effect in ${OPNetConsensus.consensus.GENERIC.NEXT_CONSENSUS_BLOCK - blockHeight} blocks. --- !!!`,
-            );
+            OPNetConsensus.setBlockHeight(blockHeight);
+
+            if (
+                OPNetConsensus.hasConsensus() &&
+                OPNetConsensus.isConsensusBlock() &&
+                !OPNetConsensus.isReadyForNextConsensus()
+            ) {
+                this.panic(
+                    `Consensus is getting applied in this block (${blockHeight}) but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
+                );
+                return true;
+            }
+
+            if (
+                OPNetConsensus.isNextConsensusImminent() &&
+                !OPNetConsensus.isReadyForNextConsensus()
+            ) {
+                this.warn(
+                    `!!! --- Next consensus is imminent. Please prepare for the next consensus by upgrading your node. The next consensus will take effect in ${OPNetConsensus.consensus.GENERIC.NEXT_CONSENSUS_BLOCK - blockHeight} blocks. --- !!!`,
+                );
+            }
+
+            return false;
+        } catch (e) {
+            return true;
         }
+    }
+
+    private notifyArt(text: string, font: Fonts, prefix: string, ...suffix: string[]): void {
+        const artVal = figlet.textSync(text, {
+            font: font, //'Doh',
+            horizontalLayout: 'default',
+            verticalLayout: 'default',
+        });
+
+        this.info(`${prefix}${artVal}${suffix.join('\n')}`);
+    }
+
+    private onConsensusFailed(consensusName: string): void {
+        this.notifyArt(
+            `FATAL.`,
+            'Doh',
+            `\n\n\n!!!!!!!!!! -------------------- UPGRADE FAILED. --------------------  !!!!!!!!!!\n\n\n\n\n`,
+            `\n\nPoA has been disabled. This node will not connect to any peers. And any processing will be halted.\n`,
+            `This node is not ready to apply ${consensusName}.\n`,
+            `UPGRADE IMMEDIATELY.\n\n`,
+        );
+
+        setTimeout(() => {
+            process.exit(1); // Exit the process.
+        }, 2000);
     }
 
     private async processBlocks(
@@ -437,16 +495,13 @@ export class BlockchainIndexer extends Logger {
             ? startBlockHeight
             : await this.getCurrentProcessBlockHeight(startBlockHeight);
 
-        this.setConsensusBlockHeight(BigInt(blockHeightInProgress + 1));
+        this.setConsensusBlockHeight(BigInt(blockHeightInProgress));
 
         let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
-            this.setConsensusBlockHeight(BigInt(blockHeightInProgress + 1));
-
-            if (OPNetConsensus.isConsensusBlock() && !OPNetConsensus.isReadyForNextConsensus()) {
-                this.panic(
-                    `Consensus was applied in this block but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
-                );
+            const nextConsensus = OPNetConsensus.getNextConsensus();
+            if (this.setConsensusBlockHeight(BigInt(blockHeightInProgress))) {
+                this.onConsensusFailed(Consensus[nextConsensus]);
                 return;
             }
 

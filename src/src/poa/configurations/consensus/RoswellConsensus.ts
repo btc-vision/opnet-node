@@ -18,7 +18,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         NEXT_CONSENSUS_BLOCK: 885n, //1008n,
 
         // Is this node updated to the next consensus?
-        IS_READY_FOR_NEXT_CONSENSUS: true,
+        IS_READY_FOR_NEXT_CONSENSUS: false,
     },
 
     NETWORK: {

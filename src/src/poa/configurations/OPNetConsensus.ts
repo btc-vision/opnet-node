@@ -1,7 +1,6 @@
 import { IOPNetConsensus, IOPNetConsensusObj } from './types/IOPNetConsensus.js';
 import { Consensus } from './consensus/Consensus.js';
 import { RoswellConsensus } from './consensus/RoswellConsensus.js';
-import { RachelConsensus } from './consensus/RachelConsensus.js';
 import { Logger } from '@btc-vision/bsi-common';
 import { Config } from '../../config/Config.js';
 
@@ -12,7 +11,6 @@ class OPNetConsensusConfiguration extends Logger {
 
     private readonly allConsensus: IOPNetConsensusObj = {
         [Consensus.Roswell]: RoswellConsensus,
-        [Consensus.Rachel]: RachelConsensus,
     };
 
     #consensus: IOPNetConsensus<Consensus> | undefined;
@@ -58,6 +56,10 @@ class OPNetConsensusConfiguration extends Logger {
         return this.consensus.GENERIC.IS_READY_FOR_NEXT_CONSENSUS;
     }
 
+    public hasConsensus(): boolean {
+        return !!this.#consensus;
+    }
+
     public setBlockHeight(blockHeight: bigint): void {
         if (Config.OP_NET.REINDEX && !this.#consensus) {
             blockHeight = BigInt(Config.OP_NET.REINDEX_FROM_BLOCK);
@@ -70,6 +72,10 @@ class OPNetConsensusConfiguration extends Logger {
         } else if (this.#consensus.GENERIC.NEXT_CONSENSUS_BLOCK <= blockHeight) {
             this.enforceNextConsensus();
         }
+    }
+
+    public getNextConsensus(): Consensus {
+        return this.consensus.GENERIC.NEXT_CONSENSUS;
     }
 
     /**
@@ -87,6 +93,10 @@ class OPNetConsensusConfiguration extends Logger {
 
         // Ensure that something will error if the next consensus is not set.
         this.#consensus = undefined;
+
+        if (!isReady) {
+            throw new Error('Next consensus is not ready.');
+        }
 
         const consensusConfig = this.allConsensus[nextConsensus];
         if (!consensusConfig) {
@@ -122,7 +132,7 @@ class OPNetConsensusConfiguration extends Logger {
 
             if (
                 !consensusConfig.GENERIC.IS_READY_FOR_NEXT_CONSENSUS &&
-                consensusConfig.GENERIC.NEXT_CONSENSUS_BLOCK >= this.blockHeight
+                consensusConfig.GENERIC.NEXT_CONSENSUS_BLOCK > this.blockHeight
             ) {
                 this.panic(
                     `UPGRADE YOUR NODE IMMEDIATELY! Consensus ${consensusConfig.CONSENSUS_NAME} is not ready.`,

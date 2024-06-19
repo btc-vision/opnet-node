@@ -74,7 +74,7 @@ export class BlockchainInformationRepository extends BaseRepository<IBlockchainI
     public async getCurrentBlockAndTriggerListeners(network: BitcoinNetwork): Promise<void> {
         const currentBlockInfo = await this.getByNetwork(network);
 
-        let currentBlockNumber = currentBlockInfo.inProgressBlock - 1;
+        let currentBlockNumber = currentBlockInfo.inProgressBlock;
         if (currentBlockNumber < 0) {
             currentBlockNumber = 0;
         }

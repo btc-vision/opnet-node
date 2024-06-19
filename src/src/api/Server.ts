@@ -120,8 +120,12 @@ export class Server extends Logger {
         );
 
         this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
-            this.#blockHeight = blockHeight;
-            OPNetConsensus.setBlockHeight(blockHeight);
+            try {
+                OPNetConsensus.setBlockHeight(blockHeight);
+                this.#blockHeight = blockHeight;
+            } catch (e) {
+                this.error(`Error setting block height.`);
+            }
         });
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(

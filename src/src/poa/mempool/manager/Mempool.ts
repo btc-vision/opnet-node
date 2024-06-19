@@ -124,9 +124,10 @@ export class Mempool extends Logger {
 
     private async watchBlockchain(): Promise<void> {
         this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
-            OPNetConsensus.setBlockHeight(blockHeight);
-
-            this.mempoolRepository.purgeOldTransactions(blockHeight);
+            try {
+                OPNetConsensus.setBlockHeight(blockHeight);
+                this.mempoolRepository.purgeOldTransactions(blockHeight);
+            } catch (e) {}
         });
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
@@ -159,7 +160,7 @@ export class Mempool extends Logger {
                 this.log(`Estimated fees: ${this.estimatedBlockFees}`);
             }
         } catch (e) {
-            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.error(`Error estimating fees: ${(e as Error).message}`);
             }
         }
@@ -182,6 +183,14 @@ export class Mempool extends Logger {
     }
 
     private async onTransactionReceived(data: OPNetBroadcastData): Promise<BroadcastResponse> {
+        if (!OPNetConsensus.hasConsensus()) {
+            return {
+                success: false,
+                result: 'Consensus not reached',
+                identifier: data.identifier,
+            };
+        }
+
         const raw: Uint8Array = data.raw;
         const psbt: boolean = data.psbt;
         const identifier = data.identifier;
