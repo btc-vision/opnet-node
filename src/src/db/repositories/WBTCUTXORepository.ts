@@ -11,8 +11,8 @@ import {
     VaultsByHashes,
 } from '../../vm/storage/databases/aggregation/QueryVaultAggregation.js';
 import { Config } from '../../config/Config.js';
-import { currentConsensusConfig } from '../../poa/configurations/OPNetConsensus.js';
 import { UnwrapTargetConsolidation } from '../../poa/equoitions/UnwrapTargetConsolidation.js';
+import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 
 export interface VaultUTXOs {
     readonly vault: Address;
@@ -169,7 +169,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
             const upperConsolidationAcceptanceLimit =
                 UnwrapTargetConsolidation.calculateVaultTargetConsolidationAmount(
                     requestedAmount,
-                    currentConsensusConfig.VAULT_MINIMUM_AMOUNT,
+                    OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT,
                     minConsolidationAcceptance,
                 ) - 1n;
 
@@ -189,12 +189,13 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
                         selectedUTXOs.push(utxo);
 
                         requestedAmount +=
-                            currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+                            OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
 
                         if (currentAmount >= requestedAmount) {
                             consolidating = true;
                             requestedAmount -=
-                                currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+                                OPNetConsensus.consensus.VAULTS
+                                    .UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
 
                             consolidationAmount = requestedAmount - currentAmount;
 
@@ -213,7 +214,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
                         consolidatedInputs.push(utxo);
 
                         requestedAmount +=
-                            currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+                            OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
                     }
 
                     const totalAmount: bigint = currentAmount + consolidationAmount;
@@ -224,7 +225,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
                     if (
                         (totalAmount >= requiredAmount && consolidatedInputs.length >= 2) ||
                         consolidatedInputs.length >=
-                            currentConsensusConfig.MAXIMUM_CONSOLIDATION_UTXOS
+                            OPNetConsensus.consensus.VAULTS.MAXIMUM_CONSOLIDATION_UTXOS
                     ) {
                         // TODO: ensure we don't end up with a lot of small UTXOs.
                         break;
@@ -240,10 +241,13 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
                 consolidatedInputs.pop();
             }
 
-            if (consolidatedInputs.length > currentConsensusConfig.MAXIMUM_CONSOLIDATION_UTXOS) {
+            if (
+                consolidatedInputs.length >
+                OPNetConsensus.consensus.VAULTS.MAXIMUM_CONSOLIDATION_UTXOS
+            ) {
                 consolidatedInputs = consolidatedInputs.slice(
                     0,
-                    currentConsensusConfig.MAXIMUM_CONSOLIDATION_UTXOS,
+                    OPNetConsensus.consensus.VAULTS.MAXIMUM_CONSOLIDATION_UTXOS,
                 );
             }
 

@@ -9,8 +9,8 @@ import { Psbt, PsbtTxInput } from 'bitcoinjs-lib';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { WBTCUTXORepository } from '../../../../db/repositories/WBTCUTXORepository.js';
 import { Address } from '@btc-vision/bsi-binary';
-import { currentConsensusConfig } from '../../../configurations/OPNetConsensus.js';
 import { UnwrapTargetConsolidation } from '../../../equoitions/UnwrapTargetConsolidation.js';
+import { OPNetConsensus } from '../../../configurations/OPNetConsensus.js';
 
 export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consensus.Roswell> {
     public readonly consensus: Consensus.Roswell = Consensus.Roswell;
@@ -50,27 +50,6 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             hash: data.hash,
             estimatedFees: data.estimatedFees,
         };
-    }
-
-    protected calculateNumSignatures(vaults: Map<Address, VerificationVault>): bigint {
-        let numSignatures = 0n;
-
-        for (let vault of vaults.values()) {
-            numSignatures += BigInt(vault.minimum * vault.utxoDetails.length);
-        }
-
-        return numSignatures;
-    }
-
-    protected calculateNumEmptyWitnesses(vaults: Map<Address, VerificationVault>): bigint {
-        let numSignatures = 0n;
-
-        for (let vault of vaults.values()) {
-            numSignatures +=
-                BigInt(vault.publicKeys.length - vault.minimum) * BigInt(vault.utxoDetails.length);
-        }
-
-        return numSignatures;
     }
 
     private orderVaultsByAddress(vaults: Map<Address, VerificationVault>): VerificationVault[] {
@@ -181,17 +160,17 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             }
 
             // Verify that the consolidation amount is above the minimum required
-            if (consolidationAmount < currentConsensusConfig.VAULT_MINIMUM_AMOUNT) {
+            if (consolidationAmount < OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT) {
                 throw new Error(
-                    `Consolidation amount is below the minimum required. Expected at least ${currentConsensusConfig.VAULT_MINIMUM_AMOUNT}, but got ${consolidationAmount}`,
+                    `Consolidation amount is below the minimum required. Expected at least ${OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT}, but got ${consolidationAmount}`,
                 );
             }
 
             const targetConsolidation: bigint =
                 UnwrapTargetConsolidation.calculateVaultTargetConsolidationAmount(
                     amount,
-                    currentConsensusConfig.VAULT_MINIMUM_AMOUNT,
-                    currentConsensusConfig.VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE,
+                    OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT,
+                    OPNetConsensus.consensus.VAULTS.VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE,
                 );
 
             if (consolidationAmount > targetConsolidation) {
@@ -235,11 +214,11 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
     }
 
     private getMaximumFeeRefund(usedVaults: Map<Address, VerificationVault>): bigint {
-        let refund: bigint = -currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+        let refund: bigint = -OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
 
         for (let vault of usedVaults.values()) {
-            for (let utxo of vault.utxoDetails) {
-                refund += currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+            for (let i = 0; i < vault.utxoDetails.length; i++) {
+                refund += OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
             }
         }
 

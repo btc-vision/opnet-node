@@ -28,6 +28,12 @@ export class IndexedMempool extends IndexedCollection<OPNetCollections.Mempool> 
                 },
                 name: 'psbtId_1',
             },
+            {
+                key: {
+                    blockHeight: 1,
+                },
+                name: 'blockHeight_1',
+            },
         ];
     }
 }

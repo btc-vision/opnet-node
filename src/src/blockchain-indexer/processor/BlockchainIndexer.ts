@@ -26,6 +26,7 @@ import { VMManager } from '../../vm/VMManager.js';
 import { Block } from './block/Block.js';
 import { SpecialManager } from './special-transaction/SpecialManager.js';
 import { NetworkConverter } from '../../config/NetworkConverter.js';
+import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 
 interface LastBlock {
     hash?: string;
@@ -68,6 +69,8 @@ export class BlockchainIndexer extends Logger {
 
         this.specialTransactionManager = new SpecialManager(this.vmManager);
         this.bitcoinNetwork = NetworkConverter.getNetwork(this.network);
+
+        this.addConsensusListeners();
     }
 
     private _blockchainInfoRepository: BlockchainInformationRepository | undefined;
@@ -120,6 +123,14 @@ export class BlockchainIndexer extends Logger {
         if (Config.P2P.IS_BOOTSTRAP_NODE) {
             setTimeout(() => this.startAndPurgeIndexer(), 8000);
         }
+    }
+
+    private addConsensusListeners(): void {
+        OPNetConsensus.addConsensusUpgradeCallback((consensus: string, isReady: boolean) => {
+            if (!isReady) {
+                this.panic(`Consensus upgrade to ${consensus} failed.`);
+            }
+        });
     }
 
     private async getCurrentBlock(): Promise<CurrentIndexerBlockResponseData> {
@@ -408,6 +419,16 @@ export class BlockchainIndexer extends Logger {
         await this.vmManager.clear();
     }
 
+    private setConsensusBlockHeight(blockHeight: bigint): void {
+        OPNetConsensus.setBlockHeight(blockHeight);
+
+        if (OPNetConsensus.isNextConsensusImminent() && !OPNetConsensus.isReadyForNextConsensus()) {
+            this.warn(
+                `!!! --- Next consensus is imminent. Please prepare for the next consensus by upgrading your node. The next consensus will take effect in ${OPNetConsensus.consensus.GENERIC.NEXT_CONSENSUS_BLOCK - blockHeight} blocks. --- !!!`,
+            );
+        }
+    }
+
     private async processBlocks(
         startBlockHeight: number = -1,
         wasReorg: boolean = false,
@@ -416,9 +437,19 @@ export class BlockchainIndexer extends Logger {
             ? startBlockHeight
             : await this.getCurrentProcessBlockHeight(startBlockHeight);
 
-        let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
+        this.setConsensusBlockHeight(BigInt(blockHeightInProgress + 1));
 
+        let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
+            this.setConsensusBlockHeight(BigInt(blockHeightInProgress + 1));
+
+            if (OPNetConsensus.isConsensusBlock() && !OPNetConsensus.isReadyForNextConsensus()) {
+                this.panic(
+                    `Consensus was applied in this block but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
+                );
+                return;
+            }
+
             const getBlockDataTimingStart = Date.now();
             const block = await this.getBlockFromPrefetch(
                 blockHeightInProgress,

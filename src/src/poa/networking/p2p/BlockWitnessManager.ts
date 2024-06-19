@@ -27,6 +27,7 @@ import {
     OPNetBlockWitness,
 } from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
+import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 
 interface ValidWitnesses {
     validTrustedWitnesses: OPNetBlockWitness[];
@@ -153,10 +154,9 @@ export class BlockWitnessManager extends Logger {
             throw new Error('broadcastBlockWitness not implemented.');
         };
 
-    public async setCurrentBlock(): Promise<void> {
-        this.currentBlock = await this.getCurrentBlock();
-
-        this.log(`Current block set to ${this.currentBlock.toString()}`);
+    public async setCurrentBlock(newBlock?: bigint): Promise<void> {
+        this.currentBlock = newBlock === undefined ? await this.getCurrentBlock() : newBlock;
+        OPNetConsensus.setBlockHeight(this.currentBlock);
     }
 
     public async generateBlockHeaderProof(
@@ -169,7 +169,7 @@ export class BlockWitnessManager extends Logger {
                 this.revertKnownWitnessesReorg(data.blockNumber);
             }
 
-            this.currentBlock = data.blockNumber;
+            await this.setCurrentBlock(data.blockNumber);
         }
 
         const blockChecksumHash = this.generateBlockHeaderChecksumHash(data);

@@ -1,24 +1,24 @@
 import { IOPNetConsensus } from '../types/IOPNetConsensus.js';
 import { Consensus } from './Consensus.js';
 
-export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
+export const RachelConsensus: IOPNetConsensus<Consensus.Rachel> = {
     /** Information about the consensus */
-    CONSENSUS: Consensus.Roswell,
-    CONSENSUS_NAME: 'Roswell',
+    CONSENSUS: Consensus.Rachel,
+    CONSENSUS_NAME: 'Rachel',
 
     GENERIC: {
         /** General consensus properties */
         // The block height at which this consensus was enabled.
-        ENABLED_AT_BLOCK: 0n,
+        ENABLED_AT_BLOCK: 885n,
 
         // The next consensus.
-        NEXT_CONSENSUS: Consensus.Rachel,
+        NEXT_CONSENSUS: Consensus.Kecksburg,
 
         // The block height at which the next consensus will be enabled.
-        NEXT_CONSENSUS_BLOCK: 885n, //1008n,
+        NEXT_CONSENSUS_BLOCK: 886n, //1008n,
 
         // Is this node updated to the next consensus?
-        IS_READY_FOR_NEXT_CONSENSUS: true,
+        IS_READY_FOR_NEXT_CONSENSUS: false,
     },
 
     NETWORK: {

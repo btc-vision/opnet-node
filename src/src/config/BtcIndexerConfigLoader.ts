@@ -46,7 +46,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         POA: {
             ENABLED: false,
-            MEMPOOL_THREADS: 2,
+        },
+
+        MEMPOOL: {
+            THREADS: 2,
+            EXPIRATION_BLOCKS: 20,
         },
 
         RPC: {
@@ -218,13 +222,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(`Oops the property POA.ENABLED is not a boolean.`);
             }
-
-            if (
-                parsedConfig.POA.MEMPOOL_THREADS !== undefined &&
-                typeof parsedConfig.POA.MEMPOOL_THREADS !== 'number'
-            ) {
-                throw new Error(`Oops the property POA.MEMPOOL_THREADS is not a number.`);
-            }
         }
 
         if (parsedConfig.P2P) {
@@ -352,6 +349,22 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(`Oops the property P2P.MAXIMUM_PEERS is not a number.`);
             }
         }
+
+        if (parsedConfig.MEMPOOL) {
+            if (
+                parsedConfig.MEMPOOL.EXPIRATION_BLOCKS !== undefined &&
+                typeof parsedConfig.MEMPOOL.EXPIRATION_BLOCKS !== 'number'
+            ) {
+                throw new Error(`Oops the property MEMPOOL.EXPIRATION_BLOCKS is not a number.`);
+            }
+
+            if (
+                parsedConfig.MEMPOOL.THREADS !== undefined &&
+                typeof parsedConfig.MEMPOOL.THREADS !== 'number'
+            ) {
+                throw new Error(`Oops the property MEMPOOL.THREADS is not a number.`);
+            }
+        }
     }
 
     protected override parsePartialConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
@@ -394,6 +407,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             defaultConfigs.POA,
         );
 
+        this.config.MEMPOOL = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['MEMPOOL']
+        >(parsedConfig.MEMPOOL, defaultConfigs.MEMPOOL);
+
         this.config.BLOCKCHAIN = this.getConfigModified<
             keyof IBtcIndexerConfig,
             IBtcIndexerConfig['BLOCKCHAIN']
@@ -405,7 +423,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         defaultConfig: T | undefined,
     ): T {
         if (!defaultConfig) {
-            console.log(config, defaultConfig);
             throw new Error(`Oops the default config is not defined.`);
         }
 

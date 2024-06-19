@@ -10,6 +10,9 @@ import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
 import { VMStorage } from '../vm/storage/VMStorage.js';
 
 import { DefinedRoutes } from './routes/DefinedRoutes.js';
+import { DBManagerInstance } from '../db/DBManager.js';
+import { BlockchainInformationRepository } from '../db/repositories/BlockchainInformationRepository.js';
+import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 
 Globals.register();
 
@@ -43,8 +46,19 @@ export class Server extends Logger {
 
     private readonly storage: VMStorage = new VMMongoStorage(Config);
 
+    #blockchainInformationRepository: BlockchainInformationRepository | undefined;
+    #blockHeight: bigint | undefined;
+
     constructor() {
         super();
+    }
+
+    private get blockchainInformationRepository(): BlockchainInformationRepository {
+        if (!this.#blockchainInformationRepository) {
+            throw new Error('BlockchainInformationRepository not initialized');
+        }
+
+        return this.#blockchainInformationRepository;
     }
 
     public async createServer(): Promise<void> {
@@ -84,7 +98,35 @@ export class Server extends Logger {
             this.serverPort = port;
         }
 
+        await this.setupConsensus();
         await this.createServer();
+    }
+
+    private blockHeight(): bigint {
+        if (this.#blockHeight === undefined) {
+            throw new Error('Block height not set.');
+        }
+
+        return this.#blockHeight;
+    }
+
+    private async setupConsensus(): Promise<void> {
+        if (!DBManagerInstance.db) {
+            throw new Error('DBManager not initialized');
+        }
+
+        this.#blockchainInformationRepository = new BlockchainInformationRepository(
+            DBManagerInstance.db,
+        );
+
+        this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
+            this.#blockHeight = blockHeight;
+            OPNetConsensus.setBlockHeight(blockHeight);
+        });
+
+        await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
+            Config.BLOCKCHAIN.BITCOIND_NETWORK,
+        );
     }
 
     private globalErrorHandler(_request: Request, response: Response, _error: Error): void {

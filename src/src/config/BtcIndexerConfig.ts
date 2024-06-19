@@ -2,6 +2,7 @@ import { ConfigBase, IConfig } from '@btc-vision/bsi-common';
 import {
     IBtcIndexerConfig,
     IndexerConfig,
+    MempoolConfig,
     OPNetConfig,
     P2P,
     PoA,
@@ -20,6 +21,8 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
     public readonly POA: PoA;
     public readonly P2P: P2P;
 
+    public readonly MEMPOOL: MempoolConfig;
+
     constructor(config: IConfig<IBtcIndexerConfig>) {
         super(config);
 
@@ -30,5 +33,7 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
 
         this.P2P = config.P2P;
         this.POA = config.POA;
+
+        this.MEMPOOL = config.MEMPOOL;
     }
 }

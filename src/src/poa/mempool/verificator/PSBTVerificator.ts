@@ -4,9 +4,9 @@ import bitcoin, { Network, networks, Psbt } from 'bitcoinjs-lib';
 import { KnownPSBTObject } from '../psbt/PSBTTransactionVerifier.js';
 import { PsbtInput } from 'bip174/src/lib/interfaces.js';
 import { TransactionBuilder, TweakedTransaction } from '@btc-vision/transaction';
-import { currentConsensusConfig } from '../../configurations/OPNetConsensus.js';
 import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../configurations/manager/AuthorityManager.js';
+import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 
 export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
     public abstract readonly type: T;
@@ -94,7 +94,7 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
         const tx = clone.extractTransaction(true, true);
 
         const estimatedFees: bigint = this.estimateFee(data.clone(), clone, tx);
-        if (estimatedFees < currentConsensusConfig.MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT) {
+        if (estimatedFees < OPNetConsensus.consensus.PSBT.MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT) {
             throw new Error(`Fee too low`);
         }
 

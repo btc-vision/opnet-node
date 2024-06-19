@@ -25,6 +25,7 @@ import { ChecksumMerkle } from './merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from './types/ZeroValue.js';
 import { WrapTransaction } from '../transaction/transactions/WrapTransaction.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
+import { GenericTransaction } from '../transaction/transactions/GenericTransaction.js';
 
 export class Block extends Logger {
     // Block Header
@@ -216,10 +217,10 @@ export class Block extends Logger {
         // First, we have to create transaction object corresponding to the transactions types in the block
         this.createTransactions();
 
-        if (this.erroredTransactions.size > 0) {
-            this.error(
-                `Failed to parse ${this.erroredTransactions.size} transactions. Proceed with caution. This may lead to bad indexing.`,
-            );
+        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (this.erroredTransactions.size > 0) {
+                this.error(`Failed to parse ${this.erroredTransactions.size} transactions.`);
+            }
         }
 
         // Then, we can sort the transactions by their priority
@@ -671,10 +672,14 @@ export class Block extends Logger {
 
                 this.transactions.push(transaction);
             } catch (e) {
-                const error: Error = e as Error;
-                this.error(
-                    `Failed to parse transaction ${rawTransactionData.txid}: ${error.stack}`,
-                );
+                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    const error: Error = e as Error;
+                    this.error(
+                        `Failed to parse transaction ${rawTransactionData.txid}: ${error.message}`,
+                    );
+                }
+
+                this.treadAsGenericTransaction(rawTransactionData);
 
                 this.erroredTransactions.add(rawTransactionData);
             }
@@ -682,5 +687,29 @@ export class Block extends Logger {
 
         // Free up some memory, we don't need the raw transaction data anymore
         this.rawBlockData.tx = [];
+    }
+
+    private treadAsGenericTransaction(rawTransactionData: TransactionData): boolean {
+        try {
+            const genericTransaction = new GenericTransaction(
+                rawTransactionData,
+                0,
+                this.hash,
+                this.height,
+                this.network,
+            );
+
+            genericTransaction.parseTransaction(rawTransactionData.vin, rawTransactionData.vout);
+
+            this.transactions.push(genericTransaction);
+
+            return true;
+        } catch (e) {
+            this.panic(
+                `Failed to parse generic transaction ${rawTransactionData.txid}. This will lead to bad indexing of transactions. Please report this bug.`,
+            );
+        }
+
+        return false;
     }
 }

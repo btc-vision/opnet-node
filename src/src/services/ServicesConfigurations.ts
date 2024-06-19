@@ -38,7 +38,7 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
     },
 
     [ThreadTypes.MEMPOOL]: {
-        maxInstance: Config.POA.MEMPOOL_THREADS,
+        maxInstance: Config.MEMPOOL.THREADS,
         target: './src/poa/mempool/MempoolThread.js',
         managerTarget: './src/poa/mempool/MempoolThreadManager.js',
     },

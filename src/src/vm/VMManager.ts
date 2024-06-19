@@ -598,7 +598,7 @@ export class VMManager extends Logger {
         const selector: Selector = calldata.readUInt32BE(0);
         const isView: boolean = vmEvaluator.isViewMethod(selector);
 
-        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debugBright(
                 `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${params.contractAddress} at block ${params.blockHeight || 'latest'} with calldata ${calldata.toString(
                     'hex',
@@ -626,8 +626,6 @@ export class VMManager extends Logger {
         const evaluation: ContractEvaluation | null = await vmEvaluator
             .execute(executionParams)
             .catch((e) => {
-                console.log(e);
-
                 const errorMsg: string = e instanceof Error ? e.message : (e as string);
                 if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
                     error = `execution reverted (${errorMsg})`;
