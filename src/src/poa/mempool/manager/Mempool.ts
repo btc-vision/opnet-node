@@ -28,6 +28,8 @@ import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransacti
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInformationRepository } from '../../../db/repositories/BlockchainInformationRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
+import { Address } from '@btc-vision/bsi-binary';
+import { WBTCBalanceRequest } from '../../../threading/interfaces/thread-messages/messages/api/WBTCBalanceRequest.js';
 
 export class Mempool extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -397,6 +399,23 @@ export class Mempool extends Logger {
                 finalizedTransaction: false,
             };
         }
+    }
+
+    private async requestWBTCBalanceOf(requester: Address): Promise<BroadcastResponse | undefined> {
+        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.WBTC_BALANCE_OF> = {
+            type: MessageType.RPC_METHOD,
+            data: {
+                rpcMethod: BitcoinRPCThreadMessageType.WBTC_BALANCE_OF,
+                data: {
+                    address: requester,
+                    blockHeight: OPNetConsensus.getBlockHeight(),
+                },
+            } as WBTCBalanceRequest,
+        };
+
+        return (await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, currentBlockMsg)) as
+            | BroadcastResponse
+            | undefined;
     }
 
     private async broadcastBitcoinTransaction(

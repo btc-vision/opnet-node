@@ -190,6 +190,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
         };
     }
 
+    //private async getWBTCBalanceOf(address: Address): Promise<WBTCBalanceResponse> {}
+
     private async broadcastTransaction(transaction: string): Promise<BroadcastResponse> {
         const response: BroadcastResponse = {
             success: false,
@@ -251,6 +253,10 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE: {
                 return await this.broadcastTransaction(message.data.data as string);
             }
+
+            /*case BitcoinRPCThreadMessageType.WBTC_BALANCE_OF: {
+                return await this.bitcoinRPC.getWBTCBalanceOf(message.data.data as string);
+            }*/
 
             default:
                 this.error(`Unknown API message received. {Type: ${message.type}}`);
