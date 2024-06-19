@@ -15,7 +15,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         NEXT_CONSENSUS: Consensus.Rachel,
 
         // The block height at which the next consensus will be enabled.
-        NEXT_CONSENSUS_BLOCK: 885n, //1008n,
+        NEXT_CONSENSUS_BLOCK: 10000n, //1008n,
 
         // Is this node updated to the next consensus?
         IS_READY_FOR_NEXT_CONSENSUS: false,
