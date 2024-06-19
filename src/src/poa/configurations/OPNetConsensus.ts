@@ -130,20 +130,17 @@ class OPNetConsensusConfiguration extends Logger {
                 continue;
             }
 
-            if (
-                !consensusConfig.GENERIC.IS_READY_FOR_NEXT_CONSENSUS &&
-                consensusConfig.GENERIC.NEXT_CONSENSUS_BLOCK > this.blockHeight
-            ) {
-                this.panic(
-                    `UPGRADE YOUR NODE IMMEDIATELY! Consensus ${consensusConfig.CONSENSUS_NAME} is not ready.`,
-                );
-                process.exit(1);
-            }
-
             this.#consensus = consensusConfig;
 
             if (consensusConfig.GENERIC.NEXT_CONSENSUS_BLOCK >= this.blockHeight) {
                 break;
+            }
+
+            if (!consensusConfig.GENERIC.IS_READY_FOR_NEXT_CONSENSUS) {
+                this.panic(
+                    `UPGRADE YOUR NODE IMMEDIATELY! Consensus ${consensusConfig.CONSENSUS_NAME} is not ready.`,
+                );
+                process.exit(1);
             }
         }
     }
