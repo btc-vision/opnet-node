@@ -22,7 +22,7 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
         const height: SafeBigInt = SafeMath.getParameterAsBigIntForBlock(params);
         const includeTransactions: boolean = this.getParameterAsBoolean(params);
 
-        const cachedData = this.getCachedData(height);
+        const cachedData = await this.getCachedData(height);
         if (cachedData) {
             if (!includeTransactions && cachedData.transactions.length !== 0) {
                 return {
@@ -43,9 +43,12 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
             await this.storage.getBlockTransactions(height, undefined, includeTransactions);
         if (!transactions) return undefined;
 
-        const data = await this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
-        if (height !== -1) this.setToCache(height, data);
-        else this.currentBlockData = data;
+        const data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
+        if (height !== -1) {
+            this.setToCache(height, data);
+        } else {
+            this.currentBlockData = data;
+        }
 
         return data;
     }

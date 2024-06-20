@@ -47,8 +47,8 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
 export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
     [ThreadTypes.API]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 2,
-            maxYoungGenerationSizeMb: 1024,
+            maxOldGenerationSizeMb: 1024 * 12,
+            maxYoungGenerationSizeMb: 1024 * 6,
             stackSizeMb: 256,
         },
     },

@@ -22,11 +22,12 @@ export abstract class BlockRoute<T extends Routes> extends Route<
     JSONRpcMethods.GET_BLOCK_BY_NUMBER | JSONRpcMethods.GET_BLOCK_BY_HASH,
     BlockHeaderAPIDocumentWithTransactions | undefined
 > {
-    protected cachedBlocks: Map<bigint | string, BlockHeaderAPIDocumentWithTransactions> =
+    protected cachedBlocks: Map<bigint | string, Promise<BlockHeaderAPIDocumentWithTransactions>> =
         new Map();
-    protected maxCacheSize: number = 100;
 
-    protected currentBlockData: BlockHeaderAPIDocumentWithTransactions | undefined;
+    protected maxCacheSize: number = 20;
+
+    protected currentBlockData: Promise<BlockHeaderAPIDocumentWithTransactions> | undefined;
     protected readonly deploymentTxEncoder: DeploymentTxEncoder = new DeploymentTxEncoder();
 
     protected constructor(route: T) {
@@ -59,7 +60,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
 
     protected getCachedData(
         height: SafeBigInt | string,
-    ): BlockHeaderAPIDocumentWithTransactions | undefined {
+    ): Promise<BlockHeaderAPIDocumentWithTransactions> | undefined {
         if (height === -1) {
             return this.currentBlockData;
         }
@@ -67,7 +68,10 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         return this.cachedBlocks.get(height);
     }
 
-    protected setToCache(height: bigint | string, data: BlockHeaderAPIDocumentWithTransactions) {
+    protected setToCache(
+        height: bigint | string,
+        data: Promise<BlockHeaderAPIDocumentWithTransactions>,
+    ) {
         if (this.cachedBlocks.size >= this.maxCacheSize) {
             this.purgeCache();
         }
