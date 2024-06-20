@@ -47,9 +47,9 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
 export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
     [ThreadTypes.API]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 14,
-            maxYoungGenerationSizeMb: 1024 * 14,
-            codeRangeSizeMb: 1024,
+            maxOldGenerationSizeMb: 1024 * 8,
+            maxYoungGenerationSizeMb: 1024 * 16,
+            codeRangeSizeMb: 512,
             stackSizeMb: 512,
         },
     },
@@ -80,8 +80,8 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.BITCOIN_RPC]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 4,
-            maxYoungGenerationSizeMb: 1024 * 2,
+            maxOldGenerationSizeMb: 1024 * 3,
+            maxYoungGenerationSizeMb: 1024,
             stackSizeMb: 256,
         },
     },
