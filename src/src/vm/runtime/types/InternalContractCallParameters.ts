@@ -13,7 +13,7 @@ export interface InternalContractCallParameters {
     readonly transactionId?: string; // external call have this empty
 
     readonly blockHeight: bigint;
-    readonly gasUsed?: bigint;
+    readonly gasUsed: bigint;
     allowCached?: boolean;
 }
 

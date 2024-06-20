@@ -191,15 +191,18 @@ export class VMManager extends Logger {
                 blockHeight: currentHeight,
                 allowCached: true,
                 externalCall: false,
+                gasUsed: 0n,
             };
 
             // Execute the function
             const evaluation = await this.executeCallInternal(params);
             const result = evaluation.getEvaluationResult();
+
             this.isProcessing = false;
 
             return result;
         } catch (e) {
+            console.log('error', e);
             this.isProcessing = false;
             throw e;
         }
@@ -258,6 +261,7 @@ export class VMManager extends Logger {
                 transactionId: interactionTransaction.transactionId,
                 allowCached: true,
                 externalCall: false,
+                gasUsed: 0n,
             };
 
             const result: ContractEvaluation = await this.executeCallInternal(params);

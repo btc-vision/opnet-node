@@ -1,15 +1,12 @@
-import { Address, Selector } from '@btc-vision/bsi-binary';
+import { Selector } from '@btc-vision/bsi-binary';
 
 export type VMRuntime = {
-    INIT(owner: string, contractAddress: string): Promise<void>;
-
     getContract(): Promise<Number>;
 
     readMethod(
         method: Selector,
         contract: Number | null,
         calldata: Uint8Array,
-        caller?: Address | null,
     ): Promise<Uint8Array>;
 
     readView(method: Selector, contract?: Number | null): Promise<Uint8Array>;
@@ -28,9 +25,6 @@ export type VMRuntime = {
     getCalls(): Promise<Uint8Array>;
     setEnvironment(environment: Uint8Array): Promise<void>;
 
-    isInitialized(): Promise<boolean>;
-
+    setMaxGas(maxGas: bigint, currentGasUsage: bigint, initialGas: bigint): Promise<void>;
     purgeMemory(): Promise<void>;
-
-    setMaxGas(maxGas: bigint, currentGasUsage?: bigint): Promise<void>;
 };

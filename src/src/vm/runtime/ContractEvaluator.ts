@@ -73,7 +73,7 @@ export class ContractEvaluator extends Logger {
     public async init(runtime: VMRuntime): Promise<void> {
         this.contractInstance = runtime;
 
-        this.gasTracker.disableTracking(this.vmIsolator.CPUTime);
+        this.gasTracker.disableTracking();
         this.vmIsolator.onGasUsed = (gas: bigint): void => {
             this.gasTracker.addGasUsed(gas);
             this.initialGasTracker.addGasUsed(gas);
@@ -84,18 +84,26 @@ export class ContractEvaluator extends Logger {
         };
     }
 
-    public async setMaxGas(rlGas: bigint, currentGasUsage?: bigint): Promise<void> {
+    public async setMaxGas(rlGas: bigint, currentGasUsage: bigint): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
+        if (!this.initialGasTracker) {
+            throw new Error('Gas tracker not initialized');
+        }
+
         this.gasTracker.reset();
-        this.gasTracker.enableTracking(this.vmIsolator.CPUTime);
+        this.gasTracker.enableTracking();
 
         this.gasTracker.maxGas = rlGas;
         if (currentGasUsage) this.gasTracker.gasUsed = currentGasUsage;
 
-        await this.contractInstance.setMaxGas(rlGas, currentGasUsage);
+        await this.contractInstance.setMaxGas(
+            rlGas,
+            currentGasUsage,
+            this.initialGasTracker.gasUsed,
+        );
     }
 
     public async getStorage(
@@ -140,7 +148,7 @@ export class ContractEvaluator extends Logger {
         this.externalCallsResponse.clear();
 
         this.initialGasTracker.reset();
-        this.initialGasTracker.enableTracking(this.vmIsolator.CPUTime);
+        this.initialGasTracker.enableTracking();
 
         this.contractOwner = owner;
         this.contractAddress = contractAddress;
@@ -157,7 +165,8 @@ export class ContractEvaluator extends Logger {
             throw new Error('Contract not initialized');
         }
 
-        await this.contractInstance.INIT(owner, contractAddress);
+        // in the future, change the block number to the block it was deployed.
+        await this.setEnvironment(owner, owner, 0n);
 
         this.contractRef = await this.contractInstance.getContract();
 
@@ -167,7 +176,7 @@ export class ContractEvaluator extends Logger {
 
         this.originalStorageState = await this.getDefaultInitialStorage();
 
-        this.initialGasTracker.disableTracking(this.vmIsolator.CPUTime);
+        this.initialGasTracker.disableTracking();
         this.initializeContract = true;
     }
 
@@ -195,14 +204,6 @@ export class ContractEvaluator extends Logger {
 
     public getWriteMethods(): MethodMap {
         return this.writeMethods;
-    }
-
-    public async isInitialized(): Promise<boolean> {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
-        return await this.contractInstance.isInitialized();
     }
 
     public isViewMethod(abi: Selector): boolean {
@@ -250,7 +251,7 @@ export class ContractEvaluator extends Logger {
             // We execute the method.
             const resp: EvaluatedResult | undefined = await this.evaluate(evaluation);
 
-            this.gasTracker.disableTracking(this.vmIsolator.CPUTime);
+            this.gasTracker.disableTracking();
             if (resp && this.enableTracing) {
                 console.log(
                     `INITIAL GAS USED: ${this.initialGasTracker.gasUsed} - EXECUTION GAS USED: ${this.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${resp.gasUsed} - TOOK ${this.gasTracker.timeSpent}ns`,
@@ -310,10 +311,6 @@ export class ContractEvaluator extends Logger {
 
         const events: EvaluatedEvents = new Map();
         const contract = this.methodAbi.get(evaluation.contractAddress);
-        const isInitialized = await this.isInitialized();
-        if (!isInitialized) {
-            throw new Error('Contract not initialized');
-        }
 
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
@@ -334,7 +331,6 @@ export class ContractEvaluator extends Logger {
                     evaluation.abi,
                     this.getContract(),
                     evaluation.calldata,
-                    evaluation.caller,
                 );
             } else {
                 result = await this.contractInstance.readView(evaluation.abi);
@@ -571,7 +567,7 @@ export class ContractEvaluator extends Logger {
         callee: Address,
         blockNumber: bigint,
     ): Promise<void> {
-        if (!this.contractInstance) {
+        if (!this.contractInstance || !this.contractOwner || !this.contractAddress) {
             throw new Error('Contract not initialized');
         }
 
@@ -579,6 +575,8 @@ export class ContractEvaluator extends Logger {
         binaryWriter.writeAddress(caller);
         binaryWriter.writeAddress(callee);
         binaryWriter.writeU256(blockNumber);
+        binaryWriter.writeAddress(this.contractOwner);
+        binaryWriter.writeAddress(this.contractAddress);
 
         await this.contractInstance.setEnvironment(binaryWriter.getBuffer());
     }

@@ -1,14 +1,9 @@
-import { VMIsolator } from '../VMIsolator.js';
-
 export class GasTracker {
     public static readonly MAX_GAS: bigint = 480076812288n; // Max gas allowed for a contract execution
     public static readonly SAT_TO_GAS_RATIO: bigint = 18416666n; //100000000n; //30750n; //611805;
 
     #gasUsed: bigint = 0n;
     #maxGas: bigint;
-
-    #startedAt: bigint = 0n;
-    #timeSpent: bigint = 0n;
 
     private canTrack: boolean = true;
 
@@ -33,7 +28,7 @@ export class GasTracker {
     }
 
     public get timeSpent(): bigint {
-        return this.#timeSpent;
+        return 0n;
     }
 
     public static convertSatToGas(sat: bigint): bigint {
@@ -75,19 +70,13 @@ export class GasTracker {
     public reset(): void {
         this.#gasUsed = 0n;
         this.#maxGas = this.MAX_GAS;
-        this.#timeSpent = 0n;
-        this.#startedAt = 0n;
     }
 
-    public enableTracking(cpuTimeStart: bigint): void {
+    public enableTracking(): void {
         this.canTrack = true;
-        this.#startedAt = cpuTimeStart;
     }
 
-    public disableTracking(cpuStopTime: bigint): void {
+    public disableTracking(): void {
         this.canTrack = false;
-
-        this.#timeSpent += cpuStopTime - this.#startedAt;
-        this.#startedAt = 0n;
     }
 }
