@@ -49,7 +49,6 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 32,
             maxYoungGenerationSizeMb: 1024 * 8,
-            codeRangeSizeMb: 512,
             stackSizeMb: 512,
         },
     },
