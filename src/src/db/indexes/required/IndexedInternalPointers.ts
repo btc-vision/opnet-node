@@ -10,8 +10,8 @@ export class IndexedInternalPointers extends IndexedCollection<OPNetCollections.
         return [
             { key: { _id: 1 }, name: '_id_' },
             {
-                key: { contractAddress: 1, lastSeenAt: 1, pointer: 1 },
-                name: 'contractAddress_1_lastSeenAt_1_pointer_1',
+                key: { contractAddress: 1, pointer: 1, lastSeenAt: 1 },
+                name: 'contractAddress_1_pointer_1_lastSeenAt_1',
             },
             {
                 key: { contractAddress: 1, pointer: 1 },

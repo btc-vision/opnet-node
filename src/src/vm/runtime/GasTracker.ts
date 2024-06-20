@@ -31,8 +31,9 @@ export class GasTracker {
         return 0n;
     }
 
-    public static convertSatToGas(sat: bigint): bigint {
-        return sat * GasTracker.SAT_TO_GAS_RATIO;
+    public static convertSatToGas(sat: bigint, maxGas: bigint, ratio: bigint): bigint {
+        let gas = sat * ratio;
+        return gas < maxGas ? gas : maxGas;
     }
 
     // round up to 10000000

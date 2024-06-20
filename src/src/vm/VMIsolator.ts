@@ -5,11 +5,9 @@ import { Address } from '@btc-vision/bsi-binary';
 import { VMRuntime } from './wasmRuntime/VMRuntime.js';
 import { InternalContractCallParameters } from './runtime/types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
-import { Contract, init } from '@btc-vision/bsi-wasmer-vm';
+import { Contract } from '@btc-vision/bsi-wasmer-vm';
 import { GasTracker } from './runtime/GasTracker.js';
 import { loadRust } from './isolated/LoaderV2.js';
-
-init();
 
 interface IContract extends Contract {
     __pin(pointer: number): number;
@@ -217,7 +215,7 @@ export class VMIsolator {
 
         const alreadyUsedGas: bigint = GasTracker.MAX_GAS - maxGas + (usedGas || 0n) + initialGas;
         if (alreadyUsedGas < 0n) {
-            throw new Error('Out of gas');
+            throw new Error(`Out of gas (${alreadyUsedGas})`);
         }
 
         this.opnetContract.setUsedGas(alreadyUsedGas);
@@ -294,7 +292,7 @@ export class VMIsolator {
                 this.onGas.bind(this),
             );
         } catch (e) {
-            console.log(`Unable to load contract from bytecode: ${(e as Error).stack}`);
+            //console.log(`Unable to load contract from bytecode: ${(e as Error).stack}`);
             errored = true;
         }
 

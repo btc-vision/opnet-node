@@ -248,7 +248,11 @@ export class VMManager extends Logger {
 
             // Trace the execution time
             const startBeforeExecution = Date.now();
-            const maxGas: bigint = GasTracker.convertSatToGas(burnedBitcoins);
+            const maxGas: bigint = GasTracker.convertSatToGas(
+                burnedBitcoins,
+                GasTracker.MAX_GAS,
+                GasTracker.SAT_TO_GAS_RATIO,
+            );
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
