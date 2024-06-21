@@ -793,7 +793,7 @@ export class VMManager extends Logger {
         );
 
         // This was move on top of the error on purpose. It prevents timeout during initialization for faster processing.
-        //this.vmEvaluators.set(contractAddress, newVmEvaluator as Promise<ContractEvaluator>);
+        this.vmEvaluators.set(contractAddress, newVmEvaluator as Promise<ContractEvaluator>);
 
         if (!newVmEvaluator) {
             throw new Error(
