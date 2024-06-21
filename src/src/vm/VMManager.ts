@@ -38,6 +38,7 @@ import {
 } from './runtime/types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
 import { GasTracker } from './runtime/GasTracker.js';
+import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 
 Globals.register();
 
@@ -186,7 +187,7 @@ export class VMManager extends Logger {
                 contractAddress: contractAddress,
                 from: from,
                 callee: from,
-                maxGas: GasTracker.MAX_GAS,
+                maxGas: OPNetConsensus.consensus.TRANSACTIONS.EMULATION_MAX_GAS,
                 calldata: Buffer.from(calldataString, 'hex'),
                 blockHeight: currentHeight,
                 allowCached: true,
@@ -250,8 +251,8 @@ export class VMManager extends Logger {
             const startBeforeExecution = Date.now();
             const maxGas: bigint = GasTracker.convertSatToGas(
                 burnedBitcoins,
-                GasTracker.MAX_GAS,
-                GasTracker.SAT_TO_GAS_RATIO,
+                OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
+                OPNetConsensus.consensus.TRANSACTIONS.SAT_TO_GAS_RATIO,
             );
 
             // Define the parameters for the internal call.
@@ -581,8 +582,16 @@ export class VMManager extends Logger {
             ? await this.getVMEvaluatorFromCache(
                   params.contractAddress,
                   this.vmBitcoinBlock.height || params.blockHeight,
+                  params.maxGas,
+                  params.gasUsed,
               )
-            : await this.getVMEvaluator(params.contractAddress, params.blockHeight).catch(() => {
+            : await this.getVMEvaluator(
+                  params.contractAddress,
+                  params.blockHeight,
+                  params.maxGas,
+                  params.gasUsed,
+              ).catch((e) => {
+                  console.log(e);
                   return null;
               });
 
@@ -650,20 +659,20 @@ export class VMManager extends Logger {
                 return null;
             });
 
+        // Clear the VM evaluator if we are not allowing cached.
+        if (!params.allowCached) {
+            vmEvaluator.clear();
+            vmEvaluator.dispose();
+        }
+
+        /** Delete the contract to prevent damage on states. */
         if (!evaluation) {
-            await this.resetContractVM(vmEvaluator);
+            await this.resetContractVM(vmEvaluator, executionParams.contractAddress);
 
             throw new Error(error);
         }
 
         const result = evaluation.getEvaluationResult();
-
-        /** Reset contract to prevent damage on states. TODO: Add concurrence to initialisation. */
-        if (!result) {
-            await this.resetContractVM(vmEvaluator);
-
-            throw new Error(error);
-        }
 
         // Executors can not save block state changes.
         if (!this.isExecutor && !params.externalCall && params.transactionId) {
@@ -673,12 +682,6 @@ export class VMManager extends Logger {
                 this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
                 params.transactionId,
             );
-        }
-
-        // Clear the VM evaluator if we are not allowing cached.
-        if (!params.allowCached) {
-            vmEvaluator.clear();
-            vmEvaluator.dispose();
         }
 
         return evaluation;
@@ -697,8 +700,14 @@ export class VMManager extends Logger {
         return address;
     }
 
-    private async resetContractVM(vmEvaluator: ContractEvaluator): Promise<void> {
-        await vmEvaluator.preventDamage();
+    private async resetContractVM(
+        vmEvaluator: ContractEvaluator,
+        contract: Address,
+    ): Promise<void> {
+        this.vmEvaluators.delete(contract);
+
+        vmEvaluator.dispose();
+        vmEvaluator.clear();
     }
 
     private async getChainCurrentBlockHeight(): Promise<bigint> {
@@ -725,6 +734,8 @@ export class VMManager extends Logger {
     private async getVMEvaluator(
         contractAddress: Address,
         height: bigint | undefined,
+        maxGas: bigint,
+        gasUsed: bigint,
     ): Promise<ContractEvaluator | null> {
         // TODO: Add a caching layer for this.
         const contractInformation: ContractInformation | undefined =
@@ -758,13 +769,15 @@ export class VMManager extends Logger {
             throw new Error(`Invalid contract deployer "${contractDeployer}"`);
         }
 
-        await vmEvaluator.setupContract(contractDeployer, contractAddress);
+        await vmEvaluator.setupContract(contractDeployer, contractAddress, maxGas, gasUsed);
         return vmEvaluator;
     }
 
     private async getVMEvaluatorFromCache(
         contractAddress: Address,
         height: bigint,
+        maxGas: bigint,
+        gasUsed: bigint,
     ): Promise<ContractEvaluator | null> {
         const vmEvaluator: Promise<ContractEvaluator | null> | undefined =
             this.vmEvaluators.get(contractAddress);
@@ -773,12 +786,14 @@ export class VMManager extends Logger {
             return vmEvaluator;
         }
 
-        const newVmEvaluator = this.getVMEvaluator(contractAddress, height).catch(() => {
-            return null;
-        });
+        const newVmEvaluator = this.getVMEvaluator(contractAddress, height, maxGas, gasUsed).catch(
+            () => {
+                return null;
+            },
+        );
 
         // This was move on top of the error on purpose. It prevents timeout during initialization for faster processing.
-        this.vmEvaluators.set(contractAddress, newVmEvaluator as Promise<ContractEvaluator>);
+        //this.vmEvaluators.set(contractAddress, newVmEvaluator as Promise<ContractEvaluator>);
 
         if (!newVmEvaluator) {
             throw new Error(

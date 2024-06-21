@@ -2,266 +2,329 @@ import { Contract } from '@btc-vision/bsi-wasmer-vm';
 
 export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
     const contract = new Contract(bytecode, MAX_GAS);
+    contract.lastGas = 0n;
 
-    let lastGas = 0n;
+    contract.garbageCollector = function () {
+        try {
+            const resp = contract.call('__collect', []);
+            contract.gasCallback(resp.gasUsed, 'garbageCollector');
 
-    function gasCallback(gas) {
-        const diff = gas - lastGas;
-        lastGas = gas;
+            contract.calledGarbageCollector = true;
+        } catch (e) {
+            throw contract.getError(e);
+        }
+    };
+
+    contract.gasCallback = function (gas, method) {
+        const diff = gas - contract.lastGas;
+        contract.lastGas = gas;
+
+        //console.log('Gas used', diff, method);
 
         gasCallbackDifference(diff);
-    }
-
-    contract.__pin = function (pointer) {
-        try {
-            const resp = contract.call('__pin', [pointer]);
-            gasCallback(resp.gasUsed);
-
-            const result = resp.result.filter((n) => n !== undefined);
-            return result[0];
-        } catch (e) {
-            throw getError(e);
-        }
     };
 
-    contract.__unpin = function (pointer) {
-        try {
-            const resp = contract.call('__unpin', [pointer]);
-            gasCallback(resp.gasUsed);
+    contract.abort = function () {
+        const abortData = contract.getAbortData();
+        const message = __liftString(abortData.message);
+        const fileName = __liftString(abortData.fileName);
+        const line = abortData.line;
+        const column = abortData.column;
 
-            const result = resp.result.filter((n) => n !== undefined);
-            return result[0];
-        } catch (e) {
-            throw getError(e);
-        }
+        return new Error(`Execution aborted: ${message} at ${fileName}:${line}:${column}`);
     };
 
-    contract.__new = function (size, align) {
-        try {
-            const resp = contract.call('__new', [size, align]);
-            gasCallback(resp.gasUsed);
+    contract.getError = function (err) {
+        contract.lastGas = 0n;
 
-            const result = resp.result.filter((n) => n !== undefined);
-            return result[0];
-        } catch (e) {
-            throw getError(e);
-        }
-    };
-
-    function getError(err) {
-        lastGas = 0n;
+        console.log(err);
 
         const msg = err.message;
         if (msg.includes('Execution aborted')) {
-            const abortData = contract.getAbortData();
-            const message = __liftString(abortData.message);
-            const fileName = __liftString(abortData.fileName);
-            const line = abortData.line;
-            const column = abortData.column;
+            const realError = contract.abort();
+            console.log('Real error', realError);
 
-            return new Error(`${message} at ${fileName}:${line}:${column}`);
+            return realError;
         } else {
+            console.log(err);
             return err;
         }
-    }
+    };
 
-    const adaptedExports = Object.setPrototypeOf(
+    contract.__pin = function (pointer) {
+        let finalResult;
+        try {
+            const resp = contract.call('__pin', [pointer]);
+            contract.gasCallback(resp.gasUsed, '__pin');
+
+            const result = resp.result.filter((n) => n !== undefined);
+            finalResult = result[0];
+        } catch (e) {
+            throw contract.getError(e);
+        }
+
+        return finalResult;
+    };
+
+    contract.__unpin = function (pointer) {
+        let finalResult;
+        try {
+            const resp = contract.call('__unpin', [pointer]);
+            contract.gasCallback(resp.gasUsed, '__unpin');
+
+            const result = resp.result.filter((n) => n !== undefined);
+            finalResult = result[0];
+        } catch (e) {
+            throw contract.getError(e);
+        }
+
+        return finalResult;
+    };
+
+    contract.__new = function (size, align) {
+        let finalResult;
+        try {
+            const resp = contract.call('__new', [size, align]);
+            contract.gasCallback(resp.gasUsed, '__new');
+
+            const result = resp.result.filter((n) => n !== undefined);
+            finalResult = result[0];
+        } catch (e) {
+            throw contract.getError(e);
+        }
+
+        return finalResult;
+    };
+
+    const adaptedContract = Object.setPrototypeOf(
         {
-            getContract() {
-                try {
-                    const resp = contract.call('getContract', []);
-                    gasCallback(resp.gasUsed);
+            dispose() {
+                contract.lastGas = 0n;
 
-                    const result = resp.result.filter((n) => n !== undefined);
-                    return __liftInternref(result[0] >>> 0);
-                } catch (e) {
-                    throw getError(e);
+                if ('destroy' in contract) {
+                    contract.destroy();
                 }
             },
-            readMethod(method, contractPointer, data) {
+            async defineSelectors() {
                 try {
-                    contractPointer = __retain(__lowerInternref(contractPointer));
-                    data = __retain(__lowerTypedArray(Uint8Array, 13, 0, data) || __notnull());
+                    const resp = contract.call('defineSelectors', []);
+                    contract.gasCallback(resp.gasUsed, 'defineSelectors');
+                } catch (e) {
+                    throw contract.getError(e);
+                }
+            },
+            async readMethod(method, data) {
+                try {
+                    contract.calledGarbageCollector = false;
 
+                    data = __retain(__lowerTypedArray(13, 0, data) || __notnull());
+
+                    let finalResult;
                     try {
-                        const resp = contract.call('readMethod', [method, contractPointer, data]);
-
-                        gasCallback(resp.gasUsed);
+                        const resp = contract.call('readMethod', [method, data]);
+                        contract.gasCallback(resp.gasUsed, 'readMethod');
 
                         const result = resp.result.filter((n) => n !== undefined);
-                        return __liftTypedArray(Uint8Array, result[0] >>> 0);
+                        finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
                     } finally {
-                        __release(contractPointer);
                         __release(data);
                     }
+
+                    contract.garbageCollector();
+
+                    return finalResult;
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
             },
-            readView(method, contractPointer) {
+            async readView(method) {
+                let finalResult;
                 try {
-                    contractPointer = __lowerInternref(contractPointer);
+                    const resp = contract.call('readView', [method]);
 
-                    const resp = contract.call('readView', [method, contractPointer]);
-
-                    gasCallback(resp.gasUsed);
+                    contract.gasCallback(resp.gasUsed, 'readView');
                     const result = resp.result.filter((n) => n !== undefined);
 
-                    return __liftTypedArray(Uint8Array, result[0] >>> 0);
+                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
+
+                contract.garbageCollector();
+                return finalResult;
             },
-            getViewABI() {
+            async getViewABI() {
+                let finalResult;
                 try {
                     const resp = contract.call('getViewABI', []);
+                    contract.gasCallback(resp.gasUsed, 'getViewABI');
 
-                    gasCallback(resp.gasUsed);
                     const result = resp.result.filter((n) => n !== undefined);
-
-                    return __liftTypedArray(Uint8Array, result[0] >>> 0);
+                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
+
+                contract.garbageCollector();
+                return finalResult;
             },
-            getEvents() {
+            async getEvents() {
+                let finalResult;
                 try {
                     const resp = contract.call('getEvents', []);
+                    contract.gasCallback(resp.gasUsed, 'getEvents');
 
-                    gasCallback(resp.gasUsed);
                     const result = resp.result.filter((n) => n !== undefined);
-
-                    return __liftTypedArray(Uint8Array, result[0] >>> 0);
+                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
+
+                contract.garbageCollector();
+                return finalResult;
             },
-            getMethodABI() {
+            async getMethodABI() {
+                let finalResult;
                 try {
                     const resp = contract.call('getMethodABI', []);
+                    contract.gasCallback(resp.gasUsed, 'getMethodABI');
 
-                    gasCallback(resp.gasUsed);
                     const result = resp.result.filter((n) => n !== undefined);
-
-                    return __liftTypedArray(Uint8Array, result[0] >>> 0);
+                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
+
+                contract.garbageCollector();
+                return finalResult;
             },
-            getWriteMethods() {
+            async getWriteMethods() {
+                let finalResult;
                 try {
                     const resp = contract.call('getWriteMethods', []);
+                    contract.gasCallback(resp.gasUsed, 'getWriteMethods');
 
-                    gasCallback(resp.gasUsed);
                     const result = resp.result.filter((n) => n !== undefined);
-
-                    return __liftTypedArray(Uint8Array, result[0] >>> 0);
+                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
+
+                contract.garbageCollector();
+                return finalResult;
             },
-            getModifiedStorage() {
+            async getModifiedStorage() {
+                let finalResult;
                 try {
                     const resp = contract.call('getModifiedStorage', []);
+                    contract.gasCallback(resp.gasUsed, 'getModifiedStorage');
 
-                    gasCallback(resp.gasUsed);
                     const result = resp.result.filter((n) => n !== undefined);
-
-                    return __liftTypedArray(Uint8Array, result[0] >>> 0);
+                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
+
+                contract.garbageCollector();
+                return finalResult;
             },
-            initializeStorage() {
+            async initializeStorage() {
+                let finalResult;
                 try {
                     const resp = contract.call('initializeStorage', []);
+                    contract.gasCallback(resp.gasUsed, 'initializeStorage');
 
-                    gasCallback(resp.gasUsed);
                     const result = resp.result.filter((n) => n !== undefined);
-
-                    return __liftTypedArray(Uint8Array, result[0] >>> 0);
+                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
+
+                contract.garbageCollector();
+                return finalResult;
             },
-            loadStorage(data) {
+            async loadStorage(data) {
+                if (contract.calledGarbageCollector === false) {
+                    throw new Error('Garbage collector must be called before loadStorage');
+                }
+
+                let finalResult;
                 try {
-                    data = __lowerTypedArray(Uint8Array, 13, 0, data) || __notnull();
+                    data = __lowerTypedArray(13, 0, data) || __notnull();
                     const resp = contract.call('loadStorage', [data]);
+                    contract.gasCallback(resp.gasUsed, 'loadStorage');
 
-                    gasCallback(resp.gasUsed);
                     const result = resp.result.filter((n) => n !== undefined);
-
-                    return result[0];
+                    finalResult = result[0];
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
+
+                contract.garbageCollector();
+                return finalResult;
             },
-            loadCallsResponse(data) {
+            async loadCallsResponse(data) {
+                let finalResult;
                 try {
-                    data = __lowerTypedArray(Uint8Array, 13, 0, data) || __notnull();
+                    data = __lowerTypedArray(13, 0, data) || __notnull();
 
                     const resp = contract.call('loadCallsResponse', [data]);
+                    contract.gasCallback(resp.gasUsed, 'loadCallsResponse');
 
-                    gasCallback(resp.gasUsed);
                     const result = resp.result.filter((n) => n !== undefined);
-
-                    return result[0];
+                    finalResult = result[0];
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
+
+                contract.garbageCollector();
+                return finalResult;
             },
-            getCalls() {
+            async getCalls() {
+                let finalResult;
                 try {
                     const resp = contract.call('getCalls', []);
+                    contract.gasCallback(resp.gasUsed, 'getCalls');
 
-                    gasCallback(resp.gasUsed);
                     const result = resp.result.filter((n) => n !== undefined);
-
-                    return __liftTypedArray(Uint8Array, result[0] >>> 0);
+                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
+
+                contract.garbageCollector();
+                return finalResult;
             },
-            setEnvironment(data) {
+            async setEnvironment(data) {
+                let finalResult;
                 try {
-                    data = __lowerTypedArray(Uint8Array, 13, 0, data) || __notnull();
+                    data = __lowerTypedArray(13, 0, data) || __notnull();
 
                     const resp = contract.call('setEnvironment', [data]);
-                    gasCallback(resp.gasUsed);
+                    contract.gasCallback(resp.gasUsed, 'setEnvironment');
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
-            },
-            purgeMemory() {
-                try {
-                    const resp = contract.call('purgeMemory', []);
 
-                    gasCallback(resp.gasUsed);
-                } catch (e) {
-                    throw getError(e);
-                }
+                contract.garbageCollector();
+                return finalResult;
             },
-
             setUsedGas(gas) {
-                lastGas = gas;
+                contract.lastGas = gas;
 
                 try {
                     contract.setUsedGas(gas);
                 } catch (e) {
-                    throw getError(e);
+                    throw contract.getError(e);
                 }
             },
         },
         {
             __proto__: null,
-            __liftString,
-            __liftTypedArray,
-            __lowerTypedArray,
-            __liftInternref,
-            __lowerInternref,
-            __retain,
-            __release,
+            __new: contract.__new,
+            __pin: contract.__pin,
+            __unpin: contract.__unpin,
+            garbageCollector: contract.garbageCollector,
         },
     );
 
@@ -312,7 +375,7 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
         return typedArray.slice();
     }
 
-    function __lowerTypedArray(constructor, id, align, values) {
+    function __lowerTypedArray(id, align, values) {
         if (values == null) return 0;
 
         const length = values.length;
@@ -354,6 +417,14 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
         if (value instanceof Internref) return value.valueOf();
         if (value instanceof Number) return value.valueOf();
 
+        console.log(
+            'value',
+            value,
+            typeof value,
+            value instanceof Internref,
+            value instanceof Number,
+        );
+
         throw TypeError('internref expected');
     }
 
@@ -386,5 +457,5 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
         throw TypeError('value must not be null');
     }
 
-    return adaptedExports;
+    return adaptedContract;
 }

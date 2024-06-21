@@ -37,11 +37,10 @@ export class ContractEvaluator extends Logger {
     private currentStorageState: BlockchainStorage = new Map();
     private originalStorageState: BlockchainStorage = new Map();
 
-    private contractRef: Number = 0;
     private isProcessing: boolean = false;
     private viewAbi: SelectorsMap = new Map();
-    private methodAbi: MethodMap = new Map();
-    private writeMethods: MethodMap = new Map();
+    private methodAbi: MethodMap = new Set();
+    private writeMethods: MethodMap = new Set();
     private initializeContract: boolean = false;
 
     private contractOwner: Address | undefined;
@@ -64,12 +63,6 @@ export class ContractEvaluator extends Logger {
         return this.gasTracker.gasUsed;
     }
 
-    public get owner(): Address {
-        if (!this.contractOwner) throw new Error('Contract owner not set');
-
-        return this.contractOwner;
-    }
-
     public async init(runtime: VMRuntime): Promise<void> {
         this.contractInstance = runtime;
 
@@ -78,32 +71,32 @@ export class ContractEvaluator extends Logger {
             this.gasTracker.addGasUsed(gas);
             this.initialGasTracker.addGasUsed(gas);
 
+            if (this.initialGasTracker.isEnabled() && this.gasTracker.isEnabled()) {
+                throw new Error('Gas used is being tracked twice.');
+            }
+
             if (!this.initialGasTracker.isEnabled() && !this.gasTracker.isEnabled()) {
                 throw new Error('Gas used is not being tracked.');
             }
         };
     }
 
-    public async setMaxGas(rlGas: bigint, currentGasUsage: bigint): Promise<void> {
+    public async setMaxGas(
+        rlGas: bigint,
+        currentGasUsage: bigint,
+        gasTracker: GasTracker = this.gasTracker,
+    ): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        if (!this.initialGasTracker) {
-            throw new Error('Gas tracker not initialized');
-        }
+        gasTracker.reset();
+        gasTracker.enableTracking();
 
-        this.gasTracker.reset();
-        this.gasTracker.enableTracking();
+        gasTracker.maxGas = rlGas;
+        if (currentGasUsage) gasTracker.gasUsed = currentGasUsage;
 
-        this.gasTracker.maxGas = rlGas;
-        if (currentGasUsage) this.gasTracker.gasUsed = currentGasUsage;
-
-        await this.contractInstance.setMaxGas(
-            rlGas,
-            currentGasUsage,
-            this.initialGasTracker.gasUsed,
-        );
+        this.contractInstance.setGasUsed(rlGas, currentGasUsage, this.initialGasTracker.gasUsed);
     }
 
     public async getStorage(
@@ -137,7 +130,12 @@ export class ContractEvaluator extends Logger {
         return this.vmIsolator.setStorage(address, pointer, value);
     }
 
-    public async setupContract(owner: Address, contractAddress: Address): Promise<void> {
+    public async setupContract(
+        owner: Address,
+        contractAddress: Address,
+        maxGas: bigint,
+        gasUsed: bigint,
+    ): Promise<void> {
         if (!owner || !contractAddress) {
             throw new Error('Owner and contract address are required');
         }
@@ -157,18 +155,16 @@ export class ContractEvaluator extends Logger {
             throw new Error('No contract instance');
         }
 
-        if (this.contractRef !== 0) {
-            throw new Error('Contract already initialized');
-        }
-
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
+        await this.setMaxGas(maxGas, gasUsed, this.initialGasTracker);
+
         // in the future, change the block number to the block it was deployed.
         await this.setEnvironment(owner, owner, 0n);
 
-        this.contractRef = await this.contractInstance.getContract();
+        await this.contractInstance.defineSelectors();
 
         this.viewAbi = await this.getViewABI();
         this.methodAbi = await this.getMethodABI();
@@ -178,10 +174,6 @@ export class ContractEvaluator extends Logger {
 
         this.initialGasTracker.disableTracking();
         this.initializeContract = true;
-    }
-
-    public getContract(): Number {
-        return this.contractRef;
     }
 
     public clear(): void {
@@ -206,16 +198,11 @@ export class ContractEvaluator extends Logger {
         return this.writeMethods;
     }
 
-    public isViewMethod(abi: Selector): boolean {
-        const methodAbi = this.viewAbi.get(this.vmIsolator.contractAddress);
+    public isViewMethod(selector: Selector): boolean {
+        const keys = Array.from(this.viewAbi.values());
 
-        if (!methodAbi) {
-            throw new Error(`Contract has no methods`);
-        }
-
-        const values = methodAbi.values();
-        for (const value of values) {
-            if (value === abi) {
+        for (const key of keys) {
+            if (key === selector) {
                 return true;
             }
         }
@@ -241,7 +228,7 @@ export class ContractEvaluator extends Logger {
             throw new Error('Calldata is required.');
         }
 
-        const canWrite: boolean = this.canWrite(params.contractAddress, params.abi);
+        const canWrite: boolean = this.canWrite(params.abi);
         const evaluation = new ContractEvaluation({
             ...params,
             canWrite,
@@ -267,19 +254,6 @@ export class ContractEvaluator extends Logger {
         }
     }
 
-    public async preventDamage(): Promise<void> {
-        try {
-            if (!this.contractAddress || !this.contractOwner) return;
-            this.initializeContract = false;
-            this.contractRef = 0;
-
-            await this.vmIsolator.reset();
-            await this.setupContract(this.contractOwner, this.contractAddress);
-        } catch (e) {
-            console.error(`UNABLE TO PURGE MEMORY: ${(e as Error).stack}`);
-        }
-    }
-
     private async restoreOriginalStorageState(blockNumber: bigint): Promise<void> {
         // We clear the current storage state, this make sure that we are not using any previous storage state.
         this.clear();
@@ -298,7 +272,6 @@ export class ContractEvaluator extends Logger {
         }
     }
 
-    // TODO: IMPORTANT. Move all these function parameter into an object, create the class EvaluatedTransaction
     private async evaluate(evaluation: ContractEvaluation): Promise<EvaluatedResult> {
         if (!this.initializeContract) {
             throw new Error('Contract not initialized');
@@ -310,17 +283,17 @@ export class ContractEvaluator extends Logger {
         }
 
         const events: EvaluatedEvents = new Map();
-        const contract = this.methodAbi.get(evaluation.contractAddress);
-
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
+
+        await this.contractInstance.instantiate();
 
         await this.writeCurrentStorageState();
         await this.writeCallsResponse(evaluation.caller, evaluation.blockNumber);
         await this.setEnvironment(evaluation.caller, evaluation.callee, evaluation.blockNumber);
 
-        const hasSelectorInMethods = contract?.has(evaluation.abi) ?? false;
+        const hasSelectorInMethods = this.methodAbi.has(evaluation.abi) ?? false;
 
         let result: Uint8Array | undefined;
         let error: Error | undefined;
@@ -329,7 +302,6 @@ export class ContractEvaluator extends Logger {
             if (hasSelectorInMethods) {
                 result = await this.contractInstance.readMethod(
                     evaluation.abi,
-                    this.getContract(),
                     evaluation.calldata,
                 );
             } else {
@@ -339,7 +311,8 @@ export class ContractEvaluator extends Logger {
             error = e as Error;
         }
 
-        if (error && typeof error === 'object' && error.message.includes('out of gas')) {
+        if (error && typeof error === 'object' && !error.message.includes('Execution aborted')) {
+            this.error(`Error executing contract: ${error.message}`);
             throw error;
         }
 
@@ -406,10 +379,10 @@ export class ContractEvaluator extends Logger {
         evaluation.setEvent(evaluation.contractAddress, selfEvents);
 
         const gasUsed: bigint = this.gasTracker.gasUsed + this.initialGasTracker.gasUsed;
+        evaluation.setGasUsed(gasUsed);
 
         evaluation.setModifiedStorage(modifiedStorage);
         evaluation.processExternalCalls(this.externalCallsResponse);
-        evaluation.setGasUsed(gasUsed);
 
         if (evaluation.canWrite) {
             if (this.enableTracing) {
@@ -475,8 +448,6 @@ export class ContractEvaluator extends Logger {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
-
-        await this.contractInstance.purgeMemory();
 
         const binaryWriter: BinaryWriter = new BinaryWriter();
         binaryWriter.writeStorage(this.currentStorageState);
@@ -769,14 +740,8 @@ export class ContractEvaluator extends Logger {
         await Promise.all(promises);
     }
 
-    private canWrite(contractAddress: Address, abi: Selector): boolean {
-        const writeMethodContract = this.writeMethods.get(contractAddress);
-
-        if (!writeMethodContract) {
-            return false;
-        }
-
-        return writeMethodContract.has(abi);
+    private canWrite(abi: Selector): boolean {
+        return this.writeMethods.has(abi);
     }
 
     private async getViewABI(): Promise<SelectorsMap> {

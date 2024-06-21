@@ -2,7 +2,6 @@ import { IEvaluationParameters } from '../types/InternalContractCallParameters.j
 import { Address, BlockchainStorage, NetEvent } from '@btc-vision/bsi-binary';
 import { EvaluatedEvents, EvaluatedResult } from '../../evaluated/EvaluatedResult.js';
 import { ExternalCallsResult } from '../types/ExternalCall.js';
-import { GasTracker } from '../GasTracker.js';
 
 export class ContractEvaluation implements IEvaluationParameters {
     public readonly contractAddress: Address;
@@ -75,7 +74,7 @@ export class ContractEvaluation implements IEvaluationParameters {
     }
 
     public setGasUsed(gasUsed: bigint): void {
-        this.gasUsed = GasTracker.round(gasUsed);
+        this.gasUsed = gasUsed; //GasTracker.round(gasUsed);
     }
 
     public processExternalCalls(extern: ExternalCallsResult): void {

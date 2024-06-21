@@ -28,6 +28,17 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 1000000, // Cap to 1M bytes.
     },
 
+    TRANSACTIONS: {
+        /** Transactions related properties */
+        MAX_GAS: 300_000_000_000n,
+
+        /** btc_call maximum gas */
+        EMULATION_MAX_GAS: 50_000_000_000n,
+
+        /** Converts satoshi to BTC */
+        SAT_TO_GAS_RATIO: 184_166_66n,
+    },
+
     PSBT: {
         MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: 40n,
     },

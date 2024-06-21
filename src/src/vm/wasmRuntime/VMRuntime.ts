@@ -1,30 +1,39 @@
-import { Selector } from '@btc-vision/bsi-binary';
+export interface VMRuntime {
+    readMethod(method: number, data: Uint8Array): Promise<Uint8Array>;
 
-export type VMRuntime = {
-    getContract(): Promise<Number>;
+    readView(method: number): Promise<Uint8Array>;
 
-    readMethod(
-        method: Selector,
-        contract: Number | null,
-        calldata: Uint8Array,
-    ): Promise<Uint8Array>;
-
-    readView(method: Selector, contract?: Number | null): Promise<Uint8Array>;
+    defineSelectors(): Promise<void>;
 
     getViewABI(): Promise<Uint8Array>;
+
     getEvents(): Promise<Uint8Array>;
+
     getMethodABI(): Promise<Uint8Array>;
+
     getWriteMethods(): Promise<Uint8Array>;
 
     getModifiedStorage(): Promise<Uint8Array>;
+
     initializeStorage(): Promise<Uint8Array>;
 
     loadStorage(data: Uint8Array): Promise<void>;
+
     loadCallsResponse(data: Uint8Array): Promise<void>;
 
     getCalls(): Promise<Uint8Array>;
+
     setEnvironment(environment: Uint8Array): Promise<void>;
 
-    setMaxGas(maxGas: bigint, currentGasUsage: bigint, initialGas: bigint): Promise<void>;
-    purgeMemory(): Promise<void>;
-};
+    setGasUsed(maxGas: bigint, currentGasUsage: bigint, initialGas: bigint): void;
+    
+    instantiate(): Promise<void>;
+}
+
+export interface ExtendedIsolator extends Omit<VMRuntime, 'setGasUsed'> {
+    garbageCollector(): Promise<void>;
+
+    dispose(): void;
+
+    setUsedGas(usedGas: bigint): void;
+}

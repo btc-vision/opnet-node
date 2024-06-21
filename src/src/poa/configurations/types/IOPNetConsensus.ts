@@ -23,6 +23,17 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly IS_READY_FOR_NEXT_CONSENSUS: boolean;
     };
 
+    readonly TRANSACTIONS: {
+        /** Transactions related properties */
+        MAX_GAS: bigint;
+
+        /** btc_call maximum gas */
+        EMULATION_MAX_GAS: bigint;
+
+        /** Converts satoshi to BTC */
+        SAT_TO_GAS_RATIO: bigint;
+    };
+
     readonly NETWORK: {
         /** Networking */
         // Define the maximum size of a transaction that can be broadcasted.

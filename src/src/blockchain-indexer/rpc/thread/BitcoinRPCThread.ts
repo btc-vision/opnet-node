@@ -25,6 +25,7 @@ import { BitcoinRPCThreadMessageType } from './messages/BitcoinRPCThreadMessage.
 import { BroadcastResponse } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { BTC_FAKE_ADDRESS } from '../../processor/block/types/ZeroValue.js';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
+import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     public readonly threadType: ThreadTypes.BITCOIN_RPC = ThreadTypes.BITCOIN_RPC;
@@ -34,6 +35,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     private currentVMManagerIndex: number = 0;
 
     private readonly CONCURRENT_VMS: number = 10;
+
+    private currentBlockHeight: bigint = 0n;
 
     constructor() {
         super();
@@ -45,6 +48,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
     protected async init(): Promise<void> {
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
+        await this.setBlockHeight();
         await this.createVMManagers();
     }
 
@@ -108,6 +112,24 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
                 this.log(`Unknown thread message received. {Type: ${m.type}}`);
                 break;
         }
+    }
+
+    private async setBlockHeight(): Promise<void> {
+        try {
+            const blockHeight = await this.bitcoinRPC.getBlockHeight();
+            if (!blockHeight) {
+                throw new Error('Failed to get block height');
+            }
+
+            this.currentBlockHeight = BigInt(blockHeight.blockHeight + 1);
+            OPNetConsensus.setBlockHeight(this.currentBlockHeight);
+        } catch (e) {
+            this.error(`Failed to get block height. ${e}`);
+        }
+
+        setTimeout(() => {
+            void this.setBlockHeight();
+        }, 5000);
     }
 
     private async createVMManagers(): Promise<void> {
