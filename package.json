@@ -74,6 +74,7 @@
         "bitcoinjs-lib": "github:btc-vision/bitcoinjs-lib",
         "cors": "^2.8.5",
         "datastore-level": "^10.1.8",
+        "ecpair": "^2.1.0",
         "eslint-plugin-openapi": "^0.0.4",
         "figlet": "^1.7.0",
         "gulp": "^5.0.0",
@@ -93,6 +94,7 @@
         "protobufjs": "^7.2.6",
         "sodium-native": "^4.1.1",
         "swagger-ui-express": "^5.0.0",
+        "tiny-secp256k1": "^2.2.3",
         "toml": "^3.0.0",
         "ts-jest": "^29.1.2",
         "xxhash-addon": "^2.0.3"
