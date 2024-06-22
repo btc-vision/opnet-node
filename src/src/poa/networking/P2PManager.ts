@@ -514,7 +514,7 @@ export class P2PManager extends Logger {
             this.startedIndexer = true;
 
             this.notifyArt(
-                'OPNet',
+                'OP_NET',
                 'Doh',
                 `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
                 `\nThis node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
