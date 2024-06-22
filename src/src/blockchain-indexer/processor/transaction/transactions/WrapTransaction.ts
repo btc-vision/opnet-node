@@ -259,6 +259,8 @@ export class WrapTransaction extends InteractionTransaction {
         this.decodeWrappingTransaction();
     }
 
+    protected override verifyUnallowed(): void {}
+
     private getVaultAddress(): string {
         return P2TR_MS.generateMultiSigAddress(this.pubKeys, this.minimumSignatures, this.network);
     }
@@ -374,14 +376,17 @@ export class WrapTransaction extends InteractionTransaction {
 
     /** Adjust the calldata to reflect the new deposit amount. */
     private adjustCalldata(): void {
+        const indexerFees = this.giveFeesToIndexer();
+
         const writer: BinaryWriter = new BinaryWriter();
         writer.writeSelector(WBTC_WRAP_SELECTOR);
         writer.writeAddress(this.depositAddress);
         writer.writeU256(this.depositAmount);
-        writer.writeAddressValueTupleMap(this.giveFeesToIndexer());
+        writer.writeAddressValueTupleMap(indexerFees);
         writer.writeU256(this.stackingFee);
 
         this._calldata = Buffer.from(writer.getBuffer());
+
         delete this.interactionWitnessData; // free up some memory.
 
         this._callee = authorityManager.WBTC_DEPLOYER; // authorize the mint.

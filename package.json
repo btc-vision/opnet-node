@@ -84,7 +84,6 @@
         "gulplog": "^2.2.0",
         "hyper-express": "^6.15.2",
         "i": "^0.3.7",
-        "isolated-vm": "^5.0.0",
         "it-length-prefixed-stream": "^1.1.7",
         "libp2p": "^1.5.1",
         "long": "^5.2.3",

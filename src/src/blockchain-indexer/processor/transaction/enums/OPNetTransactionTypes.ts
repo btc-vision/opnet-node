@@ -3,13 +3,16 @@ export enum OPNetTransactionTypes {
     Deployment = 'Deployment',
     Interaction = 'Interaction',
     WrapInteraction = 'WrapInteraction',
+    UnwrapInteraction = 'UnwrapInteraction',
 }
 
 export type InteractionTransactionType =
     | OPNetTransactionTypes.Interaction
-    | OPNetTransactionTypes.WrapInteraction;
+    | OPNetTransactionTypes.WrapInteraction
+    | OPNetTransactionTypes.UnwrapInteraction;
 
 export const OPNetInteractionTypeValues: OPNetTransactionTypes[] = [
     OPNetTransactionTypes.Interaction,
     OPNetTransactionTypes.WrapInteraction,
+    OPNetTransactionTypes.UnwrapInteraction,
 ];

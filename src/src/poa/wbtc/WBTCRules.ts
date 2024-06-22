@@ -27,7 +27,7 @@ export const OPNET_FEE_WALLET: {
             address: 'tb1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gszlcezf',
         },
         [BitcoinNetwork.Regtest]: {
-            address: 'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gs0xjlhn',
+            address: 'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw52gs0xjlhn',
         },
         [BitcoinNetwork.Signet]: {
             address: 'bc1pjune3rz4zcm8scdv9hnu5cld8vh4eqrwagph9wsez0rutjxkvwls6mhr3l',

@@ -85,5 +85,7 @@ export interface IWrapInteractionTransactionDocument extends InteractionTransact
     readonly depositAddress: Address;
 }
 
+export interface IUnwrapInteractionTransactionDocument extends InteractionTransactionDocument {}
+
 export type ITransactionDocument<T extends OPNetTransactionTypes> = TransactionDocument<T> &
     IBaseDocument;
