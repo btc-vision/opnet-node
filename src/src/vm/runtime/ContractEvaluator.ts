@@ -4,6 +4,8 @@ import {
     BinaryWriter,
     BlockchainStorage,
     BufferHelper,
+    DeterministicMap,
+    DeterministicSet,
     MemorySlotData,
     MemorySlotPointer,
     MethodMap,
@@ -34,13 +36,17 @@ export class ContractEvaluator extends Logger {
 
     private contractInstance: VMRuntime | null = null;
 
-    private currentStorageState: BlockchainStorage = new Map();
-    private originalStorageState: BlockchainStorage = new Map();
+    private currentStorageState: BlockchainStorage = new DeterministicMap(
+        BinaryReader.stringCompare,
+    );
+    private originalStorageState: BlockchainStorage = new DeterministicMap(
+        BinaryReader.stringCompare,
+    );
 
     private isProcessing: boolean = false;
-    private viewAbi: SelectorsMap = new Map();
-    private methodAbi: MethodMap = new Set();
-    private writeMethods: MethodMap = new Set();
+    private viewAbi: SelectorsMap = new DeterministicMap(BinaryReader.stringCompare);
+    private methodAbi: MethodMap = new DeterministicSet<Selector>(BinaryReader.numberCompare);
+    private writeMethods: MethodMap = new DeterministicSet<Selector>(BinaryReader.numberCompare);
     private initializeContract: boolean = false;
 
     private contractOwner: Address | undefined;
@@ -552,7 +558,10 @@ export class ContractEvaluator extends Logger {
         await this.contractInstance.setEnvironment(binaryWriter.getBuffer());
     }
 
-    private hasSameKeysMap(map1: Map<unknown, unknown>, map2: Map<unknown, unknown>): boolean {
+    private hasSameKeysMap(
+        map1: DeterministicMap<unknown, unknown>,
+        map2: DeterministicMap<unknown, unknown>,
+    ): boolean {
         if (map1.size !== map2.size) {
             return false;
         }
@@ -617,12 +626,12 @@ export class ContractEvaluator extends Logger {
         isView: boolean = false,
         blockNumber: bigint,
     ): Promise<BlockchainStorage> {
-        const currentStorage: BlockchainStorage = new Map();
+        const currentStorage: BlockchainStorage = new DeterministicMap(BinaryReader.stringCompare);
         const loadedPromises: Promise<void>[] = [];
 
         // We iterate over all the requested contract storage slots
         for (let [key, value] of defaultStorage) {
-            const storage: PointerStorage = new Map();
+            const storage: PointerStorage = new DeterministicMap(BinaryReader.bigintCompare);
 
             // We iterate over all the storage keys and get the current value
             for (let [k, v] of value) {
@@ -698,7 +707,8 @@ export class ContractEvaluator extends Logger {
         if (this.originalStorageState.size !== 0) {
             // we must merge the original storage state with the new one
             for (const [key, value] of this.originalStorageState) {
-                const newStorage: PointerStorage = resp.get(key) || new Map();
+                const newStorage: PointerStorage =
+                    resp.get(key) || new DeterministicMap(BinaryReader.bigintCompare);
 
                 for (const [k, v] of value) {
                     if (!newStorage.has(k)) {

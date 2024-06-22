@@ -1,7 +1,13 @@
 import { IEvaluationParameters } from '../types/InternalContractCallParameters.js';
 import { Address, BlockchainStorage, NetEvent } from '@btc-vision/bsi-binary';
-import { EvaluatedEvents, EvaluatedResult } from '../../evaluated/EvaluatedResult.js';
+import {
+    BlockchainStorageMap,
+    EvaluatedEvents,
+    EvaluatedResult,
+    PointerStorageMap,
+} from '../../evaluated/EvaluatedResult.js';
 import { ExternalCallsResult } from '../types/ExternalCall.js';
+import { MapConverter } from '../MapConverter.js';
 
 export class ContractEvaluation implements IEvaluationParameters {
     public readonly contractAddress: Address;
@@ -16,8 +22,8 @@ export class ContractEvaluation implements IEvaluationParameters {
 
     public readonly externalCall: boolean;
 
-    public initialStorage: BlockchainStorage | undefined;
-    public modifiedStorage: BlockchainStorage | undefined;
+    public initialStorage: BlockchainStorageMap | undefined;
+    public modifiedStorage: BlockchainStorageMap | undefined;
 
     public events: EvaluatedEvents | undefined;
     public sameStorage: boolean = false;
@@ -44,7 +50,8 @@ export class ContractEvaluation implements IEvaluationParameters {
     }
 
     public setInitialStorage(storage: BlockchainStorage): void {
-        this.initialStorage = storage;
+        this.initialStorage =
+            MapConverter.convertDeterministicBlockchainStorageMapToBlockchainStorage(storage);
     }
 
     public setEvents(events: EvaluatedEvents): void {
@@ -66,7 +73,8 @@ export class ContractEvaluation implements IEvaluationParameters {
     }
 
     public setModifiedStorage(storage: BlockchainStorage): void {
-        this.modifiedStorage = storage;
+        this.modifiedStorage =
+            MapConverter.convertDeterministicBlockchainStorageMapToBlockchainStorage(storage);
 
         if (this.modifiedStorage.size > 1) {
             throw new Error(`execution reverted (storage is too big)`);
@@ -137,13 +145,14 @@ export class ContractEvaluation implements IEvaluationParameters {
         }
     }
 
-    private mergeStorage(storage: BlockchainStorage): void {
+    private mergeStorage(storage: BlockchainStorageMap): void {
         if (!this.modifiedStorage) {
             throw new Error('Modified storage not set');
         }
 
         for (const [key, value] of storage) {
-            const current = this.modifiedStorage.get(key) || new Map();
+            const current: PointerStorageMap = this.modifiedStorage.get(key) || new Map();
+
             for (const [k, v] of value) {
                 current.set(k, v);
             }

@@ -62,7 +62,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         }
 
         let valueChanged: boolean = false;
-        for (const [key, value] of val.entries()) {
+        for (const [key, value] of val) {
             const currentValue = map.get(key);
             if (currentValue && currentValue === value) {
                 continue;

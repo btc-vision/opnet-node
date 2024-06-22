@@ -1,4 +1,4 @@
-import { Address, BlockchainStorage, BufferHelper } from '@btc-vision/bsi-binary';
+import { Address, BufferHelper } from '@btc-vision/bsi-binary';
 import bitcoin from 'bitcoinjs-lib';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
@@ -12,7 +12,10 @@ import {
 } from '../../../../../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
-import { EvaluatedEvents } from '../../../../../vm/evaluated/EvaluatedResult.js';
+import {
+    BlockchainStorageMap,
+    EvaluatedEvents,
+} from '../../../../../vm/evaluated/EvaluatedResult.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { CallParams } from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
@@ -194,7 +197,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return contractEvents;
     }
 
-    private getAccessList(changedStorage: BlockchainStorage): AccessList {
+    private getAccessList(changedStorage: BlockchainStorageMap): AccessList {
         const accessList: AccessList = {};
 
         for (const [contract, pointerStorage] of changedStorage) {
