@@ -58,6 +58,7 @@ export class UnwrapTransaction extends InteractionTransaction {
 
         // ... Future implementation before this opcode
         if (scriptData.shift() !== opcodes.OP_16) {
+            // define an unwrap transaction
             return;
         }
 

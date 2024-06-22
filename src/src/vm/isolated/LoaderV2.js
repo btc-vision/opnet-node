@@ -37,14 +37,9 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
     contract.getError = function (err) {
         contract.lastGas = 0n;
 
-        console.log(err);
-
         const msg = err.message;
         if (msg.includes('Execution aborted')) {
-            const realError = contract.abort();
-            console.log('Real error', realError);
-
-            return realError;
+            return contract.abort();
         } else {
             console.log(err);
             return err;
