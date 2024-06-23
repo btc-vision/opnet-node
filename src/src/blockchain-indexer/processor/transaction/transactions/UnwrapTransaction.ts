@@ -56,6 +56,10 @@ export class UnwrapTransaction extends InteractionTransaction {
     }
 
     public get authorizedBy(): TrustedCompanies[] {
+        if (!this.#authorizedBy.length) {
+            throw new Error(`No authorized companies found in unwrap transaction.`);
+        }
+
         return this.#authorizedBy;
     }
 
@@ -102,8 +106,8 @@ export class UnwrapTransaction extends InteractionTransaction {
     public toDocument(): IUnwrapInteractionTransactionDocument {
         return {
             ...super.toDocument(),
-            
-            authorizedBy: this.#authorizedBy,
+
+            authorizedBy: this.authorizedBy,
             unwrapAmount: DataConverter.toDecimal128(this.#unwrapAmount),
         };
     }
@@ -133,6 +137,8 @@ export class UnwrapTransaction extends InteractionTransaction {
                 }
             }
         }
+
+        this.#authorizedBy = authorities;
     }
 
     /**

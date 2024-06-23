@@ -44,17 +44,17 @@ export class TransactionConverterForAPI {
             deployedTransactionId: undefined,
         };
 
-        if (transaction.wrappingFees) {
+        if (transaction.wrappingFees !== undefined && transaction.wrappingFees !== null) {
             newTx.wrappingFees =
                 '0x' + DataConverter.fromDecimal128(transaction.wrappingFees).toString(16);
         }
 
-        if (transaction.unwrapAmount) {
+        if (transaction.unwrapAmount !== undefined && transaction.unwrapAmount !== null) {
             newTx.unwrapAmount =
                 '0x' + DataConverter.fromDecimal128(transaction.unwrapAmount).toString(16);
         }
 
-        if (transaction.depositAmount) {
+        if (transaction.depositAmount !== undefined && transaction.depositAmount !== null) {
             newTx.depositAmount =
                 '0x' + DataConverter.fromDecimal128(transaction.depositAmount).toString(16);
         }
