@@ -13,6 +13,7 @@ export enum OPNetCollections {
     PENDING_WBTC_UTXO = 'PENDING_WBTC_UTXO',
     USED_WBTC_UTXO = 'USED_WBTC_UTXO',
     Vaults = 'Vaults',
+    CompromisedTransactions = 'CompromisedTransactions',
 }
 
 export abstract class IndexedCollection<T extends OPNetCollections> {

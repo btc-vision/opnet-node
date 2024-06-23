@@ -193,6 +193,7 @@ export class P2PManager extends Logger {
                 );
 
                 this.notifyArt(
+                    `warn`,
                     `FATAL.`,
                     'Doh',
                     `\n\n\n!!!!!!!!!! -------------------- UPGRADE FAILED. --------------------  !!!!!!!!!!\n\n\n\n\n`,
@@ -209,6 +210,7 @@ export class P2PManager extends Logger {
             }
 
             this.notifyArt(
+                'success',
                 consensusName,
                 'Doh',
                 `\n\n\n!!!!!!!!!! -------------------- CONSENSUS UPGRADE. --------------------  !!!!!!!!!!\n\n\n\n\n`,
@@ -514,6 +516,7 @@ export class P2PManager extends Logger {
             this.startedIndexer = true;
 
             this.notifyArt(
+                'info',
                 'OPNet',
                 'Doh',
                 `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
@@ -622,6 +625,7 @@ export class P2PManager extends Logger {
 
         if (this.isBootstrapNode()) {
             this.notifyArt(
+                'info',
                 'OPNet Bootstrap Node',
                 'Big Money-sw',
                 `\n\n\nThis node is a,\n\n\n\n\n`,
@@ -642,14 +646,20 @@ export class P2PManager extends Logger {
         await this.refreshRouting();
     }
 
-    private notifyArt(text: string, font: Fonts, prefix: string, ...suffix: string[]): void {
+    private notifyArt(
+        type: 'info' | 'warn' | 'success' | 'panic',
+        text: string,
+        font: Fonts,
+        prefix: string,
+        ...suffix: string[]
+    ): void {
         const artVal = figlet.textSync(text, {
             font: font, //'Doh',
             horizontalLayout: 'default',
             verticalLayout: 'default',
         });
 
-        this.info(`${prefix}${artVal}${suffix.join('\n')}`);
+        this[type](`${prefix}${artVal}${suffix.join('\n')}`);
     }
 
     private allowConnection(

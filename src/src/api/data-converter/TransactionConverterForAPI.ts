@@ -49,6 +49,11 @@ export class TransactionConverterForAPI {
                 '0x' + DataConverter.fromDecimal128(transaction.wrappingFees).toString(16);
         }
 
+        if (transaction.unwrapAmount) {
+            newTx.unwrapAmount =
+                '0x' + DataConverter.fromDecimal128(transaction.unwrapAmount).toString(16);
+        }
+
         if (transaction.depositAmount) {
             newTx.depositAmount =
                 '0x' + DataConverter.fromDecimal128(transaction.depositAmount).toString(16);

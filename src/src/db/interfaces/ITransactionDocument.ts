@@ -13,6 +13,7 @@ import {
     ITransactionOutput,
 } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { Address } from '@btc-vision/bsi-binary';
+import { TrustedCompanies } from '../../poa/configurations/TrustedCompanies.js';
 
 export interface TransactionDocumentBase<T extends OPNetTransactionTypes> {
     readonly id: string;
@@ -85,7 +86,10 @@ export interface IWrapInteractionTransactionDocument extends InteractionTransact
     readonly depositAddress: Address;
 }
 
-export interface IUnwrapInteractionTransactionDocument extends InteractionTransactionDocument {}
+export interface IUnwrapInteractionTransactionDocument extends InteractionTransactionDocument {
+    readonly authorizedBy: TrustedCompanies[];
+    readonly unwrapAmount: Decimal128;
+}
 
 export type ITransactionDocument<T extends OPNetTransactionTypes> = TransactionDocument<T> &
     IBaseDocument;

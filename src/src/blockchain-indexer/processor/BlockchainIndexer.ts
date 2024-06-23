@@ -462,18 +462,39 @@ export class BlockchainIndexer extends Logger {
         }
     }
 
-    private notifyArt(text: string, font: Fonts, prefix: string, ...suffix: string[]): void {
+    private notifyArt(
+        type: 'info' | 'warn' | 'success' | 'panic',
+        text: string,
+        font: Fonts,
+        prefix: string,
+        ...suffix: string[]
+    ): void {
         const artVal = figlet.textSync(text, {
             font: font, //'Doh',
             horizontalLayout: 'default',
             verticalLayout: 'default',
         });
 
-        this.info(`${prefix}${artVal}${suffix.join('\n')}`);
+        this[type](`${prefix}${artVal}${suffix.join('\n')}`);
+    }
+
+    private async lockdown(): Promise<void> {
+        this.notifyArt(
+            'panic',
+            `LOCKDOWN`,
+            'Doh',
+            `\n\n\nOP_NET detected a compromised block.\n\n\n\n\n`,
+            `\n\nA vault has been compromised. The network is now in lockdown.\n`,
+        );
+
+        this.panic(`A vault has been compromised. The network is now in lockdown.`);
+        this.panic(`If this is a false positive, this should be resolved automatically.`);
+        this.panic(`To prevent further damage, the network has been locked down.`);
     }
 
     private onConsensusFailed(consensusName: string): void {
         this.notifyArt(
+            'warn',
             `FATAL.`,
             'Doh',
             `\n\n\n!!!!!!!!!! -------------------- UPGRADE FAILED. --------------------  !!!!!!!!!!\n\n\n\n\n`,
@@ -529,8 +550,8 @@ export class BlockchainIndexer extends Logger {
             }
 
             const processStartTime = Date.now();
-            const processed: Block | null = await this.processBlock(block, this.vmManager);
-            if (processed === null) {
+            const processedBlock: Block | null = await this.processBlock(block, this.vmManager);
+            if (processedBlock === null) {
                 this.fatalFailure = true;
                 throw new Error(`Error processing block ${blockHeightInProgress}.`);
             }
@@ -538,14 +559,18 @@ export class BlockchainIndexer extends Logger {
             const processEndTime = Date.now();
             if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
                 this.info(
-                    `Block ${blockHeightInProgress} processed successfully. {Transaction(s): ${processed.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processed.timeForTransactionExecution}ms | State update: ${processed.timeForStateUpdate}ms | Block processing: ${processed.timeForBlockProcessing}ms | Took ${processEndTime - processStartTime}ms})`,
+                    `Block ${blockHeightInProgress} processed successfully. {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - processStartTime}ms})`,
                 );
             }
 
-            this.lastBlock.hash = processed.hash;
-            this.lastBlock.checksum = processed.checksumRoot;
+            if (processedBlock.compromised) {
+                await this.lockdown();
+            }
 
-            await this.notifyBlockProcessed(processed);
+            this.lastBlock.hash = processedBlock.hash;
+            this.lastBlock.checksum = processedBlock.checksumRoot;
+
+            await this.notifyBlockProcessed(processedBlock);
 
             blockHeightInProgress++;
 

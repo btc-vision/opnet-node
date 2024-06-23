@@ -15,6 +15,7 @@ import { TrustedVersion } from '../version/TrustedVersion.js';
 import { Config } from '../../../config/Config.js';
 import { Address } from '@btc-vision/bsi-binary';
 import { OPNET_FEE_WALLET } from '../../wbtc/WBTCRules.js';
+import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 
 export type TrustedPublicKeys = {
     [key in TrustedCompanies]: Buffer[];
@@ -28,6 +29,11 @@ export interface TrustedPublicKeysWithConstraints {
         readonly minimum: number;
         readonly minimumSignatureRequired: number;
     };
+}
+
+export interface PublicAuthorityKey {
+    key: Buffer;
+    authority: TrustedCompanies;
 }
 
 export class TrustedAuthority extends Logger {
@@ -171,6 +177,21 @@ export class TrustedAuthority extends Logger {
                 minimumSignatureRequired: this.transactionMinimum,
             },
         };
+    }
+
+    public isOrWasTrustedPublicKey(publicKey: Buffer): PublicAuthorityKey | false {
+        for (const trustedCompany in this.trustedKeys) {
+            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedCompanies];
+            if (!trustedPublicKeys) continue;
+
+            for (const key of trustedPublicKeys.keys) {
+                if (toXOnly(key.publicKey).equals(publicKey)) {
+                    return { key: key.publicKey, authority: trustedCompany as TrustedCompanies };
+                }
+            }
+        }
+
+        return false;
     }
 
     public opnetFeeWallet(): Address {

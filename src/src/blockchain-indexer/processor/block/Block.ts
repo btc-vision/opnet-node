@@ -26,6 +26,7 @@ import { ZERO_HASH } from './types/ZeroValue.js';
 import { WrapTransaction } from '../transaction/transactions/WrapTransaction.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { GenericTransaction } from '../transaction/transactions/GenericTransaction.js';
+import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 
 export class Block extends Logger {
     // Block Header
@@ -57,6 +58,8 @@ export class Block extends Logger {
     private specialTransaction: Transaction<OPNetTransactionTypes>[] = [];
 
     private specialExecutionPromise: Promise<void> | undefined;
+
+    #compromised: boolean = false;
 
     #_storageRoot: string | undefined;
     #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
@@ -137,6 +140,10 @@ export class Block extends Logger {
         }
 
         return this.#_storageProofs;
+    }
+
+    public get compromised(): boolean {
+        return this.#compromised;
     }
 
     public get confirmations(): number {
@@ -589,17 +596,36 @@ export class Block extends Logger {
     }
 
     private async saveOPNetTransactions(vmManager: VMManager): Promise<void> {
-        if (this.opnetTransactions.length) {
-            const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
-            for (const transaction of this.opnetTransactions) {
-                transactionData.push(transaction.toDocument());
+        if (!this.opnetTransactions.length) {
+            return;
+        }
+
+        const vmStorage = vmManager.getVMStorage();
+
+        const compromisedTransactions: ICompromisedTransactionDocument[] = [];
+        const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
+        for (const transaction of this.opnetTransactions) {
+            if (!transaction.authorizedVaultUsage && transaction.vaultInputs.length) {
+                compromisedTransactions.push(transaction.getCompromisedDocument());
             }
 
-            await vmManager.saveTransactions(this.height, transactionData);
+            transactionData.push(transaction.toDocument());
+        }
 
-            if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
-                this.success(`All OPNet transactions of block ${this.height} saved successfully.`);
-            }
+        if (compromisedTransactions.length) {
+            this.panic(
+                `Found ${compromisedTransactions.length} compromised transactions in block ${this.height}.`,
+            );
+
+            this.#compromised = true;
+
+            await vmStorage.saveCompromisedTransactions(compromisedTransactions);
+        }
+
+        await vmManager.saveTransactions(this.height, transactionData);
+
+        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+            this.success(`All OPNet transactions of block ${this.height} saved successfully.`);
         }
     }
 

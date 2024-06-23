@@ -1,5 +1,5 @@
 import { TrustedVersion } from '../version/TrustedVersion.js';
-import { TrustedAuthority } from './TrustedAuthority.js';
+import { PublicAuthorityKey, TrustedAuthority } from './TrustedAuthority.js';
 import { BtcIndexerConfig } from '../../../config/BtcIndexerConfig.js';
 import { P2PVersion } from '../P2PVersion.js';
 import { Config } from '../../../config/Config.js';
@@ -25,6 +25,17 @@ class AuthorityManagerBase extends Logger {
 
     public getCurrentAuthority(): TrustedAuthority {
         return this.getAuthority(this.currentVersion);
+    }
+
+    public isOrWasTrustedPublicKey(publicKey: Buffer): PublicAuthorityKey | false {
+        for (const authority of this.versions.values()) {
+            const trustedPublicKey = authority.isOrWasTrustedPublicKey(publicKey);
+            if (trustedPublicKey) {
+                return trustedPublicKey;
+            }
+        }
+
+        return false;
     }
 
     private loadAuthorities(): void {

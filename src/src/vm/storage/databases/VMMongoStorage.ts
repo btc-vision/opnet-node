@@ -31,6 +31,8 @@ import { IWBTCUTXODocument } from '../../../db/interfaces/IWBTCUTXODocument.js';
 import { IVaultDocument } from '../../../db/interfaces/IVaultDocument.js';
 import { VaultRepository } from '../../../db/repositories/VaultRepository.js';
 import { SelectedUTXOs, WBTCUTXORepository } from '../../../db/repositories/WBTCUTXORepository.js';
+import { CompromisedTransactionRepository } from '../../../db/repositories/CompromisedTransactionRepository.js';
+import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -51,6 +53,7 @@ export class VMMongoStorage extends VMStorage {
 
     private vaultRepository: VaultRepository | undefined;
     private wbtcUTXORepository: WBTCUTXORepository | undefined;
+    private compromisedTransactionRepository: CompromisedTransactionRepository | undefined;
 
     private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
     private readonly maxTransactionSessions: number;
@@ -108,6 +111,10 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('WBTC UTXO repository not initialized');
         }
 
+        if (!this.compromisedTransactionRepository) {
+            throw new Error('Compromised transaction repository not initialized');
+        }
+
         await this.updateBlockchainInfo(Number(blockId));
 
         const promises: Promise<void>[] = [
@@ -119,6 +126,7 @@ export class VMMongoStorage extends VMStorage {
             this.reorgRepository.deleteReorgs(blockId),
             this.vaultRepository.deleteVaultsSeenAfter(blockId),
             this.wbtcUTXORepository.deleteWBTCUTXOs(blockId),
+            this.compromisedTransactionRepository.deleteCompromisedTransactions(blockId),
         ];
 
         await Promise.all(promises);
@@ -182,6 +190,9 @@ export class VMMongoStorage extends VMStorage {
         this.blockWitnessRepository = new BlockWitnessRepository(this.databaseManager.db);
         this.vaultRepository = new VaultRepository(this.databaseManager.db);
         this.wbtcUTXORepository = new WBTCUTXORepository(this.databaseManager.db);
+        this.compromisedTransactionRepository = new CompromisedTransactionRepository(
+            this.databaseManager.db,
+        );
     }
 
     public async getLatestBlock(): Promise<BlockHeaderAPIBlockDocument> {
@@ -594,6 +605,23 @@ export class VMMongoStorage extends VMStorage {
         return await this.wbtcUTXORepository.queryVaultsUTXOs(
             requestedAmount,
             consolidationAcceptance,
+        );
+    }
+
+    public async saveCompromisedTransactions(
+        transactions: ICompromisedTransactionDocument[],
+    ): Promise<void> {
+        if (!this.currentSession) {
+            throw new Error('Current session not started');
+        }
+
+        if (!this.compromisedTransactionRepository) {
+            throw new Error('Compromised transaction repository not initialized');
+        }
+
+        await this.compromisedTransactionRepository.saveCompromisedTransactions(
+            transactions,
+            this.currentSession,
         );
     }
 

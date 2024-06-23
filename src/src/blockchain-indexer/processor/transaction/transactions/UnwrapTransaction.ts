@@ -5,8 +5,10 @@ import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { InteractionTransaction, InteractionWitnessData } from './InteractionTransaction.js';
 import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
-import { Address, BinaryReader } from '@btc-vision/bsi-binary';
-import { WBTC_WRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
+import { BinaryReader } from '@btc-vision/bsi-binary';
+import { WBTC_UNWRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
+import { TrustedCompanies } from '../../../../poa/configurations/TrustedCompanies.js';
+import { DataConverter } from '@btc-vision/bsi-db';
 
 const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 
@@ -38,6 +40,11 @@ export class UnwrapTransaction extends InteractionTransaction {
     public readonly transactionType: OPNetTransactionTypes.UnwrapInteraction =
         UnwrapTransaction.getType();
 
+    protected readonly _authorizedVaultUsage: boolean = true;
+
+    #authorizedBy: TrustedCompanies[] = [];
+    #unwrapAmount: bigint = 0n;
+
     constructor(
         rawTransactionData: TransactionData,
         vIndexIn: number,
@@ -46,6 +53,10 @@ export class UnwrapTransaction extends InteractionTransaction {
         network: Network,
     ) {
         super(rawTransactionData, vIndexIn, blockHash, blockHeight, network);
+    }
+
+    public get authorizedBy(): TrustedCompanies[] {
+        return this.#authorizedBy;
     }
 
     public static getInteractionWitnessData(
@@ -89,10 +100,11 @@ export class UnwrapTransaction extends InteractionTransaction {
      * Convert the transaction to a document.
      */
     public toDocument(): IUnwrapInteractionTransactionDocument {
-        console.log('unwrap.', this);
-
         return {
             ...super.toDocument(),
+            
+            authorizedBy: this.#authorizedBy,
+            unwrapAmount: DataConverter.toDecimal128(this.#unwrapAmount),
         };
     }
 
@@ -102,9 +114,26 @@ export class UnwrapTransaction extends InteractionTransaction {
         if (!authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
             throw new Error(`Invalid contract address found in wrap transaction.`);
         }
+
+        this.decodeCalldata();
+        this.parseVaults();
     }
 
     protected override verifyUnallowed(): void {}
+
+    private parseVaults(): void {
+        const authorities: TrustedCompanies[] = [];
+
+        for (let input of this.vaultInputs) {
+            for (let key of input.keys) {
+                const authority = key.authority;
+
+                if (!authorities.includes(authority)) {
+                    authorities.push(authority);
+                }
+            }
+        }
+    }
 
     /**
      * Decode the calldata of the transaction.
@@ -113,18 +142,15 @@ export class UnwrapTransaction extends InteractionTransaction {
     private decodeCalldata(): void {
         const reader: BinaryReader = new BinaryReader(this.calldata);
         const selector = reader.readSelector();
-        if (selector !== WBTC_WRAP_SELECTOR) {
-            throw new Error(`Invalid selector found in wrap transaction ${selector}.`);
-        }
-
-        const to: Address = reader.readAddress();
-        if (!to) {
-            throw new Error(`Invalid address found in wrap transaction.`);
+        if (selector !== WBTC_UNWRAP_SELECTOR) {
+            throw new Error(`Invalid selector found in unwrap transaction ${selector}.`);
         }
 
         const amount: bigint = reader.readU256();
         if (amount < 0n) {
-            throw new Error(`Invalid amount found in wrap transaction.`);
+            throw new Error(`Invalid amount found in unwrap transaction.`);
         }
+
+        this.#unwrapAmount = amount;
     }
 }
