@@ -10,6 +10,7 @@ export interface PublicAuthorityKeyDocument {
 export interface VaultInputDocument {
     readonly transaction: string;
     readonly keys: PublicAuthorityKeyDocument[];
+    readonly index: number;
 }
 
 export interface CompromisedTransactionDocument {

@@ -77,6 +77,7 @@ export class CompromisedTransactionRepository extends BaseRepository<Compromised
             compromisedAuthorities: document.compromisedAuthorities.map((authority) => {
                 return {
                     transaction: authority.transaction,
+                    index: authority.index,
                     keys: authority.keys.map((key) => {
                         return {
                             key: Buffer.from(key.key.buffer),
@@ -95,6 +96,7 @@ export class CompromisedTransactionRepository extends BaseRepository<Compromised
             compromisedAuthorities: document.compromisedAuthorities.map((authority) => {
                 return {
                     transaction: authority.transaction,
+                    index: authority.index,
                     keys: authority.keys.map((key) => {
                         return {
                             key: new Binary(key.key),
