@@ -159,4 +159,6 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public abstract deleteOldUsedUtxos(height: bigint): Promise<void>;
 
     public abstract setUsedUtxo(usedUtxo: IUsedWBTCUTXODocument): Promise<void>;
+
+    public abstract setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void>;
 }

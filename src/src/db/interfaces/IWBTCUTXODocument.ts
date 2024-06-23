@@ -15,6 +15,16 @@ export interface IWBTCUTXODocument {
     readonly spentAt: Decimal128 | null;
 }
 
+export interface PartialWBTCUTXODocument {
+    readonly vault: Address;
+
+    readonly hash: string;
+    readonly value: Decimal128;
+    readonly outputIndex: number;
+
+    readonly output: Binary;
+}
+
 export interface IUsedWBTCUTXODocument {
     readonly vault: Address;
     readonly height: Decimal128;

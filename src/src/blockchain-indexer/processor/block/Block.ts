@@ -28,7 +28,11 @@ import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { GenericTransaction } from '../transaction/transactions/GenericTransaction.js';
 import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 import { UnwrapTransaction } from '../transaction/transactions/UnwrapTransaction.js';
-import { UsedUTXOToDelete } from '../../../db/interfaces/IWBTCUTXODocument.js';
+import {
+    IWBTCUTXODocument,
+    PartialWBTCUTXODocument,
+    UsedUTXOToDelete,
+} from '../../../db/interfaces/IWBTCUTXODocument.js';
 
 export class Block extends Logger {
     // Block Header
@@ -601,8 +605,12 @@ export class Block extends Logger {
         const vmStorage = vmManager.getVMStorage();
 
         const usedUTXOs: UsedUTXOToDelete[] = [];
+        const consolidatedUTXOs: IWBTCUTXODocument[] = [];
+
         const compromisedTransactions: ICompromisedTransactionDocument[] = [];
         const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
+
+        const blockHeightDecimal = DataConverter.toDecimal128(this.height);
         for (const transaction of this.opnetTransactions) {
             if (!transaction.authorizedVaultUsage && transaction.vaultInputs.length) {
                 compromisedTransactions.push(transaction.getCompromisedDocument());
@@ -614,12 +622,25 @@ export class Block extends Logger {
                 const unwrapTransaction = transaction as UnwrapTransaction;
 
                 usedUTXOs.push(...unwrapTransaction.usedUTXOs);
+                if (unwrapTransaction.consolidatedVault) {
+                    consolidatedUTXOs.push({
+                        ...unwrapTransaction.consolidatedVault,
+                        blockId: blockHeightDecimal,
+
+                        spent: false,
+                        spentAt: null,
+                    });
+                }
             }
         }
 
         let promises: Promise<void>[] = [];
         if (usedUTXOs.length) {
             promises.push(vmStorage.setSpentWBTC_UTXOs(usedUTXOs, this.height));
+        }
+
+        if(consolidatedUTXOs.length) {
+            promises.push(vmStorage.setWBTCUTXOs(consolidatedUTXOs));
         }
 
         promises.push(vmStorage.deleteOldUTXOs(this.height));

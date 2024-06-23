@@ -623,6 +623,14 @@ export class VMMongoStorage extends VMStorage {
         await this.wbtcUTXORepository.setWBTCUTXO(wbtcUTXO);
     }
 
+    public async setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void> {
+        if (!this.wbtcUTXORepository) {
+            throw new Error('WBTC UTXO repository not initialized');
+        }
+
+        await this.wbtcUTXORepository.setWBTCUTXOs(wbtcUTXOs);
+    }
+
     public async setVault(vault: IVaultDocument): Promise<void> {
         if (!this.vaultRepository) {
             throw new Error('Vault repository not initialized');

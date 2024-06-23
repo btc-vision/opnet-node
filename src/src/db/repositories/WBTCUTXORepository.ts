@@ -61,6 +61,28 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         await this.updatePartial(criteria, utxo, currentSession);
     }
 
+    public async setWBTCUTXOs(
+        utxos: IWBTCUTXODocument[],
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const bulkWriteOperations = utxos.map((utxo) => {
+            return {
+                updateOne: {
+                    filter: {
+                        hash: utxo.hash,
+                        outputIndex: utxo.outputIndex,
+                    },
+                    update: {
+                        $set: utxo,
+                    },
+                    upsert: true,
+                },
+            };
+        });
+
+        await this.bulkWrite(bulkWriteOperations, currentSession);
+    }
+
     public async setSpentWBTC_UTXOs(
         utxos: UsedUTXOToDelete[],
         height: bigint,

@@ -650,9 +650,9 @@ export class VMManager extends Logger {
                     error = `execution reverted (gas used: ${vmEvaluator.getGasUsed})`;
                 }
 
-                if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                     this.error(
-                        `Error executing function selector ${selector} for contract ${params.contractAddress} at block ${params.blockHeight || 'latest'} with calldata ${calldata.toString('hex')}: ${e}`,
+                        `Error executing function selector ${selector} for contract ${params.contractAddress} at block ${params.blockHeight || 'latest'}}: ${e}`,
                     );
                 }
 

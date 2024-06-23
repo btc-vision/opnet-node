@@ -82,6 +82,8 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         receiver: Address,
         amount: bigint,
     ): void {
+        const numberOfInputs: number = psbt.txInputs.length - 1;
+
         const hasConsolidation: boolean = psbt.txOutputs.length > 2;
         const vaultWithMostPublicKeys: VerificationVault =
             this.findVaultWithMostPublicKeys(usedVaults);
@@ -174,15 +176,23 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
                     OPNetConsensus.consensus.VAULTS.VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE,
                 );
 
-            if (consolidationAmount > targetConsolidation) {
-                throw new Error(
-                    `Consolidation amount is above the upper limit. Expected at most ${targetConsolidation}, but got ${consolidationAmount}`,
-                );
+            if (
+                !(
+                    targetConsolidation <
+                        OPNetConsensus.consensus.VAULTS.VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE &&
+                    numberOfInputs === 1
+                )
+            ) {
+                if (consolidationAmount > targetConsolidation) {
+                    throw new Error(
+                        `Consolidation amount is above the upper limit. Expected at most ${targetConsolidation}, but got ${consolidationAmount}`,
+                    );
+                } else {
+                    this.success(
+                        `Consolidation amount is within the expected range. Expected at most ${targetConsolidation} sat, and got ${consolidationAmount} sat.`,
+                    );
+                }
             }
-
-            this.success(
-                `Consolidation amount is within the expected range. Expected at most ${targetConsolidation} sat, and got ${consolidationAmount} sat.`,
-            );
         }
 
         // When an UTXO is consumed, the user get UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT as a refund.
@@ -194,9 +204,9 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         }*/
 
         const userOwnedVaultHoldings = vaultTotalHoldings - consolidationAmount - maximumFeeRefund;
-        if (userOwnedVaultHoldings < OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT) {
+        if (userOwnedVaultHoldings < 330n) {
             throw new Error(
-                `Invalid amount sent back to requester. Expected at least ${OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT} sat, but got ${userOwnedVaultHoldings} sat.`,
+                `Invalid amount sent back to requester. Expected at least 330 sat, but got ${userOwnedVaultHoldings} sat.`,
             );
         }
 

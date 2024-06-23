@@ -9,8 +9,12 @@ import { BinaryReader } from '@btc-vision/bsi-binary';
 import { WBTC_UNWRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
 import { TrustedCompanies } from '../../../../poa/configurations/TrustedCompanies.js';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { ITransactionOutput, TransactionOutput } from '../inputs/TransactionOutput.js';
-import { UsedUTXOToDelete } from '../../../../db/interfaces/IWBTCUTXODocument.js';
+import { TransactionOutput } from '../inputs/TransactionOutput.js';
+import {
+    PartialWBTCUTXODocument,
+    UsedUTXOToDelete,
+} from '../../../../db/interfaces/IWBTCUTXODocument.js';
+import { Binary } from 'mongodb';
 
 const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 
@@ -46,7 +50,7 @@ export class UnwrapTransaction extends InteractionTransaction {
 
     #authorizedBy: TrustedCompanies[] = [];
     #usedUTXOs: UsedUTXOToDelete[] = [];
-    #consolidatedVault: ITransactionOutput | undefined;
+    #consolidatedVault: PartialWBTCUTXODocument | undefined;
 
     #unwrapAmount: bigint = 0n;
     #requestedAmount: bigint = 0n;
@@ -81,7 +85,7 @@ export class UnwrapTransaction extends InteractionTransaction {
         return this.#authorizedBy;
     }
 
-    public get consolidatedVault(): ITransactionOutput | undefined {
+    public get consolidatedVault(): PartialWBTCUTXODocument | undefined {
         return this.#consolidatedVault;
     }
 
@@ -155,7 +159,17 @@ export class UnwrapTransaction extends InteractionTransaction {
         if (this.outputs.length > 2) {
             const consolidatedVaultOutput: TransactionOutput = this.outputs[1];
 
-            this.#consolidatedVault = consolidatedVaultOutput.toDocument(); // new UTXO.
+            if (!consolidatedVaultOutput.scriptPubKey.address) {
+                throw new Error(`Invalid address found in unwrap transaction.`);
+            }
+
+            this.#consolidatedVault = {
+                vault: consolidatedVaultOutput.scriptPubKey.address,
+                hash: this.transactionId,
+                value: DataConverter.toDecimal128(consolidatedVaultOutput.value),
+                outputIndex: consolidatedVaultOutput.index,
+                output: Binary.createFromHexString(consolidatedVaultOutput.scriptPubKey.hex),
+            };
         }
 
         const unwrappedOutput: TransactionOutput = this.outputs[this.outputs.length - 1];
