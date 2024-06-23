@@ -160,11 +160,12 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             }
 
             // Verify that the consolidation amount is above the minimum required
-            /*if (consolidationAmount < OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT) {
+            if (consolidationAmount < 330n) {
+                //OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT
                 throw new Error(
-                    `Consolidation amount is below the minimum required. Expected at least ${OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT}, but got ${consolidationAmount}`,
+                    `Consolidation amount is below the minimum required. Expected at least 330 sat, but got ${consolidationAmount} sat`, //${OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT}
                 );
-            }*/
+            }
 
             const targetConsolidation: bigint =
                 UnwrapTargetConsolidation.calculateVaultTargetConsolidationAmount(
@@ -191,6 +192,13 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
                 `Invalid amount sent back to requester. Expected ${userOwnedVaultHoldings} sat, but got ${outputAmount} sat.`,
             );
         }*/
+
+        const userOwnedVaultHoldings = vaultTotalHoldings - consolidationAmount - maximumFeeRefund;
+        if (userOwnedVaultHoldings < OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT) {
+            throw new Error(
+                `Invalid amount sent back to requester. Expected at least ${OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT} sat, but got ${userOwnedVaultHoldings} sat.`,
+            );
+        }
 
         if (amount + maximumFeeRefund < outputAmount) {
             throw new Error(
