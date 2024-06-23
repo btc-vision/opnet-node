@@ -8,6 +8,7 @@ type TapScript = (number | Buffer)[];
 export interface VaultInput {
     readonly transaction: string;
     readonly keys: PublicAuthorityKey[];
+    readonly index: number;
 }
 
 export interface InputVault {
@@ -57,6 +58,7 @@ export class VaultInputDecoder {
             return {
                 transaction: input.originalTransactionId,
                 keys: vault.keys,
+                index: input.outputTransactionIndex || 1, // should ALWAYS be 1.
             };
         } catch (e) {
             return;

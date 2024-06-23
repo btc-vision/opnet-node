@@ -54,6 +54,11 @@ export class TransactionConverterForAPI {
                 '0x' + DataConverter.fromDecimal128(transaction.unwrapAmount).toString(16);
         }
 
+        if (transaction.requestedAmount !== undefined && transaction.requestedAmount !== null) {
+            newTx.requestedAmount =
+                '0x' + DataConverter.fromDecimal128(transaction.requestedAmount).toString(16);
+        }
+
         if (transaction.depositAmount !== undefined && transaction.depositAmount !== null) {
             newTx.depositAmount =
                 '0x' + DataConverter.fromDecimal128(transaction.depositAmount).toString(16);

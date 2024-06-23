@@ -27,6 +27,8 @@ import { WrapTransaction } from '../transaction/transactions/WrapTransaction.js'
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { GenericTransaction } from '../transaction/transactions/GenericTransaction.js';
 import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
+import { UnwrapTransaction } from '../transaction/transactions/UnwrapTransaction.js';
+import { UsedUTXOToDelete } from '../../../db/interfaces/IWBTCUTXODocument.js';
 
 export class Block extends Logger {
     // Block Header
@@ -144,10 +146,6 @@ export class Block extends Logger {
 
     public get compromised(): boolean {
         return this.#compromised;
-    }
-
-    public get confirmations(): number {
-        return this.header.confirmations;
     }
 
     public get version(): number {
@@ -602,6 +600,7 @@ export class Block extends Logger {
 
         const vmStorage = vmManager.getVMStorage();
 
+        const usedUTXOs: UsedUTXOToDelete[] = [];
         const compromisedTransactions: ICompromisedTransactionDocument[] = [];
         const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
         for (const transaction of this.opnetTransactions) {
@@ -610,7 +609,21 @@ export class Block extends Logger {
             }
 
             transactionData.push(transaction.toDocument());
+
+            if (transaction.transactionType === OPNetTransactionTypes.UnwrapInteraction) {
+                const unwrapTransaction = transaction as UnwrapTransaction;
+
+                usedUTXOs.push(...unwrapTransaction.usedUTXOs);
+            }
         }
+
+        let promises: Promise<void>[] = [];
+        if (usedUTXOs.length) {
+            promises.push(vmStorage.setSpentWBTC_UTXOs(usedUTXOs, this.height));
+        }
+
+        promises.push(vmStorage.deleteOldUTXOs(this.height));
+        promises.push(vmStorage.deleteOldUsedUtxos(this.height));
 
         if (compromisedTransactions.length) {
             this.panic(
@@ -619,10 +632,12 @@ export class Block extends Logger {
 
             this.#compromised = true;
 
-            await vmStorage.saveCompromisedTransactions(compromisedTransactions);
+            promises.push(vmStorage.saveCompromisedTransactions(compromisedTransactions));
         }
 
-        await vmManager.saveTransactions(this.height, transactionData);
+        promises.push(vmManager.saveTransactions(this.height, transactionData));
+
+        await Promise.all(promises);
 
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.success(`All OPNet transactions of block ${this.height} saved successfully.`);

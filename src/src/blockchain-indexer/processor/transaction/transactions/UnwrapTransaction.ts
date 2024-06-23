@@ -1,5 +1,5 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
-import { Network, opcodes } from 'bitcoinjs-lib';
+import bitcoin, { Network, opcodes } from 'bitcoinjs-lib';
 import { IUnwrapInteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { InteractionTransaction, InteractionWitnessData } from './InteractionTransaction.js';
@@ -9,6 +9,8 @@ import { BinaryReader } from '@btc-vision/bsi-binary';
 import { WBTC_UNWRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
 import { TrustedCompanies } from '../../../../poa/configurations/TrustedCompanies.js';
 import { DataConverter } from '@btc-vision/bsi-db';
+import { ITransactionOutput, TransactionOutput } from '../inputs/TransactionOutput.js';
+import { UsedUTXOToDelete } from '../../../../db/interfaces/IWBTCUTXODocument.js';
 
 const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 
@@ -43,7 +45,13 @@ export class UnwrapTransaction extends InteractionTransaction {
     protected readonly _authorizedVaultUsage: boolean = true;
 
     #authorizedBy: TrustedCompanies[] = [];
+    #usedUTXOs: UsedUTXOToDelete[] = [];
+    #consolidatedVault: ITransactionOutput | undefined;
+
     #unwrapAmount: bigint = 0n;
+    #requestedAmount: bigint = 0n;
+
+    private readonly tx: bitcoin.Transaction;
 
     constructor(
         rawTransactionData: TransactionData,
@@ -53,6 +61,16 @@ export class UnwrapTransaction extends InteractionTransaction {
         network: Network,
     ) {
         super(rawTransactionData, vIndexIn, blockHash, blockHeight, network);
+
+        this.tx = bitcoin.Transaction.fromHex(rawTransactionData.hex);
+    }
+
+    public get usedUTXOs(): UsedUTXOToDelete[] {
+        if (!this.#usedUTXOs.length) {
+            throw new Error(`No used UTXOs found in unwrap transaction.`);
+        }
+
+        return this.#usedUTXOs;
     }
 
     public get authorizedBy(): TrustedCompanies[] {
@@ -61,6 +79,10 @@ export class UnwrapTransaction extends InteractionTransaction {
         }
 
         return this.#authorizedBy;
+    }
+
+    public get consolidatedVault(): ITransactionOutput | undefined {
+        return this.#consolidatedVault;
     }
 
     public static getInteractionWitnessData(
@@ -108,7 +130,10 @@ export class UnwrapTransaction extends InteractionTransaction {
             ...super.toDocument(),
 
             authorizedBy: this.authorizedBy,
+            usedUTXOs: this.usedUTXOs,
+            consolidatedVault: this.consolidatedVault,
             unwrapAmount: DataConverter.toDecimal128(this.#unwrapAmount),
+            requestedAmount: DataConverter.toDecimal128(this.#requestedAmount),
         };
     }
 
@@ -121,12 +146,25 @@ export class UnwrapTransaction extends InteractionTransaction {
 
         this.decodeCalldata();
         this.parseVaults();
+        this.analyzeOutput();
     }
 
     protected override verifyUnallowed(): void {}
 
+    private analyzeOutput(): void {
+        if (this.outputs.length > 2) {
+            const consolidatedVaultOutput: TransactionOutput = this.outputs[1];
+
+            this.#consolidatedVault = consolidatedVaultOutput.toDocument(); // new UTXO.
+        }
+
+        const unwrappedOutput: TransactionOutput = this.outputs[this.outputs.length - 1];
+        this.#unwrapAmount = unwrappedOutput.value;
+    }
+
     private parseVaults(): void {
         const authorities: TrustedCompanies[] = [];
+        const usedUTXOs: UsedUTXOToDelete[] = [];
 
         for (let input of this.vaultInputs) {
             for (let key of input.keys) {
@@ -136,8 +174,14 @@ export class UnwrapTransaction extends InteractionTransaction {
                     authorities.push(authority);
                 }
             }
+
+            usedUTXOs.push({
+                hash: input.transaction,
+                outputIndex: input.index,
+            });
         }
 
+        this.#usedUTXOs = usedUTXOs;
         this.#authorizedBy = authorities;
     }
 
@@ -157,6 +201,6 @@ export class UnwrapTransaction extends InteractionTransaction {
             throw new Error(`Invalid amount found in unwrap transaction.`);
         }
 
-        this.#unwrapAmount = amount;
+        this.#requestedAmount = amount;
     }
 }

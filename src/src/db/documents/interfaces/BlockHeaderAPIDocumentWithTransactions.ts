@@ -25,6 +25,7 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     deployedTransactionId: undefined;
 
     unwrapAmount?: string;
+    requestedAmount?: string;
     wrappingFees?: string;
     depositAmount?: string;
 

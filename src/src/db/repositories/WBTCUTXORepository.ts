@@ -1,6 +1,19 @@
-import { BaseRepository, DebugLevel } from '@btc-vision/bsi-common';
-import { AggregateOptions, Binary, ClientSession, Collection, Db, Decimal128 } from 'mongodb';
-import { IWBTCUTXODocument } from '../interfaces/IWBTCUTXODocument.js';
+import {
+    BaseRepository,
+    DataAccessError,
+    DataAccessErrorType,
+    DebugLevel,
+} from '@btc-vision/bsi-common';
+import {
+    AggregateOptions,
+    Binary,
+    ClientSession,
+    Collection,
+    Db,
+    Decimal128,
+    UpdateOptions,
+} from 'mongodb';
+import { IWBTCUTXODocument, UsedUTXOToDelete } from '../interfaces/IWBTCUTXODocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { WBTCUTXOAggregation } from '../../vm/storage/databases/aggregation/WBTCUTXOSAggregation.js';
@@ -24,6 +37,8 @@ export interface VaultUTXOs {
 export type SelectedUTXOs = Map<Address, VaultUTXOs>;
 
 export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
+    private static readonly DELETE_OLDER_THAN_BLOCKS: bigint = 256n;
+
     public readonly logColor: string = '#afeeee';
 
     private readonly utxosAggregation: WBTCUTXOAggregation = new WBTCUTXOAggregation();
@@ -46,6 +61,90 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         await this.updatePartial(criteria, utxo, currentSession);
     }
 
+    public async setSpentWBTC_UTXOs(
+        utxos: UsedUTXOToDelete[],
+        height: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const blockHeight: Decimal128 = DataConverter.toDecimal128(height);
+        const bulkWriteOperations = utxos.map((utxo) => {
+            return {
+                updateOne: {
+                    filter: {
+                        hash: utxo.hash,
+                        outputIndex: utxo.outputIndex,
+                    },
+                    update: {
+                        $set: {
+                            spent: true,
+                            spentAt: blockHeight,
+                        },
+                    },
+                    upsert: true,
+                },
+            };
+        });
+
+        await this.bulkWrite(bulkWriteOperations, currentSession);
+    }
+
+    public async deleteOldUTXOs(blockHeight: bigint, currentSession: ClientSession): Promise<void> {
+        if (blockHeight < WBTCUTXORepository.DELETE_OLDER_THAN_BLOCKS) {
+            return; // Do not delete UTXOs older than the defined threshold.
+        }
+
+        const criteria = {
+            spentAt: {
+                $lt: DataConverter.toDecimal128(
+                    blockHeight - WBTCUTXORepository.DELETE_OLDER_THAN_BLOCKS,
+                ),
+            },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
+    public async restoreSpentWBTC_UTXOs(fromHeight: bigint): Promise<void> {
+        const criteria = {
+            spent: true,
+            spentAt: {
+                $gte: DataConverter.toDecimal128(fromHeight),
+            },
+        };
+
+        const update = {
+            $set: {
+                spent: false,
+                spentAt: null,
+            },
+        };
+
+        try {
+            const collection = this.getCollection();
+            const options: UpdateOptions = {
+                ...this.getOptions(),
+            };
+
+            const updateResult = await collection.updateMany(criteria, update, options);
+
+            if (!updateResult.acknowledged) {
+                throw new DataAccessError(
+                    'Concurrency error while updating.',
+                    DataAccessErrorType.Concurency,
+                    '',
+                );
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                const errorDescription: string = error.stack || error.message;
+
+                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
+            } else {
+                throw error;
+            }
+        }
+    }
+
     /** In case someone sends a lot of requests, we can cache the query for a short period of time. */
     public async queryVaultsUTXOs(
         requestedAmount: bigint,
@@ -64,11 +163,13 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
             consolidationAcceptance,
             _currentSession,
         );
-        const result = await this.cachedVaultQuery;
 
+        // TODO: throw if the cache is set, user will have to request it again.
+
+        const result = await this.cachedVaultQuery;
         setTimeout(() => {
             this.cachedVaultQuery = undefined;
-        }, 25); // cache for 25ms. this will prevent massive spamming of the database.
+        }, 25); // cache for 25ms. this will prevent massive spamming of the database. This will crash the database if not handled. Maybe push request in a queue?
 
         return result;
     }
@@ -81,6 +182,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         };
 
         await this.delete(criteria);
+        await this.restoreSpentWBTC_UTXOs(blockId);
     }
 
     public orderPublicKeys(publicKeys: Buffer[]): Buffer[] {

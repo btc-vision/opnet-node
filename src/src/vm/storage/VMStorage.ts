@@ -16,7 +16,11 @@ import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
 import { Address } from '@btc-vision/bsi-binary';
-import { IWBTCUTXODocument } from '../../db/interfaces/IWBTCUTXODocument.js';
+import {
+    IUsedWBTCUTXODocument,
+    IWBTCUTXODocument,
+    UsedUTXOToDelete,
+} from '../../db/interfaces/IWBTCUTXODocument.js';
 import { IVaultDocument } from '../../db/interfaces/IVaultDocument.js';
 import { SelectedUTXOs } from '../../db/repositories/WBTCUTXORepository.js';
 import { ICompromisedTransactionDocument } from '../../db/interfaces/CompromisedTransactionDocument.js';
@@ -145,4 +149,14 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public abstract saveCompromisedTransactions(
         compromisedTransactions: ICompromisedTransactionDocument[],
     ): Promise<void>;
+
+    public abstract setSpentWBTC_UTXOs(utxos: UsedUTXOToDelete[], height: bigint): Promise<void>;
+
+    public abstract deleteOldUTXOs(height: bigint): Promise<void>;
+
+    public abstract deleteUsedUtxos(utxos: UsedUTXOToDelete[]): Promise<void>;
+
+    public abstract deleteOldUsedUtxos(height: bigint): Promise<void>;
+
+    public abstract setUsedUtxo(usedUtxo: IUsedWBTCUTXODocument): Promise<void>;
 }

@@ -10,10 +10,19 @@ export interface IWBTCUTXODocument {
     readonly outputIndex: number;
 
     readonly output: Binary;
+
+    readonly spent: boolean;
+    readonly spentAt: Decimal128 | null;
 }
 
 export interface IUsedWBTCUTXODocument {
     readonly vault: Address;
+    readonly height: Decimal128;
+    readonly hash: string;
+    readonly outputIndex: number;
+}
+
+export interface UsedUTXOToDelete {
     readonly hash: string;
     readonly outputIndex: number;
 }
