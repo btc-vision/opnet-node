@@ -160,11 +160,11 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             }
 
             // Verify that the consolidation amount is above the minimum required
-            if (consolidationAmount < OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT) {
+            /*if (consolidationAmount < OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT) {
                 throw new Error(
                     `Consolidation amount is below the minimum required. Expected at least ${OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT}, but got ${consolidationAmount}`,
                 );
-            }
+            }*/
 
             const targetConsolidation: bigint =
                 UnwrapTargetConsolidation.calculateVaultTargetConsolidationAmount(
