@@ -39,7 +39,7 @@ export const WBTC_CONTRACT_ADDRESS: {
 
         [BitcoinNetwork.Regtest]: {
             addresses: [
-                'bcrt1qlc9fwre9nxf78vmdrm96rrajsk0s6rj3sah6n3',
+                'bcrt1qh0qmsl04mpy3u8gvur0ghn6gc9x7t38n8avn2r',
                 'bcrt1pv47q9kvk2da5tylnrkvw9em4qrumdc2kpzr4adf7gw3humpkkmqqn4f8tw',
             ],
             deployer: 'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gs0xjlhn',

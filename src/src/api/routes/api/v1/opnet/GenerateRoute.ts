@@ -37,7 +37,10 @@ export class GenerateRoute extends Route<
     JSONRpcMethods.GENERATE,
     GeneratedResult<GenerateTarget> | undefined
 > {
-    private static BALANCE_OF: number = Number('0x' + abiCoder.encodeSelector('balanceOf'));
+    private static WITHDRAWABLE_BALANCE_OF: number = Number(
+        '0x' + abiCoder.encodeSelector('withdrawableBalanceOf'),
+    );
+
     private readonly network: Network = NetworkConverter.getNetwork(
         Config.BLOCKCHAIN.BITCOIND_NETWORK,
     );
@@ -163,9 +166,9 @@ export class GenerateRoute extends Route<
 
     private generateGetBalanceCalldata(receiver: Address): string {
         const writer = new BinaryWriter();
-        writer.writeSelector(GenerateRoute.BALANCE_OF);
+        writer.writeSelector(GenerateRoute.WITHDRAWABLE_BALANCE_OF);
         writer.writeAddress(receiver);
-
+        1;
         return Buffer.from(writer.getBuffer()).toString('hex');
     }
 
