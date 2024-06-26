@@ -27,7 +27,6 @@ export class Core extends Logger {
     constructor() {
         super();
 
-        //this.listenEvents();
         void this.start();
     }
 
@@ -50,6 +49,10 @@ export class Core extends Logger {
         if (Config.POA.ENABLED) {
             await this.createThread(3, ThreadTypes.MEMPOOL);
             await this.createThread(4, ThreadTypes.PoA);
+        }
+
+        if (Config.POA.ENABLED) {
+            await this.createThread(5, ThreadTypes.SSH);
         }
     }
 
@@ -129,7 +132,7 @@ export class Core extends Logger {
         }
     }
 
-    private listenEvents(): void {
+    /*private listenEvents(): void {
         let called = false;
         process.on('SIGINT', async () => {
             if (!called) {
@@ -165,7 +168,7 @@ export class Core extends Logger {
         }
 
         process.exit(0);
-    }
+    }*/
 
     private createThread(i: number, type: ThreadTypes): Promise<void> {
         return new Promise((resolve) => {

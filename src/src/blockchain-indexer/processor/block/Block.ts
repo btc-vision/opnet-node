@@ -28,11 +28,7 @@ import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { GenericTransaction } from '../transaction/transactions/GenericTransaction.js';
 import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 import { UnwrapTransaction } from '../transaction/transactions/UnwrapTransaction.js';
-import {
-    IWBTCUTXODocument,
-    PartialWBTCUTXODocument,
-    UsedUTXOToDelete,
-} from '../../../db/interfaces/IWBTCUTXODocument.js';
+import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../../db/interfaces/IWBTCUTXODocument.js';
 
 export class Block extends Logger {
     // Block Header
@@ -102,6 +98,10 @@ export class Block extends Logger {
 
     public get height(): bigint {
         return this.header.height;
+    }
+
+    public get timestamp(): number {
+        return this.header.time.getTime();
     }
 
     public get previousBlockChecksum(): string {
@@ -639,7 +639,7 @@ export class Block extends Logger {
             promises.push(vmStorage.setSpentWBTC_UTXOs(usedUTXOs, this.height));
         }
 
-        if(consolidatedUTXOs.length) {
+        if (consolidatedUTXOs.length) {
             promises.push(vmStorage.setWBTCUTXOs(consolidatedUTXOs));
         }
 

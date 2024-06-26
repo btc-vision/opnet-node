@@ -37,6 +37,12 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
         managerTarget: './src/poa/PoAThreadManager.js',
     },
 
+    [ThreadTypes.SSH]: {
+        maxInstance: 1,
+        target: './src/ssh/SSHThread.js',
+        managerTarget: './src/ssh/SSHManager.js',
+    },
+
     [ThreadTypes.MEMPOOL]: {
         maxInstance: Config.MEMPOOL.THREADS,
         target: './src/poa/mempool/MempoolThread.js',
@@ -88,6 +94,14 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
     [ThreadTypes.PoA]: {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 4,
+            maxYoungGenerationSizeMb: 1024,
+            stackSizeMb: 256,
+        },
+    },
+
+    [ThreadTypes.SSH]: {
+        resourceLimits: {
+            maxOldGenerationSizeMb: 1024 * 2,
             maxYoungGenerationSizeMb: 1024,
             stackSizeMb: 256,
         },

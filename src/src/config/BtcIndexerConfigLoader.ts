@@ -57,6 +57,21 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             THREADS: 2,
         },
 
+        SSH: {
+            ENABLED: false,
+
+            PORT: 4800,
+            HOST: '0.0.0.0',
+
+            NO_AUTH: false,
+
+            USERNAME: 'opnet',
+            PASSWORD: 'opnet',
+
+            PUBLIC_KEY: '',
+            ALLOWED_IPS: ['127.0.0.1', '0.0.0.0', 'localhost'],
+        },
+
         OP_NET: {
             MAXIMUM_TRANSACTION_SESSIONS: 12,
             TRANSACTIONS_MAXIMUM_CONCURRENT: 100,
@@ -365,6 +380,55 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(`Oops the property MEMPOOL.THREADS is not a number.`);
             }
         }
+
+        if (parsedConfig.SSH) {
+            if (parsedConfig.SSH.ENABLED && typeof parsedConfig.SSH.ENABLED !== 'boolean') {
+                throw new Error(`Oops the property SSH.ENABLED is not a boolean.`);
+            }
+
+            if (parsedConfig.SSH.PORT === undefined || typeof parsedConfig.SSH.PORT !== 'number') {
+                throw new Error(`Oops the property SSH.PORT is not a number.`);
+            }
+
+            if (parsedConfig.SSH.HOST === undefined || typeof parsedConfig.SSH.HOST !== 'string') {
+                throw new Error(`Oops the property SSH.HOST is not a string.`);
+            }
+
+            if (
+                parsedConfig.SSH.USERNAME === undefined ||
+                typeof parsedConfig.SSH.USERNAME !== 'string'
+            ) {
+                throw new Error(`Oops the property SSH.USERNAME is not a string.`);
+            }
+
+            if (
+                parsedConfig.SSH.PASSWORD === undefined ||
+                typeof parsedConfig.SSH.PASSWORD !== 'string'
+            ) {
+                throw new Error(`Oops the property SSH.PASSWORD is not a string.`);
+            }
+
+            if (
+                parsedConfig.SSH.PUBLIC_KEY === undefined ||
+                typeof parsedConfig.SSH.PUBLIC_KEY !== 'string'
+            ) {
+                throw new Error(`Oops the property SSH.PUBLIC_KEY is not a string.`);
+            }
+
+            if (
+                parsedConfig.SSH.NO_AUTH === undefined ||
+                typeof parsedConfig.SSH.NO_AUTH !== 'boolean'
+            ) {
+                throw new Error(`Oops the property SSH.NO_AUTH is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.SSH.ALLOWED_IPS === undefined ||
+                !Array.isArray(parsedConfig.SSH.ALLOWED_IPS)
+            ) {
+                throw new Error(`Oops the property SSH.ALLOWED_IPS is not an array.`);
+            }
+        }
     }
 
     protected override parsePartialConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
@@ -416,6 +480,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             keyof IBtcIndexerConfig,
             IBtcIndexerConfig['BLOCKCHAIN']
         >(parsedConfig.BLOCKCHAIN, defaultConfigs.BLOCKCHAIN);
+
+        this.config.SSH = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['SSH']>(
+            parsedConfig.SSH,
+            defaultConfigs.SSH,
+        );
     }
 
     private getConfigModified<U extends keyof IBtcIndexerConfig, T extends IBtcIndexerConfig[U]>(

@@ -79,6 +79,22 @@ export interface MempoolConfig {
     readonly EXPIRATION_BLOCKS: number;
 }
 
+export interface SSHConfig {
+    readonly ENABLED: boolean;
+
+    readonly PORT: number;
+    readonly HOST: string;
+
+    readonly USERNAME: string;
+    readonly PASSWORD: string;
+
+    readonly PUBLIC_KEY: string;
+
+    readonly NO_AUTH: boolean;
+
+    readonly ALLOWED_IPS: string[];
+}
+
 export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     INDEXER: IndexerConfig;
     ZERO_MQ: ZeroMQConfig;
@@ -88,4 +104,5 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     POA: PoA;
     P2P: P2P;
     MEMPOOL: MempoolConfig;
+    SSH: SSHConfig;
 }
