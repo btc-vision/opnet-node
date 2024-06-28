@@ -43,6 +43,15 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         /** The maximum size of an event in bytes */
         MAXIMUM_EVENT_LENGTH: 96,
+
+        /** The maximum amount of contract a transaction can deploy */
+        MAXIMUM_DEPLOYMENT_DEPTH: 2,
+
+        /** The maximum amount of calls possible in a transaction */
+        MAXIMUM_CALL_DEPTH: 2,
+
+        /** The cost of a byte in gas */
+        STORAGE_COST_PER_BYTE: 10_000n,
     },
 
     PSBT: {

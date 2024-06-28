@@ -10,10 +10,14 @@ export interface InternalContractCallParameters {
     readonly calldata: Buffer;
     readonly externalCall: boolean;
 
-    readonly transactionId?: string; // external call have this empty
+    readonly transactionId: string | null; // external call have this empty
+    readonly transactionHash: string | null; // external call have this empty
 
     readonly blockHeight: bigint;
     readonly blockMedian: bigint;
+
+    readonly contractDeployDepth: number;
+    readonly callDepth: number;
 
     readonly gasUsed: bigint;
     allowCached?: boolean;
@@ -28,11 +32,18 @@ export interface ExecutionParameters {
     readonly caller: Address;
     readonly callee: Address;
 
+    readonly transactionId: string | null; // external call have this empty
+    readonly transactionHash: string | null; // external call have this empty
+
     readonly blockNumber: bigint;
     readonly blockMedian: bigint;
 
     readonly maxGas: bigint;
     readonly gasUsed: bigint;
+
+    // Depth
+    readonly contractDeployDepth: number;
+    readonly callDepth: number;
 
     readonly externalCall: boolean;
 }

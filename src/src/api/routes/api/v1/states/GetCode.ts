@@ -45,7 +45,7 @@ export class GetCode extends Route<
             result = {
                 contractAddress: document.contractAddress.toString(),
                 virtualAddress: document.virtualAddress.toString(),
-                p2trAddress: document.p2trAddress.toString(),
+                p2trAddress: (document.p2trAddress ?? '').toString(),
 
                 contractSeed: document.contractSeed.toString('base64'),
                 contractSaltHash: document.contractSaltHash.toString('hex'),

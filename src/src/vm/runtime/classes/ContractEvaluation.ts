@@ -12,10 +12,11 @@ import {
     EvaluatedResult,
     PointerStorageMap,
 } from '../../evaluated/EvaluatedResult.js';
-import { ExternalCallsResult } from '../types/ExternalCall.js';
 import { MapConverter } from '../MapConverter.js';
 import { GasTracker } from '../GasTracker.js';
 import { MemorySlotData, MemorySlotPointer } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
+import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 
 export class ContractEvaluation implements IEvaluationParameters {
     public readonly contractAddress: Address;
@@ -38,7 +39,14 @@ export class ContractEvaluation implements IEvaluationParameters {
     public result: Uint8Array | undefined;
     public readonly gasTracker: GasTracker = new GasTracker();
 
+    public contractDeployDepth: number;
+    public callDepth: number;
+
+    public readonly transactionId: string | null;
+    public readonly transactionHash: string | null;
+
     public readonly storage: BlockchainStorage = new DeterministicMap(BinaryReader.stringCompare);
+    public readonly deployedContracts: ContractInformation[] = [];
 
     constructor(params: IEvaluationParameters) {
         this.contractAddress = params.contractAddress;
@@ -51,6 +59,11 @@ export class ContractEvaluation implements IEvaluationParameters {
         this.externalCall = params.externalCall;
         this.blockNumber = params.blockNumber;
         this.blockMedian = params.blockMedian;
+        this.callDepth = params.callDepth;
+        this.contractDeployDepth = params.contractDeployDepth;
+
+        this.transactionId = params.transactionId;
+        this.transactionHash = params.transactionHash;
 
         this.gasTracker.maxGas = params.maxGas;
         this.gasTracker.gasUsed = params.gasUsed;
@@ -74,6 +87,17 @@ export class ContractEvaluation implements IEvaluationParameters {
         return this.gasTracker.gasUsed;
     }
 
+    public incrementContractDeployDepth(): void {
+        this.contractDeployDepth++;
+
+        if (
+            this.contractDeployDepth >
+            OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_DEPLOYMENT_DEPTH
+        ) {
+            throw new Error('Contract deployment depth exceeded');
+        }
+    }
+
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
         const current =
             this.storage.get(this.contractAddress) ||
@@ -84,7 +108,7 @@ export class ContractEvaluation implements IEvaluationParameters {
         this.storage.set(this.contractAddress, current);
     }
 
-    public onGasUsed: (gas: bigint, method: string) => void = (gas: bigint, method: string) => {
+    public onGasUsed: (gas: bigint, method: string) => void = (gas: bigint, _method: string) => {
         //console.log(`Gas used: ${gas} for method ${method}`);
 
         this.gasTracker.setGas(gas);
@@ -106,7 +130,7 @@ export class ContractEvaluation implements IEvaluationParameters {
         this.setModifiedStorage();
     }
 
-    public processExternalCalls(extern: ExternalCallsResult): void {
+    /*public processExternalCalls(extern: ExternalCallsResult): void {
         // we must merge the storage of the external calls
         for (const [contract, call] of extern) {
             if (contract === this.contractAddress) {
@@ -136,7 +160,7 @@ export class ContractEvaluation implements IEvaluationParameters {
                 }
             }
         }
-    }
+    }*/
 
     public getEvaluationResult(): EvaluatedResult {
         if (!this.result) throw new Error('Result not set');
@@ -149,7 +173,12 @@ export class ContractEvaluation implements IEvaluationParameters {
             events: this.events,
             gasUsed: this.gasUsed,
             reverted: !!this.revert,
+            deployedContracts: this.deployedContracts,
         };
+    }
+
+    public addContractInformation(contract: ContractInformation): void {
+        this.deployedContracts.push(contract);
     }
 
     private setModifiedStorage(): void {

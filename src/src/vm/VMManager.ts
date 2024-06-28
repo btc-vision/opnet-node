@@ -38,6 +38,8 @@ import {
 import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
 import { GasTracker } from './runtime/GasTracker.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
+import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/transaction';
+import bitcoin from 'bitcoinjs-lib';
 
 Globals.register();
 
@@ -176,6 +178,10 @@ export class VMManager extends Logger {
                 allowCached: true,
                 externalCall: false,
                 gasUsed: 0n,
+                callDepth: 0,
+                contractDeployDepth: 0,
+                transactionId: null,
+                transactionHash: null,
             };
 
             // Execute the function
@@ -249,9 +255,12 @@ export class VMManager extends Logger {
                 blockHeight: blockHeight,
                 blockMedian: blockMedian,
                 transactionId: interactionTransaction.transactionId,
+                transactionHash: interactionTransaction.hash,
                 allowCached: true,
                 externalCall: false,
                 gasUsed: 0n,
+                callDepth: 0,
+                contractDeployDepth: 0,
             };
 
             const result: ContractEvaluation = await this.executeCallInternal(params);
@@ -446,10 +455,6 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        if (!contractDeploymentTransaction.p2trAddress) {
-            throw new Error('Contract address not found');
-        }
-
         if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             this.debugBright(
                 `Attempting to deploy contract ${contractDeploymentTransaction.p2trAddress}`,
@@ -605,6 +610,10 @@ export class VMManager extends Logger {
             externalCall: params.externalCall,
             blockNumber: params.blockHeight,
             blockMedian: params.blockMedian,
+            contractDeployDepth: params.contractDeployDepth,
+            callDepth: params.callDepth,
+            transactionId: params.transactionId,
+            transactionHash: params.transactionHash,
         };
 
         // Execute the function
@@ -692,11 +701,126 @@ export class VMManager extends Logger {
         return this.cachedLastBlockHeight;
     }
 
-    private async deployContractFromAddress(
-        _address: Address,
-        _salt: Buffer,
-    ): Promise<Buffer | Uint8Array> {
-        throw new Error('Method not implemented. [deployContractFromAddress]');
+    private generateAddress(
+        salt: Buffer,
+        deployer: Address,
+        bytecode: Buffer,
+    ): {
+        contractAddress: Address;
+        virtualAddress: Buffer;
+    } {
+        const contractVirtualAddress = TapscriptVerificator.getContractSeed(
+            bitcoin.crypto.hash256(Buffer.from(deployer, 'utf-8')),
+            bytecode, // TODO: Maybe precompute that on deployment?
+            salt,
+        );
+
+        /** Generate contract segwit address */
+        const contractSegwitAddress = AddressGenerator.generatePKSH(
+            contractVirtualAddress,
+            bitcoin.networks.regtest,
+        );
+
+        return { contractAddress: contractSegwitAddress, virtualAddress: contractVirtualAddress };
+    }
+
+    private async deployContractAtAddress(
+        address: Address,
+        salt: Buffer,
+        evaluation: ContractEvaluation,
+    ): Promise<
+        | {
+              contractAddress: Address;
+              virtualAddress: Buffer;
+              bytecodeLength: bigint;
+          }
+        | undefined
+    > {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            this.log(
+                `This contract (${evaluation.contractAddress}) wants to redeploy ${address}. Salt: ${salt.toString('hex')}`,
+            );
+        }
+
+        if (address === evaluation.contractAddress) {
+            throw new Error('Can not deploy itself.');
+        }
+
+        const contractInfo = await this.getContractInformation(address, evaluation.blockNumber);
+        if (!contractInfo) {
+            throw new Error('Contract not found');
+        }
+
+        const deployResult = this.generateAddress(
+            salt,
+            evaluation.contractAddress,
+            contractInfo.bytecode,
+        );
+
+        if (this.contractCache.has(address)) {
+            throw new Error('Contract already deployed. (cache)');
+        }
+
+        const exists = await this.vmStorage.getContractAt(
+            deployResult.contractAddress,
+            evaluation.blockNumber + 1n,
+        );
+
+        if (exists) {
+            throw new Error('Contract already deployed. (db)');
+        }
+
+        const deployerKeyPair = EcKeyPair.fromSeedKeyPair(
+            Buffer.from(contractInfo.virtualAddress.replace('0x', ''), 'hex'),
+        );
+
+        const bytecodeLength: bigint = BigInt(contractInfo.bytecode.byteLength);
+        evaluation.gasTracker.addGas(
+            bytecodeLength * OPNetConsensus.consensus.TRANSACTIONS.STORAGE_COST_PER_BYTE,
+        );
+
+        const contractSaltHash = bitcoin.crypto.hash256(salt);
+        if (!this.isExecutor) {
+            if (!evaluation.transactionId || !evaluation.transactionHash) {
+                this.panic(
+                    'SHOULD NOT HAPPEN -> Transaction id or hash not found in executor mode. [deployContractAtAddress]',
+                );
+
+                throw new Error(
+                    'Transaction id or hash not found in executor mode. [deployContractAtAddress]',
+                );
+            }
+
+            const contractInformation: ContractInformation = new ContractInformation(
+                evaluation.blockNumber,
+                deployResult.contractAddress,
+                `0x${deployResult.virtualAddress.toString('hex')}`,
+                null,
+                contractInfo.bytecode,
+                false,
+                evaluation.transactionId,
+                evaluation.transactionHash,
+                deployerKeyPair.publicKey,
+                salt,
+                contractSaltHash,
+                evaluation.contractAddress,
+            );
+
+            evaluation.addContractInformation(contractInformation);
+        }
+
+        return {
+            ...deployResult,
+            bytecodeLength: bytecodeLength,
+        };
+    }
+
+    private async deployContractFromInfo(contractInformation: ContractInformation): Promise<void> {
+        await this.setContractAt(contractInformation);
+
+        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+            this.info(`Contract ${contractInformation.contractAddress} deployed.`);
+        }
     }
 
     private async getVMEvaluator(
@@ -715,8 +839,8 @@ export class VMManager extends Logger {
         vmEvaluator.getStorage = this.getStorage.bind(this);
         vmEvaluator.setStorage = this.setStorage.bind(this);
         vmEvaluator.callExternal = this.callExternal.bind(this);
-        vmEvaluator.deployContractFromAddress = this.deployContractFromAddress.bind(this);
-
+        vmEvaluator.deployContractAtAddress = this.deployContractAtAddress.bind(this);
+        vmEvaluator.deployContract = this.deployContractFromInfo.bind(this);
         vmEvaluator.setContractInformation(contractInformation);
 
         return vmEvaluator;

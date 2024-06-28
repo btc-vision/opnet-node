@@ -48,7 +48,6 @@ export class GasTracker {
 
     public setGas(gas: bigint) {
         if (gas < 0n) {
-            console.trace(`Attempted to add negative gas: ${gas}`);
             throw new Error('Gas used cannot be negative.');
         }
 
@@ -61,5 +60,9 @@ export class GasTracker {
         }
 
         this.#gasUsed = gas;
+    }
+
+    public addGas(gas: bigint) {
+        this.setGas(this.#gasUsed + gas);
     }
 }

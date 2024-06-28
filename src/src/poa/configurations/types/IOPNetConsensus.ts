@@ -38,6 +38,15 @@ export interface IOPNetConsensus<T extends Consensus> {
 
         /** The maximum size of an event in bytes */
         MAXIMUM_EVENT_LENGTH: number;
+
+        /** The maximum amount of contract a transaction can deploy */
+        MAXIMUM_DEPLOYMENT_DEPTH: number;
+
+        /** The maximum amount of calls possible in a transaction */
+        MAXIMUM_CALL_DEPTH: number;
+
+        /** The cost of a byte in gas */
+        STORAGE_COST_PER_BYTE: bigint;
     };
 
     readonly NETWORK: {

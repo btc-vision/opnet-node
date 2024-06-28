@@ -4,6 +4,7 @@ import {
     MemorySlotData,
     MemorySlotPointer,
 } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
+import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 
 export type PointerStorageMap = Map<MemorySlotPointer, MemorySlotData<bigint>>;
 export type BlockchainStorageMap = Map<Address, PointerStorageMap>;
@@ -15,4 +16,5 @@ export interface EvaluatedResult {
     readonly events: EvaluatedEvents | undefined;
     readonly gasUsed: bigint;
     readonly reverted: boolean;
+    readonly deployedContracts: ContractInformation[];
 }

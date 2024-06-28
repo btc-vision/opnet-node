@@ -23,8 +23,6 @@ import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { ContractParameters, ExportedContract, loadRust } from '../isolated/LoaderV2.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import { AddressGenerator, TapscriptVerificator } from '@btc-vision/transaction';
-import bitcoin from 'bitcoinjs-lib';
 
 /*import * as v8 from 'node:v8';
 
@@ -64,9 +62,9 @@ export class ContractEvaluator extends Logger {
         return this._contractInstance;
     }
 
-    public onGasUsed: (gas: bigint) => void = () => {
-        throw new Error('Method not implemented. [onGasUsed]');
-    };
+    public deployContract(_contract: ContractInformation): Promise<void> {
+        throw new Error('Method not implemented. [deployContract]');
+    }
 
     public getStorage(
         _address: Address,
@@ -92,11 +90,19 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [callExternal]');
     }
 
-    public async deployContractFromAddress(
+    public async deployContractAtAddress(
         _address: Address,
         _salt: Buffer,
-    ): Promise<Buffer | Uint8Array> {
-        throw new Error('Method not implemented. [deployContractFromAddress]');
+        _evaluation: ContractEvaluation,
+    ): Promise<
+        | {
+              contractAddress: Address;
+              virtualAddress: Buffer;
+              bytecodeLength: bigint;
+          }
+        | undefined
+    > {
+        throw new Error('Method not implemented. [deployContractAtAddress]');
     }
 
     public setContractInformation(contractInformation: ContractInformation): void {
@@ -114,10 +120,6 @@ export class ContractEvaluator extends Logger {
     public delete(): void {
         this.contractInstance.dispose();
         delete this._contractInstance;
-
-        /*if (gc) {
-            gc();
-        }*/
     }
 
     public getViewSelectors(): SelectorsMap {
@@ -178,12 +180,10 @@ export class ContractEvaluator extends Logger {
 
         this.delete();
 
-        /*console.log(
-            `EXECUTION GAS USED: ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
-        );*/
-
         if (this.enableTracing) {
-            console.log(evaluation);
+            console.log(
+                `EXECUTION GAS USED: ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
+            );
         }
 
         return evaluation;
@@ -257,38 +257,23 @@ export class ContractEvaluator extends Logger {
         data: Buffer,
         evaluation: ContractEvaluation,
     ): Promise<Buffer | Uint8Array> {
-        const reader = new BinaryReader(data);
+        evaluation.incrementContractDeployDepth(); // always first.
 
+        const reader = new BinaryReader(data);
         const address: Address = reader.readAddress();
         const salt: Buffer = Buffer.from(reader.readBytes(32));
 
-        this.log(
-            `This contract wants to deploy the same bytecode as ${address}. Salt: ${salt.toString('hex')}`,
-        );
-
-        const deployResult = this.generateAddress(salt);
+        const deployResult = await this.deployContractAtAddress(address, salt, evaluation);
+        if (!deployResult) {
+            throw new Error('Unable to deploy contract');
+        }
 
         const response = new BinaryWriter();
         response.writeBytes(deployResult.virtualAddress);
         response.writeAddress(deployResult.contractAddress);
+        response.writeU64(deployResult.bytecodeLength);
 
         return response.getBuffer();
-    }
-
-    private generateAddress(salt: Buffer): { contractAddress: Address; virtualAddress: Buffer } {
-        const contractVirtualAddress = TapscriptVerificator.getContractSeed(
-            bitcoin.crypto.hash256(Buffer.from('dsfdsa', 'utf-8')),
-            Buffer.alloc(0),
-            salt,
-        );
-
-        /** Generate contract segwit address */
-        const contractSegwitAddress = AddressGenerator.generatePKSH(
-            contractVirtualAddress,
-            bitcoin.networks.regtest,
-        );
-
-        return { contractAddress: contractSegwitAddress, virtualAddress: contractVirtualAddress };
     }
 
     private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {
@@ -378,6 +363,19 @@ export class ContractEvaluator extends Logger {
 
             return;
         }
+
+        let deploymentPromises: Promise<void>[] = [];
+        if (evaluation.deployedContracts.length > 0) {
+            for (let i = 0; i < evaluation.deployedContracts.length; i++) {
+                const contract = evaluation.deployedContracts[i];
+                deploymentPromises.push(this.deployContract(contract));
+            }
+        }
+
+        // We deploy contract at the end of the transaction.
+        // This transaction should not be able to interact with the contract it just deployed.
+        // This is on purpose.
+        await Promise.all(deploymentPromises);
 
         const events: NetEvent[] = await this.getEvents();
         evaluation.setEvent(evaluation.contractAddress, events);
