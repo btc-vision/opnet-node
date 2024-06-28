@@ -37,6 +37,12 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         /** Converts satoshi to BTC */
         SAT_TO_GAS_RATIO: 184_166_66n,
+
+        /** The maximum size of a receipt in bytes */
+        MAXIMUM_RECEIPT_LENGTH: 128,
+
+        /** The maximum size of an event in bytes */
+        MAXIMUM_EVENT_LENGTH: 96,
     },
 
     PSBT: {

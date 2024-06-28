@@ -14,4 +14,5 @@ export interface EvaluatedResult {
     readonly result: Uint8Array | undefined;
     readonly events: EvaluatedEvents | undefined;
     readonly gasUsed: bigint;
+    readonly reverted: boolean;
 }

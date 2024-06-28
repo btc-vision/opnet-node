@@ -100,6 +100,10 @@ export class Block extends Logger {
         return this.header.height;
     }
 
+    public get median(): bigint {
+        return BigInt(this.header.medianTime.getTime());
+    }
+
     public get timestamp(): number {
         return this.header.time.getTime();
     }
@@ -271,7 +275,7 @@ export class Block extends Logger {
             const updatedStatesAfterExecution = Date.now();
             this.timeForStateUpdate = updatedStatesAfterExecution - timeAfterExecution;
 
-            if (states && states.storage && states.storage.size()) {
+            if (states && states.receipts && states.receipts.size()) {
                 await this.processBlockStates(states, vmManager);
             } else {
                 await this.onEmptyBlock(vmManager);
@@ -347,9 +351,15 @@ export class Block extends Logger {
                 throw new Error('Storage tree not found');
             }
 
-            const proofs = storageTree.getProofs();
-            this.#_storageRoot = storageTree.root;
-            this.#_storageProofs = proofs;
+            // We must verify if we're only storing one pointer, if it crashes.
+            if (storageTree.size()) {
+                const proofs = storageTree.getProofs();
+                this.#_storageRoot = storageTree.root;
+                this.#_storageProofs = proofs;
+            } else {
+                this.#_storageRoot = ZERO_HASH;
+                this.#_storageProofs = new Map();
+            }
 
             const proofsReceipt = states.receipts.getProofs();
             this.#_receiptRoot = states.receipts.root;
@@ -391,7 +401,11 @@ export class Block extends Logger {
         const start = Date.now();
         try {
             /** We must create a transaction receipt. */
-            transaction.receipt = await vmManager.executeTransaction(this.height, transaction);
+            transaction.receipt = await vmManager.executeTransaction(
+                this.height,
+                this.median,
+                transaction,
+            );
         } catch (e) {
             const error: Error = e as Error;
 

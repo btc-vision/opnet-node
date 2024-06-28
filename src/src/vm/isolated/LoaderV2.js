@@ -1,30 +1,64 @@
 import { Contract } from '@btc-vision/bsi-wasmer-vm';
 
-export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
-    const contract = new Contract(bytecode, MAX_GAS);
-    contract.lastGas = 0n;
+/**
+ * Load the Rust contract
+ * @param {ContractParameters} params
+ * @returns {Promise<ExportedContract>}
+ */
+export async function loadRust(params) {
+    let gasCallback = params.gasCallback;
 
-    contract.garbageCollector = function () {
-        try {
-            const resp = contract.call('__collect', []);
+    const contract = new Contract(
+        params.bytecode,
+        params.gasLimit,
+        function (_, value) {
+            const u = new Uint8Array(value.buffer);
+            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+
+            return params.load(buf);
+        },
+        function (_, value) {
+            const u = new Uint8Array(value.buffer);
+            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+
+            return params.store(buf);
+        },
+        function (_, value) {
+            const u = new Uint8Array(value.buffer);
+            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+
+            return params.call(buf);
+        },
+        function (_, value) {
+            const u = new Uint8Array(value.buffer);
+            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+
+            return params.deployContractAtAddress(buf);
+        },
+    );
+
+    contract.garbageCollector = async function () {
+        /*try {
+            const resp = await contract.call('__collect', []);
             contract.gasCallback(resp.gasUsed, 'garbageCollector');
-
-            contract.calledGarbageCollector = true;
         } catch (e) {
             throw contract.getError(e);
-        }
+        }*/
     };
 
+    contract.setGasCallback = function (callback) {
+        gasCallback = callback;
+    };
+
+    /**
+     * @param {bigint} gas
+     * @param {string} method
+     */
     contract.gasCallback = function (gas, method) {
-        const diff = gas - contract.lastGas;
-        contract.lastGas = gas;
-
-        //console.log('Gas used', diff, method);
-
-        gasCallbackDifference(diff);
+        gasCallback(gas, method);
     };
 
-    contract.abort = function () {
+    contract.abort = async function () {
         const abortData = contract.getAbortData();
         const message = __liftString(abortData.message);
         const fileName = __liftString(abortData.fileName);
@@ -35,21 +69,18 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
     };
 
     contract.getError = function (err) {
-        contract.lastGas = 0n;
-
         const msg = err.message;
         if (msg.includes('Execution aborted')) {
             return contract.abort();
         } else {
-            console.log(err);
             return err;
         }
     };
 
-    contract.__pin = function (pointer) {
+    contract.__pin = async function (pointer) {
         let finalResult;
         try {
-            const resp = contract.call('__pin', [pointer]);
+            const resp = await contract.call('__pin', [pointer]);
             contract.gasCallback(resp.gasUsed, '__pin');
 
             const result = resp.result.filter((n) => n !== undefined);
@@ -61,10 +92,10 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
         return finalResult;
     };
 
-    contract.__unpin = function (pointer) {
+    contract.__unpin = async function (pointer) {
         let finalResult;
         try {
-            const resp = contract.call('__unpin', [pointer]);
+            const resp = await contract.call('__unpin', [pointer]);
             contract.gasCallback(resp.gasUsed, '__unpin');
 
             const result = resp.result.filter((n) => n !== undefined);
@@ -76,10 +107,10 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
         return finalResult;
     };
 
-    contract.__new = function (size, align) {
+    contract.__new = async function (size, align) {
         let finalResult;
         try {
-            const resp = contract.call('__new', [size, align]);
+            const resp = await contract.call('__new', [size, align]);
             contract.gasCallback(resp.gasUsed, '__new');
 
             const result = resp.result.filter((n) => n !== undefined);
@@ -94,38 +125,33 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
     const adaptedContract = Object.setPrototypeOf(
         {
             dispose() {
-                contract.lastGas = 0n;
-
-                if ('destroy' in contract) {
-                    contract.destroy();
-                }
+                contract.destroy();
             },
             async defineSelectors() {
                 try {
-                    const resp = contract.call('defineSelectors', []);
-                    contract.gasCallback(resp.gasUsed, 'defineSelectors');
+                    const resp = await contract.call('defineSelectors', []);
+                    await contract.gasCallback(resp.gasUsed, 'defineSelectors');
                 } catch (e) {
                     throw contract.getError(e);
                 }
             },
             async readMethod(method, data) {
                 try {
-                    contract.calledGarbageCollector = false;
-
-                    data = __retain(__lowerTypedArray(13, 0, data) || __notnull());
+                    const pointer = await __lowerTypedArray(13, 0, data);
+                    data = await __retain(pointer || __notnull());
 
                     let finalResult;
                     try {
-                        const resp = contract.call('readMethod', [method, data]);
+                        const resp = await contract.call('readMethod', [method, data]);
                         contract.gasCallback(resp.gasUsed, 'readMethod');
 
                         const result = resp.result.filter((n) => n !== undefined);
                         finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
                     } finally {
-                        __release(data);
+                        await __release(data);
                     }
 
-                    contract.garbageCollector();
+                    await contract.garbageCollector();
 
                     return finalResult;
                 } catch (e) {
@@ -135,7 +161,7 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
             async readView(method) {
                 let finalResult;
                 try {
-                    const resp = contract.call('readView', [method]);
+                    const resp = await contract.call('readView', [method]);
 
                     contract.gasCallback(resp.gasUsed, 'readView');
                     const result = resp.result.filter((n) => n !== undefined);
@@ -145,13 +171,13 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
                     throw contract.getError(e);
                 }
 
-                contract.garbageCollector();
+                await contract.garbageCollector();
                 return finalResult;
             },
             async getViewABI() {
                 let finalResult;
                 try {
-                    const resp = contract.call('getViewABI', []);
+                    const resp = await contract.call('getViewABI', []);
                     contract.gasCallback(resp.gasUsed, 'getViewABI');
 
                     const result = resp.result.filter((n) => n !== undefined);
@@ -160,13 +186,13 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
                     throw contract.getError(e);
                 }
 
-                contract.garbageCollector();
+                await contract.garbageCollector();
                 return finalResult;
             },
             async getEvents() {
                 let finalResult;
                 try {
-                    const resp = contract.call('getEvents', []);
+                    const resp = await contract.call('getEvents', []);
                     contract.gasCallback(resp.gasUsed, 'getEvents');
 
                     const result = resp.result.filter((n) => n !== undefined);
@@ -175,13 +201,13 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
                     throw contract.getError(e);
                 }
 
-                contract.garbageCollector();
+                await contract.garbageCollector();
                 return finalResult;
             },
             async getMethodABI() {
                 let finalResult;
                 try {
-                    const resp = contract.call('getMethodABI', []);
+                    const resp = await contract.call('getMethodABI', []);
                     contract.gasCallback(resp.gasUsed, 'getMethodABI');
 
                     const result = resp.result.filter((n) => n !== undefined);
@@ -190,13 +216,13 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
                     throw contract.getError(e);
                 }
 
-                contract.garbageCollector();
+                await contract.garbageCollector();
                 return finalResult;
             },
             async getWriteMethods() {
                 let finalResult;
                 try {
-                    const resp = contract.call('getWriteMethods', []);
+                    const resp = await contract.call('getWriteMethods', []);
                     contract.gasCallback(resp.gasUsed, 'getWriteMethods');
 
                     const result = resp.result.filter((n) => n !== undefined);
@@ -205,108 +231,24 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
                     throw contract.getError(e);
                 }
 
-                contract.garbageCollector();
-                return finalResult;
-            },
-            async getModifiedStorage() {
-                let finalResult;
-                try {
-                    const resp = contract.call('getModifiedStorage', []);
-                    contract.gasCallback(resp.gasUsed, 'getModifiedStorage');
-
-                    const result = resp.result.filter((n) => n !== undefined);
-                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
-                } catch (e) {
-                    throw contract.getError(e);
-                }
-
-                contract.garbageCollector();
-                return finalResult;
-            },
-            async initializeStorage() {
-                let finalResult;
-                try {
-                    const resp = contract.call('initializeStorage', []);
-                    contract.gasCallback(resp.gasUsed, 'initializeStorage');
-
-                    const result = resp.result.filter((n) => n !== undefined);
-                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
-                } catch (e) {
-                    throw contract.getError(e);
-                }
-
-                contract.garbageCollector();
-                return finalResult;
-            },
-            async loadStorage(data) {
-                if (contract.calledGarbageCollector === false) {
-                    throw new Error('Garbage collector must be called before loadStorage');
-                }
-
-                let finalResult;
-                try {
-                    data = __lowerTypedArray(13, 0, data) || __notnull();
-                    const resp = contract.call('loadStorage', [data]);
-                    contract.gasCallback(resp.gasUsed, 'loadStorage');
-
-                    const result = resp.result.filter((n) => n !== undefined);
-                    finalResult = result[0];
-                } catch (e) {
-                    throw contract.getError(e);
-                }
-
-                contract.garbageCollector();
-                return finalResult;
-            },
-            async loadCallsResponse(data) {
-                let finalResult;
-                try {
-                    data = __lowerTypedArray(13, 0, data) || __notnull();
-
-                    const resp = contract.call('loadCallsResponse', [data]);
-                    contract.gasCallback(resp.gasUsed, 'loadCallsResponse');
-
-                    const result = resp.result.filter((n) => n !== undefined);
-                    finalResult = result[0];
-                } catch (e) {
-                    throw contract.getError(e);
-                }
-
-                contract.garbageCollector();
-                return finalResult;
-            },
-            async getCalls() {
-                let finalResult;
-                try {
-                    const resp = contract.call('getCalls', []);
-                    contract.gasCallback(resp.gasUsed, 'getCalls');
-
-                    const result = resp.result.filter((n) => n !== undefined);
-                    finalResult = __liftTypedArray(Uint8Array, result[0] >>> 0);
-                } catch (e) {
-                    throw contract.getError(e);
-                }
-
-                contract.garbageCollector();
+                await contract.garbageCollector();
                 return finalResult;
             },
             async setEnvironment(data) {
                 let finalResult;
                 try {
-                    data = __lowerTypedArray(13, 0, data) || __notnull();
+                    data = (await __lowerTypedArray(13, 0, data)) || __notnull();
 
-                    const resp = contract.call('setEnvironment', [data]);
+                    const resp = await contract.call('setEnvironment', [data]);
                     contract.gasCallback(resp.gasUsed, 'setEnvironment');
                 } catch (e) {
                     throw contract.getError(e);
                 }
 
-                contract.garbageCollector();
+                await contract.garbageCollector();
                 return finalResult;
             },
             setUsedGas(gas) {
-                contract.lastGas = gas;
-
                 try {
                     contract.setUsedGas(gas);
                 } catch (e) {
@@ -370,15 +312,16 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
         return typedArray.slice();
     }
 
-    function __lowerTypedArray(id, align, values) {
+    async function __lowerTypedArray(id, align, values) {
         if (values == null) return 0;
 
         const length = values.length;
         const bufferSize = length << align;
 
         // Allocate memory for the array
-        const buffer = contract.__pin(contract.__new(bufferSize, 1)) >>> 0;
-        const header = contract.__new(12, id) >>> 0;
+        const newPointer = await contract.__new(bufferSize, 1);
+        const buffer = (await contract.__pin(newPointer)) >>> 0;
+        const header = (await contract.__new(12, id)) >>> 0;
 
         // Set the buffer and length in the header
         const headerBuffer = new Uint8Array(12);
@@ -392,53 +335,30 @@ export async function loadRust(bytecode, MAX_GAS, gasCallbackDifference) {
         const valuesBuffer = new Uint8Array(values.buffer, values.byteOffset, values.byteLength);
         contract.writeMemory(BigInt(buffer), valuesBuffer);
 
-        contract.__unpin(buffer);
+        await contract.__unpin(buffer);
         return header;
-    }
-
-    class Internref extends Number {}
-
-    const registry = new FinalizationRegistry(__release);
-
-    function __liftInternref(pointer) {
-        if (!pointer) return null;
-        const sentinel = new Internref(__retain(pointer));
-        registry.register(sentinel, pointer);
-        return sentinel;
-    }
-
-    function __lowerInternref(value) {
-        if (value == null) return 0;
-        if (value instanceof Internref) return value.valueOf();
-        if (value instanceof Number) return value.valueOf();
-
-        console.log(
-            'value',
-            value,
-            typeof value,
-            value instanceof Internref,
-            value instanceof Number,
-        );
-
-        throw TypeError('internref expected');
     }
 
     const refcounts = new Map();
 
-    function __retain(pointer) {
+    async function __retain(pointer) {
         if (pointer) {
             const refcount = refcounts.get(pointer);
             if (refcount) refcounts.set(pointer, refcount + 1);
-            else refcounts.set(contract.__pin(pointer), 1);
+            else {
+                const pinned = await contract.__pin(pointer);
+                refcounts.set(pinned, 1);
+            }
         }
+
         return pointer;
     }
 
-    function __release(pointer) {
+    async function __release(pointer) {
         if (pointer) {
             const refcount = refcounts.get(pointer);
             if (refcount === 1) {
-                contract.__unpin(pointer);
+                await contract.__unpin(pointer);
                 refcounts.delete(pointer);
             } else if (refcount) {
                 refcounts.set(pointer, refcount - 1);

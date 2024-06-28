@@ -32,6 +32,12 @@ export interface IOPNetConsensus<T extends Consensus> {
 
         /** Converts satoshi to BTC */
         SAT_TO_GAS_RATIO: bigint;
+
+        /** The maximum size of a receipt in bytes */
+        MAXIMUM_RECEIPT_LENGTH: number;
+
+        /** The maximum size of an event in bytes */
+        MAXIMUM_EVENT_LENGTH: number;
     };
 
     readonly NETWORK: {

@@ -1,4 +1,4 @@
-import { Address, ADDRESS_BYTE_LENGTH, BufferHelper, Selector } from '@btc-vision/bsi-binary';
+import { Address, BufferHelper, Selector } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
@@ -30,7 +30,6 @@ import { MemoryValue, ProvenMemoryValue } from './storage/types/MemoryValue.js';
 import { StoragePointer } from './storage/types/StoragePointer.js';
 import { VMStorage } from './storage/VMStorage.js';
 import { VMBitcoinBlock } from './VMBitcoinBlock.js';
-import { VMIsolator } from './VMIsolator.js';
 import { WrapTransaction } from '../blockchain-indexer/processor/transaction/transactions/WrapTransaction.js';
 import {
     ExecutionParameters,
@@ -141,23 +140,6 @@ export class VMManager extends Logger {
         await this.vmStorage.saveTransactions(blockHeight, transaction);
     }
 
-    public async loadContractFromBytecode(
-        contractAddress: string,
-        contractBytecode: Buffer,
-    ): Promise<{ isolator: VMIsolator; errored: boolean }> {
-        const isolator = new VMIsolator(contractAddress, contractBytecode);
-        isolator.getStorage = this.getStorage.bind(this);
-        isolator.setStorage = this.setStorage.bind(this);
-        isolator.callExternal = this.callExternal.bind(this);
-
-        let errored = await isolator.setupJail();
-
-        return {
-            isolator,
-            errored,
-        };
-    }
-
     public busy(): boolean {
         return this.isProcessing;
     }
@@ -190,6 +172,7 @@ export class VMManager extends Logger {
                 maxGas: OPNetConsensus.consensus.TRANSACTIONS.EMULATION_MAX_GAS,
                 calldata: Buffer.from(calldataString, 'hex'),
                 blockHeight: currentHeight,
+                blockMedian: BigInt(Date.now()), // add support for this
                 allowCached: true,
                 externalCall: false,
                 gasUsed: 0n,
@@ -211,6 +194,7 @@ export class VMManager extends Logger {
 
     public async executeTransaction(
         blockHeight: bigint,
+        blockMedian: bigint,
         interactionTransaction: InteractionTransaction | WrapTransaction,
     ): Promise<EvaluatedResult> {
         if (this.isProcessing) {
@@ -263,6 +247,7 @@ export class VMManager extends Logger {
                 maxGas: maxGas,
                 calldata: interactionTransaction.calldata,
                 blockHeight: blockHeight,
+                blockMedian: blockMedian,
                 transactionId: interactionTransaction.transactionId,
                 allowCached: true,
                 externalCall: false,
@@ -305,14 +290,11 @@ export class VMManager extends Logger {
             throw new Error('execution reverted.');
         }
 
-        for (const [contract, val] of result.changedStorage) {
-            /*if (contract !== contractAddress) {
-                throw new Error(
-                    `Possible attack detected: Contract ${contract} tried to change storage of ${contractAddress}`,
-                );
-            }*/
-
-            this.blockState.updateValues(contract, val);
+        if (!result.reverted) {
+            for (const [contract, val] of result.changedStorage) {
+                console.log(contract, val);
+                this.blockState.updateValues(contract, val);
+            }
         }
 
         if (transactionId && result.result) {
@@ -551,11 +533,7 @@ export class VMManager extends Logger {
         this.contractCache.clear();
 
         for (let vmEvaluator of this.vmEvaluators.values()) {
-            const evaluator = await vmEvaluator;
-            if (evaluator) {
-                evaluator.clear();
-                evaluator.dispose();
-            }
+            await vmEvaluator;
         }
 
         this.vmEvaluators.clear();
@@ -582,15 +560,8 @@ export class VMManager extends Logger {
             ? await this.getVMEvaluatorFromCache(
                   params.contractAddress,
                   this.vmBitcoinBlock.height || params.blockHeight,
-                  params.maxGas,
-                  params.gasUsed,
               )
-            : await this.getVMEvaluator(
-                  params.contractAddress,
-                  params.blockHeight,
-                  params.maxGas,
-                  params.gasUsed,
-              ).catch((e) => {
+            : await this.getVMEvaluator(params.contractAddress, params.blockHeight).catch((e) => {
                   console.log(e);
                   return null;
               });
@@ -600,8 +571,6 @@ export class VMManager extends Logger {
                 `[executeTransaction] Unable to initialize contract ${params.contractAddress}`,
             );
         }
-
-        await vmEvaluator.setMaxGas(params.maxGas, params.gasUsed);
 
         // Get the function selector
         const calldata: Buffer = params.calldata;
@@ -625,9 +594,6 @@ export class VMManager extends Logger {
 
         // we define the caller here.
         const caller: Address = params.from;
-
-        let error: string = 'execution reverted';
-
         const executionParams: ExecutionParameters = {
             contractAddress: params.contractAddress,
             isView: isView,
@@ -635,39 +601,45 @@ export class VMManager extends Logger {
             calldata: finalBuffer,
             caller: caller,
             callee: params.callee,
+            maxGas: params.maxGas,
+            gasUsed: params.gasUsed,
             externalCall: params.externalCall,
             blockNumber: params.blockHeight,
+            blockMedian: params.blockMedian,
         };
 
         // Execute the function
         const evaluation: ContractEvaluation | null = await vmEvaluator
             .execute(executionParams)
             .catch((e) => {
-                const errorMsg: string = e instanceof Error ? e.message : (e as string);
-                if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
-                    error = `execution reverted (${errorMsg})`;
-                } else {
-                    error = `execution reverted (gas used: ${vmEvaluator.getGasUsed})`;
-                }
-
-                if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                    this.error(
-                        `Error executing function selector ${selector} for contract ${params.contractAddress} at block ${params.blockHeight || 'latest'}}: ${e}`,
-                    );
-                }
+                this.panic(`SHOULD NOT HAPPEN: ${(e as Error).stack}`);
 
                 return null;
             });
 
-        // Clear the VM evaluator if we are not allowing cached.
-        if (!params.allowCached) {
-            vmEvaluator.clear();
-            vmEvaluator.dispose();
+        /** Delete the contract to prevent damage on states. */
+        let error: string = 'execution reverted';
+        if (!evaluation) {
+            throw new Error(error);
         }
 
-        /** Delete the contract to prevent damage on states. */
-        if (!evaluation) {
-            await this.resetContractVM(vmEvaluator, executionParams.contractAddress);
+        if (evaluation.revert) {
+            const errorMsg: string =
+                evaluation.revert instanceof Error
+                    ? evaluation.revert.message
+                    : (evaluation.revert as string);
+
+            if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
+                error = `execution reverted (${errorMsg})`;
+            } else {
+                error = `execution reverted (gas used: ${evaluation.gasUsed})`;
+            }
+
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.error(
+                    `Error executing function selector ${selector} for contract ${params.contractAddress} at block ${params.blockHeight || 'latest'}}: ${(evaluation.revert as Error).stack}`,
+                );
+            }
 
             throw new Error(error);
         }
@@ -700,16 +672,6 @@ export class VMManager extends Logger {
         return address;
     }
 
-    private async resetContractVM(
-        vmEvaluator: ContractEvaluator,
-        contract: Address,
-    ): Promise<void> {
-        this.vmEvaluators.delete(contract);
-
-        vmEvaluator.dispose();
-        vmEvaluator.clear();
-    }
-
     private async getChainCurrentBlockHeight(): Promise<bigint> {
         const block = await this.vmStorage.getLatestBlock();
         if (!block) {
@@ -731,13 +693,17 @@ export class VMManager extends Logger {
         return this.cachedLastBlockHeight;
     }
 
+    private async deployContractFromAddress(
+        _address: Address,
+        _salt: Buffer,
+    ): Promise<Buffer | Uint8Array> {
+        throw new Error('Method not implemented. [deployContractFromAddress]');
+    }
+
     private async getVMEvaluator(
         contractAddress: Address,
-        height: bigint | undefined,
-        maxGas: bigint,
-        gasUsed: bigint,
+        height: bigint,
     ): Promise<ContractEvaluator | null> {
-        // TODO: Add a caching layer for this.
         const contractInformation: ContractInformation | undefined =
             await this.getContractInformation(contractAddress, height);
 
@@ -746,38 +712,20 @@ export class VMManager extends Logger {
             return null;
         }
 
-        const vmIsolatorObj: { isolator: VMIsolator; errored: boolean } =
-            await this.loadContractFromBytecode(contractAddress, contractInformation.bytecode);
+        const vmEvaluator = new ContractEvaluator();
+        vmEvaluator.getStorage = this.getStorage.bind(this);
+        vmEvaluator.setStorage = this.setStorage.bind(this);
+        vmEvaluator.callExternal = this.callExternal.bind(this);
+        vmEvaluator.deployContractFromAddress = this.deployContractFromAddress.bind(this);
 
-        if (vmIsolatorObj.errored) {
-            throw new Error(`Failed to load contract ${contractAddress} bytecode. (errored)`);
-        }
+        vmEvaluator.setContractInformation(contractInformation);
 
-        const vmIsolator: VMIsolator | null = vmIsolatorObj.isolator;
-        if (!vmIsolator) {
-            throw new Error(`Failed to load contract ${contractAddress} bytecode. (isolator)`);
-        }
-
-        const vmEvaluator = vmIsolator.getContract();
-        if (!vmEvaluator) {
-            throw new Error(`Failed to load contract ${contractAddress} bytecode. (evaluator)`);
-        }
-
-        // We use pub the pub key as the deployer address.
-        const contractDeployer: string = contractInformation.deployerAddress;
-        if (!contractDeployer || contractDeployer.length > ADDRESS_BYTE_LENGTH) {
-            throw new Error(`Invalid contract deployer "${contractDeployer}"`);
-        }
-
-        await vmEvaluator.setupContract(contractDeployer, contractAddress, maxGas, gasUsed);
         return vmEvaluator;
     }
 
     private async getVMEvaluatorFromCache(
         contractAddress: Address,
         height: bigint,
-        maxGas: bigint,
-        gasUsed: bigint,
     ): Promise<ContractEvaluator | null> {
         const vmEvaluator: Promise<ContractEvaluator | null> | undefined =
             this.vmEvaluators.get(contractAddress);
@@ -786,11 +734,9 @@ export class VMManager extends Logger {
             return vmEvaluator;
         }
 
-        const newVmEvaluator = this.getVMEvaluator(contractAddress, height, maxGas, gasUsed).catch(
-            () => {
-                return null;
-            },
-        );
+        const newVmEvaluator = this.getVMEvaluator(contractAddress, height).catch(() => {
+            return null;
+        });
 
         // This was move on top of the error on purpose. It prevents timeout during initialization for faster processing.
         this.vmEvaluators.set(contractAddress, newVmEvaluator as Promise<ContractEvaluator>);
@@ -955,9 +901,6 @@ export class VMManager extends Logger {
         }
 
         if (valueFromDB.lastSeenAt === 0n) {
-            // Default value.
-            //await this.setStorage(address, pointer, valueFromDB.value);
-
             return {
                 memory: valueFromDB.value,
             };
@@ -997,6 +940,8 @@ export class VMManager extends Logger {
                 setIfNotExit,
                 blockNumber,
             );
+
+            if (!result) return null;
 
             if (result?.memory) return result.memory;
 

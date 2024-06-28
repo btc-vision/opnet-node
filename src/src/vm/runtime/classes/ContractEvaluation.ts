@@ -1,5 +1,11 @@
 import { IEvaluationParameters } from '../types/InternalContractCallParameters.js';
-import { Address, BlockchainStorage, NetEvent } from '@btc-vision/bsi-binary';
+import {
+    Address,
+    BinaryReader,
+    BlockchainStorage,
+    DeterministicMap,
+    NetEvent,
+} from '@btc-vision/bsi-binary';
 import {
     BlockchainStorageMap,
     EvaluatedEvents,
@@ -8,6 +14,8 @@ import {
 } from '../../evaluated/EvaluatedResult.js';
 import { ExternalCallsResult } from '../types/ExternalCall.js';
 import { MapConverter } from '../MapConverter.js';
+import { GasTracker } from '../GasTracker.js';
+import { MemorySlotData, MemorySlotPointer } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
 
 export class ContractEvaluation implements IEvaluationParameters {
     public readonly contractAddress: Address;
@@ -16,22 +24,21 @@ export class ContractEvaluation implements IEvaluationParameters {
     public readonly calldata: Uint8Array;
     public readonly caller: Address;
     public readonly callee: Address;
-    public readonly canWrite: boolean;
+    public canWrite: boolean;
 
     public readonly blockNumber: bigint;
+    public readonly blockMedian: bigint;
 
     public readonly externalCall: boolean;
 
-    public initialStorage: BlockchainStorageMap | undefined;
     public modifiedStorage: BlockchainStorageMap | undefined;
 
-    public events: EvaluatedEvents | undefined;
-    public sameStorage: boolean = false;
+    public events: EvaluatedEvents = new Map();
 
     public result: Uint8Array | undefined;
+    public readonly gasTracker: GasTracker = new GasTracker();
 
-    public gasUsed: bigint = 0n;
-    public tries: number = 0;
+    public readonly storage: BlockchainStorage = new DeterministicMap(BinaryReader.stringCompare);
 
     constructor(params: IEvaluationParameters) {
         this.contractAddress = params.contractAddress;
@@ -43,19 +50,48 @@ export class ContractEvaluation implements IEvaluationParameters {
         this.canWrite = params.canWrite;
         this.externalCall = params.externalCall;
         this.blockNumber = params.blockNumber;
+        this.blockMedian = params.blockMedian;
+
+        this.gasTracker.maxGas = params.maxGas;
+        this.gasTracker.gasUsed = params.gasUsed;
     }
 
-    public incrementTries(): void {
-        this.tries++;
+    public get maxGas(): bigint {
+        return this.gasTracker.maxGas;
     }
 
-    public setInitialStorage(storage: BlockchainStorage): void {
-        this.initialStorage =
-            MapConverter.convertDeterministicBlockchainStorageMapToBlockchainStorage(storage);
+    private _revert: Error | string | undefined;
+
+    public get revert(): Error | string | undefined {
+        return this._revert;
     }
 
-    public setEvents(events: EvaluatedEvents): void {
-        this.events = events;
+    public set revert(error: Error | string) {
+        this._revert = error;
+    }
+
+    public get gasUsed(): bigint {
+        return this.gasTracker.gasUsed;
+    }
+
+    public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
+        const current =
+            this.storage.get(this.contractAddress) ||
+            new DeterministicMap(BinaryReader.bigintCompare);
+
+        current.set(pointer, value);
+
+        this.storage.set(this.contractAddress, current);
+    }
+
+    public onGasUsed: (gas: bigint, method: string) => void = (gas: bigint, method: string) => {
+        //console.log(`Gas used: ${gas} for method ${method}`);
+
+        this.gasTracker.setGas(gas);
+    };
+
+    public setCanWrite(canWrite: boolean): void {
+        this.canWrite = canWrite;
     }
 
     public setEvent(contract: Address, events: NetEvent[]) {
@@ -64,25 +100,10 @@ export class ContractEvaluation implements IEvaluationParameters {
         this.events.set(contract, events);
     }
 
-    public setSameStorage(sameStorage: boolean) {
-        this.sameStorage = sameStorage;
-    }
-
     public setResult(result: Uint8Array): void {
         this.result = result;
-    }
 
-    public setModifiedStorage(storage: BlockchainStorage): void {
-        this.modifiedStorage =
-            MapConverter.convertDeterministicBlockchainStorageMapToBlockchainStorage(storage);
-
-        if (this.modifiedStorage.size > 1) {
-            throw new Error(`execution reverted (storage is too big)`);
-        }
-    }
-
-    public setGasUsed(gasUsed: bigint): void {
-        this.gasUsed = gasUsed; //GasTracker.round(gasUsed);
+        this.setModifiedStorage();
     }
 
     public processExternalCalls(extern: ExternalCallsResult): void {
@@ -127,7 +148,17 @@ export class ContractEvaluation implements IEvaluationParameters {
             result: this.result,
             events: this.events,
             gasUsed: this.gasUsed,
+            reverted: !!this.revert,
         };
+    }
+
+    private setModifiedStorage(): void {
+        this.modifiedStorage =
+            MapConverter.convertDeterministicBlockchainStorageMapToBlockchainStorage(this.storage);
+
+        if (this.modifiedStorage.size > 1) {
+            throw new Error(`execution reverted (storage is too big)`);
+        }
     }
 
     private mergeEvents(events: EvaluatedEvents): void {

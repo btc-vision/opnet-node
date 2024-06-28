@@ -6,7 +6,7 @@ export class GasTracker {
     #gasUsed: bigint = 0n;
     #maxGas: bigint;
 
-    private canTrack: boolean = true;
+    #startedAt: number = Date.now();
 
     constructor(private readonly MAX_GAS: bigint = GasTracker.MAX_GAS) {
         this.#maxGas = MAX_GAS;
@@ -29,7 +29,7 @@ export class GasTracker {
     }
 
     public get timeSpent(): bigint {
-        return 0n;
+        return BigInt(Date.now() - this.#startedAt);
     }
 
     public static convertSatToGas(sat: bigint, maxGas: bigint, ratio: bigint): bigint {
@@ -46,40 +46,20 @@ export class GasTracker {
         );
     }
 
-    public isEnabled(): boolean {
-        return this.canTrack;
-    }
-
-    public addGasUsed(gas: bigint) {
-        if (!this.canTrack) {
-            return;
-        }
-
+    public setGas(gas: bigint) {
         if (gas < 0n) {
+            console.trace(`Attempted to add negative gas: ${gas}`);
             throw new Error('Gas used cannot be negative.');
         }
 
-        if (this.#gasUsed + gas > this.#maxGas) {
-            throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.#maxGas}`);
+        if (gas > this.#maxGas) {
+            throw new Error(`out of gas ${gas} > ${this.#maxGas}`);
         }
 
-        if (this.#gasUsed + gas > this.MAX_GAS) {
-            throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.MAX_GAS} (max)`);
+        if (gas > this.MAX_GAS) {
+            throw new Error(`out of gas ${gas} > ${this.MAX_GAS} (max)`);
         }
 
-        this.#gasUsed += gas;
-    }
-
-    public reset(): void {
-        this.#gasUsed = 0n;
-        this.#maxGas = this.MAX_GAS;
-    }
-
-    public enableTracking(): void {
-        this.canTrack = true;
-    }
-
-    public disableTracking(): void {
-        this.canTrack = false;
+        this.#gasUsed = gas;
     }
 }
