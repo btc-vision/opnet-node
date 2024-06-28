@@ -151,42 +151,47 @@ export class ContractEvaluator extends Logger {
             throw new Error('Contract is already processing');
         }
 
-        this.isProcessing = true;
-
-        const evaluation = new ContractEvaluation({
-            ...params,
-            canWrite: false,
-        });
-
-        await this.loadContractFromBytecode(evaluation);
-        await this.defineSelectorAndSetupEnvironment(evaluation);
-        await this.setupContract();
-
-        if (!evaluation.calldata && !evaluation.isView) {
-            throw new Error('Calldata is required.');
-        }
-
-        const canWrite: boolean = this.canWrite(evaluation.abi);
-        evaluation.setCanWrite(canWrite);
-
         try {
-            // We execute the method.
-            await this.evaluate(evaluation);
+            this.isProcessing = true;
+
+            const evaluation = new ContractEvaluation({
+                ...params,
+                canWrite: false,
+            });
+
+            await this.loadContractFromBytecode(evaluation);
+            await this.defineSelectorAndSetupEnvironment(evaluation);
+            await this.setupContract();
+
+            if (!evaluation.calldata && !evaluation.isView) {
+                throw new Error('Calldata is required.');
+            }
+
+            const canWrite: boolean = this.canWrite(evaluation.abi);
+            evaluation.setCanWrite(canWrite);
+
+            try {
+                // We execute the method.
+                await this.evaluate(evaluation);
+            } catch (e) {
+                evaluation.revert = e as Error;
+            }
+
+            this.isProcessing = false;
+
+            this.delete();
+
+            if (this.enableTracing) {
+                console.log(
+                    `EXECUTION GAS USED: ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
+                );
+            }
+
+            return evaluation;
         } catch (e) {
-            evaluation.revert = e as Error;
+            this.isProcessing = false;
+            throw e;
         }
-
-        this.isProcessing = false;
-
-        this.delete();
-
-        if (this.enableTracing) {
-            console.log(
-                `EXECUTION GAS USED: ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
-            );
-        }
-
-        return evaluation;
     }
 
     private async defineSelectorAndSetupEnvironment(params: ExecutionParameters): Promise<void> {
