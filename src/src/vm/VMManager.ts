@@ -757,7 +757,7 @@ export class VMManager extends Logger {
             contractInfo.bytecode,
         );
 
-        if (this.contractCache.has(address)) {
+        if (this.contractCache.has(deployResult.contractAddress)) {
             throw new Error('Contract already deployed. (cache)');
         }
 
