@@ -620,7 +620,7 @@ export class VMManager extends Logger {
         const evaluation: ContractEvaluation | null = await vmEvaluator
             .execute(executionParams)
             .catch((e) => {
-                this.panic(`SHOULD NOT HAPPEN: ${(e as Error).stack}`);
+                this.panic(`SHOULD NOT HAPPEN: ${e as Error}`);
 
                 return null;
             });
