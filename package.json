@@ -6,7 +6,7 @@
     "main": "build/index.js",
     "scripts": {
         "watch": "gulp watch",
-        "start": "cd build && node --no-node-snapshot --optimize_for_size --gc_interval=100 index",
+        "start": "cd build && node --optimize_for_size --gc_interval=100 index",
         "build": "gulp",
         "test": "jest --runInBand",
         "setup": "npm i && npm run build"

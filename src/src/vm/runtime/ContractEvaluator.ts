@@ -26,6 +26,15 @@ import { ContractInformation } from '../../blockchain-indexer/processor/transact
 import { AddressGenerator, TapscriptVerificator } from '@btc-vision/transaction';
 import bitcoin from 'bitcoinjs-lib';
 
+/*import * as v8 from 'node:v8';
+
+v8.setFlagsFromString('--expose_gc');
+
+const gc: (() => void) | undefined = global.gc;
+if (!gc) {
+    throw new Error('Garbage collector not exposed');
+}*/
+
 export class ContractEvaluator extends Logger {
     private static readonly MAX_CONTRACT_EXTERN_CALLS: number = 8;
 
@@ -105,6 +114,10 @@ export class ContractEvaluator extends Logger {
     public delete(): void {
         this.contractInstance.dispose();
         delete this._contractInstance;
+
+        /*if (gc) {
+            gc();
+        }*/
     }
 
     public getViewSelectors(): SelectorsMap {
@@ -165,9 +178,9 @@ export class ContractEvaluator extends Logger {
 
         this.delete();
 
-        console.log(
+        /*console.log(
             `EXECUTION GAS USED: ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
-        );
+        );*/
 
         if (this.enableTracing) {
             console.log(evaluation);
@@ -199,7 +212,7 @@ export class ContractEvaluator extends Logger {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
-        const pointerResponse: bigint = (await this.getStorageState(evaluation, pointer)) || 0n;
+        const pointerResponse: bigint = 0n; //(await this.getStorageState(evaluation, pointer)) || 0n;
 
         if (this.enableTracing) {
             this.debug(`Loaded pointer ${pointer} - value ${pointerResponse}`);
@@ -340,6 +353,7 @@ export class ContractEvaluator extends Logger {
         let result: Uint8Array | undefined;
         let error: Error | undefined;
 
+        // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
         try {
             result = hasSelectorInMethods
                 ? await this.contractInstance.readMethod(evaluation.abi, evaluation.calldata)
@@ -358,6 +372,7 @@ export class ContractEvaluator extends Logger {
             return;
         }
 
+        // Move that in the header check
         if (result.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
             evaluation.revert = new Error('Result is too long');
 
@@ -491,8 +506,6 @@ export class ContractEvaluator extends Logger {
         pointer: MemorySlotPointer,
     ): Promise<bigint | null> {
         const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
-        //const defaultValueBuffer: MemoryValue = BufferHelper.valueToUint8Array(defaultValue);
-
         const value: MemoryValue | null = await this.internalGetStorage(
             evaluation.contractAddress,
             rawData,

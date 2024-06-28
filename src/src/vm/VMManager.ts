@@ -292,7 +292,6 @@ export class VMManager extends Logger {
 
         if (!result.reverted) {
             for (const [contract, val] of result.changedStorage) {
-                console.log(contract, val);
                 this.blockState.updateValues(contract, val);
             }
         }
