@@ -217,7 +217,7 @@ export class ContractEvaluator extends Logger {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
-        const pointerResponse: bigint = 0n; //(await this.getStorageState(evaluation, pointer)) || 0n;
+        const pointerResponse: bigint = (await this.getStorageState(evaluation, pointer)) || 0n;
 
         if (this.enableTracing) {
             this.debug(`Loaded pointer ${pointer} - value ${pointerResponse}`);
