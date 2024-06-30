@@ -48,6 +48,8 @@ export class ContractEvaluation implements IEvaluationParameters {
     public readonly storage: BlockchainStorage = new DeterministicMap(BinaryReader.stringCompare);
     public readonly deployedContracts: ContractInformation[] = [];
 
+    public callStack: Address[];
+
     constructor(params: IEvaluationParameters) {
         this.contractAddress = params.contractAddress;
         this.isView = params.isView;
@@ -67,6 +69,9 @@ export class ContractEvaluation implements IEvaluationParameters {
 
         this.gasTracker.maxGas = params.maxGas;
         this.gasTracker.gasUsed = params.gasUsed;
+
+        this.callStack = params.callStack || [];
+        this.callStack.push(this.contractAddress);
     }
 
     public get maxGas(): bigint {
@@ -150,6 +155,9 @@ export class ContractEvaluation implements IEvaluationParameters {
             throw new Error('Cannot call self');
         }
 
+        this.callStack = extern.callStack;
+        this.checkReentrancy();
+
         this.callDepth = extern.callDepth;
         this.contractDeployDepth = extern.contractDeployDepth;
 
@@ -177,6 +185,21 @@ export class ContractEvaluation implements IEvaluationParameters {
         }
 
         this.gasTracker.gasUsed = extern.gasUsed;
+    }
+
+    public getEvaluationResult(): EvaluatedResult {
+        if (!this.result) throw new Error('Result not set');
+        if (!this.events) throw new Error('Events not set');
+        if (!this.modifiedStorage) throw new Error('Modified storage not set');
+
+        return {
+            changedStorage: this.modifiedStorage,
+            result: this.result,
+            events: this.events,
+            gasUsed: this.gasUsed,
+            reverted: !!this.revert,
+            deployedContracts: this.deployedContracts,
+        };
     }
 
     /*for (const [contract, call] of extern) {
@@ -208,23 +231,14 @@ export class ContractEvaluation implements IEvaluationParameters {
             }
         }*/
 
-    public getEvaluationResult(): EvaluatedResult {
-        if (!this.result) throw new Error('Result not set');
-        if (!this.events) throw new Error('Events not set');
-        if (!this.modifiedStorage) throw new Error('Modified storage not set');
-
-        return {
-            changedStorage: this.modifiedStorage,
-            result: this.result,
-            events: this.events,
-            gasUsed: this.gasUsed,
-            reverted: !!this.revert,
-            deployedContracts: this.deployedContracts,
-        };
-    }
-
     public addContractInformation(contract: ContractInformation): void {
         this.deployedContracts.push(contract);
+    }
+
+    private checkReentrancy(): void {
+        if (this.callStack.includes(this.callee)) {
+            throw new Error('OPNET: REENTRANCY');
+        }
     }
 
     private setModifiedStorage(): void {

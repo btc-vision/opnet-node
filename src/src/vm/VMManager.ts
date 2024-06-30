@@ -639,6 +639,7 @@ export class VMManager extends Logger {
             callDepth: params.callDepth,
             transactionId: params.transactionId,
             transactionHash: params.transactionHash,
+            callStack: params.callStack || [],
         };
 
         // Execute the function

@@ -24,6 +24,7 @@ export interface InternalContractCallParameters {
     allowCached?: boolean;
 
     readonly deployedContracts?: ContractInformation[];
+    readonly callStack?: Address[];
 }
 
 export interface ExecutionParameters {
@@ -49,6 +50,7 @@ export interface ExecutionParameters {
     readonly callDepth: number;
 
     readonly externalCall: boolean;
+    readonly callStack: Address[];
 }
 
 export interface IEvaluationParameters extends ExecutionParameters {
