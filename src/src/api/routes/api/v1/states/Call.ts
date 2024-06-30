@@ -44,6 +44,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         to: Address,
         calldata: string,
         from?: Address,
+        blockNumber?: bigint,
     ): Promise<CallRequestResponse> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
             type: MessageType.RPC_METHOD,
@@ -53,6 +54,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     to: to,
                     calldata: calldata,
                     from: from,
+                    blockNumber: blockNumber,
                 },
             } as CallRequest,
         };
@@ -74,8 +76,13 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             throw new Error('Storage not initialized');
         }
 
-        const [to, calldata, from] = this.getDecodedParams(_params);
-        const res: CallRequestResponse = await Call.requestThreadExecution(to, calldata, from);
+        const [to, calldata, from, blockNumber] = this.getDecodedParams(_params);
+        const res: CallRequestResponse = await Call.requestThreadExecution(
+            to,
+            calldata,
+            from,
+            blockNumber,
+        );
 
         return this.convertDataToResult(res);
     }
@@ -133,6 +140,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
         const to = req.query.to as string;
         const data = req.query.data as string;
+        const from = req.query.from as string;
+        const blockNumber = req.query.blockNumber as string;
 
         if (!to || to.length < 50) {
             res.status(400);
@@ -149,6 +158,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return {
             to,
             calldata: data,
+            from,
+            blockNumber,
         };
     }
 
@@ -219,19 +230,24 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return accessList;
     }
 
-    private getDecodedParams(params: CallParams): [Address, string, Address | undefined] {
+    private getDecodedParams(
+        params: CallParams,
+    ): [Address, string, Address | undefined, bigint | undefined] {
         let address: Address | undefined;
         let calldata: string | undefined;
         let from: Address | undefined;
+        let blockNumber: bigint | undefined;
 
         if (Array.isArray(params)) {
             address = params.shift() as Address | undefined;
             calldata = params.shift() as string | undefined;
             from = params.shift() as Address | undefined;
+            blockNumber = params.shift() as bigint | undefined;
         } else {
             address = params.to;
             calldata = params.calldata;
             from = params.from;
+            blockNumber = params.blockNumber ? BigInt(params.blockNumber) : undefined;
         }
 
         if (
@@ -246,6 +262,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
         if (!calldata || calldata.length < 1) throw new Error(`Invalid calldata specified.`);
 
-        return [address, calldata, from];
+        return [address, calldata, from, blockNumber];
     }
 }

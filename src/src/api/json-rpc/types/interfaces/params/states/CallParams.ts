@@ -6,10 +6,10 @@ export interface CallParamsAsObject extends JSONRpcParams<JSONRpcMethods.CALL> {
     readonly to: Address;
     readonly calldata: string;
 
-    // Disabled for now.
     readonly from?: Address;
+    readonly blockNumber?: string;
 }
 
-export type CallParamsAsArray = [Address, Address, string];
+export type CallParamsAsArray = [Address, Address, string?, string?];
 
 export type CallParams = CallParamsAsObject | CallParamsAsArray;

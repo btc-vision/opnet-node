@@ -160,7 +160,12 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
         let result: CallRequestResponse | void;
         try {
-            result = await vmManager.execute(data.to, data.from || BTC_FAKE_ADDRESS, data.calldata);
+            result = await vmManager.execute(
+                data.to,
+                data.from || BTC_FAKE_ADDRESS,
+                data.calldata,
+                data.blockNumber,
+            );
         } catch (e) {
             const error = e as Error;
 
