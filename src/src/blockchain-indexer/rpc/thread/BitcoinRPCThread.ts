@@ -59,17 +59,16 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
         return new Promise<VMManager>((resolve) => {
             let startNumber = this.currentVMManagerIndex;
-            let nextCurrent: number = this.currentVMManagerIndex;
             let vmManager: VMManager | undefined;
 
             do {
                 vmManager = this.vmManagers[this.currentVMManagerIndex];
-                nextCurrent = (nextCurrent + 1) % this.CONCURRENT_VMS;
+                this.currentVMManagerIndex = (this.currentVMManagerIndex + 1) % this.CONCURRENT_VMS;
 
                 if (!vmManager.busy() && vmManager.initiated) {
                     break;
                 }
-            } while (nextCurrent !== startNumber);
+            } while (this.currentVMManagerIndex !== startNumber);
 
             if (!vmManager) {
                 setTimeout(async () => {
@@ -150,7 +149,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
                 const vmManager = this.vmManagers[i];
                 vmManager.clear();
             }
-        }, 60000); //clear ever minute
+        }, 30000);
     }
 
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
