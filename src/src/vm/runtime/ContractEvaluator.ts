@@ -253,8 +253,48 @@ export class ContractEvaluator extends Logger {
     /** Call a contract */
     private async call(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
         const reader = new BinaryReader(data);
+        const contractAddress: Address = reader.readAddress();
 
-        throw new Error('Not implemented [call]');
+        if (evaluation.contractAddress === contractAddress) {
+            throw new Error('Cannot call itself');
+        }
+
+        const calldata: Uint8Array = reader.readBytesWithLength();
+        evaluation.incrementCallDepth();
+
+        const externalCallParams: InternalContractCallParameters = {
+            contractAddress: contractAddress,
+            from: evaluation.caller,
+            callee: evaluation.contractAddress,
+
+            maxGas: evaluation.gasTracker.maxGas,
+            gasUsed: evaluation.gasTracker.gasUsed,
+
+            externalCall: true,
+            blockHeight: evaluation.blockNumber,
+            blockMedian: evaluation.blockMedian,
+
+            // data
+            calldata: Buffer.from(calldata),
+
+            transactionId: evaluation.transactionId,
+            transactionHash: evaluation.transactionHash,
+
+            contractDeployDepth: evaluation.contractDeployDepth,
+            callDepth: evaluation.callDepth,
+
+            deployedContracts: evaluation.deployedContracts,
+        };
+
+        const response = await this.callExternal(externalCallParams);
+        evaluation.merge(response);
+
+        const result = response.result;
+        if (!result) {
+            throw new Error('No result');
+        }
+
+        return result;
     }
 
     // TODO: Implement this

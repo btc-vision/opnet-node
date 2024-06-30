@@ -556,19 +556,44 @@ export class VMManager extends Logger {
         return result;
     }
 
+    private async getVMEvaluatorFromParams(
+        contractAddress: Address,
+        blockHeight: bigint,
+        contract?: ContractInformation,
+    ): Promise<ContractEvaluator | null> {
+        return await this.getVMEvaluator(contractAddress, blockHeight, contract).catch((e) => {
+            this.warn(`Error getting VM evaluator: ${e as Error}`);
+            return null;
+        });
+    }
+
     private async executeCallInternal(
         params: InternalContractCallParameters,
     ): Promise<ContractEvaluation> {
-        // Get the contract evaluator
-        const vmEvaluator: ContractEvaluator | null = params.allowCached
-            ? await this.getVMEvaluatorFromCache(
-                  params.contractAddress,
-                  this.vmBitcoinBlock.height || params.blockHeight,
-              )
-            : await this.getVMEvaluator(params.contractAddress, params.blockHeight).catch((e) => {
-                  console.log(e);
-                  return null;
-              });
+        let vmEvaluator: ContractEvaluator | null = null;
+
+        if (params.deployedContracts) {
+            for (let contract of params.deployedContracts) {
+                if (contract.contractAddress === params.contractAddress) {
+                    vmEvaluator = await this.getVMEvaluatorFromParams(
+                        params.contractAddress,
+                        params.blockHeight,
+                        contract,
+                    );
+                    break;
+                }
+            }
+        } else {
+            vmEvaluator = params.allowCached
+                ? await this.getVMEvaluatorFromCache(
+                      params.contractAddress,
+                      this.vmBitcoinBlock.height || params.blockHeight,
+                  )
+                : (vmEvaluator = await this.getVMEvaluatorFromParams(
+                      params.contractAddress,
+                      params.blockHeight,
+                  ));
+        }
 
         if (!vmEvaluator) {
             throw new Error(
@@ -780,34 +805,23 @@ export class VMManager extends Logger {
         );
 
         const contractSaltHash = bitcoin.crypto.hash256(salt);
-        if (!this.isExecutor) {
-            if (!evaluation.transactionId || !evaluation.transactionHash) {
-                this.panic(
-                    'SHOULD NOT HAPPEN -> Transaction id or hash not found in executor mode. [deployContractAtAddress]',
-                );
 
-                throw new Error(
-                    'Transaction id or hash not found in executor mode. [deployContractAtAddress]',
-                );
-            }
+        const contractInformation: ContractInformation = new ContractInformation(
+            evaluation.blockNumber,
+            deployResult.contractAddress,
+            `0x${deployResult.virtualAddress.toString('hex')}`,
+            null,
+            contractInfo.bytecode,
+            false,
+            evaluation.transactionId || '',
+            evaluation.transactionHash || '',
+            deployerKeyPair.publicKey,
+            salt,
+            contractSaltHash,
+            evaluation.contractAddress,
+        );
 
-            const contractInformation: ContractInformation = new ContractInformation(
-                evaluation.blockNumber,
-                deployResult.contractAddress,
-                `0x${deployResult.virtualAddress.toString('hex')}`,
-                null,
-                contractInfo.bytecode,
-                false,
-                evaluation.transactionId,
-                evaluation.transactionHash,
-                deployerKeyPair.publicKey,
-                salt,
-                contractSaltHash,
-                evaluation.contractAddress,
-            );
-
-            evaluation.addContractInformation(contractInformation);
-        }
+        evaluation.addContractInformation(contractInformation);
 
         return {
             ...deployResult,
@@ -816,6 +830,24 @@ export class VMManager extends Logger {
     }
 
     private async deployContractFromInfo(contractInformation: ContractInformation): Promise<void> {
+        if (this.isExecutor) {
+            // Emulators dont deploy contracts.
+            return;
+        }
+
+        if (
+            !contractInformation.deployedTransactionId ||
+            !contractInformation.deployedTransactionHash
+        ) {
+            this.panic(
+                'SHOULD NOT HAPPEN -> Transaction id or hash not found in executor mode. [deployContractAtAddress]',
+            );
+
+            throw new Error(
+                'Transaction id or hash not found in executor mode. [deployContractAtAddress]',
+            );
+        }
+
         await this.setContractAt(contractInformation);
 
         if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
@@ -826,9 +858,11 @@ export class VMManager extends Logger {
     private async getVMEvaluator(
         contractAddress: Address,
         height: bigint,
+        contractInformation?: ContractInformation | undefined,
     ): Promise<ContractEvaluator | null> {
-        const contractInformation: ContractInformation | undefined =
-            await this.getContractInformation(contractAddress, height);
+        if (!contractInformation) {
+            contractInformation = await this.getContractInformation(contractAddress, height);
+        }
 
         if (!contractInformation) {
             this.warn(`Could not get contract ${contractAddress}.`);

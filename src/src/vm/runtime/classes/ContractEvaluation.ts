@@ -98,6 +98,14 @@ export class ContractEvaluation implements IEvaluationParameters {
         }
     }
 
+    public incrementCallDepth(): void {
+        this.callDepth++;
+
+        if (this.callDepth > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_CALL_DEPTH) {
+            throw new Error('Call depth exceeded');
+        }
+    }
+
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
         const current =
             this.storage.get(this.contractAddress) ||
@@ -130,9 +138,48 @@ export class ContractEvaluation implements IEvaluationParameters {
         this.setModifiedStorage();
     }
 
-    /*public processExternalCalls(extern: ExternalCallsResult): void {
+    public merge(extern: ContractEvaluation): void {
         // we must merge the storage of the external calls
-        for (const [contract, call] of extern) {
+        if (extern.revert) {
+            this.revert = extern.revert;
+
+            throw new Error('execution reverted');
+        }
+
+        if (extern.contractAddress === this.contractAddress) {
+            throw new Error('Cannot call self');
+        }
+
+        this.callDepth = extern.callDepth;
+        this.contractDeployDepth = extern.contractDeployDepth;
+
+        if (this.callDepth > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_CALL_DEPTH) {
+            throw new Error('Call depth exceeded');
+        }
+
+        if (
+            this.contractDeployDepth >
+            OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_DEPLOYMENT_DEPTH
+        ) {
+            throw new Error('Contract deployment depth exceeded');
+        }
+
+        if (extern.modifiedStorage) {
+            this.mergeStorage(extern.modifiedStorage);
+        }
+
+        if (extern.events) {
+            this.mergeEvents(extern.events);
+        }
+
+        if (extern.deployedContracts) {
+            this.deployedContracts.push(...extern.deployedContracts);
+        }
+
+        this.gasTracker.gasUsed = extern.gasUsed;
+    }
+
+    /*for (const [contract, call] of extern) {
             if (contract === this.contractAddress) {
                 throw new Error('Cannot call self');
             }
@@ -159,8 +206,7 @@ export class ContractEvaluation implements IEvaluationParameters {
                     this.mergeEvents(events);
                 }
             }
-        }
-    }*/
+        }*/
 
     public getEvaluationResult(): EvaluatedResult {
         if (!this.result) throw new Error('Result not set');
@@ -182,12 +228,14 @@ export class ContractEvaluation implements IEvaluationParameters {
     }
 
     private setModifiedStorage(): void {
-        this.modifiedStorage =
+        const modifiedStorage =
             MapConverter.convertDeterministicBlockchainStorageMapToBlockchainStorage(this.storage);
 
-        if (this.modifiedStorage.size > 1) {
+        if (modifiedStorage.size > 1) {
             throw new Error(`execution reverted (storage is too big)`);
         }
+
+        this.mergeStorage(modifiedStorage);
     }
 
     private mergeEvents(events: EvaluatedEvents): void {
@@ -207,7 +255,7 @@ export class ContractEvaluation implements IEvaluationParameters {
 
     private mergeStorage(storage: BlockchainStorageMap): void {
         if (!this.modifiedStorage) {
-            throw new Error('Modified storage not set');
+            this.modifiedStorage = new Map();
         }
 
         for (const [key, value] of storage) {

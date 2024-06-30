@@ -1,4 +1,5 @@
 import { Address } from '@btc-vision/bsi-binary';
+import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 
 export interface InternalContractCallParameters {
     readonly contractAddress: Address;
@@ -21,6 +22,8 @@ export interface InternalContractCallParameters {
 
     readonly gasUsed: bigint;
     allowCached?: boolean;
+
+    readonly deployedContracts?: ContractInformation[];
 }
 
 export interface ExecutionParameters {

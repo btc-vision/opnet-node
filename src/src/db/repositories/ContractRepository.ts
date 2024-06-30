@@ -99,6 +99,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         return contract.contractAddress;
     }
 
+    // TODO: Add verification to make sure the contract it tries to deploy does not already exist.
     public async setContract(
         contract: ContractInformation,
         currentSession?: ClientSession,
