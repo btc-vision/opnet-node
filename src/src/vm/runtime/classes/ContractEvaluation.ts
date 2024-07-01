@@ -155,8 +155,12 @@ export class ContractEvaluation implements IEvaluationParameters {
             throw new Error('Cannot call self');
         }
 
+        if (!this.canWrite && extern.canWrite) {
+            throw new Error(`OPNET: READONLY_CALLED_WRITE`);
+        }
+
         this.callStack = extern.callStack;
-        this.checkReentrancy();
+        this.checkReentrancy(extern.callStack);
 
         this.callDepth = extern.callDepth;
         this.contractDeployDepth = extern.contractDeployDepth;
@@ -235,8 +239,8 @@ export class ContractEvaluation implements IEvaluationParameters {
         this.deployedContracts.push(contract);
     }
 
-    private checkReentrancy(): void {
-        if (this.callStack.includes(this.callee)) {
+    private checkReentrancy(callStack: Address[]): void {
+        if (callStack.includes(this.contractAddress)) {
             throw new Error('OPNET: REENTRANCY');
         }
     }

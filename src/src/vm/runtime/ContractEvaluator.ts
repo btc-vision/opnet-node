@@ -255,10 +255,6 @@ export class ContractEvaluator extends Logger {
         const reader = new BinaryReader(data);
         const contractAddress: Address = reader.readAddress();
 
-        if (evaluation.callStack.includes(contractAddress)) {
-            throw new Error('OPNET: REENTRANCY');
-        }
-
         if (evaluation.contractAddress === contractAddress) {
             throw new Error('Cannot call itself');
         }

@@ -70,7 +70,7 @@ export async function loadRust(params) {
 
     contract.getError = function (err) {
         const msg = err.message;
-        if (msg.includes('Execution aborted')) {
+        if (msg.includes('Execution aborted') && !msg.includes('Execution aborted:')) {
             return contract.abort();
         } else {
             return err;
