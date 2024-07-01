@@ -321,6 +321,8 @@ export class ContractEvaluator extends Logger {
         return response.getBuffer();
     }
 
+    private onDebug(buffer: Buffer): void {}
+
     private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {
         if (!this.bytecode) {
             throw new Error('Bytecode is required');
@@ -341,6 +343,9 @@ export class ContractEvaluator extends Logger {
             },
             deployContractAtAddress: async (data: Buffer) => {
                 return await this.deployContractFromAddressRaw(data, evaluation);
+            },
+            log: (buffer: Buffer) => {
+                this.onDebug(buffer);
             },
         };
     }
