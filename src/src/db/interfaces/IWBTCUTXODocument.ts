@@ -25,6 +25,12 @@ export interface PartialWBTCUTXODocument {
     readonly output: Binary;
 }
 
+export interface PartialWBTCUTXODocumentForAPI
+    extends Omit<PartialWBTCUTXODocument, 'value' | 'output'> {
+    readonly output: string;
+    readonly value: string;
+}
+
 export interface IUsedWBTCUTXODocument {
     readonly vault: Address;
     readonly height: Decimal128;

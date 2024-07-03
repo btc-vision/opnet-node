@@ -64,6 +64,18 @@ export class TransactionConverterForAPI {
                 '0x' + DataConverter.fromDecimal128(transaction.depositAmount).toString(16);
         }
 
+        if (transaction.consolidatedVault !== undefined && transaction.consolidatedVault !== null) {
+            newTx.consolidatedVault = {
+                vault: transaction.consolidatedVault.vault,
+                hash: transaction.consolidatedVault.hash,
+                value:
+                    '0x' +
+                    DataConverter.fromDecimal128(transaction.consolidatedVault.value).toString(16),
+                outputIndex: transaction.consolidatedVault.outputIndex,
+                output: transaction.consolidatedVault.output.toString('base64'),
+            };
+        }
+
         delete newTx._id;
         delete newTx.blockHeight;
 
