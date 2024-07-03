@@ -122,7 +122,11 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             }
         }
 
-        return order;
+        return order.sort((a: MinimumUtxoInformation, b: MinimumUtxoInformation) => {
+            if (a.value === b.value) return 0;
+
+            return a.value < b.value ? -1 : 1;
+        });
     }
 
     private verifyConsolidatedInputs(
@@ -202,6 +206,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             throw new Error(`Too many outputs.`);
         }
 
+        // Always put the smallest input first.
         const orderedInputs = this.checkInputOrder(psbt, usedVaults);
 
         let consolidationAmount: bigint = 0n;
