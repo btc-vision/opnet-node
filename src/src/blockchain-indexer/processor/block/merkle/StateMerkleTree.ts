@@ -114,22 +114,23 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
     }
 
     public getValueWithProofs(
-        address: string,
+        address: Address,
         key: MemorySlotPointer,
     ): [MemorySlotData<bigint>, string[]] | undefined {
-        if (!this.tree) {
-            return;
-        }
-
-        this.validate();
-
-        const pointer = this.encodePointer(address, key);
         const value = this.getValue(address, key);
         if (!value) {
             return undefined;
         }
 
         const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
+        const pointer = this.encodePointer(address, key);
+
+        if (!this.tree) {
+            return [value, []];
+        }
+
+        this.validate();
+
         const proof: string[] = this.tree.getProof([pointer, valueAsBuffer]);
 
         if (!proof || !proof.length) {

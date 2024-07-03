@@ -23,6 +23,7 @@ import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { ContractParameters, ExportedContract, loadRust } from '../isolated/LoaderV2.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
+import { MemorySlotData } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
 
 /*import * as v8 from 'node:v8';
 
@@ -76,11 +77,7 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [getStorage]');
     }
 
-    public setStorage(
-        _address: Address,
-        _pointer: StoragePointer,
-        _value: MemoryValue,
-    ): Promise<void> {
+    public setStorage(_address: Address, _pointer: bigint, _value: bigint): Promise<void> {
         throw new Error('Method not implemented. [setStorage]');
     }
 
@@ -187,6 +184,18 @@ export class ContractEvaluator extends Logger {
                 );
             }
 
+            /*if (!evaluation.revert) {
+                for (let [contractAddress, value] of evaluation.storage) {
+                    for (let [pointer, data] of value) {
+                        console.log(
+                            `Contract: ${contractAddress} - Pointer: ${pointer} - Value: ${data}`,
+                        );
+
+                        await this.setStorage(contractAddress, pointer, data);
+                    }
+                }
+            }*/
+
             return evaluation;
         } catch (e) {
             this.isProcessing = false;
@@ -217,7 +226,10 @@ export class ContractEvaluator extends Logger {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
-        const pointerResponse: bigint = (await this.getStorageState(evaluation, pointer)) || 0n;
+        let pointerResponse: MemorySlotData<bigint> | undefined = evaluation.getStorage(pointer);
+        if (!pointerResponse) {
+            pointerResponse = (await this.getStorageState(evaluation, pointer)) || 0n;
+        }
 
         if (this.enableTracing) {
             this.debug(`Loaded pointer ${pointer} - value ${pointerResponse}`);
@@ -284,6 +296,7 @@ export class ContractEvaluator extends Logger {
             callDepth: evaluation.callDepth,
 
             deployedContracts: evaluation.deployedContracts,
+            storage: evaluation.storage,
         };
 
         const response = await this.callExternal(externalCallParams);

@@ -47,6 +47,9 @@ export interface IOPNetConsensus<T extends Consensus> {
 
         /** The cost of a byte in gas */
         STORAGE_COST_PER_BYTE: bigint;
+
+        /** Skip proof validation for execution before transaction */
+        SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: boolean;
     };
 
     readonly NETWORK: {

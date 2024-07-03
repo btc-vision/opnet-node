@@ -1,4 +1,10 @@
-import { Address, BufferHelper, Selector } from '@btc-vision/bsi-binary';
+import {
+    Address,
+    BinaryReader,
+    BufferHelper,
+    DeterministicMap,
+    Selector,
+} from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
@@ -174,6 +180,7 @@ export class VMManager extends Logger {
                 maxGas: OPNetConsensus.consensus.TRANSACTIONS.EMULATION_MAX_GAS,
                 calldata: Buffer.from(calldataString, 'hex'),
                 blockHeight: currentHeight,
+                storage: new DeterministicMap(BinaryReader.stringCompare),
                 blockMedian: BigInt(Date.now()), // add support for this
                 allowCached: true,
                 externalCall: false,
@@ -256,6 +263,7 @@ export class VMManager extends Logger {
                 blockMedian: blockMedian,
                 transactionId: interactionTransaction.transactionId,
                 transactionHash: interactionTransaction.hash,
+                storage: new DeterministicMap(BinaryReader.stringCompare),
                 allowCached: true,
                 externalCall: false,
                 gasUsed: 0n,
@@ -639,6 +647,7 @@ export class VMManager extends Logger {
             callDepth: params.callDepth,
             transactionId: params.transactionId,
             transactionHash: params.transactionHash,
+            storage: params.storage,
             callStack: params.callStack || [],
         };
 
@@ -1021,8 +1030,8 @@ export class VMManager extends Logger {
     /** We must ENSURE that NOTHING get modified EVEN during the execution of the block. This is performance costly but required. */
     private async setStorage(
         address: BitcoinAddress,
-        pointer: StoragePointer,
-        value: MemoryValue,
+        pointer: bigint,
+        value: bigint,
     ): Promise<void> {
         if (this.isExecutor) {
             return;
@@ -1033,10 +1042,7 @@ export class VMManager extends Logger {
             throw new Error('Block state not found');
         }
 
-        const pointerBigInt: bigint = BufferHelper.uint8ArrayToPointer(pointer);
-        const valueBigInt: bigint = BufferHelper.uint8ArrayToValue(value);
-
-        this.blockState.updateValue(address, pointerBigInt, valueBigInt);
+        this.blockState.updateValue(address, pointer, value);
     }
 
     private async getStorageFromDB(
@@ -1108,6 +1114,11 @@ export class VMManager extends Logger {
             } else {
                 throw new Error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
             }
+        } else if (
+            OPNetConsensus.consensus.TRANSACTIONS
+                .SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION
+        ) {
+            return BufferHelper.valueToUint8Array(valueBigInt[0]);
         } else {
             memoryValue = {
                 value: BufferHelper.valueToUint8Array(valueBigInt[0]),

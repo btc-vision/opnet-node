@@ -45,7 +45,7 @@ export class ContractEvaluation implements IEvaluationParameters {
     public readonly transactionId: string | null;
     public readonly transactionHash: string | null;
 
-    public readonly storage: BlockchainStorage = new DeterministicMap(BinaryReader.stringCompare);
+    public readonly storage: BlockchainStorage;
     public readonly deployedContracts: ContractInformation[] = [];
 
     public callStack: Address[];
@@ -72,6 +72,8 @@ export class ContractEvaluation implements IEvaluationParameters {
 
         this.callStack = params.callStack || [];
         this.callStack.push(this.contractAddress);
+
+        this.storage = params.storage;
     }
 
     public get maxGas(): bigint {
@@ -119,6 +121,15 @@ export class ContractEvaluation implements IEvaluationParameters {
         current.set(pointer, value);
 
         this.storage.set(this.contractAddress, current);
+    }
+
+    public getStorage(pointer: MemorySlotPointer): MemorySlotData<bigint> | undefined {
+        const current = this.storage.get(this.contractAddress);
+        if (!current) {
+            return;
+        }
+
+        return current.get(pointer);
     }
 
     public onGasUsed: (gas: bigint, method: string) => void = (gas: bigint, _method: string) => {

@@ -52,6 +52,9 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         /** The cost of a byte in gas */
         STORAGE_COST_PER_BYTE: 10_000n,
+
+        /** Skip proof validation for execution before transaction */
+        SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: true,
     },
 
     PSBT: {
