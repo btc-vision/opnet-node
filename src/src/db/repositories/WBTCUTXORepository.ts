@@ -303,11 +303,14 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
             let selectedUTXOs: IWBTCUTXODocument[] = [];
             let consolidatedInputs: IWBTCUTXODocument[] = [];
             let consolidationAmount: bigint = 0n;
+            let amountLeft: bigint = 0n;
 
             const results = await aggregatedDocument.toArray();
             if (!(!results || results.length === 0)) {
                 for (const utxo of results) {
                     const utxoValue = DataConverter.fromDecimal128(utxo.value);
+                    amountLeft = currentAmount - requestedAmount;
+
                     if (!consolidating) {
                         currentAmount += utxoValue;
                         selectedUTXOs.push(utxo);
@@ -331,8 +334,10 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
 
                         continue;
                     } else if (
-                        utxoValue + consolidationAmount <=
-                        upperConsolidationAcceptanceLimit
+                        amountLeft + consolidationAmount + utxoValue <
+                            OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT ||
+                        amountLeft + utxoValue + consolidationAmount <=
+                            upperConsolidationAcceptanceLimit
                     ) {
                         consolidationAmount += utxoValue;
                         consolidatedInputs.push(utxo);
@@ -360,8 +365,9 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
             // Maximize the consolidation.
             if (
                 consolidatedInputs.length &&
-                consolidationAmount > upperConsolidationAcceptanceLimit
+                amountLeft + consolidationAmount > upperConsolidationAcceptanceLimit
             ) {
+                this.warn(`Removed consolidation inputs to fit the requested amount.`);
                 consolidatedInputs.pop();
             }
 

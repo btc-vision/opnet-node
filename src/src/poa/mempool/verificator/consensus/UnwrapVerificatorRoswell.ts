@@ -1,5 +1,6 @@
 import { Consensus } from '../../../configurations/consensus/Consensus.js';
 import {
+    MinimumUtxoInformation,
     PartialUnwrapPSBTDecodedData,
     UnwrapConsensusVerificator,
     UnwrapPSBTDecodedData,
@@ -75,6 +76,115 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         return vault;
     }
 
+    private convertInputHashBufferToString(hash: Buffer): string {
+        return this.reverseString(hash.toString('hex'));
+    }
+
+    private checkInputOrder(
+        psbt: Psbt,
+        vaults: Map<Address, VerificationVault>,
+    ): MinimumUtxoInformation[] {
+        let inputs: { [key: string]: { value: bigint } } = {};
+        for (let vault of vaults.values()) {
+            for (let tx in vault.utxoDetails) {
+                let data = vault.utxoDetails[tx];
+
+                inputs[data.hash] = { value: data.value };
+            }
+        }
+
+        let order: MinimumUtxoInformation[] = [];
+        for (let i = 0; i < psbt.txInputs.length; i++) {
+            if (i === 0) {
+                continue;
+            }
+
+            let input = psbt.txInputs[i];
+            let hash = this.convertInputHashBufferToString(input.hash);
+            let val = inputs[hash];
+
+            if (!val) {
+                throw new Error(`Input hash not found in vaults.`);
+            }
+
+            order.push({ hash, value: val.value });
+        }
+
+        // input order validation
+        for (let i = 0; i < order.length - 1; i++) {
+            // we verify if the next input is greater than the current one, if it is we throw an error
+            let input = order[i];
+
+            if (order[i + 1].value < input.value) {
+                throw new Error(
+                    `Inputs are not ordered correctly. Expected ${input.value} to be greater than ${order[i + 1].value}`,
+                );
+            }
+        }
+
+        return order;
+    }
+
+    private verifyConsolidatedInputs(
+        orderedInputs: MinimumUtxoInformation[],
+        targetConsolidation: bigint,
+        currentConsolidationAmount: bigint,
+        amount: bigint,
+    ): void {
+        let totalUsedSatisfyAmount = 0n;
+
+        let isConsolidating: boolean = false;
+        let consolidation: MinimumUtxoInformation[] = [];
+        let amountLeft: bigint = 0n;
+
+        let consolidationAmount = 0n;
+        let upperConsolidationAcceptanceLimit = 0n;
+
+        const minConsolidationAcceptance = OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT;
+        const maxConsolidationUTXOs = OPNetConsensus.consensus.VAULTS.MAXIMUM_CONSOLIDATION_UTXOS;
+        const prepaidFees = OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+
+        let refundAmount = 0n;
+
+        for (let i = 0; i < orderedInputs.length; i++) {
+            if (i !== 0) refundAmount += prepaidFees;
+
+            let utxoAmount = orderedInputs[i].value;
+            if (!isConsolidating) {
+                totalUsedSatisfyAmount += utxoAmount;
+
+                amountLeft = totalUsedSatisfyAmount - amount - refundAmount;
+
+                if (totalUsedSatisfyAmount >= amount + refundAmount) {
+                    isConsolidating = true;
+                    upperConsolidationAcceptanceLimit = targetConsolidation + amountLeft;
+                }
+            } else if (isConsolidating) {
+                consolidation.push(orderedInputs[i]);
+                consolidationAmount += utxoAmount - prepaidFees;
+
+                if (consolidation.length >= maxConsolidationUTXOs) {
+                    break;
+                }
+            }
+        }
+
+        // consolidationAmount + amountLeft
+        if (currentConsolidationAmount > upperConsolidationAcceptanceLimit) {
+            throw new Error(
+                `Consolidation amount exceeds the allowed limits. Expected at most ${upperConsolidationAcceptanceLimit}, but got ${consolidationAmount}`,
+            );
+        }
+
+        if (consolidationAmount < minConsolidationAcceptance) {
+            throw new Error('Consolidation amount is below the minimum required.');
+        }
+
+        if (consolidation.length > maxConsolidationUTXOs) {
+            throw new Error('Exceeded the maximum number of consolidation UTXOs.');
+        }
+    }
+
     // TODO: Make sure this is 100% correct and vuln proof.
     private analyzeOutputs(
         psbt: Psbt,
@@ -91,6 +201,8 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         if (psbt.txOutputs.length > 3) {
             throw new Error(`Too many outputs.`);
         }
+
+        const orderedInputs = this.checkInputOrder(psbt, usedVaults);
 
         let consolidationAmount: bigint = 0n;
         let outputAmount: bigint = 0n;
@@ -184,14 +296,15 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
                 )
             ) {
                 if (consolidationAmount > targetConsolidation) {
-                    throw new Error(
-                        `Consolidation amount is above the upper limit. Expected at most ${targetConsolidation}, but got ${consolidationAmount}`,
-                    );
-                } else {
-                    this.success(
-                        `Consolidation amount is within the expected range. Expected at most ${targetConsolidation} sat, and got ${consolidationAmount} sat.`,
+                    this.verifyConsolidatedInputs(
+                        orderedInputs,
+                        targetConsolidation,
+                        consolidationAmount,
+                        amount,
                     );
                 }
+
+                this.success(`Consolidation amount is within the expected range.`);
             }
         }
 
