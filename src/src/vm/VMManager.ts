@@ -587,7 +587,10 @@ export class VMManager extends Logger {
 
         if (params.deployedContracts) {
             for (let contract of params.deployedContracts) {
-                if (contract.contractAddress === params.contractAddress) {
+                if (
+                    contract.contractAddress === params.contractAddress ||
+                    contract.virtualAddress === params.contractAddress
+                ) {
                     vmEvaluator = await this.getVMEvaluatorFromParams(
                         params.contractAddress,
                         params.blockHeight,
@@ -596,7 +599,9 @@ export class VMManager extends Logger {
                     break;
                 }
             }
-        } else {
+        }
+
+        if (!vmEvaluator) {
             vmEvaluator = params.allowCached
                 ? await this.getVMEvaluatorFromCache(
                       params.contractAddress,

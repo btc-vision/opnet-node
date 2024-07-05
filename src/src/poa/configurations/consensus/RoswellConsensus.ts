@@ -48,7 +48,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MAXIMUM_DEPLOYMENT_DEPTH: 2,
 
         /** The maximum amount of calls possible in a transaction */
-        MAXIMUM_CALL_DEPTH: 2,
+        MAXIMUM_CALL_DEPTH: 20,
 
         /** The cost of a byte in gas */
         STORAGE_COST_PER_BYTE: 10_000n,

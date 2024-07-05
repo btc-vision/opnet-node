@@ -209,8 +209,8 @@ export class ContractEvaluator extends Logger {
         await this.setEnvironment(
             params.caller,
             params.callee,
-            params.blockMedian,
             params.blockNumber,
+            params.blockMedian,
         );
 
         await this.contractInstance.defineSelectors();
@@ -548,10 +548,15 @@ export class ContractEvaluator extends Logger {
             throw new Error('Contract not initialized');
         }
 
+        console.log(
+            `Caller ${caller}, callee: ${callee}, contract: ${this.contractAddress}, owner: ${this.contractOwner}`,
+        );
+
         const binaryWriter: BinaryWriter = new BinaryWriter();
         binaryWriter.writeAddress(caller);
         binaryWriter.writeAddress(callee);
         binaryWriter.writeU256(blockNumber);
+
         binaryWriter.writeAddress(this.contractOwner);
         binaryWriter.writeAddress(this.contractAddress);
         binaryWriter.writeU256(blockMedian);
