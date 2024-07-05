@@ -46,6 +46,7 @@ import { GasTracker } from './runtime/GasTracker.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/transaction';
 import bitcoin from 'bitcoinjs-lib';
+import { NetworkConverter } from '../config/NetworkConverter.js';
 
 Globals.register();
 
@@ -67,12 +68,16 @@ export class VMManager extends Logger {
     private cachedLastBlockHeight: Promise<bigint> | undefined;
     private isProcessing: boolean = false;
 
+    private readonly network: bitcoin.Network;
+
     constructor(
         private readonly config: IBtcIndexerConfig,
         private readonly isExecutor: boolean = false,
         vmStorage?: VMStorage,
     ) {
         super();
+
+        this.network = NetworkConverter.getNetwork(config.BLOCKCHAIN.BITCOIND_NETWORK);
 
         this.vmStorage = vmStorage || this.getVMStorage();
         this.vmBitcoinBlock = new VMBitcoinBlock(this.vmStorage);
@@ -753,7 +758,7 @@ export class VMManager extends Logger {
         /** Generate contract segwit address */
         const contractSegwitAddress = AddressGenerator.generatePKSH(
             contractVirtualAddress,
-            bitcoin.networks.regtest,
+            this.network,
         );
 
         return { contractAddress: contractSegwitAddress, virtualAddress: contractVirtualAddress };
@@ -879,7 +884,7 @@ export class VMManager extends Logger {
             return null;
         }
 
-        const vmEvaluator = new ContractEvaluator();
+        const vmEvaluator = new ContractEvaluator(this.network);
         vmEvaluator.getStorage = this.getStorage.bind(this);
         vmEvaluator.setStorage = this.setStorage.bind(this);
         vmEvaluator.callExternal = this.callExternal.bind(this);

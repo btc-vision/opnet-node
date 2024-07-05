@@ -9,6 +9,7 @@ export interface ContractParameters {
     readonly store: (data: Buffer) => Promise<Buffer | Uint8Array>;
     readonly call: (data: Buffer) => Promise<Buffer | Uint8Array>;
     readonly deployContractAtAddress: (data: Buffer) => Promise<Buffer | Uint8Array>;
+    readonly encodeAddress: (data: Buffer) => Promise<Buffer | Uint8Array>;
     readonly log: (data: Buffer) => void;
 }
 

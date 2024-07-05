@@ -41,6 +41,12 @@ export async function loadRust(params) {
 
             return params.log(buf);
         },
+        function (_, value) {
+            const u = new Uint8Array(value.buffer);
+            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+
+            return params.encodeAddress(buf);
+        },
     );
 
     contract.garbageCollector = async function () {

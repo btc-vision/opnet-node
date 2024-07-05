@@ -260,10 +260,6 @@ export class ContractEvaluation implements IEvaluationParameters {
         const modifiedStorage =
             MapConverter.convertDeterministicBlockchainStorageMapToBlockchainStorage(this.storage);
 
-        if (modifiedStorage.size > 1) {
-            throw new Error(`execution reverted (storage is too big)`);
-        }
-
         this.mergeStorage(modifiedStorage);
     }
 

@@ -24,6 +24,8 @@ import { ContractParameters, ExportedContract, loadRust } from '../isolated/Load
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { MemorySlotData } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
+import { AddressGenerator } from '@btc-vision/transaction';
+import { Network } from 'bitcoinjs-lib';
 
 /*import * as v8 from 'node:v8';
 
@@ -51,7 +53,7 @@ export class ContractEvaluator extends Logger {
     private bytecode: Buffer | undefined;
     private readonly enableTracing: boolean = false;
 
-    constructor() {
+    constructor(private readonly network: Network) {
         super();
     }
 
@@ -336,6 +338,21 @@ export class ContractEvaluator extends Logger {
 
     private onDebug(buffer: Buffer): void {}
 
+    private async encodeAddress(data: Buffer): Promise<Buffer | Uint8Array> {
+        const reader = new BinaryReader(data);
+        const virtualAddress = reader.readBytesWithLength();
+
+        const address: Address = AddressGenerator.generatePKSH(
+            Buffer.from(virtualAddress),
+            this.network,
+        );
+
+        const response = new BinaryWriter();
+        response.writeAddress(address);
+
+        return response.getBuffer();
+    }
+
     private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {
         if (!this.bytecode) {
             throw new Error('Bytecode is required');
@@ -359,6 +376,9 @@ export class ContractEvaluator extends Logger {
             },
             log: (buffer: Buffer) => {
                 this.onDebug(buffer);
+            },
+            encodeAddress: async (data: Buffer) => {
+                return this.encodeAddress(data);
             },
         };
     }
