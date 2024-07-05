@@ -476,68 +476,6 @@ export class ContractEvaluator extends Logger {
         return abiDecoder.readEvents();
     }
 
-    /*private async writeCallsResponse(
-        caller: Address,
-        blockNumber: bigint,
-        blockMedian: bigint,
-    ): Promise<void> {
-        if (!this.contractInstance || !this.contractAddress) {
-            throw new Error('Contract not initialized');
-        }
-
-        for (let [externCallAddress, externCall] of this.externalCalls) {
-            if (externCall.length > ContractEvaluator.MAX_CONTRACT_EXTERN_CALLS) {
-                throw new Error('Too many external calls');
-            }
-
-            const responses: ContractEvaluation[] =
-                this.externalCallsResponse.get(externCallAddress) || [];
-
-            if (responses.length !== externCall.length) {
-                // We have to do more calls
-
-                for (let i = responses.length; i < externCall.length; i++) {
-                    if (this.gasTracker.gasUsed >= this.gasTracker.maxGas) {
-                        throw new Error('execution reverted (out of gas)');
-                    }
-
-                    const externalCallParams: InternalContractCallParameters = {
-                        contractAddress: externCallAddress,
-                        from: caller,
-                        callee: this.contractAddress,
-
-                        maxGas: this.gasTracker.maxGas,
-                        gasUsed: this.gasTracker.gasUsed,
-
-                        externalCall: true,
-                        blockHeight: blockNumber,
-                        blockMedian: blockMedian,
-
-                        // data
-                        calldata: Buffer.from(externCall[i].buffer),
-                    };
-
-                    const response = await this.vmIsolator.callExternal(externalCallParams);
-                    if (!response) throw new Error('external call reverted.');
-
-                    // we add the gas used to the gas tracker
-                    this.gasTracker.addGasUsed(response.gasUsed);
-
-                    responses.push(response);
-                }
-            }
-
-            this.externalCallsResponse.set(externCallAddress, responses);
-        }
-
-        const binaryWriter: BinaryWriter = new BinaryWriter();
-        const responses = this.getExternalCallResponses();
-        binaryWriter.writeLimitedAddressBytesMap(responses);
-
-        const buf: Uint8Array = binaryWriter.getBuffer();
-        await this.contractInstance.loadCallsResponse(buf);
-    }*/
-
     private async setEnvironment(
         caller: Address,
         callee: Address,
@@ -547,10 +485,6 @@ export class ContractEvaluator extends Logger {
         if (!this.contractInstance || !this.contractOwner || !this.contractAddress) {
             throw new Error('Contract not initialized');
         }
-
-        console.log(
-            `Caller ${caller}, callee: ${callee}, contract: ${this.contractAddress}, owner: ${this.contractOwner}`,
-        );
 
         const binaryWriter: BinaryWriter = new BinaryWriter();
         binaryWriter.writeAddress(caller);
@@ -562,29 +496,6 @@ export class ContractEvaluator extends Logger {
         binaryWriter.writeU256(blockMedian);
 
         await this.contractInstance.setEnvironment(binaryWriter.getBuffer());
-    }
-
-    private hasSameKeysMap(
-        map1: DeterministicMap<unknown, unknown>,
-        map2: DeterministicMap<unknown, unknown>,
-    ): boolean {
-        if (map1.size !== map2.size) {
-            return false;
-        }
-
-        for (const [key] of map1) {
-            if (!map2.has(key)) {
-                return false;
-            }
-        }
-
-        for (const [key] of map2) {
-            if (!map1.has(key)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private async getStorageState(
@@ -602,32 +513,6 @@ export class ContractEvaluator extends Logger {
 
         return value ? BufferHelper.uint8ArrayToValue(value) : null;
     }
-
-    /*private async setStorageState(
-        address: Address,
-        pointer: MemorySlotPointer,
-        value: MemorySlotData<bigint>,
-    ): Promise<void> {
-        const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
-        const valueBuffer: MemoryValue = BufferHelper.valueToUint8Array(value);
-
-        await this.setStorage(address, rawData, valueBuffer);
-    }*/
-
-    /*private async updateStorage(modifiedStorage: BlockchainStorage): Promise<void> {
-        const promises: Promise<void>[] = [];
-        for (const [key, value] of modifiedStorage) {
-            for (const [k, v] of value) {
-                promises.push(
-                    this.setStorageState(key, k, v).catch((e: Error) => {
-                        throw e;
-                    }),
-                );
-            }
-        }
-
-        await Promise.all(promises);
-    }*/
 
     private canWrite(abi: Selector): boolean {
         return this.writeMethods.has(abi);
