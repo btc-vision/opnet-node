@@ -59,6 +59,7 @@ export class BlockchainIndexer extends Logger {
     private lastBlock: LastBlock = {};
 
     private pendingNextBlockScan: NodeJS.Timeout | undefined;
+    private isIndexing: boolean = false;
 
     constructor(config: BtcIndexerConfig) {
         super();
@@ -183,11 +184,18 @@ export class BlockchainIndexer extends Logger {
             return;
         }
 
+        if (this.isIndexing) return;
+
         try {
+            this.isIndexing = true;
             this.currentBlockInProcess = this.processBlocks(startBlockHeight);
 
             await this.currentBlockInProcess;
+
+            this.isIndexing = false;
         } catch (e) {
+            this.isIndexing = false;
+
             const error = e as Error;
             this.panic(`Error processing blocks: ${error.stack}`);
         }
@@ -512,6 +520,8 @@ export class BlockchainIndexer extends Logger {
         startBlockHeight: number = -1,
         wasReorg: boolean = false,
     ): Promise<void> {
+        this.info(`Processing blocks from block ${startBlockHeight}.`);
+
         let blockHeightInProgress: number = wasReorg
             ? startBlockHeight
             : await this.getCurrentProcessBlockHeight(startBlockHeight);
