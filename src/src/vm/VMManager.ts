@@ -294,7 +294,7 @@ export class VMManager extends Logger {
     }
 
     public updateBlockValuesFromResult(
-        result: EvaluatedResult,
+        evaluation: ContractEvaluation,
         contractAddress: BitcoinAddress,
         disableStorageCheck: boolean = this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
         transactionId?: string,
@@ -307,23 +307,22 @@ export class VMManager extends Logger {
             throw new Error('Receipt state not found');
         }
 
-        const resultValue: Uint8Array | undefined = result.result;
-        if (!resultValue) {
-            throw new Error('execution reverted.');
-        }
-
-        if (!result.reverted) {
-            for (const [contract, val] of result.changedStorage) {
-                this.blockState.updateValues(contract, val);
-            }
-        }
-
         if (transactionId) {
-            if (result.result) {
+            const result = evaluation.getEvaluationResult();
+
+            if (!evaluation.revert && result.result) {
+                for (const [contract, val] of result.changedStorage) {
+                    this.blockState.updateValues(contract, val);
+                }
+
                 this.receiptState.updateValue(contractAddress, transactionId, result.result);
             } else {
                 // we store 0 (revert.)
-                this.receiptState.updateValue(contractAddress, transactionId, new Uint8Array(1));
+                this.receiptState.updateValue(
+                    contractAddress,
+                    transactionId,
+                    result.result || new Uint8Array(1),
+                );
             }
         }
 
@@ -685,7 +684,7 @@ export class VMManager extends Logger {
             throw new Error(error);
         }
 
-        if (evaluation.revert) {
+        /*if (evaluation.revert) {
             const errorMsg: string =
                 evaluation.revert instanceof Error
                     ? evaluation.revert.message
@@ -704,14 +703,12 @@ export class VMManager extends Logger {
             }
 
             throw new Error(error);
-        }
-
-        const result = evaluation.getEvaluationResult();
+        }*/
 
         // Executors can not save block state changes.
         if (!this.isExecutor && !params.externalCall && params.transactionId) {
             this.updateBlockValuesFromResult(
-                result,
+                evaluation,
                 params.contractAddress,
                 this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
                 params.transactionId,

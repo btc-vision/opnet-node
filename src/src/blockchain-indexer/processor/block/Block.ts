@@ -406,6 +406,19 @@ export class Block extends Logger {
                 this.median,
                 transaction,
             );
+
+            if (transaction.receipt.revert) {
+                const error =
+                    transaction.receipt.revert instanceof Error
+                        ? transaction.receipt.revert
+                        : new Error(transaction.receipt.revert);
+
+                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    this.error(`Transaction ${transaction.txid} reverted with reason: ${error}`);
+                }
+
+                transaction.revert = error;
+            }
         } catch (e) {
             const error: Error = e as Error;
 

@@ -203,48 +203,25 @@ export class ContractEvaluation implements IEvaluationParameters {
     }
 
     public getEvaluationResult(): EvaluatedResult {
-        if (!this.result) throw new Error('Result not set');
-        if (!this.events) throw new Error('Events not set');
-        if (!this.modifiedStorage) throw new Error('Modified storage not set');
+        const modifiedStorage: BlockchainStorageMap | undefined = this.revert
+            ? new Map()
+            : this.modifiedStorage;
+
+        const events = this.revert ? new Map() : this.events;
+        const result = this.revert ? new Uint8Array(1) : this.result;
+        const deployedContracts = this.revert ? [] : this.deployedContracts;
+
+        if (!modifiedStorage) throw new Error('Modified storage not set');
 
         return {
-            changedStorage: this.modifiedStorage,
-            result: this.result,
-            events: this.events,
+            changedStorage: modifiedStorage,
+            result: result,
+            events: events,
             gasUsed: this.gasUsed,
-            reverted: !!this.revert,
-            deployedContracts: this.deployedContracts,
+            revert: this.revert,
+            deployedContracts: deployedContracts,
         };
     }
-
-    /*for (const [contract, call] of extern) {
-            if (contract === this.contractAddress) {
-                throw new Error('Cannot call self');
-            }
-
-            for (let i = 0; i < call.length; i++) {
-                const c = call[i];
-                if (!c) {
-                    throw new Error('External call not found');
-                }
-
-                if (!c.canWrite) {
-                    continue;
-                }
-
-                const storage = c.modifiedStorage;
-                if (!storage) {
-                    throw new Error('Storage not set');
-                }
-
-                this.mergeStorage(storage);
-
-                const events = c.events;
-                if (events) {
-                    this.mergeEvents(events);
-                }
-            }
-        }*/
 
     public addContractInformation(contract: ContractInformation): void {
         this.deployedContracts.push(contract);
