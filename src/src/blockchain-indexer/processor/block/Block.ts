@@ -761,7 +761,7 @@ export class Block extends Logger {
                     );
                 }
 
-                this.treadAsGenericTransaction(rawTransactionData);
+                this.treatAsGenericTransaction(rawTransactionData);
 
                 this.erroredTransactions.add(rawTransactionData);
             }
@@ -771,7 +771,7 @@ export class Block extends Logger {
         this.rawBlockData.tx = [];
     }
 
-    private treadAsGenericTransaction(rawTransactionData: TransactionData): boolean {
+    private treatAsGenericTransaction(rawTransactionData: TransactionData): boolean {
         try {
             const genericTransaction = new GenericTransaction(
                 rawTransactionData,

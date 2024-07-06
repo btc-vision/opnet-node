@@ -318,8 +318,13 @@ export class VMManager extends Logger {
             }
         }
 
-        if (transactionId && result.result) {
-            this.receiptState.updateValue(contractAddress, transactionId, result.result);
+        if (transactionId) {
+            if (result.result) {
+                this.receiptState.updateValue(contractAddress, transactionId, result.result);
+            } else {
+                // we store 0 (revert.)
+                this.receiptState.updateValue(contractAddress, transactionId, new Uint8Array(1));
+            }
         }
 
         if (!disableStorageCheck) {
@@ -664,8 +669,12 @@ export class VMManager extends Logger {
         // Execute the function
         const evaluation: ContractEvaluation | null = await vmEvaluator
             .execute(executionParams)
-            .catch((e) => {
-                this.panic(`SHOULD NOT HAPPEN: ${e as Error}`);
+            .catch(async (e) => {
+                if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    const error = (await e) as Error;
+
+                    this.panic(`SHOULD NOT HAPPEN: ${error}`);
+                }
 
                 return null;
             });

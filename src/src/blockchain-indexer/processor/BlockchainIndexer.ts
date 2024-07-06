@@ -570,9 +570,9 @@ export class BlockchainIndexer extends Logger {
             this.lastBlock.hash = processedBlock.hash;
             this.lastBlock.checksum = processedBlock.checksumRoot;
 
-            await this.notifyBlockProcessed(processedBlock);
-
             blockHeightInProgress++;
+
+            await this.notifyBlockProcessed(processedBlock);
 
             if (this.processOnlyOneBlock) {
                 break;
@@ -588,6 +588,7 @@ export class BlockchainIndexer extends Logger {
             const blockHash: string | null = await this.rpcClient.getBlockHash(
                 blockHeightInProgress - 1,
             );
+
             if (blockHash == null) {
                 throw new Error(`Error fetching block hash.`);
             }
@@ -602,7 +603,7 @@ export class BlockchainIndexer extends Logger {
 
             this.success(`Indexer synchronized. Network height at: ${chainCurrentBlockHeight}.`);
         } else if (!this.processOnlyOneBlock) {
-            await this.processBlocks(blockHeightInProgress);
+            await this.processBlocks(blockHeightInProgress, false);
         }
     }
 

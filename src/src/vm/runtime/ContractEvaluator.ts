@@ -440,10 +440,16 @@ export class ContractEvaluator extends Logger {
             return;
         }
 
-        // Move that in the header check
         if (result.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
             evaluation.revert = new Error('Result is too long');
 
+            return;
+        }
+
+        // Check if result only contains zeros or is false.
+        const isSuccess: boolean = this.checkTransactionResult(result);
+        if (!isSuccess) {
+            evaluation.revert = new Error('execution reverted due to an unknown error');
             return;
         }
 
@@ -455,14 +461,24 @@ export class ContractEvaluator extends Logger {
             }
         }
 
-        // We deploy contract at the end of the transaction.
-        // This transaction should not be able to interact with the contract it just deployed.
-        // This is on purpose.
+        // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
         await Promise.all(deploymentPromises);
 
         const events: NetEvent[] = await this.getEvents();
         evaluation.setEvent(evaluation.contractAddress, events);
         evaluation.setResult(result);
+    }
+
+    private checkTransactionResult(result: Uint8Array): boolean {
+        let isSuccess = false;
+        for (let i = 0; i < result.length; i++) {
+            if (result[i] !== 0) {
+                isSuccess = true; // We found a non-zero value.
+                break;
+            }
+        }
+
+        return isSuccess;
     }
 
     private async getEvents(): Promise<NetEvent[]> {
