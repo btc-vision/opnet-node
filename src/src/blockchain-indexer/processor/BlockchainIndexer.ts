@@ -33,6 +33,7 @@ import { Consensus } from '../../poa/configurations/consensus/Consensus.js';
 interface LastBlock {
     hash?: string;
     checksum?: string;
+    blockNumber?: number;
 }
 
 export class BlockchainIndexer extends Logger {
@@ -526,6 +527,12 @@ export class BlockchainIndexer extends Logger {
             ? startBlockHeight
             : await this.getCurrentProcessBlockHeight(startBlockHeight);
 
+        if (!wasReorg && this.lastBlock && typeof this.lastBlock.blockNumber !== 'undefined') {
+            if (blockHeightInProgress < this.lastBlock.blockNumber) {
+                blockHeightInProgress = this.lastBlock.blockNumber;
+            }
+        }
+
         this.setConsensusBlockHeight(BigInt(blockHeightInProgress));
 
         let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
@@ -555,6 +562,8 @@ export class BlockchainIndexer extends Logger {
             /** We must check for chain reorgs here. */
             const chainReorged: boolean = await this.verifyChainReorg(block);
             if (chainReorged) {
+                this.lastBlock.blockNumber = undefined;
+                
                 await this.restoreBlockchain(blockHeightInProgress);
                 return;
             }
@@ -579,6 +588,7 @@ export class BlockchainIndexer extends Logger {
 
             this.lastBlock.hash = processedBlock.hash;
             this.lastBlock.checksum = processedBlock.checksumRoot;
+            this.lastBlock.blockNumber = Number(processedBlock.height.toString());
 
             blockHeightInProgress++;
 
