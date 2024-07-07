@@ -429,6 +429,13 @@ export class Block extends Logger {
             }
 
             transaction.revert = error;
+
+            vmManager.updateBlockValuesFromResult(
+                null,
+                transaction.contractAddress,
+                transaction.txid,
+                true,
+            );
         }
     }
 

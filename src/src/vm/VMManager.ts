@@ -202,9 +202,12 @@ export class VMManager extends Logger {
 
             this.isProcessing = false;
 
+            if (result.revert) {
+                throw result.revert;
+            }
+
             return result;
         } catch (e) {
-            console.log('error', e);
             this.isProcessing = false;
             throw e;
         }
@@ -294,11 +297,15 @@ export class VMManager extends Logger {
     }
 
     public updateBlockValuesFromResult(
-        evaluation: ContractEvaluation,
+        evaluation: ContractEvaluation | undefined | null,
         contractAddress: BitcoinAddress,
-        disableStorageCheck: boolean = this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
         transactionId?: string,
+        disableStorageCheck: boolean = this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
     ): void {
+        if (this.isExecutor) {
+            return;
+        }
+
         if (!this.blockState) {
             throw new Error('Block state not found');
         }
@@ -308,21 +315,25 @@ export class VMManager extends Logger {
         }
 
         if (transactionId) {
-            const result = evaluation.getEvaluationResult();
+            let saved: boolean = false;
 
-            if (!evaluation.revert && result.result) {
-                for (const [contract, val] of result.changedStorage) {
-                    this.blockState.updateValues(contract, val);
+            if (evaluation) {
+                const result = evaluation.getEvaluationResult();
+
+                if (!evaluation.revert && result.result) {
+                    for (const [contract, val] of result.changedStorage) {
+                        this.blockState.updateValues(contract, val);
+                    }
+
+                    this.receiptState.updateValue(contractAddress, transactionId, result.result);
+
+                    saved = true;
                 }
+            }
 
-                this.receiptState.updateValue(contractAddress, transactionId, result.result);
-            } else {
+            if (!saved) {
                 // we store 0 (revert.)
-                this.receiptState.updateValue(
-                    contractAddress,
-                    transactionId,
-                    result.result || new Uint8Array(1),
-                );
+                this.receiptState.updateValue(contractAddress, transactionId, new Uint8Array(1));
             }
         }
 
@@ -567,7 +578,7 @@ export class VMManager extends Logger {
 
         const result = await this.executeCallInternal(params);
         if (!result.result) {
-            throw new Error('execution reverted (external call)');
+            throw new Error(`execution reverted (external call: ${result.revert})`);
         }
 
         return result;
@@ -678,6 +689,16 @@ export class VMManager extends Logger {
                 return null;
             });
 
+        // Executors can not save block state changes.
+        if (!params.externalCall && params.transactionId) {
+            this.updateBlockValuesFromResult(
+                evaluation,
+                params.contractAddress,
+                params.transactionId,
+                this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+            );
+        }
+
         /** Delete the contract to prevent damage on states. */
         let error: string = 'execution reverted';
         if (!evaluation) {
@@ -704,16 +725,6 @@ export class VMManager extends Logger {
 
             throw new Error(error);
         }*/
-
-        // Executors can not save block state changes.
-        if (!this.isExecutor && !params.externalCall && params.transactionId) {
-            this.updateBlockValuesFromResult(
-                evaluation,
-                params.contractAddress,
-                this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
-                params.transactionId,
-            );
-        }
 
         return evaluation;
     }
