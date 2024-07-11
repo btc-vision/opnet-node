@@ -2,10 +2,7 @@ import { PSBTVerificator } from './PSBTVerificator.js';
 import bitcoin, { initEccLib, Network, networks, payments, Psbt, script } from 'bitcoinjs-lib';
 import * as ecc from 'tiny-secp256k1';
 import { PSBTTypes } from '../psbt/PSBTTypes.js';
-import {
-    InteractionTransaction,
-    InteractionWitnessData,
-} from '../../../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import { InteractionWitnessData } from '../../../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { Input } from 'bitcoinjs-lib/src/transaction.js';
 import { ABICoder, Address, BinaryReader } from '@btc-vision/bsi-binary';
 import { KnownPSBTObject } from '../psbt/PSBTTransactionVerifier.js';
@@ -17,6 +14,7 @@ import {
 import { UnwrapVerificatorRoswell } from './consensus/UnwrapVerificatorRoswell.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { Consensus } from '@btc-vision/transaction';
+import { UnwrapTransaction } from '../../../blockchain-indexer/processor/transaction/transactions/UnwrapTransaction.js';
 
 initEccLib(ecc);
 
@@ -114,16 +112,12 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
         }
 
         if (
-            !InteractionTransaction.verifyChecksum(
-                decodedScript,
-                InteractionTransaction.LEGACY_INTERACTION,
-            )
+            !UnwrapTransaction.verifyChecksum(decodedScript, UnwrapTransaction.LEGACY_INTERACTION)
         ) {
             throw new Error(`Invalid checksum`);
         }
 
-        const interactionWitnessData =
-            InteractionTransaction.getInteractionWitnessData(decodedScript);
+        const interactionWitnessData = UnwrapTransaction.getInteractionWitnessData(decodedScript);
         if (!interactionWitnessData) {
             throw new Error(`Failed to decode interaction witness data`);
         }
@@ -199,7 +193,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
             );
         }
 
-        const decompressedCalldata = InteractionTransaction.decompressBuffer(
+        const decompressedCalldata = UnwrapTransaction.decompressBuffer(
             interactionWitnessData.calldata,
         );
 

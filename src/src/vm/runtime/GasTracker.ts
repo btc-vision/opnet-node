@@ -1,16 +1,12 @@
-import { VMIsolator } from '../VMIsolator.js';
+import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 
 export class GasTracker {
-    public static readonly MAX_GAS: bigint = 480076812288n; // Max gas allowed for a contract execution
-    public static readonly SAT_TO_GAS_RATIO: bigint = 18416666n; //100000000n; //30750n; //611805;
+    public static readonly MAX_GAS: bigint = 300_000_000_000n; // Max gas allowed for a contract execution
 
     #gasUsed: bigint = 0n;
     #maxGas: bigint;
 
-    #startedAt: bigint = 0n;
-    #timeSpent: bigint = 0n;
-
-    private canTrack: boolean = true;
+    #startedAt: number = Date.now();
 
     constructor(private readonly MAX_GAS: bigint = GasTracker.MAX_GAS) {
         this.#maxGas = MAX_GAS;
@@ -33,61 +29,40 @@ export class GasTracker {
     }
 
     public get timeSpent(): bigint {
-        return this.#timeSpent;
+        return BigInt(Date.now() - this.#startedAt);
     }
 
-    public static convertSatToGas(sat: bigint): bigint {
-        return sat * GasTracker.SAT_TO_GAS_RATIO;
+    public static convertSatToGas(sat: bigint, maxGas: bigint, ratio: bigint): bigint {
+        let gas = sat * ratio;
+        return gas < maxGas ? gas : maxGas;
     }
 
     // round up to 10000000
     public static round(gasUsed: bigint) {
         return (
-            ((gasUsed + (GasTracker.SAT_TO_GAS_RATIO - 1n)) / GasTracker.SAT_TO_GAS_RATIO) *
-            GasTracker.SAT_TO_GAS_RATIO
+            ((gasUsed + (OPNetConsensus.consensus.TRANSACTIONS.SAT_TO_GAS_RATIO - 1n)) /
+                OPNetConsensus.consensus.TRANSACTIONS.SAT_TO_GAS_RATIO) *
+            OPNetConsensus.consensus.TRANSACTIONS.SAT_TO_GAS_RATIO
         );
     }
 
-    public isEnabled(): boolean {
-        return this.canTrack;
-    }
-
-    public addGasUsed(gas: bigint) {
-        if (!this.canTrack) {
-            return;
-        }
-
+    public setGas(gas: bigint) {
         if (gas < 0n) {
             throw new Error('Gas used cannot be negative.');
         }
 
-        if (this.#gasUsed + gas > this.#maxGas) {
-            throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.#maxGas}`);
+        if (gas > this.#maxGas) {
+            throw new Error(`out of gas ${gas} > ${this.#maxGas}`);
         }
 
-        if (this.#gasUsed + gas > this.MAX_GAS) {
-            throw new Error(`out of gas ${this.#gasUsed + gas} > ${this.MAX_GAS} (max)`);
+        if (gas > this.MAX_GAS) {
+            throw new Error(`out of gas ${gas} > ${this.MAX_GAS} (max)`);
         }
 
-        this.#gasUsed += gas;
+        this.#gasUsed = gas;
     }
 
-    public reset(): void {
-        this.#gasUsed = 0n;
-        this.#maxGas = this.MAX_GAS;
-        this.#timeSpent = 0n;
-        this.#startedAt = 0n;
-    }
-
-    public enableTracking(cpuTimeStart: bigint): void {
-        this.canTrack = true;
-        this.#startedAt = cpuTimeStart;
-    }
-
-    public disableTracking(cpuStopTime: bigint): void {
-        this.canTrack = false;
-
-        this.#timeSpent += cpuStopTime - this.#startedAt;
-        this.#startedAt = 0n;
+    public addGas(gas: bigint) {
+        this.setGas(this.#gasUsed + gas);
     }
 }

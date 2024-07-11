@@ -9,6 +9,8 @@ import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
 import { TransactionOutput } from './inputs/TransactionOutput.js';
+import { VaultInput, VaultInputDecoder } from '../vault/VaultInputDecoder.js';
+import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 
 const OPNet_MAGIC: Buffer = Buffer.from('bsi', 'utf-8');
 const textEncoder = new TextEncoder();
@@ -44,6 +46,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     protected readonly transactionHashBuffer: Buffer;
     protected readonly transactionHash: string;
     protected readonly vInputIndex: number;
+    protected readonly _authorizedVaultUsage: boolean = false;
+    private readonly vaultDecoder: VaultInputDecoder = new VaultInputDecoder();
+    readonly #vaultInputs: VaultInput[] = [];
 
     protected constructor(
         rawTransactionData: TransactionData,
@@ -97,6 +102,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._revert = error;
     }
 
+    public get authorizedVaultUsage(): boolean {
+        return this._authorizedVaultUsage;
+    }
+
     public get revertBuffer(): Uint8Array | undefined {
         if (!this._revert) {
             return;
@@ -118,6 +127,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public set receipt(receipt: EvaluatedResult) {
         this._receipt = receipt;
+    }
+
+    public get vaultInputs(): VaultInput[] {
+        return this.#vaultInputs;
     }
 
     protected _from: string | undefined;
@@ -143,9 +156,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     protected _originalIndex: number = 0;
 
-    public get originalIndex(): number {
+    /*public get originalIndex(): number {
         return this._originalIndex;
-    }
+    }*/
 
     public set originalIndex(index: number) {
         this._originalIndex = index;
@@ -172,7 +185,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public static verifyChecksum(scriptData: (number | Buffer)[], typeChecksum: Buffer): boolean {
         const checksum: Buffer = this.getDataChecksum(scriptData);
-        
+
         return checksum.equals(typeChecksum);
     }
 
@@ -244,20 +257,23 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                 continue;
             }
 
+            // always select the last witness that contains the magic
             for (let i = 0; i < witnesses.length; i++) {
                 const witness = witnesses[i];
                 const raw = Buffer.from(witness, 'hex');
 
-                const decodedScript = script.decompile(raw);
-                if (!decodedScript) continue;
+                try {
+                    const decodedScript = script.decompile(raw);
+                    if (!decodedScript) continue;
 
-                const includeMagic = this.dataIncludeOPNetMagic(decodedScript);
-                if (!includeMagic) continue;
+                    const includeMagic = this.dataIncludeOPNetMagic(decodedScript);
+                    if (!includeMagic) continue;
 
-                if (this.verifyChecksum(decodedScript, typeChecksum)) {
-                    isCorrectType = y;
-                    break;
-                }
+                    if (this.verifyChecksum(decodedScript, typeChecksum)) {
+                        isCorrectType = y;
+                        break;
+                    }
+                } catch (e) {}
             }
         }
 
@@ -274,6 +290,15 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
 
         return Buffer.from(checksum);
+    }
+
+    public getCompromisedDocument(): ICompromisedTransactionDocument {
+        return {
+            id: this.transactionId,
+            height: this.blockHeight,
+
+            compromisedAuthorities: this.vaultInputs,
+        };
     }
 
     public toDocument(): TransactionDocument<T> {
@@ -303,6 +328,20 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         this.parseInputs(vIn);
         this.parseOutputs(vOuts);
+
+        this.decodeVaults();
+    }
+
+    /** We must verify every single transaction and decode any vault inputs */
+    protected decodeVaults(): void {
+        for (let input of this.inputs) {
+            const vault = this.vaultDecoder.decodeInput(input);
+            if (!vault) {
+                continue;
+            }
+
+            this.#vaultInputs.push(vault);
+        }
     }
 
     protected decompressData(buffer: Buffer | undefined): Buffer {
@@ -394,9 +433,5 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         hash.update(this.bufferHash);
         hash.update(Buffer.from(this.blockHash, 'hex'));
         return hash.digest();
-    }
-
-    private rndBigInt(min: number, max: number): bigint {
-        return BigInt(Math.floor(Math.random() * (max - min + 1) + min));
     }
 }

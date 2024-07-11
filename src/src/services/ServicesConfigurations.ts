@@ -37,8 +37,14 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
         managerTarget: './src/poa/PoAThreadManager.js',
     },
 
+    [ThreadTypes.SSH]: {
+        maxInstance: 1,
+        target: './src/ssh/SSHThread.js',
+        managerTarget: './src/ssh/SSHManager.js',
+    },
+
     [ThreadTypes.MEMPOOL]: {
-        maxInstance: Config.POA.MEMPOOL_THREADS,
+        maxInstance: Config.MEMPOOL.THREADS,
         target: './src/poa/mempool/MempoolThread.js',
         managerTarget: './src/poa/mempool/MempoolThreadManager.js',
     },
@@ -47,9 +53,9 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
 export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
     [ThreadTypes.API]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 2,
-            maxYoungGenerationSizeMb: 1024,
-            stackSizeMb: 256,
+            maxOldGenerationSizeMb: 1024 * 32,
+            maxYoungGenerationSizeMb: 1024 * 8,
+            stackSizeMb: 512,
         },
     },
 
@@ -79,8 +85,8 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.BITCOIN_RPC]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 4,
-            maxYoungGenerationSizeMb: 1024 * 2,
+            maxOldGenerationSizeMb: 1024 * 3,
+            maxYoungGenerationSizeMb: 1024,
             stackSizeMb: 256,
         },
     },
@@ -88,6 +94,14 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
     [ThreadTypes.PoA]: {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 4,
+            maxYoungGenerationSizeMb: 1024,
+            stackSizeMb: 256,
+        },
+    },
+
+    [ThreadTypes.SSH]: {
+        resourceLimits: {
+            maxOldGenerationSizeMb: 1024 * 2,
             maxYoungGenerationSizeMb: 1024,
             stackSizeMb: 256,
         },

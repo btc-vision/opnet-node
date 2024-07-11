@@ -4,6 +4,7 @@ import {
     ITransactionDocument,
     TransactionDocumentBase,
 } from '../../interfaces/ITransactionDocument.js';
+import { PartialWBTCUTXODocumentForAPI } from '../../interfaces/IWBTCUTXODocument.js';
 
 export interface EventReceiptDataForAPI {
     readonly contractAddress: string;
@@ -24,8 +25,11 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     deployedTransactionHash: undefined;
     deployedTransactionId: undefined;
 
+    unwrapAmount?: string;
+    requestedAmount?: string;
     wrappingFees?: string;
     depositAmount?: string;
+    consolidatedVault?: PartialWBTCUTXODocumentForAPI;
 
     _id: undefined;
 }

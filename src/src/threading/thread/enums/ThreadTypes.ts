@@ -6,4 +6,5 @@ export enum ThreadTypes {
     BITCOIN_RPC = `BITCOIN_RPC`,
     PoA = `PoA`,
     MEMPOOL = `MemPool`,
+    SSH = `SSH`,
 }

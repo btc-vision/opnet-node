@@ -41,8 +41,6 @@ export interface OPNetConfig {
 
 export interface PoA {
     readonly ENABLED: boolean;
-
-    readonly MEMPOOL_THREADS: number;
 }
 
 export interface P2P {
@@ -75,6 +73,28 @@ export interface P2P {
     readonly TRUSTED_VALIDATORS_CHECKSUM_HASH: string;
 }
 
+export interface MempoolConfig {
+    readonly THREADS: number;
+
+    readonly EXPIRATION_BLOCKS: number;
+}
+
+export interface SSHConfig {
+    readonly ENABLED: boolean;
+
+    readonly PORT: number;
+    readonly HOST: string;
+
+    readonly USERNAME: string;
+    readonly PASSWORD: string;
+
+    readonly PUBLIC_KEY: string;
+
+    readonly NO_AUTH: boolean;
+
+    readonly ALLOWED_IPS: string[];
+}
+
 export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     INDEXER: IndexerConfig;
     ZERO_MQ: ZeroMQConfig;
@@ -83,4 +103,6 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     BLOCKCHAIN: BlockchainConfig;
     POA: PoA;
     P2P: P2P;
+    MEMPOOL: MempoolConfig;
+    SSH: SSHConfig;
 }

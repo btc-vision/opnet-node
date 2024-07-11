@@ -1,4 +1,5 @@
-import { Address } from '@btc-vision/bsi-binary';
+import { Address, BlockchainStorage } from '@btc-vision/bsi-binary';
+import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 
 export interface InternalContractCallParameters {
     readonly contractAddress: Address;
@@ -10,11 +11,22 @@ export interface InternalContractCallParameters {
     readonly calldata: Buffer;
     readonly externalCall: boolean;
 
-    readonly transactionId?: string; // external call have this empty
+    readonly transactionId: string | null; // external call have this empty
+    readonly transactionHash: string | null; // external call have this empty
 
     readonly blockHeight: bigint;
-    readonly gasUsed?: bigint;
+    readonly blockMedian: bigint;
+
+    readonly contractDeployDepth: number;
+    readonly callDepth: number;
+
+    readonly gasUsed: bigint;
     allowCached?: boolean;
+
+    readonly storage: BlockchainStorage;
+
+    readonly deployedContracts?: ContractInformation[];
+    readonly callStack?: Address[];
 }
 
 export interface ExecutionParameters {
@@ -26,9 +38,23 @@ export interface ExecutionParameters {
     readonly caller: Address;
     readonly callee: Address;
 
+    readonly transactionId: string | null; // external call have this empty
+    readonly transactionHash: string | null; // external call have this empty
+
     readonly blockNumber: bigint;
+    readonly blockMedian: bigint;
+
+    readonly maxGas: bigint;
+    readonly gasUsed: bigint;
+
+    // Depth
+    readonly contractDeployDepth: number;
+    readonly callDepth: number;
 
     readonly externalCall: boolean;
+    readonly callStack: Address[];
+
+    readonly storage: BlockchainStorage;
 }
 
 export interface IEvaluationParameters extends ExecutionParameters {

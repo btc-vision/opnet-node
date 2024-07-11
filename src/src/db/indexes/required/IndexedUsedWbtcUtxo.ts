@@ -9,10 +9,11 @@ export class IndexedUsedWbtcUtxo extends IndexedCollection<OPNetCollections.USED
     public getIndexes(): IndexDescription[] {
         return [
             { key: { vault: 1 }, name: 'vault_1' },
+            { key: { height: 1 }, name: 'height_1' },
             { key: { hash: 1 }, name: 'hash_1' },
             {
-                key: { vault: 1, hash: 1 },
-                name: 'vault_1_hash_1',
+                key: { hash: 1, outputIndex: 1 },
+                name: 'hash_1_outputIndex_1',
             },
         ];
     }

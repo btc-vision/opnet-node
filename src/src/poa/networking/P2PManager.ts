@@ -5,7 +5,6 @@ import { bootstrap, BootstrapComponents } from '@libp2p/bootstrap';
 import { Identify, identify } from '@libp2p/identify';
 import {
     type ConnectionGater,
-    CustomEvent,
     Peer,
     PeerDiscovery,
     PeerId,
@@ -61,6 +60,7 @@ import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread
 import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../configurations/manager/AuthorityManager.js';
 import { xxHash } from '../hashing/xxhash.js';
+import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -100,6 +100,8 @@ export class P2PManager extends Logger {
         this.blockWitnessManager.broadcastBlockWitness = this.broadcastBlockWitness.bind(this);
         this.blockWitnessManager.sendMessageToThread = this.internalSendMessageToThread.bind(this);
 
+        this.addConsensusHandlers();
+
         setInterval(() => {
             this.knownMempoolIdentifiers.clear();
             this.broadcastedIdentifiers.clear();
@@ -129,9 +131,11 @@ export class P2PManager extends Logger {
         data: BlockProcessedData,
         isSelf: boolean = false,
     ): Promise<void> {
-        await this.requestBlockWitnessesFromPeer(data.blockNumber);
+        // Generate block witness.
+        await this.blockWitnessManager.generateBlockHeaderProof(data, isSelf);
 
-        return this.blockWitnessManager.generateBlockHeaderProof(data, isSelf);
+        // Request block witnesses from peers.
+        await this.requestBlockWitnessesFromPeer(data.blockNumber);
     }
 
     public async init(): Promise<void> {
@@ -139,10 +143,9 @@ export class P2PManager extends Logger {
         await DBManagerInstance.connect();
 
         await this.blockWitnessManager.init();
+        await this.blockWitnessManager.setCurrentBlock();
 
         this.node = await this.createNode();
-
-        await this.getCurrentBlock();
 
         await this.addListeners();
         await this.startNode();
@@ -178,6 +181,45 @@ export class P2PManager extends Logger {
         };
     }
 
+    private addConsensusHandlers(): void {
+        OPNetConsensus.addConsensusUpgradeCallback((consensusName: string, isReady: boolean) => {
+            if (!isReady) {
+                this.panic(
+                    `!!!!!!!!!!!!!! -------------------- FATAL. Consensus upgrade failed. This node is not ready to apply ${consensusName}. -------------------- !!!!!!!!!!!!!!`,
+                );
+
+                this.panic(
+                    `PoA has been disabled. This node will not connect to any peers. And any processing will be halted.`,
+                );
+
+                this.notifyArt(
+                    `warn`,
+                    `FATAL.`,
+                    'Doh',
+                    `\n\n\n!!!!!!!!!! -------------------- UPGRADE FAILED. --------------------  !!!!!!!!!!\n\n\n\n\n`,
+                    `\n\nPoA has been disabled. This node will not connect to any peers. And any processing will be halted.\n`,
+                    `This node is not ready to apply ${consensusName}.\n`,
+                    `UPGRADE IMMEDIATELY.\n\n`,
+                );
+
+                setTimeout(() => {
+                    process.exit(1); // Exit the process.
+                }, 2000);
+
+                return;
+            }
+
+            this.notifyArt(
+                'success',
+                consensusName,
+                'Doh',
+                `\n\n\n!!!!!!!!!! -------------------- CONSENSUS UPGRADE. --------------------  !!!!!!!!!!\n\n\n\n\n`,
+                `\n\nOPNet consensus ${consensusName} is now enforced.\n`,
+                `This node is now enforcing the ${consensusName} consensus rules. Any peers that do not comply will be disconnected.\n`,
+            );
+        });
+    }
+
     private async broadcastMempoolTransaction(
         transaction: ITransactionPacket & {
             identifier: bigint;
@@ -204,10 +246,6 @@ export class P2PManager extends Logger {
         }
 
         await Promise.all(promises);
-    }
-
-    private async getCurrentBlock(): Promise<void> {
-        await this.blockWitnessManager.setCurrentBlock();
     }
 
     private internalSendMessageToThread(
@@ -478,6 +516,7 @@ export class P2PManager extends Logger {
             this.startedIndexer = true;
 
             this.notifyArt(
+                'info',
                 'OPNet',
                 'Doh',
                 `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
@@ -586,6 +625,7 @@ export class P2PManager extends Logger {
 
         if (this.isBootstrapNode()) {
             this.notifyArt(
+                'info',
                 'OPNet Bootstrap Node',
                 'Big Money-sw',
                 `\n\n\nThis node is a,\n\n\n\n\n`,
@@ -606,14 +646,20 @@ export class P2PManager extends Logger {
         await this.refreshRouting();
     }
 
-    private notifyArt(text: string, font: Fonts, prefix: string, ...suffix: string[]): void {
+    private notifyArt(
+        type: 'info' | 'warn' | 'success' | 'panic',
+        text: string,
+        font: Fonts,
+        prefix: string,
+        ...suffix: string[]
+    ): void {
         const artVal = figlet.textSync(text, {
             font: font, //'Doh',
             horizontalLayout: 'default',
             verticalLayout: 'default',
         });
 
-        this.info(`${prefix}${artVal}${suffix.join('\n')}`);
+        this[type](`${prefix}${artVal}${suffix.join('\n')}`);
     }
 
     private allowConnection(

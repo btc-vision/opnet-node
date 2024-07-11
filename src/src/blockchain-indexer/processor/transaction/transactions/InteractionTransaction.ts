@@ -404,6 +404,14 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return netEvents;
     }
 
+    /** We must verify that the transaction is not bypassing another transaction type. */
+    protected verifyUnallowed(): void {
+        // We handle wbtc checks here.
+        if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
+            this.verifyWBTC();
+        }
+    }
+
     /**
      * Get the output witness from the secret. Note: If there is multiple interaction in the same transaction, there should be only one output that match the secret.
      * @param secret Buffer
@@ -443,14 +451,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return [this.inputs[this.vInputIndex]];
     }
 
-    /** We must verify that the transaction is not bypassing another transaction type. */
-    private verifyUnallowed(): void {
-        // We handle wbtc checks here.
-        if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
-            this.verifyWBTC();
-        }
-    }
-
     /**
      * Verify that the WBTC transaction is valid.
      */
@@ -459,7 +459,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         const reader = new BinaryReader(selectorBytes);
 
         const selector = reader.readSelector();
-        if (selector === WBTC_WRAP_SELECTOR && selector === WBTC_UNWRAP_SELECTOR) {
+        if (selector === WBTC_WRAP_SELECTOR || selector === WBTC_UNWRAP_SELECTOR) {
             throw new Error(`Invalid WBTC mint/burn transaction.`);
         }
     }

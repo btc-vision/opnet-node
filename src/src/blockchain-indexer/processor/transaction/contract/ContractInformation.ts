@@ -9,7 +9,7 @@ export class ContractInformation {
         public readonly blockHeight: bigint,
         public readonly contractAddress: BitcoinAddress,
         public readonly virtualAddress: BitcoinAddress,
-        public readonly p2trAddress: BitcoinAddress,
+        public readonly p2trAddress: BitcoinAddress | null,
         public readonly bytecode: Buffer,
         public readonly wasCompressed: boolean,
         public readonly deployedTransactionId: string,

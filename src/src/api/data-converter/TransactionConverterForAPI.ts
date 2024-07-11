@@ -44,14 +44,36 @@ export class TransactionConverterForAPI {
             deployedTransactionId: undefined,
         };
 
-        if (transaction.wrappingFees) {
+        if (transaction.wrappingFees !== undefined && transaction.wrappingFees !== null) {
             newTx.wrappingFees =
                 '0x' + DataConverter.fromDecimal128(transaction.wrappingFees).toString(16);
         }
 
-        if (transaction.depositAmount) {
+        if (transaction.unwrapAmount !== undefined && transaction.unwrapAmount !== null) {
+            newTx.unwrapAmount =
+                '0x' + DataConverter.fromDecimal128(transaction.unwrapAmount).toString(16);
+        }
+
+        if (transaction.requestedAmount !== undefined && transaction.requestedAmount !== null) {
+            newTx.requestedAmount =
+                '0x' + DataConverter.fromDecimal128(transaction.requestedAmount).toString(16);
+        }
+
+        if (transaction.depositAmount !== undefined && transaction.depositAmount !== null) {
             newTx.depositAmount =
                 '0x' + DataConverter.fromDecimal128(transaction.depositAmount).toString(16);
+        }
+
+        if (transaction.consolidatedVault !== undefined && transaction.consolidatedVault !== null) {
+            newTx.consolidatedVault = {
+                vault: transaction.consolidatedVault.vault,
+                hash: transaction.consolidatedVault.hash,
+                value:
+                    '0x' +
+                    DataConverter.fromDecimal128(transaction.consolidatedVault.value).toString(16),
+                outputIndex: transaction.consolidatedVault.outputIndex,
+                output: transaction.consolidatedVault.output.toString('base64'),
+            };
         }
 
         delete newTx._id;

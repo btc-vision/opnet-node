@@ -27,10 +27,17 @@ import { TransactionRepository } from '../../../db/repositories/TransactionRepos
 import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
 import { VMStorage } from '../VMStorage.js';
-import { IWBTCUTXODocument } from '../../../db/interfaces/IWBTCUTXODocument.js';
+import {
+    IUsedWBTCUTXODocument,
+    IWBTCUTXODocument,
+    UsedUTXOToDelete,
+} from '../../../db/interfaces/IWBTCUTXODocument.js';
 import { IVaultDocument } from '../../../db/interfaces/IVaultDocument.js';
 import { VaultRepository } from '../../../db/repositories/VaultRepository.js';
 import { SelectedUTXOs, WBTCUTXORepository } from '../../../db/repositories/WBTCUTXORepository.js';
+import { CompromisedTransactionRepository } from '../../../db/repositories/CompromisedTransactionRepository.js';
+import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
+import { UsedWbtcUxtoRepository } from '../../../db/repositories/UsedWbtcUxtoRepository.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -51,6 +58,8 @@ export class VMMongoStorage extends VMStorage {
 
     private vaultRepository: VaultRepository | undefined;
     private wbtcUTXORepository: WBTCUTXORepository | undefined;
+    private compromisedTransactionRepository: CompromisedTransactionRepository | undefined;
+    private usedUTXOsRepository: UsedWbtcUxtoRepository | undefined;
 
     private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
     private readonly maxTransactionSessions: number;
@@ -108,6 +117,14 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('WBTC UTXO repository not initialized');
         }
 
+        if (!this.compromisedTransactionRepository) {
+            throw new Error('Compromised transaction repository not initialized');
+        }
+
+        if (!this.usedUTXOsRepository) {
+            throw new Error('Used UTXO repository not initialized');
+        }
+
         await this.updateBlockchainInfo(Number(blockId));
 
         const promises: Promise<void>[] = [
@@ -119,9 +136,35 @@ export class VMMongoStorage extends VMStorage {
             this.reorgRepository.deleteReorgs(blockId),
             this.vaultRepository.deleteVaultsSeenAfter(blockId),
             this.wbtcUTXORepository.deleteWBTCUTXOs(blockId),
+            this.compromisedTransactionRepository.deleteCompromisedTransactions(blockId),
+            this.usedUTXOsRepository.deleteOldUsedUtxos(blockId),
         ];
 
         await Promise.all(promises);
+    }
+
+    public async deleteUsedUtxos(UTXOs: UsedUTXOToDelete[]): Promise<void> {
+        if (!this.usedUTXOsRepository) {
+            throw new Error('Used UTXO repository not initialized');
+        }
+
+        await this.usedUTXOsRepository.deleteUsedUtxos(UTXOs, this.currentSession);
+    }
+
+    public async deleteOldUsedUtxos(blockHeight: bigint): Promise<void> {
+        if (!this.usedUTXOsRepository) {
+            throw new Error('Used UTXO repository not initialized');
+        }
+
+        await this.usedUTXOsRepository.deleteOldUsedUtxos(blockHeight, this.currentSession);
+    }
+
+    public async setUsedUtxo(usedUtxo: IUsedWBTCUTXODocument): Promise<void> {
+        if (!this.usedUTXOsRepository) {
+            throw new Error('Used UTXO repository not initialized');
+        }
+
+        await this.usedUTXOsRepository.setUsedUtxo(usedUtxo, this.currentSession);
     }
 
     public async getWitnesses(
@@ -182,6 +225,11 @@ export class VMMongoStorage extends VMStorage {
         this.blockWitnessRepository = new BlockWitnessRepository(this.databaseManager.db);
         this.vaultRepository = new VaultRepository(this.databaseManager.db);
         this.wbtcUTXORepository = new WBTCUTXORepository(this.databaseManager.db);
+        this.compromisedTransactionRepository = new CompromisedTransactionRepository(
+            this.databaseManager.db,
+        );
+
+        this.usedUTXOsRepository = new UsedWbtcUxtoRepository(this.databaseManager.db);
     }
 
     public async getLatestBlock(): Promise<BlockHeaderAPIBlockDocument> {
@@ -575,6 +623,14 @@ export class VMMongoStorage extends VMStorage {
         await this.wbtcUTXORepository.setWBTCUTXO(wbtcUTXO);
     }
 
+    public async setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void> {
+        if (!this.wbtcUTXORepository) {
+            throw new Error('WBTC UTXO repository not initialized');
+        }
+
+        await this.wbtcUTXORepository.setWBTCUTXOs(wbtcUTXOs);
+    }
+
     public async setVault(vault: IVaultDocument): Promise<void> {
         if (!this.vaultRepository) {
             throw new Error('Vault repository not initialized');
@@ -595,6 +651,47 @@ export class VMMongoStorage extends VMStorage {
             requestedAmount,
             consolidationAcceptance,
         );
+    }
+
+    public async saveCompromisedTransactions(
+        transactions: ICompromisedTransactionDocument[],
+    ): Promise<void> {
+        if (!this.currentSession) {
+            throw new Error('Current session not started');
+        }
+
+        if (!this.compromisedTransactionRepository) {
+            throw new Error('Compromised transaction repository not initialized');
+        }
+
+        await this.compromisedTransactionRepository.saveCompromisedTransactions(
+            transactions,
+            this.currentSession,
+        );
+    }
+
+    public async setSpentWBTC_UTXOs(utxos: UsedUTXOToDelete[], height: bigint): Promise<void> {
+        if (!this.currentSession) {
+            throw new Error('Current session not started');
+        }
+
+        if (!this.wbtcUTXORepository) {
+            throw new Error('WBTC UTXO repository not initialized');
+        }
+
+        await this.wbtcUTXORepository.setSpentWBTC_UTXOs(utxos, height, this.currentSession);
+    }
+
+    public async deleteOldUTXOs(height: bigint): Promise<void> {
+        if (!this.currentSession) {
+            throw new Error('Current session not started');
+        }
+
+        if (!this.wbtcUTXORepository) {
+            throw new Error('WBTC UTXO repository not initialized');
+        }
+
+        await this.wbtcUTXORepository.deleteOldUTXOs(height, this.currentSession);
     }
 
     public async getVault(vault: Address): Promise<IVaultDocument | undefined> {

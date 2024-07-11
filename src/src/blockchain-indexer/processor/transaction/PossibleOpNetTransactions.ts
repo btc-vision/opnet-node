@@ -6,6 +6,7 @@ import { DeploymentTransaction } from './transactions/DeploymentTransaction.js';
 import { GenericTransaction } from './transactions/GenericTransaction.js';
 import { InteractionTransaction } from './transactions/InteractionTransaction.js';
 import { WrapTransaction } from './transactions/WrapTransaction.js';
+import { UnwrapTransaction } from './transactions/UnwrapTransaction.js';
 
 export type OPNetTransactionByType<T extends OPNetTransactionTypes> = (
     data: TransactionData,
@@ -53,6 +54,13 @@ export const PossibleOpNetTransactions: {
         parse: (...args) => new DeploymentTransaction(...args),
         isTransaction(data: TransactionData): TransactionInformation | undefined {
             return DeploymentTransaction.is(data);
+        },
+    },
+    [OPNetTransactionTypes.UnwrapInteraction]: {
+        parse: (...args) =>
+            new UnwrapTransaction(...args) as Transaction<OPNetTransactionTypes.UnwrapInteraction>,
+        isTransaction(data: TransactionData): TransactionInformation | undefined {
+            return UnwrapTransaction.is(data);
         },
     },
 };

@@ -1,6 +1,19 @@
-import { BaseRepository, DebugLevel } from '@btc-vision/bsi-common';
-import { AggregateOptions, Binary, ClientSession, Collection, Db, Decimal128 } from 'mongodb';
-import { IWBTCUTXODocument } from '../interfaces/IWBTCUTXODocument.js';
+import {
+    BaseRepository,
+    DataAccessError,
+    DataAccessErrorType,
+    DebugLevel,
+} from '@btc-vision/bsi-common';
+import {
+    AggregateOptions,
+    Binary,
+    ClientSession,
+    Collection,
+    Db,
+    Decimal128,
+    UpdateOptions,
+} from 'mongodb';
+import { IWBTCUTXODocument, UsedUTXOToDelete } from '../interfaces/IWBTCUTXODocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { WBTCUTXOAggregation } from '../../vm/storage/databases/aggregation/WBTCUTXOSAggregation.js';
@@ -11,8 +24,8 @@ import {
     VaultsByHashes,
 } from '../../vm/storage/databases/aggregation/QueryVaultAggregation.js';
 import { Config } from '../../config/Config.js';
-import { currentConsensusConfig } from '../../poa/configurations/OPNetConsensus.js';
 import { UnwrapTargetConsolidation } from '../../poa/equoitions/UnwrapTargetConsolidation.js';
+import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 
 export interface VaultUTXOs {
     readonly vault: Address;
@@ -24,6 +37,8 @@ export interface VaultUTXOs {
 export type SelectedUTXOs = Map<Address, VaultUTXOs>;
 
 export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
+    private static readonly DELETE_OLDER_THAN_BLOCKS: bigint = 256n;
+
     public readonly logColor: string = '#afeeee';
 
     private readonly utxosAggregation: WBTCUTXOAggregation = new WBTCUTXOAggregation();
@@ -46,6 +61,112 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         await this.updatePartial(criteria, utxo, currentSession);
     }
 
+    public async setWBTCUTXOs(
+        utxos: IWBTCUTXODocument[],
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const bulkWriteOperations = utxos.map((utxo) => {
+            return {
+                updateOne: {
+                    filter: {
+                        hash: utxo.hash,
+                        outputIndex: utxo.outputIndex,
+                    },
+                    update: {
+                        $set: utxo,
+                    },
+                    upsert: true,
+                },
+            };
+        });
+
+        await this.bulkWrite(bulkWriteOperations, currentSession);
+    }
+
+    public async setSpentWBTC_UTXOs(
+        utxos: UsedUTXOToDelete[],
+        height: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const blockHeight: Decimal128 = DataConverter.toDecimal128(height);
+        const bulkWriteOperations = utxos.map((utxo) => {
+            return {
+                updateOne: {
+                    filter: {
+                        hash: utxo.hash,
+                        outputIndex: utxo.outputIndex,
+                    },
+                    update: {
+                        $set: {
+                            spent: true,
+                            spentAt: blockHeight,
+                        },
+                    },
+                    upsert: true,
+                },
+            };
+        });
+
+        await this.bulkWrite(bulkWriteOperations, currentSession);
+    }
+
+    public async deleteOldUTXOs(blockHeight: bigint, currentSession: ClientSession): Promise<void> {
+        if (blockHeight < WBTCUTXORepository.DELETE_OLDER_THAN_BLOCKS) {
+            return; // Do not delete UTXOs older than the defined threshold.
+        }
+
+        const criteria = {
+            spentAt: {
+                $lt: DataConverter.toDecimal128(
+                    blockHeight - WBTCUTXORepository.DELETE_OLDER_THAN_BLOCKS,
+                ),
+            },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
+    public async restoreSpentWBTC_UTXOs(fromHeight: bigint): Promise<void> {
+        const criteria = {
+            spent: true,
+            spentAt: {
+                $gte: DataConverter.toDecimal128(fromHeight),
+            },
+        };
+
+        const update = {
+            $set: {
+                spent: false,
+                spentAt: null,
+            },
+        };
+
+        try {
+            const collection = this.getCollection();
+            const options: UpdateOptions = {
+                ...this.getOptions(),
+            };
+
+            const updateResult = await collection.updateMany(criteria, update, options);
+
+            if (!updateResult.acknowledged) {
+                throw new DataAccessError(
+                    'Concurrency error while updating.',
+                    DataAccessErrorType.Concurency,
+                    '',
+                );
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                const errorDescription: string = error.stack || error.message;
+
+                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
+            } else {
+                throw error;
+            }
+        }
+    }
+
     /** In case someone sends a lot of requests, we can cache the query for a short period of time. */
     public async queryVaultsUTXOs(
         requestedAmount: bigint,
@@ -64,11 +185,13 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
             consolidationAcceptance,
             _currentSession,
         );
-        const result = await this.cachedVaultQuery;
 
+        // TODO: throw if the cache is set, user will have to request it again.
+
+        const result = await this.cachedVaultQuery;
         setTimeout(() => {
             this.cachedVaultQuery = undefined;
-        }, 25); // cache for 25ms. this will prevent massive spamming of the database.
+        }, 25); // cache for 25ms. this will prevent massive spamming of the database. This will crash the database if not handled. Maybe push request in a queue?
 
         return result;
     }
@@ -81,6 +204,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         };
 
         await this.delete(criteria);
+        await this.restoreSpentWBTC_UTXOs(blockId);
     }
 
     public orderPublicKeys(publicKeys: Buffer[]): Buffer[] {
@@ -169,7 +293,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
             const upperConsolidationAcceptanceLimit =
                 UnwrapTargetConsolidation.calculateVaultTargetConsolidationAmount(
                     requestedAmount,
-                    currentConsensusConfig.VAULT_MINIMUM_AMOUNT,
+                    OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT,
                     minConsolidationAcceptance,
                 ) - 1n;
 
@@ -179,22 +303,26 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
             let selectedUTXOs: IWBTCUTXODocument[] = [];
             let consolidatedInputs: IWBTCUTXODocument[] = [];
             let consolidationAmount: bigint = 0n;
+            let amountLeft: bigint = 0n;
 
             const results = await aggregatedDocument.toArray();
             if (!(!results || results.length === 0)) {
                 for (const utxo of results) {
                     const utxoValue = DataConverter.fromDecimal128(utxo.value);
+                    amountLeft = currentAmount - requestedAmount;
+
                     if (!consolidating) {
                         currentAmount += utxoValue;
                         selectedUTXOs.push(utxo);
 
                         requestedAmount +=
-                            currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+                            OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
 
                         if (currentAmount >= requestedAmount) {
                             consolidating = true;
                             requestedAmount -=
-                                currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+                                OPNetConsensus.consensus.VAULTS
+                                    .UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
 
                             consolidationAmount = requestedAmount - currentAmount;
 
@@ -206,14 +334,16 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
 
                         continue;
                     } else if (
-                        utxoValue + consolidationAmount <=
-                        upperConsolidationAcceptanceLimit
+                        amountLeft + consolidationAmount + utxoValue <
+                            OPNetConsensus.consensus.VAULTS.VAULT_MINIMUM_AMOUNT ||
+                        amountLeft + utxoValue + consolidationAmount <=
+                            upperConsolidationAcceptanceLimit
                     ) {
                         consolidationAmount += utxoValue;
                         consolidatedInputs.push(utxo);
 
                         requestedAmount +=
-                            currentConsensusConfig.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+                            OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
                     }
 
                     const totalAmount: bigint = currentAmount + consolidationAmount;
@@ -224,7 +354,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
                     if (
                         (totalAmount >= requiredAmount && consolidatedInputs.length >= 2) ||
                         consolidatedInputs.length >=
-                            currentConsensusConfig.MAXIMUM_CONSOLIDATION_UTXOS
+                            OPNetConsensus.consensus.VAULTS.MAXIMUM_CONSOLIDATION_UTXOS
                     ) {
                         // TODO: ensure we don't end up with a lot of small UTXOs.
                         break;
@@ -235,15 +365,19 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
             // Maximize the consolidation.
             if (
                 consolidatedInputs.length &&
-                consolidationAmount > upperConsolidationAcceptanceLimit
+                amountLeft + consolidationAmount > upperConsolidationAcceptanceLimit
             ) {
+                this.warn(`Removed consolidation inputs to fit the requested amount.`);
                 consolidatedInputs.pop();
             }
 
-            if (consolidatedInputs.length > currentConsensusConfig.MAXIMUM_CONSOLIDATION_UTXOS) {
+            if (
+                consolidatedInputs.length >
+                OPNetConsensus.consensus.VAULTS.MAXIMUM_CONSOLIDATION_UTXOS
+            ) {
                 consolidatedInputs = consolidatedInputs.slice(
                     0,
-                    currentConsensusConfig.MAXIMUM_CONSOLIDATION_UTXOS,
+                    OPNetConsensus.consensus.VAULTS.MAXIMUM_CONSOLIDATION_UTXOS,
                 );
             }
 

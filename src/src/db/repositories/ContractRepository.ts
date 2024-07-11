@@ -34,7 +34,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             $or: [
                 { contractAddress: contractAddress },
                 { virtualAddress: contractAddress },
-                { p2trAddress: contractAddress },
+                //{ p2trAddress: contractAddress }, disabled.
             ],
         };
 
@@ -51,7 +51,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             $or: [
                 { contractAddress: contractAddress },
                 { virtualAddress: contractAddress },
-                { p2trAddress: contractAddress },
+                //{ p2trAddress: contractAddress }, disabled.
             ],
         };
 
@@ -76,7 +76,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             $or: [
                 { contractAddress: contractAddress },
                 { virtualAddress: contractAddress },
-                { p2trAddress: contractAddress },
+                //{ p2trAddress: contractAddress }, disabled
             ],
         };
 
@@ -99,6 +99,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         return contract.contractAddress;
     }
 
+    // TODO: Add verification to make sure the contract it tries to deploy does not already exist.
     public async setContract(
         contract: ContractInformation,
         currentSession?: ClientSession,

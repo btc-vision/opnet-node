@@ -53,6 +53,8 @@ export class WrapManager extends AbstractSpecialManager<OPNetTransactionTypes.Wr
             hash: transaction.txid,
             outputIndex: transaction.wrapIndex,
             output: Binary.createFromHexString(output.hex),
+            spent: false,
+            spentAt: null,
         };
 
         await this.vmStorage.setWBTCUTXO(utxoData);

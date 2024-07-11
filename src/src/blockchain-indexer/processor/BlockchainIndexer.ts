@@ -26,10 +26,14 @@ import { VMManager } from '../../vm/VMManager.js';
 import { Block } from './block/Block.js';
 import { SpecialManager } from './special-transaction/SpecialManager.js';
 import { NetworkConverter } from '../../config/NetworkConverter.js';
+import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import figlet, { Fonts } from 'figlet';
+import { Consensus } from '../../poa/configurations/consensus/Consensus.js';
 
 interface LastBlock {
     hash?: string;
     checksum?: string;
+    blockNumber?: number;
 }
 
 export class BlockchainIndexer extends Logger {
@@ -56,6 +60,7 @@ export class BlockchainIndexer extends Logger {
     private lastBlock: LastBlock = {};
 
     private pendingNextBlockScan: NodeJS.Timeout | undefined;
+    private isIndexing: boolean = false;
 
     constructor(config: BtcIndexerConfig) {
         super();
@@ -68,6 +73,8 @@ export class BlockchainIndexer extends Logger {
 
         this.specialTransactionManager = new SpecialManager(this.vmManager);
         this.bitcoinNetwork = NetworkConverter.getNetwork(this.network);
+
+        this.addConsensusListeners();
     }
 
     private _blockchainInfoRepository: BlockchainInformationRepository | undefined;
@@ -122,6 +129,14 @@ export class BlockchainIndexer extends Logger {
         }
     }
 
+    private addConsensusListeners(): void {
+        OPNetConsensus.addConsensusUpgradeCallback((consensus: string, isReady: boolean) => {
+            if (!isReady) {
+                this.panic(`Consensus upgrade to ${consensus} failed.`);
+            }
+        });
+    }
+
     private async getCurrentBlock(): Promise<CurrentIndexerBlockResponseData> {
         const blockchainInfo = await this.getCurrentProcessBlockHeight(-1);
 
@@ -170,11 +185,18 @@ export class BlockchainIndexer extends Logger {
             return;
         }
 
+        if (this.isIndexing) return;
+
         try {
+            this.isIndexing = true;
             this.currentBlockInProcess = this.processBlocks(startBlockHeight);
 
             await this.currentBlockInProcess;
+
+            this.isIndexing = false;
         } catch (e) {
+            this.isIndexing = false;
+
             const error = e as Error;
             this.panic(`Error processing blocks: ${error.stack}`);
         }
@@ -408,17 +430,119 @@ export class BlockchainIndexer extends Logger {
         await this.vmManager.clear();
     }
 
+    private setConsensusBlockHeight(blockHeight: bigint): boolean {
+        try {
+            if (
+                OPNetConsensus.hasConsensus() &&
+                OPNetConsensus.isConsensusBlock() &&
+                !OPNetConsensus.isReadyForNextConsensus()
+            ) {
+                this.panic(
+                    `Consensus is getting applied in this block (${blockHeight}) but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
+                );
+                return true;
+            }
+
+            OPNetConsensus.setBlockHeight(blockHeight);
+
+            if (
+                OPNetConsensus.hasConsensus() &&
+                OPNetConsensus.isConsensusBlock() &&
+                !OPNetConsensus.isReadyForNextConsensus()
+            ) {
+                this.panic(
+                    `Consensus is getting applied in this block (${blockHeight}) but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
+                );
+                return true;
+            }
+
+            if (
+                OPNetConsensus.isNextConsensusImminent() &&
+                !OPNetConsensus.isReadyForNextConsensus()
+            ) {
+                this.warn(
+                    `!!! --- Next consensus is imminent. Please prepare for the next consensus by upgrading your node. The next consensus will take effect in ${OPNetConsensus.consensus.GENERIC.NEXT_CONSENSUS_BLOCK - blockHeight} blocks. --- !!!`,
+                );
+            }
+
+            return false;
+        } catch (e) {
+            return true;
+        }
+    }
+
+    private notifyArt(
+        type: 'info' | 'warn' | 'success' | 'panic',
+        text: string,
+        font: Fonts,
+        prefix: string,
+        ...suffix: string[]
+    ): void {
+        const artVal = figlet.textSync(text, {
+            font: font, //'Doh',
+            horizontalLayout: 'default',
+            verticalLayout: 'default',
+        });
+
+        this[type](`${prefix}${artVal}${suffix.join('\n')}`);
+    }
+
+    private async lockdown(): Promise<void> {
+        this.notifyArt(
+            'panic',
+            `LOCKDOWN`,
+            'Doh',
+            `\n\n\nOP_NET detected a compromised block.\n\n\n\n\n`,
+            `\n\nA vault has been compromised. The network is now in lockdown.\n`,
+        );
+
+        this.panic(`A vault has been compromised. The network is now in lockdown.`);
+        this.panic(`If this is a false positive, this should be resolved automatically.`);
+        this.panic(`To prevent further damage, the network has been locked down.`);
+    }
+
+    private onConsensusFailed(consensusName: string): void {
+        this.notifyArt(
+            'warn',
+            `FATAL.`,
+            'Doh',
+            `\n\n\n!!!!!!!!!! -------------------- UPGRADE FAILED. --------------------  !!!!!!!!!!\n\n\n\n\n`,
+            `\n\nPoA has been disabled. This node will not connect to any peers. And any processing will be halted.\n`,
+            `This node is not ready to apply ${consensusName}.\n`,
+            `UPGRADE IMMEDIATELY.\n\n`,
+        );
+
+        setTimeout(() => {
+            process.exit(1); // Exit the process.
+        }, 2000);
+    }
+
     private async processBlocks(
         startBlockHeight: number = -1,
         wasReorg: boolean = false,
     ): Promise<void> {
+        this.info(`Processing blocks from block ${startBlockHeight}.`);
+
         let blockHeightInProgress: number = wasReorg
             ? startBlockHeight
             : await this.getCurrentProcessBlockHeight(startBlockHeight);
 
-        let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
+        if (!wasReorg && this.lastBlock && typeof this.lastBlock.blockNumber !== 'undefined') {
+            if (blockHeightInProgress < this.lastBlock.blockNumber) {
+                blockHeightInProgress = this.lastBlock.blockNumber;
+            }
+        }
 
+        this.setConsensusBlockHeight(BigInt(blockHeightInProgress));
+
+        let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
+            const nextConsensus = OPNetConsensus.getNextConsensus();
+            if (this.setConsensusBlockHeight(BigInt(blockHeightInProgress))) {
+                this.onConsensusFailed(Consensus[nextConsensus]);
+                return;
+            }
+
             const getBlockDataTimingStart = Date.now();
             const block = await this.getBlockFromPrefetch(
                 blockHeightInProgress,
@@ -438,13 +562,15 @@ export class BlockchainIndexer extends Logger {
             /** We must check for chain reorgs here. */
             const chainReorged: boolean = await this.verifyChainReorg(block);
             if (chainReorged) {
+                this.lastBlock.blockNumber = undefined;
+                
                 await this.restoreBlockchain(blockHeightInProgress);
                 return;
             }
 
             const processStartTime = Date.now();
-            const processed: Block | null = await this.processBlock(block, this.vmManager);
-            if (processed === null) {
+            const processedBlock: Block | null = await this.processBlock(block, this.vmManager);
+            if (processedBlock === null) {
                 this.fatalFailure = true;
                 throw new Error(`Error processing block ${blockHeightInProgress}.`);
             }
@@ -452,16 +578,21 @@ export class BlockchainIndexer extends Logger {
             const processEndTime = Date.now();
             if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
                 this.info(
-                    `Block ${blockHeightInProgress} processed successfully. {Transaction(s): ${processed.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processed.timeForTransactionExecution}ms | State update: ${processed.timeForStateUpdate}ms | Block processing: ${processed.timeForBlockProcessing}ms | Generic transaction saving: ${processed.timeForGenericTransactions}ms | Took ${processEndTime - processStartTime}ms})`,
+                    `Block ${blockHeightInProgress} processed successfully. {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - processStartTime}ms})`,
                 );
             }
 
-            this.lastBlock.hash = processed.hash;
-            this.lastBlock.checksum = processed.checksumRoot;
+            if (processedBlock.compromised) {
+                await this.lockdown();
+            }
 
-            await this.notifyBlockProcessed(processed);
+            this.lastBlock.hash = processedBlock.hash;
+            this.lastBlock.checksum = processedBlock.checksumRoot;
+            this.lastBlock.blockNumber = Number(processedBlock.height.toString());
 
             blockHeightInProgress++;
+
+            await this.notifyBlockProcessed(processedBlock);
 
             if (this.processOnlyOneBlock) {
                 break;
@@ -477,6 +608,7 @@ export class BlockchainIndexer extends Logger {
             const blockHash: string | null = await this.rpcClient.getBlockHash(
                 blockHeightInProgress - 1,
             );
+
             if (blockHash == null) {
                 throw new Error(`Error fetching block hash.`);
             }
@@ -491,7 +623,7 @@ export class BlockchainIndexer extends Logger {
 
             this.success(`Indexer synchronized. Network height at: ${chainCurrentBlockHeight}.`);
         } else if (!this.processOnlyOneBlock) {
-            await this.processBlocks(blockHeightInProgress);
+            await this.processBlocks(blockHeightInProgress, false);
         }
     }
 

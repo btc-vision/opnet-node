@@ -5,7 +5,7 @@ export interface IContractDocumentBase {
     readonly blockHeight: Decimal128 | string | undefined;
     readonly contractAddress: BitcoinAddress;
     readonly virtualAddress: BitcoinAddress;
-    readonly p2trAddress: BitcoinAddress;
+    readonly p2trAddress: BitcoinAddress | null;
     readonly bytecode: Binary | string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: string;

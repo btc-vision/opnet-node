@@ -17,14 +17,17 @@ import { ServerThread } from '../../../../ServerThread.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
 import { BroadcastResponse } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
-import { currentConsensusConfig } from '../../../../../poa/configurations/OPNetConsensus.js';
 import { xxHash } from '../../../../../poa/hashing/xxhash.js';
+import { TransactionSizeValidator } from '../../../../../poa/mempool/data-validator/TransactionSizeValidator.js';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,
     JSONRpcMethods.BROADCAST_TRANSACTION,
     BroadcastTransactionResult | undefined
 > {
+    private readonly transactionSizeValidator: TransactionSizeValidator =
+        new TransactionSizeValidator();
+
     constructor() {
         super(Routes.BROADCAST_TRANSACTION, RouteType.POST);
     }
@@ -38,16 +41,11 @@ export class BroadcastTransaction extends Route<
 
         const [data, psbt] = this.getDecodedParams(params);
         const dataSize = data.length / 2;
-        if (psbt && dataSize > currentConsensusConfig.PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE) {
+
+        if (this.transactionSizeValidator.verifyTransactionSize(dataSize, psbt ?? false)) {
             return {
                 success: false,
-                error: 'PSBT transaction too large',
-                identifier: 0n,
-            };
-        } else if (!psbt && dataSize > currentConsensusConfig.MAXIMUM_TRANSACTION_BROADCAST_SIZE) {
-            return {
-                success: false,
-                error: 'Transaction too large',
+                result: 'Transaction too large',
                 identifier: 0n,
             };
         }

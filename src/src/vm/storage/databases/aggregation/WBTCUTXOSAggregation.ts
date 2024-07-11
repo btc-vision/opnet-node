@@ -8,6 +8,11 @@ export class WBTCUTXOAggregation extends Aggregation {
 
     public getAggregation(): Document[] {
         return [
+            {
+                $match: {
+                    spent: false,
+                },
+            },
             // Step 1: Match UTXOs that are not in the USED_WBTC_UTXO collection
             {
                 $lookup: {

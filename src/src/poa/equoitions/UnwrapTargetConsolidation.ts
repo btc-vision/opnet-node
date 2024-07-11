@@ -8,7 +8,7 @@ export class UnwrapTargetConsolidation {
     ): bigint {
         // Ensure the requested amount is not less than the minimum amount
         if (requestedAmount < vaultMinimumAmount) {
-            throw new Error('Requested amount is less than VAULT_MINIMUM_AMOUNT.');
+            return vaultMinimumAmount;
         }
 
         // Calculate the exponent term

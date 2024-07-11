@@ -2,6 +2,8 @@ import { BaseRepository } from '@btc-vision/bsi-common';
 import { Binary, Collection, Db, Filter } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { IMempoolTransaction, IMempoolTransactionObj } from '../interfaces/IMempoolTransaction.js';
+import { DataConverter } from '@btc-vision/bsi-db';
+import { Config } from '../../config/Config.js';
 
 export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     public readonly logColor: string = '#afeeee';
@@ -32,6 +34,19 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         return this.convertToObj(result);
     }
 
+    public async purgeOldTransactions(currentBlock: bigint): Promise<void> {
+        // If the transaction is older than 20 blocks, we must purge it.
+        const criteria: Filter<IMempoolTransaction> = {
+            blockHeight: {
+                $lt: DataConverter.toDecimal128(
+                    currentBlock - BigInt(Config.MEMPOOL.EXPIRATION_BLOCKS),
+                ),
+            },
+        };
+
+        await this.delete(criteria);
+    }
+
     public async hasTransactionByIdentifier(
         transactionIdentifier: bigint,
         psbt: boolean,
@@ -54,20 +69,6 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         return !!exists;
     }
 
-    public async storePsbtIfNotExists(transaction: IMempoolTransactionObj): Promise<boolean> {
-        const exists = await this.getTransactionByIdentifier(
-            transaction.identifier,
-            transaction.psbt,
-            transaction.id,
-        );
-
-        if (!exists) {
-            await this.storeTransaction(transaction);
-        }
-
-        return !!exists;
-    }
-
     public async deleteTransactionByIdentifier(
         transactionIdentifier: bigint,
         psbt: boolean,
@@ -79,29 +80,6 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
 
         try {
             await this.delete(filter);
-            return true;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    public async updateTransactionHash(
-        transactionIdentifier: bigint,
-        hash: string,
-    ): Promise<boolean> {
-        const filter: Filter<IMempoolTransaction> = {
-            identifier: this.bigIntToBinary(transactionIdentifier),
-            psbt: false,
-        };
-
-        const update: Filter<IMempoolTransaction> = {
-            $set: {
-                id: hash,
-            },
-        };
-
-        try {
-            await this.updatePartialWithFilter(filter, update);
             return true;
         } catch (e) {
             return false;
@@ -150,6 +128,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             ...data,
             identifier: this.bigIntToBinary(data.identifier),
             data: new Binary(data.data),
+            blockHeight: DataConverter.toDecimal128(data.blockHeight),
         };
     }
 
@@ -158,6 +137,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             ...data,
             identifier: this.binaryToBigInt(data.identifier),
             data: data.data.buffer,
+            blockHeight: DataConverter.fromDecimal128(data.blockHeight),
         };
     }
 }

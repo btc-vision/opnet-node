@@ -25,6 +25,10 @@ import { ChecksumMerkle } from './merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from './types/ZeroValue.js';
 import { WrapTransaction } from '../transaction/transactions/WrapTransaction.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
+import { GenericTransaction } from '../transaction/transactions/GenericTransaction.js';
+import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
+import { UnwrapTransaction } from '../transaction/transactions/UnwrapTransaction.js';
+import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../../db/interfaces/IWBTCUTXODocument.js';
 
 export class Block extends Logger {
     // Block Header
@@ -56,6 +60,8 @@ export class Block extends Logger {
     private specialTransaction: Transaction<OPNetTransactionTypes>[] = [];
 
     private specialExecutionPromise: Promise<void> | undefined;
+
+    #compromised: boolean = false;
 
     #_storageRoot: string | undefined;
     #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
@@ -92,6 +98,14 @@ export class Block extends Logger {
 
     public get height(): bigint {
         return this.header.height;
+    }
+
+    public get median(): bigint {
+        return BigInt(this.header.medianTime.getTime());
+    }
+
+    public get timestamp(): number {
+        return this.header.time.getTime();
     }
 
     public get previousBlockChecksum(): string {
@@ -138,8 +152,8 @@ export class Block extends Logger {
         return this.#_storageProofs;
     }
 
-    public get confirmations(): number {
-        return this.header.confirmations;
+    public get compromised(): boolean {
+        return this.#compromised;
     }
 
     public get version(): number {
@@ -216,10 +230,10 @@ export class Block extends Logger {
         // First, we have to create transaction object corresponding to the transactions types in the block
         this.createTransactions();
 
-        if (this.erroredTransactions.size > 0) {
-            this.error(
-                `Failed to parse ${this.erroredTransactions.size} transactions. Proceed with caution. This may lead to bad indexing.`,
-            );
+        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (this.erroredTransactions.size > 0) {
+                this.error(`Failed to parse ${this.erroredTransactions.size} transactions.`);
+            }
         }
 
         // Then, we can sort the transactions by their priority
@@ -261,7 +275,7 @@ export class Block extends Logger {
             const updatedStatesAfterExecution = Date.now();
             this.timeForStateUpdate = updatedStatesAfterExecution - timeAfterExecution;
 
-            if (states && states.storage && states.storage.size()) {
+            if (states && states.receipts && states.receipts.size()) {
                 await this.processBlockStates(states, vmManager);
             } else {
                 await this.onEmptyBlock(vmManager);
@@ -337,9 +351,15 @@ export class Block extends Logger {
                 throw new Error('Storage tree not found');
             }
 
-            const proofs = storageTree.getProofs();
-            this.#_storageRoot = storageTree.root;
-            this.#_storageProofs = proofs;
+            // We must verify if we're only storing one pointer, if it crashes.
+            if (storageTree.size()) {
+                const proofs = storageTree.getProofs();
+                this.#_storageRoot = storageTree.root;
+                this.#_storageProofs = proofs;
+            } else {
+                this.#_storageRoot = ZERO_HASH;
+                this.#_storageProofs = new Map();
+            }
 
             const proofsReceipt = states.receipts.getProofs();
             this.#_receiptRoot = states.receipts.root;
@@ -381,7 +401,24 @@ export class Block extends Logger {
         const start = Date.now();
         try {
             /** We must create a transaction receipt. */
-            transaction.receipt = await vmManager.executeTransaction(this.height, transaction);
+            transaction.receipt = await vmManager.executeTransaction(
+                this.height,
+                this.median,
+                transaction,
+            );
+
+            if (transaction.receipt.revert) {
+                const error =
+                    transaction.receipt.revert instanceof Error
+                        ? transaction.receipt.revert
+                        : new Error(transaction.receipt.revert);
+
+                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    this.error(`Transaction ${transaction.txid} reverted with reason: ${error}`);
+                }
+
+                transaction.revert = error;
+            }
         } catch (e) {
             const error: Error = e as Error;
 
@@ -392,6 +429,13 @@ export class Block extends Logger {
             }
 
             transaction.revert = error;
+
+            vmManager.updateBlockValuesFromResult(
+                null,
+                transaction.contractAddress,
+                transaction.txid,
+                true,
+            );
         }
     }
 
@@ -479,6 +523,12 @@ export class Block extends Logger {
                 break;
             }
             case OPNetTransactionTypes.WrapInteraction: {
+                const interactionTransaction = _transaction as WrapTransaction;
+
+                await this.executeInteractionTransaction(interactionTransaction, vmManager);
+                break;
+            }
+            case OPNetTransactionTypes.UnwrapInteraction: {
                 const interactionTransaction = _transaction as WrapTransaction;
 
                 await this.executeInteractionTransaction(interactionTransaction, vmManager);
@@ -582,17 +632,70 @@ export class Block extends Logger {
     }
 
     private async saveOPNetTransactions(vmManager: VMManager): Promise<void> {
-        if (this.opnetTransactions.length) {
-            const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
-            for (const transaction of this.opnetTransactions) {
-                transactionData.push(transaction.toDocument());
+        if (!this.opnetTransactions.length) {
+            return;
+        }
+
+        const vmStorage = vmManager.getVMStorage();
+
+        const usedUTXOs: UsedUTXOToDelete[] = [];
+        const consolidatedUTXOs: IWBTCUTXODocument[] = [];
+
+        const compromisedTransactions: ICompromisedTransactionDocument[] = [];
+        const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
+
+        const blockHeightDecimal = DataConverter.toDecimal128(this.height);
+        for (const transaction of this.opnetTransactions) {
+            if (!transaction.authorizedVaultUsage && transaction.vaultInputs.length) {
+                compromisedTransactions.push(transaction.getCompromisedDocument());
             }
 
-            await vmManager.saveTransactions(this.height, transactionData);
+            transactionData.push(transaction.toDocument());
 
-            if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
-                this.success(`All OPNet transactions of block ${this.height} saved successfully.`);
+            if (transaction.transactionType === OPNetTransactionTypes.UnwrapInteraction) {
+                const unwrapTransaction = transaction as UnwrapTransaction;
+
+                usedUTXOs.push(...unwrapTransaction.usedUTXOs);
+                if (unwrapTransaction.consolidatedVault) {
+                    consolidatedUTXOs.push({
+                        ...unwrapTransaction.consolidatedVault,
+                        blockId: blockHeightDecimal,
+
+                        spent: false,
+                        spentAt: null,
+                    });
+                }
             }
+        }
+
+        let promises: Promise<void>[] = [];
+        if (usedUTXOs.length) {
+            promises.push(vmStorage.setSpentWBTC_UTXOs(usedUTXOs, this.height));
+        }
+
+        if (consolidatedUTXOs.length) {
+            promises.push(vmStorage.setWBTCUTXOs(consolidatedUTXOs));
+        }
+
+        promises.push(vmStorage.deleteOldUTXOs(this.height));
+        promises.push(vmStorage.deleteOldUsedUtxos(this.height));
+
+        if (compromisedTransactions.length) {
+            this.panic(
+                `Found ${compromisedTransactions.length} compromised transactions in block ${this.height}.`,
+            );
+
+            this.#compromised = true;
+
+            promises.push(vmStorage.saveCompromisedTransactions(compromisedTransactions));
+        }
+
+        promises.push(vmManager.saveTransactions(this.height, transactionData));
+
+        await Promise.all(promises);
+
+        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+            this.success(`All OPNet transactions of block ${this.height} saved successfully.`);
         }
     }
 
@@ -671,10 +774,14 @@ export class Block extends Logger {
 
                 this.transactions.push(transaction);
             } catch (e) {
-                const error: Error = e as Error;
-                this.error(
-                    `Failed to parse transaction ${rawTransactionData.txid}: ${error.stack}`,
-                );
+                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    const error: Error = e as Error;
+                    this.error(
+                        `Failed to parse transaction ${rawTransactionData.txid}: ${error.message}`,
+                    );
+                }
+
+                this.treatAsGenericTransaction(rawTransactionData);
 
                 this.erroredTransactions.add(rawTransactionData);
             }
@@ -682,5 +789,29 @@ export class Block extends Logger {
 
         // Free up some memory, we don't need the raw transaction data anymore
         this.rawBlockData.tx = [];
+    }
+
+    private treatAsGenericTransaction(rawTransactionData: TransactionData): boolean {
+        try {
+            const genericTransaction = new GenericTransaction(
+                rawTransactionData,
+                0,
+                this.hash,
+                this.height,
+                this.network,
+            );
+
+            genericTransaction.parseTransaction(rawTransactionData.vin, rawTransactionData.vout);
+
+            this.transactions.push(genericTransaction);
+
+            return true;
+        } catch (e) {
+            this.panic(
+                `Failed to parse generic transaction ${rawTransactionData.txid}. This will lead to bad indexing of transactions. Please report this bug.`,
+            );
+        }
+
+        return false;
     }
 }
