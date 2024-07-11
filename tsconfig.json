@@ -19,9 +19,7 @@
 			"es2021",
 			"es2022",
 			"esnext",
-			"webworker",
-			"dom",
-			"scripthost"
+			"dom"
 		],
 		"strict": true,
 		"strictNullChecks": true,

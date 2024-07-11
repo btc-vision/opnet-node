@@ -15,6 +15,6 @@ export class NewBlockSubscription extends ZeroMQ<BitcoinZeroMQTopic.RAWBLOCK> {
     }
 
     protected async onEvent(topic: string, message: Buffer): Promise<void> {
-        console.log('New block notification received', topic, message);
+        //console.log('New block notification received', topic, message);
     }
 }

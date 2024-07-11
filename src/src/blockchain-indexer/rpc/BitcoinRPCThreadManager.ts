@@ -23,27 +23,30 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
         void this.init();
     }
 
+    public sendLinkToZeroMQThread(_message: LinkThreadMessage<LinkType>): void {
+        throw new Error('Method not implemented.');
+    }
+
+    public sendMessageToZeroMQThread(_message: LinkThreadRequestMessage): void {
+        throw new Error('Method not implemented.');
+    }
+
+    public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
+        throw new Error('Method not implemented.');
+    }
+
     protected async sendLinkToThreadsOfType(
-        threadType: ThreadTypes,
-        threadId: number,
+        _threadType: ThreadTypes,
+        _threadId: number,
         message: LinkThreadMessage<LinkType>,
     ): Promise<boolean> {
         const targetThreadType = message.data.targetThreadType;
-        const targetThreadId = message.data.targetThreadId;
 
         switch (targetThreadType) {
             default: {
                 return false;
             }
         }
-    }
-
-    public sendLinkToZeroMQThread(message: LinkThreadMessage<LinkType>): void {
-        throw new Error('Method not implemented.');
-    }
-
-    public sendMessageToZeroMQThread(_message: LinkThreadRequestMessage): void {
-        throw new Error('Method not implemented.');
     }
 
     protected async sendLinkMessageToThreadOfType(
@@ -62,11 +65,9 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
     }
 
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.ZERO_MQ);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
+        //await this.threadManager.createLinkBetweenThreads(ThreadTypes.ZERO_MQ);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
-    }
-
-    public onGlobalMessage(msg: ThreadMessageBase<MessageType>, thread: Worker): Promise<void> {
-        throw new Error('Method not implemented.');
     }
 }

@@ -1,130 +1,124 @@
-import { BufferHelper } from '../../utils/BufferHelper.js';
-import { BinaryReader } from '../buffer/BinaryReader.js';
-import { BinaryWriter } from '../buffer/BinaryWriter.js';
 import {
     Address,
-    BlockchainRequestedStorage,
-    BlockchainStorage,
-    MemorySlotData,
+    ADDRESS_BYTE_LENGTH,
+    BinaryReader,
+    BinaryWriter,
+    BufferHelper,
+    DeterministicMap,
+    DeterministicSet,
     MemorySlotPointer,
     MethodMap,
-    PointerStorage,
+    NetEvent,
     Selector,
     SelectorsMap,
-} from '../buffer/types/math.js';
-import { VMContext } from '../evaluated/EvaluatedContext.js';
+} from '@btc-vision/bsi-binary';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
-import { instantiate, VMRuntime } from '../wasmRuntime/runDebug.js';
+import { Logger } from '@btc-vision/bsi-common';
+import {
+    ExecutionParameters,
+    InternalContractCallParameters,
+} from './types/InternalContractCallParameters.js';
+import { ContractEvaluation } from './classes/ContractEvaluation.js';
+import { ContractParameters, ExportedContract, loadRust } from '../isolated/LoaderV2.js';
+import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
+import { MemorySlotData } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
+import { AddressGenerator } from '@btc-vision/transaction';
+import { Network } from 'bitcoinjs-lib';
 
-export class ContractEvaluator {
-    private contractInstance: VMRuntime | null = null;
-    private binaryWriter: BinaryWriter = new BinaryWriter();
+/*import * as v8 from 'node:v8';
 
-    private currentStorageState: BlockchainStorage = new Map();
-    private persistentStorageState: BlockchainStorage = new Map();
+v8.setFlagsFromString('--expose_gc');
 
-    private currentRequiredStorage: BlockchainRequestedStorage = new Map();
+const gc: (() => void) | undefined = global.gc;
+if (!gc) {
+    throw new Error('Garbage collector not exposed');
+}*/
 
-    private contractRef: Number = 0;
+export class ContractEvaluator extends Logger {
+    private static readonly MAX_CONTRACT_EXTERN_CALLS: number = 8;
+
+    public readonly logColor: string = '#00ffe1';
+
     private isProcessing: boolean = false;
-    private viewAbi: SelectorsMap = new Map();
-    private methodAbi: MethodMap = new Map();
-    private writeMethods: MethodMap = new Map();
-    private initializeContract: boolean = false;
 
-    constructor(
-        private readonly stack: VMContext,
-        private readonly console: Console,
-    ) {
-        void this.init();
+    private viewAbi: SelectorsMap = new DeterministicMap(BinaryReader.stringCompare);
+    private methodAbi: MethodMap = new DeterministicSet<Selector>(BinaryReader.numberCompare);
+    private writeMethods: MethodMap = new DeterministicSet<Selector>(BinaryReader.numberCompare);
+
+    private contractOwner: Address | undefined;
+    private contractAddress: Address | undefined;
+
+    private bytecode: Buffer | undefined;
+    private readonly enableTracing: boolean = false;
+
+    constructor(private readonly network: Network) {
+        super();
     }
 
-    public get wasm(): VMRuntime | null {
-        return this.contractInstance;
+    private _contractInstance: ExportedContract | undefined;
+
+    private get contractInstance(): ExportedContract {
+        if (!this._contractInstance) throw new Error('Contract not initialized');
+
+        return this._contractInstance;
     }
 
-    public async init(): Promise<void> {
-        this.contractInstance = await this.instantiatedContract(this.stack.initialBytecode, {});
+    public deployContract(_contract: ContractInformation): Promise<void> {
+        throw new Error('Method not implemented. [deployContract]');
     }
 
-    public async getStorage(
-        address: string,
-        pointer: StoragePointer,
-        defaultValueBuffer: MemoryValue | null,
-        setIfNotExit: boolean = true,
+    public getStorage(
+        _address: Address,
+        _pointer: StoragePointer,
+        _defaultValue: MemoryValue | null,
+        _setIfNotExit: boolean,
+        _blockNumber: bigint,
     ): Promise<MemoryValue | null> {
-        if (setIfNotExit && defaultValueBuffer === null) {
-            throw new Error('Default value buffer is required');
+        throw new Error('Method not implemented. [getStorage]');
+    }
+
+    public setStorage(_address: Address, _pointer: bigint, _value: bigint): Promise<void> {
+        throw new Error('Method not implemented. [setStorage]');
+    }
+
+    public async callExternal(
+        _params: InternalContractCallParameters,
+    ): Promise<ContractEvaluation> {
+        throw new Error('Method not implemented. [callExternal]');
+    }
+
+    public async deployContractAtAddress(
+        _address: Address,
+        _salt: Buffer,
+        _evaluation: ContractEvaluation,
+    ): Promise<
+        | {
+              contractAddress: Address;
+              virtualAddress: Buffer;
+              bytecodeLength: bigint;
+          }
+        | undefined
+    > {
+        throw new Error('Method not implemented. [deployContractAtAddress]');
+    }
+
+    public setContractInformation(contractInformation: ContractInformation): void {
+        // We use pub the pub key as the deployer address.
+        const contractDeployer: string = contractInformation.deployerAddress;
+        if (!contractDeployer || contractDeployer.length > ADDRESS_BYTE_LENGTH) {
+            throw new Error(`Invalid contract deployer "${contractDeployer}"`);
         }
 
-        const canInitialize: boolean =
-            address === this.stack.contractAddress ? setIfNotExit : false;
-
-        return this.stack.getStorage(address, pointer, defaultValueBuffer, canInitialize);
+        this.contractOwner = contractDeployer;
+        this.contractAddress = contractInformation.contractAddress;
+        this.bytecode = contractInformation.bytecode;
     }
 
-    public async rndPromise(): Promise<void> {
-        return await this.stack.rndPromise();
-    }
-
-    public async setStorage(
-        address: string,
-        pointer: StoragePointer,
-        value: MemoryValue,
-    ): Promise<void> {
-        if (address !== this.stack.contractAddress) {
-            throw new Error('Contract attempted to set storage for another contract.');
-        }
-
-        return this.stack.setStorage(address, pointer, value);
-    }
-
-    public getLogs(): string[] {
-        return this.stack.logs;
-    }
-
-    public async setupContract(owner: Address, contractAddress: Address): Promise<void> {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
-        if (this.contractRef !== 0) {
-            throw new Error('Contract already initialized');
-        }
-
-        await this.rndPromise();
-
-        this.persistentStorageState.clear();
-
-        this.contractInstance.INIT(owner, contractAddress);
-        this.contractRef = this.contractInstance.getContract();
-
-        this.viewAbi = this.getViewABI();
-        this.methodAbi = this.getMethodABI();
-        this.writeMethods = this.getWriteMethodABI();
-
-        const requiredPersistentStorage = this.getCurrentStorageState();
-        const modifiedStorage = this.getCurrentModifiedStorageState();
-        const initialStorage = this.getDefaultInitialStorage();
-
-        await this.loadPersistentStorageState(
-            requiredPersistentStorage,
-            initialStorage,
-            modifiedStorage,
-            this.persistentStorageState,
-        );
-
-        this.initializeContract = true;
-    }
-
-    public getContract(): Number {
-        return this.contractRef;
-    }
-
-    public clear(): void {
-        this.currentStorageState.clear();
-        this.currentRequiredStorage.clear();
+    public delete(): void {
+        this.contractInstance.dispose();
+        delete this._contractInstance;
     }
 
     public getViewSelectors(): SelectorsMap {
@@ -139,423 +133,423 @@ export class ContractEvaluator {
         return this.writeMethods;
     }
 
-    public isInitialized(): boolean {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
+    public isViewMethod(selector: Selector): boolean {
+        const keys = Array.from(this.viewAbi.values());
+
+        for (const key of keys) {
+            if (key === selector) {
+                return true;
+            }
         }
 
-        return this.contractInstance.isInitialized();
+        return false;
     }
 
-    public async execute(
-        address: Address,
-        isView: boolean,
-        abi: Selector,
-        calldata: Uint8Array | null = null,
-        caller: Address | null = null,
-    ): Promise<Uint8Array | undefined> {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
+    public async execute(params: ExecutionParameters): Promise<ContractEvaluation> {
         if (this.isProcessing) {
             throw new Error('Contract is already processing');
         }
 
-        this.isProcessing = true;
-
         try {
-            const resp = await this.evaluate(address, abi, isView, calldata, caller).catch(
-                (e: Error) => {
-                    throw e;
-                },
-            );
+            this.isProcessing = true;
+
+            const evaluation = new ContractEvaluation({
+                ...params,
+                canWrite: false,
+            });
+
+            await this.loadContractFromBytecode(evaluation);
+            await this.defineSelectorAndSetupEnvironment(evaluation);
+            await this.setupContract();
+
+            if (!evaluation.calldata && !evaluation.isView) {
+                throw new Error('Calldata is required.');
+            }
+
+            const canWrite: boolean = this.canWrite(evaluation.abi);
+            evaluation.setCanWrite(canWrite);
+
+            try {
+                // We execute the method.
+                await this.evaluate(evaluation);
+            } catch (e) {
+                evaluation.revert = e as Error;
+            }
 
             this.isProcessing = false;
 
-            return resp;
+            this.delete();
+
+            if (this.enableTracing) {
+                console.log(
+                    `EXECUTION GAS USED: ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
+                );
+            }
+
+            /*if (!evaluation.revert) {
+                for (let [contractAddress, value] of evaluation.storage) {
+                    for (let [pointer, data] of value) {
+                        console.log(
+                            `Contract: ${contractAddress} - Pointer: ${pointer} - Value: ${data}`,
+                        );
+
+                        await this.setStorage(contractAddress, pointer, data);
+                    }
+                }
+            }*/
+
+            return evaluation;
         } catch (e) {
             this.isProcessing = false;
             throw e;
         }
     }
 
-    public export(): void {
-        this.stack.contract = this;
-    }
-
-    private async evaluate(
-        contractAddress: Address,
-        abi: Selector,
-        isView: boolean,
-        calldata: Uint8Array | null,
-        caller: Address | null = null,
-        tries: number = 0,
-    ): Promise<Uint8Array | undefined> {
-        if (!this.initializeContract) {
-            throw new Error('Contract not initialized');
-        }
-
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
-        if (!calldata && !isView) {
-            throw new Error('Calldata is required for method call');
-        }
-
-        const contract = this.methodAbi.get(contractAddress);
-
-        const isInitialized = this.isInitialized();
-        if (!isInitialized) {
-            throw new Error('Contract not initialized');
-        }
-
-        const canWrite = this.canWrite(contractAddress, abi);
-        if (!isView && !canWrite) {
-            throw new Error('Method is not allowed to write');
-        }
-
-        this.writeCurrentStorageState();
-
-        const hasSelectorInMethods = contract?.has(abi) ?? false;
-
-        let result: Uint8Array;
-        if (hasSelectorInMethods) {
-            result = this.contractInstance.readMethod(
-                abi,
-                this.getContract(),
-                calldata as Uint8Array,
-                caller,
-            );
-        } else {
-            result = this.contractInstance.readView(abi);
-        }
-
-        const requestedPersistentStorage = this.getCurrentStorageState();
-        const sameStorage = this.sameRequiredStorage(
-            this.currentRequiredStorage,
-            requestedPersistentStorage,
+    private async defineSelectorAndSetupEnvironment(params: ExecutionParameters): Promise<void> {
+        await this.setEnvironment(
+            params.caller,
+            params.callee,
+            params.blockNumber,
+            params.blockMedian,
         );
 
-        this.currentStorageState.clear();
-        this.currentRequiredStorage.clear();
-        this.currentRequiredStorage = requestedPersistentStorage;
+        await this.contractInstance.defineSelectors();
+    }
 
-        const modifiedStorage = this.getCurrentModifiedStorageState();
-        const initialStorage = this.getDefaultInitialStorage();
+    // TODO: Cache this, (add the gas it took to compute in the final gas)
+    private async setupContract(): Promise<void> {
+        this.viewAbi = await this.getViewABI();
+        this.methodAbi = await this.getMethodABI();
+        this.writeMethods = await this.getWriteMethodABI();
+    }
 
-        if (!sameStorage) {
-            /*console.log(
-                `TEMP CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
-                modifiedStorage,
-                initialStorage,
-                requestedPersistentStorage,
-            );*/
+    /** Load a pointer */
+    private async load(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+        const reader: BinaryReader = new BinaryReader(data);
+        const pointer: bigint = reader.readU256();
 
-            await this.loadPersistentStorageState(
-                requestedPersistentStorage,
-                initialStorage,
-                modifiedStorage,
-                this.currentStorageState,
-                isView,
-            );
-
-            return await this.evaluate(
-                contractAddress,
-                abi,
-                isView,
-                calldata,
-                caller,
-                tries + 1,
-            ).catch((e: Error) => {
-                throw e;
-            });
-        } else if (canWrite) {
-            console.log(
-                `FINAL CALL STORAGE ACCESS LIST FOR ${abi} (took ${tries}) ->`,
-                modifiedStorage,
-                initialStorage,
-                requestedPersistentStorage,
-            );
-
-            await this.updateStorage(modifiedStorage).catch((e: Error) => {
-                throw e;
-            });
-
-            /** We update persistent storage state in case we want to do future call on the same contract instance. */
-            this.persistentStorageState.clear();
-            await this.loadPersistentStorageState(
-                requestedPersistentStorage,
-                initialStorage,
-                modifiedStorage,
-                this.persistentStorageState,
-                isView,
-            );
+        let pointerResponse: MemorySlotData<bigint> | undefined = evaluation.getStorage(pointer);
+        if (!pointerResponse) {
+            pointerResponse = (await this.getStorageState(evaluation, pointer)) || 0n;
         }
 
-        this.clear();
+        if (this.enableTracing) {
+            this.debug(`Loaded pointer ${pointer} - value ${pointerResponse}`);
+        }
+
+        const response: BinaryWriter = new BinaryWriter();
+        response.writeU256(pointerResponse);
+
+        return response.getBuffer();
+    }
+
+    /** Store a pointer */
+    private async store(
+        data: Buffer,
+        evaluation: ContractEvaluation,
+    ): Promise<Buffer | Uint8Array> {
+        const reader = new BinaryReader(data);
+        const pointer: bigint = reader.readU256();
+        const value: bigint = reader.readU256();
+
+        if (this.enableTracing) {
+            this.debug(`Attempting to store pointer ${pointer} - value ${value}`);
+        }
+
+        evaluation.setStorage(pointer, value);
+
+        const response: BinaryWriter = new BinaryWriter();
+        response.writeBoolean(true); // if we want to add something in the future, we can.
+
+        return response.getBuffer();
+    }
+
+    /** Call a contract */
+    private async call(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+        const reader = new BinaryReader(data);
+        const contractAddress: Address = reader.readAddress();
+
+        if (evaluation.contractAddress === contractAddress) {
+            throw new Error('Cannot call itself');
+        }
+
+        const calldata: Uint8Array = reader.readBytesWithLength();
+        evaluation.incrementCallDepth();
+
+        const externalCallParams: InternalContractCallParameters = {
+            contractAddress: contractAddress,
+            from: evaluation.caller,
+            callee: evaluation.contractAddress,
+
+            maxGas: evaluation.gasTracker.maxGas,
+            gasUsed: evaluation.gasTracker.gasUsed,
+
+            externalCall: true,
+            blockHeight: evaluation.blockNumber,
+            blockMedian: evaluation.blockMedian,
+
+            // data
+            calldata: Buffer.from(calldata),
+
+            transactionId: evaluation.transactionId,
+            transactionHash: evaluation.transactionHash,
+
+            contractDeployDepth: evaluation.contractDeployDepth,
+            callDepth: evaluation.callDepth,
+
+            deployedContracts: evaluation.deployedContracts,
+            storage: evaluation.storage,
+        };
+
+        const response = await this.callExternal(externalCallParams);
+        evaluation.merge(response);
+
+        const result = response.result;
+        if (!result) {
+            throw new Error('No result');
+        }
 
         return result;
     }
 
-    private async instantiatedContract(bytecode: Buffer, state: {}): Promise<VMRuntime> {
-        return instantiate(bytecode, state);
-    }
+    // TODO: Implement this
+    private async deployContractFromAddressRaw(
+        data: Buffer,
+        evaluation: ContractEvaluation,
+    ): Promise<Buffer | Uint8Array> {
+        evaluation.incrementContractDeployDepth(); // always first.
 
-    private getMergedStorageState(): BlockchainStorage {
-        const mergedStorageState: BlockchainStorage = new Map();
+        const reader = new BinaryReader(data);
+        const address: Address = reader.readAddress();
+        const salt: Buffer = Buffer.from(reader.readBytes(32));
 
-        for (const [key, value] of this.persistentStorageState) {
-            const newStorage: PointerStorage = new Map();
-
-            for (const [k, v] of value) {
-                newStorage.set(k, v);
-            }
-
-            mergedStorageState.set(key, newStorage);
+        const deployResult = await this.deployContractAtAddress(address, salt, evaluation);
+        if (!deployResult) {
+            throw new Error('Unable to deploy contract');
         }
 
-        for (const [key, value] of this.currentStorageState) {
-            const existingValue = mergedStorageState.get(key);
+        const response = new BinaryWriter();
+        response.writeBytes(deployResult.virtualAddress);
+        response.writeAddress(deployResult.contractAddress);
+        response.writeU64(deployResult.bytecodeLength);
 
-            if (existingValue) {
-                for (const [k, v] of value) {
-                    existingValue.set(k, v);
-                }
+        return response.getBuffer();
+    }
+
+    private onDebug(buffer: Buffer): void {}
+
+    private async encodeAddress(data: Buffer): Promise<Buffer | Uint8Array> {
+        const reader = new BinaryReader(data);
+        const virtualAddress = reader.readBytesWithLength();
+
+        const address: Address = AddressGenerator.generatePKSH(
+            Buffer.from(virtualAddress),
+            this.network,
+        );
+
+        const response = new BinaryWriter();
+        response.writeAddress(address);
+
+        return response.getBuffer();
+    }
+
+    private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {
+        if (!this.bytecode) {
+            throw new Error('Bytecode is required');
+        }
+
+        return {
+            bytecode: this.bytecode,
+            gasLimit: OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
+            gasCallback: evaluation.onGasUsed,
+            load: async (data: Buffer) => {
+                return await this.load(data, evaluation);
+            },
+            store: async (data: Buffer) => {
+                return await this.store(data, evaluation);
+            },
+            call: async (data: Buffer) => {
+                return await this.call(data, evaluation);
+            },
+            deployContractAtAddress: async (data: Buffer) => {
+                return await this.deployContractFromAddressRaw(data, evaluation);
+            },
+            log: (buffer: Buffer) => {
+                this.onDebug(buffer);
+            },
+            encodeAddress: async (data: Buffer) => {
+                return this.encodeAddress(data);
+            },
+        };
+    }
+
+    private async loadContractFromBytecode(evaluation: ContractEvaluation): Promise<boolean> {
+        let errored: boolean = false;
+        try {
+            this._contractInstance = await loadRust(this.generateContractParameters(evaluation));
+        } catch (e) {
+            console.log(`Unable to load contract from bytecode: ${(e as Error).stack}`);
+            errored = true;
+        }
+
+        return errored;
+    }
+
+    private async internalGetStorage(
+        address: Address,
+        pointer: StoragePointer,
+        defaultValueBuffer: MemoryValue | null,
+        setIfNotExit: boolean = false,
+        blockNumber: bigint,
+    ): Promise<MemoryValue | null> {
+        if (setIfNotExit && defaultValueBuffer === null) {
+            throw new Error('Default value buffer is required');
+        }
+
+        const canInitialize: boolean = address === this.contractAddress ? setIfNotExit : false;
+
+        return this.getStorage(address, pointer, defaultValueBuffer, canInitialize, blockNumber);
+    }
+
+    private async evaluate(evaluation: ContractEvaluation): Promise<void> {
+        if (!this.contractInstance) {
+            throw new Error('Contract not initialized');
+        }
+
+        const hasSelectorInMethods = this.methodAbi.has(evaluation.abi) ?? false;
+
+        let result: Uint8Array | undefined;
+        let error: Error | undefined;
+
+        // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
+        try {
+            result = hasSelectorInMethods
+                ? await this.contractInstance.readMethod(evaluation.abi, evaluation.calldata)
+                : await this.contractInstance.readView(evaluation.abi);
+        } catch (e) {
+            error = (await e) as Error;
+        }
+
+        if (error || !result) {
+            if (!evaluation.revert && error) {
+                evaluation.revert = error;
             } else {
-                const newStorage: PointerStorage = new Map();
+                console.log(`Error: ${error}`);
+            }
 
-                for (const [k, v] of value) {
-                    newStorage.set(k, v);
-                }
+            return;
+        }
 
-                mergedStorageState.set(key, newStorage);
+        if (result.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
+            evaluation.revert = new Error('Result is too long');
+
+            return;
+        }
+
+        // Check if result only contains zeros or is false.
+        const isSuccess: boolean = result.length > 0;
+        if (!isSuccess) {
+            evaluation.revert = new Error('execution reverted due to an unknown error');
+            return;
+        }
+
+        let deploymentPromises: Promise<void>[] = [];
+        if (evaluation.deployedContracts.length > 0) {
+            for (let i = 0; i < evaluation.deployedContracts.length; i++) {
+                const contract = evaluation.deployedContracts[i];
+                deploymentPromises.push(this.deployContract(contract));
             }
         }
 
-        return mergedStorageState;
+        // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
+        await Promise.all(deploymentPromises);
+
+        const events: NetEvent[] = await this.getEvents();
+        evaluation.setEvent(evaluation.contractAddress, events);
+        evaluation.setResult(result);
     }
 
-    private writeCurrentStorageState(): void {
+    private async getEvents(): Promise<NetEvent[]> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const storage = this.getMergedStorageState();
-        this.binaryWriter.writeStorage(storage);
+        const abi = await this.contractInstance.getEvents();
+        const abiDecoder = new BinaryReader(abi);
 
-        const buf: Uint8Array = this.binaryWriter.getBuffer();
-
-        this.contractInstance.purgeMemory();
-        this.contractInstance.loadStorage(buf);
+        return abiDecoder.readEvents();
     }
 
-    private sameRequiredStorage(
-        requiredStorageBefore: BlockchainRequestedStorage,
-        requiredStorageAfter: BlockchainRequestedStorage,
-    ): boolean {
-        if (requiredStorageBefore.size !== requiredStorageAfter.size) {
-            return false;
-        }
-
-        for (const [key, value] of requiredStorageBefore) {
-            const valueAfter = requiredStorageAfter.get(key);
-
-            if (valueAfter === undefined) {
-                return false;
-            }
-
-            if (value.size !== valueAfter.size) {
-                return false;
-            }
-
-            for (const v of value) {
-                if (!valueAfter.has(v)) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    private async loadPersistentStorageState(
-        requestPersistentStorage: BlockchainRequestedStorage,
-        defaultStorage: BlockchainStorage,
-        modifiedStorage: BlockchainStorage,
-        initialStorage: BlockchainStorage,
-        isView: boolean = false,
+    private async setEnvironment(
+        caller: Address,
+        callee: Address,
+        blockNumber: bigint,
+        blockMedian: bigint,
     ): Promise<void> {
-        if (!this.contractInstance) {
+        if (!this.contractInstance || !this.contractOwner || !this.contractAddress) {
             throw new Error('Contract not initialized');
         }
 
-        if (initialStorage.size !== 0) {
-            throw new Error('Persistent storage already loaded');
-        }
+        const binaryWriter: BinaryWriter = new BinaryWriter();
+        binaryWriter.writeAddress(caller);
+        binaryWriter.writeAddress(callee);
+        binaryWriter.writeU256(blockNumber);
 
-        const loadedPromises: Promise<void>[] = [];
-        for (const [key, value] of requestPersistentStorage) {
-            const storage: PointerStorage = initialStorage.get(key) || new Map();
-            //const storageModified: PointerStorage = modifiedStorage.get(key) || new Map();
-            if (!initialStorage.has(key)) {
-                initialStorage.set(key, storage);
-            }
+        binaryWriter.writeAddress(this.contractOwner);
+        binaryWriter.writeAddress(this.contractAddress);
+        binaryWriter.writeU256(blockMedian);
 
-            const defaultPointerStorage = defaultStorage.get(key);
-            if (defaultPointerStorage === undefined) {
-                /*throw new Error(
-                    `Uninitialized contract ${key} found. Please initialize the contract first.`,
-                );*/
-
-                continue;
-            }
-
-            for (let v of value) {
-                const hasValue = storage.has(v);
-                if (hasValue) {
-                    continue;
-                }
-
-                let defaultPointer: MemorySlotData<bigint> | undefined =
-                    defaultPointerStorage.get(v) || 0n;
-
-                if (defaultPointer === undefined || defaultPointer === null) {
-                    throw new Error(
-                        `Uninitialized pointer ${v}. Please initialize the memory pointer in the contract first.`,
-                    );
-
-                    //defaultPointer = BigInt(0);
-                }
-
-                loadedPromises.push(this.getStorageState(key, v, defaultPointer, storage, isView));
-            }
-        }
-
-        await Promise.all(loadedPromises);
+        await this.contractInstance.setEnvironment(binaryWriter.getBuffer());
     }
 
     private async getStorageState(
-        address: Address,
+        evaluation: ContractEvaluation,
         pointer: MemorySlotPointer,
-        defaultValue: MemorySlotData<bigint>,
-        pointerStorage: PointerStorage,
-        isView: boolean,
-    ): Promise<void> {
+    ): Promise<bigint | null> {
         const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
-        const defaultValueBuffer: MemoryValue = BufferHelper.valueToUint8Array(defaultValue);
-
-        const value: MemoryValue | null = await this.getStorage(
-            address,
+        const value: MemoryValue | null = await this.internalGetStorage(
+            evaluation.contractAddress,
             rawData,
-            defaultValueBuffer,
-            !isView,
+            null,
+            false,
+            evaluation.blockNumber,
         );
 
-        const valHex = value ? BufferHelper.uint8ArrayToValue(value) : null;
-        const finalValue: bigint = valHex === null ? defaultValue : valHex;
-
-        pointerStorage.set(pointer, finalValue);
+        return value ? BufferHelper.uint8ArrayToValue(value) : null;
     }
 
-    private async setStorageState(
-        address: Address,
-        pointer: MemorySlotPointer,
-        value: MemorySlotData<bigint>,
-    ): Promise<void> {
-        const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
-        const valueBuffer: MemoryValue = BufferHelper.valueToUint8Array(value);
-
-        await this.setStorage(address, rawData, valueBuffer);
+    private canWrite(abi: Selector): boolean {
+        return this.writeMethods.has(abi);
     }
 
-    private getCurrentStorageState(): BlockchainRequestedStorage {
+    private async getViewABI(): Promise<SelectorsMap> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const requiredStorage: Uint8Array = this.contractInstance.getRequiredStorage();
-        const binaryReader = new BinaryReader(requiredStorage);
-
-        return binaryReader.readRequestedStorage();
-    }
-
-    private getCurrentModifiedStorageState(): BlockchainStorage {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
-        const storage: Uint8Array = this.contractInstance.getModifiedStorage();
-        const binaryReader = new BinaryReader(storage);
-
-        return binaryReader.readStorage();
-    }
-
-    private getDefaultInitialStorage(): BlockchainStorage {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
-        const storage: Uint8Array = this.contractInstance.initializeStorage();
-        const binaryReader = new BinaryReader(storage);
-
-        return binaryReader.readStorage();
-    }
-
-    private async updateStorage(modifiedStorage: BlockchainStorage): Promise<void> {
-        const promises: Promise<void>[] = [];
-        for (const [key, value] of modifiedStorage) {
-            for (const [k, v] of value) {
-                promises.push(
-                    this.setStorageState(key, k, v).catch((e: Error) => {
-                        throw e;
-                    }),
-                );
-            }
-        }
-
-        await Promise.all(promises);
-    }
-
-    private canWrite(contractAddress: Address, abi: Selector): boolean {
-        const writeMethodContract = this.writeMethods.get(contractAddress);
-
-        if (!writeMethodContract) {
-            return false;
-        }
-
-        return writeMethodContract.has(abi);
-    }
-
-    private getViewABI(): SelectorsMap {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
-        const abi = this.contractInstance.getViewABI();
+        const abi = await this.contractInstance.getViewABI();
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readViewSelectorsMap();
     }
 
-    private getMethodABI(): MethodMap {
+    private async getMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const abi = this.contractInstance.getMethodABI();
+        const abi = await this.contractInstance.getMethodABI();
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readMethodSelectorsMap();
     }
 
-    private getWriteMethodABI(): MethodMap {
+    private async getWriteMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
         }
 
-        const abi = this.contractInstance.getWriteMethods();
+        const abi = await this.contractInstance.getWriteMethods();
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readMethodSelectorsMap();

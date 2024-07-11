@@ -24,8 +24,6 @@ class ServerThreadBase extends Thread<ThreadTypes.API> {
     }
 
     protected async onMessage(m: ThreadMessageBase<MessageType>): Promise<void> {
-        let data = m.data;
-
         switch (m.type) {
             default:
                 this.error(`Unknown thread message received. {Type: ${m.type}}`);

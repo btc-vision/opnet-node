@@ -4,4 +4,8 @@ export enum MessageType {
     SET_MESSAGE_PORT,
     LINK_THREAD_REQUEST,
     RPC_METHOD,
+
+    BLOCK_PROCESSED,
+    CURRENT_INDEXER_BLOCK,
+    START_INDEXER
 }

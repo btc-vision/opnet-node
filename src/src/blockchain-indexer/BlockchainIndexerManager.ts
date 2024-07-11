@@ -1,5 +1,4 @@
-import { Config } from '../config/Config.js';
-import { DBManagerInstance } from '../db/DBManager.js';
+import { Worker } from 'worker_threads';
 import { MessageType } from '../threading/enum/MessageType.js';
 import {
     LinkThreadMessage,
@@ -7,17 +6,20 @@ import {
 } from '../threading/interfaces/thread-messages/messages/LinkThreadMessage.js';
 import { LinkThreadRequestMessage } from '../threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import { ThreadManager } from '../threading/manager/ThreadManager.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
-import { Thread } from '../threading/thread/Thread.js';
+import { Threader } from '../threading/Threader.js';
 import { BitcoinRPCThreadManager } from './rpc/BitcoinRPCThreadManager.js';
 import { ZeroMQThreadManager } from './zeromq/ZeroMQThreadManager.js';
 
-class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
-    public readonly threadType: ThreadTypes.BITCOIN_INDEXER = ThreadTypes.BITCOIN_INDEXER;
+class BlockchainIndexerManager extends ThreadManager<ThreadTypes.BITCOIN_INDEXER> {
     public readonly logColor: string = '#1553c7';
+    protected readonly threadManager: Threader<ThreadTypes.BITCOIN_INDEXER> = new Threader(
+        ThreadTypes.BITCOIN_INDEXER,
+    );
 
-    public readonly zeroMQThreads: ZeroMQThreadManager = new ZeroMQThreadManager();
-    public readonly bitcoinRPCThreads: BitcoinRPCThreadManager = new BitcoinRPCThreadManager();
+    private readonly zeroMQThreads: ZeroMQThreadManager = new ZeroMQThreadManager();
+    private readonly bitcoinRPCThreads: BitcoinRPCThreadManager = new BitcoinRPCThreadManager();
 
     constructor() {
         super();
@@ -28,13 +30,10 @@ class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
 
         this.bitcoinRPCThreads.sendMessageToZeroMQThread =
             this.sendMessageToZeroMQThread.bind(this);
-
         this.bitcoinRPCThreads.sendLinkToZeroMQThread = this.sendLinkToZeroMQThread.bind(this);
 
         void this.init();
     }
-
-    protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     public sendLinkToZeroMQThread(message: LinkThreadMessage<LinkType>): void {
         void this.zeroMQThreads.onLinkThread(message);
@@ -52,23 +51,52 @@ class BlockchainIndexerManager extends Thread<ThreadTypes.BITCOIN_INDEXER> {
         void this.bitcoinRPCThreads.onLinkThreadRequest(_message);
     }
 
+    public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
+        throw new Error('Method not implemented.');
+    }
+
+    protected async sendLinkToThreadsOfType(
+        _threadType: ThreadTypes,
+        _threadId: number,
+        message: LinkThreadMessage<LinkType>,
+    ): Promise<boolean> {
+        const targetThreadType = message.data.targetThreadType;
+
+        switch (targetThreadType) {
+            default: {
+                return false;
+            }
+        }
+    }
+
+    protected async sendLinkMessageToThreadOfType(
+        threadType: ThreadTypes,
+        _message: LinkThreadRequestMessage,
+    ): Promise<boolean> {
+        switch (threadType) {
+            default: {
+                return false;
+            }
+        }
+    }
+
+    protected async createLinkBetweenThreads(): Promise<void> {
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
+    }
+
     protected async init(): Promise<void> {
-        this.log(`Starting up blockchain indexer manager...`);
+        await super.init();
 
-        await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
-        await DBManagerInstance.connect();
-
-        this.important('Creating threads for ZeroMQ...');
-        await this.zeroMQThreads.createThreads();
+        /** Disabled. */
+        //this.important('Creating threads for ZeroMQ...');
+        //await this.zeroMQThreads.createThreads();
 
         this.important('Creating threads for bitcoin-rpc...');
         await this.bitcoinRPCThreads.createThreads();
-    }
 
-    protected async onLinkMessage(
-        type: ThreadTypes,
-        msg: ThreadMessageBase<MessageType>,
-    ): Promise<void> {}
+        this.log('Starting block indexer...');
+        await this.createThreads();
+    }
 }
 
 new BlockchainIndexerManager();

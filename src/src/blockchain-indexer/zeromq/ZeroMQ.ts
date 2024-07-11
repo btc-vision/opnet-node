@@ -1,5 +1,4 @@
 import { Logger } from '@btc-vision/bsi-common';
-import zmq from 'zeromq';
 import { MessageType } from '../../threading/enum/MessageType.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
@@ -11,7 +10,9 @@ import { BitcoinZeroMQTopic } from './enums/BitcoinZeroMQTopic.js';
 export abstract class ZeroMQ<T extends BitcoinZeroMQTopic> extends Logger {
     public readonly logColor: string = '#afeeee';
 
-    protected socket: zmq.Subscriber = new zmq.Subscriber();
+    //protected socket: zmq.Subscriber = new zmq.Subscriber();
+
+    private readonly enabled: boolean = false;
 
     protected constructor(
         private readonly address: string,
@@ -23,12 +24,6 @@ export abstract class ZeroMQ<T extends BitcoinZeroMQTopic> extends Logger {
         this.createConnection();
     }
 
-    protected async requestRPCMethod<T extends BitcoinRPCThreadMessageType>(
-        m: RPCMessage<T>,
-    ): Promise<ThreadData | null> {
-        return await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, m);
-    }
-
     public async sendMessageToThread(
         _threadType: ThreadTypes,
         _m: ThreadMessageBase<MessageType>,
@@ -36,25 +31,33 @@ export abstract class ZeroMQ<T extends BitcoinZeroMQTopic> extends Logger {
         throw new Error('Method not implemented.');
     }
 
+    protected async requestRPCMethod<T extends BitcoinRPCThreadMessageType>(
+        m: RPCMessage<T>,
+    ): Promise<ThreadData | null> {
+        return await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, m);
+    }
+
     protected abstract onEvent(topic: BitcoinZeroMQTopic, message: Buffer): Promise<void>;
 
     private async listenForMessage(): Promise<void> {
         this.warn(`ZeroMQ connection established`);
 
-        for await (const [topic, msg] of this.socket) {
+        /*for await (const [topic, msg] of this.socket) {
             const topicString = topic.toString();
 
             void this.onEvent(topicString as BitcoinZeroMQTopic, msg);
-        }
+        }*/
 
         this.warn(`ZeroMQ connection closed`);
     }
 
     private createConnection(): void {
-        this.socket.connect(`tcp://${this.address}:${this.port}`);
+        if (!this.enabled) return;
+
+        //this.socket.connect(`tcp://${this.address}:${this.port}`);
 
         const topic = this.topic === BitcoinZeroMQTopic.EVERYTHING ? '' : this.topic;
-        this.socket.subscribe(topic.toLowerCase());
+        //this.socket.subscribe(topic.toLowerCase());
 
         void this.listenForMessage();
     }

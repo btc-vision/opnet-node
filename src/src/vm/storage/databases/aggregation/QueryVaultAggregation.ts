@@ -1,0 +1,67 @@
+import { Document } from 'mongodb';
+import { Aggregation } from './Aggregation.js';
+import { Address } from '@btc-vision/bsi-binary';
+import { MinimumUtxoInformation } from '../../../../poa/mempool/verificator/consensus/UnwrapConsensusVerificator.js';
+
+export interface VaultsByHashes {
+    readonly vault: Address;
+    readonly publicKeys: Buffer[];
+    readonly minimum: number;
+    readonly utxoDetails: MinimumUtxoInformation[];
+}
+
+export class QueryVaultAggregation extends Aggregation {
+    constructor() {
+        super();
+    }
+
+    public getAggregation(hashes: string[]): Document[] {
+        return [
+            {
+                $match: {
+                    hash: { $in: hashes },
+                },
+            },
+            {
+                $lookup: {
+                    from: 'Vaults',
+                    localField: 'vault',
+                    foreignField: 'vault',
+                    as: 'vaultData',
+                },
+            },
+            {
+                $unwind: '$vaultData',
+            },
+            {
+                $group: {
+                    _id: '$vaultData.vault',
+                    vaultData: { $first: '$vaultData' },
+                    utxoDetails: {
+                        $addToSet: {
+                            hash: '$hash',
+                            value: '$value',
+                        },
+                    },
+                },
+            },
+            {
+                $addFields: {
+                    'vaultData.utxoDetails': '$utxoDetails',
+                },
+            },
+            {
+                $replaceRoot: { newRoot: '$vaultData' },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    vault: 1,
+                    utxoDetails: 1,
+                    publicKeys: 1,
+                    minimum: 1,
+                },
+            },
+        ];
+    }
+}

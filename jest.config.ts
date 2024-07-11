@@ -1,9 +1,13 @@
 import type { Config } from '@jest/types';
 import { BabelConfig } from 'ts-jest';
 
-const esModules = ['chalk', 'supports-color', '@btc-vision/bsi-common', '@btc-vision/bsi-db'].join(
-    '|',
-);
+const esModules = [
+    'chalk',
+    'supports-color',
+    '@btc-vision/bsi-common',
+    '@btc-vision/bsi-db',
+    '@btc-vision/logger',
+].join('|');
 
 const babelConfig: BabelConfig = {
     presets: ['@babel/preset-env'],
@@ -33,7 +37,7 @@ const config: Config.InitialOptions = {
     moduleNameMapper: {
         '^(\\.{1,2}/.*)\\.[jt]s$': '$1',
     },
-    moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx'],
+    moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'node'],
     moduleDirectories: ['node_modules', 'src', 'build'],
     testEnvironment: 'node',
     transformIgnorePatterns: [`/node_modules/(?!${esModules})`, `/build/`],

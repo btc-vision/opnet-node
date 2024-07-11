@@ -1,6 +1,37 @@
 export enum Routes {
-    HEAP_BLOCK = 'heapBlock',
+    /** Block */
+    LATEST_BLOCK = 'block/latest',
+
+    BLOCK_BY_HASH = 'block/by-hash',
+    BLOCK_BY_ID = 'block/by-id',
+
+    /** OPNet */
+    BLOCK_WITNESS = 'block/block-witness',
+    GENERATE = 'opnet/generate',
+
+    /** Chain */
+    CHAIN_ID = 'chain/id',
+    REORG = 'chain/reorg',
+
+    /** Address */
+    UTXOS = 'address/utxos',
+    GET_BALANCE = 'address/get-balance',
+
+    /** Transaction */
+    TRANSACTION_BY_HASH = 'transaction/by-hash',
+    TRANSACTION_RECEIPT = 'transaction/receipt',
+    BROADCAST_TRANSACTION = 'transaction/broadcast',
+
+    /** States */
+    GET_CODE = 'states/get-code',
+    GET_STORAGE_AT = 'states/get-storage-at',
+    CALL = 'states/call',
+
+    /** Other */
     PROTOBUF_SCHEMA = 'protobuf/schema',
+    JSON_RPC = 'json-rpc',
+
+    NOT_IMPLEMENTED = 'not-implemented',
 }
 
 export enum RouteType {
@@ -11,4 +42,7 @@ export enum RouteType {
     PATCH = 'patch',
     OPTIONS = 'options',
     USE = 'use',
+    UPGRADE = 'upgrade',
+    ALL = 'all',
+    CONNECT = 'connect',
 }
