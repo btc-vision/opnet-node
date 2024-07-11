@@ -50,7 +50,7 @@ To get started with the indexer, follow these setup instructions:
 - npm (Node Package Manager)
 - Bitcoin Node (Latest version)
 - MongoDB (Latest version)
-- isolated-vm (for running WASM VM in a secure environment)
+- Rust (cargo), this is required to run the wasm vm.
 
 ### Installation
 
@@ -62,12 +62,11 @@ To get started with the indexer, follow these setup instructions:
    ```bash
    cd bsi-indexer
    ```
-3. Preinstallation setup:
-   Isolated-vm require gyp that use distutils to build the native module. To install distutils, run the following
-   command:
+3. To install rust on linux or macos, you can use the following command to install rust:
    ```bash
-   py -3 -m pip install setuptools
-   ```
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    ```
+   For windows, you can download the installer from the [Rust website](https://www.rust-lang.org/tools/install).
 4. Install the necessary dependencies:
    ```bash
    npm i
