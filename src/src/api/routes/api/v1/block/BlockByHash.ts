@@ -26,7 +26,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
             throw new Error('Block hash not provided');
         }
 
-        const cachedData = this.getCachedData(blockHash);
+        const cachedData = await this.getCachedData(blockHash);
         if (cachedData) {
             if (!includeTransactions && cachedData.transactions.length !== 0) {
                 return {
@@ -51,7 +51,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
 
         if (!transactions) return undefined;
 
-        const data = await this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
+        const data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
         if (data) this.setToCache(blockHash, data);
         else this.currentBlockData = data;
 
@@ -79,6 +79,10 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
+            if (!req.query) {
+                throw new Error('Invalid params.');
+            }
+
             const hash = req.query.hash as string | undefined;
             if (!hash) {
                 res.status(400);

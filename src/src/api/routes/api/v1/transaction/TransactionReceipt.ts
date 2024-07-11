@@ -1,10 +1,13 @@
+import { DataConverter } from '@btc-vision/bsi-db';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import {
     InteractionTransactionDocument,
     ITransactionDocument,
+    NetEventDocument,
 } from '../../../../../db/interfaces/ITransactionDocument.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
@@ -66,7 +69,9 @@ export class TransactionReceipt extends Route<
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
             const params = this.getParams(req, res);
-            if (!params) return;
+            if (!params) {
+                throw new Error('Invalid params.');
+            }
 
             const data = await this.getData(params);
 
@@ -83,6 +88,10 @@ export class TransactionReceipt extends Route<
     }
 
     protected getParams(req: Request, res: Response): TransactionReceiptsParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const hash = req.query.hash as string;
 
         if (!hash || (hash && hash.length !== 64)) {
@@ -99,18 +108,36 @@ export class TransactionReceipt extends Route<
     private getReceipt(
         data: ITransactionDocument<OPNetTransactionTypes>,
     ): TransactionReceiptResult {
-        if (data.OPNetType !== OPNetTransactionTypes.Interaction) {
+        if (
+            data.OPNetType !== OPNetTransactionTypes.Interaction &&
+            data.OPNetType !== OPNetTransactionTypes.WrapInteraction
+        ) {
             return this.buildEmptyReceipt();
         }
 
         const interaction: InteractionTransactionDocument = data as InteractionTransactionDocument;
+        const gasUsed: bigint = interaction.gasUsed
+            ? DataConverter.fromDecimal128(interaction.gasUsed)
+            : 0n;
 
         return {
             receipt: interaction.receipt?.toString('base64') ?? null,
             receiptProofs: interaction.receiptProofs || [],
-            events: interaction.events,
+            events: this.restoreEvents(interaction.events),
             revert: interaction.revert ? interaction.revert.toString('base64') : undefined,
+            gasUsed: '0x' + gasUsed.toString(16),
         };
+    }
+
+    private restoreEvents(events: NetEventDocument[]): EventReceiptDataForAPI[] {
+        return events.map((event: NetEventDocument): EventReceiptDataForAPI => {
+            return {
+                contractAddress: event.contractAddress,
+                eventType: event.eventType,
+                eventDataSelector: DataConverter.fromDecimal128(event.eventDataSelector).toString(),
+                eventData: event.eventData.toString('base64'),
+            };
+        });
     }
 
     private buildEmptyReceipt(): TransactionReceiptResultAPI {
@@ -118,6 +145,7 @@ export class TransactionReceipt extends Route<
             receipt: null,
             receiptProofs: [],
             events: [],
+            gasUsed: '0x0',
         };
     }
 

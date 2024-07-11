@@ -1,0 +1,110 @@
+import { BaseRepository } from '@btc-vision/bsi-common';
+import { DataConverter } from '@btc-vision/bsi-db';
+import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
+import {
+    CompromisedTransactionDocument,
+    ICompromisedTransactionDocument,
+} from '../interfaces/CompromisedTransactionDocument.js';
+import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
+
+export class CompromisedTransactionRepository extends BaseRepository<CompromisedTransactionDocument> {
+    public readonly logColor: string = '#afeeee';
+
+    constructor(db: Db) {
+        super(db);
+    }
+
+    public async deleteCompromisedTransactions(
+        height: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<CompromisedTransactionDocument>> = {
+            height: {
+                $gte: DataConverter.toDecimal128(height),
+            },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
+    public async getCompromisedTransactionsByHeight(
+        height: bigint,
+        currentSession?: ClientSession,
+    ): Promise<ICompromisedTransactionDocument[] | undefined> {
+        const criteria: Partial<Filter<CompromisedTransactionDocument>> = {
+            height: DataConverter.toDecimal128(height),
+        };
+
+        const result = await this.queryMany(criteria, currentSession);
+        return result?.map((document) => this.fromDocument(document));
+    }
+
+    /** Save block headers */
+    public async saveCompromisedTransactions(
+        transactions: ICompromisedTransactionDocument[],
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const documents = transactions.map((transaction) => this.toDocument(transaction));
+
+        const bulkWriteOperations = documents.map((transaction) => {
+            return {
+                updateOne: {
+                    filter: {
+                        height: transaction.height,
+                        id: transaction.id,
+                    },
+                    update: {
+                        $set: transaction,
+                    },
+                    upsert: true,
+                },
+            };
+        });
+
+        await this.bulkWrite(bulkWriteOperations, currentSession);
+    }
+
+    protected override getCollection(): Collection<CompromisedTransactionDocument> {
+        return this._db.collection(OPNetCollections.CompromisedTransactions);
+    }
+
+    private fromDocument(
+        document: CompromisedTransactionDocument,
+    ): ICompromisedTransactionDocument {
+        return {
+            height: DataConverter.fromDecimal128(document.height),
+            id: document.id,
+            compromisedAuthorities: document.compromisedAuthorities.map((authority) => {
+                return {
+                    transaction: authority.transaction,
+                    index: authority.index,
+                    keys: authority.keys.map((key) => {
+                        return {
+                            key: Buffer.from(key.key.buffer),
+                            authority: key.authority,
+                        };
+                    }),
+                };
+            }),
+        };
+    }
+
+    private toDocument(document: ICompromisedTransactionDocument): CompromisedTransactionDocument {
+        return {
+            height: DataConverter.toDecimal128(document.height),
+            id: document.id,
+            compromisedAuthorities: document.compromisedAuthorities.map((authority) => {
+                return {
+                    transaction: authority.transaction,
+                    index: authority.index,
+                    keys: authority.keys.map((key) => {
+                        return {
+                            key: new Binary(key.key),
+                            authority: key.authority,
+                        };
+                    }),
+                };
+            }),
+        };
+    }
+}

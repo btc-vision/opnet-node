@@ -6,7 +6,6 @@ import {
 } from '../../threading/interfaces/thread-messages/messages/LinkThreadMessage.js';
 import { LinkThreadRequestMessage } from '../../threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
-import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { ThreadManager } from '../../threading/manager/ThreadManager.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../../threading/Threader.js';
@@ -24,7 +23,7 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
         void this.init();
     }
 
-    public sendLinkToZeroMQThread(message: LinkThreadMessage<LinkType>): void {
+    public sendLinkToZeroMQThread(_message: LinkThreadMessage<LinkType>): void {
         throw new Error('Method not implemented.');
     }
 
@@ -32,23 +31,16 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
         throw new Error('Method not implemented.');
     }
 
-    public onGlobalMessage(msg: ThreadMessageBase<MessageType>, thread: Worker): Promise<void> {
+    public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
         throw new Error('Method not implemented.');
     }
 
-    public async dispatchMessageToThread(
-        message: ThreadMessageBase<MessageType>,
-    ): Promise<ThreadData | null> {
-        return await this.threadManager.execute(message);
-    }
-
     protected async sendLinkToThreadsOfType(
-        threadType: ThreadTypes,
-        threadId: number,
+        _threadType: ThreadTypes,
+        _threadId: number,
         message: LinkThreadMessage<LinkType>,
     ): Promise<boolean> {
         const targetThreadType = message.data.targetThreadType;
-        const targetThreadId = message.data.targetThreadId;
 
         switch (targetThreadType) {
             default: {
@@ -73,7 +65,9 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
     }
 
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.ZERO_MQ);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
+        //await this.threadManager.createLinkBetweenThreads(ThreadTypes.ZERO_MQ);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }
 }

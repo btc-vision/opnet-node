@@ -9,10 +9,21 @@ import {
     BlockHeaderAPIBlockDocument,
     BlockHeaderBlockDocument,
 } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
 import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
+import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocument.js';
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
+import { Address } from '@btc-vision/bsi-binary';
+import {
+    IUsedWBTCUTXODocument,
+    IWBTCUTXODocument,
+    UsedUTXOToDelete,
+} from '../../db/interfaces/IWBTCUTXODocument.js';
+import { IVaultDocument } from '../../db/interfaces/IVaultDocument.js';
+import { SelectedUTXOs } from '../../db/repositories/WBTCUTXORepository.js';
+import { ICompromisedTransactionDocument } from '../../db/interfaces/CompromisedTransactionDocument.js';
 
 export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public readonly logColor: string = '#ff00ff';
@@ -21,6 +32,17 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         super();
     }
 
+    public abstract resumeWrites(): void;
+
+    public abstract revertDataUntilBlock(height: bigint): Promise<void>;
+
+    public abstract getWitnesses(
+        height: bigint | -1,
+        trusted?: boolean,
+        limit?: number,
+        page?: number,
+    ): Promise<IParsedBlockWitnessDocument[]>;
+
     public abstract getStorage(
         address: BitcoinAddress,
         pointer: StoragePointer,
@@ -28,8 +50,6 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         setIfNotExit: boolean,
         height?: bigint,
     ): Promise<ProvenMemoryValue | null>;
-
-    public abstract terminate(): Promise<void>;
 
     public abstract setStorage(
         address: BitcoinAddress,
@@ -50,6 +70,11 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         address: BitcoinAddress,
         height?: bigint,
     ): Promise<ContractInformation | undefined>;
+
+    public abstract getContractAddressAt(
+        address: BitcoinAddress,
+        height?: bigint,
+    ): Promise<Address | undefined>;
 
     public abstract getTransactionByHash(
         hash: string,
@@ -100,4 +125,40 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<UTXOsOutputTransactions | undefined>;
 
     public abstract getBalanceOf(address: string): Promise<bigint | undefined>;
+
+    public abstract getReorgs(
+        fromBlock?: bigint,
+        toBlock?: bigint,
+    ): Promise<IReorgDocument[] | undefined>;
+
+    public abstract setReorg(reorgData: IReorgData): Promise<void>;
+
+    public abstract awaitPendingWrites(): Promise<void>;
+
+    public abstract setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void>;
+
+    public abstract setVault(vault: IVaultDocument): Promise<void>;
+
+    public abstract getWBTCUTXOs(
+        requestedAmount: bigint,
+        consolidationAcceptance: bigint,
+    ): Promise<SelectedUTXOs | undefined>;
+
+    public abstract getVault(vault: string): Promise<IVaultDocument | undefined>;
+
+    public abstract saveCompromisedTransactions(
+        compromisedTransactions: ICompromisedTransactionDocument[],
+    ): Promise<void>;
+
+    public abstract setSpentWBTC_UTXOs(utxos: UsedUTXOToDelete[], height: bigint): Promise<void>;
+
+    public abstract deleteOldUTXOs(height: bigint): Promise<void>;
+
+    public abstract deleteUsedUtxos(utxos: UsedUTXOToDelete[]): Promise<void>;
+
+    public abstract deleteOldUsedUtxos(height: bigint): Promise<void>;
+
+    public abstract setUsedUtxo(usedUtxo: IUsedWBTCUTXODocument): Promise<void>;
+
+    public abstract setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void>;
 }

@@ -1,4 +1,5 @@
-# BSI Indexer (PoA): The OPNet Indexer
+# OP_NET - Indexer (Proof of Authority)
+
 ![Bitcoin](https://img.shields.io/badge/Bitcoin-000?style=for-the-badge&logo=bitcoin&logoColor=white)
 ![AssemblyScript](https://img.shields.io/badge/assembly%20script-%23000000.svg?style=for-the-badge&logo=assemblyscript&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
@@ -12,7 +13,11 @@
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 
 ## Introduction
-Welcome to the BSI-Indexer GitHub repository. This repository contains the source code and documentation for the Bitcoin Smart Inscription (BSI) Indexer, an essential component of a decentralized system that leverages Taproot technology to manage and execute smart contracts on the Bitcoin blockchain. The BSI-Indexer plays a critical role in maintaining the integrity and functionality of Wrapped Bitcoin (WBTC) transactions.
+
+Welcome to the BSI-Indexer GitHub repository. This repository contains the source code and documentation for the Bitcoin
+Smart Inscription (BSI) Indexer, an essential component of a decentralized system that leverages Taproot technology to
+manage and execute smart contracts on the Bitcoin blockchain. The BSI-Indexer plays a critical role in maintaining the
+integrity and functionality of Wrapped Bitcoin (WBTC) transactions.
 
 ## Repository Contents
 
@@ -24,23 +29,28 @@ Welcome to the BSI-Indexer GitHub repository. This repository contains the sourc
 
 ## Features
 
-- **Smart Inscription Execution**: Execution of smart contracts through the WASM VM, handling sophisticated logic and state changes.
-- **State Management and Proofs**: Robust management of contract states, including computing and validating state changes using Merkle proofs.
-- **Merkle Root Calculation**: Computation of state roots and transaction receipt roots for comprehensive summaries of contract states and transaction outcomes.
-- **Recovery and Reversion**: Capabilities to revert states or initiate full rescans in the event of discrepancies or blockchain reorganizations.
-- **Validator-Based Governance**: Integration with Proof of Authority (PoA) to ensure trusted and reliable network governance by verified validators.
+- **Smart Inscription Execution**: Execution of smart contracts through the WASM VM, handling sophisticated logic and
+  state changes.
+- **State Management and Proofs**: Robust management of contract states, including computing and validating state
+  changes using Merkle proofs.
+- **Merkle Root Calculation**: Computation of state roots and transaction receipt roots for comprehensive summaries of
+  contract states and transaction outcomes.
+- **Recovery and Reversion**: Capabilities to revert states or initiate full rescans in the event of discrepancies or
+  blockchain reorganizations.
+- **Validator-Based Governance**: Integration with Proof of Authority (PoA) to ensure trusted and reliable network
+  governance by verified validators.
 
 ## Getting Started
 
-To get started with the BSI-Indexer, follow these setup instructions:
+To get started with the indexer, follow these setup instructions:
 
 ### Prerequisites
 
-- Node.js version 20.x or higher
+- Node.js version 20.x or higher, we recommend using node 21.x.
 - npm (Node Package Manager)
 - Bitcoin Node (Latest version)
-- MongoDB 6.1
-- Docker (optional, for container-based deployment)
+- MongoDB (Latest version)
+- isolated-vm (for running WASM VM in a secure environment)
 
 ### Installation
 
@@ -52,18 +62,37 @@ To get started with the BSI-Indexer, follow these setup instructions:
    ```bash
    cd bsi-indexer
    ```
-3. Install the necessary dependencies:
+3. Preinstallation setup:
+   Isolated-vm require gyp that use distutils to build the native module. To install distutils, run the following
+   command:
+   ```bash
+   py -3 -m pip install setuptools
+   ```
+4. Install the necessary dependencies:
    ```bash
    npm i
    ```
-4. To start the indexer:
+5. Install Mongodb in a replica or sharded cluster mode. For more information, visit
+   the [MongoDB documentation](https://docs.mongodb.com/manual/tutorial/deploy-replica-set/).
+
+   Why is this needed? In order to use mongodb transactions, we must enable a replica set or a sharded cluster. This is
+   very important for the correct operation of the indexer. This allows us to rollback transactions in case of an error.
+
+   For more information, see our mongodb setup guide.
+
+6. Configure your indexer.
+   Make sure to configure the variables to your need in the configuration file located in the `config/` directory.
+
+7. To start the indexer:
    ```bash
    npm start
    ```
 
 ## Configuration
 
-Before launching the indexer, configure the environment variables and settings according to your deployment environment. Sample configuration files can be found in the `config/` directory. Adjust the settings for network endpoints, security parameters, and operational modes as needed.
+Before launching the indexer, configure the environment variables and settings according to your deployment environment.
+Sample configuration files can be found in the `config/` directory. Adjust the settings for network endpoints, security
+parameters, and operational modes as needed.
 
 ## License
 

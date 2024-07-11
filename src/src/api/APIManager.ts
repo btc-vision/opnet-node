@@ -27,7 +27,6 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
     ): Promise<void> {
         switch (msg.type) {
             default: {
-                console.log(msg);
                 throw new Error('Unknown message type.');
             }
         }
@@ -37,8 +36,8 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
 
     protected async sendLinkToThreadsOfType(
         threadType: ThreadTypes,
-        threadId: number,
-        message: LinkThreadMessage<LinkType>,
+        _threadId: number,
+        _message: LinkThreadMessage<LinkType>,
     ): Promise<boolean> {
         switch (threadType) {
             default: {
@@ -49,7 +48,7 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
 
     protected async sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
-        message: LinkThreadRequestMessage,
+        _message: LinkThreadRequestMessage,
     ): Promise<boolean> {
         switch (threadType) {
             default: {

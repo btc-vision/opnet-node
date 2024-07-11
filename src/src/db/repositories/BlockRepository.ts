@@ -14,6 +14,19 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         super(db);
     }
 
+    public async deleteBlockHeadersFromBlockHeight(
+        height: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IBlockHeaderBlockDocument>> = {
+            height: {
+                $gte: DataConverter.toDecimal128(height),
+            },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
     public async getLatestBlock(
         currentSession?: ClientSession,
     ): Promise<IBlockHeaderBlockDocument | undefined> {

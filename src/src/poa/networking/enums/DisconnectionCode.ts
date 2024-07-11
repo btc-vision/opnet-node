@@ -1,0 +1,23 @@
+export enum DisconnectionCode {
+    RECONNECT = 0,
+    BAD_PROTOCOL = 1,
+    BAD_VERSION = 2,
+    BAD_BEHAVIOR = 3,
+    BAD_IDENTITY = 4,
+    BAD_CHECKSUM = 5,
+    BAD_SIGNATURE = 6,
+    AUTH_TIMED_OUT = 7,
+    BAD_ENCRYPTION = 8,
+    BAD_PACKET = 9,
+    BAD_PEER = 10,
+    BAD_AUTH_CIPHER = 11,
+
+    UNABLE_TO_AUTHENTICATE = 12,
+    BAD_TRUSTED_CHECKSUM = 13,
+
+    BAD_NETWORK = 14,
+    BAD_CHAIN_ID = 15,
+    BAD_CHALLENGE = 16,
+
+    EXPECTED = 1000,
+}

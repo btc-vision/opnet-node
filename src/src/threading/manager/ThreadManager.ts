@@ -17,6 +17,37 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
         super();
     }
 
+    public async onThreadSetLinkPort(
+        targetThreadType: ThreadTypes,
+        targetThreadId: number,
+        txMessage: LinkThreadMessage<LinkType>,
+    ): Promise<void> {
+        await this.threadManager.onThreadSetLinkPort(targetThreadType, targetThreadId, txMessage);
+    }
+
+    public async onLinkThread(msg: LinkThreadMessage<LinkType>): Promise<void> {
+        const targetThreadType = msg.data.targetThreadType;
+        const targetThreadId = msg.data.targetThreadId;
+
+        if (this.threadManager.threadType !== targetThreadType) {
+            return;
+        }
+
+        await this.threadManager.onThreadSetLinkPort(targetThreadType, targetThreadId, msg);
+    }
+
+    public async onLinkThreadRequest(msg: LinkThreadRequestMessage): Promise<void> {
+        if (this.threadManager.threadType !== msg.data.threadType) {
+            return;
+        }
+
+        await this.threadManager.onCreateLinkThreadRequest(msg);
+    }
+
+    public async createThreads(): Promise<void> {
+        await this.threadManager.createThreads();
+    }
+
     protected async init(): Promise<void> {
         this.threadManager.onGlobalMessage = this.onGlobalMessage.bind(this);
         this.threadManager.sendLinkToThreadsOfType = this.sendLinkToThreadsOfType.bind(this);
@@ -25,15 +56,9 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
 
         this.listenParentManager();
 
-        await this.createLinkBetweenThreads();
-    }
-
-    public async onThreadSetLinkPort(
-        targetThreadType: ThreadTypes,
-        targetThreadId: number,
-        txMessage: LinkThreadMessage<LinkType>,
-    ): Promise<void> {
-        await this.threadManager.onThreadSetLinkPort(targetThreadType, targetThreadId, txMessage);
+        setTimeout(async () => {
+            await this.createLinkBetweenThreads();
+        }, 3000);
     }
 
     protected abstract createLinkBetweenThreads(): Promise<void>;
@@ -71,34 +96,11 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
         }
     }
 
-    public async onLinkThread(msg: LinkThreadMessage<LinkType>): Promise<void> {
-        const targetThreadType = msg.data.targetThreadType;
-        const targetThreadId = msg.data.targetThreadId;
-
-        if (this.threadManager.threadType !== targetThreadType) {
-            return;
-        }
-
-        await this.threadManager.onThreadSetLinkPort(targetThreadType, targetThreadId, msg);
-    }
-
-    public async onLinkThreadRequest(msg: LinkThreadRequestMessage): Promise<void> {
-        if (this.threadManager.threadType !== msg.data.threadType) {
-            return;
-        }
-
-        await this.threadManager.onCreateLinkThreadRequest(msg);
-    }
-
     private listenParentManager(): void {
         if (parentPort) {
             parentPort.on('message', (msg: ThreadMessageBase<MessageType>) => {
                 void this.onParentMessage(msg);
             });
         }
-    }
-
-    public async createThreads(): Promise<void> {
-        await this.threadManager.createThreads();
     }
 }

@@ -1,6 +1,6 @@
 import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin, { opcodes, script } from 'bitcoinjs-lib';
+import { Network, opcodes, script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
 import { Binary } from 'mongodb';
 import * as zlib from 'zlib';
@@ -9,10 +9,12 @@ import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
 import { TransactionOutput } from './inputs/TransactionOutput.js';
+import { VaultInput, VaultInputDecoder } from '../vault/VaultInputDecoder.js';
+import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 
 const OPNet_MAGIC: Buffer = Buffer.from('bsi', 'utf-8');
-
 const textEncoder = new TextEncoder();
+const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
 
 export abstract class Transaction<T extends OPNetTransactionTypes> {
     public abstract readonly transactionType: T;
@@ -44,13 +46,16 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     protected readonly transactionHashBuffer: Buffer;
     protected readonly transactionHash: string;
     protected readonly vInputIndex: number;
+    protected readonly _authorizedVaultUsage: boolean = false;
+    private readonly vaultDecoder: VaultInputDecoder = new VaultInputDecoder();
+    readonly #vaultInputs: VaultInput[] = [];
 
     protected constructor(
         rawTransactionData: TransactionData,
         vInputIndex: number,
         blockHash: string,
         public readonly blockHeight: bigint,
-        protected readonly network: bitcoin.networks.Network,
+        protected readonly network: Network,
     ) {
         if (rawTransactionData.blockhash && rawTransactionData.blockhash !== blockHash) {
             throw new Error(
@@ -97,12 +102,21 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._revert = error;
     }
 
+    public get authorizedVaultUsage(): boolean {
+        return this._authorizedVaultUsage;
+    }
+
     public get revertBuffer(): Uint8Array | undefined {
         if (!this._revert) {
             return;
         }
 
-        return textEncoder.encode(this._revert.message);
+        const finalMsg: string =
+            this._revert.message.length > 1000
+                ? this._revert.message.slice(0, 1000)
+                : this._revert.message;
+
+        return textEncoder.encode(finalMsg);
     }
 
     protected _receipt: EvaluatedResult | undefined;
@@ -113,6 +127,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public set receipt(receipt: EvaluatedResult) {
         this._receipt = receipt;
+    }
+
+    public get vaultInputs(): VaultInput[] {
+        return this.#vaultInputs;
     }
 
     protected _from: string | undefined;
@@ -138,9 +156,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     protected _originalIndex: number = 0;
 
-    public get originalIndex(): number {
+    /*public get originalIndex(): number {
         return this._originalIndex;
-    }
+    }*/
 
     public set originalIndex(index: number) {
         this._originalIndex = index;
@@ -165,59 +183,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this.transactionHashBuffer;
     }
 
-    protected static getDataChecksum(data: Array<Buffer | number>): Buffer {
-        let checksum: number[] = [];
-
-        for (let i = 0; i < data.length; i++) {
-            if (typeof data[i] === 'number') {
-                checksum.push(data[i] as number);
-            }
-        }
-
-        return Buffer.from(checksum);
-    }
-
-    protected static verifyChecksum(
-        scriptData: (number | Buffer)[],
-        typeChecksum: Buffer,
-    ): boolean {
+    public static verifyChecksum(scriptData: (number | Buffer)[], typeChecksum: Buffer): boolean {
         const checksum: Buffer = this.getDataChecksum(scriptData);
 
         return checksum.equals(typeChecksum);
     }
 
-    protected static _is(data: TransactionData, typeChecksum: Buffer): number {
-        let isCorrectType: number = -1;
-
-        for (let y = 0; y < data.vin.length; y++) {
-            const vIn = data.vin[y];
-            const witnesses = vIn.txinwitness;
-
-            if (!witnesses) {
-                continue;
-            }
-
-            for (let i = 0; i < witnesses.length; i++) {
-                const witness = witnesses[i];
-                const raw = Buffer.from(witness, 'hex');
-
-                const decodedScript = script.decompile(raw);
-                if (!decodedScript) continue;
-
-                const includeMagic = this.dataIncludeOPNetMagic(decodedScript);
-                if (!includeMagic) continue;
-
-                if (this.verifyChecksum(decodedScript, typeChecksum)) {
-                    isCorrectType = y;
-                    break;
-                }
-            }
-        }
-
-        return isCorrectType;
-    }
-
-    protected static dataIncludeOPNetMagic(data: Array<Buffer | number>): boolean {
+    public static dataIncludeOPNetMagic(data: Array<Buffer | number>): boolean {
         return data.some((value) => {
             if (typeof value === 'number') {
                 return false;
@@ -232,6 +204,103 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         });
     }
 
+    public static decompressBuffer(buffer: Buffer): { out: Buffer; compressed: boolean } {
+        if (!buffer) {
+            throw new Error('Buffer is undefined. Can not decompress.');
+        }
+
+        const zlibHeader = buffer.subarray(0, 2);
+        if (zlibHeader.equals(GZIP_HEADER)) {
+            buffer = zlib.unzipSync(buffer, {
+                finishFlush: zlib.constants.Z_SYNC_FLUSH,
+                maxOutputLength: 1024 * 1024 * 16, // limit to 16mb no matter what.
+            });
+
+            return { out: buffer, compressed: true };
+        }
+
+        return { out: buffer, compressed: false };
+    }
+
+    public static getDataFromWitness(
+        scriptData: Array<number | Buffer>,
+        breakWhenReachOpcode: number = opcodes.OP_ELSE,
+    ): Buffer | undefined {
+        let contractBytecode: Buffer | undefined = undefined;
+        for (let i = 0; i < scriptData.length; i++) {
+            if (scriptData[i] === breakWhenReachOpcode) {
+                break;
+            }
+
+            if (Buffer.isBuffer(scriptData[i])) {
+                if (!contractBytecode) {
+                    contractBytecode = scriptData[i] as Buffer;
+                } else {
+                    contractBytecode = Buffer.concat([contractBytecode, scriptData[i] as Buffer]);
+                }
+            } else {
+                throw new Error(`Invalid contract bytecode found in deployment transaction.`);
+            }
+        }
+
+        return contractBytecode;
+    }
+
+    protected static _is(data: TransactionData, typeChecksum: Buffer): number {
+        let isCorrectType: number = -1;
+
+        for (let y = 0; y < data.vin.length; y++) {
+            const vIn = data.vin[y];
+            const witnesses = vIn.txinwitness;
+
+            if (!witnesses) {
+                continue;
+            }
+
+            // always select the last witness that contains the magic
+            for (let i = 0; i < witnesses.length; i++) {
+                const witness = witnesses[i];
+                const raw = Buffer.from(witness, 'hex');
+
+                try {
+                    const decodedScript = script.decompile(raw);
+                    if (!decodedScript) continue;
+
+                    const includeMagic = this.dataIncludeOPNetMagic(decodedScript);
+                    if (!includeMagic) continue;
+
+                    if (this.verifyChecksum(decodedScript, typeChecksum)) {
+                        isCorrectType = y;
+                        break;
+                    }
+                } catch (e) {}
+            }
+        }
+
+        return isCorrectType;
+    }
+
+    protected static getDataChecksum(data: Array<Buffer | number>): Buffer {
+        let checksum: number[] = [];
+
+        for (let i = 0; i < data.length; i++) {
+            if (typeof data[i] === 'number') {
+                checksum.push(data[i] as number);
+            }
+        }
+
+        return Buffer.from(checksum);
+    }
+
+    public getCompromisedDocument(): ICompromisedTransactionDocument {
+        return {
+            id: this.transactionId,
+            height: this.blockHeight,
+
+            compromisedAuthorities: this.vaultInputs,
+        };
+    }
+
     public toDocument(): TransactionDocument<T> {
         const revertData: Uint8Array | undefined = this.revertBuffer;
         const outputDocuments = this.outputs.map((output) => output.toDocument());
@@ -243,6 +312,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             index: this.index,
             burnedBitcoin: DataConverter.toDecimal128(this.burnedFee),
+            gasUsed: DataConverter.toDecimal128(
+                this.receipt && this.receipt.gasUsed ? this.receipt.gasUsed : 0n,
+            ),
 
             inputs: this.inputs,
             outputs: outputDocuments,
@@ -256,6 +328,20 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         this.parseInputs(vIn);
         this.parseOutputs(vOuts);
+
+        this.decodeVaults();
+    }
+
+    /** We must verify every single transaction and decode any vault inputs */
+    protected decodeVaults(): void {
+        for (let input of this.inputs) {
+            const vault = this.vaultDecoder.decodeInput(input);
+            if (!vault) {
+                continue;
+            }
+
+            this.#vaultInputs.push(vault);
+        }
     }
 
     protected decompressData(buffer: Buffer | undefined): Buffer {
@@ -263,14 +349,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             throw new Error('Buffer is undefined. Can not decompress.');
         }
 
-        const zlibHeader = buffer.slice(0, 2);
-        if (zlibHeader.equals(Buffer.from([0x1f, 0x8b]))) {
-            buffer = zlib.unzipSync(buffer);
-
+        const decompressed = Transaction.decompressBuffer(buffer);
+        if (decompressed.compressed) {
             this.wasCompressed = true;
         }
 
-        return buffer;
+        return decompressed.out;
     }
 
     protected getWitnessOutput(originalContractAddress: string): TransactionOutput {
@@ -292,8 +376,15 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     protected setBurnedFee(witnessOutput: TransactionOutput): void {
         const scriptPubKey: ScriptPubKey = witnessOutput.scriptPubKey;
 
-        if (scriptPubKey.type !== 'witness_v1_taproot') {
-            throw new Error('Invalid scriptPubKey type for contract witness output');
+        if (
+            !(
+                scriptPubKey.type === 'witness_v1_taproot' ||
+                scriptPubKey.type === 'witness_v0_keyhash'
+            )
+        ) {
+            throw new Error(
+                `Invalid scriptPubKey type for contract witness output. Was ${scriptPubKey.type}`,
+            );
         }
 
         if (!scriptPubKey.address) {
@@ -336,36 +427,11 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
     }
 
-    protected getDataFromWitness(scriptData: Array<number | Buffer>): Buffer | undefined {
-        let contractBytecode: Buffer | undefined = undefined;
-        for (let i = 0; i < scriptData.length; i++) {
-            if (scriptData[i] === opcodes.OP_ELSE) {
-                break;
-            }
-
-            if (Buffer.isBuffer(scriptData[i])) {
-                if (!contractBytecode) {
-                    contractBytecode = scriptData[i] as Buffer;
-                } else {
-                    contractBytecode = Buffer.concat([contractBytecode, scriptData[i] as Buffer]);
-                }
-            } else {
-                throw new Error(`Invalid contract bytecode found in deployment transaction.`);
-            }
-        }
-
-        return contractBytecode;
-    }
-
     private computeHashForTransaction(): Buffer {
         // Create a hash from the transaction hash and the block hash
         const hash = crypto.createHash('sha256');
         hash.update(this.bufferHash);
         hash.update(Buffer.from(this.blockHash, 'hex'));
         return hash.digest();
-    }
-
-    private rndBigInt(min: number, max: number): bigint {
-        return BigInt(Math.floor(Math.random() * (max - min + 1) + min));
     }
 }

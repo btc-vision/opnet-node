@@ -21,8 +21,10 @@ components:
       name: X-API-KEY
 servers:
   - url: https://testnet.opnet.org
-    description: OpNet Testnet Server
+    description: OpNet Testnet
+  - url: https://regtest.opnet.org
+    description: OpNet Regtest
   - url: https://api.opnet.org
-    description: OpNet Prod Server
+    description: OpNet Mainnet
   - url: http://localhost:9001
     description: Sandbox server

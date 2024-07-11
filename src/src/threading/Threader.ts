@@ -1,10 +1,10 @@
-import { Logger, UtilsConfigurations } from '@btc-vision/bsi-common';
+import { Logger } from '@btc-vision/bsi-common';
 import fs from 'fs';
 import { MessageChannel, MessagePort, parentPort, Worker, WorkerOptions } from 'worker_threads';
 import {
     ServicesConfigurations,
     WorkerConfigurations,
-} from '../api/services/ServicesConfigurations.js';
+} from '../services/ServicesConfigurations.js';
 import { MessageType } from './enum/MessageType.js';
 import {
     LinkThreadMessage,
@@ -19,6 +19,7 @@ import { ThreadMessageBase } from './interfaces/thread-messages/ThreadMessageBas
 import { ThreadData } from './interfaces/ThreadData.js';
 import { ThreaderConfigurations } from './interfaces/ThreaderConfigurations.js';
 import { ThreadTypes } from './thread/enums/ThreadTypes.js';
+import { ThreadConfigurations } from './interfaces/ThreadConfigurations.js';
 
 export type ThreadTaskCallback = {
     timeout: ReturnType<typeof setTimeout>;
@@ -105,7 +106,6 @@ export class Threader<T extends ThreadTypes> extends Logger {
         } else {
             const success = await this.sendLinkMessageToThreadOfType(requestedThreadType, message);
             if (!success) {
-                this.warn(`Thread ${requestedThreadType} not found sending to parent.`);
                 parentPort?.postMessage(message);
             }
         }
@@ -155,8 +155,6 @@ export class Threader<T extends ThreadTypes> extends Logger {
             );
 
             if (!success) {
-                this.warn(`Thread not found in ${this.threadType} sending to parent.`);
-
                 try {
                     parentPort?.postMessage(txMessage, [txMessage.data.port]);
                 } catch (e) {
@@ -227,7 +225,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
 
                     const specificConfig: WorkerOptions = WorkerConfigurations[this.threadType];
                     const workerOpts: WorkerOptions = {
-                        ...UtilsConfigurations.WORKER_OPTIONS,
+                        ...ThreadConfigurations.WORKER_OPTIONS,
                         ...specificConfig,
                     };
 

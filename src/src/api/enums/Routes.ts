@@ -5,8 +5,13 @@ export enum Routes {
     BLOCK_BY_HASH = 'block/by-hash',
     BLOCK_BY_ID = 'block/by-id',
 
+    /** OPNet */
+    BLOCK_WITNESS = 'block/block-witness',
+    GENERATE = 'opnet/generate',
+
     /** Chain */
     CHAIN_ID = 'chain/id',
+    REORG = 'chain/reorg',
 
     /** Address */
     UTXOS = 'address/utxos',
@@ -15,8 +20,7 @@ export enum Routes {
     /** Transaction */
     TRANSACTION_BY_HASH = 'transaction/by-hash',
     TRANSACTION_RECEIPT = 'transaction/receipt',
-    //SEND_RAW_TRANSACTION = 'transaction/send-raw',
-    //SIMULATE_TRANSACTION = 'transaction/simulate',
+    BROADCAST_TRANSACTION = 'transaction/broadcast',
 
     /** States */
     GET_CODE = 'states/get-code',

@@ -1,5 +1,4 @@
 import { Logger } from '@btc-vision/bsi-common';
-import zmq from 'zeromq';
 import { MessageType } from '../../threading/enum/MessageType.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
@@ -11,7 +10,7 @@ import { BitcoinZeroMQTopic } from './enums/BitcoinZeroMQTopic.js';
 export abstract class ZeroMQ<T extends BitcoinZeroMQTopic> extends Logger {
     public readonly logColor: string = '#afeeee';
 
-    protected socket: zmq.Subscriber = new zmq.Subscriber();
+    //protected socket: zmq.Subscriber = new zmq.Subscriber();
 
     private readonly enabled: boolean = false;
 
@@ -43,11 +42,11 @@ export abstract class ZeroMQ<T extends BitcoinZeroMQTopic> extends Logger {
     private async listenForMessage(): Promise<void> {
         this.warn(`ZeroMQ connection established`);
 
-        for await (const [topic, msg] of this.socket) {
+        /*for await (const [topic, msg] of this.socket) {
             const topicString = topic.toString();
 
             void this.onEvent(topicString as BitcoinZeroMQTopic, msg);
-        }
+        }*/
 
         this.warn(`ZeroMQ connection closed`);
     }
@@ -55,10 +54,10 @@ export abstract class ZeroMQ<T extends BitcoinZeroMQTopic> extends Logger {
     private createConnection(): void {
         if (!this.enabled) return;
 
-        this.socket.connect(`tcp://${this.address}:${this.port}`);
+        //this.socket.connect(`tcp://${this.address}:${this.port}`);
 
         const topic = this.topic === BitcoinZeroMQTopic.EVERYTHING ? '' : this.topic;
-        this.socket.subscribe(topic.toLowerCase());
+        //this.socket.subscribe(topic.toLowerCase());
 
         void this.listenForMessage();
     }

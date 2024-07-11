@@ -9,12 +9,16 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { TransactionByHashParams } from '../../../../json-rpc/types/interfaces/params/transactions/TransactionByHashParams.js';
 import { TransactionByHashResult } from '../../../../json-rpc/types/interfaces/results/transactions/TransactionByHashResult.js';
 import { Route } from '../../../Route.js';
+import { DeploymentTxEncoder } from '../shared/DeploymentTxEncoder.js';
+import { DataConverter } from '@btc-vision/bsi-db';
 
 export class TransactionByHash extends Route<
     Routes.TRANSACTION_BY_HASH,
     JSONRpcMethods.GET_TRANSACTION_BY_HASH,
     TransactionByHashResult | undefined
 > {
+    protected readonly deploymentTxEncoder: DeploymentTxEncoder = new DeploymentTxEncoder();
+
     constructor() {
         super(Routes.TRANSACTION_BY_HASH, RouteType.GET);
     }
@@ -33,7 +37,14 @@ export class TransactionByHash extends Route<
             return undefined;
         }
 
-        return this.convertRawTransactionData(data);
+        let convertedTx = this.convertRawTransactionData(data);
+        convertedTx = await this.deploymentTxEncoder.addDeploymentData(
+            convertedTx,
+            DataConverter.fromDecimal128(data.blockHeight),
+            this.storage,
+        );
+
+        return convertedTx;
     }
 
     public async getDataRPC(
@@ -61,7 +72,9 @@ export class TransactionByHash extends Route<
     protected async onRequest(_req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
             const params = this.getParams(_req, res);
-            if (!params) return;
+            if (!params) {
+                throw new Error('Invalid params.');
+            }
 
             const data = await this.getData(params);
 
@@ -78,6 +91,10 @@ export class TransactionByHash extends Route<
     }
 
     protected getParams(req: Request, res: Response): TransactionByHashParams | undefined {
+        if (!req.query) {
+            throw new Error('Invalid params.');
+        }
+
         const hash = req.query.hash as string;
 
         if (!hash || (hash && hash.length !== 64)) {

@@ -8,7 +8,8 @@ export class ContractInformation {
     constructor(
         public readonly blockHeight: bigint,
         public readonly contractAddress: BitcoinAddress,
-        public readonly virtualAddress: string,
+        public readonly virtualAddress: BitcoinAddress,
+        public readonly p2trAddress: BitcoinAddress | null,
         public readonly bytecode: Buffer,
         public readonly wasCompressed: boolean,
         public readonly deployedTransactionId: string,
@@ -52,6 +53,7 @@ export class ContractInformation {
             DataConverter.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
             contractDocument.virtualAddress,
+            contractDocument.p2trAddress,
             bytecodeBuffer,
             contractDocument.wasCompressed,
             contractDocument.deployedTransactionId,
@@ -67,7 +69,7 @@ export class ContractInformation {
         blockHeight: bigint,
         transaction: DeploymentTransaction,
     ): ContractInformation {
-        if (!transaction.contractAddress) {
+        if (!transaction.p2trAddress) {
             throw new Error('Contract address is missing');
         }
 
@@ -89,8 +91,9 @@ export class ContractInformation {
 
         return new ContractInformation(
             blockHeight,
-            transaction.contractAddress,
+            transaction.segwitAddress,
             transaction.virtualAddress,
+            transaction.p2trAddress,
             transaction.bytecode,
             transaction.wasCompressed,
             transaction.transactionId,
@@ -106,6 +109,7 @@ export class ContractInformation {
         return {
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
             contractAddress: this.contractAddress,
+            p2trAddress: this.p2trAddress,
             virtualAddress: this.virtualAddress,
             bytecode: new Binary(this.bytecode),
             wasCompressed: this.wasCompressed,

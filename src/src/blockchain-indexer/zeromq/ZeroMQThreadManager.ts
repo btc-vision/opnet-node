@@ -23,6 +23,18 @@ export class ZeroMQThreadManager extends ThreadManager<ThreadTypes.ZERO_MQ> {
         void this.init();
     }
 
+    public sendLinkToZeroMQThread(message: LinkThreadMessage<LinkType>): void {
+        throw new Error('Method not implemented.');
+    }
+
+    public sendMessageToZeroMQThread(_message: LinkThreadRequestMessage): void {
+        throw new Error('Method not implemented.');
+    }
+
+    public onGlobalMessage(msg: ThreadMessageBase<MessageType>, thread: Worker): Promise<void> {
+        throw new Error('Method not implemented.');
+    }
+
     protected async sendLinkToThreadsOfType(
         threadType: ThreadTypes,
         threadId: number,
@@ -37,14 +49,6 @@ export class ZeroMQThreadManager extends ThreadManager<ThreadTypes.ZERO_MQ> {
                 return false;
             }
         }
-    }
-
-    public sendLinkToZeroMQThread(message: LinkThreadMessage<LinkType>): void {
-        throw new Error('Method not implemented.');
-    }
-
-    public sendMessageToZeroMQThread(_message: LinkThreadRequestMessage): void {
-        throw new Error('Method not implemented.');
     }
 
     protected async sendLinkMessageToThreadOfType(
@@ -64,11 +68,5 @@ export class ZeroMQThreadManager extends ThreadManager<ThreadTypes.ZERO_MQ> {
 
     protected async createLinkBetweenThreads(): Promise<void> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
-
-        this.log('ZeroMQ link created!');
-    }
-
-    public onGlobalMessage(msg: ThreadMessageBase<MessageType>, thread: Worker): Promise<void> {
-        throw new Error('Method not implemented.');
     }
 }

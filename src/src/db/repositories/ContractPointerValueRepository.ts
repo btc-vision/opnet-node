@@ -29,6 +29,17 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         super(db);
     }
 
+    public async deletePointerFromBlockHeight(
+        blockHeight: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IContractPointerValueDocument>> = {
+            lastSeenAt: { $gte: DataConverter.toDecimal128(blockHeight) },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
     public async getByContractAndPointer(
         contractAddress: Address,
         pointer: StoragePointer,
@@ -98,7 +109,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
                     proofs: proofs,
                     lastSeenAt: DataConverter.toDecimal128(lastSeenAt),
                 };
-                
+
                 bulk.find(criteria).upsert().updateOne({ $set: update });
             }
         }

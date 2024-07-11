@@ -1,5 +1,4 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
-import { EcKeyPair } from '@btc-vision/bsi-transaction';
 import bitcoin, { opcodes, payments } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
 import { DeploymentTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
@@ -8,10 +7,13 @@ import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
+
 import {
+    AddressGenerator,
     ContractAddressVerificationParams,
+    EcKeyPair,
     TapscriptVerificator,
-} from '../verification/TapscriptVerificator.js';
+} from '@btc-vision/transaction';
 
 interface DeploymentWitnessData {
     deployerPubKey: Buffer;
@@ -49,7 +51,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public readonly transactionType: OPNetTransactionTypes.Deployment =
         DeploymentTransaction.getType();
 
-    public contractAddress: string | undefined;
+    public p2trAddress: string | undefined;
 
     public bytecode: Buffer | undefined;
 
@@ -60,7 +62,9 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public deployerPubKeyHash: Buffer | undefined;
 
     public contractSigner: ECPairInterface | undefined;
+
     protected contractVirtualAddress: Buffer | undefined;
+    protected contractSegwitAddress: string | undefined;
 
     constructor(
         rawTransactionData: TransactionData,
@@ -80,6 +84,14 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         return '0x' + this.contractVirtualAddress.toString('hex');
     }
 
+    public get segwitAddress(): string {
+        if (!this.contractSegwitAddress) {
+            throw new Error('Contract segwit address not found');
+        }
+
+        return this.contractSegwitAddress;
+    }
+
     public static is(data: TransactionData): TransactionInformation | undefined {
         const vIndex = this._is(data, this.LEGACY_DEPLOYMENT_SCRIPT);
         if (vIndex === -1) {
@@ -92,28 +104,19 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         };
     }
 
-    public static getContractSeed(
-        deployerPubKey: Buffer,
-        bytecode: Buffer,
-        saltHash: Buffer,
-    ): Buffer {
-        const sha256OfBytecode: Buffer = bitcoin.crypto.hash256(bytecode);
-        const buf: Buffer = Buffer.concat([deployerPubKey, saltHash, sha256OfBytecode]);
-
-        return bitcoin.crypto.hash256(buf);
-    }
-
     private static getType(): OPNetTransactionTypes.Deployment {
         return OPNetTransactionTypes.Deployment;
     }
 
     public toDocument(): DeploymentTransactionDocument {
-        if (!this.contractAddress) throw new Error('Contract address not found');
+        if (!this.p2trAddress) throw new Error('Contract address not found');
 
         return {
             ...super.toDocument(),
             from: this.from,
-            contractAddress: this.contractAddress,
+            contractAddress: this.segwitAddress,
+            p2trAddress: this.p2trAddress,
+            virtualAddress: this.virtualAddress,
         };
     }
 
@@ -188,10 +191,16 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         this.contractSaltHash = hashOriginalSalt;
 
         /** Restore contract seed/address */
-        this.contractVirtualAddress = DeploymentTransaction.getContractSeed(
+        this.contractVirtualAddress = TapscriptVerificator.getContractSeed(
             deployerPubKey,
             this.bytecode,
             hashOriginalSalt,
+        );
+
+        /** Generate contract segwit address */
+        this.contractSegwitAddress = AddressGenerator.generatePKSH(
+            this.contractVirtualAddress,
+            this.network,
         );
 
         this.contractSigner = EcKeyPair.fromSeedKeyPair(this.contractVirtualAddress, this.network);
@@ -209,13 +218,15 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         /** We regenerate the contract address and verify it */
         const originalContractAddress: string = this.getOriginalContractAddress();
         const outputWitness: TransactionOutput = this.getWitnessOutput(originalContractAddress);
-
-        this.contractAddress = originalContractAddress;
+        this.p2trAddress = originalContractAddress;
 
         this.setBurnedFee(outputWitness);
 
         // We get the sender address
-        const { address } = payments.p2tr({ pubkey: deployerPubKey, network: this.network });
+        const { address } = payments.p2tr({
+            internalPubkey: deployerPubKey,
+            network: this.network,
+        });
         if (!address) {
             throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
         }
@@ -326,7 +337,8 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             return;
         }
 
-        const contractBytecode: Buffer | undefined = this.getDataFromWitness(scriptData);
+        const contractBytecode: Buffer | undefined =
+            DeploymentTransaction.getDataFromWitness(scriptData);
         if (!contractBytecode) {
             throw new Error(`No contract bytecode found in deployment transaction.`);
         }

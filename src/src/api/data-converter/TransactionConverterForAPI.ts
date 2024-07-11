@@ -1,7 +1,11 @@
+import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { TransactionDocumentForAPI } from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
-import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
+import {
+    ITransactionDocument,
+    NetEventDocument,
+} from '../../db/interfaces/ITransactionDocument.js';
 
 export class TransactionConverterForAPI {
     public static convertTransactionToAPI(
@@ -13,19 +17,64 @@ export class TransactionConverterForAPI {
 
         let newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
-            outputs: transaction.outputs.map((output) => {
+            outputs: transaction.outputs?.map((output) => {
                 return {
                     ...output,
                     value: output.value.toString(),
                 };
             }),
+            events: transaction.events?.map((event: NetEventDocument) => {
+                return {
+                    contractAddress: event.contractAddress,
+                    eventType: event.eventType,
+                    eventDataSelector: event.eventDataSelector.toString(),
+                    eventData: (event.eventData instanceof Uint8Array
+                        ? new Binary(event.eventData)
+                        : event.eventData
+                    ).toString('base64'),
+                };
+            }),
             revert: revert?.toString('base64'),
-            burnedBitcoin: transaction.burnedBitcoin.toString(),
+            burnedBitcoin:
+                '0x' + DataConverter.fromDecimal128(transaction.burnedBitcoin || 0n).toString(16),
+            gasUsed: '0x' + DataConverter.fromDecimal128(transaction.gasUsed || 0n).toString(16),
             _id: undefined,
             blockHeight: undefined,
             deployedTransactionHash: undefined,
             deployedTransactionId: undefined,
         };
+
+        if (transaction.wrappingFees !== undefined && transaction.wrappingFees !== null) {
+            newTx.wrappingFees =
+                '0x' + DataConverter.fromDecimal128(transaction.wrappingFees).toString(16);
+        }
+
+        if (transaction.unwrapAmount !== undefined && transaction.unwrapAmount !== null) {
+            newTx.unwrapAmount =
+                '0x' + DataConverter.fromDecimal128(transaction.unwrapAmount).toString(16);
+        }
+
+        if (transaction.requestedAmount !== undefined && transaction.requestedAmount !== null) {
+            newTx.requestedAmount =
+                '0x' + DataConverter.fromDecimal128(transaction.requestedAmount).toString(16);
+        }
+
+        if (transaction.depositAmount !== undefined && transaction.depositAmount !== null) {
+            newTx.depositAmount =
+                '0x' + DataConverter.fromDecimal128(transaction.depositAmount).toString(16);
+        }
+
+        if (transaction.consolidatedVault !== undefined && transaction.consolidatedVault !== null) {
+            newTx.consolidatedVault = {
+                vault: transaction.consolidatedVault.vault,
+                hash: transaction.consolidatedVault.hash,
+                value:
+                    '0x' +
+                    DataConverter.fromDecimal128(transaction.consolidatedVault.value).toString(16),
+                outputIndex: transaction.consolidatedVault.outputIndex,
+                output: transaction.consolidatedVault.output.toString('base64'),
+            };
+        }
 
         delete newTx._id;
         delete newTx.blockHeight;
