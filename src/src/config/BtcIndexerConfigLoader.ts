@@ -51,8 +51,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             THREADS: 2,
             MAXIMUM_PENDING_REQUESTS_PER_THREADS: 100,
 
-            BATCH_PROCESSING_SIZE: 10,
+            BATCH_PROCESSING_SIZE: 15,
             MAXIMUM_PARALLEL_BLOCK_QUERY: 50, // on mainnet, 50 blocks can load a lot of data in memory.
+            MAXIMUM_REQUESTS_PER_BATCH: 500,
         },
 
         POA: {

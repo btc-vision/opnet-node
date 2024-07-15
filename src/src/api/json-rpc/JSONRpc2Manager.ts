@@ -65,7 +65,7 @@ export class JSONRpc2Manager extends Logger {
             if (Array.isArray(requestData)) {
                 const length = requestData.length;
 
-                if (length > 100) {
+                if (length > Config.API.MAXIMUM_REQUESTS_PER_BATCH) {
                     // throw error if the batch request is too large
                     this.sendError(
                         'Too many requests in batch.',
