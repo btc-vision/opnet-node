@@ -16,44 +16,51 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
     public async getData(
         params: BlockByHashParams,
     ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
-        if (!this.storage) {
-            throw new Error('Storage not initialized');
-        }
+        this.incrementPendingRequests();
 
-        const blockHash = SafeMath.getParameterAsStringForBlock(params);
-        const includeTransactions: boolean = this.getParameterAsBoolean(params);
-        if (!blockHash) {
-            throw new Error('Block hash not provided');
-        }
-
-        const cachedData = await this.getCachedData(blockHash);
-        if (cachedData) {
-            if (!includeTransactions && cachedData.transactions.length !== 0) {
-                return {
-                    ...cachedData,
-                    transactions: [],
-                };
-            } else if (includeTransactions && cachedData.transactions.length === 0) {
-            } else {
-                return cachedData;
+        let data: Promise<BlockHeaderAPIDocumentWithTransactions>;
+        try {
+            const blockHash = SafeMath.getParameterAsStringForBlock(params);
+            const includeTransactions: boolean = this.getParameterAsBoolean(params);
+            if (!blockHash) {
+                throw new Error('Block hash not provided');
             }
+
+            const cachedData = await this.getCachedData(blockHash);
+            if (cachedData) {
+                if (!includeTransactions && cachedData.transactions.length !== 0) {
+                    return {
+                        ...cachedData,
+                        transactions: [],
+                    };
+                } else if (includeTransactions && cachedData.transactions.length === 0) {
+                } else {
+                    return cachedData;
+                }
+            }
+
+            if (!this.storage) {
+                throw new Error('Storage not initialized');
+            }
+
+            const transactions = await this.storage.getBlockTransactions(
+                undefined,
+                blockHash,
+                includeTransactions,
+            );
+
+            if (!transactions) return undefined;
+
+            data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
+            if (data) this.setToCache(blockHash, data);
+            else this.currentBlockData = data;
+        } catch (e) {
+            this.decrementPendingRequests();
+
+            throw e;
         }
 
-        if (!this.storage) {
-            throw new Error('Storage not initialized');
-        }
-
-        const transactions = await this.storage.getBlockTransactions(
-            undefined,
-            blockHash,
-            includeTransactions,
-        );
-
-        if (!transactions) return undefined;
-
-        const data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
-        if (data) this.setToCache(blockHash, data);
-        else this.currentBlockData = data;
+        this.decrementPendingRequests();
 
         return data;
     }
