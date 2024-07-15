@@ -16,6 +16,7 @@ import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/b
 import { Route } from '../../../Route.js';
 import { SafeBigInt } from '../../../safe/SafeMath.js';
 import { DeploymentTxEncoder } from '../shared/DeploymentTxEncoder.js';
+import { Config } from '../../../../../config/Config.js';
 
 export abstract class BlockRoute<T extends Routes> extends Route<
     T,
@@ -26,9 +27,9 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         new Map();
 
     protected maxCacheSize: number = 20;
-
     protected currentBlockData: Promise<BlockHeaderAPIDocumentWithTransactions> | undefined;
     protected readonly deploymentTxEncoder: DeploymentTxEncoder = new DeploymentTxEncoder();
+    private pendingRequests: number = 0;
 
     protected constructor(route: T) {
         super(route, RouteType.GET);
@@ -41,6 +42,22 @@ export abstract class BlockRoute<T extends Routes> extends Route<
     public abstract getDataRPC(
         params: BlockByIdParams | BlockByHashParams,
     ): Promise<BlockByIdResult | undefined>;
+
+    protected checkRateLimit(): boolean {
+        return this.pendingRequests + 1 <= Config.API.MAXIMUM_PARALLEL_BLOCK_QUERY;
+    }
+
+    protected incrementPendingRequests(): void {
+        if (!this.checkRateLimit()) {
+            throw new Error('Too many block pending requests');
+        }
+
+        this.pendingRequests++;
+    }
+
+    protected decrementPendingRequests(): void {
+        this.pendingRequests--;
+    }
 
     protected initialize(): void {
         setInterval(() => {

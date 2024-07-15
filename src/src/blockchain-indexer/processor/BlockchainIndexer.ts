@@ -521,8 +521,6 @@ export class BlockchainIndexer extends Logger {
         startBlockHeight: number = -1,
         wasReorg: boolean = false,
     ): Promise<void> {
-        this.info(`Processing blocks from block ${startBlockHeight}.`);
-
         let blockHeightInProgress: number = wasReorg
             ? startBlockHeight
             : await this.getCurrentProcessBlockHeight(startBlockHeight);
@@ -563,7 +561,7 @@ export class BlockchainIndexer extends Logger {
             const chainReorged: boolean = await this.verifyChainReorg(block);
             if (chainReorged) {
                 this.lastBlock.blockNumber = undefined;
-                
+
                 await this.restoreBlockchain(blockHeightInProgress);
                 return;
             }

@@ -61,6 +61,7 @@ import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js'
 import { AuthorityManager } from '../configurations/manager/AuthorityManager.js';
 import { xxHash } from '../hashing/xxhash.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
+import { Components } from 'libp2p/components.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -1005,7 +1006,9 @@ export class P2PManager extends Logger {
                 mplex(this.p2pConfigurations.mplexConfiguration),
             ],
             addresses: this.p2pConfigurations.listeningConfiguration,
-            peerDiscovery: peerDiscovery,
+            peerDiscovery: peerDiscovery as unknown as ((
+                components: Components,
+            ) => PeerDiscovery)[],
             nodeInfo: this.p2pConfigurations.nodeConfigurations,
             connectionManager: this.p2pConfigurations.connectionManagerConfiguration,
             peerStore: this.peerStoreConfigurations(),

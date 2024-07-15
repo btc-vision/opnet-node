@@ -19,36 +19,47 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
     public async getData(
         params: BlockByIdParams,
     ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
-        const height: SafeBigInt = SafeMath.getParameterAsBigIntForBlock(params);
-        const includeTransactions: boolean = this.getParameterAsBoolean(params);
+        this.incrementPendingRequests();
 
-        const cachedData = await this.getCachedData(height);
-        if (cachedData) {
-            if (!includeTransactions && cachedData.transactions.length !== 0) {
-                return {
-                    ...cachedData,
-                    transactions: [],
-                };
-            } else if (includeTransactions && cachedData.transactions.length === 0) {
-            } else {
-                return cachedData;
+        let data: Promise<BlockHeaderAPIDocumentWithTransactions>;
+        try {
+            const height: SafeBigInt = SafeMath.getParameterAsBigIntForBlock(params);
+            const includeTransactions: boolean = this.getParameterAsBoolean(params);
+
+            const cachedData = await this.getCachedData(height);
+            if (cachedData) {
+                if (!includeTransactions && cachedData.transactions.length !== 0) {
+                    return {
+                        ...cachedData,
+                        transactions: [],
+                    };
+                } else if (includeTransactions && cachedData.transactions.length === 0) {
+                } else {
+                    return cachedData;
+                }
             }
+
+            if (!this.storage) {
+                throw new Error('Storage not initialized');
+            }
+
+            const transactions: BlockWithTransactions | undefined =
+                await this.storage.getBlockTransactions(height, undefined, includeTransactions);
+            if (!transactions) return undefined;
+
+            data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
+            if (height !== -1) {
+                this.setToCache(height, data);
+            } else {
+                this.currentBlockData = data;
+            }
+        } catch (e) {
+            this.decrementPendingRequests();
+
+            throw e;
         }
 
-        if (!this.storage) {
-            throw new Error('Storage not initialized');
-        }
-
-        const transactions: BlockWithTransactions | undefined =
-            await this.storage.getBlockTransactions(height, undefined, includeTransactions);
-        if (!transactions) return undefined;
-
-        const data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
-        if (height !== -1) {
-            this.setToCache(height, data);
-        } else {
-            this.currentBlockData = data;
-        }
+        this.decrementPendingRequests();
 
         return data;
     }

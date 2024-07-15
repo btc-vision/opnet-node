@@ -44,6 +44,17 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             TRUSTED_VALIDATORS_CHECKSUM_HASH: '',
         },
 
+        API: {
+            ENABLED: true,
+            PORT: 9001,
+
+            THREADS: 2,
+            MAXIMUM_PENDING_REQUESTS_PER_THREADS: 100,
+
+            BATCH_PROCESSING_SIZE: 10,
+            MAXIMUM_PARALLEL_BLOCK_QUERY: 50, // on mainnet, 50 blocks can load a lot of data in memory.
+        },
+
         POA: {
             ENABLED: false,
         },
@@ -427,6 +438,33 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 !Array.isArray(parsedConfig.SSH.ALLOWED_IPS)
             ) {
                 throw new Error(`Oops the property SSH.ALLOWED_IPS is not an array.`);
+            }
+        }
+
+        if (parsedConfig.API) {
+            if (
+                parsedConfig.API.MAXIMUM_PENDING_REQUESTS_PER_THREADS &&
+                typeof parsedConfig.API.MAXIMUM_PENDING_REQUESTS_PER_THREADS !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.MAXIMUM_PENDING_REQUESTS_PER_THREADS is not a number.`,
+                );
+            }
+
+            if (
+                parsedConfig.API.BATCH_PROCESSING_SIZE &&
+                typeof parsedConfig.API.BATCH_PROCESSING_SIZE !== 'number'
+            ) {
+                throw new Error(`Oops the property API.BATCH_PROCESSING_SIZE is not a number.`);
+            }
+
+            if (
+                parsedConfig.API.MAXIMUM_PARALLEL_BLOCK_QUERY &&
+                typeof parsedConfig.API.MAXIMUM_PARALLEL_BLOCK_QUERY !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.MAXIMUM_PARALLEL_BLOCK_QUERY is not a number.`,
+                );
             }
         }
     }

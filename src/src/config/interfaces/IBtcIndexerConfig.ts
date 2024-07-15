@@ -1,4 +1,4 @@
-import { BlockchainConfig, IConfig, IConfigTemplate } from '@btc-vision/bsi-common';
+import { APIConfig, BlockchainConfig, IConfig, IConfigTemplate } from '@btc-vision/bsi-common';
 import { BitcoinZeroMQTopic } from '../../blockchain-indexer/zeromq/enums/BitcoinZeroMQTopic.js';
 import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';
 import { ChainIds } from '../enums/ChainIds.js';
@@ -95,6 +95,13 @@ export interface SSHConfig {
     readonly ALLOWED_IPS: string[];
 }
 
+export interface APIExtendedConfigurations extends APIConfig {
+    readonly MAXIMUM_PENDING_REQUESTS_PER_THREADS: number; // Maximum number of pending requests per thread
+    readonly BATCH_PROCESSING_SIZE: number; // Batch processing size
+
+    readonly MAXIMUM_PARALLEL_BLOCK_QUERY: number; // Maximum number of blocks per batch
+}
+
 export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     INDEXER: IndexerConfig;
     ZERO_MQ: ZeroMQConfig;
@@ -105,4 +112,5 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     P2P: P2P;
     MEMPOOL: MempoolConfig;
     SSH: SSHConfig;
+    API: APIExtendedConfigurations;
 }
