@@ -15,12 +15,15 @@ import {
     JSONRpc2ResponseResult,
 } from './types/interfaces/JSONRpc2Result.js';
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
+import { Config } from '../../config/Config.js';
 
 export class JSONRpc2Manager extends Logger {
     public static readonly RPC_VERSION: '2.0' = '2.0';
 
     public readonly logColor: string = '#afeeee';
     private readonly router: JSONRpcRouter = new JSONRpcRouter();
+
+    private pendingRequests: number = 0;
 
     constructor() {
         super();
@@ -30,7 +33,26 @@ export class JSONRpc2Manager extends Logger {
         return this.router.hasMethod(method);
     }
 
+    public incrementPendingRequests(res: Response, requestSize: number): boolean {
+        // Check if the number of pending requests is too high
+        if (this.pendingRequests + requestSize > Config.API.MAXIMUM_PENDING_REQUESTS_PER_THREADS) {
+            this.sendError(
+                'Too many pending requests',
+                JSONRPCErrorHttpCodes.SERVER_ERROR,
+                JSONRPCErrorCode.SERVER_ERROR,
+                res,
+            );
+
+            return false;
+        }
+
+        this.pendingRequests += requestSize;
+
+        return true;
+    }
+
     public async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
+        let requestSize: number = 0;
         try {
             const requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined =
                 await req.json();
@@ -41,29 +63,38 @@ export class JSONRpc2Manager extends Logger {
 
             // Batch request
             if (Array.isArray(requestData)) {
-                const pendingPromise: Promise<
-                    JSONRpc2ResponseResult<JSONRpcMethods> | undefined
-                >[] = [];
+                const length = requestData.length;
 
-                for (const request of requestData) {
-                    pendingPromise.push(this.processSingleRequest(res, request));
-                }
-
-                const responses = await Promise.all(pendingPromise);
-
-                // We must check if the response is an array of undefined values
-                // If so, we must send an internal error
-
-                if (responses.every((value) => value === undefined)) {
+                if (length > Config.API.MAXIMUM_REQUESTS_PER_BATCH) {
+                    // throw error if the batch request is too large
+                    this.sendError(
+                        'Too many requests in batch.',
+                        JSONRPCErrorHttpCodes.INVALID_REQUEST,
+                        JSONRPCErrorCode.INVALID_REQUEST,
+                        res,
+                    );
                     return;
                 }
 
-                response = responses as JSONRpc2ResponseResult<JSONRpcMethods>[];
+                requestSize += length + 1;
+                if (!this.incrementPendingRequests(res, requestSize)) {
+                    return; // already sent error
+                }
+
+                response = await this.requestInBatchOf(
+                    requestData,
+                    res,
+                    Config.API.BATCH_PROCESSING_SIZE,
+                );
             } else {
-                const resp = await this.processSingleRequest(res, requestData);
+                requestSize += 1;
+                if (!this.incrementPendingRequests(res, requestSize)) {
+                    return; // already sent error
+                }
 
+                const resp = await this.processSingleRequest(res, requestData);
                 if (!resp) {
-                    return;
+                    throw new Error('Invalid request');
                 }
 
                 response = resp;
@@ -73,11 +104,69 @@ export class JSONRpc2Manager extends Logger {
             res.json(response);
             res.end();
         } catch (err) {
-            const error = err as Error;
-            this.error(`Error in JSON-RPC: ${error.stack}`);
+            // Ensure this never throws
+            try {
+                const error = err as Error;
+                const message = error.message;
 
-            this.sendInternalError(res);
+                if (!message.includes('a batch request failed')) {
+                    this.error(`Error in JSON-RPC: ${error.stack}`);
+                }
+
+                this.sendInternalError(res);
+            } catch (e) {}
         }
+
+        this.pendingRequests -= requestSize;
+    }
+
+    private sendError(
+        msg: string,
+        type: JSONRPCErrorHttpCodes,
+        code: JSONRPCErrorCode,
+        res: Response,
+    ): void {
+        const errorData: JSONRpcResultError<JSONRpcMethods> = {
+            code: code,
+            message: msg,
+        };
+
+        res.status(type);
+        this.sendErrorResponse(errorData, res);
+    }
+
+    private async requestInBatchOf(
+        request: JSONRpc2Request<JSONRpcMethods>[],
+        res: Response,
+        batchSize: number,
+    ): Promise<JSONRpc2ResponseResult<JSONRpcMethods>[]> {
+        const length = request.length;
+
+        let i = 0;
+
+        const responses: JSONRpc2ResponseResult<JSONRpcMethods>[] = [];
+        while (i < length) {
+            const batch = request.slice(i, i + batchSize);
+            const pendingPromise: Promise<JSONRpc2ResponseResult<JSONRpcMethods> | undefined>[] =
+                [];
+
+            for (const req of batch) {
+                pendingPromise.push(this.processSingleRequest(res, req));
+            }
+
+            const resp = await Promise.all(pendingPromise);
+
+            // We must check if the response is an array of undefined values
+            // If so, we must send an internal error
+            if (resp.every((value) => value === undefined)) {
+                throw new Error('Something went wrong, a batch request failed');
+            }
+
+            i += batchSize;
+            responses.push(...(resp as JSONRpc2ResponseResult<JSONRpcMethods>[]));
+        }
+
+        return responses;
     }
 
     private async processSingleRequest(
