@@ -159,8 +159,6 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
             throw new Error('Map not found');
         }
 
-        console.log(this.values);
-
         for (const [key, value] of map.entries()) {
             const pointer = this.encodePointer(address, key);
             const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
