@@ -166,7 +166,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
             const proof: string[] = this.tree.getProof([pointer, valueAsBuffer]);
 
             if (!proof || !proof.length) {
-                throw new Error(`Proof not found for ${pointer.toString('hex')}`);
+                throw new Error(`Proof not found for pointer ${pointer.toString('hex')}`);
             }
 
             proofs.set(key, [value, proof]);
@@ -188,6 +188,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
             string,
             Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>
         >();
+
         for (const [address] of this.values.entries()) {
             const map = this.getValuesWithProofs(address);
 
@@ -217,6 +218,20 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         }
 
         return entries;
+    }
+
+    protected getDummyValues(): Map<string, Map<MemorySlotPointer, MemorySlotData<bigint>>> {
+        const dummyValues = new Map<string, Map<MemorySlotPointer, MemorySlotData<bigint>>>();
+        const dummyMap = new Map<MemorySlotPointer, MemorySlotData<bigint>>();
+
+        // Ensure minimum tree requirements
+        dummyMap.set(1n, 1n);
+        dummyMap.set(2n, 2n);
+
+        // Add dummy values for the contract
+        dummyValues.set(this.DUMMY_ADDRESS_NON_EXISTENT, dummyMap);
+
+        return dummyValues;
     }
 
     private ensureAddress(address: Address): void {

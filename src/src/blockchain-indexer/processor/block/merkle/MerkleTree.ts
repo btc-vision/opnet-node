@@ -7,6 +7,10 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
     protected valueChanged: boolean = false;
     protected frozen: boolean = false;
 
+    protected readonly DUMMY_ADDRESS_NON_EXISTENT = 'bc1dead';
+
+    private readonly MINIMUM_VALUES = 2; // To generate a tree, we need at least 2 values
+
     protected constructor(protected readonly treeType: [string, string]) {}
 
     get root(): string {
@@ -33,6 +37,10 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
     public validate(): void {
         if (!this.tree) {
             throw new Error('Merkle tree not generated');
+        }
+
+        if (this.countValues() < this.MINIMUM_VALUES) {
+            throw new Error('Not enough values to generate a tree');
         }
 
         this.tree.validate();
@@ -72,6 +80,28 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
     public abstract getEverythingWithProofs(): Map<string, Map<K, [V, string[]]>> | undefined;
 
     public freeze(): void {
+        if (this.countValues() < this.MINIMUM_VALUES) {
+            // We will add two empty values to generate the tree
+
+            const dummyValues = this.getDummyValues();
+            for (const [address, map] of dummyValues) {
+                if (!this.values.has(address)) {
+                    this.values.set(address, map);
+                } else {
+                    const currentMap = this.values.get(address);
+                    if (!currentMap) {
+                        throw new Error('Map not found');
+                    }
+
+                    for (const [key, value] of map) {
+                        if (!currentMap.has(key)) {
+                            currentMap.set(key, value);
+                        }
+                    }
+                }
+            }
+        }
+
         this.generateTree();
 
         this.frozen = true;
@@ -88,4 +118,15 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
     public abstract updateValues(address: string, val: Map<K, V>): void;
 
     public abstract getValues(): [Buffer, Buffer][];
+
+    protected abstract getDummyValues(): Map<string, Map<K, V>>;
+
+    private countValues(): number {
+        let count = 0;
+        for (const [, map] of this.values) {
+            count += map.size;
+        }
+
+        return count;
+    }
 }
