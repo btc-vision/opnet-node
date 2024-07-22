@@ -1,5 +1,6 @@
 import { Address } from '@btc-vision/bsi-binary';
 import { MerkleTree } from './MerkleTree.js';
+import { MAX_HASH, MAX_MINUS_ONE } from '../types/ZeroValue.js';
 
 export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
     public static TREE_TYPE: [string, string] = ['bytes', 'bytes'];
@@ -177,6 +178,20 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         }
 
         return entries;
+    }
+
+    protected getDummyValues(): Map<string, Map<string, Buffer>> {
+        const dummyValues = new Map<string, Map<string, Buffer>>();
+        const dummyMap = new Map<string, Buffer>();
+
+        // Ensure minimum tree requirements
+        dummyMap.set(MAX_HASH, Buffer.from([1]));
+        dummyMap.set(MAX_MINUS_ONE, Buffer.from([1]));
+
+        // Add dummy values for the contract
+        dummyValues.set(MAX_MINUS_ONE, dummyMap);
+
+        return dummyValues;
     }
 
     private ensureAddress(address: Address): void {

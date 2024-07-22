@@ -26,6 +26,7 @@ import { BroadcastResponse } from '../../../threading/interfaces/thread-messages
 import { BTC_FAKE_ADDRESS } from '../../processor/block/types/ZeroValue.js';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { DebugLevel } from '@btc-vision/logger';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     public readonly threadType: ThreadTypes.BITCOIN_RPC = ThreadTypes.BITCOIN_RPC;
@@ -153,7 +154,11 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     }
 
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
-        this.info(`Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`);
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.info(
+                `Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`,
+            );
+        }
 
         const vmManager = await this.getNextVMManager();
 
