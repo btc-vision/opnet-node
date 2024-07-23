@@ -25,7 +25,8 @@ import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { MemorySlotData } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
 import { AddressGenerator } from '@btc-vision/transaction';
-import { Network } from 'bitcoinjs-lib';
+import { Network, networks } from 'bitcoinjs-lib';
+import { BitcoinNetworkRequest } from '@btc-vision/bsi-wasmer-vm';
 
 /*import * as v8 from 'node:v8';
 
@@ -309,6 +310,11 @@ export class ContractEvaluator extends Logger {
             throw new Error('No result');
         }
 
+        const gasDifference: bigint = response.gasUsed - evaluation.gasUsed;
+        this.info(`Gas used: ${gasDifference}`);
+
+        this.contractInstance.useGas(gasDifference); // We use the gas that was used in the external call.
+
         return result;
     }
 
@@ -353,6 +359,19 @@ export class ContractEvaluator extends Logger {
         return response.getBuffer();
     }
 
+    private getNetwork(): BitcoinNetworkRequest {
+        switch (this.network) {
+            case networks.bitcoin:
+                return BitcoinNetworkRequest.Mainnet;
+            case networks.testnet:
+                return BitcoinNetworkRequest.Testnet;
+            case networks.regtest:
+                return BitcoinNetworkRequest.Regtest;
+            default:
+                throw new Error('Invalid network');
+        }
+    }
+
     private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {
         if (!this.bytecode) {
             throw new Error('Bytecode is required');
@@ -360,6 +379,7 @@ export class ContractEvaluator extends Logger {
 
         return {
             bytecode: this.bytecode,
+            network: this.getNetwork(),
             gasLimit: OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
             gasCallback: evaluation.onGasUsed,
             load: async (data: Buffer) => {
@@ -377,9 +397,9 @@ export class ContractEvaluator extends Logger {
             log: (buffer: Buffer) => {
                 this.onDebug(buffer);
             },
-            encodeAddress: async (data: Buffer) => {
+            /*encodeAddress: async (data: Buffer) => {
                 return this.encodeAddress(data);
-            },
+            },*/
         };
     }
 

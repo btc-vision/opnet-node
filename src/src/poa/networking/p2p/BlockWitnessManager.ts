@@ -39,7 +39,7 @@ export class BlockWitnessManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     /** How many blocks we can store in memory before we start rejecting witnesses */
-    private readonly pendingBlockThreshold: bigint = 10n;
+    private readonly pendingBlockThreshold: bigint = 24n;
     private readonly maxPendingWitnesses: number = 50;
 
     private pendingWitnessesVerification: Map<bigint, IBlockHeaderWitness[]> = new Map();
