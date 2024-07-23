@@ -535,6 +535,7 @@ export class BlockchainIndexer extends Logger {
 
         let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
+            const processStartTime = Date.now();
             const nextConsensus = OPNetConsensus.getNextConsensus();
             if (this.setConsensusBlockHeight(BigInt(blockHeightInProgress))) {
                 this.onConsensusFailed(Consensus[nextConsensus]);
@@ -557,27 +558,22 @@ export class BlockchainIndexer extends Logger {
                 );
             }
 
-            /** We must check for chain reorgs here. */
-            const chainReorged: boolean = await this.verifyChainReorg(block);
-            if (chainReorged) {
-                this.lastBlock.blockNumber = undefined;
+            const syncBlockDiff = chainCurrentBlockHeight - blockHeightInProgress;
+            if (syncBlockDiff < 100) {
+                /** We must check for chain reorgs here. */
+                const chainReorged: boolean = await this.verifyChainReorg(block);
+                if (chainReorged) {
+                    this.lastBlock.blockNumber = undefined;
 
-                await this.restoreBlockchain(blockHeightInProgress);
-                return;
+                    await this.restoreBlockchain(blockHeightInProgress);
+                    return;
+                }
             }
 
-            const processStartTime = Date.now();
             const processedBlock: Block | null = await this.processBlock(block, this.vmManager);
             if (processedBlock === null) {
                 this.fatalFailure = true;
                 throw new Error(`Error processing block ${blockHeightInProgress}.`);
-            }
-
-            const processEndTime = Date.now();
-            if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
-                this.info(
-                    `Block ${blockHeightInProgress} processed successfully. (BlockHash: ${processedBlock.hash} - previous: ${processedBlock.previousBlockHash}) {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - processStartTime}ms})`,
-                );
             }
 
             if (processedBlock.compromised) {
@@ -594,6 +590,13 @@ export class BlockchainIndexer extends Logger {
 
             if (this.processOnlyOneBlock) {
                 break;
+            }
+
+            const processEndTime = Date.now();
+            if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                this.info(
+                    `Block ${blockHeightInProgress} processed successfully. (BlockHash: ${processedBlock.hash} - previous: ${processedBlock.previousBlockHash}) {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - processStartTime}ms})`,
+                );
             }
         }
 
