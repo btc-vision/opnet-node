@@ -27,18 +27,17 @@ export class TransactionReceipt extends Route<
         super(Routes.TRANSACTION_RECEIPT, RouteType.GET);
     }
 
-    public async getData(
-        params: TransactionReceiptsParams,
-    ): Promise<TransactionReceiptResult | undefined> {
+    public async getData(params: TransactionReceiptsParams): Promise<TransactionReceiptResult> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
 
         const [hash] = this.getDecodedParams(params);
-        const data = await this.storage.getTransactionByHash(hash);
+        if (hash.length !== 64) throw new Error(`Invalid hash length: ${hash.length}`);
 
+        const data = await this.storage.getTransactionByHash(hash);
         if (!data) {
-            return undefined;
+            throw new Error(`Could not find the transaction ${hash}.`);
         }
 
         return this.getReceipt(data);
@@ -47,10 +46,7 @@ export class TransactionReceipt extends Route<
     public async getDataRPC(
         params: TransactionReceiptsParams,
     ): Promise<TransactionReceiptResult | undefined> {
-        const data = await this.getData(params);
-        if (!data) throw new Error(`Could not find the transaction with the provided hash.`);
-
-        return data;
+        return await this.getData(params);
     }
 
     protected initialize(): void {}
@@ -74,14 +70,8 @@ export class TransactionReceipt extends Route<
             }
 
             const data = await this.getData(params);
-
-            if (data) {
-                res.status(200);
-                res.json(data);
-            } else {
-                res.status(400);
-                res.json({ error: 'Could not find the transaction with the provided hash.' });
-            }
+            res.status(200);
+            res.json(data);
         } catch (err) {
             this.handleDefaultError(res, err as Error);
         }

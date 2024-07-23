@@ -39,7 +39,7 @@ export class BlockWitnessManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     /** How many blocks we can store in memory before we start rejecting witnesses */
-    private readonly pendingBlockThreshold: bigint = 10n;
+    private readonly pendingBlockThreshold: bigint = 24n;
     private readonly maxPendingWitnesses: number = 50;
 
     private pendingWitnessesVerification: Map<bigint, IBlockHeaderWitness[]> = new Map();
@@ -585,7 +585,7 @@ export class BlockWitnessManager extends Logger {
          * We reject any witnesses that are too far ahead of the current block.
          */
         if (this.abs(this.currentBlock - blockNumber) > this.pendingBlockThreshold) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.fail(
                     `Block ${blockNumber} is too far behind the current block ${this.currentBlock}. Rejecting witness.`,
                 );

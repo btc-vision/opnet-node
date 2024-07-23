@@ -158,7 +158,7 @@ export class Mempool extends Logger {
                     ? OPNetConsensus.consensus.PSBT.MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT
                     : this.estimatedBlockFees;
 
-            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
                 this.log(`Estimated fees: ${this.estimatedBlockFees}`);
             }
         } catch (e) {
