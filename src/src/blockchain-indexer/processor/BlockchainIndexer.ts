@@ -535,14 +535,13 @@ export class BlockchainIndexer extends Logger {
 
         let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
-            const processStartTime = Date.now();
+            const getBlockDataTimingStart = Date.now();
             const nextConsensus = OPNetConsensus.getNextConsensus();
             if (this.setConsensusBlockHeight(BigInt(blockHeightInProgress))) {
                 this.onConsensusFailed(Consensus[nextConsensus]);
                 return;
             }
 
-            const getBlockDataTimingStart = Date.now();
             const block = await this.getBlockFromPrefetch(
                 blockHeightInProgress,
                 chainCurrentBlockHeight,
@@ -570,6 +569,7 @@ export class BlockchainIndexer extends Logger {
                 }
             }
 
+            const processStartTime = Date.now();
             const processedBlock: Block | null = await this.processBlock(block, this.vmManager);
             if (processedBlock === null) {
                 this.fatalFailure = true;
@@ -595,7 +595,7 @@ export class BlockchainIndexer extends Logger {
             const processEndTime = Date.now();
             if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
                 this.info(
-                    `Block ${blockHeightInProgress} processed successfully. (BlockHash: ${processedBlock.hash} - previous: ${processedBlock.previousBlockHash}) {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - processStartTime}ms})`,
+                    `Block ${blockHeightInProgress} processed successfully. (BlockHash: ${processedBlock.hash} - previous: ${processedBlock.previousBlockHash}) {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - getBlockDataTimingStart}ms})`,
                 );
             }
         }
