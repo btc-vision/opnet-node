@@ -42,7 +42,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MAXIMUM_RECEIPT_LENGTH: 128,
 
         /** The maximum size of an event in bytes */
-        MAXIMUM_EVENT_LENGTH: 96,
+        MAXIMUM_EVENT_LENGTH: 352,
 
         /** The maximum amount of contract a transaction can deploy */
         MAXIMUM_DEPLOYMENT_DEPTH: 2,

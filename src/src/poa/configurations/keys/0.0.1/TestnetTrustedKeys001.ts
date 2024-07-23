@@ -24,38 +24,23 @@ export const TestNetTrustedKeys001: NetworkAuthorityConfiguration = {
                         '1yclNUxjodcDkY9L+Kg7rq/VW7f3kfFnz+ftuBsekDGW0kXdLNGN7qYO8Hc482gcwQHVB4nz0G7XM/xyYnTMDg==',
                     wallet: 'tb1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gszlcez5',
                 },
-            ],
-        },
-        /** Fictional company */
-        [TrustedCompanies.MotoSwap]: {
-            keys: [
+
                 {
-                    opnet: 'GNwrQoTHZv7fxM4P3nsSdrHDtnLYdP0n7YJqWBc4NVI=',
-                    publicKey: 'AgPmjuI2/MNJM9STswWm8MdWEllHHRPs0Q3+DjdjOny+',
+                    opnet: '/G29rhUysSbvxfcHL1icK8+Qs4whsj2gwaIy6Lo+jS0=',
+                    publicKey: 'A1TTZcFlM+wb8bF+Jtb8ZSH8cEkeT3UtEqn/Gx6Ib6rV',
                     signature:
-                        '2z0mncHxbBwps/81dVPKQcManzjcJ+r+4dmkD+MxZJ3ZdbEoeDlRhy6xa362JVRiBZtdyeQV7q6mckpohvUNCw==',
-                    wallet: 'tb1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gszlcez4',
+                        'A9sxaq5+Fe5dcpACydgImZgMNCRHVcAFj7GVPgBOmxD0Xsdl5FftR4L4Q6MtuVByXswXpmgQI4Lo6bTdQQNfBQ==',
+                    wallet: 'tb1pllsazp7qcjz52j2ns8rugwmc97eevs9xzsup3txm5rrvq7szd5nshyz92y',
                 },
+
                 {
-                    opnet: '5BtduXr1lGbuiHf3qz9EFE11niebe5tDmvXkyMnj7S4=',
-                    publicKey: 'AtOOpbDsniLbs2QGuqPFu7AnCOK9lNSSl+pvPr0m0Yx3',
+                    opnet: 'yik6iMXTL4R7866sRlJ7Vw+02Yc+cfUBHr1tCpHaQoY=',
+                    publicKey: 'A1ByXH6baQmW/K6rKuHGZCvwKodE0kSwy9RECNRG0ysv',
                     signature:
-                        'JRIpK00+4EZIto8ZvFWOWQLIyIjr6MjqEPqyHCOcDUdQtOTL0d/pOxZYQ/GZN2hE1POk6SE7TDWPufSOqWt/AA==',
-                    wallet: 'tb1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gszlcez3',
+                        'ynfrWXR0xLatX7zXJxWtt78oa6qgVfdvqehAVHKV0fuqdNJ7esBMNC+v3GLiBdWdoU4d5bHXCVAS/EAVL4B8AA==',
+                    wallet: 'tb1punpafxjk5uqgrm2meux30qz2azvg43t37edexpkhkwxwe44np4csephlhc',
                 },
             ],
         },
-        [TrustedCompanies.SatoshiNakamoto]: {
-            keys: [
-                {
-                    opnet: 'mnJZPF0NlBXQsdZKioaJjbtJxLiWh5HWZ84oNQIu4V8=',
-                    publicKey: 'A4JEwTBwTx5QaLCFORTow27UQvkLQWZguhz6N+d8FczI',
-                    signature:
-                        'VyIjWk39b99diOcRElMXOCg3Tmhv8Ifib7dG9HWQ4KyXl4rii4+fdvdJE2p9hhonn4qwj5v9gF4MLzJFXnsHDA==',
-                    wallet: 'tb1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gszlcez2',
-                },
-            ],
-        },
-        /** --------- Fictional company --------- */
     },
 };

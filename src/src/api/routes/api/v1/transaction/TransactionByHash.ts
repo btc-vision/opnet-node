@@ -23,18 +23,17 @@ export class TransactionByHash extends Route<
         super(Routes.TRANSACTION_BY_HASH, RouteType.GET);
     }
 
-    public async getData(
-        params: TransactionByHashParams,
-    ): Promise<TransactionByHashResult | undefined> {
+    public async getData(params: TransactionByHashParams): Promise<TransactionByHashResult> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
 
         const [hash] = this.getDecodedParams(params);
-        const data = await this.storage.getTransactionByHash(hash);
+        if (hash.length !== 64) throw new Error(`Invalid hash length: ${hash.length}`);
 
+        const data = await this.storage.getTransactionByHash(hash);
         if (!data) {
-            return undefined;
+            throw new Error(`Could not find the transaction ${hash}.`);
         }
 
         let convertedTx = this.convertRawTransactionData(data);
@@ -50,10 +49,7 @@ export class TransactionByHash extends Route<
     public async getDataRPC(
         params: TransactionByHashParams,
     ): Promise<TransactionByHashResult | undefined> {
-        const data = await this.getData(params);
-        if (!data) throw new Error(`Could not find the transaction with the provided hash.`);
-
-        return data;
+        return await this.getData(params);
     }
 
     protected initialize(): void {}
