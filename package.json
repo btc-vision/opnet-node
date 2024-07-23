@@ -12,7 +12,7 @@
         "setup": "npm i && npm run build"
     },
     "engines": {
-        "node": ">=20.0.0 <22.0.0"
+        "node": ">=20.0.0 <23.0.0"
     },
     "homepage": "https://opnet.org",
     "keywords": [
