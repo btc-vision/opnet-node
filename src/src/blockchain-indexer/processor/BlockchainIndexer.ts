@@ -594,7 +594,7 @@ export class BlockchainIndexer extends Logger {
 
             const processEndTime = Date.now();
             if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
-                this.success(
+                this.info(
                     `Block ${blockHeightInProgress} processed successfully. (BlockHash: ${processedBlock.hash} - previous: ${processedBlock.previousBlockHash}) {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - getBlockDataTimingStart}ms})`,
                 );
             }
