@@ -32,6 +32,14 @@ export const TestNetTrustedKeys001: NetworkAuthorityConfiguration = {
                         'A9sxaq5+Fe5dcpACydgImZgMNCRHVcAFj7GVPgBOmxD0Xsdl5FftR4L4Q6MtuVByXswXpmgQI4Lo6bTdQQNfBQ==',
                     wallet: 'tb1pllsazp7qcjz52j2ns8rugwmc97eevs9xzsup3txm5rrvq7szd5nshyz92y',
                 },
+
+                {
+                    opnet: 'yik6iMXTL4R7866sRlJ7Vw+02Yc+cfUBHr1tCpHaQoY=',
+                    publicKey: 'A1ByXH6baQmW/K6rKuHGZCvwKodE0kSwy9RECNRG0ysv',
+                    signature:
+                        'ynfrWXR0xLatX7zXJxWtt78oa6qgVfdvqehAVHKV0fuqdNJ7esBMNC+v3GLiBdWdoU4d5bHXCVAS/EAVL4B8AA==',
+                    wallet: 'tb1punpafxjk5uqgrm2meux30qz2azvg43t37edexpkhkwxwe44np4csephlhc',
+                },
             ],
         },
     },
