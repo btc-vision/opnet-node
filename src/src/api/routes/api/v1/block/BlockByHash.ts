@@ -23,8 +23,10 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
             const blockHash = SafeMath.getParameterAsStringForBlock(params);
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
             if (!blockHash) {
-                throw new Error('Block hash not provided');
+                throw new Error(`Could not find the block with the provided hash ${blockHash}.`);
             }
+
+            if (blockHash.length !== 64) throw new Error(`Invalid hash length`);
 
             const cachedData = await this.getCachedData(blockHash);
             if (cachedData) {
@@ -49,7 +51,9 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
                 includeTransactions,
             );
 
-            if (!transactions) return undefined;
+            if (!transactions) {
+                throw new Error(`No transactions found for block ${blockHash}`);
+            }
 
             data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
             if (data) this.setToCache(blockHash, data);
