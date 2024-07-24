@@ -56,7 +56,7 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
         } catch (e) {
             this.decrementPendingRequests();
 
-            throw e;
+            throw new Error('Something went wrong.');
         }
 
         this.decrementPendingRequests();

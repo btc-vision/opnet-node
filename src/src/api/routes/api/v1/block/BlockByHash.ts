@@ -61,7 +61,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
         } catch (e) {
             this.decrementPendingRequests();
 
-            throw e;
+            throw new Error(`Something went wrong.`);
         }
 
         this.decrementPendingRequests();
