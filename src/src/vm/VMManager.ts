@@ -600,6 +600,13 @@ export class VMManager extends Logger {
     ): Promise<ContractEvaluation> {
         let vmEvaluator: ContractEvaluator | null = null;
 
+        if (params.contractAddress && params.contractAddress.startsWith('0x')) {
+            // we have to convert virtual address to segwit address.
+
+            const buffer = Buffer.from(params.contractAddress.slice(2), 'hex');
+            params.contractAddress = AddressGenerator.generatePKSH(buffer, this.network);
+        }
+
         if (params.deployedContracts) {
             for (let contract of params.deployedContracts) {
                 if (

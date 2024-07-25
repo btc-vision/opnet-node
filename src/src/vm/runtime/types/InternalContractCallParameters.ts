@@ -2,7 +2,7 @@ import { Address, BlockchainStorage } from '@btc-vision/bsi-binary';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 
 export interface InternalContractCallParameters {
-    readonly contractAddress: Address;
+    contractAddress: Address;
     readonly from: Address;
     readonly callee: Address;
 
