@@ -690,7 +690,9 @@ export class VMManager extends Logger {
                 if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                     const error = (await e) as Error;
 
-                    this.panic(`SHOULD NOT HAPPEN: ${error}`);
+                    if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                        this.panic(`Evaluation failed: ${error}`);
+                    }
                 }
 
                 return null;
