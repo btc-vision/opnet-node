@@ -310,8 +310,8 @@ export class ContractEvaluator extends Logger {
             throw new Error('No result');
         }
 
-        const gasDifference: bigint = response.gasUsed - evaluation.gasUsed;
-        this.info(`Gas used: ${gasDifference}`);
+        //const gasDifference: bigint = response.gasUsed - evaluation.gasUsed;
+        //this.info(`Gas used: ${gasDifference}`);
 
         //this.contractInstance.useGas(gasDifference); // We use the gas that was used in the external call.
 
