@@ -5,8 +5,8 @@ import { BlockHeaderAPIDocumentWithTransactions } from '../../../../../db/docume
 import { Routes } from '../../../../enums/Routes.js';
 import { BlockByHashParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByHashParams.js';
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
-import { SafeMath } from '../../../safe/SafeMath.js';
 import { BlockRoute } from './BlockRoute.js';
+import { SafeMath } from '../../../safe/SafeMath.js';
 
 export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
     constructor() {
@@ -31,12 +31,14 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
             const cachedData = await this.getCachedData(blockHash);
             if (cachedData) {
                 if (!includeTransactions && cachedData.transactions.length !== 0) {
+                    this.decrementPendingRequests();
                     return {
                         ...cachedData,
                         transactions: [],
                     };
                 } else if (includeTransactions && cachedData.transactions.length === 0) {
                 } else {
+                    this.decrementPendingRequests();
                     return cachedData;
                 }
             }
@@ -61,7 +63,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
         } catch (e) {
             this.decrementPendingRequests();
 
-            throw e;
+            throw new Error(`Something went wrong.`);
         }
 
         this.decrementPendingRequests();

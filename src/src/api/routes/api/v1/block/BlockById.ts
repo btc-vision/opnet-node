@@ -29,12 +29,14 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
             const cachedData = await this.getCachedData(height);
             if (cachedData) {
                 if (!includeTransactions && cachedData.transactions.length !== 0) {
+                    this.decrementPendingRequests();
                     return {
                         ...cachedData,
                         transactions: [],
                     };
                 } else if (includeTransactions && cachedData.transactions.length === 0) {
                 } else {
+                    this.decrementPendingRequests();
                     return cachedData;
                 }
             }
@@ -45,7 +47,10 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
 
             const transactions: BlockWithTransactions | undefined =
                 await this.storage.getBlockTransactions(height, undefined, includeTransactions);
-            if (!transactions) return undefined;
+
+            if (!transactions) {
+                throw new Error(`No transactions found for block ${height}`);
+            }
 
             data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
             if (height !== -1) {
@@ -56,7 +61,7 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
         } catch (e) {
             this.decrementPendingRequests();
 
-            throw e;
+            throw new Error('Something went wrong.');
         }
 
         this.decrementPendingRequests();
