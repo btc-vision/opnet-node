@@ -53,12 +53,10 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         }
 
         this.pendingRequests++;
-        this.log(`Incremented pending request. Total: ${this.pendingRequests}`);
     }
 
     protected decrementPendingRequests(): void {
         this.pendingRequests--;
-        this.log(`Resolved pending request. Total: ${this.pendingRequests}`);
     }
 
     protected initialize(): void {
