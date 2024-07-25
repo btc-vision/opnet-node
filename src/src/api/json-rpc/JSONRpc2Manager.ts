@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -110,7 +110,9 @@ export class JSONRpc2Manager extends Logger {
                 const message = error.message;
 
                 if (!message.includes('a batch request failed')) {
-                    this.error(`Error in JSON-RPC: ${error.stack}`);
+                    if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                        this.error(`API Error: ${error.stack}`);
+                    }
                 }
 
                 this.sendInternalError(res);
