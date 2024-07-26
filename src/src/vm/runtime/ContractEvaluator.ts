@@ -277,13 +277,14 @@ export class ContractEvaluator extends Logger {
         const calldata: Uint8Array = reader.readBytesWithLength();
         evaluation.incrementCallDepth();
 
+        const gasUsed: bigint = evaluation.gasTracker.gasUsed;
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
             from: evaluation.caller,
             callee: evaluation.contractAddress,
 
             maxGas: evaluation.gasTracker.maxGas,
-            gasUsed: evaluation.gasTracker.gasUsed,
+            gasUsed: gasUsed,
 
             externalCall: true,
             blockHeight: evaluation.blockNumber,
@@ -310,12 +311,14 @@ export class ContractEvaluator extends Logger {
             throw new Error('No result');
         }
 
-        //const gasDifference: bigint = response.gasUsed - evaluation.gasUsed;
-        //this.info(`Gas used: ${gasDifference}`);
+        const gasDifference: bigint = response.gasUsed - gasUsed;
+        this.info(`Gas used: ${gasDifference}`);
 
-        //this.contractInstance.useGas(gasDifference); // We use the gas that was used in the external call.
+        const writer = new BinaryWriter();
+        writer.writeU64(gasDifference);
+        writer.writeBytes(result);
 
-        return result;
+        return writer.getBuffer();
     }
 
     // TODO: Implement this
