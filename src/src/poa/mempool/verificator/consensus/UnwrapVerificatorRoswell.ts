@@ -258,7 +258,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             }
         }
 
-        const maximumFeeRefund: bigint = this.getMaximumFeeRefund(usedVaults);
+        const maximumFeeRefund: bigint = this.getMaximumFeeRefund(usedVaults, amount);
         const refundedAmount: bigint = outputAmount - amount;
         if (refundedAmount > maximumFeeRefund) {
             throw new Error(
@@ -348,11 +348,26 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         return totalHoldings;
     }
 
-    private getMaximumFeeRefund(usedVaults: Map<Address, VerificationVault>): bigint {
+    private getMaximumFeeRefund(
+        usedVaults: Map<Address, VerificationVault>,
+        amount: bigint,
+    ): bigint {
         let refund: bigint = -OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
 
+        let totalVaults: number = 0;
         for (let vault of usedVaults.values()) {
             for (let i = 0; i < vault.utxoDetails.length; i++) {
+                refund += OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+                totalVaults++;
+            }
+        }
+
+        // TODO: Verify this.
+        let amountLeft = this.calculateVaultTotalHoldings(usedVaults) - amount;
+        if (totalVaults === 1) {
+            if (
+                amountLeft < OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT
+            ) {
                 refund += OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
             }
         }

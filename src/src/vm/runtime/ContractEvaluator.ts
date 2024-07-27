@@ -315,7 +315,7 @@ export class ContractEvaluator extends Logger {
         this.info(`Gas used: ${gasDifference}`);
 
         const writer = new BinaryWriter();
-        writer.writeU64(gasDifference);
+        writer.writeU64(0n); //gasDifference
         writer.writeBytes(result);
 
         return writer.getBuffer();
