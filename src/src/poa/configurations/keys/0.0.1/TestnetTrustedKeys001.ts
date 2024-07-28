@@ -9,7 +9,7 @@ export const TestNetTrustedKeys001: NetworkAuthorityConfiguration = {
     transactionMinimum: 2,
 
     /** Minimum different entities in a transaction */
-    minimumValidatorTransactionGeneration: 2,
+    minimumValidatorTransactionGeneration: 1,
 
     /** Maximum trusted validator per entity in a transaction */
     maximumValidatorPerTrustedEntities: 3,
