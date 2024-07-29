@@ -786,6 +786,13 @@ export class VMManager extends Logger {
             salt,
         );
 
+        console.log(
+            bitcoin.crypto.hash256(Buffer.from(deployer, 'utf-8')),
+            bytecode, // TODO: Maybe precompute that on deployment?
+            salt,
+            contractVirtualAddress,
+        );
+
         /** Generate contract segwit address */
         const contractSegwitAddress = AddressGenerator.generatePKSH(
             contractVirtualAddress,
