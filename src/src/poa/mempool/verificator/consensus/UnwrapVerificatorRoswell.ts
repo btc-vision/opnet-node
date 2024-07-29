@@ -181,7 +181,9 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         }
 
         if (consolidationAmount < minConsolidationAcceptance) {
-            throw new Error('Consolidation amount is below the minimum required.');
+            throw new Error(
+                `Consolidation amount is below the minimum required. Was ${consolidationAmount} sat, expected at least ${minConsolidationAcceptance} sat`,
+            );
         }
 
         if (consolidation.length > maxConsolidationUTXOs) {
