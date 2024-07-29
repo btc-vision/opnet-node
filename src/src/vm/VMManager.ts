@@ -838,7 +838,7 @@ export class VMManager extends Logger {
         );
 
         if (exists) {
-            throw new Error('Contract already deployed. (db)');
+            throw new Error(`Contract already deployed (${deployResult.contractAddress}). (db)`);
         }
 
         const deployerKeyPair = EcKeyPair.fromSeedKeyPair(
