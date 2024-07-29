@@ -195,7 +195,7 @@ export class ContractEvaluation implements IEvaluationParameters {
             this.mergeEvents(extern.events);
         }
 
-        if (extern.deployedContracts) {
+        if (extern.deployedContracts && !(extern.revert || this.revert)) {
             this.deployedContracts.push(...extern.deployedContracts);
         }
 
