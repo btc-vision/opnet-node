@@ -475,7 +475,7 @@ export class ContractEvaluator extends Logger {
             return;
         }
 
-        if (!evaluation.revert) {
+        if (!evaluation.revert && !error) {
             let deploymentPromises: Promise<void>[] = [];
             if (evaluation.deployedContracts.length > 0) {
                 for (let i = 0; i < evaluation.deployedContracts.length; i++) {
