@@ -333,7 +333,7 @@ export class ContractEvaluator extends Logger {
         const original = reader.readBytes(32);
         const salt: Buffer = Buffer.from(original);
 
-        console.log('salt', salt, original);
+        console.log('salt', salt, original, address);
 
         const deployResult = await this.deployContractAtAddress(address, salt, evaluation);
         if (!deployResult) {

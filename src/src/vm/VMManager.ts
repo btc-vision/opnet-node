@@ -839,7 +839,7 @@ export class VMManager extends Logger {
 
         if (exists) {
             throw new Error(
-                `Contract already deployed (${deployResult.contractAddress} as ${deployResult.virtualAddress}). (db)`,
+                `Contract already deployed (${deployResult.contractAddress} as ${deployResult.virtualAddress.toString('hex')}). (db)`,
             );
         }
 
