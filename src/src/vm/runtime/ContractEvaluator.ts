@@ -457,8 +457,6 @@ export class ContractEvaluator extends Logger {
         if (error || !result) {
             if (!evaluation.revert && error) {
                 evaluation.revert = error;
-            } else {
-                console.log(`Error: ${error}`);
             }
 
             return;
@@ -477,16 +475,20 @@ export class ContractEvaluator extends Logger {
             return;
         }
 
-        let deploymentPromises: Promise<void>[] = [];
-        if (evaluation.deployedContracts.length > 0) {
-            for (let i = 0; i < evaluation.deployedContracts.length; i++) {
-                const contract = evaluation.deployedContracts[i];
-                deploymentPromises.push(this.deployContract(contract));
+        if (!evaluation.revert) {
+            let deploymentPromises: Promise<void>[] = [];
+            if (evaluation.deployedContracts.length > 0) {
+                for (let i = 0; i < evaluation.deployedContracts.length; i++) {
+                    const contract = evaluation.deployedContracts[i];
+                    deploymentPromises.push(this.deployContract(contract));
+                }
             }
-        }
 
-        // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
-        await Promise.all(deploymentPromises);
+            // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
+            await Promise.all(deploymentPromises);
+        } else {
+            return;
+        }
 
         const events: NetEvent[] = await this.getEvents();
         evaluation.setEvent(evaluation.contractAddress, events);

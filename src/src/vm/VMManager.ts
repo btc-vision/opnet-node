@@ -780,8 +780,6 @@ export class VMManager extends Logger {
         contractAddress: Address;
         virtualAddress: Buffer;
     } {
-        console.log('data', deployer, salt);
-
         const contractVirtualAddress = TapscriptVerificator.getContractSeed(
             bitcoin.crypto.hash256(Buffer.from(deployer, 'utf-8')),
             bytecode, // TODO: Maybe precompute that on deployment?
