@@ -15,7 +15,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         NEXT_CONSENSUS: Consensus.Rachel,
 
         // The block height at which the next consensus will be enabled.
-        NEXT_CONSENSUS_BLOCK: 100000000000n, //1008n,
+        NEXT_CONSENSUS_BLOCK: 100_000_000_000n, //1008n,
 
         // Is this node updated to the next consensus?
         IS_READY_FOR_NEXT_CONSENSUS: false,
@@ -23,9 +23,9 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     NETWORK: {
         /** Networking */
-        MAXIMUM_TRANSACTION_BROADCAST_SIZE: 800000, // Cap to 800k bytes.
+        MAXIMUM_TRANSACTION_BROADCAST_SIZE: 800_000, // Cap to 800k bytes.
 
-        PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 1000000, // Cap to 1M bytes.
+        PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 1_000_000, // Cap to 1M bytes.
     },
 
     TRANSACTIONS: {
@@ -36,7 +36,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         EMULATION_MAX_GAS: 50_000_000_000n,
 
         /** Converts satoshi to BTC */
-        SAT_TO_GAS_RATIO: 184_166_66n,
+        SAT_TO_GAS_RATIO: 104_166_66n,
 
         /** The maximum size of a receipt in bytes */
         MAXIMUM_RECEIPT_LENGTH: 128,
@@ -66,12 +66,12 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         VAULT_MINIMAL_FEE_ADDITION_VB_PER_SAT: 10n,
 
         // Defines the minimum amount that can be consolidated in a single transaction.
-        VAULT_MINIMUM_AMOUNT: 200000n,
+        VAULT_MINIMUM_AMOUNT: 200_000n,
 
         // Defines the requested minimum acceptance for joining UTXOs when an unwrap is being done.
         // If the consolidate output going back to the vault is lower than this amount, the transaction will be rejected.
         // User must pay for the consolidation, this help the network by having fewer UTXOs.
-        VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE: 200000n * 2n,
+        VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE: 200_000n * 2n,
 
         // Everytime an user wrap bitcoin, he prepays the fees for the consolidation at a maximum fee rate of the following determined value.
         // If the fees are lower, the user will be refunded the difference.
@@ -79,7 +79,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         UNWRAP_CONSOLIDATION_PREPAID_FEES: 250n,
 
         // Equivalent to 56500 satoshis, calculated from UNWRAP_CONSOLIDATION_PREPAID_FEES.
-        UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT: 56500n,
+        UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT: 56_500n,
 
         // The maximum number of UTXOs that can be consolidated in a single transaction.
         MAXIMUM_CONSOLIDATION_UTXOS: 4,
