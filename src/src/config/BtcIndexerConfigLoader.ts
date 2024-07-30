@@ -545,6 +545,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             parsedConfig.SSH,
             defaultConfigs.SSH,
         );
+
+        this.config.API = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['API']>(
+            parsedConfig.API,
+            defaultConfigs.API,
+        );
     }
 
     private getConfigModified<U extends keyof IBtcIndexerConfig, T extends IBtcIndexerConfig[U]>(
