@@ -122,6 +122,12 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     }
 
     protected incrementPendingRequests(): void {
+        console.log(
+            'Incrementing pending requests',
+            this.pendingRequests + 1,
+            Config.API.MAXIMUM_PENDING_CALL_REQUESTS,
+        );
+
         if (!this.checkRateLimit()) {
             throw new Error(`Too many pending call requests.`);
         }
