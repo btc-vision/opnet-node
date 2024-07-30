@@ -133,8 +133,6 @@ export class ContractEvaluation implements IEvaluationParameters {
     }
 
     public onGasUsed: (gas: bigint, method: string) => void = (gas: bigint, _method: string) => {
-        //console.log(`Gas used: ${gas} for method ${method}`);
-
         this.gasTracker.setGas(gas);
     };
 
@@ -195,7 +193,7 @@ export class ContractEvaluation implements IEvaluationParameters {
             this.mergeEvents(extern.events);
         }
 
-        if (extern.deployedContracts) {
+        if (extern.deployedContracts && !(extern.revert || this.revert)) {
             this.deployedContracts.push(...extern.deployedContracts);
         }
 

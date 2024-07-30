@@ -600,9 +600,8 @@ export class VMManager extends Logger {
     ): Promise<ContractEvaluation> {
         let vmEvaluator: ContractEvaluator | null = null;
 
+        // We have to convert virtual address to segwit address.
         if (params.contractAddress && params.contractAddress.startsWith('0x')) {
-            // we have to convert virtual address to segwit address.
-
             const buffer = Buffer.from(params.contractAddress.slice(2), 'hex');
             params.contractAddress = AddressGenerator.generatePKSH(buffer, this.network);
         }
@@ -690,7 +689,7 @@ export class VMManager extends Logger {
                 if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                     const error = (await e) as Error;
 
-                    if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                    if (this.config.DEBUG_LEVEL >= DebugLevel.WARN) {
                         this.panic(`Evaluation failed: ${error}`);
                     }
                 }
@@ -838,7 +837,9 @@ export class VMManager extends Logger {
         );
 
         if (exists) {
-            throw new Error('Contract already deployed. (db)');
+            throw new Error(
+                `Contract already deployed (${deployResult.contractAddress} as ${deployResult.virtualAddress.toString('hex')}). (db)`,
+            );
         }
 
         const deployerKeyPair = EcKeyPair.fromSeedKeyPair(
@@ -846,12 +847,12 @@ export class VMManager extends Logger {
         );
 
         const bytecodeLength: bigint = BigInt(contractInfo.bytecode.byteLength);
-        evaluation.gasTracker.addGas(
+        // TODO: ADD GAS COST
+        /*evaluation.gasTracker.addGas(
             bytecodeLength * OPNetConsensus.consensus.TRANSACTIONS.STORAGE_COST_PER_BYTE,
-        );
+        );*/
 
         const contractSaltHash = bitcoin.crypto.hash256(salt);
-
         const contractInformation: ContractInformation = new ContractInformation(
             evaluation.blockNumber,
             deployResult.contractAddress,

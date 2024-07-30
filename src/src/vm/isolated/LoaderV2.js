@@ -270,6 +270,7 @@ export async function loadRust(params) {
                 }
             },
             useGas(amount) {
+                //throw new Error(`UNSAFE.`);
                 try {
                     return contract.useGas(amount);
                 } catch (e) {

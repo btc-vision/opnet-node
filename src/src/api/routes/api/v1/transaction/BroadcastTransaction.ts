@@ -19,6 +19,7 @@ import { BroadcastResponse } from '../../../../../threading/interfaces/thread-me
 import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { xxHash } from '../../../../../poa/hashing/xxhash.js';
 import { TransactionSizeValidator } from '../../../../../poa/mempool/data-validator/TransactionSizeValidator.js';
+import { Config } from '../../../../../config/Config.js';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,
@@ -27,6 +28,8 @@ export class BroadcastTransaction extends Route<
 > {
     private readonly transactionSizeValidator: TransactionSizeValidator =
         new TransactionSizeValidator();
+
+    private pendingRequests: number = 0;
 
     constructor() {
         super(Routes.BROADCAST_TRANSACTION, RouteType.POST);
@@ -39,55 +42,75 @@ export class BroadcastTransaction extends Route<
             throw new Error('Storage not initialized');
         }
 
-        const [data, psbt] = this.getDecodedParams(params);
-        const dataSize = data.length / 2;
+        this.incrementPendingRequests();
 
-        if (this.transactionSizeValidator.verifyTransactionSize(dataSize, psbt ?? false)) {
-            return {
-                success: false,
-                result: 'Transaction too large',
-                identifier: 0n,
-            };
-        }
+        try {
+            const [data, psbt] = this.getDecodedParams(params);
+            const dataSize = data.length / 2;
 
-        let parsedDataAsBuf = Buffer.from(data, 'hex');
-        let parsedData: Uint8Array = Uint8Array.from(parsedDataAsBuf);
+            if (this.transactionSizeValidator.verifyTransactionSize(dataSize, psbt ?? false)) {
+                this.decrementPendingRequests();
 
-        const identifier = xxHash.hash(parsedDataAsBuf);
-        const verification = await this.verifyOPNetTransaction(
-            parsedData,
-            identifier,
-            psbt ?? false,
-        );
+                return {
+                    success: false,
+                    result: 'Transaction too large',
+                    identifier: 0n,
+                };
+            }
 
-        if (!verification) {
+            let parsedDataAsBuf = Buffer.from(data, 'hex');
+            let parsedData: Uint8Array = Uint8Array.from(parsedDataAsBuf);
+
+            const identifier = xxHash.hash(parsedDataAsBuf);
+            const verification = await this.verifyOPNetTransaction(
+                parsedData,
+                identifier,
+                psbt ?? false,
+            );
+
+            if (!verification) {
+                this.decrementPendingRequests();
+
+                return {
+                    success: false,
+                    error: 'Could not broadcast transaction',
+                    identifier: identifier,
+                };
+            }
+
+            if (psbt && verification.modifiedTransaction) {
+                parsedData = Buffer.from(verification.modifiedTransaction, 'base64');
+            }
+
+            const isPsbt = verification.finalizedTransaction
+                ? !verification.modifiedTransaction
+                : !!psbt;
+
+            if (verification.success) {
+                this.decrementPendingRequests();
+
+                return {
+                    ...verification,
+                    ...(await this.broadcastOPNetTransaction(
+                        parsedData,
+                        isPsbt,
+                        verification.identifier,
+                    )),
+                };
+            }
+
+            this.decrementPendingRequests();
+
+            return verification;
+        } catch (e) {
+            this.decrementPendingRequests();
+
             return {
                 success: false,
                 error: 'Could not broadcast transaction',
-                identifier: identifier,
+                identifier: 0n,
             };
         }
-
-        if (psbt && verification.modifiedTransaction) {
-            parsedData = Buffer.from(verification.modifiedTransaction, 'base64');
-        }
-
-        const isPsbt = verification.finalizedTransaction
-            ? !verification.modifiedTransaction
-            : !!psbt;
-
-        if (verification.success) {
-            return {
-                ...verification,
-                ...(await this.broadcastOPNetTransaction(
-                    parsedData,
-                    isPsbt,
-                    verification.identifier,
-                )),
-            };
-        }
-
-        return verification;
     }
 
     public async getDataRPC(
@@ -97,6 +120,22 @@ export class BroadcastTransaction extends Route<
         if (!data) throw new Error(`Could not broadcast transaction`);
 
         return data;
+    }
+
+    protected checkRateLimit(): boolean {
+        return this.pendingRequests + 1 <= Config.API.MAXIMUM_TRANSACTION_BROADCAST;
+    }
+
+    protected incrementPendingRequests(): void {
+        if (!this.checkRateLimit()) {
+            throw new Error(`Too many broadcast pending requests.`);
+        }
+
+        this.pendingRequests++;
+    }
+
+    protected decrementPendingRequests(): void {
+        this.pendingRequests--;
     }
 
     protected initialize(): void {}

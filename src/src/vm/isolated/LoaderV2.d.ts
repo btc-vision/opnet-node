@@ -10,7 +10,6 @@ export interface ContractParameters {
     readonly store: (data: Buffer) => Promise<Buffer | Uint8Array>;
     readonly call: (data: Buffer) => Promise<Buffer | Uint8Array>;
     readonly deployContractAtAddress: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    //readonly encodeAddress: (data: Buffer) => Promise<Buffer | Uint8Array>;
     readonly log: (data: Buffer) => void;
 }
 
@@ -43,6 +42,10 @@ export interface ExportedContract extends Omit<VMRuntime, 'setGasUsed'> {
 
     dispose(): void;
 
+    /**
+     * @unsafe
+     * ONLY CALL WHEN THE CONTRACT IS NOT PROCESSING AN OTHER ACTION IN PARALLEL SUCH A CALL.
+     */
     setUsedGas(usedGas: bigint): void;
 
     setGasCallback(callback: (gas: bigint, method: string) => void): void;

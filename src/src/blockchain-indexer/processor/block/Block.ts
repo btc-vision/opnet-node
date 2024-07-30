@@ -29,6 +29,7 @@ import { GenericTransaction } from '../transaction/transactions/GenericTransacti
 import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 import { UnwrapTransaction } from '../transaction/transactions/UnwrapTransaction.js';
 import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../../db/interfaces/IWBTCUTXODocument.js';
+import assert from 'node:assert';
 
 export class Block extends Logger {
     // Block Header
@@ -437,6 +438,15 @@ export class Block extends Logger {
                 true,
             );
         }
+
+        assert(
+            !(
+                transaction.receipt &&
+                transaction.receipt.revert &&
+                transaction.receipt.deployedContracts.length
+            ),
+            'Transaction reverted and some contracts were deployed',
+        );
     }
 
     /** We execute deployment transactions with this method */

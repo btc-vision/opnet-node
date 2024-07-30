@@ -101,6 +101,9 @@ export interface APIExtendedConfigurations extends APIConfig {
 
     readonly MAXIMUM_PARALLEL_BLOCK_QUERY: number; // Maximum number of blocks per batch
     readonly MAXIMUM_REQUESTS_PER_BATCH: number; // Maximum number of requests per batch
+
+    readonly MAXIMUM_TRANSACTION_BROADCAST: number; // Maximum number of transactions to broadcast
+    readonly MAXIMUM_PENDING_CALL_REQUESTS: number; // Maximum number of pending call requests
 }
 
 export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {

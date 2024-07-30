@@ -63,6 +63,7 @@ export class UTXOsAggregation extends Aggregation {
                     as: 'relatedInputs',
                     let: {
                         output_index: '$filteredOutputs.index',
+                        transaction_id: '$id',
                     },
                     pipeline: [
                         {
@@ -72,9 +73,19 @@ export class UTXOsAggregation extends Aggregation {
                                         input: '$inputs',
                                         as: 'input',
                                         cond: {
-                                            $eq: [
-                                                '$$input.outputTransactionIndex',
-                                                '$$output_index',
+                                            $and: [
+                                                {
+                                                    $eq: [
+                                                        '$$input.outputTransactionIndex',
+                                                        '$$output_index',
+                                                    ],
+                                                },
+                                                {
+                                                    $eq: [
+                                                        '$$input.originalTransactionId',
+                                                        '$$transaction_id',
+                                                    ],
+                                                },
                                             ],
                                         },
                                     },

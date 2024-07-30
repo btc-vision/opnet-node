@@ -54,6 +54,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             BATCH_PROCESSING_SIZE: 15,
             MAXIMUM_PARALLEL_BLOCK_QUERY: 50, // on mainnet, 50 blocks can load a lot of data in memory.
             MAXIMUM_REQUESTS_PER_BATCH: 500,
+
+            MAXIMUM_TRANSACTION_BROADCAST: 50,
+            MAXIMUM_PENDING_CALL_REQUESTS: 100,
         },
 
         POA: {
@@ -467,6 +470,24 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                     `Oops the property API.MAXIMUM_PARALLEL_BLOCK_QUERY is not a number.`,
                 );
             }
+
+            if (
+                parsedConfig.API.MAXIMUM_TRANSACTION_BROADCAST &&
+                typeof parsedConfig.API.MAXIMUM_TRANSACTION_BROADCAST !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.MAXIMUM_TRANSACTION_BROADCAST is not a number.`,
+                );
+            }
+
+            if (
+                parsedConfig.API.MAXIMUM_PENDING_CALL_REQUESTS &&
+                typeof parsedConfig.API.MAXIMUM_PENDING_CALL_REQUESTS !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.MAXIMUM_PENDING_CALL_REQUESTS is not a number.`,
+                );
+            }
         }
     }
 
@@ -523,6 +544,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         this.config.SSH = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['SSH']>(
             parsedConfig.SSH,
             defaultConfigs.SSH,
+        );
+
+        this.config.API = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['API']>(
+            parsedConfig.API,
+            defaultConfigs.API,
         );
     }
 
