@@ -97,13 +97,14 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             this.decrementPendingRequests();
             return this.convertDataToResult(res);
         } catch (e) {
+            this.decrementPendingRequests();
+
             if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
                 this.error(
                     `Failed to execute the given calldata at the requested contract: ${(e as Error).stack}`,
                 );
             }
 
-            this.decrementPendingRequests();
             throw `Something went wrong while simulating call.`;
         }
     }
@@ -122,13 +123,17 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
     protected incrementPendingRequests(): void {
         if (!this.checkRateLimit()) {
-            throw new Error(`Too many broadcast pending requests.`);
+            throw new Error(`Too many pending call requests.`);
         }
+
+        console.log('Incrementing pending requests', this.pendingRequests + 1);
 
         this.pendingRequests++;
     }
 
     protected decrementPendingRequests(): void {
+        console.log('Decrementing pending requests', this.pendingRequests - 1);
+
         this.pendingRequests--;
     }
 
