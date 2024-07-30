@@ -731,10 +731,11 @@ export class BlockchainIndexer extends Logger {
         const startBlock = this.getDefaultBlockHeight();
         if (startBlock !== -1) {
             // Purge old data
-            this.log(`Purging old data... (from block ${startBlock})`);
 
             if (Config.INDEXER.ALLOW_PURGE) {
-                await this.vmStorage.revertDataUntilBlock(BigInt(startBlock));
+                this.log(`Purging old data... (from block ${startBlock})`);
+
+                //await this.vmStorage.revertDataUntilBlock(BigInt(startBlock));
             }
         }
 
