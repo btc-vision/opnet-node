@@ -390,7 +390,8 @@ export class P2PManager extends Logger {
             return;
         }
 
-        const identifier = verifiedTransaction.identifier;
+        const identifier =
+            verifiedTransaction.identifier || xxHash.hash(Buffer.from(tx.transaction));
         const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction
             ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64')
             : tx.transaction;

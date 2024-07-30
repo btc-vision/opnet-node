@@ -180,8 +180,16 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             );
         }
 
-        if (consolidationAmount < minConsolidationAcceptance) {
-            throw new Error('Consolidation amount is below the minimum required.');
+        if (amountLeft < minConsolidationAcceptance + prepaidFees && amountLeft !== 0n) {
+            throw new Error(
+                `Amount left is below the minimum required. Expected at least ${minConsolidationAcceptance}, but got ${amountLeft}`,
+            );
+        }
+
+        if (consolidationAmount < minConsolidationAcceptance && consolidationAmount !== 0n) {
+            throw new Error(
+                `Consolidation amount is below the minimum required. Was ${consolidationAmount} sat, expected at least ${minConsolidationAcceptance} sat`,
+            );
         }
 
         if (consolidation.length > maxConsolidationUTXOs) {
@@ -258,7 +266,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             }
         }
 
-        const maximumFeeRefund: bigint = this.getMaximumFeeRefund(usedVaults);
+        const maximumFeeRefund: bigint = this.getMaximumFeeRefund(usedVaults, amount);
         const refundedAmount: bigint = outputAmount - amount;
         if (refundedAmount > maximumFeeRefund) {
             throw new Error(
@@ -348,11 +356,26 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         return totalHoldings;
     }
 
-    private getMaximumFeeRefund(usedVaults: Map<Address, VerificationVault>): bigint {
+    private getMaximumFeeRefund(
+        usedVaults: Map<Address, VerificationVault>,
+        amount: bigint,
+    ): bigint {
         let refund: bigint = -OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
 
+        let totalVaults: number = 0;
         for (let vault of usedVaults.values()) {
             for (let i = 0; i < vault.utxoDetails.length; i++) {
+                refund += OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
+                totalVaults++;
+            }
+        }
+
+        // TODO: Verify this.
+        let amountLeft = this.calculateVaultTotalHoldings(usedVaults) - amount;
+        if (totalVaults === 1) {
+            if (
+                amountLeft < OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT
+            ) {
                 refund += OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
             }
         }
