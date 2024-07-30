@@ -733,7 +733,9 @@ export class BlockchainIndexer extends Logger {
             // Purge old data
             this.log(`Purging old data... (from block ${startBlock})`);
 
-            await this.vmStorage.revertDataUntilBlock(BigInt(startBlock));
+            if (Config.INDEXER.ALLOW_PURGE) {
+                await this.vmStorage.revertDataUntilBlock(BigInt(startBlock));
+            }
         }
 
         void this.safeProcessBlocks(startBlock);

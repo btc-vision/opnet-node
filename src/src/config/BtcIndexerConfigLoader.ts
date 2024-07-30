@@ -12,6 +12,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         INDEXER: {
             ENABLED: false,
             STORAGE_TYPE: IndexerStorageType.MONGODB,
+            ALLOW_PURGE: true,
         },
 
         ZERO_MQ: {},
@@ -135,6 +136,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(
                     `Oops the property INDEXER.STORAGE_TYPE is not a valid IndexerStorageType enum value.`,
                 );
+            }
+
+            if (
+                parsedConfig.INDEXER.ALLOW_PURGE === undefined ||
+                typeof parsedConfig.INDEXER.ALLOW_PURGE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property INDEXER.ALLOW_PURGE is not a boolean.`);
             }
         }
 

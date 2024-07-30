@@ -8,6 +8,8 @@ import { PeerToPeerMethod } from './PeerToPeerMethod.js';
 export interface IndexerConfig {
     readonly ENABLED: boolean;
 
+    readonly ALLOW_PURGE: boolean;
+
     readonly STORAGE_TYPE: IndexerStorageType;
 }
 
