@@ -30,9 +30,12 @@ import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 import { AddressVerificator } from '@btc-vision/transaction';
 import { NetworkConverter } from '../../../../../config/NetworkConverter.js';
+import { DebugLevel } from '@btc-vision/logger';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private readonly network: bitcoin.networks.Network = bitcoin.networks.testnet;
+
+    private pendingRequests: number = 0;
 
     constructor() {
         super(Routes.CALL, RouteType.GET);
@@ -72,19 +75,37 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     }
 
     public async getData(_params: CallParams): Promise<CallResult | undefined> {
-        if (!this.storage) {
-            throw new Error('Storage not initialized');
+        this.incrementPendingRequests();
+
+        try {
+            if (!this.storage) {
+                throw new Error('Storage not initialized');
+            }
+
+            const [to, calldata, from, blockNumber] = this.getDecodedParams(_params);
+            const res: CallRequestResponse = await Call.requestThreadExecution(
+                to,
+                calldata,
+                from,
+                blockNumber,
+            );
+
+            if (!res) {
+                throw new Error(`Failed to execute the given calldata at the requested contract.`);
+            }
+
+            this.decrementPendingRequests();
+            return this.convertDataToResult(res);
+        } catch (e) {
+            if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
+                this.error(
+                    `Failed to execute the given calldata at the requested contract: ${(e as Error).stack}`,
+                );
+            }
+
+            this.decrementPendingRequests();
+            throw `Something went wrong while simulating call.`;
         }
-
-        const [to, calldata, from, blockNumber] = this.getDecodedParams(_params);
-        const res: CallRequestResponse = await Call.requestThreadExecution(
-            to,
-            calldata,
-            from,
-            blockNumber,
-        );
-
-        return this.convertDataToResult(res);
     }
 
     public async getDataRPC(params: CallParams): Promise<CallResult | undefined> {
@@ -93,6 +114,22 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             throw new Error(`Could not execute the given calldata at the requested contract.`);
 
         return data;
+    }
+
+    protected checkRateLimit(): boolean {
+        return this.pendingRequests + 1 <= Config.API.MAXIMUM_PENDING_CALL_REQUESTS;
+    }
+
+    protected incrementPendingRequests(): void {
+        if (!this.checkRateLimit()) {
+            throw new Error(`Too many broadcast pending requests.`);
+        }
+
+        this.pendingRequests++;
+    }
+
+    protected decrementPendingRequests(): void {
+        this.pendingRequests--;
     }
 
     protected initialize(): void {}

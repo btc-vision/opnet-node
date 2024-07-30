@@ -27,6 +27,7 @@ import { MemorySlotData } from '@btc-vision/bsi-binary/src/buffer/types/math.js'
 import { AddressGenerator } from '@btc-vision/transaction';
 import { Network, networks } from 'bitcoinjs-lib';
 import { BitcoinNetworkRequest } from '@btc-vision/bsi-wasmer-vm';
+import assert from 'node:assert';
 
 /*import * as v8 from 'node:v8';
 
@@ -306,16 +307,15 @@ export class ContractEvaluator extends Logger {
         const response = await this.callExternal(externalCallParams);
         evaluation.merge(response);
 
+        assert(!response.revert, 'execution reverted (call)');
+
         const result = response.result;
         if (!result) {
             throw new Error('No result');
         }
 
-        const gasDifference: bigint = response.gasUsed - gasUsed;
-        this.info(`Gas used: ${gasDifference}`);
-
         const writer = new BinaryWriter();
-        writer.writeU64(0n); //gasDifference
+        writer.writeU64(response.gasUsed);
         writer.writeBytes(result);
 
         return writer.getBuffer();
@@ -381,10 +381,15 @@ export class ContractEvaluator extends Logger {
             throw new Error('Bytecode is required');
         }
 
+        const difference = evaluation.maxGas - evaluation.gasTracker.gasUsed;
+        if (difference < 0n) {
+            throw new Error('Not enough gas left.');
+        }
+
         return {
             bytecode: this.bytecode,
             network: this.getNetwork(),
-            gasLimit: OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
+            gasLimit: difference, //OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
             gasCallback: evaluation.onGasUsed,
             load: async (data: Buffer) => {
                 return await this.load(data, evaluation);
@@ -476,23 +481,23 @@ export class ContractEvaluator extends Logger {
         }
 
         if (!evaluation.revert && !error) {
-            let deploymentPromises: Promise<void>[] = [];
-            if (evaluation.deployedContracts.length > 0) {
-                for (let i = 0; i < evaluation.deployedContracts.length; i++) {
-                    const contract = evaluation.deployedContracts[i];
-                    deploymentPromises.push(this.deployContract(contract));
+            if (!evaluation.externalCall) {
+                let deploymentPromises: Promise<void>[] = [];
+                if (evaluation.deployedContracts.length > 0) {
+                    for (let i = 0; i < evaluation.deployedContracts.length; i++) {
+                        const contract = evaluation.deployedContracts[i];
+                        deploymentPromises.push(this.deployContract(contract));
+                    }
                 }
+
+                // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
+                await Promise.all(deploymentPromises);
             }
 
-            // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
-            await Promise.all(deploymentPromises);
-        } else {
-            return;
+            const events: NetEvent[] = await this.getEvents();
+            evaluation.setEvent(evaluation.contractAddress, events);
+            evaluation.setResult(result);
         }
-
-        const events: NetEvent[] = await this.getEvents();
-        evaluation.setEvent(evaluation.contractAddress, events);
-        evaluation.setResult(result);
     }
 
     private async getEvents(): Promise<NetEvent[]> {
