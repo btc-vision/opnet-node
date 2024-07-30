@@ -139,7 +139,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
-                parsedConfig.INDEXER.ALLOW_PURGE === undefined ||
+                parsedConfig.INDEXER.ALLOW_PURGE !== undefined &&
                 typeof parsedConfig.INDEXER.ALLOW_PURGE !== 'boolean'
             ) {
                 throw new Error(`Oops the property INDEXER.ALLOW_PURGE is not a boolean.`);
