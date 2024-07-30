@@ -912,7 +912,6 @@ export class VMManager extends Logger {
         }
 
         if (!contractInformation) {
-            this.warn(`Could not get contract ${contractAddress}.`);
             return null;
         }
 
