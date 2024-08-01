@@ -15,6 +15,9 @@ import {
 } from './threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
 import { ThreadMessageBase } from './threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from './threading/thread/enums/ThreadTypes.js';
+import { TrustedAuthority } from './poa/configurations/manager/TrustedAuthority';
+import { AuthorityManager } from './poa/configurations/manager/AuthorityManager';
+import { OPNetIdentity } from './poa/identity/OPNetIdentity';
 
 Globals.register();
 
@@ -23,6 +26,8 @@ export class Core extends Logger {
 
     private readonly masterThreads: Partial<Record<ThreadTypes, Worker>> = {};
     private readonly threads: Worker[] = [];
+
+    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
 
     constructor() {
         super();
@@ -51,7 +56,7 @@ export class Core extends Logger {
             await this.createThread(4, ThreadTypes.PoA);
         }
 
-        if (Config.POA.ENABLED) {
+        if (Config.SSH.ENABLED) {
             await this.createThread(5, ThreadTypes.SSH);
         }
     }
@@ -64,7 +69,12 @@ export class Core extends Logger {
             process.exit(0);
         }
 
+        this.createIdentity();
         await this.createThreads();
+    }
+
+    private createIdentity(): void {
+        new OPNetIdentity(Config, this.currentAuthority); // create identity if non-existent. If OPNet is unable to load the current node identity, it will error before starting threads.
     }
 
     private async setupDB(): Promise<boolean> {

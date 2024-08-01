@@ -251,6 +251,13 @@ export class Block extends Logger {
         this.opnetTransactions = separatedTransactions.opnetTransactions;
     }
 
+    /** Get all transactions hashes of this block */
+    public getTransactionsHashes(): string[] {
+        return this.transactions.map((transaction: Transaction<OPNetTransactionTypes>) => {
+            return transaction.transactionId;
+        });
+    }
+
     /** Block Execution */
     public async execute(vmManager: VMManager, specialManager: SpecialManager): Promise<boolean> {
         this.ensureNotExecuted();

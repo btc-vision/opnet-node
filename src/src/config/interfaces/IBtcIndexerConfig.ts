@@ -11,6 +11,7 @@ export interface IndexerConfig {
     readonly ALLOW_PURGE: boolean;
 
     readonly STORAGE_TYPE: IndexerStorageType;
+    readonly READONLY_MODE: boolean;
 }
 
 export interface ZeroMQTopicConfig {
@@ -79,6 +80,7 @@ export interface MempoolConfig {
     readonly THREADS: number;
 
     readonly EXPIRATION_BLOCKS: number;
+    readonly ENABLE_BLOCK_PURGE: boolean;
 }
 
 export interface SSHConfig {

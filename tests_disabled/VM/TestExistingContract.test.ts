@@ -12,7 +12,7 @@ import fs from 'fs';
 import { ContractEvaluator } from '../../src/src/vm/runtime/ContractEvaluator.js';
 import { VMIsolator } from '../../src/src/vm/VMIsolator.js';
 import { VMManager } from '../../src/src/vm/VMManager.js';
-import { TestConfig } from '../config/Config.js';
+import { TestConfig } from '../../tests/config/Config.js';
 
 function generateRndAddress(length: number = 60): string {
     const characters = 'abcdef0123456789';

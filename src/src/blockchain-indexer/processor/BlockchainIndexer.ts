@@ -29,6 +29,7 @@ import { NetworkConverter } from '../../config/NetworkConverter.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import figlet, { Fonts } from 'figlet';
 import { Consensus } from '../../poa/configurations/consensus/Consensus.js';
+import { DataConverter } from '@btc-vision/bsi-db';
 
 interface LastBlock {
     hash?: string;
@@ -586,7 +587,26 @@ export class BlockchainIndexer extends Logger {
 
             blockHeightInProgress++;
 
-            await this.notifyBlockProcessed(processedBlock);
+            void this.removeTransactionsHashesFromMempool(processedBlock.getTransactionsHashes());
+            await this.notifyBlockProcessed({
+                blockNumber: processedBlock.height,
+                blockHash: processedBlock.hash,
+                previousBlockHash: processedBlock.previousBlockHash,
+
+                merkleRoot: processedBlock.merkleRoot,
+                receiptRoot: processedBlock.receiptRoot,
+                storageRoot: processedBlock.storageRoot,
+
+                checksumHash: processedBlock.checksumRoot,
+                checksumProofs: processedBlock.checksumProofs.map((proof) => {
+                    return {
+                        proof: proof[1],
+                    };
+                }),
+                previousBlockChecksum: processedBlock.previousBlockChecksum,
+
+                txCount: processedBlock.header.nTx,
+            });
 
             if (this.processOnlyOneBlock) {
                 break;
@@ -628,6 +648,11 @@ export class BlockchainIndexer extends Logger {
         }
     }
 
+    // If a reorg happen, we won't support adding the transaction back to the mempool, for now.
+    private async removeTransactionsHashesFromMempool(transactions: string[]): Promise<void> {
+        await this.vmStorage.deleteTransactionsById(transactions);
+    }
+
     private async processBlock(
         blockData: BlockDataWithTransactionData,
         chosenManager: VMManager,
@@ -665,27 +690,7 @@ export class BlockchainIndexer extends Logger {
         return await this.rpcClient.getBlockInfoWithTransactionData(blockHash);
     }
 
-    private async notifyBlockProcessed(block: Block): Promise<void> {
-        const blockHeader: BlockProcessedData = {
-            blockNumber: block.height,
-            blockHash: block.hash,
-            previousBlockHash: block.previousBlockHash,
-
-            merkleRoot: block.merkleRoot,
-            receiptRoot: block.receiptRoot,
-            storageRoot: block.storageRoot,
-
-            checksumHash: block.checksumRoot,
-            checksumProofs: block.checksumProofs.map((proof) => {
-                return {
-                    proof: proof[1],
-                };
-            }),
-            previousBlockChecksum: block.previousBlockChecksum,
-
-            txCount: block.header.nTx,
-        };
-
+    private async notifyBlockProcessed(blockHeader: BlockProcessedData): Promise<void> {
         const msg: BlockProcessedMessage = {
             type: MessageType.BLOCK_PROCESSED,
             data: blockHeader,
@@ -727,7 +732,39 @@ export class BlockchainIndexer extends Logger {
         };
     }
 
+    private async setupBlockListener(): Promise<void> {
+        this.info(`Read only mode enabled.`);
+
+        // TODO: Verify this.
+        this.blockchainInfoRepository.watchBlockChanges(async (blockHeight: bigint) => {
+            this.setConsensusBlockHeight(blockHeight);
+
+            const currentBlock = await this.vmStorage.getBlockHeader(blockHeight);
+            if (!currentBlock) {
+                return this.warn(`Can not find block: ${currentBlock}.`);
+            }
+
+            await this.notifyBlockProcessed({
+                ...currentBlock,
+                blockHash: currentBlock.hash,
+                blockNumber: DataConverter.fromDecimal128(currentBlock.height),
+                checksumHash: currentBlock.checksumRoot,
+                checksumProofs: currentBlock.checksumProofs.map((proof) => {
+                    return {
+                        proof: proof[1],
+                    };
+                }),
+            });
+        });
+    }
+
     private async startAndPurgeIndexer(): Promise<void> {
+        // Read only mode.
+        if (Config.INDEXER.READONLY_MODE) {
+            await this.setupBlockListener();
+            return;
+        }
+
         const startBlock = this.getDefaultBlockHeight();
         if (startBlock !== -1) {
             // Purge old data
