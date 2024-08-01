@@ -47,6 +47,7 @@ import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/transaction';
 import bitcoin from 'bitcoinjs-lib';
 import { NetworkConverter } from '../config/NetworkConverter.js';
+import { ripemd160 } from 'bitcoinjs-lib/src/crypto.js';
 
 Globals.register();
 
@@ -796,6 +797,7 @@ export class VMManager extends Logger {
             this.network,
             contractVirtualAddress.toString('hex'),
             contractSegwitAddress,
+            ripemd160(contractVirtualAddress),
         );
 
         return { contractAddress: contractSegwitAddress, virtualAddress: contractVirtualAddress };
