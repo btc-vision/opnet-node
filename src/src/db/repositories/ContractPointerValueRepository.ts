@@ -1,4 +1,4 @@
-import { Address, BufferHelper } from '@btc-vision/bsi-binary';
+import { Address, ADDRESS_BYTE_LENGTH, BufferHelper } from '@btc-vision/bsi-binary';
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import {
@@ -95,6 +95,10 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             for (const [pointer, [value, proofs]] of pointers) {
                 const pointerToBinary = new Binary(pointer);
                 const valueToBinary = new Binary(value);
+
+                if (contractAddress === 'bc1dead' || contractAddress.length > ADDRESS_BYTE_LENGTH) {
+                    continue;
+                }
 
                 const criteria: Partial<Filter<IContractPointerValueDocument>> = {
                     contractAddress: contractAddress,
