@@ -791,7 +791,12 @@ export class VMManager extends Logger {
             this.network,
         );
 
-        console.log(this.network, contractVirtualAddress.toString('hex'), contractSegwitAddress);
+        console.log(
+            deployer,
+            this.network,
+            contractVirtualAddress.toString('hex'),
+            contractSegwitAddress,
+        );
 
         return { contractAddress: contractSegwitAddress, virtualAddress: contractVirtualAddress };
     }
