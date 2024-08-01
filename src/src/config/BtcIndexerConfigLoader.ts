@@ -589,7 +589,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         for (let setting of Object.keys(defaultConfig)) {
             const settingKey = setting as keyof T;
 
-            newIndexerConfig[settingKey] = configData[settingKey] || defaultConfig[settingKey];
+            newIndexerConfig[settingKey] = configData[settingKey] ?? defaultConfig[settingKey];
         }
 
         return newIndexerConfig as T;
