@@ -30,6 +30,7 @@ import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import figlet, { Fonts } from 'figlet';
 import { Consensus } from '../../poa/configurations/consensus/Consensus.js';
 import { DataConverter } from '@btc-vision/bsi-db';
+import fs from 'fs';
 
 interface LastBlock {
     hash?: string;
@@ -200,6 +201,8 @@ export class BlockchainIndexer extends Logger {
 
             const error = e as Error;
             this.panic(`Error processing blocks: ${error.stack}`);
+
+            fs.appendFileSync('error.log', error.stack + '\n');
         }
 
         if (this.processOnlyOneBlock) {
@@ -574,6 +577,11 @@ export class BlockchainIndexer extends Logger {
             const processedBlock: Block | null = await this.processBlock(block, this.vmManager);
             if (processedBlock === null) {
                 this.fatalFailure = true;
+                fs.appendFileSync(
+                    'error.log',
+                    `Error processing block ${blockHeightInProgress}.\n`,
+                );
+
                 throw new Error(`Error processing block ${blockHeightInProgress}.`);
             }
 
