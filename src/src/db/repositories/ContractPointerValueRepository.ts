@@ -90,6 +90,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             throw new Error('Current session is required.');
         }
 
+        let length: number = 0;
         const bulk = this.getCollection().initializeUnorderedBulkOp();
         for (const [contractAddress, pointers] of storage) {
             for (const [pointer, [value, proofs]] of pointers) {
@@ -115,8 +116,11 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
                 };
 
                 bulk.find(criteria).upsert().updateOne({ $set: update });
+                length++;
             }
         }
+
+        if (!length) return;
 
         const options: BulkWriteOptions = this.getOptions(currentSession);
         const response: BulkWriteResult = await bulk.execute(options);
