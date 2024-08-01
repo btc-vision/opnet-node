@@ -830,7 +830,12 @@ export class VMManager extends Logger {
             throw new Error('Contract not found');
         }
 
-        console.log('deploy', salt, evaluation.contractAddress, contractInfo.bytecode);
+        console.log(
+            'deploy',
+            Uint8Array.from(salt),
+            evaluation.contractAddress,
+            contractInfo.bytecode,
+        );
 
         const deployResult = this.generateAddress(
             salt,
