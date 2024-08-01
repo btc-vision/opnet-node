@@ -15,9 +15,9 @@ import {
 } from './threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
 import { ThreadMessageBase } from './threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadTypes } from './threading/thread/enums/ThreadTypes.js';
-import { TrustedAuthority } from './poa/configurations/manager/TrustedAuthority';
-import { AuthorityManager } from './poa/configurations/manager/AuthorityManager';
-import { OPNetIdentity } from './poa/identity/OPNetIdentity';
+import { TrustedAuthority } from './poa/configurations/manager/TrustedAuthority.js';
+import { AuthorityManager } from './poa/configurations/manager/AuthorityManager.js';
+import { OPNetIdentity } from './poa/identity/OPNetIdentity.js';
 
 Globals.register();
 

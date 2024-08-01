@@ -38,7 +38,7 @@ import { SelectedUTXOs, WBTCUTXORepository } from '../../../db/repositories/WBTC
 import { CompromisedTransactionRepository } from '../../../db/repositories/CompromisedTransactionRepository.js';
 import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 import { UsedWbtcUxtoRepository } from '../../../db/repositories/UsedWbtcUxtoRepository.js';
-import { MempoolRepository } from '../../../db/repositories/MempoolRepository';
+import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
