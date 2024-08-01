@@ -791,6 +791,8 @@ export class VMManager extends Logger {
             this.network,
         );
 
+        console.log(this.network);
+
         return { contractAddress: contractSegwitAddress, virtualAddress: contractVirtualAddress };
     }
 
@@ -826,8 +828,6 @@ export class VMManager extends Logger {
             evaluation.contractAddress,
             contractInfo.bytecode,
         );
-
-        console.log('deployResult', deployResult);
 
         if (this.contractCache.has(deployResult.contractAddress)) {
             throw new Error('Contract already deployed. (cache)');
