@@ -47,7 +47,6 @@ import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/transaction';
 import bitcoin from 'bitcoinjs-lib';
 import { NetworkConverter } from '../config/NetworkConverter.js';
-import { ripemd160 } from 'bitcoinjs-lib/src/crypto.js';
 
 Globals.register();
 
@@ -790,14 +789,6 @@ export class VMManager extends Logger {
         const contractSegwitAddress = AddressGenerator.generatePKSH(
             contractVirtualAddress,
             this.network,
-        );
-
-        console.log(
-            deployer,
-            this.network,
-            contractVirtualAddress.toString('hex'),
-            contractSegwitAddress,
-            Uint8Array.from(ripemd160(contractVirtualAddress)),
         );
 
         return { contractAddress: contractSegwitAddress, virtualAddress: contractVirtualAddress };
