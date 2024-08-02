@@ -30,12 +30,12 @@ export const WBTC_CONTRACT_ADDRESS: {
         },
 
         [BitcoinNetwork.TestNet]: {
-            addresses: ['tb1q8e80y5ez6v8m8reu0vzc7jzqlf878cywag20ej'],
+            addresses: ['tb1qp28xna6pv47x6wflcplhu0a9hkld5shtvjx6xv'],
             deployer: 'tb1p5gsptxjfx4slghcw444umy6pzspy6yfq5cv95mu26rpcpgtduzds8y5h90',
         },
 
         [BitcoinNetwork.Regtest]: {
-            addresses: ['bcrt1quva5cqfctktw3tyrwzx5t4nw3p3hdguc7g5ktq'],
+            addresses: ['bcrt1qdr7sjgtnudda8zrfklw8l5cnrxum5hns7e46hf'],
             deployer: 'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gs0xjlhn',
         },
 
