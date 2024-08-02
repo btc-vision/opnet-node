@@ -161,4 +161,6 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public abstract setUsedUtxo(usedUtxo: IUsedWBTCUTXODocument): Promise<void>;
 
     public abstract setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void>;
+
+    public abstract deleteTransactionsById(transactions: string[]): Promise<void>;
 }

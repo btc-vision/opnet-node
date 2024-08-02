@@ -125,12 +125,14 @@ export class Mempool extends Logger {
     }
 
     private async watchBlockchain(): Promise<void> {
-        this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
-            try {
-                OPNetConsensus.setBlockHeight(blockHeight);
-                this.mempoolRepository.purgeOldTransactions(blockHeight);
-            } catch (e) {}
-        });
+        if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
+            this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
+                try {
+                    OPNetConsensus.setBlockHeight(blockHeight);
+                    this.mempoolRepository.purgeOldTransactions(blockHeight);
+                } catch (e) {}
+            });
+        }
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
             Config.BLOCKCHAIN.BITCOIND_NETWORK,
