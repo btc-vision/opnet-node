@@ -38,6 +38,7 @@ import { SelectedUTXOs, WBTCUTXORepository } from '../../../db/repositories/WBTC
 import { CompromisedTransactionRepository } from '../../../db/repositories/CompromisedTransactionRepository.js';
 import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 import { UsedWbtcUxtoRepository } from '../../../db/repositories/UsedWbtcUxtoRepository.js';
+import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -55,6 +56,7 @@ export class VMMongoStorage extends VMStorage {
     private blockchainInfoRepository: BlockchainInformationRepository | undefined;
     private reorgRepository: ReorgsRepository | undefined;
     private blockWitnessRepository: BlockWitnessRepository | undefined;
+    private mempoolRepository: MempoolRepository | undefined;
 
     private vaultRepository: VaultRepository | undefined;
     private wbtcUTXORepository: WBTCUTXORepository | undefined;
@@ -229,7 +231,17 @@ export class VMMongoStorage extends VMStorage {
             this.databaseManager.db,
         );
 
+        this.mempoolRepository = new MempoolRepository(this.databaseManager.db);
+
         this.usedUTXOsRepository = new UsedWbtcUxtoRepository(this.databaseManager.db);
+    }
+
+    public async deleteTransactionsById(ids: string[]): Promise<void> {
+        if (!this.mempoolRepository) {
+            throw `Mempool repository not defined.`;
+        }
+
+        await this.mempoolRepository.deleteTransactionsById(ids);
     }
 
     public async getLatestBlock(): Promise<BlockHeaderAPIBlockDocument> {

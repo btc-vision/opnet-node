@@ -12,6 +12,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         INDEXER: {
             ENABLED: false,
             STORAGE_TYPE: IndexerStorageType.MONGODB,
+            ALLOW_PURGE: true,
+            READONLY_MODE: false,
         },
 
         ZERO_MQ: {},
@@ -66,6 +68,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         MEMPOOL: {
             THREADS: 2,
             EXPIRATION_BLOCKS: 20,
+            ENABLE_BLOCK_PURGE: true,
         },
 
         RPC: {
@@ -135,6 +138,20 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(
                     `Oops the property INDEXER.STORAGE_TYPE is not a valid IndexerStorageType enum value.`,
                 );
+            }
+
+            if (
+                parsedConfig.INDEXER.ALLOW_PURGE !== undefined &&
+                typeof parsedConfig.INDEXER.ALLOW_PURGE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property INDEXER.ALLOW_PURGE is not a boolean.`);
+            }
+
+            if (
+                typeof parsedConfig.INDEXER.READONLY_MODE !== 'boolean' &&
+                parsedConfig.INDEXER.READONLY_MODE !== undefined
+            ) {
+                throw new Error(`Oops the property INDEXER.READONLY_MODE is not a boolean.`);
             }
         }
 
@@ -394,6 +411,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(`Oops the property MEMPOOL.THREADS is not a number.`);
             }
+
+            if (
+                parsedConfig.MEMPOOL.ENABLE_BLOCK_PURGE !== undefined &&
+                typeof parsedConfig.MEMPOOL.ENABLE_BLOCK_PURGE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property MEMPOOL.ENABLE_BLOCK_PURGE is not a boolean.`);
+            }
         }
 
         if (parsedConfig.SSH) {
@@ -565,7 +589,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         for (let setting of Object.keys(defaultConfig)) {
             const settingKey = setting as keyof T;
 
-            newIndexerConfig[settingKey] = configData[settingKey] || defaultConfig[settingKey];
+            newIndexerConfig[settingKey] = configData[settingKey] ?? defaultConfig[settingKey];
         }
 
         return newIndexerConfig as T;

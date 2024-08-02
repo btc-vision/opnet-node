@@ -69,6 +69,17 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         return !!exists;
     }
 
+    public async deleteTransactionsById(ids: string[]): Promise<void> {
+        // If the transaction is older than 20 blocks, we must purge it.
+        const criteria: Filter<IMempoolTransaction> = {
+            id: {
+                $in: ids,
+            },
+        };
+
+        await this.delete(criteria);
+    }
+
     public async deleteTransactionByIdentifier(
         transactionIdentifier: bigint,
         psbt: boolean,

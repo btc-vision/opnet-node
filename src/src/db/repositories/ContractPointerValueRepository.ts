@@ -1,4 +1,4 @@
-import { Address, BufferHelper } from '@btc-vision/bsi-binary';
+import { Address, ADDRESS_BYTE_LENGTH, BufferHelper } from '@btc-vision/bsi-binary';
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import {
@@ -90,11 +90,16 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             throw new Error('Current session is required.');
         }
 
+        let length: number = 0;
         const bulk = this.getCollection().initializeUnorderedBulkOp();
         for (const [contractAddress, pointers] of storage) {
             for (const [pointer, [value, proofs]] of pointers) {
                 const pointerToBinary = new Binary(pointer);
                 const valueToBinary = new Binary(value);
+
+                if (contractAddress === 'bc1dead' || contractAddress.length > ADDRESS_BYTE_LENGTH) {
+                    continue;
+                }
 
                 const criteria: Partial<Filter<IContractPointerValueDocument>> = {
                     contractAddress: contractAddress,
@@ -111,8 +116,11 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
                 };
 
                 bulk.find(criteria).upsert().updateOne({ $set: update });
+                length++;
             }
         }
+
+        if (!length) return;
 
         const options: BulkWriteOptions = this.getOptions(currentSession);
         const response: BulkWriteResult = await bulk.execute(options);
