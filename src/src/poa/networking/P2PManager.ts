@@ -442,6 +442,7 @@ export class P2PManager extends Logger {
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
+        const discovered: string[] = [];
         const peersToTry: PeerInfo[] = [];
         for (let peer = 0; peer < peers.length; peer++) {
             const peerInfo: OPNetPeerInfo = peers[peer];
@@ -450,13 +451,20 @@ export class P2PManager extends Logger {
                 const peerId = peerIdFromBytes(peerInfo.peer);
                 if (!peerId.toString()) continue;
 
+                const peerIdStr = peerId.toString();
+                if (discovered.includes(peerIdStr)) {
+                    continue;
+                }
+
+                discovered.push(peerIdStr);
+
                 if (this.blackListedPeerIds.has(peerId.toString())) continue;
 
                 // Is self.
                 if (this.node.peerId.equals(peerId)) continue;
 
                 if (peerInfo.addresses.length === 0) {
-                    this.fail(`No addresses found for peer ${peerId.toString()}`);
+                    this.fail(`No addresses found for peer ${peerIdStr}`);
                     continue;
                 }
 
@@ -470,12 +478,12 @@ export class P2PManager extends Logger {
                 }
 
                 if (addresses.length === 0) {
-                    this.warn(`No valid addresses found for peer ${peerId.toString()}`);
+                    this.warn(`No valid addresses found for peer ${peerIdStr}`);
                     continue;
                 }
 
                 const peerData: PeerInfo = {
-                    id: peerIdFromString(peerId.toString()),
+                    id: peerIdFromString(peerIdStr),
                     multiaddrs: addresses,
                 };
 
@@ -489,24 +497,32 @@ export class P2PManager extends Logger {
             return;
         }
 
-        const promises: Promise<Peer>[] = [];
-        for (let peerData of peersToTry) {
-            const addedPeer = this.node.peerStore.merge(peerData.id, {
-                multiaddrs: peerData.multiaddrs,
-                tags: {
-                    ['OPNET']: {
-                        value: 50,
-                        ttl: 128000,
+        const maxPerBatch = 10;
+        for (let i = 0; i < peersToTry.length; i += maxPerBatch) {
+            const batch = peersToTry.slice(i, i + maxPerBatch);
+            const promises: Promise<Peer>[] = [];
+
+            for (let peerData of batch) {
+                //const has = await this.node.peerStore.has(peerData.id);
+                //if (has) continue;
+
+                const addedPeer = this.node.peerStore.merge(peerData.id, {
+                    multiaddrs: peerData.multiaddrs,
+                    tags: {
+                        ['OPNET']: {
+                            value: 50,
+                            ttl: 128000,
+                        },
                     },
-                },
-            });
+                });
 
-            this.log(`Added peer ${peerData.id.toString()} to peer store.`);
+                //this.log(`Added peer ${peerData.id.toString()} to peer store.`);
 
-            promises.push(addedPeer);
+                promises.push(addedPeer);
+            }
+
+            await Promise.all(promises);
         }
-
-        await Promise.all(promises);
     }
 
     private reportAuthenticatedPeer(_peerId: PeerId): void {

@@ -22,6 +22,8 @@ import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { AuthenticationManager } from '../../server/managers/AuthenticationManager.js';
 import { SharedAuthenticationManager } from '../../shared/managers/SharedAuthenticationManager.js';
 import { ConnectionStatus } from '../enums/ConnectionStatus.js';
+import { Config } from '../../../../config/Config.js';
+import { DebugLevel } from '@btc-vision/bsi-common';
 
 export abstract class ClientAuthenticationManager extends SharedAuthenticationManager {
     public readonly logColor: string = '#08fa00';
@@ -251,7 +253,10 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         }
 
         this.latency = Long.fromInt(Date.now()).subtract(this.lastPing).toNumber();
-        this.info(`Latency with ${this.peerId}: ${this.latency}ms.`);
+
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.info(`Latency with ${this.peerId}: ${this.latency}ms.`);
+        }
     }
 
     private startPingInterval(): void {

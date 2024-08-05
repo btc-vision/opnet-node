@@ -339,10 +339,14 @@ export class OPNetPeer extends Logger {
         }
     }
 
+    // TODO: Add checks to this.
     private async discoverPeers(): Promise<void> {
         if (this.isDestroyed) return;
 
-        this.info(`Discovering peers for peer ${this.peerId}.`);
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.info(`Discovering peers for peer ${this.peerId}.`);
+        }
+
         await this.clientNetworkingManager.discoverPeers();
 
         if (this.isDestroyed) return;
