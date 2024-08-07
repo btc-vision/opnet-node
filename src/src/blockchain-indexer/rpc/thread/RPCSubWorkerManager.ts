@@ -54,6 +54,8 @@ export class RPCSubWorkerManager extends Logger {
 
     private async onMessage(message: { taskId: string; data: object }): Promise<void> {
         try {
+            console.log(message);
+
             const task = this.tasks.get(message.taskId);
             if (task) {
                 clearTimeout(task.timeout);

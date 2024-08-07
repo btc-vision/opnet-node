@@ -175,6 +175,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             response.gasUsed = BigInt(response.gasUsed);
         }
 
+        console.log('response', response);
+
         return response as unknown as CallRequestResponse;
     }
 
