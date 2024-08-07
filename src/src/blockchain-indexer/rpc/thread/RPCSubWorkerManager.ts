@@ -15,7 +15,7 @@ export class RPCSubWorkerManager extends Logger {
 
     private createWorker(): ChildProcess {
         const params: ForkOptions = {};
-        const currentPath: string = path.join(__dirname, 'RPCSubWorker.ts');
+        const currentPath: string = path.join(__dirname, 'RPCSubWorker.js');
         console.log('currentPath', currentPath);
 
         const worker: ChildProcess = fork(currentPath, ['child'], params);
