@@ -158,7 +158,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
         const response = (await this.rpcSubWorkerManager.resolve(data, 'call')) as
             | (Omit<CallRequestResponse, 'response'> & {
-                  result: string | Buffer;
+                  result: string | Uint8Array;
               })
             | void;
 
@@ -168,14 +168,12 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
         if (response && !('error' in response)) {
             if (typeof response.result === 'string') {
-                response.result = Buffer.from(response.result as string, 'hex');
+                response.result = Uint8Array.from(Buffer.from(response.result as string, 'hex'));
             }
 
             // @ts-ignore
             response.gasUsed = BigInt(response.gasUsed);
         }
-
-        console.log('response', response);
 
         return response as unknown as CallRequestResponse;
     }
