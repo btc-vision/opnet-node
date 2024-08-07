@@ -165,7 +165,6 @@ export class ContractEvaluator extends Logger {
             await this.defineSelectorAndSetupEnvironment(evaluation);
             this.log('Environment defined');
             await this.setupContract();
-            this.log('Contract setup');
 
             if (!evaluation.calldata && !evaluation.isView) {
                 throw new Error('Calldata is required.');
