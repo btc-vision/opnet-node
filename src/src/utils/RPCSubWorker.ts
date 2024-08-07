@@ -34,7 +34,7 @@ class RPCManager extends Logger {
     private readonly vmManagers: VMManager[] = [];
     private currentVMManagerIndex: number = 0;
 
-    private readonly CONCURRENT_VMS: number = 10;
+    private readonly CONCURRENT_VMS: number = 2;
 
     private currentBlockHeight: bigint = 0n;
 
