@@ -194,8 +194,6 @@ export class VMManager extends Logger {
                 throw new Error('Contract not found');
             }
 
-            this.log(`Got params.`);
-
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
                 contractAddress: contractAddress,
@@ -217,18 +215,12 @@ export class VMManager extends Logger {
 
             // Execute the function
             const evaluation = await this.executeCallInternal(params);
-            this.log(`Evaluated.`);
-
             const result = evaluation.getEvaluationResult();
             this.isProcessing = false;
-
-            this.log(`Executed 1.`);
 
             if (result.revert) {
                 throw result.revert;
             }
-
-            this.log(`Executed 2.`);
 
             return result;
         } catch (e) {
@@ -665,6 +657,8 @@ export class VMManager extends Logger {
             );
         }
 
+        console.log('VM EVALUATOR', !!vmEvaluator);
+
         // Get the function selector
         const calldata: Buffer = params.calldata;
         if (calldata.byteLength < 4) {
@@ -707,6 +701,8 @@ export class VMManager extends Logger {
             callStack: params.callStack || [],
         };
 
+        console.log('evaluating.');
+
         // Execute the function
         const evaluation: ContractEvaluation | null = await vmEvaluator
             .execute(executionParams)
@@ -737,27 +733,6 @@ export class VMManager extends Logger {
         if (!evaluation) {
             throw new Error(error);
         }
-
-        /*if (evaluation.revert) {
-            const errorMsg: string =
-                evaluation.revert instanceof Error
-                    ? evaluation.revert.message
-                    : (evaluation.revert as string);
-
-            if (errorMsg && errorMsg.includes('out of gas') && errorMsg.length < 60) {
-                error = `execution reverted (${errorMsg})`;
-            } else {
-                error = `execution reverted (gas used: ${evaluation.gasUsed})`;
-            }
-
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.error(
-                    `Error executing function selector ${selector} for contract ${params.contractAddress} at block ${params.blockHeight || 'latest'}}: ${(evaluation.revert as Error).stack}`,
-                );
-            }
-
-            throw new Error(error);
-        }*/
 
         return evaluation;
     }

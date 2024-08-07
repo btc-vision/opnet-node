@@ -160,9 +160,13 @@ export class ContractEvaluator extends Logger {
                 canWrite: false,
             });
 
+            this.log('Starting contract execution');
             await this.loadContractFromBytecode(evaluation);
+            this.log('Contract loaded');
             await this.defineSelectorAndSetupEnvironment(evaluation);
+            this.log('Environment defined');
             await this.setupContract();
+            this.log('Contract setup');
 
             if (!evaluation.calldata && !evaluation.isView) {
                 throw new Error('Calldata is required.');
