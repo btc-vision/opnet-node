@@ -211,7 +211,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
         for (const [key, value] of array) {
             const events: NetEvent[] = [];
 
-            for (const [_innerKey, innerValue] of value) {
+            for (let i = 0; i < value.length; i++) {
+                const innerValue = value[i];
                 const event: NetEvent = new NetEvent(
                     innerValue[0],
                     BigInt(innerValue[1]),
