@@ -33,7 +33,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MAX_GAS: 300_000_000_000n,
 
         /** btc_call maximum gas */
-        EMULATION_MAX_GAS: 50_000_000_000n,
+        EMULATION_MAX_GAS: 15_000_000_000n,
 
         /** Converts satoshi to BTC */
         SAT_TO_GAS_RATIO: 1_000_000n, //10_416_666n,
