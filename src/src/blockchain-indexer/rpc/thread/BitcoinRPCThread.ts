@@ -197,7 +197,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             response.deployedContracts = [];
         }
 
-        console.log(response);
+        // @ts-ignore
+        console.log(response, response.events);
 
         return response as unknown as CallRequestResponse;
     }

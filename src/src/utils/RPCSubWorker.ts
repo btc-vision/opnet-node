@@ -51,6 +51,8 @@ class RPCManager extends Logger {
             if (data.type === 'call') {
                 let result = await this.onCallRequest(data.data as CallRequestData);
                 if (result && !('error' in result)) {
+                    console.log(result.events);
+
                     result = {
                         ...result,
                         // @ts-ignore
