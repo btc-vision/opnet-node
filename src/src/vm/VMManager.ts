@@ -172,8 +172,6 @@ export class VMManager extends Logger {
         calldataString: string,
         height?: bigint,
     ): Promise<EvaluatedResult> {
-        this.log(`Execute?`);
-
         if (this.isProcessing) {
             throw new Error(`VM is already processing: ${JSON.stringify(this.currentRequest)}`);
         }
@@ -185,6 +183,8 @@ export class VMManager extends Logger {
             height,
         };
 
+        this.log(`Execute?`);
+
         try {
             this.isProcessing = true;
 
@@ -193,6 +193,8 @@ export class VMManager extends Logger {
             if (!contractAddress) {
                 throw new Error('Contract not found');
             }
+
+            this.log(`Got params.`);
 
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
@@ -215,15 +217,18 @@ export class VMManager extends Logger {
 
             // Execute the function
             const evaluation = await this.executeCallInternal(params);
-            const result = evaluation.getEvaluationResult();
+            this.log(`Evaluated.`);
 
+            const result = evaluation.getEvaluationResult();
             this.isProcessing = false;
+
+            this.log(`Executed 1.`);
 
             if (result.revert) {
                 throw result.revert;
             }
 
-            this.log(`Executed.`);
+            this.log(`Executed 2.`);
 
             return result;
         } catch (e) {
