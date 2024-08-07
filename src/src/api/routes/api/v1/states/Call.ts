@@ -105,6 +105,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 );
             }
 
+            console.log(e);
+
             throw `Something went wrong while simulating call.`;
         }
     }
