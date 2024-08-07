@@ -69,6 +69,14 @@ export class VMManager extends Logger {
     private isProcessing: boolean = false;
 
     private readonly network: bitcoin.Network;
+    private currentRequest:
+        | {
+              to: Address;
+              from: Address;
+              calldataString: string;
+              height?: bigint;
+          }
+        | undefined;
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -165,8 +173,15 @@ export class VMManager extends Logger {
         height?: bigint,
     ): Promise<EvaluatedResult> {
         if (this.isProcessing) {
-            throw new Error('VM is already processing');
+            throw new Error(`VM is already processing: ${JSON.stringify(this.currentRequest)}`);
         }
+
+        this.currentRequest = {
+            to,
+            from,
+            calldataString,
+            height,
+        };
 
         try {
             this.isProcessing = true;
