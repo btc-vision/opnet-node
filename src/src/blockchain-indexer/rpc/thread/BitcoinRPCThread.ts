@@ -26,7 +26,12 @@ import { BroadcastResponse } from '../../../threading/interfaces/thread-messages
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
-import { BlockchainStorageMap, PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
+import {
+    BlockchainStorageMap,
+    EvaluatedEvents,
+    PointerStorageMap,
+} from '../../../vm/evaluated/EvaluatedResult.js';
+import { Address, NetEvent } from '@btc-vision/bsi-binary';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     public readonly threadType: ThreadTypes.BITCOIN_RPC = ThreadTypes.BITCOIN_RPC;
@@ -173,15 +178,52 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             }
 
             // @ts-ignore
-            response.gasUsed = BigInt(response.gasUsed);
+            response.gasUsed = response.gasUsed ? BigInt(response.gasUsed) : null;
 
             // @ts-ignore
-            response.changedStorage = this.convertArrayToMap(response.changedStorage);
+            response.changedStorage = response.changedStorage
+                ? // @ts-ignore
+                  this.convertArrayToMap(response.changedStorage)
+                : null;
+
+            // @ts-ignore
+            response.events = response.events
+                ? // @ts-ignore
+                  this.convertArrayEventsToEvents(response.events)
+                : null;
+
+            // TODO: FIX THIS.
+            // @ts-ignore
+            response.deployedContracts = [];
         }
 
         console.log(response);
 
         return response as unknown as CallRequestResponse;
+    }
+
+    private convertArrayEventsToEvents(
+        array: [string, [string, string, string][]][],
+    ): EvaluatedEvents {
+        const map: EvaluatedEvents = new Map<Address, NetEvent[]>();
+
+        for (const [key, value] of array) {
+            const events: NetEvent[] = [];
+
+            for (const [_innerKey, innerValue] of value) {
+                const event: NetEvent = new NetEvent(
+                    innerValue[0],
+                    BigInt(innerValue[1]),
+                    Uint8Array.from(Buffer.from(innerValue[2], 'hex')),
+                );
+
+                events.push(event);
+            }
+
+            map.set(key, events);
+        }
+
+        return map;
     }
 
     private convertArrayToMap(array: [string, [string, string][]][]): BlockchainStorageMap {

@@ -4,6 +4,21 @@ import { BitcoinAddress } from '../../../../bitcoin/types/BitcoinAddress.js';
 import { IContractDocument } from '../../../../db/documents/interfaces/IContractDocument.js';
 import { DeploymentTransaction } from '../transactions/DeploymentTransaction.js';
 
+export interface ContractInformationAsString {
+    readonly blockHeight: string;
+    readonly contractAddress: string;
+    readonly virtualAddress: string;
+    readonly p2trAddress: string | null;
+    readonly bytecode: string;
+    readonly wasCompressed: boolean;
+    readonly deployedTransactionId: string;
+    readonly deployedTransactionHash: string;
+    readonly deployerPubKey: string;
+    readonly contractSeed: string;
+    readonly contractSaltHash: string;
+    readonly deployerAddress: string;
+}
+
 export class ContractInformation {
     constructor(
         public readonly blockHeight: bigint,

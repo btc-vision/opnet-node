@@ -21,7 +21,11 @@ import {
 import { DataConverter } from '@btc-vision/bsi-db';
 import { BroadcastResponse } from '../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { ChecksumProof } from '../poa/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
-import { BlockchainStorageMap } from '../vm/evaluated/EvaluatedResult.js';
+import { BlockchainStorageMap, EvaluatedEvents } from '../vm/evaluated/EvaluatedResult.js';
+import {
+    ContractInformation,
+    ContractInformationAsString,
+} from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 
 class RPCManager extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -52,7 +56,15 @@ class RPCManager extends Logger {
                         // @ts-ignore
                         result: result.result ? Buffer.from(result.result).toString('hex') : '',
                         // @ts-ignore
-                        changedStorage: this.convertMapToArray(result.changedStorage),
+                        changedStorage: result.changedStorage
+                            ? this.convertMapToArray(result.changedStorage)
+                            : [],
+                        // @ts-ignore
+                        events: result.events ? this.convertEventsToArray(result.events) : [],
+                        // @ts-ignore
+                        deployedContracts: result.deployedContracts
+                            ? this.convertDeployedContractsToArray(result.deployedContracts)
+                            : [],
                     };
                 }
 
@@ -109,6 +121,52 @@ class RPCManager extends Logger {
 
             resolve(vmManager);
         });
+    }
+
+    private convertDeployedContractsToArray(
+        contracts: ContractInformation[],
+    ): ContractInformationAsString[] {
+        const array: ContractInformationAsString[] = [];
+
+        for (const contract of contracts) {
+            const contractAsString: ContractInformationAsString = {
+                blockHeight: contract.blockHeight.toString(),
+                contractAddress: contract.contractAddress.toString(),
+                virtualAddress: contract.virtualAddress.toString(),
+                p2trAddress: contract.p2trAddress ? contract.p2trAddress.toString() : null,
+                bytecode: contract.bytecode.toString('hex'),
+                wasCompressed: contract.wasCompressed,
+                deployedTransactionId: contract.deployedTransactionId,
+                deployedTransactionHash: contract.deployedTransactionHash,
+                deployerPubKey: contract.deployerPubKey.toString('hex'),
+                contractSeed: contract.contractSeed.toString('hex'),
+                contractSaltHash: contract.contractSaltHash.toString('hex'),
+                deployerAddress: contract.deployerAddress.toString(),
+            };
+
+            array.push(contractAsString);
+        }
+
+        return array;
+    }
+
+    private convertEventsToArray(events: EvaluatedEvents): [string, [string, string, string][]][] {
+        const array: [string, [string, string, string][]][] = [];
+
+        for (const [key, value] of events) {
+            const innerArray: [string, string, string][] = [];
+            for (const event of value) {
+                innerArray.push([
+                    event.eventType,
+                    event.eventDataSelector.toString(),
+                    Buffer.from(event.eventData).toString('hex'),
+                ]);
+            }
+
+            array.push([key.toString(), innerArray]);
+        }
+
+        return array;
     }
 
     private convertMapToArray(map: BlockchainStorageMap): [string, [string, string][]][] {
