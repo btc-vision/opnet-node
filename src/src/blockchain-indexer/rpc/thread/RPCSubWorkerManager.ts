@@ -22,7 +22,7 @@ export class RPCSubWorkerManager extends Logger {
         }
     }
 
-    public async resolve(data: object): Promise<object | undefined> {
+    public async resolve(data: object, type: string): Promise<object | undefined> {
         return new Promise((resolve) => {
             const taskId = this.createTaskId();
             this.tasks.set(taskId, {
@@ -33,7 +33,7 @@ export class RPCSubWorkerManager extends Logger {
                 }, 10000),
             });
 
-            this.requestToWorker(JSON.stringify({ taskId, data }));
+            this.requestToWorker(JSON.stringify({ type, taskId, data }));
         });
     }
 

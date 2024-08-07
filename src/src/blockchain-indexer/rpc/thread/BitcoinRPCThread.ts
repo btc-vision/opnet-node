@@ -156,7 +156,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     }
 
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
-        const response = await this.rpcSubWorkerManager.resolve(data);
+        const response = await this.rpcSubWorkerManager.resolve(data, 'call');
         if (!response) {
             return;
         }

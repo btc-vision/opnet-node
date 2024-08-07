@@ -40,7 +40,22 @@ class RPCManager extends Logger {
     }
 
     protected async onMessage(message: string): Promise<void> {
-        console.log('child received', message);
+        try {
+            const data = JSON.parse(message) as { taskId: string; data: object; type: string };
+
+            if (data.type === 'call') {
+                const result = await this.onCallRequest(data.data as CallRequestData);
+
+                if (!process) return;
+
+                this.send({
+                    taskId: data.taskId,
+                    data: result,
+                });
+            }
+        } catch (e) {
+            this.error(`Failed to process message. ${e}`);
+        }
     }
 
     protected listenToEvents(): void {
@@ -86,6 +101,12 @@ class RPCManager extends Logger {
 
             resolve(vmManager);
         });
+    }
+
+    private send(data: object): void {
+        if (!process.send) throw new Error('process.send is not a function');
+
+        process.send(data);
     }
 
     private async setBlockHeight(): Promise<void> {
