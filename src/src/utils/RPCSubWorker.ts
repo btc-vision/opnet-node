@@ -21,6 +21,7 @@ import {
 import { DataConverter } from '@btc-vision/bsi-db';
 import { BroadcastResponse } from '../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { ChecksumProof } from '../poa/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { BlockchainStorageMap } from '../vm/evaluated/EvaluatedResult.js';
 
 class RPCManager extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -50,6 +51,8 @@ class RPCManager extends Logger {
                         ...result,
                         // @ts-ignore
                         result: result.result ? Buffer.from(result.result).toString('hex') : '',
+                        // @ts-ignore
+                        changedStorage: this.convertMapToArray(result.changedStorage),
                     };
                 }
 
@@ -106,6 +109,21 @@ class RPCManager extends Logger {
 
             resolve(vmManager);
         });
+    }
+
+    private convertMapToArray(map: BlockchainStorageMap): [string, [string, string][]][] {
+        const array: [string, [string, string][]][] = [];
+
+        for (const [key, value] of map) {
+            const innerArray: [string, string][] = [];
+            for (const [innerKey, innerValue] of value) {
+                innerArray.push([innerKey.toString(), innerValue.toString()]);
+            }
+
+            array.push([key, innerArray]);
+        }
+
+        return array;
     }
 
     private send(data: object): void {

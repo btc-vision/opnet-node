@@ -26,6 +26,7 @@ import { BroadcastResponse } from '../../../threading/interfaces/thread-messages
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
+import { BlockchainStorageMap, PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     public readonly threadType: ThreadTypes.BITCOIN_RPC = ThreadTypes.BITCOIN_RPC;
@@ -173,9 +174,30 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
             // @ts-ignore
             response.gasUsed = BigInt(response.gasUsed);
+
+            // @ts-ignore
+            response.changedStorage = this.convertArrayToMap(response.changedStorage);
         }
 
+        console.log(response);
+
         return response as unknown as CallRequestResponse;
+    }
+
+    private convertArrayToMap(array: [string, [string, string][]][]): BlockchainStorageMap {
+        const map: BlockchainStorageMap = new Map<string, PointerStorageMap>();
+
+        for (const [key, value] of array) {
+            const innerMap: PointerStorageMap = new Map<bigint, bigint>();
+
+            for (const [innerKey, innerValue] of value) {
+                innerMap.set(BigInt(innerKey), BigInt(innerValue));
+            }
+
+            map.set(key, innerMap);
+        }
+
+        return map;
     }
 
     /*private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
