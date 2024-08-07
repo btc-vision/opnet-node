@@ -23,10 +23,8 @@ import { Thread } from '../../../threading/thread/Thread.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { BitcoinRPCThreadMessageType } from './messages/BitcoinRPCThreadMessage.js';
 import { BroadcastResponse } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import { BTC_FAKE_ADDRESS } from '../../processor/block/types/ZeroValue.js';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
-import { DebugLevel } from '@btc-vision/logger';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
@@ -158,6 +156,15 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     }
 
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
+        const response = await this.rpcSubWorkerManager.resolve(data);
+        if (!response) {
+            return;
+        }
+
+        return response as CallRequestResponse;
+    }
+
+    /*private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.info(
                 `Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`,
@@ -183,7 +190,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
         }
 
         return result;
-    }
+    }*/
 
     private async validateBlockHeaders(data: BlockDataAtHeightData): Promise<ValidatedBlockHeader> {
         const blockNumber = BigInt(data.blockNumber);
@@ -288,10 +295,6 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE: {
                 return await this.broadcastTransaction(message.data.data as string);
             }
-
-            /*case BitcoinRPCThreadMessageType.WBTC_BALANCE_OF: {
-                return await this.bitcoinRPC.getWBTCBalanceOf(message.data.data as string);
-            }*/
 
             default:
                 this.error(`Unknown API message received. {Type: ${message.type}}`);
