@@ -172,6 +172,8 @@ export class VMManager extends Logger {
         calldataString: string,
         height?: bigint,
     ): Promise<EvaluatedResult> {
+        this.log(`Execute?`);
+
         if (this.isProcessing) {
             throw new Error(`VM is already processing: ${JSON.stringify(this.currentRequest)}`);
         }
@@ -221,8 +223,11 @@ export class VMManager extends Logger {
                 throw result.revert;
             }
 
+            this.log(`Executed.`);
+
             return result;
         } catch (e) {
+            this.log(`Errored.`);
             this.isProcessing = false;
             throw e;
         }
