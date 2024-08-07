@@ -27,6 +27,7 @@ import { BTC_FAKE_ADDRESS } from '../../processor/block/types/ZeroValue.js';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { DebugLevel } from '@btc-vision/logger';
+import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     public readonly threadType: ThreadTypes.BITCOIN_RPC = ThreadTypes.BITCOIN_RPC;
@@ -38,6 +39,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     private readonly CONCURRENT_VMS: number = 1;
 
     private currentBlockHeight: bigint = 0n;
+
+    private readonly rpcSubWorkerManager: RPCSubWorkerManager = new RPCSubWorkerManager();
 
     constructor() {
         super();
@@ -51,6 +54,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
         await this.setBlockHeight();
         await this.createVMManagers();
+        await this.rpcSubWorkerManager.startWorkers();
     }
 
     protected async getNextVMManager(tries: number = 0): Promise<VMManager> {
