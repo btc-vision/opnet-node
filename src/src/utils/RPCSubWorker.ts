@@ -44,9 +44,14 @@ class RPCManager extends Logger {
             const data = JSON.parse(message) as { taskId: string; data: object; type: string };
 
             if (data.type === 'call') {
-                const result = await this.onCallRequest(data.data as CallRequestData);
-
-                if (!process) return;
+                let result = await this.onCallRequest(data.data as CallRequestData);
+                if (result && !('error' in result)) {
+                    result = {
+                        ...result,
+                        // @ts-ignore
+                        result: result.result ? Buffer.from(result.result).toString('hex') : '',
+                    };
+                }
 
                 this.send({
                     taskId: data.taskId,
