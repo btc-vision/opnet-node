@@ -168,7 +168,7 @@ export class ContractEvaluator extends Logger {
             this.log('Contract loaded');
             await this.defineSelectorAndSetupEnvironment(evaluation);
             this.loaded = true;
-            
+
             this.log('Environment defined');
             await this.setupContract();
 
@@ -210,6 +210,7 @@ export class ContractEvaluator extends Logger {
 
             return evaluation;
         } catch (e) {
+            this.loaded = false;
             this.isProcessing = false;
             throw e;
         }
