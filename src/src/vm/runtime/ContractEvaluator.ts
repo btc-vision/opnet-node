@@ -160,7 +160,6 @@ export class ContractEvaluator extends Logger {
                 canWrite: false,
             });
 
-            this.log('Starting contract execution');
             await this.loadContractFromBytecode(evaluation);
             this.log('Contract loaded');
             await this.defineSelectorAndSetupEnvironment(evaluation);

@@ -183,8 +183,6 @@ export class VMManager extends Logger {
             height,
         };
 
-        this.log(`Execute?`);
-
         try {
             this.isProcessing = true;
 
@@ -224,7 +222,6 @@ export class VMManager extends Logger {
 
             return result;
         } catch (e) {
-            this.log(`Errored.`);
             this.isProcessing = false;
             throw e;
         }
@@ -657,8 +654,6 @@ export class VMManager extends Logger {
             );
         }
 
-        console.log('VM EVALUATOR', !!vmEvaluator);
-
         // Get the function selector
         const calldata: Buffer = params.calldata;
         if (calldata.byteLength < 4) {
@@ -700,8 +695,6 @@ export class VMManager extends Logger {
             storage: params.storage,
             callStack: params.callStack || [],
         };
-
-        console.log('evaluating.');
 
         // Execute the function
         const evaluation: ContractEvaluation | null = await vmEvaluator
