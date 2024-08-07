@@ -236,6 +236,14 @@ export class VMMongoStorage extends VMStorage {
         this.usedUTXOsRepository = new UsedWbtcUxtoRepository(this.databaseManager.db);
     }
 
+    public async purgePointers(block: bigint): Promise<void> {
+        if (!this.pointerRepository) {
+            throw new Error('Pointer repository not initialized');
+        }
+
+        await this.pointerRepository.deletePointerFromBlockHeight(block);
+    }
+
     public async deleteTransactionsById(ids: string[]): Promise<void> {
         if (!this.mempoolRepository) {
             throw `Mempool repository not defined.`;
