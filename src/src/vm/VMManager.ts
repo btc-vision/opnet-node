@@ -202,7 +202,7 @@ export class VMManager extends Logger {
                 blockHeight: currentHeight,
                 storage: new DeterministicMap(BinaryReader.stringCompare),
                 blockMedian: BigInt(Date.now()), // add support for this
-                allowCached: false,
+                allowCached: true,
                 externalCall: false,
                 gasUsed: 0n,
                 callDepth: 0,

@@ -161,9 +161,7 @@ export class ContractEvaluator extends Logger {
             });
 
             await this.loadContractFromBytecode(evaluation);
-            this.log('Contract loaded');
             await this.defineSelectorAndSetupEnvironment(evaluation);
-            this.log('Environment defined');
             await this.setupContract();
 
             if (!evaluation.calldata && !evaluation.isView) {
