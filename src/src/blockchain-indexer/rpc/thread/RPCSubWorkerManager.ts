@@ -52,8 +52,17 @@ export class RPCSubWorkerManager extends Logger {
         return `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
     }
 
-    private async onMessage(data: string): Promise<void> {
-        console.log('parent', data);
+    private async onMessage(message: { taskId: string; data: object }): Promise<void> {
+        try {
+            const task = this.tasks.get(message.taskId);
+            if (task) {
+                clearTimeout(task.timeout);
+                task.resolve(message.data);
+                this.tasks.delete(message.taskId);
+            }
+        } catch (e) {
+            this.error(`Failed to process message. ${e}`);
+        }
     }
 
     private createWorker(): ChildProcess {

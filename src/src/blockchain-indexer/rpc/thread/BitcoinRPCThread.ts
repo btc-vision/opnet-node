@@ -170,6 +170,9 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             if (typeof response.result === 'string') {
                 response.result = Buffer.from(response.result as string, 'hex');
             }
+
+            // @ts-ignore
+            response.gasUsed = BigInt(response.gasUsed);
         }
 
         return response as unknown as CallRequestResponse;
