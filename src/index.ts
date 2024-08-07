@@ -1,3 +1,5 @@
 import { Core } from './src/Core.js';
 
-new Core();
+if (process.argv[2] !== 'child') {
+    new Core();
+}
