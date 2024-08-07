@@ -54,7 +54,6 @@ export class ContractEvaluator extends Logger {
 
     private bytecode: Buffer | undefined;
     private readonly enableTracing: boolean = false;
-    private loaded: boolean = true;
 
     constructor(private readonly network: Network) {
         super();
@@ -161,14 +160,9 @@ export class ContractEvaluator extends Logger {
                 canWrite: false,
             });
 
-            if (!this.loaded) throw new Error('Contract not loaded');
-            this.loaded = false;
-
             await this.loadContractFromBytecode(evaluation);
             this.log('Contract loaded');
             await this.defineSelectorAndSetupEnvironment(evaluation);
-            this.loaded = true;
-
             this.log('Environment defined');
             await this.setupContract();
 
@@ -210,7 +204,6 @@ export class ContractEvaluator extends Logger {
 
             return evaluation;
         } catch (e) {
-            this.loaded = false;
             this.isProcessing = false;
             throw e;
         }
