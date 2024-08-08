@@ -93,6 +93,14 @@ Before launching the indexer, configure the environment variables and settings a
 Sample configuration files can be found in the `config/` directory. Adjust the settings for network endpoints, security
 parameters, and operational modes as needed.
 
+## Potential Issues
+
+If you have Python 3.12 installed, you will run into issues. You must run install setup-tools before doing `npm i`.
+
+```bash
+py -3 -m pip install setuptools
+```
+
 ## License
 
 View the licence by clicking [here](https://github.com/btc-vision/bsi/blob/main/LICENSE.md).
