@@ -1,11 +1,13 @@
 import { BitcoinNetwork } from '@btc-vision/bsi-common';
 import { ChainIds } from '../../config/enums/ChainIds.js';
-import { MainnetTrustedKeys001 } from './keys/0.0.1/MainnetTrustedKeys001.js';
-import { RegTestTrustedKeys001 } from './keys/0.0.1/RegtestTrustedKeys001.js';
-import { TestNetTrustedKeys001 } from './keys/0.0.1/TestnetTrustedKeys001.js';
+import { MainnetTrustedKeys001 } from './keys/bitcoin/0.0.1/MainnetTrustedKeys001.js';
+import { RegTestTrustedKeys001 } from './keys/bitcoin/0.0.1/RegtestTrustedKeys001.js';
+import { TestNetTrustedKeys001 } from './keys/bitcoin/0.0.1/TestnetTrustedKeys001.js';
 import { TrustedPublicKeys } from './types/TrustedPublicKeys.js';
-import { SignetTrustedKeys001 } from './keys/0.0.1/SignetTrustedKeys001.js';
+import { SignetTrustedKeys001 } from './keys/bitcoin/0.0.1/SignetTrustedKeys001.js';
 import { TrustedVersion } from './version/TrustedVersion.js';
+import { MainnetTrustedKeys001Fractal } from './keys/fractal/0.0.1/MainnetTrustedKeys001Fractal.js';
+import { TestnetTrustedKeys001Fractal } from './keys/fractal/0.0.1/TestnetTrustedKeys001Fractal.js';
 
 /**
  * DO NOT MODIFY THIS FILE IF YOU DON'T KNOW WHAT YOU ARE DOING.
@@ -44,6 +46,27 @@ export const WBTC_CONTRACT_ADDRESS: {
             deployer: 'unknown',
         },
     },
+    [ChainIds.Fractal]: {
+        [BitcoinNetwork.Mainnet]: {
+            addresses: ['unknown'],
+            deployer: 'unknown',
+        },
+
+        [BitcoinNetwork.TestNet]: {
+            addresses: ['unknown'],
+            deployer: 'unknown',
+        },
+
+        [BitcoinNetwork.Regtest]: {
+            addresses: ['unknown'],
+            deployer: 'unknown',
+        },
+
+        [BitcoinNetwork.Signet]: {
+            addresses: ['unknown'],
+            deployer: 'unknown',
+        },
+    },
 };
 
 export const TRUSTED_PUBLIC_KEYS: { [key in TrustedVersion]: TrustedPublicKeys } = {
@@ -51,6 +74,12 @@ export const TRUSTED_PUBLIC_KEYS: { [key in TrustedVersion]: TrustedPublicKeys }
         [ChainIds.Bitcoin]: {
             [BitcoinNetwork.Mainnet]: MainnetTrustedKeys001,
             [BitcoinNetwork.TestNet]: TestNetTrustedKeys001,
+            [BitcoinNetwork.Regtest]: RegTestTrustedKeys001,
+            [BitcoinNetwork.Signet]: SignetTrustedKeys001,
+        },
+        [ChainIds.Fractal]: {
+            [BitcoinNetwork.Mainnet]: MainnetTrustedKeys001Fractal,
+            [BitcoinNetwork.TestNet]: TestnetTrustedKeys001Fractal,
             [BitcoinNetwork.Regtest]: RegTestTrustedKeys001,
             [BitcoinNetwork.Signet]: SignetTrustedKeys001,
         },

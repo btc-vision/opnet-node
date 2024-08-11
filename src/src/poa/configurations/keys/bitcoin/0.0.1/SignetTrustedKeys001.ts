@@ -1,5 +1,5 @@
-import { NetworkAuthorityConfiguration } from '../../types/TrustedPublicKeys.js';
-import { TrustedCompanies } from '../../TrustedCompanies.js';
+import { NetworkAuthorityConfiguration } from '../../../types/TrustedPublicKeys.js';
+import { TrustedCompanies } from '../../../TrustedCompanies.js';
 
 export const SignetTrustedKeys001: NetworkAuthorityConfiguration = {
     /** Minimum different trusted validators */

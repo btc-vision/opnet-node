@@ -25,4 +25,14 @@ export const BootstrapNodes: BootstrapNodes = {
 
         [BitcoinNetwork.Signet]: [],
     },
+
+    [ChainIds.Fractal]: {
+        [BitcoinNetwork.Mainnet]: [],
+
+        [BitcoinNetwork.TestNet]: [],
+
+        [BitcoinNetwork.Regtest]: [],
+
+        [BitcoinNetwork.Signet]: [],
+    },
 };

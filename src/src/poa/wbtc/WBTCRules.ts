@@ -33,4 +33,18 @@ export const OPNET_FEE_WALLET: {
             address: 'bc1pjune3rz4zcm8scdv9hnu5cld8vh4eqrwagph9wsez0rutjxkvwls6mhr3l',
         },
     },
+    [ChainIds.Fractal]: {
+        [BitcoinNetwork.Mainnet]: {
+            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+        },
+        [BitcoinNetwork.TestNet]: {
+            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+        },
+        [BitcoinNetwork.Regtest]: {
+            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+        },
+        [BitcoinNetwork.Signet]: {
+            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+        },
+    },
 };

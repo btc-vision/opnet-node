@@ -1,7 +1,7 @@
-import { NetworkAuthorityConfiguration } from '../../types/TrustedPublicKeys.js';
-import { TrustedCompanies } from '../../TrustedCompanies.js';
+import { NetworkAuthorityConfiguration } from '../../../types/TrustedPublicKeys.js';
+import { TrustedCompanies } from '../../../TrustedCompanies.js';
 
-export const TestNetTrustedKeys001: NetworkAuthorityConfiguration = {
+export const TestnetTrustedKeys001Fractal: NetworkAuthorityConfiguration = {
     /** Minimum different trusted validators */
     minimum: 2,
 
