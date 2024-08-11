@@ -18,12 +18,14 @@ export const MainnetTrustedKeys001Fractal: NetworkAuthorityConfiguration = {
         [TrustedCompanies.OPNet]: {
             keys: [
                 {
-                    opnet: 'ebWtJ4qxy0HKEgE72BRFQZhCIaO/6zVjrBwd64K1UMA=',
-                    publicKey: 'Awl4XAeELLnpyUvXXWnW5hWLZsGJBRuA36+YFMYk6dSA',
+                    opnet: 'sipzeI6gxmed7flaZe8/S0ud1AbolTRTgXPJqdLDsXQ=',
+                    publicKey: 'AwsdUc6BvUNz0ntDvhjRWwrIDDyxQET0Y6KUldqVOl0l',
                     signature:
-                        '1yclNUxjodcDkY9L+Kg7rq/VW7f3kfFnz+ftuBsekDGW0kXdLNGN7qYO8Hc482gcwQHVB4nz0G7XM/xyYnTMDg==',
+                        'Toi04FwpfrZG7ChYBvnqOBy/Gf28OJ8s8VTnJaKa54iMlQvhbZAxLv83a5crVRQ7oOQFTATlzZsA/FXbFBM5Aw==',
                     wallet: 'tb1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gszlcez5',
                 },
+
+                // fake temp
 
                 {
                     opnet: '/G29rhUysSbvxfcHL1icK8+Qs4whsj2gwaIy6Lo+jS0=',
