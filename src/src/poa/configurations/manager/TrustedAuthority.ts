@@ -321,8 +321,6 @@ export class TrustedAuthority extends Logger {
 
     private getWBTCDeploymentInfo(): { addresses: string[]; deployer: string } {
         const wbtcChainId = WBTC_CONTRACT_ADDRESS[this.chainId];
-        console.log(this.chainId, wbtcChainId);
-
         if (!wbtcChainId) {
             throw new Error('WBTC contract address not found');
         }
