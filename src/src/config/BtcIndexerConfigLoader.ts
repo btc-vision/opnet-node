@@ -251,15 +251,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(`Oops the property OP_NET.CHAIN_ID is not a number.`);
             }
-
-            if (
-                parsedConfig.OP_NET.CHAIN_ID !== undefined &&
-                parsedConfig.OP_NET.CHAIN_ID in ChainIds
-            ) {
-                throw new Error(
-                    `Oops the property OP_NET.CHAIN_ID is not a valid ChainIds enum value.`,
-                );
-            }
         }
 
         if (parsedConfig.POA) {
