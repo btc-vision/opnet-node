@@ -3,7 +3,6 @@ import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession, TransactionOptions } from 'mongodb';
 import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { SafeBigInt } from '../../../api/routes/safe/SafeMath.js';
-import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
@@ -420,7 +419,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getStorage(
-        address: BitcoinAddress,
+        address: Address,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = false,
@@ -501,7 +500,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async setStorage(
-        address: BitcoinAddress,
+        address: Address,
         pointer: StoragePointer,
         value: MemoryValue,
         proofs: string[],
@@ -526,7 +525,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async setStoragePointers(
-        storage: Map<BitcoinAddress, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
     ): Promise<void> {
         if (!this.pointerRepository) {
@@ -561,7 +560,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getContractAt(
-        contractAddress: BitcoinAddress,
+        contractAddress: Address,
         height?: bigint,
     ): Promise<ContractInformation | undefined> {
         if (!this.contractRepository) {
@@ -576,7 +575,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getContractAddressAt(
-        contractAddress: BitcoinAddress,
+        contractAddress: Address,
         height?: bigint,
     ): Promise<Address | undefined> {
         if (!this.contractRepository) {
@@ -608,7 +607,7 @@ export class VMMongoStorage extends VMStorage {
         return await this.contractRepository.getContractAtVirtualAddress(virtualAddress);
     }
 
-    public async hasContractAt(contractAddress: BitcoinAddress): Promise<boolean> {
+    public async hasContractAt(contractAddress: Address): Promise<boolean> {
         if (!this.contractRepository) {
             throw new Error('Repository not initialized');
         }
@@ -625,7 +624,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getUTXOs(
-        address: BitcoinAddress,
+        address: Address,
         optimize: boolean = false,
     ): Promise<UTXOsOutputTransactions> {
         if (!this.transactionRepository) {
@@ -722,12 +721,15 @@ export class VMMongoStorage extends VMStorage {
         return await this.vaultRepository.getVault(vault);
     }
 
-    public async getBalanceOf(address: BitcoinAddress): Promise<bigint | undefined> {
+    public async getBalanceOf(
+        address: Address,
+        filterOrdinals: boolean,
+    ): Promise<bigint | undefined> {
         if (!this.transactionRepository) {
             throw new Error('Transaction repository not initialized');
         }
 
-        return await this.transactionRepository.getBalanceOf(address);
+        return await this.transactionRepository.getBalanceOf(address, filterOrdinals);
     }
 
     private async fakeWaitCommit(

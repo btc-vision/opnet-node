@@ -109,8 +109,15 @@ export class TransactionRepository extends BaseRepository<
         return transaction ?? undefined;
     }
 
-    public async getBalanceOf(wallet: Address, currentSession?: ClientSession): Promise<bigint> {
-        const aggregation: Document[] = this.balanceOfAggregation.getAggregation(wallet);
+    public async getBalanceOf(
+        wallet: Address,
+        filterOrdinals: boolean,
+        currentSession?: ClientSession,
+    ): Promise<bigint> {
+        const aggregation: Document[] = this.balanceOfAggregation.getAggregation(
+            wallet,
+            filterOrdinals,
+        );
         const collection = this.getCollection();
         const options: AggregateOptions = this.getOptions(currentSession) as AggregateOptions;
         options.allowDiskUse = true;

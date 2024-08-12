@@ -27,7 +27,9 @@ export class GetBalanceRoute extends Route<
             throw new Error('Address not provided');
         }
 
-        const balanceOf: bigint = (await this.storage.getBalanceOf(address)) || 0n;
+        const filterOrdinals: boolean = this.getFilterOrdinals(params);
+
+        const balanceOf: bigint = (await this.storage.getBalanceOf(address, filterOrdinals)) || 0n;
         return `0x${balanceOf.toString(16)}`;
     }
 
@@ -95,5 +97,18 @@ export class GetBalanceRoute extends Route<
         }
 
         return blockHash;
+    }
+
+    private getFilterOrdinals(params: GetBalanceParams): boolean {
+        const isArray = Array.isArray(params);
+
+        let filterOrdinals: boolean;
+        if (isArray) {
+            filterOrdinals = (params.shift() as boolean) ?? false;
+        } else {
+            filterOrdinals = params.filterOrdinals ?? false;
+        }
+
+        return filterOrdinals;
     }
 }

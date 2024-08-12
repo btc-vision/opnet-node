@@ -11,8 +11,8 @@ export class BalanceOfAggregation extends UTXOsAggregation {
         super();
     }
 
-    public getAggregation(wallet: Address): Document[] {
-        const aggregation: Document[] = super.getAggregation(wallet, false);
+    public getAggregation(wallet: Address, filterOrdinals: boolean = true): Document[] {
+        const aggregation: Document[] = super.getAggregation(wallet, false, filterOrdinals);
 
         aggregation.push({
             $group: {

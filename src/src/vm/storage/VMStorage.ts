@@ -124,7 +124,10 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         optimize: boolean,
     ): Promise<UTXOsOutputTransactions | undefined>;
 
-    public abstract getBalanceOf(address: string): Promise<bigint | undefined>;
+    public abstract getBalanceOf(
+        address: string,
+        filterOrdinals: boolean,
+    ): Promise<bigint | undefined>;
 
     public abstract getReorgs(
         fromBlock?: bigint,
