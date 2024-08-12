@@ -231,6 +231,7 @@ export class VMManager extends Logger {
         blockHeight: bigint,
         blockMedian: bigint,
         interactionTransaction: InteractionTransaction | WrapTransaction,
+        unlimitedGas: boolean = false,
     ): Promise<EvaluatedResult> {
         if (this.isProcessing) {
             throw new Error('VM is already processing');
@@ -268,11 +269,13 @@ export class VMManager extends Logger {
 
             // Trace the execution time
             const startBeforeExecution = Date.now();
-            const maxGas: bigint = GasTracker.convertSatToGas(
-                burnedBitcoins,
-                OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
-                OPNetConsensus.consensus.TRANSACTIONS.SAT_TO_GAS_RATIO,
-            );
+            const maxGas: bigint = unlimitedGas
+                ? OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS
+                : GasTracker.convertSatToGas(
+                      burnedBitcoins,
+                      OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
+                      OPNetConsensus.consensus.TRANSACTIONS.SAT_TO_GAS_RATIO,
+                  );
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {

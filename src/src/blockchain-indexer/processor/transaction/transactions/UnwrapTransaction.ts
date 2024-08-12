@@ -196,7 +196,7 @@ export class UnwrapTransaction extends InteractionTransaction {
                 outputIndex: input.index,
             });
         }
-        
+
         this.#usedUTXOs = usedUTXOs;
         this.#authorizedBy = authorities;
     }

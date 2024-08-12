@@ -405,6 +405,7 @@ export class Block extends Logger {
     protected async executeInteractionTransaction(
         transaction: InteractionTransaction | WrapTransaction,
         vmManager: VMManager,
+        unlimitedGas: boolean = false,
     ): Promise<void> {
         const start = Date.now();
         try {
@@ -413,6 +414,7 @@ export class Block extends Logger {
                 this.height,
                 this.median,
                 transaction,
+                unlimitedGas,
             );
 
             if (transaction.receipt.revert) {
@@ -542,13 +544,13 @@ export class Block extends Logger {
             case OPNetTransactionTypes.WrapInteraction: {
                 const interactionTransaction = _transaction as WrapTransaction;
 
-                await this.executeInteractionTransaction(interactionTransaction, vmManager);
+                await this.executeInteractionTransaction(interactionTransaction, vmManager, true);
                 break;
             }
             case OPNetTransactionTypes.UnwrapInteraction: {
                 const interactionTransaction = _transaction as WrapTransaction;
 
-                await this.executeInteractionTransaction(interactionTransaction, vmManager);
+                await this.executeInteractionTransaction(interactionTransaction, vmManager, true);
                 break;
             }
             case OPNetTransactionTypes.Deployment: {
