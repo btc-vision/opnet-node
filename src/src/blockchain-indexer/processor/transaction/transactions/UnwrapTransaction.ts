@@ -197,6 +197,8 @@ export class UnwrapTransaction extends InteractionTransaction {
             });
         }
 
+        console.log('authorities', authorities, this.vaultInputs);
+
         this.#usedUTXOs = usedUTXOs;
         this.#authorizedBy = authorities;
     }
