@@ -22,7 +22,7 @@ export class VaultInputDecoder {
     public decodeInput(input: TransactionInput): VaultInput | undefined {
         if (!input.originalTransactionId) return;
 
-        const isTaproot = input.transactionInWitness.length > 4; // we need more than 5 elements for an opnet vault script
+        const isTaproot = input.transactionInWitness.length > 3; // we need more than 3 elements for an opnet vault script
         if (!isTaproot) {
             return;
         }
