@@ -128,11 +128,15 @@ export class TransactionRepository extends BaseRepository<
 
     public async getWalletUnspentUTXOS(
         wallet: Address,
-        _optimize: boolean = false,
+        optimize: boolean = false,
         currentSession?: ClientSession,
     ): Promise<UTXOsOutputTransactions> {
         // TODO: Add cursor page support.
-        const aggregation: Document[] = this.uxtosAggregation.getAggregation(wallet);
+        const aggregation: Document[] = this.uxtosAggregation.getAggregation(
+            wallet,
+            true,
+            optimize,
+        );
         const collection = this.getCollection();
         const options = this.getOptions(currentSession) as AggregateOptions;
         options.allowDiskUse = true;

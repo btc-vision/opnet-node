@@ -15,13 +15,19 @@ export class UTXOsAggregation extends Aggregation {
         super();
     }
 
-    public getAggregation(wallet: Address, limit: boolean = true): Document[] {
+    public getAggregation(
+        wallet: Address,
+        limit: boolean = true,
+        optimize: boolean = false,
+    ): Document[] {
+        const minValue: number = optimize ? 20000 : 330;
+        
         const aggregation: Document[] = [
             {
                 $match: {
                     'outputs.scriptPubKey.address': wallet,
                     'outputs.value': {
-                        $gte: 330,
+                        $gte: minValue,
                     },
                 },
             },
@@ -37,7 +43,7 @@ export class UTXOsAggregation extends Aggregation {
                                         $eq: ['$$output.scriptPubKey.address', wallet],
                                     },
                                     {
-                                        $gte: ['$$output.value', 330],
+                                        $gte: ['$$output.value', minValue],
                                     },
                                 ],
                             },
