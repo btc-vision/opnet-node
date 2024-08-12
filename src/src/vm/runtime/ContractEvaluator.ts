@@ -422,7 +422,7 @@ export class ContractEvaluator extends Logger {
         try {
             this._contractInstance = await loadRust(this.generateContractParameters(evaluation));
         } catch (e) {
-            console.log(`Unable to load contract from bytecode: ${(e as Error).stack}`);
+            //console.log(`Unable to load contract from bytecode: ${(e as Error).stack}`);
             errored = true;
         }
 
