@@ -48,7 +48,7 @@ export const WBTC_CONTRACT_ADDRESS: {
     },
     [ChainIds.Fractal]: {
         [BitcoinNetwork.Mainnet]: {
-            addresses: ['bc1qeras4z6y2nx5ugqckx90wxdd02uyh8mdqptfhs'],
+            addresses: ['bc1qdtzlucslvrvu4useyh9r69supqrw3w4xn9t4yv'],
             deployer: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
         },
 
