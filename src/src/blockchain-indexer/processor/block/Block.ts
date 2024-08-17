@@ -796,7 +796,7 @@ export class Block extends Logger {
                 if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                     const error: Error = e as Error;
                     this.error(
-                        `Failed to parse transaction ${rawTransactionData.txid}: ${error.message}`,
+                        `Failed to parse transaction ${rawTransactionData.txid}: ${error.stack}`,
                     );
                 }
 

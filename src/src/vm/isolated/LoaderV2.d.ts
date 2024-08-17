@@ -1,4 +1,9 @@
-import { BitcoinNetworkRequest, Contract } from '@btc-vision/bsi-wasmer-vm';
+import {
+    AbortDataResponse,
+    BitcoinNetworkRequest,
+    CallResponse,
+    ThreadSafeJsImportResponse,
+} from '@btc-vision/bsi-wasmer-vm';
 
 export interface ContractParameters {
     readonly bytecode: Buffer;
@@ -10,8 +15,36 @@ export interface ContractParameters {
     readonly store: (data: Buffer) => Promise<Buffer | Uint8Array>;
     readonly call: (data: Buffer) => Promise<Buffer | Uint8Array>;
     readonly deployContractAtAddress: (data: Buffer) => Promise<Buffer | Uint8Array>;
+    //readonly encodeAddress: (data: Buffer) => Promise<Buffer | Uint8Array>;
     readonly log: (data: Buffer) => void;
 }
+
+export class Contract {
+    constructor(bytecode: Buffer, maxGas: bigint, network: BitcoinNetworkRequest, storageLoadJsFunction: (_: never, result: Array<number>) => Promise<ThreadSafeJsImportResponse>, storageStoreJsFunction: (_: never, result: Array<number>) => Promise<ThreadSafeJsImportResponse>, callOtherContractJsFunction: (_: never, result: Array<number>) => Promise<ThreadSafeJsImportResponse>, deployFromAddressJsFunction: (_: never, result: Array<number>) => Promise<ThreadSafeJsImportResponse>, consoleLogJsFunction: (_: never, result: Array<number>) => Promise<ThreadSafeJsImportResponse>)
+
+    destroy(): void
+
+    call(funcName: string, params: Array<number>): Promise<CallResponse>
+
+    readMemory(offset: bigint, length: bigint): Buffer
+
+    writeMemory(offset: bigint, data: Buffer): void
+
+    getUsedGas(): bigint
+
+    setUsedGas(gas: bigint): void
+
+    getRemainingGas(): bigint
+
+    setRemainingGas(gas: bigint): void
+
+    useGas(gas: bigint): void
+
+    writeBuffer(value: Buffer, id: number, align: number): number
+
+    getAbortData(): AbortDataResponse
+}
+
 
 export interface VMContract {
     readMethod(method: number, data: Uint8Array): Promise<Uint8Array>;
@@ -42,10 +75,6 @@ export interface ExportedContract extends Omit<VMRuntime, 'setGasUsed'> {
 
     dispose(): void;
 
-    /**
-     * @unsafe
-     * ONLY CALL WHEN THE CONTRACT IS NOT PROCESSING AN OTHER ACTION IN PARALLEL SUCH A CALL.
-     */
     setUsedGas(usedGas: bigint): void;
 
     setGasCallback(callback: (gas: bigint, method: string) => void): void;
