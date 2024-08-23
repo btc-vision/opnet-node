@@ -29,6 +29,7 @@ export class UTXOsAggregationV2 extends Aggregation {
                     value: {
                         $gte: Long.fromValue(minValue),
                     },
+                    deletedAtBlock: null,
                 },
             },
         ];
