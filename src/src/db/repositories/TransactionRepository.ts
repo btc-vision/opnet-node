@@ -1,31 +1,14 @@
-import { Address } from '@btc-vision/bsi-binary';
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import {
-    AggregateOptions,
-    ClientSession,
-    Collection,
-    Db,
-    Decimal128,
-    Document,
-    Filter,
-    Sort,
-} from 'mongodb';
-import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import { ClientSession, Collection, Db, Decimal128, Document, Filter, Sort } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { BalanceOfOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/BalanceOfAggregation.js';
-import { UTXOSOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/UTXOsAggregation.js';
 import { ITransactionDocument, TransactionDocument } from '../interfaces/ITransactionDocument.js';
-import { UTXOsAggregationV2 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
-import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
+import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 
 export class TransactionRepository extends BaseRepository<
     ITransactionDocument<OPNetTransactionTypes>
 > {
     public readonly logColor: string = '#afeeee';
-
-    private readonly uxtosAggregation: UTXOsAggregationV2 = new UTXOsAggregationV2();
-    private readonly balanceOfAggregation: BalanceOfAggregationV2 = new BalanceOfAggregationV2();
 
     constructor(db: Db) {
         super(db);
@@ -112,69 +95,7 @@ export class TransactionRepository extends BaseRepository<
         return transaction ?? undefined;
     }
 
-    public async getBalanceOf(
-        wallet: Address,
-        filterOrdinals: boolean,
-        currentSession?: ClientSession,
-    ): Promise<bigint> {
-        const aggregation: Document[] = this.balanceOfAggregation.getAggregation(
-            wallet,
-            filterOrdinals,
-        );
-        const collection = this.getCollection();
-        const options: AggregateOptions = this.getOptions(currentSession) as AggregateOptions;
-        options.allowDiskUse = true;
-
-        const aggregatedDocument = collection.aggregate<BalanceOfOutputTransactionFromDB>(
-            aggregation,
-            options,
-        );
-
-        const results: BalanceOfOutputTransactionFromDB[] = await aggregatedDocument.toArray();
-        const balance: Decimal128 = results?.[0]?.balance ?? Decimal128.fromString('0');
-
-        return DataConverter.fromDecimal128(balance);
-    }
-
-    public async getWalletUnspentUTXOS(
-        wallet: Address,
-        optimize: boolean = false,
-        currentSession?: ClientSession,
-    ): Promise<UTXOsOutputTransactions> {
-        // TODO: Add cursor page support.
-        const aggregation: Document[] = this.uxtosAggregation.getAggregation(
-            wallet,
-            true,
-            optimize,
-        );
-        const collection = this.getCollection();
-        const options = this.getOptions(currentSession) as AggregateOptions;
-        options.allowDiskUse = true;
-
-        try {
-            const aggregatedDocument = collection.aggregate<UTXOSOutputTransactionFromDB>(
-                aggregation,
-                options,
-            );
-
-            const results: UTXOSOutputTransactionFromDB[] = await aggregatedDocument.toArray();
-
-            return results.map((result) => {
-                return {
-                    transactionId: result.transactionId,
-                    outputIndex: result.outputIndex,
-                    value: DataConverter.fromDecimal128(result.value),
-                    scriptPubKey: result.scriptPubKey,
-                };
-            });
-        } catch (e) {
-            this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
-
-            throw e;
-        }
-    }
-
     protected override getCollection(): Collection<ITransactionDocument<OPNetTransactionTypes>> {
-        return this._db.collection('Transactions');
+        return this._db.collection(OPNetCollections.Transactions);
     }
 }

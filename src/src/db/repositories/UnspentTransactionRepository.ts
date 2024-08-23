@@ -5,11 +5,13 @@ import {
     DebugLevel,
 } from '@btc-vision/bsi-common';
 import {
+    AggregateOptions,
     Binary,
     ClientSession,
     Collection,
     Db,
     Decimal128,
+    Document,
     Filter,
     Long,
     UpdateOptions,
@@ -19,9 +21,19 @@ import { ITransactionDocument } from '../interfaces/ITransactionDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
+import { Address } from '@btc-vision/bsi-binary';
+import { BalanceOfOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/BalanceOfAggregation.js';
+import { DataConverter } from '@btc-vision/bsi-db';
+import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import { UTXOSOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/UTXOsAggregation.js';
+import { UTXOsAggregationV2 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
+import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 
 export class UnspentTransactionRepository extends BaseRepository<IUnspentTransaction> {
     public readonly logColor: string = '#afeeee';
+
+    private readonly uxtosAggregation: UTXOsAggregationV2 = new UTXOsAggregationV2();
+    private readonly balanceOfAggregation: BalanceOfAggregationV2 = new BalanceOfAggregationV2();
 
     constructor(db: Db) {
         super(db);
@@ -163,6 +175,68 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         };
 
         await this.delete(criteria, currentSession);
+    }
+
+    public async getBalanceOf(
+        wallet: Address,
+        filterOrdinals: boolean,
+        currentSession?: ClientSession,
+    ): Promise<bigint> {
+        const aggregation: Document[] = this.balanceOfAggregation.getAggregation(
+            wallet,
+            filterOrdinals,
+        );
+        const collection = this.getCollection();
+        const options: AggregateOptions = this.getOptions(currentSession) as AggregateOptions;
+        options.allowDiskUse = true;
+
+        const aggregatedDocument = collection.aggregate<BalanceOfOutputTransactionFromDB>(
+            aggregation,
+            options,
+        );
+
+        const results: BalanceOfOutputTransactionFromDB[] = await aggregatedDocument.toArray();
+        const balance: Decimal128 = results?.[0]?.balance ?? Decimal128.fromString('0');
+
+        return DataConverter.fromDecimal128(balance);
+    }
+
+    public async getWalletUnspentUTXOS(
+        wallet: Address,
+        optimize: boolean = false,
+        currentSession?: ClientSession,
+    ): Promise<UTXOsOutputTransactions> {
+        // TODO: Add cursor page support.
+        const aggregation: Document[] = this.uxtosAggregation.getAggregation(
+            wallet,
+            true,
+            optimize,
+        );
+        const collection = this.getCollection();
+        const options = this.getOptions(currentSession) as AggregateOptions;
+        options.allowDiskUse = true;
+
+        try {
+            const aggregatedDocument = collection.aggregate<UTXOSOutputTransactionFromDB>(
+                aggregation,
+                options,
+            );
+
+            const results: UTXOSOutputTransactionFromDB[] = await aggregatedDocument.toArray();
+
+            return results.map((result) => {
+                return {
+                    transactionId: result.transactionId,
+                    outputIndex: result.outputIndex,
+                    value: DataConverter.fromDecimal128(result.value),
+                    scriptPubKey: result.scriptPubKey,
+                };
+            });
+        } catch (e) {
+            this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
+
+            throw e;
+        }
     }
 
     protected override getCollection(): Collection<IUnspentTransaction> {

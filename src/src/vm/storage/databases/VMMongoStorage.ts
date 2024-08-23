@@ -657,11 +657,11 @@ export class VMMongoStorage extends VMStorage {
         address: Address,
         optimize: boolean = false,
     ): Promise<UTXOsOutputTransactions> {
-        if (!this.transactionRepository) {
+        if (!this.unspentTransactionRepository) {
             throw new Error('Transaction repository not initialized');
         }
 
-        return await this.transactionRepository.getWalletUnspentUTXOS(address, optimize);
+        return await this.unspentTransactionRepository.getWalletUnspentUTXOS(address, optimize);
     }
 
     public async setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void> {
@@ -755,11 +755,11 @@ export class VMMongoStorage extends VMStorage {
         address: Address,
         filterOrdinals: boolean,
     ): Promise<bigint | undefined> {
-        if (!this.transactionRepository) {
+        if (!this.unspentTransactionRepository) {
             throw new Error('Transaction repository not initialized');
         }
 
-        return await this.transactionRepository.getBalanceOf(address, filterOrdinals);
+        return await this.unspentTransactionRepository.getBalanceOf(address, filterOrdinals);
     }
 
     private async fakeWaitCommit(
