@@ -76,6 +76,7 @@ export class Block extends Logger {
     #_previousBlockChecksum: string | undefined;
 
     //private saveGenericTransactionPromise: Promise<void> | undefined;
+    private allTransactions: TransactionDocument<OPNetTransactionTypes>[] = [];
 
     constructor(
         protected readonly rawBlockData: BlockDataWithTransactionData,
@@ -298,9 +299,6 @@ export class Block extends Logger {
 
             return true;
         } catch (e) {
-            // We must wait for this resolve before reverting.
-            //await this.saveGenericTransactionPromise;
-
             const error: Error = e as Error;
             this.error(`[execute] Something went wrong while executing the block: ${error.stack}`);
 
@@ -314,6 +312,9 @@ export class Block extends Logger {
         try {
             // And finally, we can save the transactions
             await this.saveOPNetTransactions(vmManager);
+
+            await vmManager.insertUTXOs(this.height, this.allTransactions);
+            this.allTransactions = []; // clear.
 
             // We must wait for the generic transactions to be saved before finalizing the block
             //await this.saveGenericTransactionPromise;
@@ -709,7 +710,7 @@ export class Block extends Logger {
             promises.push(vmStorage.saveCompromisedTransactions(compromisedTransactions));
         }
 
-        promises.push(vmManager.insertUTXOs(this.height, transactionData));
+        this.allTransactions.push(...transactionData);
 
         vmManager.saveTransactions(this.height, transactionData);
 
@@ -728,7 +729,7 @@ export class Block extends Logger {
             }
 
             vmManager.saveTransactions(this.height, transactionData);
-            await vmManager.insertUTXOs(this.height, transactionData);
+            this.allTransactions.push(...transactionData);
 
             if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
                 this.success(
