@@ -87,6 +87,11 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public abstract saveTransactions(
         blockHeight: bigint,
         transaction: ITransactionDocument<OPNetTransactionTypes>[],
+    ): void;
+
+    public abstract insertUTXOs(
+        blockHeight: bigint,
+        transaction: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void>;
 
     public abstract getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined>;

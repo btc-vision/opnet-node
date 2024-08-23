@@ -13,23 +13,19 @@ import {
 } from 'mongodb';
 import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import {
-    BalanceOfAggregation,
-    BalanceOfOutputTransactionFromDB,
-} from '../../vm/storage/databases/aggregation/BalanceOfAggregation.js';
-import {
-    UTXOsAggregation,
-    UTXOSOutputTransactionFromDB,
-} from '../../vm/storage/databases/aggregation/UTXOsAggregation.js';
+import { BalanceOfOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/BalanceOfAggregation.js';
+import { UTXOSOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/UTXOsAggregation.js';
 import { ITransactionDocument, TransactionDocument } from '../interfaces/ITransactionDocument.js';
+import { UTXOsAggregationV2 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
+import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 
 export class TransactionRepository extends BaseRepository<
     ITransactionDocument<OPNetTransactionTypes>
 > {
     public readonly logColor: string = '#afeeee';
 
-    private readonly uxtosAggregation: UTXOsAggregation = new UTXOsAggregation();
-    private readonly balanceOfAggregation: BalanceOfAggregation = new BalanceOfAggregation();
+    private readonly uxtosAggregation: UTXOsAggregationV2 = new UTXOsAggregationV2();
+    private readonly balanceOfAggregation: BalanceOfAggregationV2 = new BalanceOfAggregationV2();
 
     constructor(db: Db) {
         super(db);
@@ -43,10 +39,11 @@ export class TransactionRepository extends BaseRepository<
             blockHeight: { $gte: DataConverter.toDecimal128(blockHeight) },
         };
 
-        await this.delete(criteria, currentSession);
+        const promises: Promise<unknown>[] = [this.delete(criteria, currentSession)];
+
+        await Promise.all(promises);
     }
 
-    /** Save block headers */
     public async saveTransaction(
         transactionData: ITransactionDocument<OPNetTransactionTypes>,
         currentSession?: ClientSession,
@@ -57,7 +54,11 @@ export class TransactionRepository extends BaseRepository<
             blockHeight: transactionData.blockHeight,
         };
 
-        await this.updatePartial(criteria, transactionData, currentSession);
+        const promises: Promise<unknown>[] = [
+            this.updatePartial(criteria, transactionData, currentSession),
+        ];
+
+        await Promise.all(promises);
     }
 
     public async saveTransactions(
@@ -79,7 +80,9 @@ export class TransactionRepository extends BaseRepository<
             };
         });
 
-        await this.bulkWrite(bulkWriteOperations, currentSession);
+        const promises: Promise<unknown>[] = [this.bulkWrite(bulkWriteOperations, currentSession)];
+
+        await Promise.all(promises);
     }
 
     public async getTransactionsByBlockHash(

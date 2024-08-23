@@ -75,7 +75,7 @@ export class Block extends Logger {
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
 
-    private saveGenericTransactionPromise: Promise<void> | undefined;
+    //private saveGenericTransactionPromise: Promise<void> | undefined;
 
     constructor(
         protected readonly rawBlockData: BlockDataWithTransactionData,
@@ -266,7 +266,7 @@ export class Block extends Logger {
         await vmManager.prepareBlock(this.height);
 
         try {
-            this.saveGenericTransactionPromise = this.saveGenericTransactions(vmManager);
+            await this.saveGenericTransactions(vmManager);
 
             const timeBeforeExecution = Date.now();
 
@@ -299,7 +299,7 @@ export class Block extends Logger {
             return true;
         } catch (e) {
             // We must wait for this resolve before reverting.
-            await this.saveGenericTransactionPromise;
+            //await this.saveGenericTransactionPromise;
 
             const error: Error = e as Error;
             this.error(`[execute] Something went wrong while executing the block: ${error.stack}`);
@@ -316,7 +316,7 @@ export class Block extends Logger {
             await this.saveOPNetTransactions(vmManager);
 
             // We must wait for the generic transactions to be saved before finalizing the block
-            await this.saveGenericTransactionPromise;
+            //await this.saveGenericTransactionPromise;
 
             await vmManager.saveBlock(this);
             await vmManager.terminateBlock();
@@ -709,7 +709,9 @@ export class Block extends Logger {
             promises.push(vmStorage.saveCompromisedTransactions(compromisedTransactions));
         }
 
-        promises.push(vmManager.saveTransactions(this.height, transactionData));
+        promises.push(vmManager.insertUTXOs(this.height, transactionData));
+
+        vmManager.saveTransactions(this.height, transactionData);
 
         await Promise.all(promises);
 
@@ -725,7 +727,8 @@ export class Block extends Logger {
                 transactionData.push(transaction.toDocument());
             }
 
-            await vmManager.saveTransactions(this.height, transactionData);
+            vmManager.saveTransactions(this.height, transactionData);
+            await vmManager.insertUTXOs(this.height, transactionData);
 
             if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
                 this.success(

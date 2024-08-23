@@ -47,6 +47,7 @@ import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/transaction';
 import bitcoin from 'bitcoinjs-lib';
 import { NetworkConverter } from '../config/NetworkConverter.js';
+import { contractManager } from './isolated/LoaderV2.js';
 
 Globals.register();
 
@@ -114,7 +115,17 @@ export class VMManager extends Logger {
         await this.clear();
     }
 
+    public purgeAllContractInstances(): void {
+        try {
+            contractManager.destroyAll();
+        } catch (e) {
+            this.panic(`Error purging contract instances: ${e}`);
+        }
+    }
+
     public async prepareBlock(blockId: bigint): Promise<void> {
+        this.purgeAllContractInstances();
+
         if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Preparing block ${blockId}...`);
         }
@@ -150,15 +161,22 @@ export class VMManager extends Logger {
         await this.clear();
     }
 
-    public async saveTransactions(
+    public saveTransactions(
         blockHeight: bigint,
         transaction: ITransactionDocument<OPNetTransactionTypes>[],
-    ): Promise<void> {
+    ): void {
         if (this.vmBitcoinBlock.height !== blockHeight) {
             throw new Error('Block height mismatch');
         }
 
-        await this.vmStorage.saveTransactions(blockHeight, transaction);
+        this.vmStorage.saveTransactions(blockHeight, transaction);
+    }
+
+    public insertUTXOs(
+        blockHeight: bigint,
+        transaction: ITransactionDocument<OPNetTransactionTypes>[],
+    ): Promise<void> {
+        return this.vmStorage.insertUTXOs(blockHeight, transaction);
     }
 
     public busy(): boolean {

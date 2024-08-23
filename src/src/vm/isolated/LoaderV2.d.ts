@@ -2,6 +2,7 @@ import {
     AbortDataResponse,
     BitcoinNetworkRequest,
     CallResponse,
+    ContractManager,
     ThreadSafeJsImportResponse,
 } from '@btc-vision/bsi-wasmer-vm';
 
@@ -18,6 +19,8 @@ export interface ContractParameters {
     //readonly encodeAddress: (data: Buffer) => Promise<Buffer | Uint8Array>;
     readonly log: (data: Buffer) => void;
 }
+
+export const contractManager: ContractManager;
 
 export class Contract {
     constructor(bytecode: Buffer, maxGas: bigint, network: BitcoinNetworkRequest, storageLoadJsFunction: (_: never, result: Array<number>) => Promise<ThreadSafeJsImportResponse>, storageStoreJsFunction: (_: never, result: Array<number>) => Promise<ThreadSafeJsImportResponse>, callOtherContractJsFunction: (_: never, result: Array<number>) => Promise<ThreadSafeJsImportResponse>, deployFromAddressJsFunction: (_: never, result: Array<number>) => Promise<ThreadSafeJsImportResponse>, consoleLogJsFunction: (_: never, result: Array<number>) => Promise<ThreadSafeJsImportResponse>)

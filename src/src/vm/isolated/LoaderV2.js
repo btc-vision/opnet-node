@@ -1,6 +1,6 @@
 import { ContractManager } from '@btc-vision/bsi-wasmer-vm';
 
-const contractManager = new ContractManager();
+export const contractManager = new ContractManager();
 
 /**
  * Load the Rust contract

@@ -23,6 +23,7 @@ import { IndexedVaults } from './required/IndexedVaults.js';
 import { IndexedPendingWbtcUtxo } from './required/IndexedPendingWbtcUtxo.js';
 import { IndexedUsedWbtcUtxo } from './required/IndexedUsedWbtcUtxo.js';
 import { IndexedCompromisedTransactions } from './required/IndexedCompromisedTransactions.js';
+import { IndexedUnspentTransactions } from './required/IndexedUnspentTransactions.js';
 
 /** This class job is to create the required indexes for the database */
 export class IndexManager extends Logger {
@@ -42,6 +43,7 @@ export class IndexManager extends Logger {
         new IndexedPendingWbtcUtxo(),
         new IndexedUsedWbtcUtxo(),
         new IndexedCompromisedTransactions(),
+        new IndexedUnspentTransactions(),
     ];
 
     constructor(private readonly opnetDB: ConfigurableDBManager) {

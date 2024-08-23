@@ -12,6 +12,8 @@ export interface IndexerConfig {
 
     readonly STORAGE_TYPE: IndexerStorageType;
     readonly READONLY_MODE: boolean;
+
+    readonly PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: number;
 }
 
 export interface ZeroMQTopicConfig {

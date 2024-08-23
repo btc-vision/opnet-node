@@ -38,6 +38,7 @@ import { CompromisedTransactionRepository } from '../../../db/repositories/Compr
 import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 import { UsedWbtcUxtoRepository } from '../../../db/repositories/UsedWbtcUxtoRepository.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
+import { UnspentTransactionRepository } from '../../../db/repositories/UnspentTransactionRepository.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -52,6 +53,7 @@ export class VMMongoStorage extends VMStorage {
     private contractRepository: ContractRepository | undefined;
     private blockRepository: BlockRepository | undefined;
     private transactionRepository: TransactionRepository | undefined;
+    private unspentTransactionRepository: UnspentTransactionRepository | undefined;
     private blockchainInfoRepository: BlockchainInformationRepository | undefined;
     private reorgRepository: ReorgsRepository | undefined;
     private blockWitnessRepository: BlockWitnessRepository | undefined;
@@ -94,6 +96,10 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
 
+        if (!this.unspentTransactionRepository) {
+            throw new Error('Unspent transaction repository not initialized');
+        }
+
         if (!this.contractRepository) {
             throw new Error('Contract repository not initialized');
         }
@@ -130,6 +136,7 @@ export class VMMongoStorage extends VMStorage {
 
         const promises: Promise<void>[] = [
             this.transactionRepository.deleteTransactionsFromBlockHeight(blockId),
+            this.unspentTransactionRepository.deleteTransactionsFromBlockHeight(blockId),
             this.contractRepository.deleteContractsFromBlockHeight(blockId),
             this.pointerRepository.deletePointerFromBlockHeight(blockId),
             this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
@@ -217,6 +224,9 @@ export class VMMongoStorage extends VMStorage {
         this.contractRepository = new ContractRepository(this.databaseManager.db);
         this.blockRepository = new BlockRepository(this.databaseManager.db);
         this.transactionRepository = new TransactionRepository(this.databaseManager.db);
+        this.unspentTransactionRepository = new UnspentTransactionRepository(
+            this.databaseManager.db,
+        );
 
         this.blockchainInfoRepository = new BlockchainInformationRepository(
             this.databaseManager.db,
@@ -477,15 +487,34 @@ export class VMMongoStorage extends VMStorage {
         await this.transactionRepository.saveTransaction(transaction, this.transactionSession);
     }
 
-    public async saveTransactions(
+    public async insertUTXOs(
         blockHeight: bigint,
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void> {
-        if (!this.transactionRepository) {
+        if (!this.unspentTransactionRepository) {
             throw new Error('Transaction repository not initialized');
         }
 
-        if (!this.transactionSession) {
+        if (!this.currentSession) {
+            throw new Error('Session not started');
+        }
+
+        await this.unspentTransactionRepository.insertTransactions(
+            blockHeight,
+            transactions,
+            this.currentSession,
+        );
+    }
+
+    public saveTransactions(
+        blockHeight: bigint,
+        transactions: ITransactionDocument<OPNetTransactionTypes>[],
+    ): void {
+        if (!this.transactionRepository || !this.unspentTransactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        if (!this.transactionSession || !this.currentSession) {
             throw new Error('Session not started');
         }
 
@@ -493,6 +522,7 @@ export class VMMongoStorage extends VMStorage {
             transactions,
             this.transactionSession,
         );
+
         const data = this.writeTransactions.get(blockHeight) || [];
         data.push(promise);
 

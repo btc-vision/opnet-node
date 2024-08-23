@@ -14,6 +14,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             STORAGE_TYPE: IndexerStorageType.MONGODB,
             ALLOW_PURGE: true,
             READONLY_MODE: false,
+            PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
         },
 
         ZERO_MQ: {},
@@ -152,6 +153,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 parsedConfig.INDEXER.READONLY_MODE !== undefined
             ) {
                 throw new Error(`Oops the property INDEXER.READONLY_MODE is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS !== undefined &&
+                typeof parsedConfig.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS is not a number.`,
+                );
             }
         }
 
