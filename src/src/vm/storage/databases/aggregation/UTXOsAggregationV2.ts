@@ -1,6 +1,14 @@
 import { Address } from '@btc-vision/bsi-binary';
 import { Document, Long } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
+import { ShortScriptPubKey } from '../../../../db/interfaces/IUnspentTransaction.js';
+
+export interface UTXOSOutputTransactionFromDBV2 {
+    readonly transactionId: string;
+    readonly outputIndex: number;
+    readonly value: Long;
+    readonly scriptPubKey: ShortScriptPubKey;
+}
 
 export class UTXOsAggregationV2 extends Aggregation {
     constructor() {

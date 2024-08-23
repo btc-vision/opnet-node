@@ -25,8 +25,10 @@ import { Address } from '@btc-vision/bsi-binary';
 import { BalanceOfOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/BalanceOfAggregation.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
-import { UTXOSOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/UTXOsAggregation.js';
-import { UTXOsAggregationV2 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
+import {
+    UTXOsAggregationV2,
+    UTXOSOutputTransactionFromDBV2,
+} from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 
 export class UnspentTransactionRepository extends BaseRepository<IUnspentTransaction> {
@@ -201,6 +203,10 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         return DataConverter.fromDecimal128(balance);
     }
 
+    public longToBigInt(long: Long): bigint {
+        return long.toBigInt();
+    }
+
     public async getWalletUnspentUTXOS(
         wallet: Address,
         optimize: boolean = false,
@@ -218,19 +224,24 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         options.allowDiskUse = true;
 
         try {
-            const aggregatedDocument = collection.aggregate<UTXOSOutputTransactionFromDB>(
+            const aggregatedDocument = collection.aggregate<UTXOSOutputTransactionFromDBV2>(
                 aggregation,
                 options,
             );
 
-            const results: UTXOSOutputTransactionFromDB[] = await aggregatedDocument.toArray();
+            const results: UTXOSOutputTransactionFromDBV2[] = await aggregatedDocument.toArray();
 
             return results.map((result) => {
                 return {
                     transactionId: result.transactionId,
                     outputIndex: result.outputIndex,
-                    value: DataConverter.fromDecimal128(result.value),
-                    scriptPubKey: result.scriptPubKey,
+                    value: this.longToBigInt(result.value),
+                    scriptPubKey: {
+                        hex: result.scriptPubKey.hex.toString('hex'),
+                        address: result.scriptPubKey.address
+                            ? result.scriptPubKey.address
+                            : undefined,
+                    },
                 };
             });
         } catch (e) {
