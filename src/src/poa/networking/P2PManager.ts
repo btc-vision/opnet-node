@@ -921,8 +921,6 @@ export class P2PManager extends Logger {
                     'Peer did not acknowledge the message.',
                 );
             }
-
-            await connection.close().catch(() => {});
         } catch (e) {
             const error = e as Error;
 
@@ -934,6 +932,8 @@ export class P2PManager extends Logger {
 
             connection.abort(new Error(`Unexpected message received.`));
         }
+
+        await connection.close().catch(() => {});
     }
 
     private getConnectionGater(): ConnectionGater {
