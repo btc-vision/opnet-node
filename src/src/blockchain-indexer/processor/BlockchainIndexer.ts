@@ -669,7 +669,7 @@ export class BlockchainIndexer extends Logger {
         const block: Block = new Block(blockData, this.bitcoinNetwork);
 
         // Deserialize the block.
-        await block.deserialize(chosenManager);
+        block.deserialize();
 
         // Execute the block and save the changes.
         const success = await block.execute(chosenManager, chosenSpecialManager);

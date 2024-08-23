@@ -223,7 +223,7 @@ export class Block extends Logger {
     }
 
     /** Block Processing */
-    public async deserialize(vmManager: VMManager): Promise<void> {
+    public deserialize(): void {
         this.ensureNotProcessed();
 
         // First, we have to create transaction object corresponding to the transactions types in the block
@@ -237,10 +237,6 @@ export class Block extends Logger {
 
         // Then, we can sort the transactions by their priority
         this.transactions = this.transactionSorter.sortTransactions(this.transactions);
-        await vmManager.insertUTXOs(
-            this.height,
-            this.transactions.map((t) => t.toBitcoinDocument()),
-        );
 
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.info(
@@ -268,6 +264,11 @@ export class Block extends Logger {
         await vmManager.prepareBlock(this.height);
 
         try {
+            await vmManager.insertUTXOs(
+                this.height,
+                this.transactions.map((t) => t.toBitcoinDocument()),
+            );
+
             await this.saveGenericTransactions(vmManager);
 
             const timeBeforeExecution = Date.now();
