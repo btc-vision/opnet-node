@@ -4,7 +4,11 @@ import { Network, opcodes, script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
 import { Binary } from 'mongodb';
 import * as zlib from 'zlib';
-import { TransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
+import {
+    ITransactionDocumentBasic,
+    TransactionDocument,
+    TransactionDocumentBasic,
+} from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
@@ -298,6 +302,23 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             height: this.blockHeight,
 
             compromisedAuthorities: this.vaultInputs,
+        };
+    }
+
+    public toBitcoinDocument(): ITransactionDocumentBasic<T> {
+        const outputDocuments = this.outputs.map((output) => output.toDocument());
+
+        return {
+            id: this.transactionId,
+            hash: this.hash,
+            blockHeight: DataConverter.toDecimal128(this.blockHeight),
+
+            index: this.index,
+
+            inputs: this.inputs,
+            outputs: outputDocuments,
+
+            OPNetType: this.transactionType,
         };
     }
 

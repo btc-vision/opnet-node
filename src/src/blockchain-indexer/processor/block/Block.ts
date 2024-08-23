@@ -75,9 +75,6 @@ export class Block extends Logger {
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
 
-    //private saveGenericTransactionPromise: Promise<void> | undefined;
-    private allTransactions: TransactionDocument<OPNetTransactionTypes>[] = [];
-
     constructor(
         protected readonly rawBlockData: BlockDataWithTransactionData,
         protected readonly network: bitcoin.networks.Network,
@@ -226,7 +223,7 @@ export class Block extends Logger {
     }
 
     /** Block Processing */
-    public deserialize(): void {
+    public async deserialize(vmManager: VMManager): Promise<void> {
         this.ensureNotProcessed();
 
         // First, we have to create transaction object corresponding to the transactions types in the block
@@ -240,6 +237,10 @@ export class Block extends Logger {
 
         // Then, we can sort the transactions by their priority
         this.transactions = this.transactionSorter.sortTransactions(this.transactions);
+        await vmManager.insertUTXOs(
+            this.height,
+            this.transactions.map((t) => t.toBitcoinDocument()),
+        );
 
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.info(
@@ -312,9 +313,6 @@ export class Block extends Logger {
         try {
             // And finally, we can save the transactions
             await this.saveOPNetTransactions(vmManager);
-
-            await vmManager.insertUTXOs(this.height, this.allTransactions);
-            this.allTransactions = []; // clear.
 
             // We must wait for the generic transactions to be saved before finalizing the block
             //await this.saveGenericTransactionPromise;
@@ -690,7 +688,7 @@ export class Block extends Logger {
 
         let promises: Promise<void>[] = [];
         if (usedUTXOs.length) {
-            promises.push(vmStorage.setSpentWBTC_UTXOs(usedUTXOs, this.height));
+            promises.push(vmStorage.setSpentWBTCUTXOs(usedUTXOs, this.height));
         }
 
         if (consolidatedUTXOs.length) {
@@ -710,8 +708,6 @@ export class Block extends Logger {
             promises.push(vmStorage.saveCompromisedTransactions(compromisedTransactions));
         }
 
-        this.allTransactions.push(...transactionData);
-
         vmManager.saveTransactions(this.height, transactionData);
 
         await Promise.all(promises);
@@ -729,7 +725,6 @@ export class Block extends Logger {
             }
 
             vmManager.saveTransactions(this.height, transactionData);
-            this.allTransactions.push(...transactionData);
 
             if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
                 this.success(

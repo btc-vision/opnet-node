@@ -10,7 +10,10 @@ import {
     BlockHeaderBlockDocument,
 } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
-import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
+import {
+    ITransactionDocument,
+    ITransactionDocumentBasic,
+} from '../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocument.js';
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
@@ -91,7 +94,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
 
     public abstract insertUTXOs(
         blockHeight: bigint,
-        transaction: ITransactionDocument<OPNetTransactionTypes>[],
+        transaction: ITransactionDocumentBasic<OPNetTransactionTypes>[],
     ): Promise<void>;
 
     public abstract getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined>;
@@ -158,7 +161,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         compromisedTransactions: ICompromisedTransactionDocument[],
     ): Promise<void>;
 
-    public abstract setSpentWBTC_UTXOs(utxos: UsedUTXOToDelete[], height: bigint): Promise<void>;
+    public abstract setSpentWBTCUTXOs(utxos: UsedUTXOToDelete[], height: bigint): Promise<void>;
 
     public abstract deleteOldUTXOs(height: bigint): Promise<void>;
 

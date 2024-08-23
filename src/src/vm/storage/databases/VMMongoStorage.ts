@@ -14,7 +14,10 @@ import {
     IBlockHeaderBlockDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../../db/interfaces/IReorgDocument.js';
-import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
+import {
+    ITransactionDocument,
+    ITransactionDocumentBasic,
+} from '../../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockchainInformationRepository } from '../../../db/repositories/BlockchainInformationRepository.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
@@ -489,7 +492,7 @@ export class VMMongoStorage extends VMStorage {
 
     public async insertUTXOs(
         blockHeight: bigint,
-        transactions: ITransactionDocument<OPNetTransactionTypes>[],
+        transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
     ): Promise<void> {
         if (!this.unspentTransactionRepository) {
             throw new Error('Transaction repository not initialized');
@@ -719,7 +722,7 @@ export class VMMongoStorage extends VMStorage {
         );
     }
 
-    public async setSpentWBTC_UTXOs(utxos: UsedUTXOToDelete[], height: bigint): Promise<void> {
+    public async setSpentWBTCUTXOs(utxos: UsedUTXOToDelete[], height: bigint): Promise<void> {
         if (!this.currentSession) {
             throw new Error('Current session not started');
         }

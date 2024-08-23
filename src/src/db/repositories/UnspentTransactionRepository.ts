@@ -17,7 +17,7 @@ import {
     UpdateOptions,
 } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { ITransactionDocument } from '../interfaces/ITransactionDocument.js';
+import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
@@ -100,7 +100,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
     public async insertTransactions(
         blockHeight: bigint,
-        transactions: ITransactionDocument<OPNetTransactionTypes>[],
+        transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
         currentSession?: ClientSession,
     ): Promise<void> {
         const start = Date.now();
@@ -253,7 +253,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
     // Transactions to delete
     private convertSpentTransactions(
-        transactions: ITransactionDocument<OPNetTransactionTypes>[],
+        transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
     ): ISpentTransaction[] {
         return transactions.flatMap((transaction) => {
             return transaction.inputs
@@ -272,7 +272,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
     }
 
     private convertToUnspentTransactions(
-        transactions: ITransactionDocument<OPNetTransactionTypes>[],
+        transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
         spentTransactions: ISpentTransaction[],
     ): IUnspentTransaction[] {
         return transactions.flatMap((transaction) => {
