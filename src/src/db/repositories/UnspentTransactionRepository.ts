@@ -203,10 +203,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         return DataConverter.fromDecimal128(balance);
     }
 
-    public longToBigInt(long: Long): bigint {
-        return long.toBigInt();
-    }
-
     public async getWalletUnspentUTXOS(
         wallet: Address,
         optimize: boolean = false,
@@ -282,7 +278,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         return transactions.flatMap((transaction) => {
             return transaction.outputs
                 .map((output) => {
-                    if (
+                    /*if (
                         spentTransactions.some(
                             (spent) =>
                                 spent.transactionId === transaction.id &&
@@ -293,7 +289,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                             `Skipping spent output: ${transaction.id}:${output.index}. This output was spent in the same block!`,
                         );
                         return null;
-                    }
+                    }*/
 
                     if (
                         (typeof output.value === 'string' && output.value === '0') ||
