@@ -212,6 +212,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             true,
             optimize,
         );
+
         const collection = this.getCollection();
         const options = this.getOptions(currentSession) as AggregateOptions;
         options.allowDiskUse = true;

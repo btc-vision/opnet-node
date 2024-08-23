@@ -18,7 +18,9 @@ export class UTXOsAggregationV2 extends Aggregation {
             {
                 $match: {
                     'outputs.scriptPubKey.address': wallet,
-                    value: Long.fromValue(minValue),
+                    value: {
+                        $gte: Long.fromValue(minValue),
+                    },
                 },
             },
         ];
