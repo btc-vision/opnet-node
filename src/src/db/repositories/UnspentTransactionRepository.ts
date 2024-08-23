@@ -235,7 +235,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                 return {
                     transactionId: result.transactionId,
                     outputIndex: result.outputIndex,
-                    value: this.longToBigInt(result.value),
+                    value: DataConverter.fromDecimal128(result.value),
                     scriptPubKey: {
                         hex: result.scriptPubKey.hex.toString('hex'),
                         address: result.scriptPubKey.address

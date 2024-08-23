@@ -1,12 +1,12 @@
 import { Address } from '@btc-vision/bsi-binary';
-import { Document, Long } from 'mongodb';
+import { Decimal128, Document, Long } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 import { ShortScriptPubKey } from '../../../../db/interfaces/IUnspentTransaction.js';
 
 export interface UTXOSOutputTransactionFromDBV2 {
     readonly transactionId: string;
     readonly outputIndex: number;
-    readonly value: Long;
+    readonly value: Decimal128;
     readonly scriptPubKey: ShortScriptPubKey;
 }
 
