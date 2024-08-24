@@ -111,26 +111,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             convertedSpentTransactions,
         );
 
-        const bulkWriteOperations = convertedUnspentTransactions.map((transaction) => {
-            return {
-                updateOne: {
-                    filter: {
-                        transactionId: transaction.transactionId,
-                        outputIndex: transaction.outputIndex,
-                        blockHeight: transaction.blockHeight,
-                    },
-                    update: {
-                        $set: transaction,
-                    },
-                    upsert: true,
-                },
-            };
-        });
-
-        if (bulkWriteOperations.length) {
-            await this.bulkWrite(bulkWriteOperations, currentSession);
-        }
-
         const currentBlockHeight = this.bigIntToLong(blockHeight);
         const bulkDeleteOperations = convertedSpentTransactions.map((transaction) => {
             return {
@@ -151,8 +131,25 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             };
         });
 
-        if (bulkDeleteOperations.length) {
-            await this.bulkWrite(bulkDeleteOperations, currentSession);
+        const bulkWriteOperations = convertedUnspentTransactions.map((transaction) => {
+            return {
+                updateOne: {
+                    filter: {
+                        transactionId: transaction.transactionId,
+                        outputIndex: transaction.outputIndex,
+                        blockHeight: transaction.blockHeight,
+                    },
+                    update: {
+                        $set: transaction,
+                    },
+                    upsert: true,
+                },
+            };
+        });
+
+        const operations = [...bulkWriteOperations, ...bulkDeleteOperations];
+        if (bulkWriteOperations.length) {
+            await this.bulkWrite(operations, currentSession);
         }
 
         if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
