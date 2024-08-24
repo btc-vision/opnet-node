@@ -286,9 +286,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                                 spent.outputIndex === output.index,
                         )
                     ) {
-                        this.log(
-                            `Skipping spent output: ${transaction.id}:${output.index}. This output was spent in the same block!`,
-                        );
                         return null;
                     }
 
