@@ -116,6 +116,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                 updateOne: {
                     filter: {
                         transactionId: transaction.transactionId,
+                        outputIndex: transaction.outputIndex,
                         blockHeight: transaction.blockHeight,
                     },
                     update: {

@@ -50,7 +50,7 @@ export class BlockchainIndexer extends Logger {
     private readonly vmStorage: VMStorage;
     private readonly specialTransactionManager: SpecialManager;
 
-    private readonly processOnlyOneBlock: boolean = false;
+    private readonly processOnlyOneBlock: boolean = Config.DEV.PROCESS_ONLY_ONE_BLOCK;
 
     private readonly maximumPrefetchBlocks: number;
     private readonly prefetchedBlocks: Map<number, Promise<BlockDataWithTransactionData | null>> =

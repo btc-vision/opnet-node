@@ -112,8 +112,14 @@ export interface APIExtendedConfigurations extends APIConfig {
     readonly MAXIMUM_PENDING_CALL_REQUESTS: number; // Maximum number of pending call requests
 }
 
+export interface DevConfig {
+    readonly PROCESS_ONLY_ONE_BLOCK: boolean;
+}
+
 export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     DEV_MODE: boolean;
+
+    DEV: DevConfig;
 
     INDEXER: IndexerConfig;
     ZERO_MQ: ZeroMQConfig;

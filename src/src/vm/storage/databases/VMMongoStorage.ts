@@ -42,6 +42,7 @@ import { ICompromisedTransactionDocument } from '../../../db/interfaces/Compromi
 import { UsedWbtcUxtoRepository } from '../../../db/repositories/UsedWbtcUxtoRepository.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { UnspentTransactionRepository } from '../../../db/repositories/UnspentTransactionRepository.js';
+import { Config } from '../../../config/Config.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -135,23 +136,64 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Used UTXO repository not initialized');
         }
 
+        await this.killAllSessions();
+
         await this.updateBlockchainInfo(Number(blockId));
 
-        const promises: Promise<void>[] = [
-            this.transactionRepository.deleteTransactionsFromBlockHeight(blockId),
-            this.unspentTransactionRepository.deleteTransactionsFromBlockHeight(blockId),
-            this.contractRepository.deleteContractsFromBlockHeight(blockId),
-            this.pointerRepository.deletePointerFromBlockHeight(blockId),
-            this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
-            this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId),
-            this.reorgRepository.deleteReorgs(blockId),
-            this.vaultRepository.deleteVaultsSeenAfter(blockId),
-            this.wbtcUTXORepository.deleteWBTCUTXOs(blockId),
-            this.compromisedTransactionRepository.deleteCompromisedTransactions(blockId),
-            this.usedUTXOsRepository.deleteOldUsedUtxos(blockId),
-        ];
+        if (Config.DEV_MODE) {
+            this.info(`Purging data until block ${blockId}`);
 
-        await Promise.all(promises);
+            this.log(`Purging transactions...`);
+            await this.transactionRepository.deleteTransactionsFromBlockHeight(blockId);
+
+            this.log(`Purging unspent transactions...`);
+            await this.unspentTransactionRepository.deleteTransactionsFromBlockHeight(blockId);
+
+            this.log(`Purging contracts...`);
+            await this.contractRepository.deleteContractsFromBlockHeight(blockId);
+
+            this.log(`Purging pointers...`);
+            await this.pointerRepository.deletePointerFromBlockHeight(blockId);
+
+            this.log(`Purging block headers...`);
+            await this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId);
+
+            this.log(`Purging block witnesses...`);
+            await this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId);
+
+            this.log(`Purging reorgs...`);
+            await this.reorgRepository.deleteReorgs(blockId);
+
+            this.log(`Purging vaults...`);
+            await this.vaultRepository.deleteVaultsSeenAfter(blockId);
+
+            this.log(`Purging WBTC UTXOs...`);
+            await this.wbtcUTXORepository.deleteWBTCUTXOs(blockId);
+
+            this.log(`Purging compromised transactions...`);
+            await this.compromisedTransactionRepository.deleteCompromisedTransactions(blockId);
+
+            this.log(`Purging used UTXOs...`);
+            await this.usedUTXOsRepository.deleteOldUsedUtxos(blockId);
+
+            this.info(`Data purged until block ${blockId}`);
+        } else {
+            const promises: Promise<void>[] = [
+                this.transactionRepository.deleteTransactionsFromBlockHeight(blockId),
+                this.unspentTransactionRepository.deleteTransactionsFromBlockHeight(blockId),
+                this.contractRepository.deleteContractsFromBlockHeight(blockId),
+                this.pointerRepository.deletePointerFromBlockHeight(blockId),
+                this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
+                this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId),
+                this.reorgRepository.deleteReorgs(blockId),
+                this.vaultRepository.deleteVaultsSeenAfter(blockId),
+                this.wbtcUTXORepository.deleteWBTCUTXOs(blockId),
+                this.compromisedTransactionRepository.deleteCompromisedTransactions(blockId),
+                this.usedUTXOsRepository.deleteOldUsedUtxos(blockId),
+            ];
+
+            await Promise.all(promises);
+        }
     }
 
     public async deleteUsedUtxos(UTXOs: UsedUTXOToDelete[]): Promise<void> {
@@ -763,6 +805,18 @@ export class VMMongoStorage extends VMStorage {
         }
 
         return await this.unspentTransactionRepository.getBalanceOf(address, filterOrdinals);
+    }
+
+    private async killAllSessions(): Promise<void> {
+        this.info('Killing all sessions');
+
+        if (!this.databaseManager.db) {
+            throw new Error('Database not connected');
+        }
+
+        await this.databaseManager.db.command({ killAllSessions: [] }).catch((error) => {
+            this.panic(`Error killing all sessions: ${error}`);
+        });
     }
 
     private async fakeWaitCommit(

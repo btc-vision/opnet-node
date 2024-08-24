@@ -1,6 +1,7 @@
 import { ConfigBase, IConfig } from '@btc-vision/bsi-common';
 import {
     APIExtendedConfigurations,
+    DevConfig,
     IBtcIndexerConfig,
     IndexerConfig,
     MempoolConfig,
@@ -27,10 +28,14 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
     public readonly API: APIExtendedConfigurations;
 
     public readonly MEMPOOL: MempoolConfig;
+
+    public readonly DEV: DevConfig;
     public readonly DEV_MODE: boolean = false;
 
     constructor(config: IConfig<IBtcIndexerConfig>) {
         super(config);
+
+        this.DEV = config.DEV;
 
         this.INDEXER = config.INDEXER;
         this.ZERO_MQ = config.ZERO_MQ;

@@ -19,6 +19,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         ZERO_MQ: {},
+        
+        DEV: {
+            PROCESS_ONLY_ONE_BLOCK: false,
+        },
 
         P2P: {
             IS_BOOTSTRAP_NODE: false,
@@ -519,6 +523,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 );
             }
         }
+
+        if (parsedConfig.DEV) {
+            if (
+                parsedConfig.DEV.PROCESS_ONLY_ONE_BLOCK !== undefined &&
+                typeof parsedConfig.DEV.PROCESS_ONLY_ONE_BLOCK !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.PROCESS_ONLY_ONE_BLOCK is not a boolean.`);
+            }
+        }
     }
 
     protected override parsePartialConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
@@ -581,6 +594,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         this.config.API = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['API']>(
             parsedConfig.API,
             defaultConfigs.API,
+        );
+
+        this.config.DEV = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['DEV']>(
+            parsedConfig.DEV,
+            defaultConfigs.DEV,
         );
     }
 
