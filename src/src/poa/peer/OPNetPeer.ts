@@ -194,8 +194,6 @@ export class OPNetPeer extends Logger {
     };
 
     public async onDisconnect(): Promise<void> {
-        this.log(`Peer ${this.peerId} disconnected.`);
-
         await this.destroy(true);
     }
 
@@ -262,7 +260,10 @@ export class OPNetPeer extends Logger {
 
         this.isClientAuthenticated = false;
 
-        this.debug(`Disconnecting peer ${this.peerId} with code ${code} and reason ${reason}.`);
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.debug(`Disconnecting peer ${this.peerId} with code ${code} and reason ${reason}.`);
+        }
+
         await this.disconnectPeer(this.peerId, code, reason);
     }
 

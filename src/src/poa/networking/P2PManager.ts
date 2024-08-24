@@ -62,6 +62,7 @@ import { AuthorityManager } from '../configurations/manager/AuthorityManager.js'
 import { xxHash } from '../hashing/xxhash.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { Components } from 'libp2p/components.js';
+import { Config } from '../../config/Config.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -74,6 +75,7 @@ export interface OPNetConnectionInfo {
 interface BlacklistedPeerInfo {
     reason: DisconnectionCode;
     timestamp: number;
+    attempts: number;
 }
 
 export class P2PManager extends Logger {
@@ -116,21 +118,6 @@ export class P2PManager extends Logger {
 
             this.purgeOldBlacklistedPeers();
         }, 10000);
-    }
-
-    private purgeOldBlacklistedPeers(): void {
-        const now = Date.now();
-        for (const [peerId, info] of this.blackListedPeerIds) {
-            if (now - info.timestamp > this.PURGE_BLACKLISTED_PEER_AFTER) {
-                this.blackListedPeerIds.delete(peerId);
-            }
-        }
-
-        for (const [peerId, info] of this.blackListedPeerIps) {
-            if (now - info.timestamp > this.PURGE_BLACKLISTED_PEER_AFTER) {
-                this.blackListedPeerIps.delete(peerId);
-            }
-        }
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -204,6 +191,21 @@ export class P2PManager extends Logger {
                 identifier: data.identifier,
             }),
         };
+    }
+
+    private purgeOldBlacklistedPeers(): void {
+        const now = Date.now();
+        for (const [peerId, info] of this.blackListedPeerIds) {
+            if (now - info.timestamp > this.PURGE_BLACKLISTED_PEER_AFTER) {
+                this.blackListedPeerIds.delete(peerId);
+            }
+        }
+
+        for (const [peerId, info] of this.blackListedPeerIps) {
+            if (now - info.timestamp > this.PURGE_BLACKLISTED_PEER_AFTER) {
+                this.blackListedPeerIps.delete(peerId);
+            }
+        }
     }
 
     private addConsensusHandlers(): void {
@@ -482,7 +484,7 @@ export class P2PManager extends Logger {
 
                 discovered.push(peerIdStr);
 
-                if (this.blackListedPeerIds.has(peerId.toString())) continue;
+                if (this.isBlackListedPeerId(peerIdStr)) continue;
 
                 // Is self.
                 if (this.node.peerId.equals(peerId)) continue;
@@ -582,7 +584,7 @@ export class P2PManager extends Logger {
                 if (resp && resp.started) {
                     this.info(`Indexer started successfully.`);
                 } else {
-                    throw new Error(`Failed to start indexer.`);
+                    this.fail(`Failed to start indexer.`);
                 }
             }, 3000);
         }
@@ -647,6 +649,7 @@ export class P2PManager extends Logger {
             this.blackListedPeerIds.set(peerId.toString(), {
                 reason,
                 timestamp: Date.now(),
+                attempts: 0,
             });
         }
 
@@ -750,6 +753,24 @@ export class P2PManager extends Logger {
                     this.blacklistPeerIps(peer, code);
                 }
             } catch (e) {}
+        } else if (code !== DisconnectionCode.EXPECTED) {
+            const info = this.blackListedPeerIds.get(peerId.toString()) || {
+                reason: DisconnectionCode.RECONNECT,
+                timestamp: Date.now(),
+                attempts: 0,
+            };
+
+            if (info.timestamp < Date.now() - 30000) {
+                info.attempts = 0;
+            }
+
+            info.attempts += 1;
+
+            this.info(
+                `Peer ${peerId.toString()} disconnected. Reason: ${code}. Attempts: ${info.attempts}`,
+            );
+
+            this.blackListedPeerIds.set(peerId.toString(), info);
         }
 
         this.peers.delete(peerId.toString());
@@ -770,6 +791,7 @@ export class P2PManager extends Logger {
                 this.blackListedPeerIps.set(ip, {
                     reason,
                     timestamp: Date.now(),
+                    attempts: 0,
                 });
             }
         }
@@ -926,7 +948,7 @@ export class P2PManager extends Logger {
 
             if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.error(
-                    `Error while sending message to peer ${peerId.toString()}: ${error.stack}`,
+                    `Error while sending message to peer ${peerId.toString()}: ${Config.DEV_MODE ? error.stack : error.message}`,
                 );
             }
 
@@ -951,7 +973,7 @@ export class P2PManager extends Logger {
     ): Promise<boolean> {
         const id: string = peerId.toString();
 
-        if (this.isBlackListedPeerId(peerId)) {
+        if (this.isBlackListedPeerId(peerId.toString())) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.debug(`[OUT] Peer ${id} is blacklisted. Flushing connection...`);
             }
@@ -968,7 +990,7 @@ export class P2PManager extends Logger {
     ): Promise<boolean> {
         const id: string = peerId.toString();
 
-        if (this.isBlackListedPeerId(peerId)) {
+        if (this.isBlackListedPeerId(peerId.toString())) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.debug(`[OUT] Peer ${id} is blacklisted. Flushing connection...`);
             }
@@ -979,8 +1001,14 @@ export class P2PManager extends Logger {
         return false;
     }
 
-    private isBlackListedPeerId(peerId: PeerId): boolean {
-        return this.blackListedPeerIds.has(peerId.toString());
+    private isBlackListedPeerId(peerId: string): boolean {
+        const info = this.blackListedPeerIds.get(peerId);
+
+        if (info && info.reason === DisconnectionCode.RECONNECT) {
+            return info.attempts > 3;
+        }
+
+        return info !== undefined;
     }
 
     private async denyInboundConnection(_maConn: MultiaddrConnection): Promise<boolean> {
@@ -993,7 +1021,7 @@ export class P2PManager extends Logger {
     ): Promise<boolean> {
         const id: string = peerId.toString();
 
-        if (this.isBlackListedPeerId(peerId)) {
+        if (this.isBlackListedPeerId(peerId.toString())) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                 this.debug(`Peer ${id} is blacklisted. Flushing connection...`);
             }
@@ -1019,7 +1047,7 @@ export class P2PManager extends Logger {
         const peerIdStr: string = peerId.toString();
         const ip: string = multiaddr.nodeAddress().address;
 
-        return !(this.blackListedPeerIds.has(peerIdStr) || this.blackListedPeerIps.has(ip));
+        return !(this.isBlackListedPeerId(peerIdStr) || this.blackListedPeerIps.has(ip));
     }
 
     private async createNode(): Promise<

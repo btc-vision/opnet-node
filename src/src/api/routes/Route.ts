@@ -59,7 +59,9 @@ export abstract class Route<
 
     protected handleDefaultError(res: Response, error: Error): void {
         if (Config.DEBUG_LEVEL >= DebugLevel.INFO) {
-            this.error(`Error in route ${this.routePath}: ${error.stack}`);
+            this.error(
+                `Error in route ${this.routePath}: ${Config.DEV_MODE ? error.stack : error.message}`,
+            );
         }
 
         res.status(500);

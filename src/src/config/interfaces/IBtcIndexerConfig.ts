@@ -113,6 +113,8 @@ export interface APIExtendedConfigurations extends APIConfig {
 }
 
 export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
+    DEV_MODE: boolean;
+
     INDEXER: IndexerConfig;
     ZERO_MQ: ZeroMQConfig;
     RPC: RPCConfig;

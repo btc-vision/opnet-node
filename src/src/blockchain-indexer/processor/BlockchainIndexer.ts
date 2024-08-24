@@ -200,7 +200,7 @@ export class BlockchainIndexer extends Logger {
             this.isIndexing = false;
 
             const error = e as Error;
-            this.panic(`Error processing blocks: ${error.stack}`);
+            this.panic(`Error processing blocks: ${Config.DEV_MODE ? error.stack : error.message}`);
 
             fs.appendFileSync('error.log', error.stack + '\n');
         }
@@ -733,7 +733,7 @@ export class BlockchainIndexer extends Logger {
             };
         }
 
-        await this.startAndPurgeIndexer();
+        void this.startAndPurgeIndexer();
 
         return {
             started: true,

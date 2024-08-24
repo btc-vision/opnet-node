@@ -157,7 +157,7 @@ export class ContractEvaluation implements IEvaluationParameters {
         if (extern.revert) {
             this.revert = extern.revert;
 
-            throw new Error('execution reverted');
+            throw new Error('execution reverted (merge)');
         }
 
         if (extern.contractAddress === this.contractAddress) {

@@ -743,8 +743,8 @@ export class VMManager extends Logger {
         }
 
         /** Delete the contract to prevent damage on states. */
-        let error: string = 'execution reverted';
         if (!evaluation) {
+            let error: string = 'execution reverted (evaluation)';
             throw new Error(error);
         }
 

@@ -27,6 +27,7 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
     public readonly API: APIExtendedConfigurations;
 
     public readonly MEMPOOL: MempoolConfig;
+    public readonly DEV_MODE: boolean = false;
 
     constructor(config: IConfig<IBtcIndexerConfig>) {
         super(config);
@@ -35,6 +36,8 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
         this.ZERO_MQ = config.ZERO_MQ;
         this.RPC = config.RPC;
         this.OP_NET = config.OP_NET;
+
+        this.DEV_MODE = config.DEV_MODE;
 
         this.SSH = config.SSH;
 

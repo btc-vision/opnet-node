@@ -111,7 +111,7 @@ export class JSONRpc2Manager extends Logger {
 
                 if (!message.includes('a batch request failed')) {
                     if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-                        this.error(`API Error: ${error.stack}`);
+                        this.error(`API Error: ${Config.DEV_MODE ? error.stack : error.message}`);
                     }
                 }
 

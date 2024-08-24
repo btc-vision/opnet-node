@@ -9,6 +9,7 @@ import { PeerToPeerMethod } from './interfaces/PeerToPeerMethod.js';
 
 export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerConfig>> {
     private defaultConfig: Partial<IBtcIndexerConfig> = {
+        DEV_MODE: false,
         INDEXER: {
             ENABLED: false,
             STORAGE_TYPE: IndexerStorageType.MONGODB,
@@ -126,6 +127,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
     protected override verifyConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
         super.verifyConfig(parsedConfig);
+
+        if (parsedConfig.DEV_MODE != null && typeof parsedConfig.DEV_MODE !== 'boolean') {
+            throw new Error(`Oops the property DEV_MODE is not a boolean.`);
+        }
 
         if (parsedConfig.INDEXER) {
             if (parsedConfig.INDEXER.ENABLED && typeof parsedConfig.INDEXER.ENABLED !== 'boolean') {
@@ -525,6 +530,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
     private parseConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
         const defaultConfigs = this.getDefaultConfig();
+
+        this.config.DEV_MODE = parsedConfig.DEV_MODE ?? defaultConfigs.DEV_MODE;
 
         this.config.INDEXER = this.getConfigModified<
             keyof IBtcIndexerConfig,

@@ -302,7 +302,9 @@ export class Block extends Logger {
             return true;
         } catch (e) {
             const error: Error = e as Error;
-            this.error(`[execute] Something went wrong while executing the block: ${error.stack}`);
+            this.error(
+                `[execute] Something went wrong while executing the block: ${Config.DEV_MODE ? error.stack : error.message}`,
+            );
 
             await this.revertBlock(vmManager);
 
@@ -325,7 +327,7 @@ export class Block extends Logger {
         } catch (e) {
             const error: Error = e as Error;
             this.error(
-                `[FinalizeBlock] Something went wrong while executing the block: ${error.stack}`,
+                `[FinalizeBlock] Something went wrong while executing the block: ${Config.DEV_MODE ? error.stack : error.message}`,
             );
 
             await this.revertBlock(vmManager);
@@ -377,7 +379,7 @@ export class Block extends Logger {
         } catch (e) {
             const error: Error = e as Error;
             this.error(
-                `[processBlockStates] Something went wrong while executing the block: ${error.stack}`,
+                `[processBlockStates] Something went wrong while executing the block: ${Config.DEV_MODE ? error.stack : error.message}`,
             );
 
             await this.revertBlock(vmManager);
@@ -424,7 +426,15 @@ export class Block extends Logger {
                         : new Error(transaction.receipt.revert);
 
                 if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                    this.error(`Transaction ${transaction.txid} reverted with reason: ${error}`);
+                    if (Config.DEV_MODE) {
+                        this.error(
+                            `Transaction ${transaction.txid} reverted with reason: ${error}`,
+                        );
+                    } else {
+                        this.error(
+                            `Transaction ${transaction.txid} reverted with reason: ${error.message}`,
+                        );
+                    }
                 }
 
                 transaction.revert = error;
@@ -795,8 +805,9 @@ export class Block extends Logger {
             } catch (e) {
                 if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                     const error: Error = e as Error;
+
                     this.error(
-                        `Failed to parse transaction ${rawTransactionData.txid}: ${error.stack}`,
+                        `Failed to parse transaction ${rawTransactionData.txid}: ${Config.DEV_MODE ? error.stack : error.message}`,
                     );
                 }
 
