@@ -950,7 +950,7 @@ export class P2PManager extends Logger {
         } catch (e) {
             const error = e as Error;
 
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && this.config.DEV_MODE) {
                 this.error(
                     `Error while sending message to peer ${peerId.toString()}: ${Config.DEV_MODE ? error.stack : error.message}`,
                 );
