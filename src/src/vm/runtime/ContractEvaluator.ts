@@ -26,7 +26,7 @@ import { ContractInformation } from '../../blockchain-indexer/processor/transact
 import { MemorySlotData } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
 import { AddressGenerator } from '@btc-vision/transaction';
 import { Network, networks } from 'bitcoinjs-lib';
-import { BitcoinNetworkRequest } from '@btc-vision/bsi-wasmer-vm';
+import { BitcoinNetworkRequest } from '@btc-vision/op-vm';
 import assert from 'node:assert';
 
 /*import * as v8 from 'node:v8';

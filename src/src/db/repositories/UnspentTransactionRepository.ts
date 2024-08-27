@@ -159,7 +159,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             );
         }
 
-        if (Config.DEBUG_LEVEL > DebugLevel.INFO) {
+        if (Config.DEBUG_LEVEL > DebugLevel.TRACE && Config.DEV_MODE) {
             this.log(
                 `Saved ${convertedUnspentTransactions.length} UTXOs, deleted ${convertedSpentTransactions.length} spent UTXOs in ${Date.now() - start}ms`,
             );

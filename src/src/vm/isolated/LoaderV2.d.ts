@@ -4,7 +4,7 @@ import {
     CallResponse,
     ContractManager,
     ThreadSafeJsImportResponse,
-} from '@btc-vision/bsi-wasmer-vm';
+} from '@btc-vision/op-vm';
 
 export interface ContractParameters {
     readonly bytecode: Buffer;

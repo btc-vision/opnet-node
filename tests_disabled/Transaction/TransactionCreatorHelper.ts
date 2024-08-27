@@ -1,5 +1,5 @@
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
-import { EcKeyPair } from '@btc-vision/bsi-transaction';
+import { EcKeyPair } from '@btc-vision/transaction';
 import { Network } from 'bitcoinjs-lib';
 import { createHash, Hash, randomBytes } from 'crypto';
 import { OPNetTransactionTypes } from '../../src/src/blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';

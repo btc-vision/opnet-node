@@ -723,13 +723,17 @@ export class P2PManager extends Logger {
         const id: string = peerId.toString();
         const info = this.blackListedPeerIds.get(id);
         if (info) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.debug(
-                    `Peer ${id} is blacklisted due to ${info.reason}. Flushing connection...`,
-                );
-            }
+            if (info.reason === DisconnectionCode.RECONNECT) {
+                this.blackListedPeerIds.delete(id);
+            } else {
+                if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    this.debug(
+                        `Peer ${id} is blacklisted due to ${info.reason}. Flushing connection...`,
+                    );
+                }
 
-            return false;
+                return false;
+            }
         }
 
         return true;
