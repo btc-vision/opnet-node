@@ -163,40 +163,6 @@ export class BlockchainIndexer extends Logger {
         };
     }
 
-    /*private listenEvents(): void {
-        let called = false;
-        process.on('SIGINT', async () => {
-            if (!called) {
-                called = true;
-                await this.terminateAllActions();
-            }
-        });
-
-        process.on('SIGQUIT', async () => {
-            if (!called) {
-                called = true;
-                await this.terminateAllActions();
-            }
-        });
-
-        process.on('SIGTERM', async () => {
-            if (!called) {
-                called = true;
-                await this.terminateAllActions();
-            }
-        });
-    }
-
-    private async terminateAllActions(): Promise<void> {
-        this.info('Terminating all actions...');
-        this.fatalFailure = true;
-
-        await this.currentBlockInProcess;
-        await this.vmManager.terminate();
-
-        process.exit(0);
-    }*/
-
     private async safeProcessBlocks(startBlockHeight: bigint): Promise<void> {
         if (this.fatalFailure) {
             this.panic('Fatal failure detected, exiting...');
@@ -210,16 +176,14 @@ export class BlockchainIndexer extends Logger {
             this.currentBlockInProcess = this.processBlocks(startBlockHeight);
 
             await this.currentBlockInProcess;
-
-            this.isIndexing = false;
         } catch (e) {
-            this.isIndexing = false;
-
             const error = e as Error;
             this.panic(`Error processing blocks: ${Config.DEV_MODE ? error.stack : error.message}`);
 
             fs.appendFileSync('error.log', error.stack + '\n');
         }
+
+        this.isIndexing = false;
 
         if (this.processOnlyOneBlock) {
             return;
@@ -535,84 +499,106 @@ export class BlockchainIndexer extends Logger {
                 return;
             }
 
-            const block = await this.blockFetcher.getBlock(
-                BigInt(blockHeightInProgress),
-                BigInt(chainCurrentBlockHeight),
-            );
-
-            if (!block) {
-                throw new Error(`Error fetching block ${blockHeightInProgress}.`);
-            }
-
-            if (BigInt(block.height) !== blockHeightInProgress) {
-                throw new Error(
-                    `Block height mismatch. Expected: ${blockHeightInProgress}, got: ${block.height}`,
+            try {
+                const block = await this.blockFetcher.getBlock(
+                    BigInt(blockHeightInProgress),
+                    BigInt(chainCurrentBlockHeight),
+                    wasReorg,
                 );
-            }
 
-            const syncBlockDiff = chainCurrentBlockHeight - blockHeightInProgress;
-            if (syncBlockDiff < 100) {
-                /** We must check for chain reorgs here. */
-                const chainReorged: boolean = await this.verifyChainReorg(block);
-                if (chainReorged) {
-                    this.lastBlock.blockNumber = undefined;
-
-                    await this.restoreBlockchain(blockHeightInProgress);
-                    return;
+                if (!block) {
+                    throw new Error(`Error fetching block ${blockHeightInProgress}.`);
                 }
-            }
 
-            const processStartTime = Date.now();
-            const processedBlock: Block | null = await this.processBlock(block, this.vmManager);
-            if (processedBlock === null) {
-                this.fatalFailure = true;
-                fs.appendFileSync(
-                    'error.log',
-                    `Error processing block ${blockHeightInProgress}.\n`,
+                if (BigInt(block.height) !== blockHeightInProgress) {
+                    throw new Error(
+                        `Block height mismatch. Expected: ${blockHeightInProgress}, got: ${block.height}`,
+                    );
+                }
+
+                /** We must check for chain reorgs here, only if the current height is within a 100 blocks range. */
+                const syncBlockDiff = chainCurrentBlockHeight - blockHeightInProgress;
+                if (syncBlockDiff < 100) {
+                    const chainReorged: boolean = await this.verifyChainReorg(block);
+                    if (chainReorged) {
+                        this.lastBlock.blockNumber = undefined;
+
+                        await this.restoreBlockchain(blockHeightInProgress);
+                        return;
+                    }
+                }
+
+                const processStartTime = Date.now();
+                const processedBlock: Block | null = await this.processBlock(block, this.vmManager);
+                if (processedBlock === null) {
+                    this.fatalFailure = true;
+                    fs.appendFileSync(
+                        'error.log',
+                        `Error processing block ${blockHeightInProgress}.\n`,
+                    );
+
+                    throw new Error(`Error processing block ${blockHeightInProgress}.`);
+                }
+
+                if (processedBlock.compromised) {
+                    await this.lockdown();
+                }
+
+                this.lastBlock.hash = processedBlock.hash;
+                this.lastBlock.checksum = processedBlock.checksumRoot;
+                this.lastBlock.blockNumber = processedBlock.height;
+
+                void this.removeTransactionsHashesFromMempool(
+                    processedBlock.getTransactionsHashes(),
                 );
+                await this.notifyBlockProcessed({
+                    blockNumber: processedBlock.height,
+                    blockHash: processedBlock.hash,
+                    previousBlockHash: processedBlock.previousBlockHash,
 
-                throw new Error(`Error processing block ${blockHeightInProgress}.`);
-            }
+                    merkleRoot: processedBlock.merkleRoot,
+                    receiptRoot: processedBlock.receiptRoot,
+                    storageRoot: processedBlock.storageRoot,
 
-            if (processedBlock.compromised) {
-                await this.lockdown();
-            }
+                    checksumHash: processedBlock.checksumRoot,
+                    checksumProofs: processedBlock.checksumProofs.map((proof) => {
+                        return {
+                            proof: proof[1],
+                        };
+                    }),
+                    previousBlockChecksum: processedBlock.previousBlockChecksum,
+                    txCount: processedBlock.header.nTx,
+                });
 
-            this.lastBlock.hash = processedBlock.hash;
-            this.lastBlock.checksum = processedBlock.checksumRoot;
-            this.lastBlock.blockNumber = processedBlock.height;
+                const processEndTime = Date.now();
+                if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                    this.info(
+                        `Block ${blockHeightInProgress} processed successfully. (BlockHash: ${processedBlock.hash} - previous: ${processedBlock.previousBlockHash}) {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - getBlockDataTimingStart}ms})`,
+                    );
+                }
 
-            void this.removeTransactionsHashesFromMempool(processedBlock.getTransactionsHashes());
-            await this.notifyBlockProcessed({
-                blockNumber: processedBlock.height,
-                blockHash: processedBlock.hash,
-                previousBlockHash: processedBlock.previousBlockHash,
+                blockHeightInProgress++;
 
-                merkleRoot: processedBlock.merkleRoot,
-                receiptRoot: processedBlock.receiptRoot,
-                storageRoot: processedBlock.storageRoot,
+                if (this.processOnlyOneBlock) {
+                    break;
+                }
+            } catch (e) {
+                const error = e as Error;
 
-                checksumHash: processedBlock.checksumRoot,
-                checksumProofs: processedBlock.checksumProofs.map((proof) => {
-                    return {
-                        proof: proof[1],
-                    };
-                }),
-                previousBlockChecksum: processedBlock.previousBlockChecksum,
-                txCount: processedBlock.header.nTx,
-            });
+                // tmp log
+                if (error.message.includes('fetched twice')) {
+                    let chainCurrentBlockHeight: bigint = await this.getChainCurrentBlockHeight();
+                    let currentHeight: bigint =
+                        await this.getCurrentProcessBlockHeight(startBlockHeight);
 
-            const processEndTime = Date.now();
-            if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
-                this.info(
-                    `Block ${blockHeightInProgress} processed successfully. (BlockHash: ${processedBlock.hash} - previous: ${processedBlock.previousBlockHash}) {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - getBlockDataTimingStart}ms})`,
-                );
-            }
+                    let startHeight: bigint = wasReorg ? startBlockHeight : currentHeight;
 
-            blockHeightInProgress++;
+                    this.warn(
+                        `Block was fetched twice. Block height: ${startHeight}, current height: ${currentHeight}, chain height: ${chainCurrentBlockHeight}, reorg: ${wasReorg}, error: ${error.stack}`,
+                    );
+                }
 
-            if (this.processOnlyOneBlock) {
-                break;
+                throw e;
             }
         }
 

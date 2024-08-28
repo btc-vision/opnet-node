@@ -19,6 +19,7 @@ export abstract class BlockFetcher extends Logger {
     public async getBlock(
         expectedBlockId: bigint,
         chainCurrentBlockHeight: bigint,
+        wasReorg: boolean,
     ): Promise<BlockDataWithTransactionData | null> {
         try {
             this.prefetchBlocks(expectedBlockId, chainCurrentBlockHeight);
@@ -38,7 +39,8 @@ export abstract class BlockFetcher extends Logger {
                 );
             }
 
-            if (this.lastBlockHash === block.hash) {
+            if (this.lastBlockHash === block.hash && !wasReorg) {
+                console.trace(`Fetched twice.`);
                 throw new Error(`Block ${block.height} was fetched twice.`);
             }
 
