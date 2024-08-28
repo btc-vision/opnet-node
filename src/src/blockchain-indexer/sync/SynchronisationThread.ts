@@ -5,9 +5,12 @@ import { DBManagerInstance } from '../../db/DBManager.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
+import { BlockchainNotifier } from './classes/BlockchainNotifier.js';
 
 export class SynchronisationThread extends Thread<ThreadTypes.SYNCHRONISATION> {
     public readonly threadType: ThreadTypes.SYNCHRONISATION = ThreadTypes.SYNCHRONISATION;
+
+    private readonly blockchainNotifier: BlockchainNotifier = new BlockchainNotifier();
 
     constructor() {
         super();
@@ -22,21 +25,24 @@ export class SynchronisationThread extends Thread<ThreadTypes.SYNCHRONISATION> {
     protected async init(): Promise<void> {
         this.log(`Starting up blockchain indexer thread...`);
 
-        //this.blockIndexer.sendMessageToThread = this.sendMessageToThread.bind(this);
+        this.blockchainNotifier.sendMessageToThread = this.sendMessageToThread.bind(this);
 
         await DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
-        //await this.blockIndexer.init();
+        await this.blockchainNotifier.init();
 
         this.info(`Blockchain indexer thread started.`);
     }
 
     protected async onLinkMessage(
         type: ThreadTypes,
-        _m: ThreadMessageBase<MessageType>,
+        m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData | undefined> {
         switch (type) {
+            case ThreadTypes.INDEXER: {
+                return await this.blockchainNotifier.handleMessage(m);
+            }
             default:
                 throw new Error(`Unknown message type: ${type} received in UnspentUTXOThread.`);
         }

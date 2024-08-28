@@ -20,27 +20,15 @@ import {
     InternalContractCallParameters,
 } from './types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
-import { ContractParameters, ExportedContract, loadRust } from '../isolated/LoaderV2.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { MemorySlotData } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
-import { AddressGenerator } from '@btc-vision/transaction';
 import { Network, networks } from 'bitcoinjs-lib';
 import { BitcoinNetworkRequest } from '@btc-vision/op-vm';
 import assert from 'node:assert';
-
-/*import * as v8 from 'node:v8';
-
-v8.setFlagsFromString('--expose_gc');
-
-const gc: (() => void) | undefined = global.gc;
-if (!gc) {
-    throw new Error('Garbage collector not exposed');
-}*/
+import { ContractParameters, RustContract } from '../isolated/LoaderV3.js';
 
 export class ContractEvaluator extends Logger {
-    private static readonly MAX_CONTRACT_EXTERN_CALLS: number = 8;
-
     public readonly logColor: string = '#00ffe1';
 
     private isProcessing: boolean = false;
@@ -59,9 +47,9 @@ export class ContractEvaluator extends Logger {
         super();
     }
 
-    private _contractInstance: ExportedContract | undefined;
+    private _contractInstance: RustContract | undefined;
 
-    private get contractInstance(): ExportedContract {
+    private get contractInstance(): RustContract {
         if (!this._contractInstance) throw new Error('Contract not initialized');
 
         return this._contractInstance;
@@ -119,7 +107,10 @@ export class ContractEvaluator extends Logger {
     }
 
     public delete(): void {
-        this.contractInstance.dispose();
+        if (!this._contractInstance?.disposed) {
+            this.contractInstance.dispose();
+        }
+
         delete this._contractInstance;
     }
 
@@ -131,9 +122,9 @@ export class ContractEvaluator extends Logger {
         return this.methodAbi;
     }
 
-    public getWriteMethods(): MethodMap {
-        return this.writeMethods;
-    }
+    //public getWriteMethods(): MethodMap {
+    //    return this.writeMethods;
+    //}
 
     public isViewMethod(selector: Selector): boolean {
         const keys = Array.from(this.viewAbi.values());
@@ -152,9 +143,9 @@ export class ContractEvaluator extends Logger {
             throw new Error('Contract is already processing');
         }
 
-        try {
-            this.isProcessing = true;
+        this.isProcessing = true;
 
+        try {
             const evaluation = new ContractEvaluation({
                 ...params,
                 canWrite: false,
@@ -353,7 +344,7 @@ export class ContractEvaluator extends Logger {
         this.warn(`Contract log: ${logData}`);*/
     }
 
-    private async encodeAddress(data: Buffer): Promise<Buffer | Uint8Array> {
+    /*private async encodeAddress(data: Buffer): Promise<Buffer | Uint8Array> {
         const reader = new BinaryReader(data);
         const virtualAddress = reader.readBytesWithLength();
 
@@ -366,7 +357,7 @@ export class ContractEvaluator extends Logger {
         response.writeAddress(address);
 
         return response.getBuffer();
-    }
+    }*/
 
     private getNetwork(): BitcoinNetworkRequest {
         switch (this.network) {
@@ -420,7 +411,7 @@ export class ContractEvaluator extends Logger {
     private async loadContractFromBytecode(evaluation: ContractEvaluation): Promise<boolean> {
         let errored: boolean = false;
         try {
-            this._contractInstance = await loadRust(this.generateContractParameters(evaluation));
+            this._contractInstance = new RustContract(this.generateContractParameters(evaluation));
         } catch (e) {
             //console.log(`Unable to load contract from bytecode: ${(e as Error).stack}`);
             errored = true;
@@ -452,7 +443,7 @@ export class ContractEvaluator extends Logger {
 
         const hasSelectorInMethods = this.methodAbi.has(evaluation.abi) ?? false;
 
-        let result: Uint8Array | undefined;
+        let result: Uint8Array | undefined | null;
         let error: Error | undefined;
 
         // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
@@ -510,8 +501,8 @@ export class ContractEvaluator extends Logger {
             throw new Error('Contract not initialized');
         }
 
-        const abi = await this.contractInstance.getEvents();
-        const abiDecoder = new BinaryReader(abi);
+        const abiBuffer = await this.contractInstance.getEvents();
+        const abiDecoder = new BinaryReader(abiBuffer);
 
         return abiDecoder.readEvents();
     }

@@ -10,17 +10,6 @@ import {
 } from '../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { DebugLevel } from '@btc-vision/logger';
 import { BTC_FAKE_ADDRESS } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
-import {
-    BlockDataAtHeightData,
-    ValidatedBlockHeader,
-} from '../threading/interfaces/thread-messages/messages/api/ValidateBlockHeaders.js';
-import {
-    BlockHeaderBlockDocument,
-    BlockHeaderChecksumProof,
-} from '../db/interfaces/IBlockHeaderBlockDocument.js';
-import { DataConverter } from '@btc-vision/bsi-db';
-import { BroadcastResponse } from '../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import { ChecksumProof } from '../poa/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { BlockchainStorageMap, EvaluatedEvents } from '../vm/evaluated/EvaluatedResult.js';
 import {
     ContractInformation,
@@ -257,7 +246,7 @@ class RPCManager extends Logger {
         return result;
     }
 
-    private async validateBlockHeaders(data: BlockDataAtHeightData): Promise<ValidatedBlockHeader> {
+    /*private async validateBlockHeaders(data: BlockDataAtHeightData): Promise<ValidatedBlockHeader> {
         const blockNumber = BigInt(data.blockNumber);
         const blockHeader = data.blockHeader;
 
@@ -329,7 +318,7 @@ class RPCManager extends Logger {
         }
 
         return proofs;
-    }
+    }*/
 }
 
 new RPCManager();

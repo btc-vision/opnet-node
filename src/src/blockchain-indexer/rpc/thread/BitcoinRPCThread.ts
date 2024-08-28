@@ -36,7 +36,7 @@ import { Address, NetEvent } from '@btc-vision/bsi-binary';
 export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
 
-    private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
+    private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC(1000, false);
     private readonly vmManagers: VMManager[] = [];
     private currentVMManagerIndex: number = 0;
 

@@ -18,8 +18,8 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
         void this.init();
     }
 
-    protected async onMessage(message: ThreadMessageBase<MessageType>): Promise<void> {
-        console.log(`BlockchainIndexerThread: Received message:`, message);
+    protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {
+        //console.log(`BlockchainIndexerThread: Received message:`, message);
     }
 
     protected async init(): Promise<void> {

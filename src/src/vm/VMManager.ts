@@ -49,7 +49,7 @@ import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/transaction';
 import bitcoin from 'bitcoinjs-lib';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
-import { contractManager } from './isolated/LoaderV2.js';
+import { contractManager } from './isolated/LoaderV3.js';
 
 Globals.register();
 

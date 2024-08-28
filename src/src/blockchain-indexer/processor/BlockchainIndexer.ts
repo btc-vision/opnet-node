@@ -4,7 +4,7 @@ import {
     BlockDataWithTransactionData,
 } from '@btc-vision/bsi-bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import bitcoin from 'bitcoinjs-lib';
+import { Network } from 'bitcoinjs-lib';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { Config } from '../../config/Config.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
@@ -32,20 +32,22 @@ import { Consensus } from '../../poa/configurations/consensus/Consensus.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import fs from 'fs';
 import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';
+import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';
+import { RPCBlockFetcher } from '../fetcher/RPCBlockFetcher.js';
 
 interface LastBlock {
     hash?: string;
     checksum?: string;
-    blockNumber?: number;
+    blockNumber?: bigint;
 }
 
 export class BlockchainIndexer extends Logger {
     public readonly logColor: string = '#00ff00';
 
     private readonly network: BitcoinNetwork;
-    private readonly rpcClient: BitcoinRPC = new BitcoinRPC();
+    private readonly rpcClient: BitcoinRPC = new BitcoinRPC(1000, false);
 
-    private readonly bitcoinNetwork: bitcoin.networks.Network;
+    private readonly bitcoinNetwork: Network;
 
     private readonly vmManager: VMManager;
     private readonly vmStorage: VMStorage;
@@ -53,23 +55,21 @@ export class BlockchainIndexer extends Logger {
 
     private readonly processOnlyOneBlock: boolean = Config.DEV.PROCESS_ONLY_ONE_BLOCK;
 
-    private readonly maximumPrefetchBlocks: number;
-    private readonly prefetchedBlocks: Map<number, Promise<BlockDataWithTransactionData | null>> =
-        new Map();
-
     private fatalFailure: boolean = false;
-    private currentBlockInProcess: Promise<void> | undefined;
 
+    private currentBlockInProcess: Promise<void> | undefined;
     private lastBlock: LastBlock = {};
 
     private pendingNextBlockScan: NodeJS.Timeout | undefined;
     private isIndexing: boolean = false;
 
+    private readonly maximumPrefetchBlocks: number;
+
     constructor(config: BtcIndexerConfig) {
         super();
 
-        this.maximumPrefetchBlocks = config.OP_NET.MAXIMUM_PREFETCH_BLOCKS;
         this.network = config.BITCOIN.NETWORK;
+        this.maximumPrefetchBlocks = config.OP_NET.MAXIMUM_PREFETCH_BLOCKS;
 
         this.vmManager = new VMManager(config);
         this.vmStorage = this.vmManager.getVMStorage();
@@ -88,6 +88,16 @@ export class BlockchainIndexer extends Logger {
         }
 
         return this._blockchainInfoRepository;
+    }
+
+    private _blockFetcher: BlockFetcher | undefined;
+
+    private get blockFetcher(): BlockFetcher {
+        if (!this._blockFetcher) {
+            throw new Error('BlockFetcher not initialized');
+        }
+
+        return this._blockFetcher;
     }
 
     public async handleBitcoinIndexerMessage(
@@ -127,6 +137,11 @@ export class BlockchainIndexer extends Logger {
         await this.rpcClient.init(Config.BLOCKCHAIN);
         await this.vmManager.init();
 
+        this._blockFetcher = new RPCBlockFetcher({
+            maximumPrefetchBlocks: this.maximumPrefetchBlocks,
+            rpc: this.rpcClient,
+        });
+
         if (Config.P2P.IS_BOOTSTRAP_NODE) {
             setTimeout(() => this.startAndPurgeIndexer(), 8000);
         }
@@ -141,10 +156,10 @@ export class BlockchainIndexer extends Logger {
     }
 
     private async getCurrentBlock(): Promise<CurrentIndexerBlockResponseData> {
-        const blockchainInfo = await this.getCurrentProcessBlockHeight(-1);
+        const blockchainInfo = await this.getCurrentProcessBlockHeight(-1n);
 
         return {
-            blockNumber: BigInt(blockchainInfo - 1),
+            blockNumber: BigInt(blockchainInfo - 1n),
         };
     }
 
@@ -182,7 +197,7 @@ export class BlockchainIndexer extends Logger {
         process.exit(0);
     }*/
 
-    private async safeProcessBlocks(startBlockHeight: number): Promise<void> {
+    private async safeProcessBlocks(startBlockHeight: bigint): Promise<void> {
         if (this.fatalFailure) {
             this.panic('Fatal failure detected, exiting...');
             return;
@@ -210,50 +225,17 @@ export class BlockchainIndexer extends Logger {
             return;
         }
 
-        this.pendingNextBlockScan = setTimeout(() => this.safeProcessBlocks(-1), 5000);
+        this.pendingNextBlockScan = setTimeout(() => this.safeProcessBlocks(-1n), 5000);
     }
 
-    private async getCurrentProcessBlockHeight(startBlockHeight: number): Promise<number> {
+    private async getCurrentProcessBlockHeight(startBlockHeight: bigint): Promise<bigint> {
         const blockchainInfo = await this.blockchainInfoRepository.getByNetwork(this.network);
 
         // Process block either from the forced start height
         // or from the last in progress block saved in the database
-        return startBlockHeight !== -1 ? startBlockHeight : blockchainInfo.inProgressBlock;
-    }
-
-    private prefetchBlocks(blockHeightInProgress: number, chainCurrentBlockHeight: number): void {
-        for (let i = 1; i <= this.maximumPrefetchBlocks; i++) {
-            const nextBlockId = blockHeightInProgress + i;
-
-            if (nextBlockId > chainCurrentBlockHeight) {
-                break;
-            }
-
-            const currentPrefetchBlockSize = this.prefetchedBlocks.size;
-            if (currentPrefetchBlockSize > this.maximumPrefetchBlocks) {
-                break;
-            }
-
-            if (this.prefetchedBlocks.has(nextBlockId)) {
-                continue;
-            }
-
-            this.prefetchedBlocks.set(nextBlockId, this.getBlock(nextBlockId));
-        }
-    }
-
-    private async getBlockFromPrefetch(
-        blockHeight: number,
-        chainCurrentBlockHeight: number,
-    ): Promise<BlockDataWithTransactionData | null> {
-        this.prefetchBlocks(blockHeight, chainCurrentBlockHeight);
-
-        const block: Promise<BlockDataWithTransactionData | null> =
-            this.prefetchedBlocks.get(blockHeight) || this.getBlock(blockHeight);
-
-        this.prefetchedBlocks.delete(blockHeight);
-
-        return block;
+        return startBlockHeight !== BigInt(-1)
+            ? startBlockHeight
+            : BigInt(blockchainInfo.inProgressBlock);
     }
 
     private async getLastBlockHash(height: bigint): Promise<LastBlock | undefined> {
@@ -320,9 +302,9 @@ export class BlockchainIndexer extends Logger {
     /**
      * We must find the last known good block to revert to.
      */
-    private async revertToLastGoodBlock(height: number): Promise<bigint> {
+    private async revertToLastGoodBlock(height: bigint): Promise<bigint> {
         let shouldContinue: boolean = true;
-        let previousBlock: number = height;
+        let previousBlock: bigint = height;
 
         do {
             previousBlock--;
@@ -337,7 +319,7 @@ export class BlockchainIndexer extends Logger {
                 Promise<string | null>,
                 Promise<BlockHeaderBlockDocument | undefined>,
             ] = [
-                this.rpcClient.getBlockHash(previousBlock),
+                this.rpcClient.getBlockHash(Number(previousBlock)),
                 this.vmStorage.getBlockHeader(BigInt(previousBlock)),
             ];
 
@@ -394,8 +376,8 @@ export class BlockchainIndexer extends Logger {
     }
 
     /** Handle blockchain restoration here. */
-    private async restoreBlockchain(height: number): Promise<void> {
-        if (height === 0) throw new Error(`Can not restore blockchain from genesis block.`);
+    private async restoreBlockchain(height: bigint): Promise<void> {
+        if (height === 0n) throw new Error(`Can not restore blockchain from genesis block.`);
 
         this.important(
             `!!!! ----- Chain reorganization detected. Block ${height} has a different previous block hash. ----- !!!!`,
@@ -421,18 +403,24 @@ export class BlockchainIndexer extends Logger {
         this.vmStorage.resumeWrites();
 
         // We must reprocess the blocks from the last known good block.
-        const blockToRescan: number = Math.max(Number(lastGoodBlock) - 1, -1);
+        const blockToRescan: bigint = this.max(lastGoodBlock - 1n, -1n);
         await this.processBlocks(blockToRescan, true);
+    }
+
+    private max(a: bigint, b: bigint): bigint {
+        return a > b ? a : b;
     }
 
     private async purge(): Promise<void> {
         clearTimeout(this.pendingNextBlockScan);
 
         this.lastBlock.hash = undefined;
-        this.prefetchedBlocks.clear();
+        this.blockFetcher.purgePrefetchedBlocks();
 
         await this.vmStorage.awaitPendingWrites();
         await this.vmManager.clear();
+
+        await this.vmStorage.killAllPendingWrites();
     }
 
     private setConsensusBlockHeight(blockHeight: bigint): boolean {
@@ -523,10 +511,12 @@ export class BlockchainIndexer extends Logger {
     }
 
     private async processBlocks(
-        startBlockHeight: number = -1,
+        startBlockHeight: bigint = -1n,
         wasReorg: boolean = false,
     ): Promise<void> {
-        let blockHeightInProgress: number = wasReorg
+        this.log(`Processing blocks from block ${startBlockHeight}.`);
+
+        let blockHeightInProgress: bigint = wasReorg
             ? startBlockHeight
             : await this.getCurrentProcessBlockHeight(startBlockHeight);
 
@@ -538,8 +528,10 @@ export class BlockchainIndexer extends Logger {
 
         this.setConsensusBlockHeight(BigInt(blockHeightInProgress));
 
-        let chainCurrentBlockHeight: number = await this.getChainCurrentBlockHeight();
+        let chainCurrentBlockHeight: bigint = await this.getChainCurrentBlockHeight();
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
+            console.log('Next');
+
             const getBlockDataTimingStart = Date.now();
             const nextConsensus = OPNetConsensus.getNextConsensus();
             if (this.setConsensusBlockHeight(BigInt(blockHeightInProgress))) {
@@ -547,20 +539,24 @@ export class BlockchainIndexer extends Logger {
                 return;
             }
 
-            const block = await this.getBlockFromPrefetch(
-                blockHeightInProgress,
-                chainCurrentBlockHeight,
+            console.log(`Get block ${blockHeightInProgress}...`);
+
+            const block = await this.blockFetcher.getBlock(
+                BigInt(blockHeightInProgress),
+                BigInt(chainCurrentBlockHeight),
             );
 
             if (!block) {
                 throw new Error(`Error fetching block ${blockHeightInProgress}.`);
             }
 
-            if (block.height !== blockHeightInProgress) {
+            if (BigInt(block.height) !== blockHeightInProgress) {
                 throw new Error(
                     `Block height mismatch. Expected: ${blockHeightInProgress}, got: ${block.height}`,
                 );
             }
+
+            console.log('Verify chain reorg...');
 
             const syncBlockDiff = chainCurrentBlockHeight - blockHeightInProgress;
             if (syncBlockDiff < 100) {
@@ -573,6 +569,8 @@ export class BlockchainIndexer extends Logger {
                     return;
                 }
             }
+
+            console.log('Process block...');
 
             const processStartTime = Date.now();
             const processedBlock: Block | null = await this.processBlock(block, this.vmManager);
@@ -592,9 +590,7 @@ export class BlockchainIndexer extends Logger {
 
             this.lastBlock.hash = processedBlock.hash;
             this.lastBlock.checksum = processedBlock.checksumRoot;
-            this.lastBlock.blockNumber = Number(processedBlock.height.toString());
-
-            blockHeightInProgress++;
+            this.lastBlock.blockNumber = processedBlock.height;
 
             void this.removeTransactionsHashesFromMempool(processedBlock.getTransactionsHashes());
             await this.notifyBlockProcessed({
@@ -613,20 +609,31 @@ export class BlockchainIndexer extends Logger {
                     };
                 }),
                 previousBlockChecksum: processedBlock.previousBlockChecksum,
-
                 txCount: processedBlock.header.nTx,
             });
+
+            const processEndTime = Date.now();
+            if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                console.log('before!');
+
+                this.info(
+                    `Block ${blockHeightInProgress} processed successfully. (BlockHash: ${processedBlock.hash} - previous: ${processedBlock.previousBlockHash}) {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - getBlockDataTimingStart}ms})`,
+                );
+
+                console.log('logged?');
+            }
+
+            blockHeightInProgress++;
 
             if (this.processOnlyOneBlock) {
                 break;
             }
 
-            const processEndTime = Date.now();
-            if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
-                this.info(
-                    `Block ${blockHeightInProgress} processed successfully. (BlockHash: ${processedBlock.hash} - previous: ${processedBlock.previousBlockHash}) {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - getBlockDataTimingStart}ms})`,
-                );
-            }
+            console.log(
+                blockHeightInProgress <= chainCurrentBlockHeight,
+                blockHeightInProgress,
+                chainCurrentBlockHeight,
+            );
         }
 
         chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
@@ -636,7 +643,7 @@ export class BlockchainIndexer extends Logger {
             }
 
             const blockHash: string | null = await this.rpcClient.getBlockHash(
-                blockHeightInProgress - 1,
+                Number(blockHeightInProgress - 1n),
             );
 
             if (blockHash == null) {
@@ -690,15 +697,6 @@ export class BlockchainIndexer extends Logger {
         }
     }
 
-    private async getBlock(blockHeight: number): Promise<BlockDataWithTransactionData | null> {
-        const blockHash: string | null = await this.rpcClient.getBlockHash(blockHeight);
-        if (blockHash == null) {
-            throw new Error(`Error fetching block hash.`);
-        }
-
-        return await this.rpcClient.getBlockInfoWithTransactionData(blockHash);
-    }
-
     private async notifyBlockProcessed(blockHeader: BlockProcessedData): Promise<void> {
         const msg: BlockProcessedMessage = {
             type: MessageType.BLOCK_PROCESSED,
@@ -708,7 +706,7 @@ export class BlockchainIndexer extends Logger {
         await this.sendMessageToThread(ThreadTypes.POA, msg);
     }
 
-    private getDefaultBlockHeight(): number {
+    private getDefaultBlockHeight(): bigint {
         let startBlockHeight = -1;
         if (Config.OP_NET.REINDEX) {
             if (Config.OP_NET.REINDEX_FROM_BLOCK) {
@@ -718,7 +716,13 @@ export class BlockchainIndexer extends Logger {
             }
         }
 
-        return startBlockHeight;
+        return BigInt(startBlockHeight);
+    }
+
+    private async notifyBlockNotifier(): Promise<void> {
+        await this.sendMessageToThread(ThreadTypes.SYNCHRONISATION, {
+            type: MessageType.START_INDEXER,
+        });
     }
 
     private async startIndexer(): Promise<StartIndexerResponseData> {
@@ -734,6 +738,7 @@ export class BlockchainIndexer extends Logger {
             };
         }
 
+        await this.notifyBlockNotifier();
         void this.startAndPurgeIndexer();
 
         return {
@@ -775,7 +780,7 @@ export class BlockchainIndexer extends Logger {
         }
 
         const startBlock = this.getDefaultBlockHeight();
-        if (startBlock !== -1) {
+        if (startBlock !== -1n) {
             // Purge old data
 
             if (Config.INDEXER.ALLOW_PURGE) {
@@ -790,13 +795,13 @@ export class BlockchainIndexer extends Logger {
         void this.safeProcessBlocks(startBlock);
     }
 
-    private async getChainCurrentBlockHeight(): Promise<number> {
+    private async getChainCurrentBlockHeight(): Promise<bigint> {
         const chainInfo: BlockchainInfo | null = await this.rpcClient.getChainInfo();
 
         if (chainInfo == null) {
             throw new Error(`Error fetching blockchain information.`);
         }
 
-        return chainInfo.blocks;
+        return BigInt(chainInfo.blocks);
     }
 }

@@ -116,11 +116,12 @@ export interface Bech32Config {
 }
 
 export interface Base58Config {
-    readonly PUBKEY_ADDRESS?: number;
-    readonly SCRIPT_ADDRESS?: number;
-    readonly SECRET_KEY?: number;
-    readonly EXT_PUBLIC_KEY?: number;
-    readonly EXT_SECRET_KEY?: number;
+    PUBKEY_ADDRESS?: number;
+    SCRIPT_ADDRESS?: number;
+    SECRET_KEY?: number;
+
+    EXT_PUBLIC_KEY?: number;
+    EXT_SECRET_KEY?: number;
 }
 
 export interface BitcoinConfig {

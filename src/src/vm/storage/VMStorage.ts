@@ -145,6 +145,8 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
 
     public abstract awaitPendingWrites(): Promise<void>;
 
+    public abstract killAllPendingWrites(): Promise<void>;
+
     public abstract setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void>;
 
     public abstract setVault(vault: IVaultDocument): Promise<void>;

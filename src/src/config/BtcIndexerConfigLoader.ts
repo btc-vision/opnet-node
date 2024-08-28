@@ -55,6 +55,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         BASE58: {},
+
         BECH32: {},
 
         P2P: {
@@ -144,6 +145,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             MODE: OPNetIndexerMode.ARCHIVE,
         },
     };
+    private verifiedConfig: boolean = false;
 
     constructor(fullFileName: string) {
         super(fullFileName, false);
@@ -163,6 +165,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
     }
 
     protected override verifyConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
+        if (this.verifiedConfig) {
+            throw new Error('Config has already been verified.');
+        }
+
         super.verifyConfig(parsedConfig);
 
         if (parsedConfig.DOCS) {
@@ -626,13 +632,92 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(`Oops the property DEV.PROCESS_ONLY_ONE_BLOCK is not a boolean.`);
             }
         }
+
+        if (parsedConfig.BASE58) {
+            this.verifyBase58Configs(parsedConfig.BASE58);
+        }
+
+        if (parsedConfig.BECH32) {
+            this.verifyBech32Configs(parsedConfig.BECH32);
+        }
+
+        this.verifiedConfig = true;
     }
 
     protected override parsePartialConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
-        this.verifyConfig(parsedConfig);
         super.parsePartialConfig(parsedConfig);
 
         this.parseConfig(parsedConfig);
+    }
+
+    private verifyBech32Configs(parsedConfig: Partial<IBtcIndexerConfig['BECH32']>): void {
+        if (parsedConfig.HRP && typeof parsedConfig.HRP !== 'string') {
+            throw new Error(`Oops the property BECH32.HRP is not a string.`);
+        }
+    }
+
+    private verifyBase58Configs(parsedConfig: Partial<IBtcIndexerConfig['BASE58']>): void {
+        if (
+            typeof parsedConfig.PUBKEY_ADDRESS !== 'string' &&
+            parsedConfig.PUBKEY_ADDRESS !== undefined
+        ) {
+            throw new Error(`Oops the property BASE58.PUBKEY_ADDRESS is not a string.`);
+        } else if (parsedConfig.PUBKEY_ADDRESS) {
+            parsedConfig.PUBKEY_ADDRESS = Number(parsedConfig.PUBKEY_ADDRESS);
+
+            if (isNaN(parsedConfig.PUBKEY_ADDRESS)) {
+                throw new Error(`Oops the property BASE58.PUBKEY_ADDRESS is not a number.`);
+            }
+        }
+
+        if (
+            typeof parsedConfig.SCRIPT_ADDRESS !== 'string' &&
+            parsedConfig.SCRIPT_ADDRESS !== undefined
+        ) {
+            throw new Error(`Oops the property BASE58.SCRIPT_ADDRESS is not a string.`);
+        } else if (parsedConfig.SCRIPT_ADDRESS) {
+            parsedConfig.SCRIPT_ADDRESS = Number(parsedConfig.SCRIPT_ADDRESS);
+
+            if (isNaN(parsedConfig.SCRIPT_ADDRESS)) {
+                throw new Error(`Oops the property BASE58.SCRIPT_ADDRESS is not a number.`);
+            }
+        }
+
+        if (typeof parsedConfig.SECRET_KEY !== 'string' && parsedConfig.SECRET_KEY !== undefined) {
+            throw new Error(`Oops the property BASE58.SECRET_KEY is not a number.`);
+        } else if (parsedConfig.SECRET_KEY) {
+            parsedConfig.SECRET_KEY = Number(parsedConfig.SECRET_KEY);
+
+            if (isNaN(parsedConfig.SECRET_KEY)) {
+                throw new Error(`Oops the property BASE58.SECRET_KEY is not a number.`);
+            }
+        }
+
+        if (
+            typeof parsedConfig.EXT_PUBLIC_KEY !== 'string' &&
+            parsedConfig.EXT_PUBLIC_KEY !== undefined
+        ) {
+            throw new Error(`Oops the property BASE58.EXT_PUBLIC_KEY is not a string.`);
+        } else if (parsedConfig.EXT_PUBLIC_KEY) {
+            parsedConfig.EXT_PUBLIC_KEY = Number(parsedConfig.EXT_PUBLIC_KEY);
+
+            if (isNaN(parsedConfig.EXT_PUBLIC_KEY)) {
+                throw new Error(`Oops the property BASE58.EXT_PUBLIC_KEY is not a number.`);
+            }
+        }
+
+        if (
+            typeof parsedConfig.EXT_SECRET_KEY !== 'string' &&
+            parsedConfig.EXT_SECRET_KEY !== undefined
+        ) {
+            throw new Error(`Oops the property BASE58.EXT_SECRET_KEY is not a string.`);
+        } else if (parsedConfig.EXT_SECRET_KEY) {
+            parsedConfig.EXT_SECRET_KEY = Number(parsedConfig.EXT_SECRET_KEY);
+
+            if (isNaN(parsedConfig.EXT_SECRET_KEY)) {
+                throw new Error(`Oops the property BASE58.EXT_SECRET_KEY is not a number.`);
+            }
+        }
     }
 
     private parseConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {

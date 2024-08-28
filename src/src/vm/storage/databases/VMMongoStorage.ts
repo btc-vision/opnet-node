@@ -136,7 +136,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Used UTXO repository not initialized');
         }
 
-        await this.killAllSessions();
+        await this.killAllPendingWrites();
 
         await this.updateBlockchainInfo(Number(blockId));
 
@@ -807,7 +807,7 @@ export class VMMongoStorage extends VMStorage {
         return await this.unspentTransactionRepository.getBalanceOf(address, filterOrdinals);
     }
 
-    private async killAllSessions(): Promise<void> {
+    public async killAllPendingWrites(): Promise<void> {
         this.info('Killing all sessions');
 
         if (!this.databaseManager.db) {
