@@ -518,8 +518,6 @@ export class BlockchainIndexer extends Logger {
             ? startBlockHeight
             : await this.getCurrentProcessBlockHeight(startBlockHeight);
 
-        this.log(`Processing blocks from block ${blockHeightInProgress}.`);
-
         if (!wasReorg && this.lastBlock && typeof this.lastBlock.blockNumber !== 'undefined') {
             if (blockHeightInProgress < this.lastBlock.blockNumber) {
                 blockHeightInProgress = this.lastBlock.blockNumber;
@@ -617,6 +615,8 @@ export class BlockchainIndexer extends Logger {
                 break;
             }
         }
+
+        this.blockFetcher.purgePrefetchedBlocks();
 
         chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
         if (blockHeightInProgress > chainCurrentBlockHeight) {
