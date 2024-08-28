@@ -22,6 +22,10 @@ export interface ContractParameters {
 export class RustContract {
     private refCounts: Map<number, number> = new Map();
 
+    private readonly enableDebug: boolean = false;
+    private readonly enableDisposeLog: boolean = false;
+    private gasUsed: bigint = 0n;
+
     constructor(params: ContractParameters) {
         this._params = params;
     }
@@ -29,138 +33,59 @@ export class RustContract {
     private _id?: bigint;
 
     public get id() {
-        if (this.disposed) throw new Error('Contract is disposed');
+        if (this.disposed) {
+            throw new Error('Contract is already disposed');
+        }
 
         if (!this._id) {
+            this._instantiated = true;
+
             this._id = contractManager.instantiate(
                 this.params.bytecode,
                 this.params.gasLimit,
                 this.params.network,
-                (
-                    _: never,
-                    value: ThreadSafeJsImportResponse,
-                ): Promise<ThreadSafeJsImportResponse> => {
-                    return new Promise(
-                        async (
-                            resolve: (value: ThreadSafeJsImportResponse) => void,
-                            reject: (reason: string) => void,
-                        ) => {
-                            try {
-                                const u = new Uint8Array(value.buffer);
-                                const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-                                const resp = await this.params.load(buf);
+                // @ts-ignore
+                (_: never, value: ThreadSafeJsImportResponse): Promise<Buffer | Uint8Array> => {
+                    if (this.enableDebug) console.log('LOAD', value.buffer);
 
-                                // Convert buffer to array
-                                resolve({
-                                    buffer: Array.from(resp),
-                                });
-                            } catch (e) {
-                                const error = e as Error;
+                    const u = new Uint8Array(value.buffer);
+                    const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
-                                reject(error.stack ?? 'Failed to load.');
-                            }
-                        },
-                    );
+                    return this.params.load(buf);
                 },
-                (
-                    _: never,
-                    value: ThreadSafeJsImportResponse,
-                ): Promise<ThreadSafeJsImportResponse> => {
-                    return new Promise(
-                        async (
-                            resolve: (value: ThreadSafeJsImportResponse) => void,
-                            reject: (reason: string) => void,
-                        ) => {
-                            try {
-                                const u = new Uint8Array(value.buffer);
-                                const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-                                const resp = await this.params.store(buf);
+                (_: never, value: ThreadSafeJsImportResponse): Promise<Buffer | Uint8Array> => {
+                    const u = new Uint8Array(value.buffer);
+                    const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
-                                // Convert buffer to array
-                                resolve({
-                                    buffer: Array.from(resp),
-                                });
-                            } catch (e) {
-                                const error = e as Error;
-
-                                reject(error.stack ?? 'Failed to store.');
-                            }
-                        },
-                    );
+                    return this.params.store(buf);
                 },
-                (
-                    _: never,
-                    value: ThreadSafeJsImportResponse,
-                ): Promise<ThreadSafeJsImportResponse> => {
-                    return new Promise(
-                        async (
-                            resolve: (value: ThreadSafeJsImportResponse) => void,
-                            reject: (reason: string) => void,
-                        ) => {
-                            try {
-                                const u = new Uint8Array(value.buffer);
-                                const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-                                const resp = await this.params.call(buf);
+                (_: never, value: ThreadSafeJsImportResponse): Promise<Buffer | Uint8Array> => {
+                    const u = new Uint8Array(value.buffer);
+                    const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
-                                // Convert buffer to array
-                                resolve({
-                                    buffer: Array.from(resp),
-                                });
-                            } catch (e) {
-                                const error = e as Error;
-
-                                reject(error.stack ?? 'Failed to call contract.');
-                            }
-                        },
-                    );
+                    return this.params.call(buf);
                 },
-                (
-                    _: never,
-                    value: ThreadSafeJsImportResponse,
-                ): Promise<ThreadSafeJsImportResponse> => {
-                    return new Promise(
-                        async (
-                            resolve: (value: ThreadSafeJsImportResponse) => void,
-                            reject: (reason: string) => void,
-                        ) => {
-                            try {
-                                const u = new Uint8Array(value.buffer);
-                                const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-                                const resp = await this.params.deployContractAtAddress(buf);
-
-                                // Convert buffer to array
-                                resolve({
-                                    buffer: Array.from(resp),
-                                });
-                            } catch (e) {
-                                const error = e as Error;
-
-                                reject(error.stack ?? 'Failed to deploy contract.');
-                            }
-                        },
-                    );
+                (_: never, value: ThreadSafeJsImportResponse): Promise<Buffer | Uint8Array> => {
+                    const u = new Uint8Array(value.buffer);
+                    const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+                    return this.params.deployContractAtAddress(buf);
                 },
-                (_: never, value: ThreadSafeJsImportResponse): Promise<void> => {
-                    return new Promise(
-                        async (resolve: () => void, reject: (reason: string) => void) => {
-                            try {
-                                const u = new Uint8Array(value.buffer);
-                                const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-                                this.params.log(buf);
+                async (_: never, value: ThreadSafeJsImportResponse): Promise<void> => {
+                    const u = new Uint8Array(value.buffer);
+                    const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
-                                resolve();
-                            } catch (e) {
-                                const error = e as Error;
-
-                                reject(error.stack ?? 'Failed to log.');
-                            }
-                        },
-                    );
+                    this.params.log(buf);
                 },
             );
         }
 
         return this._id;
+    }
+
+    private _instantiated: boolean = false;
+
+    public get instantiated(): boolean {
+        return this._instantiated;
     }
 
     private _disposed: boolean = false;
@@ -173,7 +98,7 @@ export class RustContract {
 
     private get params(): ContractParameters {
         if (!this._params) {
-            throw new Error('Contract is disposed');
+            throw new Error('Contract is disposed - cannot access parameters.');
         }
 
         return this._params;
@@ -183,6 +108,12 @@ export class RustContract {
         if (this._id == null) {
             throw new Error('Contract is not instantiated');
         }
+
+        if (this.enableDebug || this.enableDisposeLog) console.log('Disposing contract', this._id);
+
+        try {
+            this.gasUsed = this.getUsedGas();
+        } catch {}
 
         this.refCounts.clear();
 
@@ -197,16 +128,22 @@ export class RustContract {
     }
 
     public async defineSelectors(): Promise<void> {
+        if (this.enableDebug) console.log('Defining selectors');
+
         try {
             const resp = await contractManager.call(this.id, 'defineSelectors', []);
             this.gasCallback(resp.gasUsed, 'defineSelectors');
         } catch (e) {
+            if (this.enableDebug) console.log('Error in defineSelectors', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }
     }
 
     public async readMethod(method: number, buffer: Uint8Array | Buffer): Promise<Uint8Array> {
+        if (this.enableDebug) console.log('Reading method', method, buffer);
+
         try {
             const pointer = await this.__lowerTypedArray(13, 0, buffer);
             const data = await this.__retain(pointer);
@@ -222,17 +159,19 @@ export class RustContract {
                 await this.__release(data);
             }
 
-            this.dispose();
-
             return finalResult;
         } catch (e) {
+            if (this.enableDebug) console.log('Error in readMethod', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }
     }
 
     public async readView(method: number): Promise<Uint8Array> {
-        let finalResult;
+        if (this.enableDebug) console.log('Reading view', method);
+
+        let finalResult: Uint8Array;
         try {
             const resp = await contractManager.call(this.id, 'readView', [method]);
 
@@ -240,9 +179,9 @@ export class RustContract {
             const result = resp.result.filter((n) => n !== undefined);
 
             finalResult = this.__liftTypedArray(result[0] >>> 0);
-
-            this.dispose();
         } catch (e) {
+            if (this.enableDebug) console.log('Error in readView', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }
@@ -251,7 +190,9 @@ export class RustContract {
     }
 
     public async getViewABI(): Promise<Uint8Array> {
-        let finalResult;
+        if (this.enableDebug) console.log('Getting view ABI');
+
+        let finalResult: Uint8Array;
         try {
             const resp = await contractManager.call(this.id, 'getViewABI', []);
             this.gasCallback(resp.gasUsed, 'getViewABI');
@@ -259,6 +200,8 @@ export class RustContract {
             const result = resp.result.filter((n) => n !== undefined);
             finalResult = this.__liftTypedArray(result[0] >>> 0);
         } catch (e) {
+            if (this.enableDebug) console.log('Error in getViewABI', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }
@@ -267,6 +210,8 @@ export class RustContract {
     }
 
     public async getEvents(): Promise<Uint8Array> {
+        if (this.enableDebug) console.log('Getting events');
+
         let finalResult: Uint8Array;
         try {
             const resp = await contractManager.call(this.id, 'getEvents', []);
@@ -275,15 +220,21 @@ export class RustContract {
             const result = resp.result.filter((n) => n !== undefined);
             finalResult = this.__liftTypedArray(result[0] >>> 0);
         } catch (e) {
+            if (this.enableDebug) console.log('Error in getEvents', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }
+
+        this.dispose();
 
         return finalResult;
     }
 
     public async getMethodABI(): Promise<Uint8Array> {
-        let finalResult;
+        if (this.enableDebug) console.log('Getting method ABI');
+
+        let finalResult: Uint8Array;
         try {
             const resp = await contractManager.call(this.id, 'getMethodABI', []);
             this.gasCallback(resp.gasUsed, 'getMethodABI');
@@ -291,6 +242,8 @@ export class RustContract {
             const result = resp.result.filter((n) => n !== undefined);
             finalResult = this.__liftTypedArray(result[0] >>> 0);
         } catch (e) {
+            if (this.enableDebug) console.log('Error in getMethodABI', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }
@@ -299,7 +252,9 @@ export class RustContract {
     }
 
     public async getWriteMethods(): Promise<Uint8Array> {
-        let finalResult;
+        if (this.enableDebug) console.log('Getting write methods');
+
+        let finalResult: Uint8Array;
         try {
             const resp = await contractManager.call(this.id, 'getWriteMethods', []);
             this.gasCallback(resp.gasUsed, 'getWriteMethods');
@@ -307,6 +262,8 @@ export class RustContract {
             const result = resp.result.filter((n) => n !== undefined);
             finalResult = this.__liftTypedArray(result[0] >>> 0);
         } catch (e) {
+            if (this.enableDebug) console.log('Error in getWriteMethods', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }
@@ -315,6 +272,8 @@ export class RustContract {
     }
 
     public async setEnvironment(buffer: Uint8Array | Buffer): Promise<void> {
+        if (this.enableDebug) console.log('Setting environment', buffer);
+
         try {
             const data = await this.__lowerTypedArray(13, 0, buffer);
             if (data == null) throw new Error('Data cannot be null');
@@ -322,57 +281,65 @@ export class RustContract {
             const resp = await contractManager.call(this.id, 'setEnvironment', [data]);
             this.gasCallback(resp.gasUsed, 'setEnvironment');
         } catch (e) {
+            if (this.enableDebug) console.log('Error in setEnvironment', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }
     }
 
-    public async setUsedGas(gas: bigint): Promise<void> {
+    public setUsedGas(gas: bigint): void {
         try {
             contractManager.setUsedGas(this.id, gas);
         } catch (e) {
             const error = e as Error;
-            throw await this.getError(error);
+            throw this.getError(error);
         }
     }
 
-    public async getUsedGas(): Promise<bigint> {
+    public getUsedGas(): bigint {
         try {
+            if (this.disposed && this.gasUsed) {
+                return this.gasUsed;
+            }
+
             return contractManager.getUsedGas(this.id);
         } catch (e) {
             const error = e as Error;
-            throw await this.getError(error);
+            throw this.getError(error);
         }
     }
 
-    public async useGas(amount: bigint): Promise<void> {
+    public useGas(amount: bigint): void {
         try {
             return contractManager.useGas(this.id, amount);
         } catch (e) {
             const error = e as Error;
-            throw await this.getError(error);
+            throw this.getError(error);
         }
     }
 
-    public async getRemainingGas(): Promise<bigint> {
+    public getRemainingGas(): bigint {
         try {
             return contractManager.getRemainingGas(this.id);
         } catch (e) {
             const error = e as Error;
-            throw await this.getError(error);
+            throw this.getError(error);
         }
     }
 
-    public async setRemainingGas(gas: bigint): Promise<void> {
+    public setRemainingGas(gas: bigint): void {
         try {
             contractManager.setRemainingGas(this.id, gas);
         } catch (e) {
             const error = e as Error;
-            throw await this.getError(error);
+            throw this.getError(error);
         }
     }
 
     private async __retain(pointer: number): Promise<number> {
+        if (this.enableDebug) console.log('Retaining pointer', pointer);
+
         if (pointer) {
             const refcount = this.refCounts.get(pointer);
             if (refcount) {
@@ -387,6 +354,8 @@ export class RustContract {
     }
 
     private async __release(pointer: number): Promise<void> {
+        if (this.enableDebug) console.log('Releasing pointer', pointer);
+
         if (pointer) {
             const refcount = this.refCounts.get(pointer);
             if (refcount === 1) {
@@ -401,6 +370,8 @@ export class RustContract {
     }
 
     private __liftString(pointer: number): string | null {
+        if (this.enableDebug) console.log('Lifting string', pointer);
+
         if (!pointer) return null;
 
         // Read the length of the string
@@ -432,6 +403,8 @@ export class RustContract {
     }
 
     private __liftTypedArray(pointer: number): Uint8Array {
+        if (this.enableDebug) console.log('Lifting typed array', pointer);
+
         if (!pointer) throw new Error('Pointer cannot be null');
 
         // Read the data offset and length
@@ -458,6 +431,8 @@ export class RustContract {
         align: number,
         values: Uint8Array | Buffer,
     ): Promise<number> {
+        if (this.enableDebug) console.log('Lowering typed array', id, align, values);
+
         if (values == null) return 0;
 
         const length = values.length;
@@ -488,7 +463,9 @@ export class RustContract {
         this.params.gasCallback(gas, method);
     }
 
-    private async getError(err: Error) {
+    private async getError(err: Error): Promise<Error> {
+        if (this.enableDebug) console.log('Getting error', err);
+
         const msg = err.message;
         if (msg.includes('Execution aborted') && !msg.includes('Execution aborted:')) {
             return await this.abort();
@@ -497,7 +474,7 @@ export class RustContract {
         }
     }
 
-    private async abort() {
+    private async abort(): Promise<Error> {
         const abortData = contractManager.getAbortData(this.id);
         const message = this.__liftString(abortData.message);
         const fileName = this.__liftString(abortData.fileName);
@@ -509,8 +486,10 @@ export class RustContract {
         return new Error(`Execution aborted: ${message} at ${fileName}:${line}:${column}`);
     }
 
-    private async __pin(pointer: number) {
-        let finalResult;
+    private async __pin(pointer: number): Promise<number> {
+        if (this.enableDebug) console.log('Pinning pointer', pointer);
+
+        let finalResult: number;
         try {
             const resp = await contractManager.call(this.id, '__pin', [pointer]);
             this.gasCallback(resp.gasUsed, '__pin');
@@ -518,6 +497,8 @@ export class RustContract {
             const result = resp.result.filter((n) => n !== undefined);
             finalResult = result[0];
         } catch (e) {
+            if (this.enableDebug) console.log('Error in __pin', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }
@@ -525,8 +506,10 @@ export class RustContract {
         return finalResult;
     }
 
-    private async __unpin(pointer: number) {
-        let finalResult;
+    private async __unpin(pointer: number): Promise<number> {
+        if (this.enableDebug) console.log('Unpinning pointer', pointer);
+
+        let finalResult: number;
         try {
             const resp = await contractManager.call(this.id, '__unpin', [pointer]);
             this.gasCallback(resp.gasUsed, '__unpin');
@@ -534,6 +517,8 @@ export class RustContract {
             const result = resp.result.filter((n) => n !== undefined);
             finalResult = result[0];
         } catch (e) {
+            if (this.enableDebug) console.log('Error in __unpin', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }
@@ -541,7 +526,9 @@ export class RustContract {
         return finalResult;
     }
 
-    private async __new(size: number, align: number) {
+    private async __new(size: number, align: number): Promise<number> {
+        if (this.enableDebug) console.log('Creating new', size, align);
+
         let finalResult;
         try {
             const resp = await contractManager.call(this.id, '__new', [size, align]);
@@ -550,6 +537,8 @@ export class RustContract {
             const result = resp.result.filter((n) => n !== undefined);
             finalResult = result[0];
         } catch (e) {
+            if (this.enableDebug) console.log('Error in __new', e);
+
             const error = e as Error;
             throw await this.getError(error);
         }

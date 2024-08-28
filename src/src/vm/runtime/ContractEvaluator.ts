@@ -107,7 +107,7 @@ export class ContractEvaluator extends Logger {
     }
 
     public delete(): void {
-        if (!this._contractInstance?.disposed) {
+        if (!this._contractInstance?.disposed && this._contractInstance?.instantiated) {
             this.contractInstance.dispose();
         }
 
@@ -146,6 +146,8 @@ export class ContractEvaluator extends Logger {
         this.isProcessing = true;
 
         try {
+            this.delete();
+
             const evaluation = new ContractEvaluation({
                 ...params,
                 canWrite: false,
@@ -193,6 +195,8 @@ export class ContractEvaluator extends Logger {
 
             return evaluation;
         } catch (e) {
+            this.delete();
+
             this.isProcessing = false;
             throw e;
         }
@@ -493,6 +497,10 @@ export class ContractEvaluator extends Logger {
             const events: NetEvent[] = await this.getEvents();
             evaluation.setEvent(evaluation.contractAddress, events);
             evaluation.setResult(result);
+        }
+
+        if (evaluation.revert) {
+            this.delete();
         }
     }
 
