@@ -5,12 +5,45 @@ import { ChainIds } from './enums/ChainIds.js';
 import { IBtcIndexerConfig } from './interfaces/IBtcIndexerConfig.js';
 import { OPNetIndexerMode } from './interfaces/OPNetIndexerMode.js';
 import { PeerToPeerMethod } from './interfaces/PeerToPeerMethod.js';
+import { BlockUpdateMethods } from '../vm/storage/types/BlockUpdateMethods.js';
+import { BitcoinNetwork } from './network/BitcoinNetwork.js';
 
 export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerConfig>> {
     private defaultConfig: Partial<IBtcIndexerConfig> = {
+        DOCS: {
+            ENABLED: true,
+            PORT: 7000,
+        },
+
+        BITCOIN: {
+            CHAIN_ID: ChainIds.Bitcoin,
+            NETWORK: BitcoinNetwork.mainnet,
+            NETWORK_MAGIC: [],
+            DNS_SEEDS: [],
+        },
+
+        BLOCKCHAIN: {
+            BITCOIND_HOST: '',
+            BITCOIND_PORT: 0,
+            BITCOIND_USERNAME: '',
+            BITCOIND_PASSWORD: '',
+        },
+
+        DATABASE: {
+            DATABASE_NAME: '',
+            HOST: '',
+            PORT: 0,
+
+            AUTH: {
+                USERNAME: '',
+                PASSWORD: '',
+            },
+        },
+
         DEV_MODE: false,
         INDEXER: {
             ENABLED: false,
+            BLOCK_UPDATE_METHOD: BlockUpdateMethods.RPC,
             STORAGE_TYPE: IndexerStorageType.MONGODB,
             ALLOW_PURGE: true,
             READONLY_MODE: false,
@@ -20,6 +53,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         DEV: {
             PROCESS_ONLY_ONE_BLOCK: false,
         },
+
+        BASE58: {},
+        BECH32: {},
 
         P2P: {
             IS_BOOTSTRAP_NODE: false,
@@ -101,10 +137,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ENABLED_AT_BLOCK: 0,
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
+
             VERIFY_INTEGRITY_ON_STARTUP: false,
             DISABLE_SCANNED_BLOCK_STORAGE_CHECK: true,
 
-            CHAIN_ID: ChainIds.Bitcoin,
             MODE: OPNetIndexerMode.ARCHIVE,
         },
     };
@@ -129,6 +165,44 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
     protected override verifyConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
         super.verifyConfig(parsedConfig);
 
+        if (parsedConfig.DOCS) {
+            if (parsedConfig.DOCS.ENABLED && typeof parsedConfig.DOCS.ENABLED !== 'boolean') {
+                throw new Error(`Oops the property DOCS.ENABLED is not a boolean.`);
+            }
+
+            if (parsedConfig.DOCS.ENABLED && typeof parsedConfig.DOCS.PORT !== 'number') {
+                throw new Error(`Oops the property DOCS.PORT is not a number.`);
+            }
+        }
+
+        if (parsedConfig.API) {
+            if (parsedConfig.API.ENABLED && typeof parsedConfig.API.ENABLED !== 'boolean') {
+                throw new Error(`Oops the property API.ENABLED is not a boolean.`);
+            }
+
+            if (parsedConfig.API.ENABLED && typeof parsedConfig.API.PORT !== 'number') {
+                throw new Error(`Oops the property API.PORT is not a number.`);
+            }
+        }
+
+        if (parsedConfig.BLOCKCHAIN) {
+            if (typeof parsedConfig.BLOCKCHAIN.BITCOIND_HOST !== 'string') {
+                throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_HOST is not a string.`);
+            }
+
+            if (!parsedConfig.BLOCKCHAIN.BITCOIND_HOST) {
+                throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_HOST is not valid.`);
+            }
+
+            if (typeof parsedConfig.BLOCKCHAIN.BITCOIND_PORT !== 'number') {
+                throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_PORT is not a number.`);
+            }
+
+            if (parsedConfig.BLOCKCHAIN.BITCOIND_PORT === 0) {
+                throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_PORT is not defined.`);
+            }
+        }
+
         if (parsedConfig.DEV_MODE != null && typeof parsedConfig.DEV_MODE !== 'boolean') {
             throw new Error(`Oops the property DEV_MODE is not a boolean.`);
         }
@@ -144,6 +218,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(
                     `Oops the property INDEXER.STORAGE_TYPE is not a valid IndexerStorageType enum value.`,
+                );
+            }
+
+            if (
+                typeof parsedConfig.INDEXER.BLOCK_UPDATE_METHOD !== 'string' ||
+                BlockUpdateMethods[parsedConfig.INDEXER.BLOCK_UPDATE_METHOD] === undefined
+            ) {
+                throw new Error(
+                    `Oops the property INDEXER.BLOCK_UPDATE_METHOD is not a valid BlockUpdateMethods enum value.`,
                 );
             }
 
@@ -241,12 +324,45 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                     `Oops the property OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT is not a number.`,
                 );
             }
+        }
 
+        if (parsedConfig.BITCOIN) {
             if (
-                parsedConfig.OP_NET.CHAIN_ID !== undefined &&
-                typeof parsedConfig.OP_NET.CHAIN_ID !== 'number'
+                parsedConfig.BITCOIN.CHAIN_ID !== undefined &&
+                typeof parsedConfig.BITCOIN.CHAIN_ID !== 'number'
             ) {
                 throw new Error(`Oops the property OP_NET.CHAIN_ID is not a number.`);
+            }
+
+            if (
+                parsedConfig.BITCOIN.NETWORK_MAGIC !== undefined &&
+                !Array.isArray(parsedConfig.BITCOIN.NETWORK_MAGIC)
+            ) {
+                throw new Error(`Oops the property BITCOIN.NETWORK_MAGIC is not an array.`);
+            } else if (parsedConfig.BITCOIN.NETWORK_MAGIC) {
+                for (let magic of parsedConfig.BITCOIN.NETWORK_MAGIC) {
+                    if (typeof magic !== 'number') {
+                        throw new Error(
+                            `Oops the property BITCOIN.NETWORK_MAGIC is not an array of numbers.`,
+                        );
+                    }
+                }
+            }
+
+            if (
+                parsedConfig.BITCOIN.NETWORK !== undefined &&
+                !(parsedConfig.BITCOIN.NETWORK in BitcoinNetwork)
+            ) {
+                throw new Error(
+                    `Oops the property BITCOIN.NETWORK is not a valid BitcoinNetwork enum value.`,
+                );
+            }
+
+            if (
+                parsedConfig.BITCOIN.DNS_SEEDS !== undefined &&
+                !Array.isArray(parsedConfig.BITCOIN.DNS_SEEDS)
+            ) {
+                throw new Error(`Oops the property OP_NET.DNS_SEEDS is not an array.`);
             }
         }
 
@@ -559,6 +675,16 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             IBtcIndexerConfig['BLOCKCHAIN']
         >(parsedConfig.BLOCKCHAIN, defaultConfigs.BLOCKCHAIN);
 
+        this.config.DATABASE = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['DATABASE']
+        >(parsedConfig.DATABASE, defaultConfigs.DATABASE);
+
+        this.config.DOCS = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['DOCS']
+        >(parsedConfig.DOCS, defaultConfigs.DOCS);
+
         this.config.SSH = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['SSH']>(
             parsedConfig.SSH,
             defaultConfigs.SSH,
@@ -568,6 +694,21 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             parsedConfig.API,
             defaultConfigs.API,
         );
+
+        this.config.BECH32 = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['BECH32']
+        >(parsedConfig.BECH32 || {}, defaultConfigs.BECH32 || {});
+
+        this.config.BASE58 = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['BASE58']
+        >(parsedConfig.BASE58 || {}, defaultConfigs.BASE58 || {});
+
+        this.config.BITCOIN = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['BITCOIN']
+        >(parsedConfig.BITCOIN || {}, defaultConfigs.BITCOIN || {});
 
         this.config.DEV = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['DEV']>(
             parsedConfig.DEV,

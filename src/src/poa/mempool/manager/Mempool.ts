@@ -17,7 +17,7 @@ import { PSBTTransactionVerifier } from '../psbt/PSBTTransactionVerifier.js';
 import { BitcoinRPC, FeeEstimation } from '@btc-vision/bsi-bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
-import { NetworkConverter } from '../../../config/NetworkConverter.js';
+import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { PSBTProcessorManager } from '../PSBTProcessorManager.js';
 import { Network } from 'bitcoinjs-lib';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
@@ -51,9 +51,7 @@ export class Mempool extends Logger {
         this.currentAuthority,
     );
 
-    private readonly network: Network = NetworkConverter.getNetwork(
-        Config.BLOCKCHAIN.BITCOIND_NETWORK,
-    );
+    private readonly network: Network = NetworkConverter.getNetwork();
 
     private estimatedBlockFees: bigint = 0n;
 
@@ -108,7 +106,7 @@ export class Mempool extends Logger {
     public async init(): Promise<void> {
         this.log(`Starting Mempool...`);
 
-        await this.db.setup(Config.DATABASE.CONNECTION_TYPE);
+        await this.db.setup();
         await Promise.all([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
 
         if (!this.db.db) throw new Error('Database connection not established.');
@@ -135,7 +133,7 @@ export class Mempool extends Logger {
         }
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
-            Config.BLOCKCHAIN.BITCOIND_NETWORK,
+            Config.BITCOIN.NETWORK,
         );
     }
 
@@ -415,7 +413,7 @@ export class Mempool extends Logger {
             } as WBTCBalanceRequest,
         };
 
-        return (await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, currentBlockMsg)) as
+        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
     }
@@ -432,7 +430,7 @@ export class Mempool extends Logger {
                 } as BroadcastRequest,
             };
 
-        return (await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, currentBlockMsg)) as
+        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
     }

@@ -43,8 +43,8 @@ class AuthorityManagerBase extends Logger {
             try {
                 const authority: TrustedAuthority = new TrustedAuthority(
                     version,
-                    this.config.OP_NET.CHAIN_ID,
-                    this.config.BLOCKCHAIN.BITCOIND_NETWORK,
+                    this.config.BITCOIN.CHAIN_ID,
+                    this.config.BITCOIN.NETWORK,
                 );
 
                 this.versions.set(version, authority);

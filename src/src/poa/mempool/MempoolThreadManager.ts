@@ -52,9 +52,15 @@ export class MempoolThreadManager extends ThreadManager<ThreadTypes.MEMPOOL> {
         }
     }
 
+    protected async onExitRequested(): Promise<void> {
+        await this.threadManager.sendToAllThreads({
+            type: MessageType.EXIT_THREAD,
+        });
+    }
+
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.BITCOIN_INDEXER);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }
 

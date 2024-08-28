@@ -29,7 +29,7 @@ import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 import { AddressVerificator } from '@btc-vision/transaction';
-import { NetworkConverter } from '../../../../../config/NetworkConverter.js';
+import { NetworkConverter } from '../../../../../config/network/NetworkConverter.js';
 import { DebugLevel } from '@btc-vision/logger';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
@@ -40,7 +40,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     constructor() {
         super(Routes.CALL, RouteType.GET);
 
-        this.network = NetworkConverter.getNetwork(Config.BLOCKCHAIN.BITCOIND_NETWORK);
+        this.network = NetworkConverter.getNetwork();
     }
 
     public static async requestThreadExecution(
@@ -63,7 +63,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         };
 
         const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
-            ThreadTypes.BITCOIN_RPC,
+            ThreadTypes.RPC,
             currentBlockMsg,
         )) as CallRequestResponse | null;
 

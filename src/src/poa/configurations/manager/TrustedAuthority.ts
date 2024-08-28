@@ -1,4 +1,4 @@
-import { BitcoinNetwork, DebugLevel, Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import {
     AuthorityBufferKey,
     AuthorityKey,
@@ -16,6 +16,8 @@ import { Config } from '../../../config/Config.js';
 import { Address } from '@btc-vision/bsi-binary';
 import { OPNET_FEE_WALLET } from '../../wbtc/WBTCRules.js';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
+
+import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 
 export type TrustedPublicKeys = {
     [key in TrustedCompanies]: Buffer[];

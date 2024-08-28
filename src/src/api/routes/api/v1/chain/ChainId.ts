@@ -1,4 +1,3 @@
-import { BitcoinNetwork } from '@btc-vision/bsi-common';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -62,19 +61,6 @@ export class ChainId extends Route<
 
     private getChainId(): number {
         // we convert this to number because it is a string
-        const chain = Config.BLOCKCHAIN.BITCOIND_NETWORK;
-
-        switch (chain) {
-            case BitcoinNetwork.Mainnet:
-                return 1;
-            case BitcoinNetwork.TestNet:
-                return 2;
-            case BitcoinNetwork.Regtest:
-                return 3;
-            case BitcoinNetwork.Signet:
-                return 4;
-            default:
-                return 0;
-        }
+        return Config.BITCOIN.CHAIN_ID;
     }
 }

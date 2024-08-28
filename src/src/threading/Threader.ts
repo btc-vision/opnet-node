@@ -193,6 +193,16 @@ export class Threader<T extends ThreadTypes> extends Logger {
         );
     }
 
+    public async sendToAllThreads(m: ThreadMessageBase<MessageType>): Promise<void> {
+        return new Promise(async (resolve: (value: void | PromiseLike<void>) => void) => {
+            for (let thread of this.threads) {
+                await this.executeMessageOnThreadNoResponse(m, thread);
+            }
+
+            resolve();
+        });
+    }
+
     public createChannel(): { tx: MessagePort; rx: MessagePort } {
         const channel = new MessageChannel();
 

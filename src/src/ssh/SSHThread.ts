@@ -35,7 +35,7 @@ export class SSHThread extends Thread<ThreadTypes.SSH> {
         m: ThreadMessageBase<MessageType>,
     ): Promise<void | ThreadData> {
         switch (type) {
-            case ThreadTypes.BITCOIN_INDEXER: {
+            case ThreadTypes.INDEXER: {
                 return await this.handleBitcoinIndexerMessage(m);
             }
             case ThreadTypes.API: {

@@ -13,11 +13,11 @@ enum ChainIds {
 }
 
 enum BitcoinNetworks {
-  Unknown = 0;
-  Mainnet = 1;
-  Testnet = 2;
-  Regtest = 3;
-  Signet = 4;
+  Mainnet = 0;
+  Testnet = 1;
+  Regtest = 2;
+  Signet = 3;
+  Custom = 4;
 }
 
 /*
@@ -30,6 +30,7 @@ message Authentication {
   PeerType type = 4;
   BitcoinNetworks network = 5;
   ChainIds chainId = 6;
+  optional uint32 magicNumber = 7;
 }
 
 enum AuthenticationStatusEnum {

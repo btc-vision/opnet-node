@@ -3,7 +3,7 @@ import {
     BlockchainInfo,
     BlockDataWithTransactionData,
 } from '@btc-vision/bsi-bitcoin-rpc';
-import { BitcoinNetwork, DebugLevel, Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import bitcoin from 'bitcoinjs-lib';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { Config } from '../../config/Config.js';
@@ -25,12 +25,13 @@ import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { VMManager } from '../../vm/VMManager.js';
 import { Block } from './block/Block.js';
 import { SpecialManager } from './special-transaction/SpecialManager.js';
-import { NetworkConverter } from '../../config/NetworkConverter.js';
+import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import figlet, { Fonts } from 'figlet';
 import { Consensus } from '../../poa/configurations/consensus/Consensus.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import fs from 'fs';
+import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';
 
 interface LastBlock {
     hash?: string;
@@ -68,13 +69,13 @@ export class BlockchainIndexer extends Logger {
         super();
 
         this.maximumPrefetchBlocks = config.OP_NET.MAXIMUM_PREFETCH_BLOCKS;
-        this.network = config.BLOCKCHAIN.BITCOIND_NETWORK;
+        this.network = config.BITCOIN.NETWORK;
 
         this.vmManager = new VMManager(config);
         this.vmStorage = this.vmManager.getVMStorage();
 
         this.specialTransactionManager = new SpecialManager(this.vmManager);
-        this.bitcoinNetwork = NetworkConverter.getNetwork(this.network);
+        this.bitcoinNetwork = NetworkConverter.getNetwork();
 
         this.addConsensusListeners();
     }
@@ -704,7 +705,7 @@ export class BlockchainIndexer extends Logger {
             data: blockHeader,
         };
 
-        await this.sendMessageToThread(ThreadTypes.PoA, msg);
+        await this.sendMessageToThread(ThreadTypes.POA, msg);
     }
 
     private getDefaultBlockHeight(): number {

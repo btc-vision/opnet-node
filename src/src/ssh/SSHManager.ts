@@ -50,11 +50,17 @@ export class SSHThreadManager extends ThreadManager<ThreadTypes.SSH> {
         }
     }
 
+    protected async onExitRequested(): Promise<void> {
+        await this.threadManager.sendToAllThreads({
+            type: MessageType.EXIT_THREAD,
+        });
+    }
+
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.BITCOIN_INDEXER);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
     }
 
     private async createAllThreads(): Promise<void> {

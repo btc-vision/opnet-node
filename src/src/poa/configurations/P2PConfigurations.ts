@@ -269,14 +269,14 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     private getDefaultBootstrapNodes(): string[] {
         const bootstrapNodes =
-            BootstrapNodes[this.config.OP_NET.CHAIN_ID]?.[this.config.BLOCKCHAIN.BITCOIND_NETWORK];
+            BootstrapNodes[this.config.BITCOIN.CHAIN_ID]?.[this.config.BITCOIN.NETWORK];
 
         if (bootstrapNodes) {
             return bootstrapNodes;
         }
 
         console.warn(
-            `!!! --- No bootstrap nodes found for chain ${this.config.OP_NET.CHAIN_ID} and network ${this.config.BLOCKCHAIN.BITCOIND_NETWORK} --- !!!`,
+            `!!! --- No bootstrap nodes found for chain ${this.config.BITCOIN.CHAIN_ID} and network ${this.config.BITCOIN.NETWORK} --- !!!`,
         );
 
         return [];

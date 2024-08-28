@@ -1,4 +1,4 @@
-import { BaseRepository, BitcoinNetwork } from '@btc-vision/bsi-common';
+import { BaseRepository } from '@btc-vision/bsi-common';
 import {
     ChangeStream,
     ChangeStreamDocument,
@@ -9,6 +9,8 @@ import {
 } from 'mongodb';
 import { Config } from '../../config/Config.js';
 import { IBlockchainInformationDocument } from '../documents/interfaces/IBlockchainInformationDocument.js';
+
+import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';
 
 type BlockChangeStreamDocument = ChangeStreamDocument<{ inProgressBlock: number }>;
 

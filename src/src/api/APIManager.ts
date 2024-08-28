@@ -46,6 +46,12 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
         }
     }
 
+    protected async onExitRequested(): Promise<void> {
+        await this.threadManager.sendToAllThreads({
+            type: MessageType.EXIT_THREAD,
+        });
+    }
+
     protected async sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,

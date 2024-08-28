@@ -11,6 +11,8 @@ export interface IAuthenticationPacket extends PackedMessage {
     readonly type: number;
     readonly network: number;
     readonly chainId: number;
+
+    magicNumber?: number;
 }
 
 export class AuthenticationPacket extends Packet<IAuthenticationPacket, {}, {}> {

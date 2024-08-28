@@ -11,10 +11,11 @@ import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../threading/Threader.js';
 import { BitcoinRPCThreadManager } from './rpc/BitcoinRPCThreadManager.js';
 
-class BlockchainIndexerManager extends ThreadManager<ThreadTypes.BITCOIN_INDEXER> {
+class BlockchainIndexerManager extends ThreadManager<ThreadTypes.INDEXER> {
     public readonly logColor: string = '#1553c7';
-    protected readonly threadManager: Threader<ThreadTypes.BITCOIN_INDEXER> = new Threader(
-        ThreadTypes.BITCOIN_INDEXER,
+
+    protected readonly threadManager: Threader<ThreadTypes.INDEXER> = new Threader(
+        ThreadTypes.INDEXER,
     );
 
     private readonly bitcoinRPCThreads: BitcoinRPCThreadManager = new BitcoinRPCThreadManager();
@@ -54,8 +55,14 @@ class BlockchainIndexerManager extends ThreadManager<ThreadTypes.BITCOIN_INDEXER
         }
     }
 
+    protected async onExitRequested(): Promise<void> {
+        await this.threadManager.sendToAllThreads({
+            type: MessageType.EXIT_THREAD,
+        });
+    }
+
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
     }
 
     protected async init(): Promise<void> {

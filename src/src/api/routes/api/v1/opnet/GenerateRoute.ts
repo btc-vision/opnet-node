@@ -19,11 +19,10 @@ import {
     WrapTransactionGenerator,
     WrapTransactionParameters,
 } from '../../../../../blockchain-indexer/processor/transaction/generator/WrapTransactionGenerator.js';
-import { Config } from '../../../../../config/Config.js';
 import { UnwrapGenerator } from '../../../../../blockchain-indexer/processor/transaction/generator/UnwrapGenerator.js';
 import { ABICoder, Address, BinaryReader, BinaryWriter } from '@btc-vision/bsi-binary';
 import { AddressVerificator } from '@btc-vision/transaction';
-import { NetworkConverter } from '../../../../../config/NetworkConverter.js';
+import { NetworkConverter } from '../../../../../config/network/NetworkConverter.js';
 import { Network } from 'bitcoinjs-lib';
 import { TrustedAuthority } from '../../../../../poa/configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../../../../poa/configurations/manager/AuthorityManager.js';
@@ -41,9 +40,7 @@ export class GenerateRoute extends Route<
         '0x' + abiCoder.encodeSelector('withdrawableBalanceOf'),
     );
 
-    private readonly network: Network = NetworkConverter.getNetwork(
-        Config.BLOCKCHAIN.BITCOIND_NETWORK,
-    );
+    private readonly network: Network = NetworkConverter.getNetwork();
 
     private readonly wrapTransactionGenerator: WrapTransactionGenerator =
         new WrapTransactionGenerator(this.network);

@@ -7,8 +7,8 @@ import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../threading/thread/Thread.js';
 import { BlockchainIndexer } from './processor/BlockchainIndexer.js';
 
-export class BlockchainIndexerThread extends Thread<ThreadTypes.BITCOIN_INDEXER> {
-    public readonly threadType: ThreadTypes.BITCOIN_INDEXER = ThreadTypes.BITCOIN_INDEXER;
+export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
+    public readonly threadType: ThreadTypes.INDEXER = ThreadTypes.INDEXER;
 
     private readonly blockIndexer: BlockchainIndexer = new BlockchainIndexer(Config);
 
@@ -27,7 +27,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.BITCOIN_INDEXER>
 
         this.blockIndexer.sendMessageToThread = this.sendMessageToThread.bind(this);
 
-        await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
+        await DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
         await this.blockIndexer.init();
@@ -40,7 +40,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.BITCOIN_INDEXER>
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData | undefined> {
         switch (type) {
-            case ThreadTypes.PoA: {
+            case ThreadTypes.POA: {
                 return await this.onPoAMessage(m);
             }
 

@@ -7,5 +7,5 @@ export interface ThreadMessageBase<T extends MessageType> {
     taskId?: string;
 
     readonly toServer?: boolean;
-    readonly data: ThreadData | PromiseLike<ThreadData>;
+    readonly data?: ThreadData | PromiseLike<ThreadData>;
 }

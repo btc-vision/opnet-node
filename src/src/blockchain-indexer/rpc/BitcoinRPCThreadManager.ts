@@ -10,12 +10,10 @@ import { ThreadManager } from '../../threading/manager/ThreadManager.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../../threading/Threader.js';
 
-export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_RPC> {
+export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.RPC> {
     public readonly logColor: string = '#bc00fa';
 
-    protected readonly threadManager: Threader<ThreadTypes.BITCOIN_RPC> = new Threader(
-        ThreadTypes.BITCOIN_RPC,
-    );
+    protected readonly threadManager: Threader<ThreadTypes.RPC> = new Threader(ThreadTypes.RPC);
 
     constructor() {
         super();
@@ -52,9 +50,15 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
         }
     }
 
+    protected async onExitRequested(): Promise<void> {
+        await this.threadManager.sendToAllThreads({
+            type: MessageType.EXIT_THREAD,
+        });
+    }
+
     protected async createLinkBetweenThreads(): Promise<void> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }
 }

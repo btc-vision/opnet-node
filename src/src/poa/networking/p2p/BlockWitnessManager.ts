@@ -496,7 +496,7 @@ export class BlockWitnessManager extends Logger {
             data: data,
         };
 
-        const response = await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, message);
+        const response = await this.sendMessageToThread(ThreadTypes.RPC, message);
         if (!response) {
             throw new Error('Failed to get block data at height.');
         }
@@ -618,7 +618,7 @@ export class BlockWitnessManager extends Logger {
         };
 
         const resp = (await this.sendMessageToThread(
-            ThreadTypes.BITCOIN_INDEXER,
+            ThreadTypes.INDEXER,
             msg,
         )) as CurrentIndexerBlockResponseData | null;
 

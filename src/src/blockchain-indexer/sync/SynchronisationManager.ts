@@ -1,24 +1,26 @@
-import { Worker } from 'worker_threads';
-import { MessageType } from '../threading/enum/MessageType.js';
+import { ThreadManager } from '../../threading/manager/ThreadManager.js';
+import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
+import { Threader } from '../../threading/Threader.js';
+import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import { MessageType } from '../../threading/enum/MessageType.js';
 import {
     LinkThreadMessage,
     LinkType,
-} from '../threading/interfaces/thread-messages/messages/LinkThreadMessage.js';
-import { LinkThreadRequestMessage } from '../threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
-import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
-import { ThreadManager } from '../threading/manager/ThreadManager.js';
-import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
-import { Threader } from '../threading/Threader.js';
+} from '../../threading/interfaces/thread-messages/messages/LinkThreadMessage.js';
+import { LinkThreadRequestMessage } from '../../threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
+import { Worker } from 'worker_threads';
 
-export class PoAThreadManager extends ThreadManager<ThreadTypes.POA> {
-    public readonly logColor: string = '#00f2fa';
+class SynchronisationManager extends ThreadManager<ThreadTypes.SYNCHRONISATION> {
+    public readonly logColor: string = '#1553c7';
 
-    protected readonly threadManager: Threader<ThreadTypes.POA> = new Threader(ThreadTypes.POA);
+    protected readonly threadManager: Threader<ThreadTypes.SYNCHRONISATION> = new Threader(
+        ThreadTypes.SYNCHRONISATION,
+    );
 
     constructor() {
         super();
 
-        void this.createAllThreads();
+        void this.init();
     }
 
     public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
@@ -58,14 +60,14 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.POA> {
 
     protected async createLinkBetweenThreads(): Promise<void> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }
 
-    private async createAllThreads(): Promise<void> {
-        await this.init();
+    protected async init(): Promise<void> {
+        await super.init();
 
-        await this.threadManager.createThreads();
+        this.log('Starting block indexer...');
+        await this.createThreads();
     }
 }
 
-new PoAThreadManager();
+new SynchronisationManager();

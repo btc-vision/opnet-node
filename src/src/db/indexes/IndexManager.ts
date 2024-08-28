@@ -8,7 +8,6 @@ import {
     IndexDescription,
     IndexDirection,
 } from 'mongodb';
-import { Config } from '../../config/Config.js';
 import { IndexedBlockchainInformation } from './required/IndexedBlockchainInformation.js';
 import { IndexedBlocks } from './required/IndexedBlocks.js';
 import { IndexedBlockWitnesses } from './required/IndexedBlockWitnesses.js';
@@ -56,7 +55,7 @@ export class IndexManager extends Logger {
     }
 
     public async setupDB(): Promise<void> {
-        await this.opnetDB.setup(Config.DATABASE.CONNECTION_TYPE);
+        await this.opnetDB.setup();
         await this.opnetDB.connect();
 
         if (!this.opnetDB.db) {

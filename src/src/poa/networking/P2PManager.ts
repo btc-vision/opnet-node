@@ -151,7 +151,7 @@ export class P2PManager extends Logger {
     }
 
     public async init(): Promise<void> {
-        await DBManagerInstance.setup(this.config.DATABASE.CONNECTION_TYPE);
+        await DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
         await this.blockWitnessManager.init();
@@ -577,7 +577,7 @@ export class P2PManager extends Logger {
                 };
 
                 const resp = (await this.sendMessageToThread(
-                    ThreadTypes.BITCOIN_INDEXER,
+                    ThreadTypes.INDEXER,
                     startupMessage,
                 )) as StartIndexerResponseData | null;
 

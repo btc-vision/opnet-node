@@ -82,7 +82,7 @@ export class VMMongoStorage extends VMStorage {
     constructor(private readonly config: IBtcIndexerConfig) {
         super();
 
-        this.network = config.BLOCKCHAIN.BITCOIND_NETWORK;
+        this.network = config.BITCOIN.NETWORK;
         this.maxTransactionSessions = config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS;
 
         this.startCache();
@@ -998,7 +998,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     private async connectDatabase(): Promise<void> {
-        await this.databaseManager.setup(this.config.DATABASE.DATABASE_NAME);
+        await this.databaseManager.setup();
         await this.databaseManager.connect();
     }
 

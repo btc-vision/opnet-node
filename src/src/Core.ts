@@ -32,6 +32,8 @@ export class Core extends Logger {
     constructor() {
         super();
 
+        //this.listenEvents();
+
         void this.start();
     }
 
@@ -48,12 +50,12 @@ export class Core extends Logger {
         }
 
         if (Config.INDEXER.ENABLED) {
-            await this.createThread(2, ThreadTypes.BITCOIN_INDEXER);
+            await this.createThread(2, ThreadTypes.INDEXER);
         }
 
         if (Config.POA.ENABLED) {
             await this.createThread(3, ThreadTypes.MEMPOOL);
-            await this.createThread(4, ThreadTypes.PoA);
+            await this.createThread(4, ThreadTypes.POA);
         }
 
         if (Config.SSH.ENABLED) {
@@ -78,7 +80,7 @@ export class Core extends Logger {
     }
 
     private async setupDB(): Promise<boolean> {
-        await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
+        await DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
         if (!DBManagerInstance.db) {
@@ -142,7 +144,7 @@ export class Core extends Logger {
         }
     }
 
-    /*private listenEvents(): void {
+    private listenEvents(): void {
         let called = false;
         process.on('SIGINT', async () => {
             if (!called) {
@@ -166,19 +168,37 @@ export class Core extends Logger {
         });
     }
 
-    private async terminateAllActions(): Promise<void> {
-        this.log(`Exit requested.`);
-
-        for (let thread of this.threads) {
+    private requestExitThread(thread: Worker): Promise<void> {
+        return new Promise((resolve) => {
             try {
                 this.log(`Exiting thread.`);
-                await thread.terminate();
+
+                thread.on('exit', () => {
+                    resolve();
+                });
+
+                thread.postMessage({
+                    type: MessageType.EXIT_THREAD,
+                } as ThreadMessageBase<MessageType>);
+
                 this.log(`Exited thread.`);
             } catch (e) {}
+        });
+    }
+
+    private async terminateAllActions(): Promise<void> {
+        const promises: Promise<void>[] = [];
+
+        for (let thread of this.threads) {
+            promises.push(this.requestExitThread(thread));
         }
 
+        await Promise.all(promises);
+
+        this.success('All threads exited successfully.');
+
         process.exit(0);
-    }*/
+    }
 
     private createThread(i: number, type: ThreadTypes): Promise<void> {
         return new Promise((resolve) => {

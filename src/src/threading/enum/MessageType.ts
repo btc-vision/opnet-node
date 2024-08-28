@@ -7,5 +7,6 @@ export enum MessageType {
 
     BLOCK_PROCESSED,
     CURRENT_INDEXER_BLOCK,
-    START_INDEXER
+    START_INDEXER,
+    EXIT_THREAD,
 }

@@ -24,6 +24,7 @@ import { SharedAuthenticationManager } from '../../shared/managers/SharedAuthent
 import { ConnectionStatus } from '../enums/ConnectionStatus.js';
 import { Config } from '../../../../config/Config.js';
 import { DebugLevel } from '@btc-vision/bsi-common';
+import { NetworkConverter } from '../../../../config/network/NetworkConverter.js';
 
 export abstract class ClientAuthenticationManager extends SharedAuthenticationManager {
     public readonly logColor: string = '#08fa00';
@@ -171,6 +172,10 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
             network: this.selfIdentity.peerNetwork,
             chainId: this.selfIdentity.peerChainId,
         };
+
+        if (NetworkConverter.hasMagicNumber) {
+            authData.magicNumber = NetworkConverter.magicNumber;
+        }
 
         await this.sendMsg(authPacket.pack(authData));
     }

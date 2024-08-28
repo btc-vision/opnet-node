@@ -48,7 +48,7 @@ import { GasTracker } from './runtime/GasTracker.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/transaction';
 import bitcoin from 'bitcoinjs-lib';
-import { NetworkConverter } from '../config/NetworkConverter.js';
+import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { contractManager } from './isolated/LoaderV2.js';
 
 Globals.register();
@@ -88,7 +88,7 @@ export class VMManager extends Logger {
     ) {
         super();
 
-        this.network = NetworkConverter.getNetwork(config.BLOCKCHAIN.BITCOIND_NETWORK);
+        this.network = NetworkConverter.getNetwork();
 
         this.vmStorage = vmStorage || this.getVMStorage();
         this.vmBitcoinBlock = new VMBitcoinBlock(this.vmStorage);

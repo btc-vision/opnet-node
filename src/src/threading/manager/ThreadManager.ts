@@ -79,6 +79,8 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
         thread: Worker,
     ): Promise<void>;
 
+    protected abstract onExitRequested(): Promise<void>;
+
     private async onParentMessage(msg: ThreadMessageBase<MessageType>): Promise<void> {
         switch (msg.type) {
             case MessageType.LINK_THREAD_REQUEST: {
@@ -98,7 +100,12 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
 
     private listenParentManager(): void {
         if (parentPort) {
-            parentPort.on('message', (msg: ThreadMessageBase<MessageType>) => {
+            parentPort.on('message', async (msg: ThreadMessageBase<MessageType>) => {
+                if (msg.type === MessageType.EXIT_THREAD) {
+                    await this.onExitRequested();
+                    return;
+                }
+
                 void this.onParentMessage(msg);
             });
         }

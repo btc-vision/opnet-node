@@ -33,8 +33,8 @@ import {
 } from '../../../vm/evaluated/EvaluatedResult.js';
 import { Address, NetEvent } from '@btc-vision/bsi-binary';
 
-export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
-    public readonly threadType: ThreadTypes.BITCOIN_RPC = ThreadTypes.BITCOIN_RPC;
+export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
+    public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
 
     private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
     private readonly vmManagers: VMManager[] = [];
@@ -104,10 +104,10 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             case ThreadTypes.API: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
-            case ThreadTypes.BITCOIN_INDEXER: {
+            case ThreadTypes.INDEXER: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
-            case ThreadTypes.PoA: {
+            case ThreadTypes.POA: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
             case ThreadTypes.MEMPOOL: {

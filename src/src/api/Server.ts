@@ -131,7 +131,7 @@ export class Server extends Logger {
         });
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
-            Config.BLOCKCHAIN.BITCOIND_NETWORK,
+            Config.BITCOIN.NETWORK,
         );
     }
 

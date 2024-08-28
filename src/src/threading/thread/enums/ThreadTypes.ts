@@ -1,9 +1,10 @@
 export enum ThreadTypes {
-    BITCOIN_INDEXER = `BITCOIN_INDEXER`,
-    API = `API`,
-    DOCS = `DOCS`,
-    BITCOIN_RPC = `BITCOIN_RPC`,
-    PoA = `PoA`,
-    MEMPOOL = `MemPool`,
-    SSH = `SSH`,
+    INDEXER = `indexer`,
+    API = `api`,
+    DOCS = `docs`,
+    RPC = `rpc`,
+    POA = `poa`,
+    MEMPOOL = `mempool`,
+    SSH = `ssh`,
+    SYNCHRONISATION = `sync`,
 }
