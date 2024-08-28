@@ -514,11 +514,11 @@ export class BlockchainIndexer extends Logger {
         startBlockHeight: bigint = -1n,
         wasReorg: boolean = false,
     ): Promise<void> {
-        this.log(`Processing blocks from block ${startBlockHeight}.`);
-
         let blockHeightInProgress: bigint = wasReorg
             ? startBlockHeight
             : await this.getCurrentProcessBlockHeight(startBlockHeight);
+
+        this.log(`Processing blocks from block ${blockHeightInProgress}.`);
 
         if (!wasReorg && this.lastBlock && typeof this.lastBlock.blockNumber !== 'undefined') {
             if (blockHeightInProgress < this.lastBlock.blockNumber) {

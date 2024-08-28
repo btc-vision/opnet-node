@@ -67,6 +67,10 @@ export abstract class BlockFetcher extends Logger {
             Number(chainCurrentBlockHeight - blockHeightInProgress),
         );
 
+        this.log(
+            `Prefetching ${blocksToPrefetch} blocks... {blockHeightInProgress: ${blockHeightInProgress}, chainCurrentBlockHeight: ${chainCurrentBlockHeight}}`,
+        );
+
         const blockOffset = blockHeightInProgress + BigInt(this.prefetchedBlocks.length);
         for (let i = 0; i < blocksToPrefetch; i++) {
             this.prefetchedBlocks.push(this.queryBlock(blockOffset + BigInt(i)));
