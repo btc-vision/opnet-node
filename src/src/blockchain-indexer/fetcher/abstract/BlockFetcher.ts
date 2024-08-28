@@ -22,11 +22,7 @@ export abstract class BlockFetcher extends Logger {
             this.prefetchBlocks(expectedBlockId, chainCurrentBlockHeight);
 
             if (this.prefetchedBlocks.length === 0) {
-                this.warn(
-                    `Something went wrong with the prefetching of blocks. Fetching block ${expectedBlockId} directly...`,
-                );
-
-                return this.queryBlock(expectedBlockId);
+                throw new Error('Block does not exist.');
             }
 
             const block = await this.prefetchedBlocks.shift();

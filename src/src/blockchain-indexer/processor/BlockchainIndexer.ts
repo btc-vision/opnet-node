@@ -529,7 +529,7 @@ export class BlockchainIndexer extends Logger {
         this.setConsensusBlockHeight(BigInt(blockHeightInProgress));
 
         let chainCurrentBlockHeight: bigint = await this.getChainCurrentBlockHeight();
-        while (blockHeightInProgress <= chainCurrentBlockHeight) {
+        while (blockHeightInProgress < chainCurrentBlockHeight) {
             const getBlockDataTimingStart = Date.now();
             const nextConsensus = OPNetConsensus.getNextConsensus();
             if (this.setConsensusBlockHeight(BigInt(blockHeightInProgress))) {
