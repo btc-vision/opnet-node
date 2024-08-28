@@ -1,4 +1,4 @@
-import { Globals, Logger } from '@btc-vision/bsi-common';
+import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import cors from 'cors';
 import HyperExpress, { MiddlewareHandler } from 'hyper-express';
 import { Request } from 'hyper-express/types/components/http/Request.js';
@@ -150,7 +150,9 @@ export class Server extends Logger {
             const routeData = route.getRoute(this.storage);
             const path = `${this.apiPrefix}/${route.getPath()}`;
 
-            this.log(`Loading route: ${path} (${routeData.type})`);
+            if (Config.DEBUG_LEVEL >= DebugLevel.TRACE && Config.DEV_MODE) {
+                this.log(`Loading route: ${path} (${routeData.type})`);
+            }
 
             const typeRoute = routeData.type as HyperExpressRoute;
             const handler = routeData.handler as RouterHandler<typeof typeRoute>;

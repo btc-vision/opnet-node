@@ -1,4 +1,4 @@
-import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
+import { ConfigurableDBManager, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { Document } from 'bson';
 import {
     Collection,
@@ -23,6 +23,7 @@ import { IndexedPendingWbtcUtxo } from './required/IndexedPendingWbtcUtxo.js';
 import { IndexedUsedWbtcUtxo } from './required/IndexedUsedWbtcUtxo.js';
 import { IndexedCompromisedTransactions } from './required/IndexedCompromisedTransactions.js';
 import { IndexedUnspentTransactions } from './required/IndexedUnspentTransactions.js';
+import { Config } from '../../config/Config.js';
 
 /** This class job is to create the required indexes for the database */
 export class IndexManager extends Logger {
@@ -152,7 +153,9 @@ export class IndexManager extends Logger {
             }
         }
 
-        this.log(`Indexes created for collection ${indexedCollection.collection}`);
+        if (Config.DEV_MODE && Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.log(`Indexes created for collection ${indexedCollection.collection}`);
+        }
     }
 
     private async createIndexes(): Promise<void> {
