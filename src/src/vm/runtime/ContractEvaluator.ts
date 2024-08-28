@@ -26,7 +26,7 @@ import { MemorySlotData } from '@btc-vision/bsi-binary/src/buffer/types/math.js'
 import { Network, networks } from 'bitcoinjs-lib';
 import { BitcoinNetworkRequest } from '@btc-vision/op-vm';
 import assert from 'node:assert';
-import { ContractParameters, RustContract } from '../isolated/LoaderV3.js';
+import { ContractParameters, RustContract } from '../isolated/RustContract.js';
 
 export class ContractEvaluator extends Logger {
     public readonly logColor: string = '#00ffe1';
