@@ -10,14 +10,12 @@ import {
     PoA,
     RPCConfig,
     SSHConfig,
-    ZeroMQConfig,
 } from './interfaces/IBtcIndexerConfig';
 
 import '../utils/Globals.js';
 
 export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
     public readonly INDEXER: IndexerConfig;
-    public readonly ZERO_MQ: ZeroMQConfig;
     public readonly RPC: RPCConfig;
     public readonly OP_NET: OPNetConfig;
 
@@ -38,7 +36,6 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
         this.DEV = config.DEV;
 
         this.INDEXER = config.INDEXER;
-        this.ZERO_MQ = config.ZERO_MQ;
         this.RPC = config.RPC;
         this.OP_NET = config.OP_NET;
 

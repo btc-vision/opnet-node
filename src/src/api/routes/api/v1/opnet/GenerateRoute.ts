@@ -109,7 +109,7 @@ export class GenerateRoute extends Route<
 
     /**
      * GET /api/v1/opnet/generate
-     * @tag OPNet
+     * @tag OP_NET
      * @summary Generate an opnet transaction with the given parameters
      * @description Generate an opnet transaction with the given parameters
      * @queryParam {number} target - The target (0: wrap)

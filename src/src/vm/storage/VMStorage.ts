@@ -1,6 +1,5 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
-import { BitcoinAddress } from '../../bitcoin/types/BitcoinAddress.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { BlockWithTransactions } from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
@@ -47,7 +46,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<IParsedBlockWitnessDocument[]>;
 
     public abstract getStorage(
-        address: BitcoinAddress,
+        address: Address,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null,
         setIfNotExit: boolean,
@@ -55,7 +54,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<ProvenMemoryValue | null>;
 
     public abstract setStorage(
-        address: BitcoinAddress,
+        address: Address,
         pointer: StoragePointer,
         value: MemoryValue,
         proofs: string[],
@@ -63,19 +62,19 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<void>;
 
     public abstract setStoragePointers(
-        storage: Map<BitcoinAddress, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
     ): Promise<void>;
 
-    public abstract hasContractAt(address: BitcoinAddress): Promise<boolean>;
+    public abstract hasContractAt(address: Address): Promise<boolean>;
 
     public abstract getContractAt(
-        address: BitcoinAddress,
+        address: Address,
         height?: bigint,
     ): Promise<ContractInformation | undefined>;
 
     public abstract getContractAddressAt(
-        address: BitcoinAddress,
+        address: Address,
         height?: bigint,
     ): Promise<Address | undefined>;
 

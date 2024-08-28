@@ -1,5 +1,4 @@
 import { APIConfig, BlockchainConfig, IConfig, IConfigTemplate } from '@btc-vision/bsi-common';
-import { BitcoinZeroMQTopic } from '../../blockchain-indexer/zeromq/enums/BitcoinZeroMQTopic.js';
 import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';
 import { ChainIds } from '../enums/ChainIds.js';
 import { OPNetIndexerMode } from './OPNetIndexerMode.js';
@@ -15,13 +14,6 @@ export interface IndexerConfig {
 
     readonly PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: number;
 }
-
-export interface ZeroMQTopicConfig {
-    readonly ADDRESS: string;
-    readonly PORT: string;
-}
-
-export type ZeroMQConfig = Partial<Record<BitcoinZeroMQTopic, Readonly<ZeroMQTopicConfig>>>;
 
 export interface RPCConfig {
     readonly THREADS: number;
@@ -122,7 +114,6 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     DEV: DevConfig;
 
     INDEXER: IndexerConfig;
-    ZERO_MQ: ZeroMQConfig;
     RPC: RPCConfig;
     OP_NET: OPNetConfig;
     BLOCKCHAIN: BlockchainConfig;

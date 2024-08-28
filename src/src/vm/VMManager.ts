@@ -7,7 +7,6 @@ import {
 } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { BitcoinAddress } from '../bitcoin/types/BitcoinAddress.js';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
@@ -26,7 +25,10 @@ import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
-import { ITransactionDocument, ITransactionDocumentBasic } from '../db/interfaces/ITransactionDocument.js';
+import {
+    ITransactionDocument,
+    ITransactionDocumentBasic,
+} from '../db/interfaces/ITransactionDocument.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
@@ -333,7 +335,7 @@ export class VMManager extends Logger {
 
     public updateBlockValuesFromResult(
         evaluation: ContractEvaluation | undefined | null,
-        contractAddress: BitcoinAddress,
+        contractAddress: Address,
         transactionId?: string,
         disableStorageCheck: boolean = this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
     ): void {
@@ -987,7 +989,7 @@ export class VMManager extends Logger {
     }
 
     private async getContractInformation(
-        contractAddress: BitcoinAddress,
+        contractAddress: Address,
         height: bigint | undefined,
     ): Promise<ContractInformation | undefined> {
         if (this.contractCache.has(contractAddress)) {
@@ -1039,10 +1041,7 @@ export class VMManager extends Logger {
         /** Nothing to save. */
         if (!stateChanges) return;
 
-        let storageToUpdate: Map<
-            BitcoinAddress,
-            Map<StoragePointer, [MemoryValue, string[]]>
-        > = new Map();
+        let storageToUpdate: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>> = new Map();
 
         for (const [address, val] of stateChanges.entries()) {
             for (const [key, value] of val.entries()) {
@@ -1078,11 +1077,7 @@ export class VMManager extends Logger {
     }
 
     /** We must ENSURE that NOTHING get modified EVEN during the execution of the block. This is performance costly but required. */
-    private async setStorage(
-        address: BitcoinAddress,
-        pointer: bigint,
-        value: bigint,
-    ): Promise<void> {
+    private async setStorage(address: Address, pointer: bigint, value: bigint): Promise<void> {
         if (this.isExecutor) {
             return;
         }
@@ -1096,7 +1091,7 @@ export class VMManager extends Logger {
     }
 
     private async getStorageFromDB(
-        address: BitcoinAddress,
+        address: Address,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,
@@ -1131,7 +1126,7 @@ export class VMManager extends Logger {
 
     /** We must verify that the storage is correct */
     private async getStorage(
-        address: BitcoinAddress,
+        address: Address,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,

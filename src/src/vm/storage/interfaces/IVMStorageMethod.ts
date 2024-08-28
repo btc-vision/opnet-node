@@ -1,17 +1,17 @@
-import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
 import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
+import { Address } from '@btc-vision/bsi-binary';
 
 export interface IVMStorageMethod {
     getStorage(
-        address: BitcoinAddress,
+        address: Address,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null,
         setIfNotExit: boolean,
     ): Promise<ProvenMemoryValue | null>;
 
     setStorage(
-        address: BitcoinAddress,
+        address: Address,
         pointer: StoragePointer,
         value: MemoryValue,
         proofs: string[],

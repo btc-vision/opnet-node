@@ -23,14 +23,6 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
         void this.init();
     }
 
-    public sendLinkToZeroMQThread(_message: LinkThreadMessage<LinkType>): void {
-        throw new Error('Method not implemented.');
-    }
-
-    public sendMessageToZeroMQThread(_message: LinkThreadRequestMessage): void {
-        throw new Error('Method not implemented.');
-    }
-
     public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
         throw new Error('Method not implemented.');
     }
@@ -51,13 +43,9 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
 
     protected async sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
-        message: LinkThreadRequestMessage,
+        _message: LinkThreadRequestMessage,
     ): Promise<boolean> {
         switch (threadType) {
-            case ThreadTypes.ZERO_MQ: {
-                this.sendMessageToZeroMQThread(message);
-                return true;
-            }
             default: {
                 return false;
             }
@@ -67,7 +55,6 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
     protected async createLinkBetweenThreads(): Promise<void> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
-        //await this.threadManager.createLinkBetweenThreads(ThreadTypes.ZERO_MQ);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }
 }

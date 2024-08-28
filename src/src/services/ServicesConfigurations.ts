@@ -21,11 +21,6 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
         target: './src/blockchain-indexer/BlockchainIndexerThread.js',
     },
 
-    [ThreadTypes.ZERO_MQ]: {
-        maxInstance: 1,
-        target: './src/blockchain-indexer/zeromq/thread/ZeroMQThread.js',
-    },
-
     [ThreadTypes.BITCOIN_RPC]: {
         maxInstance: Config.RPC.THREADS,
         target: './src/blockchain-indexer/rpc/thread/BitcoinRPCThread.js',
@@ -71,14 +66,6 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 8,
             maxYoungGenerationSizeMb: 1024 * 4,
-            stackSizeMb: 256,
-        },
-    },
-
-    [ThreadTypes.ZERO_MQ]: {
-        resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 2,
-            maxYoungGenerationSizeMb: 1024,
             stackSizeMb: 256,
         },
     },

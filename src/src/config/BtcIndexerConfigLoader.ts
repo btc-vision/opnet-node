@@ -1,5 +1,4 @@
 import { ConfigManager, IConfig } from '@btc-vision/bsi-common';
-import { BitcoinZeroMQTopic } from '../blockchain-indexer/zeromq/enums/BitcoinZeroMQTopic.js';
 import { IndexerStorageType } from '../vm/storage/types/IndexerStorageType.js';
 import { BtcIndexerConfig } from './BtcIndexerConfig.js';
 import { ChainIds } from './enums/ChainIds.js';
@@ -18,8 +17,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
         },
 
-        ZERO_MQ: {},
-        
         DEV: {
             PROCESS_ONLY_ONE_BLOCK: false,
         },
@@ -171,25 +168,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(
                     `Oops the property INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS is not a number.`,
                 );
-            }
-        }
-
-        if (parsedConfig.ZERO_MQ) {
-            for (const topic in parsedConfig.ZERO_MQ) {
-                const subTopic = topic as BitcoinZeroMQTopic;
-                const zeroMQConfig = parsedConfig.ZERO_MQ[subTopic];
-
-                if (typeof zeroMQConfig !== 'object') {
-                    throw new Error(`Oops the property ZERO_MQ.${topic} is not an object.`);
-                }
-
-                if (!zeroMQConfig.ADDRESS || typeof zeroMQConfig.ADDRESS !== 'string') {
-                    throw new Error(`Oops the property ZERO_MQ.${topic}.ADDRESS is not a string.`);
-                }
-
-                if (!zeroMQConfig.PORT || typeof zeroMQConfig.PORT !== 'number') {
-                    throw new Error(`Oops the property ZERO_MQ.${topic}.PORT is not a string.`);
-                }
             }
         }
 
@@ -550,11 +528,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             keyof IBtcIndexerConfig,
             IBtcIndexerConfig['INDEXER']
         >(parsedConfig.INDEXER, defaultConfigs.INDEXER);
-
-        this.config.ZERO_MQ = this.getConfigModified<
-            keyof IBtcIndexerConfig,
-            IBtcIndexerConfig['ZERO_MQ']
-        >(parsedConfig.ZERO_MQ, defaultConfigs.ZERO_MQ);
 
         this.config.RPC = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['RPC']>(
             parsedConfig.RPC,

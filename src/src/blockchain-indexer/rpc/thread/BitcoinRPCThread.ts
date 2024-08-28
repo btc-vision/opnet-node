@@ -104,9 +104,6 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             case ThreadTypes.API: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
-            case ThreadTypes.ZERO_MQ: {
-                return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
-            }
             case ThreadTypes.BITCOIN_INDEXER: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }

@@ -1,11 +1,11 @@
 import { Binary, Decimal128 } from 'mongodb';
-import { BitcoinAddress } from '../../../bitcoin/types/BitcoinAddress.js';
+import { Address } from '@btc-vision/bsi-binary';
 
 export interface IContractDocumentBase {
     readonly blockHeight: Decimal128 | string | undefined;
-    readonly contractAddress: BitcoinAddress;
-    readonly virtualAddress: BitcoinAddress;
-    readonly p2trAddress: BitcoinAddress | null;
+    readonly contractAddress: Address;
+    readonly virtualAddress: Address;
+    readonly p2trAddress: Address | null;
     readonly bytecode: Binary | string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: string;
@@ -13,7 +13,7 @@ export interface IContractDocumentBase {
     readonly deployerPubKey: Binary | string;
     readonly contractSeed: Binary | string;
     readonly contractSaltHash: Binary | string;
-    readonly deployerAddress: BitcoinAddress;
+    readonly deployerAddress: Address;
 }
 
 export interface IContractAPIDocument extends IContractDocumentBase {

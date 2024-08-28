@@ -25,7 +25,7 @@ export class NotImplemented extends Route<Routes.NOT_IMPLEMENTED, JSONRpcMethods
 
     /**
      * GET /api/v1/not-implemented
-     * @tag OpNet
+     * @tag OP_NET
      * @summary Not implemented fallback
      * @description This endpoint is a fallback for not implemented endpoints
      * @response 200 - Not Implemented

@@ -26,7 +26,7 @@ export class JSONRpc extends Route<
 
     /**
      * POST /api/v1/json-rpc
-     * @tag OpNet
+     * @tag OP_NET
      * @summary This route allow you to interact with the api via JSON-RPC.
      * @description Handle internal routing via JSON-RPC v2.
      * @bodyContent {object} application/json
