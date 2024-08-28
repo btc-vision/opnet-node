@@ -761,6 +761,8 @@ export class BlockchainIndexer extends Logger {
             return;
         }
 
+        await this.vmStorage.killAllPendingWrites();
+
         const startBlock = this.getDefaultBlockHeight();
         if (startBlock !== -1n) {
             // Purge old data
