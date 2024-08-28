@@ -10,6 +10,8 @@ export abstract class BlockFetcher extends Logger {
 
     protected prefetchedBlocks: Promise<BlockDataWithTransactionData | null>[] = [];
 
+    private lastBlockHash: string | null = null;
+
     protected constructor(protected readonly config: BlockFetcherConfiguration) {
         super();
     }
@@ -35,6 +37,12 @@ export abstract class BlockFetcher extends Logger {
                     `Block ${block.height} was fetched instead of the expected block ${expectedBlockId}.`,
                 );
             }
+
+            if (this.lastBlockHash === block.hash) {
+                throw new Error(`Block ${block.height} was fetched twice.`);
+            }
+
+            this.lastBlockHash = block.hash;
 
             return block;
         } catch (e) {
