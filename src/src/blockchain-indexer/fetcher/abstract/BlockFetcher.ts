@@ -41,6 +41,8 @@ export abstract class BlockFetcher extends Logger {
             let error = e as Error;
             this.error(`Error fetching block ${expectedBlockId}: ${error.message}`);
 
+            this.purgePrefetchedBlocks();
+
             return null;
         }
     }
