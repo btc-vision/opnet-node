@@ -42,24 +42,25 @@ export class Core extends Logger {
      */
     public async createThreads(): Promise<void> {
         if (Config.DOCS.ENABLED) {
-            await this.createThread(0, ThreadTypes.DOCS);
+            await this.createThread(ThreadTypes.DOCS);
         }
 
         if (Config.API.ENABLED) {
-            await this.createThread(1, ThreadTypes.API);
+            await this.createThread(ThreadTypes.API);
         }
 
         if (Config.INDEXER.ENABLED) {
-            await this.createThread(2, ThreadTypes.INDEXER);
+            await this.createThread(ThreadTypes.SYNCHRONISATION);
+            await this.createThread(ThreadTypes.INDEXER);
         }
 
         if (Config.POA.ENABLED) {
-            await this.createThread(3, ThreadTypes.MEMPOOL);
-            await this.createThread(4, ThreadTypes.POA);
+            await this.createThread(ThreadTypes.MEMPOOL);
+            await this.createThread(ThreadTypes.POA);
         }
 
         if (Config.SSH.ENABLED) {
-            await this.createThread(5, ThreadTypes.SSH);
+            await this.createThread(ThreadTypes.SSH);
         }
     }
 
@@ -200,7 +201,7 @@ export class Core extends Logger {
         process.exit(0);
     }
 
-    private createThread(i: number, type: ThreadTypes): Promise<void> {
+    private createThread(type: ThreadTypes): Promise<void> {
         return new Promise((resolve) => {
             const settings = ServicesConfigurations[type];
             if (!settings) {
@@ -216,17 +217,17 @@ export class Core extends Logger {
             thread.on('online', () => {
                 this.masterThreads[type] = thread;
 
-                this.debug(`Thread #${i} online.`);
+                this.debug(`Thread "${type}" online.`);
 
                 resolve();
             });
 
             thread.on('exit', (e: Error) => {
-                this.error(`Thread #${i} died. {ExitCode -> ${e}}`);
+                this.error(`Thread "${type}" died. {ExitCode -> ${e}}`);
             });
 
             thread.on('error', (e: Error) => {
-                this.error(`Thread #${i} errored. {Details: ${e.stack}}`);
+                this.error(`Thread "${type}" errored. {Details: ${e.stack}}`);
             });
 
             thread.on('message', (msg: ThreadMessageBase<MessageType>) => {
