@@ -530,16 +530,12 @@ export class BlockchainIndexer extends Logger {
 
         let chainCurrentBlockHeight: bigint = await this.getChainCurrentBlockHeight();
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
-            console.log('Next');
-
             const getBlockDataTimingStart = Date.now();
             const nextConsensus = OPNetConsensus.getNextConsensus();
             if (this.setConsensusBlockHeight(BigInt(blockHeightInProgress))) {
                 this.onConsensusFailed(Consensus[nextConsensus]);
                 return;
             }
-
-            console.log(`Get block ${blockHeightInProgress}...`);
 
             const block = await this.blockFetcher.getBlock(
                 BigInt(blockHeightInProgress),
@@ -556,8 +552,6 @@ export class BlockchainIndexer extends Logger {
                 );
             }
 
-            console.log('Verify chain reorg...');
-
             const syncBlockDiff = chainCurrentBlockHeight - blockHeightInProgress;
             if (syncBlockDiff < 100) {
                 /** We must check for chain reorgs here. */
@@ -569,8 +563,6 @@ export class BlockchainIndexer extends Logger {
                     return;
                 }
             }
-
-            console.log('Process block...');
 
             const processStartTime = Date.now();
             const processedBlock: Block | null = await this.processBlock(block, this.vmManager);
@@ -614,13 +606,9 @@ export class BlockchainIndexer extends Logger {
 
             const processEndTime = Date.now();
             if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
-                console.log('before!');
-
                 this.info(
                     `Block ${blockHeightInProgress} processed successfully. (BlockHash: ${processedBlock.hash} - previous: ${processedBlock.previousBlockHash}) {Transaction(s): ${processedBlock.header.nTx} | Fetch Data: ${processStartTime - getBlockDataTimingStart}ms | Execute transactions: ${processedBlock.timeForTransactionExecution}ms | State update: ${processedBlock.timeForStateUpdate}ms | Block processing: ${processedBlock.timeForBlockProcessing}ms | Took ${processEndTime - getBlockDataTimingStart}ms})`,
                 );
-
-                console.log('logged?');
             }
 
             blockHeightInProgress++;
@@ -628,12 +616,6 @@ export class BlockchainIndexer extends Logger {
             if (this.processOnlyOneBlock) {
                 break;
             }
-
-            console.log(
-                blockHeightInProgress <= chainCurrentBlockHeight,
-                blockHeightInProgress,
-                chainCurrentBlockHeight,
-            );
         }
 
         chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
