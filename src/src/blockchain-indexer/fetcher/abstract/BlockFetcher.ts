@@ -53,7 +53,7 @@ export abstract class BlockFetcher extends Logger {
 
             this.purgePrefetchedBlocks();
 
-            return null;
+            throw e;
         }
     }
 
