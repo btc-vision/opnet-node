@@ -40,7 +40,6 @@ export abstract class BlockFetcher extends Logger {
             }
 
             if (this.lastBlockHash === block.hash && !wasReorg) {
-                console.trace(`Fetched twice.`);
                 throw new Error(`Block ${block.height} was fetched twice.`);
             }
 

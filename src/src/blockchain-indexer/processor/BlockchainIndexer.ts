@@ -189,7 +189,7 @@ export class BlockchainIndexer extends Logger {
             return;
         }
 
-        this.pendingNextBlockScan = setTimeout(() => this.safeProcessBlocks(-1n), 5000);
+        this.pendingNextBlockScan = setTimeout(() => this.safeProcessBlocks(-1n), 2500);
     }
 
     private async getCurrentProcessBlockHeight(startBlockHeight: bigint): Promise<bigint> {
@@ -484,11 +484,16 @@ export class BlockchainIndexer extends Logger {
 
         if (!wasReorg && this.lastBlock && typeof this.lastBlock.blockNumber !== 'undefined') {
             if (blockHeightInProgress < this.lastBlock.blockNumber) {
+                console.log(
+                    `Overwrite blockHeightInProgress (${blockHeightInProgress}) with lastBlock.blockNumber: ${this.lastBlock.blockNumber}`,
+                );
                 blockHeightInProgress = this.lastBlock.blockNumber;
             }
         }
 
         this.setConsensusBlockHeight(BigInt(blockHeightInProgress));
+
+        console.log(`Start loop chainCurrentBlockHeight: ${blockHeightInProgress}`);
 
         let chainCurrentBlockHeight: bigint = await this.getChainCurrentBlockHeight();
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
@@ -498,6 +503,13 @@ export class BlockchainIndexer extends Logger {
                 this.onConsensusFailed(Consensus[nextConsensus]);
                 return;
             }
+
+            console.log(
+                'blockHeightInProgress',
+                blockHeightInProgress,
+                'chainCurrentBlockHeight',
+                chainCurrentBlockHeight,
+            );
 
             try {
                 const block = await this.blockFetcher.getBlock(
@@ -551,6 +563,7 @@ export class BlockchainIndexer extends Logger {
                 void this.removeTransactionsHashesFromMempool(
                     processedBlock.getTransactionsHashes(),
                 );
+
                 await this.notifyBlockProcessed({
                     blockNumber: processedBlock.height,
                     blockHash: processedBlock.hash,
@@ -579,6 +592,8 @@ export class BlockchainIndexer extends Logger {
 
                 blockHeightInProgress++;
 
+                console.log('New height', blockHeightInProgress);
+
                 if (this.processOnlyOneBlock) {
                     break;
                 }
@@ -599,6 +614,10 @@ export class BlockchainIndexer extends Logger {
                 }
 
                 throw e;
+            }
+
+            if (blockHeightInProgress === chainCurrentBlockHeight) {
+                chainCurrentBlockHeight = await this.getChainCurrentBlockHeight();
             }
         }
 
