@@ -34,8 +34,6 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         super();
     }
 
-    public abstract resumeWrites(): void;
-
     public abstract revertDataUntilBlock(height: bigint): Promise<void>;
 
     public abstract getWitnesses(
@@ -82,14 +80,10 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         hash: string,
     ): Promise<ITransactionDocument<OPNetTransactionTypes> | undefined>;
 
-    public abstract saveTransaction(
-        transaction: ITransactionDocument<OPNetTransactionTypes>,
-    ): Promise<void>;
-
-    public abstract saveTransactions(
+    /*public abstract saveTransactions(
         blockHeight: bigint,
         transaction: ITransactionDocument<OPNetTransactionTypes>[],
-    ): void;
+    ): void;*/
 
     public abstract insertUTXOs(
         blockHeight: bigint,
@@ -142,8 +136,6 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<IReorgDocument[] | undefined>;
 
     public abstract setReorg(reorgData: IReorgData): Promise<void>;
-
-    public abstract awaitPendingWrites(): Promise<void>;
 
     public abstract killAllPendingWrites(): Promise<void>;
 

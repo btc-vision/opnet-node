@@ -719,7 +719,7 @@ export class Block extends Logger {
             promises.push(vmStorage.saveCompromisedTransactions(compromisedTransactions));
         }
 
-        vmManager.saveTransactions(this.height, transactionData);
+        //vmManager.saveTransactions(this.height, transactionData);
 
         await Promise.all(promises);
 
@@ -735,7 +735,7 @@ export class Block extends Logger {
                 transactionData.push(transaction.toDocument());
             }
 
-            vmManager.saveTransactions(this.height, transactionData);
+            //vmManager.saveTransactions(this.height, transactionData);
 
             if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
                 this.success(

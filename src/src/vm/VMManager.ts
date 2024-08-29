@@ -163,17 +163,6 @@ export class VMManager extends Logger {
         await this.clear();
     }
 
-    public saveTransactions(
-        blockHeight: bigint,
-        transaction: ITransactionDocument<OPNetTransactionTypes>[],
-    ): void {
-        if (this.vmBitcoinBlock.height !== blockHeight) {
-            throw new Error('Block height mismatch');
-        }
-
-        this.vmStorage.saveTransactions(blockHeight, transaction);
-    }
-
     public insertUTXOs(
         blockHeight: bigint,
         transaction: ITransactionDocumentBasic<OPNetTransactionTypes>[],

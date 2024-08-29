@@ -1,16 +1,15 @@
-import { Config } from '../config/Config.js';
 import { DBManagerInstance } from '../db/DBManager.js';
 import { MessageType } from '../threading/enum/MessageType.js';
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../threading/thread/Thread.js';
-import { BlockchainIndexer } from './processor/BlockchainIndexer.js';
+import { BlockIndexer } from './processor/BlockIndexer.js';
 
 export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
     public readonly threadType: ThreadTypes.INDEXER = ThreadTypes.INDEXER;
 
-    private readonly blockIndexer: BlockchainIndexer = new BlockchainIndexer(Config);
+    private readonly blockIndexer: BlockIndexer = new BlockIndexer();
 
     constructor() {
         super();

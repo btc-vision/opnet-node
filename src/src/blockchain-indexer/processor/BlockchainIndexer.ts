@@ -27,9 +27,7 @@ import { Block } from './block/Block.js';
 import { SpecialManager } from './special-transaction/SpecialManager.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
-import figlet, { Fonts } from 'figlet';
 import { Consensus } from '../../poa/configurations/consensus/Consensus.js';
-import { DataConverter } from '@btc-vision/bsi-db';
 import fs from 'fs';
 import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';
 import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';
@@ -145,14 +143,6 @@ export class BlockchainIndexer extends Logger {
         if (Config.P2P.IS_BOOTSTRAP_NODE) {
             setTimeout(() => this.startAndPurgeIndexer(), 8000);
         }
-    }
-
-    private addConsensusListeners(): void {
-        OPNetConsensus.addConsensusUpgradeCallback((consensus: string, isReady: boolean) => {
-            if (!isReady) {
-                this.panic(`Consensus upgrade to ${consensus} failed.`);
-            }
-        });
     }
 
     private async getCurrentBlock(): Promise<CurrentIndexerBlockResponseData> {
@@ -385,93 +375,6 @@ export class BlockchainIndexer extends Logger {
         await this.vmManager.clear();
 
         await this.vmStorage.killAllPendingWrites();
-    }
-
-    private setConsensusBlockHeight(blockHeight: bigint): boolean {
-        try {
-            if (
-                OPNetConsensus.hasConsensus() &&
-                OPNetConsensus.isConsensusBlock() &&
-                !OPNetConsensus.isReadyForNextConsensus()
-            ) {
-                this.panic(
-                    `Consensus is getting applied in this block (${blockHeight}) but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
-                );
-                return true;
-            }
-
-            OPNetConsensus.setBlockHeight(blockHeight);
-
-            if (
-                OPNetConsensus.hasConsensus() &&
-                OPNetConsensus.isConsensusBlock() &&
-                !OPNetConsensus.isReadyForNextConsensus()
-            ) {
-                this.panic(
-                    `Consensus is getting applied in this block (${blockHeight}) but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
-                );
-                return true;
-            }
-
-            if (
-                OPNetConsensus.isNextConsensusImminent() &&
-                !OPNetConsensus.isReadyForNextConsensus()
-            ) {
-                this.warn(
-                    `!!! --- Next consensus is imminent. Please prepare for the next consensus by upgrading your node. The next consensus will take effect in ${OPNetConsensus.consensus.GENERIC.NEXT_CONSENSUS_BLOCK - blockHeight} blocks. --- !!!`,
-                );
-            }
-
-            return false;
-        } catch (e) {
-            return true;
-        }
-    }
-
-    private notifyArt(
-        type: 'info' | 'warn' | 'success' | 'panic',
-        text: string,
-        font: Fonts,
-        prefix: string,
-        ...suffix: string[]
-    ): void {
-        const artVal = figlet.textSync(text, {
-            font: font, //'Doh',
-            horizontalLayout: 'default',
-            verticalLayout: 'default',
-        });
-
-        this[type](`${prefix}${artVal}${suffix.join('\n')}`);
-    }
-
-    private async lockdown(): Promise<void> {
-        this.notifyArt(
-            'panic',
-            `LOCKDOWN`,
-            'Doh',
-            `\n\n\nOP_NET detected a compromised block.\n\n\n\n\n`,
-            `\n\nA vault has been compromised. The network is now in lockdown.\n`,
-        );
-
-        this.panic(`A vault has been compromised. The network is now in lockdown.`);
-        this.panic(`If this is a false positive, this should be resolved automatically.`);
-        this.panic(`To prevent further damage, the network has been locked down.`);
-    }
-
-    private onConsensusFailed(consensusName: string): void {
-        this.notifyArt(
-            'warn',
-            `FATAL.`,
-            'Doh',
-            `\n\n\n!!!!!!!!!! -------------------- UPGRADE FAILED. --------------------  !!!!!!!!!!\n\n\n\n\n`,
-            `\n\nPoA has been disabled. This node will not connect to any peers. And any processing will be halted.\n`,
-            `This node is not ready to apply ${consensusName}.\n`,
-            `UPGRADE IMMEDIATELY.\n\n`,
-        );
-
-        setTimeout(() => {
-            process.exit(1); // Exit the process.
-        }, 2000);
     }
 
     private async processBlocks(
@@ -731,32 +634,6 @@ export class BlockchainIndexer extends Logger {
         return {
             started: true,
         };
-    }
-
-    private async setupBlockListener(): Promise<void> {
-        this.info(`Read only mode enabled.`);
-
-        // TODO: Verify this.
-        this.blockchainInfoRepository.watchBlockChanges(async (blockHeight: bigint) => {
-            this.setConsensusBlockHeight(blockHeight);
-
-            const currentBlock = await this.vmStorage.getBlockHeader(blockHeight);
-            if (!currentBlock) {
-                return this.warn(`Can not find block: ${currentBlock}.`);
-            }
-
-            await this.notifyBlockProcessed({
-                ...currentBlock,
-                blockHash: currentBlock.hash,
-                blockNumber: DataConverter.fromDecimal128(currentBlock.height),
-                checksumHash: currentBlock.checksumRoot,
-                checksumProofs: currentBlock.checksumProofs.map((proof) => {
-                    return {
-                        proof: proof[1],
-                    };
-                }),
-            });
-        });
     }
 
     private async startAndPurgeIndexer(): Promise<void> {
