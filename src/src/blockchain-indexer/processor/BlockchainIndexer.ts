@@ -493,7 +493,7 @@ export class BlockchainIndexer extends Logger {
 
         this.setConsensusBlockHeight(BigInt(blockHeightInProgress));
 
-        console.log(`Start loop chainCurrentBlockHeight: ${blockHeightInProgress}`);
+        console.log(`Start loop blockHeightInProgress: ${blockHeightInProgress}`);
 
         let chainCurrentBlockHeight: bigint = await this.getChainCurrentBlockHeight();
         while (blockHeightInProgress <= chainCurrentBlockHeight) {
