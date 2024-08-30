@@ -64,10 +64,13 @@ export class VMMongoStorage extends VMStorage {
 
     private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
 
-    constructor(private readonly config: IBtcIndexerConfig) {
+    constructor(
+        private readonly config: IBtcIndexerConfig,
+        databaseManager?: ConfigurableDBManager,
+    ) {
         super();
 
-        this.databaseManager = new ConfigurableDBManager(this.config);
+        this.databaseManager = databaseManager || new ConfigurableDBManager(this.config);
     }
 
     public async revertDataUntilBlock(blockId: bigint): Promise<void> {
@@ -757,9 +760,11 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Database not connected');
         }
 
-        await this.databaseManager.db.command({ killAllSessions: [] }).catch((error) => {
-            this.panic(`Error killing all sessions: ${error}`);
-        });
+        await this.databaseManager.db
+            .command({ killAllSessions: [{ db: this.databaseManager.db.databaseName }] })
+            .catch((error) => {
+                this.panic(`Error killing all sessions: ${error}`);
+            });
     }
 
     private convertBlockHeaderToBlockHeaderDocument(

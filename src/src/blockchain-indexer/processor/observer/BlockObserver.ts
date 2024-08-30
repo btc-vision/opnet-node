@@ -1,7 +1,6 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { Block } from 'bitcoinjs-lib';
 import { BlockchainInformationRepository } from '../../../db/repositories/BlockchainInformationRepository.js';
-import { DBManagerInstance } from '../../../db/DBManager.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { ConsensusTracker } from '../consensus/ConsensusTracker.js';
@@ -9,6 +8,7 @@ import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { BlockProcessedData } from '../../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 import { SynchronisationStatus } from '../interfaces/SynchronisationStatus.js';
+import { Db } from 'mongodb';
 
 export class BlockObserver extends Logger {
     public readonly logColor: string = '#5eff00';
@@ -24,6 +24,7 @@ export class BlockObserver extends Logger {
 
     constructor(
         private readonly network: BitcoinNetwork,
+        private readonly database: ConfigurableDBManager,
         private readonly rpcClient: BitcoinRPC,
         private readonly consensusTracker: ConsensusTracker,
         private readonly vmStorage: VMStorage,
@@ -59,12 +60,16 @@ export class BlockObserver extends Logger {
         return this._blockchainInfo;
     }
 
-    public async init(): Promise<void> {
-        if (DBManagerInstance.db == null) {
-            throw new Error('DBManager instance must be defined');
+    private get db(): Db {
+        if (!this.database.db) {
+            throw new Error('Database not set.');
         }
 
-        this._blockchainInfo = new BlockchainInformationRepository(DBManagerInstance.db);
+        return this.database.db;
+    }
+
+    public async init(): Promise<void> {
+        this._blockchainInfo = new BlockchainInformationRepository(this.db);
     }
 
     public notifyBlockProcessed: (block: BlockProcessedData) => Promise<void> = async () => {

@@ -1,10 +1,9 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { ReorgWatchdog } from './reorg/ReorgWatchdog.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
-import { DBManagerInstance } from '../../db/DBManager.js';
 import { Config } from '../../config/Config.js';
 import { RPCBlockFetcher } from '../fetcher/RPCBlockFetcher.js';
 import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
@@ -28,12 +27,15 @@ export class BlockIndexer extends Logger {
 
     private readonly reorgWatchdog: ReorgWatchdog = new ReorgWatchdog();
 
+    private readonly database: ConfigurableDBManager = new ConfigurableDBManager(Config);
+
     private readonly rpcClient: BitcoinRPC = new BitcoinRPC(500, false);
     private readonly consensusTracker: ConsensusTracker = new ConsensusTracker();
     private readonly vmStorage: VMStorage = this.getVMStorage();
 
     private readonly blockObserver: BlockObserver = new BlockObserver(
         Config.BITCOIN.NETWORK,
+        this.database,
         this.rpcClient,
         this.consensusTracker,
         this.vmStorage,
@@ -66,24 +68,7 @@ export class BlockIndexer extends Logger {
         throw new Error('sendMessageToThread not implemented.');
     };
 
-    public async init(): Promise<void> {
-        if (DBManagerInstance.db === null) {
-            throw new Error('DBManager instance must be defined');
-        }
-
-        this._blockFetcher = new RPCBlockFetcher({
-            maximumPrefetchBlocks: Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS,
-            rpc: this.rpcClient,
-        });
-
-        if (Config.P2P.IS_BOOTSTRAP_NODE) {
-            setTimeout(() => this.startAndPurgeIndexer(), 8000);
-        }
-    }
-
-    public async handleBitcoinIndexerMessage(
-        m: ThreadMessageBase<MessageType>,
-    ): Promise<ThreadData> {
+    public async handleMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
         let resp: ThreadData;
         switch (m.type) {
             case MessageType.CURRENT_INDEXER_BLOCK: {
@@ -99,6 +84,13 @@ export class BlockIndexer extends Logger {
         }
 
         return resp ?? null;
+    }
+
+    public async init(): Promise<void> {
+        this._blockFetcher = new RPCBlockFetcher({
+            maximumPrefetchBlocks: Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS,
+            rpc: this.rpcClient,
+        });
     }
 
     private async verifyCommitConflicts(): Promise<void> {
@@ -121,7 +113,7 @@ export class BlockIndexer extends Logger {
 
         switch (Config.INDEXER.STORAGE_TYPE) {
             case IndexerStorageType.MONGODB:
-                return new VMMongoStorage(Config);
+                return new VMMongoStorage(Config, this.database);
             default:
                 throw new Error('Invalid VM Storage type.');
         }
@@ -146,6 +138,8 @@ export class BlockIndexer extends Logger {
     }
 
     private async startIndexer(): Promise<ThreadData> {
+        this.info(`Blockchain indexer thread started.`);
+
         if (Config.P2P.IS_BOOTSTRAP_NODE) {
             return {
                 started: true,

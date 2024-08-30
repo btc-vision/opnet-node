@@ -1,4 +1,3 @@
-import { DBManagerInstance } from '../db/DBManager.js';
 import { MessageType } from '../threading/enum/MessageType.js';
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { ThreadData } from '../threading/interfaces/ThreadData.js';
@@ -26,12 +25,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
 
         this.blockIndexer.sendMessageToThread = this.sendMessageToThread.bind(this);
 
-        await DBManagerInstance.setup();
-        await DBManagerInstance.connect();
-
         await this.blockIndexer.init();
-
-        this.info(`Blockchain indexer thread started.`);
     }
 
     protected async onLinkMessage(
@@ -51,7 +45,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
     }
 
     private async onPoAMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData | undefined> {
-        return await this.blockIndexer.handleBitcoinIndexerMessage(m);
+        return await this.blockIndexer.handleMessage(m);
     }
 }
 
