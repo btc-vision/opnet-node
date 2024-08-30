@@ -295,7 +295,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                     }
 
                     if (!output.scriptPubKey.address) {
-                        this.panic(`Output ${transaction.id}:${output.index} has no address!`);
+                        this.warn(`Output ${transaction.id}:${output.index} has no address!`);
                     }
 
                     return {

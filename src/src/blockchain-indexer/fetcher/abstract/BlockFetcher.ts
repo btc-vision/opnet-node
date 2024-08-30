@@ -1,4 +1,4 @@
-import { BlockDataWithTransactionData } from '@btc-vision/bsi-bitcoin-rpc';
+import { BlockDataWithTransactionData, BlockHeaderInfo } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 
 export interface BlockFetcherConfiguration {
@@ -8,7 +8,9 @@ export interface BlockFetcherConfiguration {
 export abstract class BlockFetcher extends Logger {
     public readonly logColor: string = '#00ffe1';
 
-    protected prefetchedBlocks: Promise<BlockDataWithTransactionData | null>[] = [];
+    protected prefetchedBlocks: Map<bigint, Promise<BlockDataWithTransactionData | null>> =
+        new Map();
+    protected blockChangesSubscribers: ((newHeight: BlockHeaderInfo) => void)[] = [];
 
     private lastBlockHash: string | null = null;
 
@@ -16,19 +18,24 @@ export abstract class BlockFetcher extends Logger {
         super();
     }
 
+    public subscribeToBlockChanges(cb: (newHeight: BlockHeaderInfo) => void): void {
+        if (!this.subscribeToBlockChanges.length) {
+            void this.watchBlockChanges();
+        }
+
+        this.blockChangesSubscribers.push(cb);
+    }
+
     public async getBlock(
         expectedBlockId: bigint,
         chainCurrentBlockHeight: bigint,
-        wasReorg: boolean,
     ): Promise<BlockDataWithTransactionData | null> {
         try {
             this.prefetchBlocks(expectedBlockId, chainCurrentBlockHeight);
 
-            if (this.prefetchedBlocks.length === 0) {
-                throw new Error('Block does not exist.');
-            }
+            const block = await this.prefetchedBlocks.get(expectedBlockId);
+            this.prefetchedBlocks.delete(expectedBlockId);
 
-            const block = await this.prefetchedBlocks.shift();
             if (!block) {
                 return null;
             }
@@ -39,7 +46,7 @@ export abstract class BlockFetcher extends Logger {
                 );
             }
 
-            if (this.lastBlockHash === block.hash && !wasReorg) {
+            if (this.lastBlockHash === block.hash) {
                 throw new Error(`Block ${block.height} was fetched twice.`);
             }
 
@@ -57,38 +64,78 @@ export abstract class BlockFetcher extends Logger {
     }
 
     public purgePrefetchedBlocks(): void {
-        this.prefetchedBlocks = [];
+        this.prefetchedBlocks.clear();
     }
 
-    protected abstract queryBlock(
-        blockHeightInProgress: bigint,
-    ): Promise<BlockDataWithTransactionData | null>;
+    public prefetchBlocks(blockHeightInProgress: bigint, chainCurrentBlockHeight: bigint): void {
+        const blocksToPrefetch = BigInt(
+            Math.min(
+                this.config.maximumPrefetchBlocks - this.prefetchedBlocks.size,
+                Number(chainCurrentBlockHeight - blockHeightInProgress),
+            ),
+        );
 
-    private prefetchBlocks(blockHeightInProgress: bigint, chainCurrentBlockHeight: bigint): void {
-        if (this.prefetchedBlocks.length >= this.config.maximumPrefetchBlocks) {
+        const currentOffset = blockHeightInProgress + BigInt(this.prefetchedBlocks.size);
+        for (let i = 0n; i < blocksToPrefetch; i++) {
+            if (blockHeightInProgress + i > chainCurrentBlockHeight) {
+                continue; // Stop prefetching if we reach the end of the chain
+            }
+
+            if (this.prefetchedBlocks.size >= this.config.maximumPrefetchBlocks) {
+                this.warn(`Reached maximum prefetched blocks.`);
+                break; // Stop prefetching if we reach the maximum prefetched blocks
+            }
+
+            const blockId = currentOffset + i;
+
+            if (!this.prefetchedBlocks.has(blockId)) {
+                this.info(`Prefetching block ${blockId}`);
+
+                this.prefetchedBlocks.set(blockId, this.queryBlock(blockId));
+            } else {
+                this.info(`Block ${blockId} is already prefetched.`);
+            }
+        }
+
+        /*if (this.prefetchedBlocks.size >= this.config.maximumPrefetchBlocks) {
             return;
         }
 
-        const blocksToPrefetch = Math.min(
-            this.config.maximumPrefetchBlocks - this.prefetchedBlocks.length,
-            Number(chainCurrentBlockHeight - blockHeightInProgress),
-        );
 
         this.log(
             `Prefetching ${blocksToPrefetch} blocks... {blockHeightInProgress: ${blockHeightInProgress}, chainCurrentBlockHeight: ${chainCurrentBlockHeight}}`,
         );
 
         if (blockHeightInProgress === chainCurrentBlockHeight) {
-            this.prefetchedBlocks.push(this.queryBlock(blockHeightInProgress));
+            this.prefetchedBlocks.set(
+                blockHeightInProgress,
+                this.queryBlock(blockHeightInProgress),
+            );
         } else {
-            const blockOffset = blockHeightInProgress + BigInt(this.prefetchedBlocks.length);
+            const blockOffset = blockHeightInProgress + BigInt(this.prefetchedBlocks.size);
             for (let i = 0; i < blocksToPrefetch; i++) {
                 if (chainCurrentBlockHeight < blockOffset + BigInt(i)) {
                     break;
                 }
 
-                this.prefetchedBlocks.push(this.queryBlock(blockOffset + BigInt(i)));
+                const blockId = blockOffset + BigInt(i);
+
+                this.prefetchedBlocks.set(blockId, this.queryBlock(blockId));
             }
-        }
+        }*/
+    }
+
+    protected notifyBlockChangesSubscribers(blockHeight: BlockHeaderInfo): void {
+        this.blockChangesSubscribers.forEach((cb) => cb(blockHeight));
+    }
+
+    protected abstract watchBlockChanges(): Promise<void>;
+
+    protected abstract queryBlock(
+        blockHeightInProgress: bigint,
+    ): Promise<BlockDataWithTransactionData | null>;
+
+    private max(a: bigint, b: bigint): bigint {
+        return a > b ? a : b;
     }
 }

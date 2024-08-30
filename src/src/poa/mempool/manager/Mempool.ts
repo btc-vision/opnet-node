@@ -26,7 +26,7 @@ import { AuthorityManager } from '../../configurations/manager/AuthorityManager.
 import { xxHash } from '../../hashing/xxhash.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
-import { BlockchainInformationRepository } from '../../../db/repositories/BlockchainInformationRepository.js';
+import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
 import { Address } from '@btc-vision/bsi-binary';
 import { WBTCBalanceRequest } from '../../../threading/interfaces/thread-messages/messages/api/WBTCBalanceRequest.js';
@@ -42,7 +42,7 @@ export class Mempool extends Logger {
 
     private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
 
-    #blockchainInformationRepository: BlockchainInformationRepository | undefined;
+    #blockchainInformationRepository: BlockchainInfoRepository | undefined;
     #mempoolRepository: MempoolRepository | undefined;
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
@@ -72,7 +72,7 @@ export class Mempool extends Logger {
         return this.#mempoolRepository;
     }
 
-    private get blockchainInformationRepository(): BlockchainInformationRepository {
+    private get blockchainInformationRepository(): BlockchainInfoRepository {
         if (!this.#blockchainInformationRepository) {
             throw new Error('BlockchainInformationRepository not created.');
         }
@@ -112,7 +112,7 @@ export class Mempool extends Logger {
         if (!this.db.db) throw new Error('Database connection not established.');
 
         this.#mempoolRepository = new MempoolRepository(this.db.db);
-        this.#blockchainInformationRepository = new BlockchainInformationRepository(this.db.db);
+        this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
         await Promise.all([
             this.watchBlockchain(),

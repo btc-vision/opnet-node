@@ -5,12 +5,12 @@ import { DBManagerInstance } from '../../db/DBManager.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
-import { BlockchainNotifier } from './classes/BlockchainNotifier.js';
+import { ChainSynchronisation } from './classes/ChainSynchronisation.js';
 
 export class SynchronisationThread extends Thread<ThreadTypes.SYNCHRONISATION> {
     public readonly threadType: ThreadTypes.SYNCHRONISATION = ThreadTypes.SYNCHRONISATION;
 
-    private readonly blockchainNotifier: BlockchainNotifier = new BlockchainNotifier();
+    private readonly blockchainNotifier: ChainSynchronisation = new ChainSynchronisation();
 
     constructor() {
         super();

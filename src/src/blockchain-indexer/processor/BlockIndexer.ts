@@ -1,5 +1,4 @@
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
-import { ReorgWatchdog } from './reorg/ReorgWatchdog.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
@@ -7,10 +6,10 @@ import { ThreadData } from '../../threading/interfaces/ThreadData.js';
 import { Config } from '../../config/Config.js';
 import { RPCBlockFetcher } from '../fetcher/RPCBlockFetcher.js';
 import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thread-messages/messages/indexer/CurrentIndexerBlock.js';
-import { BlockObserver } from './observer/BlockObserver.js';
-import { IndexingTask } from './indexer/IndexingTask.js';
+import { ChainObserver } from './observer/ChainObserver.js';
+import { IndexingTask } from './tasks/IndexingTask.js';
 import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';
-import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC, BlockHeaderInfo } from '@btc-vision/bsi-bitcoin-rpc';
 import { ConsensusTracker } from './consensus/ConsensusTracker.js';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';
@@ -21,19 +20,33 @@ import {
 } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { Network } from 'bitcoinjs-lib';
+import { ReorgWatchdog } from './reorg/ReorgWatchdog.js';
+import { IReorgData } from '../../db/interfaces/IReorgDocument.js';
+import { VMManager } from '../../vm/VMManager.js';
+import { SpecialManager } from './special-transaction/SpecialManager.js';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
 
-    private readonly reorgWatchdog: ReorgWatchdog = new ReorgWatchdog();
-
     private readonly database: ConfigurableDBManager = new ConfigurableDBManager(Config);
-
-    private readonly rpcClient: BitcoinRPC = new BitcoinRPC(500, false);
-    private readonly consensusTracker: ConsensusTracker = new ConsensusTracker();
     private readonly vmStorage: VMStorage = this.getVMStorage();
 
-    private readonly blockObserver: BlockObserver = new BlockObserver(
+    private readonly vmManager: VMManager = new VMManager(Config, false, this.vmStorage);
+    private readonly rpcClient: BitcoinRPC = new BitcoinRPC(500, false);
+    private readonly consensusTracker: ConsensusTracker = new ConsensusTracker();
+    private readonly specialTransactionManager: SpecialManager = new SpecialManager(this.vmManager);
+
+    private readonly reorgWatchdog: ReorgWatchdog = new ReorgWatchdog(
+        this.vmStorage,
+        this.vmManager,
+        this.rpcClient,
+    );
+
+    private readonly indexingConfigs = {
+        prefetchQueueSize: Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS,
+    };
+
+    private readonly chainObserver: ChainObserver = new ChainObserver(
         Config.BITCOIN.NETWORK,
         this.database,
         this.rpcClient,
@@ -48,7 +61,7 @@ export class BlockIndexer extends Logger {
     constructor() {
         super();
 
-        this.blockObserver.notifyBlockProcessed = this.notifyBlockProcessed.bind(this);
+        this.chainObserver.notifyBlockProcessed = this.notifyBlockProcessed.bind(this);
     }
 
     private _blockFetcher: BlockFetcher | undefined;
@@ -86,17 +99,93 @@ export class BlockIndexer extends Logger {
         return resp ?? null;
     }
 
-    public async init(): Promise<void> {
+    private async init(): Promise<void> {
+        await this.rpcClient.init(Config.BLOCKCHAIN);
+
         this._blockFetcher = new RPCBlockFetcher({
             maximumPrefetchBlocks: Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS,
             rpc: this.rpcClient,
         });
+
+        this.registerEvents();
+
+        await this.vmStorage.init();
+
+        await this.chainObserver.init();
+
+        this.blockFetcher.prefetchBlocks(
+            this.chainObserver.pendingBlockHeight,
+            this.chainObserver.targetBlockHeight,
+        );
+
+        await this.reorgWatchdog.init(this.chainObserver.pendingBlockHeight);
     }
 
-    private async verifyCommitConflicts(): Promise<void> {
+    private registerEvents(): void {
+        this.blockFetcher.subscribeToBlockChanges((header: BlockHeaderInfo) => {
+            void this.onBlockChange(header);
+        });
+
+        this.reorgWatchdog.subscribeToReorgs(
+            async (fromHeight: bigint, toHeight: bigint, newBest: string) => {
+                await this.onChainReorganisation(fromHeight, toHeight, newBest);
+            },
+        );
+    }
+
+    private async onBlockChange(header: BlockHeaderInfo): Promise<void> {
+        this.reorgWatchdog.onBlockChange(header);
+        await this.chainObserver.onBlockChange(header);
+    }
+
+    private async onChainReorganisation(
+        fromHeight: bigint,
+        toHeight: bigint,
+        newBest: string,
+    ): Promise<void> {
+        this.log(`Chain reorganisation detected: ${fromHeight} -> ${toHeight} - (${newBest})`);
+
+        await this.stopAllTasks();
+
+        this.consensusTracker.setConsensusBlockHeight(fromHeight);
+
+        this.blockFetcher.purgePrefetchedBlocks();
+
+        await this.reorgFromHeight(fromHeight, toHeight);
+        await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
+    }
+
+    private async reorgFromHeight(fromHeight: bigint, toBlock: bigint): Promise<void> {
+        const reorgData: IReorgData = {
+            fromBlock: fromHeight,
+            toBlock: toBlock,
+            timestamp: new Date(),
+        };
+
+        await this.vmStorage.revertDataUntilBlock(fromHeight);
+        await this.vmStorage.setReorg(reorgData);
+    }
+
+    private async stopAllTasks(): Promise<void> {
+        for (const task of this.indexingTasks) {
+            task.cancel();
+        }
+
+        this.indexingTasks = [];
+    }
+
+    private async verifyCommitConflicts(): Promise<boolean> {
         // TODO: Verify if sync was stopped unexpectedly.
 
-        await this.vmStorage.killAllPendingWrites();
+        try {
+            await this.vmStorage.killAllPendingWrites();
+
+            return true;
+        } catch (e) {
+            this.panic(`Database is locked or corrupted. Details: ${e}`);
+
+            return false;
+        }
     }
 
     private async notifyBlockProcessed(blockHeader: BlockProcessedData): Promise<void> {
@@ -128,23 +217,126 @@ export class BlockIndexer extends Logger {
     private async startAndPurgeIndexer(): Promise<void> {
         // First, we check if this node is allowed to write data.
         if (Config.INDEXER.READONLY_MODE) {
-            await this.blockObserver.watchBlockchain();
+            await this.chainObserver.watchBlockchain();
             return;
         }
 
-        await this.verifyCommitConflicts();
+        const mayStart = await this.verifyCommitConflicts();
+        if (!mayStart) {
+            return;
+        }
 
-        this.info(`Starting up block indexer...`);
+        try {
+            await this.startTasks();
+        } catch (e) {
+            this.panic(`Error starting tasks: ${e}`);
+        }
+    }
+
+    private async startTasks(): Promise<void> {
+        this.log(
+            `Starting tasks... {Current height: ${this.chainObserver.pendingBlockHeight} | Target height: ${this.chainObserver.targetBlockHeight} | Network: ${this.chainObserver.chain}}`,
+        );
+
+        // Start the indexing tasks.
+        for (
+            let i = 0;
+            i < this.indexingConfigs.prefetchQueueSize - this.indexingTasks.length;
+            i++
+        ) {
+            if (this.chainObserver.targetBlockHeight < this.chainObserver.pendingTaskHeight) {
+                this.warn(`No more tasks to start.`);
+
+                break;
+            }
+
+            try {
+                const task = this.nextTask();
+
+                this.indexingTasks.push(task);
+            } catch (e) {
+                this.error(`Error starting task: ${e}`);
+            }
+        }
+
+        void this.processNextTask();
+    }
+
+    private nextTask(): IndexingTask {
+        const currentBestTip = this.chainObserver.nextBestTip;
+
+        const task = new IndexingTask(
+            currentBestTip,
+            this.network,
+            this.blockFetcher,
+            this.chainObserver,
+            this.consensusTracker,
+            this.vmStorage,
+            this.vmManager,
+            this.specialTransactionManager,
+        );
+
+        task.sendMessageToThread = this.sendMessageToThread;
+        task.onComplete = async () => this.onCompletedTask(task);
+        task.verifyReorg = async () => this.reorgWatchdog.verifyChainReorgForBlock(task);
+
+        return task;
+    }
+
+    private async onCompletedTask(task: IndexingTask): Promise<void> {
+        const processedBlock = task.block;
+        if (processedBlock.compromised) {
+            await this.consensusTracker.lockdown();
+        }
+
+        void this.notifyBlockProcessed({
+            blockNumber: processedBlock.height,
+            blockHash: processedBlock.hash,
+            previousBlockHash: processedBlock.previousBlockHash,
+
+            merkleRoot: processedBlock.merkleRoot,
+            receiptRoot: processedBlock.receiptRoot,
+            storageRoot: processedBlock.storageRoot,
+
+            checksumHash: processedBlock.checksumRoot,
+            checksumProofs: processedBlock.checksumProofs.map((proof) => {
+                return {
+                    proof: proof[1],
+                };
+            }),
+            previousBlockChecksum: processedBlock.previousBlockChecksum,
+            txCount: processedBlock.header.nTx,
+        });
+
+        task.destroy();
+    }
+
+    private async processNextTask(): Promise<void> {
+        this.info('Processing next task...');
+
+        const task = this.indexingTasks.shift();
+        if (!task) {
+            throw new Error('No tasks to process.');
+        }
+
+        try {
+            await task.process();
+        } catch (e) {
+            await this.stopAllTasks();
+
+            const error = e as Error;
+            this.panic(`Task ${task.tip} processing error: ${error.stack}`);
+        }
     }
 
     private async startIndexer(): Promise<ThreadData> {
-        this.info(`Blockchain indexer thread started.`);
-
         if (Config.P2P.IS_BOOTSTRAP_NODE) {
             return {
                 started: true,
             };
         }
+
+        await this.init();
 
         await this.notifyBlockNotifier();
         void this.startAndPurgeIndexer();
@@ -156,7 +348,7 @@ export class BlockIndexer extends Logger {
 
     private async getCurrentBlock(): Promise<CurrentIndexerBlockResponseData> {
         return {
-            blockNumber: this.blockObserver.currentBlockHeight,
+            blockNumber: this.chainObserver.pendingBlockHeight,
         };
     }
 }

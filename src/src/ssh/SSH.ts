@@ -10,7 +10,7 @@ import { SSHClient } from './client/SSHClient.js';
 import figlet, { Fonts } from 'figlet';
 
 import { Chalk } from 'chalk';
-import { BlockchainInformationRepository } from '../db/repositories/BlockchainInformationRepository.js';
+import { BlockchainInfoRepository } from '../db/repositories/BlockchainInfoRepository.js';
 import { Config } from '../config/Config.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
@@ -35,7 +35,7 @@ export class SSH extends Logger {
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getAuthority(P2PVersion);
 
-    #blockchainInformationRepository: BlockchainInformationRepository | undefined;
+    #blockchainInformationRepository: BlockchainInfoRepository | undefined;
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
@@ -53,7 +53,7 @@ export class SSH extends Logger {
         return this._ssh2;
     }
 
-    private get blockchainInformationRepository(): BlockchainInformationRepository {
+    private get blockchainInformationRepository(): BlockchainInfoRepository {
         if (!this.#blockchainInformationRepository) {
             throw new Error('BlockchainInformationRepository not created.');
         }
@@ -91,7 +91,7 @@ export class SSH extends Logger {
 
         if (!this.db.db) throw new Error('Database connection not established.');
 
-        this.#blockchainInformationRepository = new BlockchainInformationRepository(this.db.db);
+        this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
         await Promise.all([this.watchBlockchain()]);
     }

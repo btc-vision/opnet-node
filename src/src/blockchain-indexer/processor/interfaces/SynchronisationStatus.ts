@@ -1,6 +1,11 @@
 export interface SynchronisationStatus {
-    currentBlockHeight: bigint;
+    pendingBlockHeight: bigint;
+    currentBlockHash: string | null;
     targetBlockHeight: bigint;
+
+    bestTip: bigint;
+
+    initialBlockDownload: boolean;
 
     isSyncing: boolean;
     isReorging: boolean;
@@ -8,4 +13,6 @@ export interface SynchronisationStatus {
 
     bestBlockHash: string | null;
     isDownloading: boolean;
+
+    chain: string | null;
 }

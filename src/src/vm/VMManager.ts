@@ -106,6 +106,12 @@ export class VMManager extends Logger {
         }
     }
 
+    public async saveTransactions(
+        transactions: ITransactionDocument<OPNetTransactionTypes>[],
+    ): Promise<void> {
+        await this.vmStorage.saveTransactions(transactions);
+    }
+
     public async init(): Promise<void> {
         await this.vmStorage.init();
 

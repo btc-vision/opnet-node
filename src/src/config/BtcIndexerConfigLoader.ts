@@ -46,6 +46,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             BLOCK_UPDATE_METHOD: BlockUpdateMethods.RPC,
             STORAGE_TYPE: IndexerStorageType.MONGODB,
             ALLOW_PURGE: true,
+            BLOCK_QUERY_INTERVAL: 5000,
             READONLY_MODE: false,
             PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
         },
@@ -257,6 +258,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(
                     `Oops the property INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS is not a number.`,
                 );
+            }
+
+            if (
+                parsedConfig.INDEXER.BLOCK_QUERY_INTERVAL !== undefined &&
+                typeof parsedConfig.INDEXER.BLOCK_QUERY_INTERVAL !== 'number'
+            ) {
+                throw new Error(`Oops the property INDEXER.BLOCK_QUERY_INTERVAL is not a number.`);
             }
         }
 

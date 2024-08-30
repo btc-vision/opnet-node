@@ -7,7 +7,6 @@ import {
     Db,
     Filter,
 } from 'mongodb';
-import { Config } from '../../config/Config.js';
 import { IBlockchainInformationDocument } from '../documents/interfaces/IBlockchainInformationDocument.js';
 
 import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';
@@ -18,7 +17,7 @@ type BlockChangeStream =
     | ChangeStream<{ inProgressBlock: number }, BlockChangeStreamDocument>
     | undefined;
 
-export class BlockchainInformationRepository extends BaseRepository<IBlockchainInformationDocument> {
+export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformationDocument> {
     public readonly logColor: string = '#afeeee';
 
     private readonly blockUpdateListeners: Array<(blockHeight: bigint) => void> = [];
@@ -125,10 +124,9 @@ export class BlockchainInformationRepository extends BaseRepository<IBlockchainI
     }
 
     private createDefault(network: string): IBlockchainInformationDocument {
-        // TODO - Add default values from configs
         return {
             network: network,
-            inProgressBlock: Config.OP_NET.ENABLED_AT_BLOCK, // 303 for deployment, 319 first tx, 320 multiple txs, 348 - 8 tx.
+            inProgressBlock: 0,
         };
     }
 }

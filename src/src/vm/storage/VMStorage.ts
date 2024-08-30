@@ -3,7 +3,6 @@ import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/res
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { BlockWithTransactions } from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
-import { BlockRootStates } from '../../db/interfaces/BlockRootStates.js';
 import {
     BlockHeaderAPIBlockDocument,
     BlockHeaderBlockDocument,
@@ -18,11 +17,7 @@ import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
 import { Address } from '@btc-vision/bsi-binary';
-import {
-    IUsedWBTCUTXODocument,
-    IWBTCUTXODocument,
-    UsedUTXOToDelete,
-} from '../../db/interfaces/IWBTCUTXODocument.js';
+import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../db/interfaces/IWBTCUTXODocument.js';
 import { IVaultDocument } from '../../db/interfaces/IVaultDocument.js';
 import { SelectedUTXOs } from '../../db/repositories/WBTCUTXORepository.js';
 import { ICompromisedTransactionDocument } from '../../db/interfaces/CompromisedTransactionDocument.js';
@@ -64,8 +59,6 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         lastSeenAt: bigint,
     ): Promise<void>;
 
-    public abstract hasContractAt(address: Address): Promise<boolean>;
-
     public abstract getContractAt(
         address: Address,
         height?: bigint,
@@ -80,17 +73,14 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         hash: string,
     ): Promise<ITransactionDocument<OPNetTransactionTypes> | undefined>;
 
-    /*public abstract saveTransactions(
-        blockHeight: bigint,
+    public abstract saveTransactions(
         transaction: ITransactionDocument<OPNetTransactionTypes>[],
-    ): void;*/
+    ): Promise<void>;
 
     public abstract insertUTXOs(
         blockHeight: bigint,
         transaction: ITransactionDocumentBasic<OPNetTransactionTypes>[],
     ): Promise<void>;
-
-    public abstract getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined>;
 
     public abstract saveBlockHeader(blockHeader: BlockHeaderBlockDocument): Promise<void>;
 
@@ -148,8 +138,6 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         consolidationAcceptance: bigint,
     ): Promise<SelectedUTXOs | undefined>;
 
-    public abstract getVault(vault: string): Promise<IVaultDocument | undefined>;
-
     public abstract saveCompromisedTransactions(
         compromisedTransactions: ICompromisedTransactionDocument[],
     ): Promise<void>;
@@ -158,11 +146,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
 
     public abstract deleteOldUTXOs(height: bigint): Promise<void>;
 
-    public abstract deleteUsedUtxos(utxos: UsedUTXOToDelete[]): Promise<void>;
-
     public abstract deleteOldUsedUtxos(height: bigint): Promise<void>;
-
-    public abstract setUsedUtxo(usedUtxo: IUsedWBTCUTXODocument): Promise<void>;
 
     public abstract setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void>;
 

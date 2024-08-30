@@ -13,6 +13,8 @@ export interface IndexerConfig {
     readonly BLOCK_UPDATE_METHOD: BlockUpdateMethods;
     readonly ALLOW_PURGE: boolean;
 
+    readonly BLOCK_QUERY_INTERVAL: number;
+
     readonly STORAGE_TYPE: IndexerStorageType;
     readonly READONLY_MODE: boolean;
 

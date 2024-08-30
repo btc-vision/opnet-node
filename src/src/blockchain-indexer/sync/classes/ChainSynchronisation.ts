@@ -7,7 +7,7 @@ import { Network } from 'bitcoinjs-lib';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { Config } from '../../../config/Config.js';
 
-export class BlockchainNotifier extends Logger {
+export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly network: Network = NetworkConverter.getNetwork();
@@ -32,8 +32,11 @@ export class BlockchainNotifier extends Logger {
                 resp = await this.startIndexer();
                 break;
             }
-            default:
-                throw new Error(`Unknown message type: ${m.type} received in PoA.`);
+            default: {
+                throw new Error(
+                    `Unknown message type: ${m.type} received in synchronisation thread.`,
+                );
+            }
         }
 
         return resp ?? null;

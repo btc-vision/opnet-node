@@ -11,7 +11,7 @@ import { VMStorage } from '../vm/storage/VMStorage.js';
 
 import { DefinedRoutes } from './routes/DefinedRoutes.js';
 import { DBManagerInstance } from '../db/DBManager.js';
-import { BlockchainInformationRepository } from '../db/repositories/BlockchainInformationRepository.js';
+import { BlockchainInfoRepository } from '../db/repositories/BlockchainInfoRepository.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 
 Globals.register();
@@ -48,14 +48,14 @@ export class Server extends Logger {
 
     private readonly storage: VMStorage = new VMMongoStorage(Config);
 
-    #blockchainInformationRepository: BlockchainInformationRepository | undefined;
+    #blockchainInformationRepository: BlockchainInfoRepository | undefined;
     #blockHeight: bigint | undefined;
 
     constructor() {
         super();
     }
 
-    private get blockchainInformationRepository(): BlockchainInformationRepository {
+    private get blockchainInformationRepository(): BlockchainInfoRepository {
         if (!this.#blockchainInformationRepository) {
             throw new Error('BlockchainInformationRepository not initialized');
         }
@@ -117,9 +117,7 @@ export class Server extends Logger {
             throw new Error('DBManager not initialized');
         }
 
-        this.#blockchainInformationRepository = new BlockchainInformationRepository(
-            DBManagerInstance.db,
-        );
+        this.#blockchainInformationRepository = new BlockchainInfoRepository(DBManagerInstance.db);
 
         this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
             try {

@@ -754,17 +754,23 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async killAllPendingWrites(): Promise<void> {
-        this.info('Killing all sessions');
-
         if (!this.databaseManager.db) {
             throw new Error('Database not connected');
         }
 
-        await this.databaseManager.db
-            .command({ killAllSessions: [{ db: this.databaseManager.db.databaseName }] })
-            .catch((error) => {
-                this.panic(`Error killing all sessions: ${error}`);
-            });
+        await this.databaseManager.db.command({
+            killAllSessions: [],
+        });
+    }
+
+    public async saveTransactions(
+        transactions: ITransactionDocument<OPNetTransactionTypes>[],
+    ): Promise<void> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        await this.transactionRepository.saveTransactions(transactions, this.currentSession);
     }
 
     private convertBlockHeaderToBlockHeaderDocument(
