@@ -314,8 +314,6 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     ): Promise<void> {
         this.encryptemClient.setServerPublicKey(Buffer.from(serverKeyCipher));
         this.encryptemClient.setServerSignaturePublicKey(Buffer.from(serverSigningCipher));
-
-        this.encryptemClient.startEncryption();
     }
 
     private async handleAuthenticationStatusPacket(packet: OPNetPacket): Promise<void> {

@@ -109,17 +109,12 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
         await Promise.all(promises);
     }
 
-    protected async sendMsg(buffer: Buffer | Uint8Array): Promise<void> {
+    protected async sendMsg(buffer: Uint8Array): Promise<void> {
         if (!this._encryptem) throw new Error('Encryptem not found.');
 
         try {
             if (this.encryptionStarted && this._encryptem) {
-                const encryptedBuf = this._encryptem.encrypt(buffer);
-                if (!encryptedBuf) {
-                    throw new Error('Unable to encrypt message.');
-                }
-
-                buffer = encryptedBuf;
+                buffer = this._encryptem.encrypt(buffer);
             }
 
             await this.send(buffer);

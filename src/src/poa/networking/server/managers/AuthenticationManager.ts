@@ -202,7 +202,6 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             await this.sendMsg(packet);
 
             this.encryptionStarted = true;
-            this.encryptem.startEncryption();
 
             this.onAuthenticated();
         }

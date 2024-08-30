@@ -543,7 +543,7 @@ export class BlockWitnessManager extends Logger {
         if (witnesses.length > this.MAXIMUM_WITNESSES_PER_MESSAGE) {
             // reduce the number of trusted witnesses to MAXIMUM_WITNESSES_PER_MESSAGE.
 
-            witnesses = witnesses.slice(0, 20);
+            witnesses = witnesses.slice(0, this.MAXIMUM_WITNESSES_PER_MESSAGE);
         }
 
         return witnesses.filter((witness) => {
@@ -562,7 +562,7 @@ export class BlockWitnessManager extends Logger {
         if (witnesses.length === 0) return [];
         if (witnesses.length > this.MAXIMUM_WITNESSES_PER_MESSAGE) {
             // reduce the number of witnesses to MAXIMUM_WITNESSES_PER_MESSAGE.
-            witnesses = witnesses.slice(0, 20);
+            witnesses = witnesses.slice(0, this.MAXIMUM_WITNESSES_PER_MESSAGE);
         }
 
         return witnesses.filter((witness) => {

@@ -18,6 +18,7 @@ export enum DisconnectionCode {
     BAD_NETWORK = 14,
     BAD_CHAIN_ID = 15,
     BAD_CHALLENGE = 16,
+    FLOOD = 17,
 
     EXPECTED = 1000,
 }

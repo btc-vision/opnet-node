@@ -134,47 +134,4 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
 
         return pubKeys;
     }
-
-    /**
-     * If we ever need segwit support, we can use this function.
-     * @deprecated
-     */
-    /*private async finalizePSBTSegwit(
-        psbt: Psbt,
-        amount: bigint,
-        recevier: Address,
-    ): Promise<FinalizedPSBT> {
-        // Attempt to sign all inputs.
-
-        const signer: Signer = this.authority.getSigner();
-        const transactionParams: PsbtTransactionData = {
-            network: this.network,
-            signer: signer,
-            psbt: psbt,
-        };
-
-        const transaction = new PsbtTransaction(transactionParams);
-        const signed: boolean = transaction.attemptSignAllInputs();
-
-        let finalized: boolean = false;
-        if (signed) {
-            this.success('WBTC PSBT signed!');
-
-            finalized = transaction.attemptFinalizeInputs();
-            if (finalized) {
-                this.success('WBTC PSBT finalized!');
-
-                // @ts-ignore
-                const tx = transaction.transaction;
-
-                const finalized = tx.extractTransaction();
-                console.log('final tx', finalized);
-            }
-        }
-
-        return {
-            modified: signed,
-            finalized: finalized,
-        };
-    }*/
 }
