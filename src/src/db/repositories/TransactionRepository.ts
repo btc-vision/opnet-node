@@ -27,7 +27,7 @@ export class TransactionRepository extends BaseRepository<
         await Promise.all(promises);
     }
 
-    public async saveTransaction(
+    /*public async saveTransaction(
         transactionData: ITransactionDocument<OPNetTransactionTypes>,
         currentSession?: ClientSession,
     ): Promise<void> {
@@ -42,7 +42,7 @@ export class TransactionRepository extends BaseRepository<
         ];
 
         await Promise.all(promises);
-    }
+    }*/
 
     public async saveTransactions(
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
@@ -63,9 +63,7 @@ export class TransactionRepository extends BaseRepository<
             };
         });
 
-        const promises: Promise<unknown>[] = [this.bulkWrite(bulkWriteOperations, currentSession)];
-
-        await Promise.all(promises);
+        await this.bulkWrite(bulkWriteOperations, currentSession);
     }
 
     public async getTransactionsByBlockHash(

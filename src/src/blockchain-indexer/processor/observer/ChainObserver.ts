@@ -103,7 +103,7 @@ export class ChainObserver extends Logger {
         await this.sync();
 
         // Set initial consensus from database.
-        this.consensusTracker.setConsensusBlockHeight(this.pendingBlockHeight);
+        this.consensusTracker.setConsensusBlockHeight(this.pendingTaskHeight);
     }
 
     public notifyBlockProcessed: (block: BlockProcessedData) => Promise<void> = async () => {
@@ -123,15 +123,10 @@ export class ChainObserver extends Logger {
 
         this.synchronisationStatus.bestBlockHash = newBest;
         this.pendingBlockHeight = fromHeight;
-        this.targetBlockHeight = toHeight;
+        this.targetBlockHeight = await this.fetchChainHeight();
         this.nextBestTip = fromHeight;
 
         this.updateStatus();
-
-        await this.blockchainRepository.updateCurrentBlockInProgress(
-            this.network,
-            Number(this.pendingBlockHeight + 1n),
-        );
     }
 
     public async onBlockChange(blockInfo: BlockHeaderInfo): Promise<void> {
@@ -151,6 +146,8 @@ export class ChainObserver extends Logger {
 
         // TODO: Verify this.
         this.blockchainRepository.watchBlockChanges(async (blockHeight: bigint) => {
+            this.info(`Block change detected: ${blockHeight}`);
+
             this.consensusTracker.setConsensusBlockHeight(blockHeight);
 
             const currentBlock = await this.vmStorage.getBlockHeader(blockHeight);
@@ -229,10 +226,12 @@ export class ChainObserver extends Logger {
             this.fetchChainInfo(),
         ]);
 
-        this.pendingBlockHeight = opnetHeight;
-        this.nextBestTip = Config.OP_NET.REINDEX
+        const pendingBlockHeight = Config.OP_NET.REINDEX
             ? BigInt(Config.OP_NET.REINDEX_FROM_BLOCK) || 0n
             : opnetHeight;
+
+        this.pendingBlockHeight = pendingBlockHeight;
+        this.nextBestTip = pendingBlockHeight;
         this.targetBlockHeight = chainHeight;
 
         this.synchronisationStatus.bestBlockHash = chainInfo.bestblockhash;

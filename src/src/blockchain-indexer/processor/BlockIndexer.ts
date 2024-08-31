@@ -57,6 +57,7 @@ export class BlockIndexer extends Logger {
     private readonly network: Network = NetworkConverter.getNetwork();
 
     private indexingTasks: IndexingTask[] = [];
+    private taskInProgress: boolean = false;
 
     constructor() {
         super();
@@ -110,13 +111,31 @@ export class BlockIndexer extends Logger {
         this.registerEvents();
 
         await this.vmStorage.init();
-
         await this.chainObserver.init();
 
-        this.blockFetcher.prefetchBlocks(
+        // First, we check if this node is allowed to write data.
+        if (Config.INDEXER.READONLY_MODE) {
+            await this.chainObserver.watchBlockchain();
+            return;
+        }
+
+        const mayStart = await this.verifyCommitConflicts();
+        if (!mayStart) {
+            throw new Error('Database is locked or corrupted.');
+        }
+
+        // Always purge, in case of bad indexing of the last block.
+        const purgeFromBlock = Config.OP_NET.REINDEX
+            ? BigInt(Config.OP_NET.REINDEX_FROM_BLOCK)
+            : this.chainObserver.pendingBlockHeight;
+
+        // Purge.
+        await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
+
+        /*this.blockFetcher.prefetchBlocks(
             this.chainObserver.pendingBlockHeight,
             this.chainObserver.targetBlockHeight,
-        );
+        );*/
 
         await this.reorgWatchdog.init(this.chainObserver.pendingBlockHeight);
     }
@@ -145,14 +164,29 @@ export class BlockIndexer extends Logger {
     ): Promise<void> {
         this.log(`Chain reorganisation detected: ${fromHeight} -> ${toHeight} - (${newBest})`);
 
+        // Stop all tasks.
         await this.stopAllTasks();
+
+        // Revert block
+        await this.chainObserver.setNewHeight(fromHeight);
 
         this.consensusTracker.setConsensusBlockHeight(fromHeight);
 
-        this.blockFetcher.purgePrefetchedBlocks();
-
+        // Revert data.
         await this.reorgFromHeight(fromHeight, toHeight);
         await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
+
+        // Start tasks.
+        void this.restartTasks();
+    }
+
+    private async restartTasks(): Promise<void> {
+        if (this.taskInProgress) {
+            await this.awaitTaskCompletion();
+        }
+
+        // Start tasks.
+        await this.startAndPurgeIndexer();
     }
 
     private async reorgFromHeight(fromHeight: bigint, toBlock: bigint): Promise<void> {
@@ -162,7 +196,7 @@ export class BlockIndexer extends Logger {
             timestamp: new Date(),
         };
 
-        await this.vmStorage.revertDataUntilBlock(fromHeight);
+        await this.vmStorage.revertDataUntilBlock(fromHeight + 1n);
         await this.vmStorage.setReorg(reorgData);
     }
 
@@ -178,7 +212,7 @@ export class BlockIndexer extends Logger {
         // TODO: Verify if sync was stopped unexpectedly.
 
         try {
-            await this.vmStorage.killAllPendingWrites();
+            //await this.vmStorage.killAllPendingWrites();
 
             return true;
         } catch (e) {
@@ -215,17 +249,6 @@ export class BlockIndexer extends Logger {
     }
 
     private async startAndPurgeIndexer(): Promise<void> {
-        // First, we check if this node is allowed to write data.
-        if (Config.INDEXER.READONLY_MODE) {
-            await this.chainObserver.watchBlockchain();
-            return;
-        }
-
-        const mayStart = await this.verifyCommitConflicts();
-        if (!mayStart) {
-            return;
-        }
-
         try {
             await this.startTasks();
         } catch (e) {
@@ -234,26 +257,23 @@ export class BlockIndexer extends Logger {
     }
 
     private async startTasks(): Promise<void> {
-        this.log(
-            `Starting tasks... {Current height: ${this.chainObserver.pendingBlockHeight} | Target height: ${this.chainObserver.targetBlockHeight} | Network: ${this.chainObserver.chain}}`,
-        );
+        // Calculate the number of tasks to start.
+        const currentIndexingLength =
+            this.indexingConfigs.prefetchQueueSize - this.indexingTasks.length;
+
+        /*this.log(
+            `Starting ${currentIndexingLength} tasks... {Current height: ${this.chainObserver.pendingBlockHeight} | Target height: ${this.chainObserver.targetBlockHeight} | Network: ${this.chainObserver.chain}}`,
+        );*/
 
         // Start the indexing tasks.
-        for (
-            let i = 0;
-            i < this.indexingConfigs.prefetchQueueSize - this.indexingTasks.length;
-            i++
-        ) {
+        for (let i = 0; i < currentIndexingLength; i++) {
             if (this.chainObserver.targetBlockHeight < this.chainObserver.pendingTaskHeight) {
                 this.warn(`No more tasks to start.`);
-
                 break;
             }
 
             try {
-                const task = this.nextTask();
-
-                this.indexingTasks.push(task);
+                this.nextTask();
             } catch (e) {
                 this.error(`Error starting task: ${e}`);
             }
@@ -264,7 +284,6 @@ export class BlockIndexer extends Logger {
 
     private nextTask(): IndexingTask {
         const currentBestTip = this.chainObserver.nextBestTip;
-
         const task = new IndexingTask(
             currentBestTip,
             this.network,
@@ -280,6 +299,8 @@ export class BlockIndexer extends Logger {
         task.onComplete = async () => this.onCompletedTask(task);
         task.verifyReorg = async () => this.reorgWatchdog.verifyChainReorgForBlock(task);
 
+        this.indexingTasks.push(task);
+
         return task;
     }
 
@@ -288,6 +309,8 @@ export class BlockIndexer extends Logger {
         if (processedBlock.compromised) {
             await this.consensusTracker.lockdown();
         }
+
+        await this.chainObserver.setNewHeight(task.tip);
 
         void this.notifyBlockProcessed({
             blockNumber: processedBlock.height,
@@ -309,24 +332,36 @@ export class BlockIndexer extends Logger {
         });
 
         task.destroy();
+
+        if (!Config.DEV.PROCESS_ONLY_ONE_BLOCK) {
+            void this.startTasks();
+        }
+    }
+
+    private async awaitTaskCompletion(): Promise<void> {
+        while (this.taskInProgress) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+        }
     }
 
     private async processNextTask(): Promise<void> {
-        this.info('Processing next task...');
-
-        const task = this.indexingTasks.shift();
-        if (!task) {
-            throw new Error('No tasks to process.');
-        }
-
         try {
+            this.taskInProgress = true;
+
+            const task = this.indexingTasks.shift();
+            if (!task) {
+                throw new Error('No tasks to process.');
+            }
+
             await task.process();
         } catch (e) {
             await this.stopAllTasks();
 
             const error = e as Error;
-            this.panic(`Task ${task.tip} processing error: ${error.stack}`);
+            this.panic(`Processing error: ${Config.DEV_MODE ? error.stack : error.message}`);
         }
+
+        this.taskInProgress = false;
     }
 
     private async startIndexer(): Promise<ThreadData> {

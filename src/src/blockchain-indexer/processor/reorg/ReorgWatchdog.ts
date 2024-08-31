@@ -11,6 +11,8 @@ interface LastBlock {
     hash?: string;
     checksum?: string;
     blockNumber?: bigint;
+
+    opnetBlock?: BlockHeaderBlockDocument;
 }
 
 interface HeaderInfo {
@@ -86,6 +88,7 @@ export class ReorgWatchdog extends Logger {
             blockNumber: currentHeight,
             hash: lastBlock.hash,
             checksum: lastBlock.checksumRoot,
+            opnetBlock: lastBlock,
         };
     }
 
@@ -96,12 +99,12 @@ export class ReorgWatchdog extends Logger {
     }
 
     public async verifyChainReorgForBlock(task: IndexingTask): Promise<boolean> {
-        const syncBlockDiff = this.currentHeader.blockNumber - task.tip;
-        if (syncBlockDiff >= 150) {
+        //const syncBlockDiff = this.currentHeader.blockNumber - task.tip;
+        /*if (syncBlockDiff >= 150) {
             this.updateBlock(task.block);
 
             return false;
-        }
+        }*/
 
         const chainReorged: boolean = await this.verifyChainReorg(task.block);
         if (!chainReorged) {
@@ -120,6 +123,7 @@ export class ReorgWatchdog extends Logger {
             hash: block.hash,
             checksum: block.checksumRoot,
             blockNumber: block.height,
+            opnetBlock: block.getBlockHeaderDocument(),
         };
     }
 
@@ -201,24 +205,21 @@ export class ReorgWatchdog extends Logger {
             throw new Error(`Error fetching last good block header.`);
         }
 
-        this.lastBlock = {
-            blockNumber: lastGoodBlock,
-            hash: lastGoodBlockHeader.hash,
-            checksum: lastGoodBlockHeader.checksumRoot,
-        };
+        this.lastBlock = {};
 
         this.info(`OPNet will automatically revert to block ${lastGoodBlock}.`);
 
-        await this.notifyReorgListeners(tip, lastGoodBlock, lastGoodBlockHeader.hash);
+        await this.notifyReorgListeners(lastGoodBlock + 1n, tip, lastGoodBlockHeader.hash);
     }
 
     private async getLastBlockHash(height: bigint): Promise<LastBlock | undefined> {
-        if (height === -1n || this.processOnlyOneBlock) {
+        if (height === -1n) {
             return;
         } else if (this.lastBlock.hash && this.lastBlock.checksum) {
             return {
                 hash: this.lastBlock.hash,
                 checksum: this.lastBlock.checksum,
+                opnetBlock: this.lastBlock.opnetBlock,
             };
         }
 
@@ -230,8 +231,10 @@ export class ReorgWatchdog extends Logger {
         }
 
         return {
+            blockNumber: height,
             hash: previousBlock.hash,
             checksum: previousBlock.checksumRoot,
+            opnetBlock: previousBlock,
         };
     }
 
@@ -241,25 +244,24 @@ export class ReorgWatchdog extends Logger {
             return false; // Genesis block reached.
         }
 
-        const [previousBlockHash, previousOpnetBlock] = await Promise.all([
-            this.getLastBlockHash(previousBlock),
-            this.vmStorage.getBlockHeader(previousBlock),
-        ]);
+        const previous = await this.getLastBlockHash(previousBlock);
+        const opnetBlock = previous?.opnetBlock;
 
-        if (!previousBlockHash) return false;
+        if (!opnetBlock || !previous) {
+            throw new Error(
+                `Error fetching previous block hash. Can not verify chain reorg. Block height: ${previousBlock}`,
+            );
+        }
 
         // Verify if the previous block hash is the same as the current block's previous block hash.
-        const bitcoinReorged = block.previousBlockHash !== previousBlockHash.hash;
-        if (!previousOpnetBlock || !bitcoinReorged) return bitcoinReorged;
+        const bitcoinReorged = block.previousBlockHash !== previous.hash;
+        if (bitcoinReorged) return bitcoinReorged;
 
         // Verify opnet checksum proofs.
         try {
-            const verifiedProofs: boolean =
-                await this.vmManager.validateBlockChecksum(previousOpnetBlock);
-
+            const verifiedProofs: boolean = await this.vmManager.validateBlockChecksum(opnetBlock);
             if (block.previousBlockChecksum) {
-                const opnetBadChecksum =
-                    previousOpnetBlock.checksumRoot !== block.previousBlockChecksum;
+                const opnetBadChecksum = opnetBlock.checksumRoot !== block.previousBlockChecksum;
 
                 return opnetBadChecksum || !verifiedProofs;
             }

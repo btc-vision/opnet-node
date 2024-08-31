@@ -102,8 +102,6 @@ export class IndexingTask extends Logger {
     }
 
     public async refresh(): Promise<void> {
-        console.log('Refreshing task');
-
         if (this.abortController.signal.aborted) return;
 
         this.clear();
@@ -125,6 +123,8 @@ export class IndexingTask extends Logger {
                 throw error;
             });
 
+            this.prefetchPromise = null;
+
             if (response) throw response;
 
             await this.processBlock();
@@ -137,20 +137,21 @@ export class IndexingTask extends Logger {
             this.finalizeBlockStart = Date.now();
 
             // Finalize block
-            await Promise.all([
+            const resp = await Promise.all([
                 this.vmStorage.deleteTransactionsById(this.block.getTransactionsHashes()),
                 this.block.finalizeBlock(this.vmManager),
-                this.chainObserver.setNewHeight(this.tip),
             ]);
 
             this.finalizeEnd = Date.now();
 
+            // Verify finalization
+            if (resp[1] === false) {
+                throw new Error('Block finalization failed');
+            }
+
             // Notify chain observer
             await this.onComplete();
         } catch (e) {
-            // Revert block
-            await this.chainObserver.setNewHeight(this.tip - 1n);
-
             // Destroy task
             this.destroy();
 
@@ -179,7 +180,7 @@ export class IndexingTask extends Logger {
             await this.vmManager.prepareBlock(this.tip);
 
             // Save generic transactions
-            const saveGeneric = this.block.insertPartialTransactions(this.vmManager);
+            await this.block.insertPartialTransactions(this.vmManager);
 
             // Process block.
             const success = await this.block.execute(
@@ -193,21 +194,29 @@ export class IndexingTask extends Logger {
 
             // Reset
             this.specialTransactionManager.reset();
-
-            // Wait for save generic transactions
-            await saveGeneric;
         } catch (e) {
+            await this.revertBlock();
+
             this.specialTransactionManager.reset();
 
             throw e;
         }
 
         // Verify Reorg
-        await this.verifyReorg();
+        const hasReorged = await this.verifyReorg();
+        if (hasReorged) {
+            await this.revertBlock();
+
+            throw new Error('Chain reorg detected');
+        }
     }
 
     private async revertBlock(): Promise<void> {
-        await this.vmManager.revertBlock();
+        if (this._block) {
+            await this.block.revertBlock(this.vmManager);
+        } else {
+            await this.vmManager.revertBlock();
+        }
 
         throw new Error(`Block ${this.tip} reverted`);
     }
@@ -220,14 +229,11 @@ export class IndexingTask extends Logger {
 
     private async processPrefetch(): Promise<void> {
         if (!this.prefetchResolver) {
-            throw new Error('Prefetch promise not set');
+            throw new Error('Prefetch resolver not set');
         }
 
         try {
-            const block = await this.blockFetcher.getBlock(
-                this.tip,
-                this.chainObserver.targetBlockHeight,
-            );
+            const block = await this.blockFetcher.getBlock(this.tip);
 
             if (this.aborted) {
                 throw new Error('Task aborted');
@@ -240,7 +246,7 @@ export class IndexingTask extends Logger {
             this._blockHash = block.hash;
 
             // Create block
-            const chainBlock = new Block(block, this.network, this.abortController.signal);
+            const chainBlock = new Block(block, this.network, this.abortController);
 
             // Deserialize block
             chainBlock.deserialize();
@@ -266,7 +272,6 @@ export class IndexingTask extends Logger {
         this.prefetchPromise = new Promise<Error | undefined>(
             async (resolve: (error?: Error) => void) => {
                 this.prefetchResolver = (error?: Error) => {
-                    this.prefetchPromise = null;
                     this.prefetchResolver = null;
 
                     resolve(error);

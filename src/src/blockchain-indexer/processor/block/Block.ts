@@ -52,35 +52,38 @@ export class Block extends Logger {
     // Ensure that the block is executed once
     protected executed: boolean = false;
 
+    protected readonly signal: AbortSignal;
+
     // Private
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
     private readonly transactionSorter: TransactionSorter = new TransactionSorter();
 
     private genericTransactions: Transaction<OPNetTransactionTypes>[] = [];
     private opnetTransactions: Transaction<OPNetTransactionTypes>[] = [];
-    private specialTransaction: Transaction<OPNetTransactionTypes>[] = [];
 
+    private specialTransaction: Transaction<OPNetTransactionTypes>[] = [];
     private specialExecutionPromise: Promise<void> | undefined;
 
     #compromised: boolean = false;
-
     #_storageRoot: string | undefined;
     #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
-
     #_receiptRoot: string | undefined;
+
     #_receiptProofs: Map<Address, Map<string, string[]>> | undefined;
-
     #_checksumMerkle: ChecksumMerkle = new ChecksumMerkle();
-
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
+
+    private saveGenericPromises: Promise<void>[] | undefined;
 
     constructor(
         protected readonly rawBlockData: BlockDataWithTransactionData,
         protected readonly network: bitcoin.networks.Network,
-        protected readonly signal: AbortSignal,
+        protected readonly abortController: AbortController,
     ) {
         super();
+
+        this.signal = this.abortController.signal;
 
         this.header = new BlockHeader(rawBlockData);
     }
@@ -259,15 +262,13 @@ export class Block extends Logger {
 
     public async insertPartialTransactions(vmManager: VMManager): Promise<void> {
         // thread this.
-        const promises: Promise<void>[] = [
-            vmManager.insertUTXOs(
+        this.saveGenericPromises = [
+            /*vmManager.insertUTXOs(
                 this.height,
                 this.transactions.map((t) => t.toBitcoinDocument()),
-            ),
+            ),*/
             this.saveGenericTransactions(vmManager),
         ];
-
-        await Promise.all(promises);
     }
 
     /** Block Execution */
@@ -310,11 +311,9 @@ export class Block extends Logger {
             return true;
         } catch (e) {
             const error: Error = e as Error;
-            this.error(
+            this.panic(
                 `[execute] Something went wrong while executing the block: ${Config.DEV_MODE ? error.stack : error.message}`,
             );
-
-            await this.revertBlock(vmManager);
 
             return false;
         }
@@ -323,6 +322,11 @@ export class Block extends Logger {
     public async finalizeBlock(vmManager: VMManager): Promise<boolean> {
         try {
             this.verifyIfBlockAborted();
+
+            if (!this.saveGenericPromises) throw new Error('Generic promises not found');
+
+            // We must wait for the generic transactions to be saved before finalizing the block
+            await Promise.all(this.saveGenericPromises);
 
             // And finally, we can save the transactions
             await this.saveOPNetTransactions(vmManager);
@@ -346,6 +350,12 @@ export class Block extends Logger {
         }
     }
 
+    public async revertBlock(vmManager: VMManager): Promise<void> {
+        this._reverted = true;
+
+        await vmManager.revertBlock();
+    }
+
     protected async onEmptyBlock(vmManager: VMManager): Promise<void> {
         this.#_storageRoot = ZERO_HASH;
         this.#_storageProofs = new Map();
@@ -361,41 +371,32 @@ export class Block extends Logger {
         states: EvaluatedStates,
         vmManager: VMManager,
     ): Promise<void> {
-        try {
-            if (!states) {
-                throw new Error('Block have no states');
-            }
-
-            const storageTree = states.storage;
-            if (!storageTree) {
-                throw new Error('Storage tree not found');
-            }
-
-            // We must verify if we're only storing one pointer, if it crashes.
-            if (storageTree.size()) {
-                const proofs = storageTree.getProofs();
-                this.#_storageRoot = storageTree.root;
-                this.#_storageProofs = proofs;
-            } else {
-                this.#_storageRoot = ZERO_HASH;
-                this.#_storageProofs = new Map();
-            }
-
-            this.verifyIfBlockAborted();
-
-            const proofsReceipt = states.receipts.getProofs();
-            this.#_receiptRoot = states.receipts.root;
-            this.#_receiptProofs = proofsReceipt;
-
-            await this.signBlock(vmManager);
-        } catch (e) {
-            const error: Error = e as Error;
-            this.error(
-                `[processBlockStates] Something went wrong while executing the block: ${Config.DEV_MODE ? error.stack : error.message}`,
-            );
-
-            await this.revertBlock(vmManager);
+        if (!states) {
+            throw new Error('Block have no states');
         }
+
+        const storageTree = states.storage;
+        if (!storageTree) {
+            throw new Error('Storage tree not found');
+        }
+
+        // We must verify if we're only storing one pointer, if it crashes.
+        if (storageTree.size()) {
+            const proofs = storageTree.getProofs();
+            this.#_storageRoot = storageTree.root;
+            this.#_storageProofs = proofs;
+        } else {
+            this.#_storageRoot = ZERO_HASH;
+            this.#_storageProofs = new Map();
+        }
+
+        this.verifyIfBlockAborted();
+
+        const proofsReceipt = states.receipts.getProofs();
+        this.#_receiptRoot = states.receipts.root;
+        this.#_receiptProofs = proofsReceipt;
+
+        await this.signBlock(vmManager);
     }
 
     /** Transactions Execution */
@@ -521,7 +522,7 @@ export class Block extends Logger {
 
     private verifyIfBlockAborted(): void {
         if (this.signal.aborted) {
-            throw new Error('Block aborted');
+            throw new Error(`Block #${this.height} aborted for "${this.signal.reason}"`);
         }
     }
 
@@ -547,9 +548,7 @@ export class Block extends Logger {
     ): Promise<void> {
         for (const transaction of transactions) {
             await this.executeOPNetSingleTransaction(transaction, vmManager, specialManager);
-            if (this.signal.aborted) {
-                throw new Error('Block aborted');
-            }
+            this.verifyIfBlockAborted();
         }
     }
 
@@ -754,13 +753,12 @@ export class Block extends Logger {
             transactionData.push(transaction.toDocument());
         }
 
-        await vmManager.saveTransactions(transactionData);
-    }
-
-    private async revertBlock(vmManager: VMManager): Promise<void> {
-        this._reverted = true;
-
-        await vmManager.revertBlock();
+        try {
+            await vmManager.saveTransactions(transactionData);
+        } catch (e) {
+            const error: Error = e as Error;
+            this.abortController.abort(`Error saving generic transactions ${error.stack}`);
+        }
     }
 
     private ensureNotProcessed(): void {
