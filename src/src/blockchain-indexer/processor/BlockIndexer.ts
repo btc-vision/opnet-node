@@ -36,6 +36,8 @@ export class BlockIndexer extends Logger {
     private readonly consensusTracker: ConsensusTracker = new ConsensusTracker();
     private readonly specialTransactionManager: SpecialManager = new SpecialManager(this.vmManager);
 
+    private started: boolean = false;
+
     private readonly reorgWatchdog: ReorgWatchdog = new ReorgWatchdog(
         this.vmStorage,
         this.vmManager,
@@ -136,6 +138,8 @@ export class BlockIndexer extends Logger {
 
     private registerEvents(): void {
         this.blockFetcher.subscribeToBlockChanges((header: BlockHeaderInfo) => {
+            if (!this.started) return;
+
             void this.onBlockChange(header);
         });
 
@@ -259,6 +263,11 @@ export class BlockIndexer extends Logger {
     }
 
     private async startTasks(): Promise<void> {
+        if (this.taskInProgress) {
+            this.warn('Task already in progress. Skipping startTasks()');
+            return;
+        }
+
         // Calculate the number of tasks to start.
         const currentIndexingLength =
             this.indexingConfigs.prefetchQueueSize - this.indexingTasks.length;
@@ -375,6 +384,8 @@ export class BlockIndexer extends Logger {
         await this.init();
 
         await this.notifyBlockNotifier();
+        this.started = true;
+
         void this.startAndPurgeIndexer();
 
         return {
