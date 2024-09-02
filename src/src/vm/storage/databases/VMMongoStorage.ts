@@ -780,12 +780,14 @@ export class VMMongoStorage extends VMStorage {
     public async saveTransactions(
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void> {
-        const chunks = this.chunkArray(transactions, 200);
+        const chunks = this.chunkArray(transactions, 1000);
 
         const promises = chunks.map(async (chunk) => {
             if (!this.transactionRepository) {
                 throw new Error('Transaction repository not initialized');
             }
+
+            console.log(`Saving transactions ${chunk.length}`);
 
             //let session = await this.databaseManager.startSession();
             //this.saveTxSessions.push(session);
