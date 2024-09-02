@@ -9,8 +9,8 @@ export class IndexedTransactions extends IndexedCollection<OPNetCollections.Tran
     public getIndexes(): IndexDescription[] {
         return [
             { key: { _id: 1 }, name: '_id_' },
-            { key: { blockHeight: 1 }, name: 'blockHeight_1' },
-            { key: { hash: 1 }, name: 'hash_1' },
+            { key: { blockHeight: 'hashed' }, name: 'blockHeight_1' },
+            { key: { hash: 'hashed' }, name: 'hash_1' },
             { key: { id: 1 }, name: 'id_1' },
             /*{
                 key: { 'inputs.originalTransactionId': 1 },
@@ -25,7 +25,7 @@ export class IndexedTransactions extends IndexedCollection<OPNetCollections.Tran
                 name: 'outputs.scriptPubKey.addresses_1',
             },*/
             {
-                key: { hash: 1, blockHeight: 1 },
+                key: { hash: 'hashed', blockHeight: 1 },
                 name: 'hash_1_blockHeight_1',
             },
         ];
