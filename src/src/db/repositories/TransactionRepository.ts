@@ -1,6 +1,17 @@
-import { BaseRepository } from '@btc-vision/bsi-common';
+import { BaseRepository, DataAccessError, DataAccessErrorType } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { ClientSession, Collection, Db, Decimal128, Document, Filter, Sort } from 'mongodb';
+import {
+    AnyBulkWriteOperation,
+    BulkWriteOptions,
+    BulkWriteResult,
+    ClientSession,
+    Collection,
+    Db,
+    Decimal128,
+    Document,
+    Filter,
+    Sort,
+} from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { ITransactionDocument, TransactionDocument } from '../interfaces/ITransactionDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
@@ -43,6 +54,40 @@ export class TransactionRepository extends BaseRepository<
 
         await Promise.all(promises);
     }*/
+
+    public async bulkWrite(
+        operations: AnyBulkWriteOperation<ITransactionDocument<OPNetTransactionTypes>>[],
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        try {
+            const collection = this.getCollection();
+            const options: BulkWriteOptions = this.getOptions(currentSession);
+            options.ordered = false;
+            options.writeConcern = { w: 1 };
+
+            const result: BulkWriteResult = await collection.bulkWrite(operations, options);
+
+            if (result.hasWriteErrors()) {
+                result.getWriteErrors().forEach((error) => {
+                    this.error(`Bulk write error: ${error}`);
+                });
+
+                throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
+            }
+
+            if (!result.isOk()) {
+                throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                const errorDescription: string = error.stack || error.message;
+
+                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
+            } else {
+                throw error;
+            }
+        }
+    }
 
     public async saveTransactions(
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
