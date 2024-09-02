@@ -359,7 +359,7 @@ export class BlockIndexer extends Logger {
             const error = e as Error;
             this.panic(`Processing error: ${Config.DEV_MODE ? error.stack : error.message}`);
 
-            this.chainObserver.nextBestTip = this.chainObserver.pendingBlockHeight - 1n;
+            this.chainObserver.nextBestTip = this.chainObserver.pendingBlockHeight - 3n;
         }
 
         this.taskInProgress = false;
