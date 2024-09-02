@@ -269,10 +269,10 @@ export class Block extends Logger {
 
         // thread this.
         this.saveGenericPromises = [
-            vmManager.insertUTXOs(
+            /*vmManager.insertUTXOs(
                 this.height,
                 this.transactions.map((t) => t.toBitcoinDocument()),
-            ),
+            ),*/
             this.saveGenericTransactions(vmManager),
         ];
     }
