@@ -263,11 +263,6 @@ export class BlockIndexer extends Logger {
     }
 
     private async startTasks(): Promise<void> {
-        if (this.taskInProgress) {
-            this.warn('Task already in progress. Skipping startTasks()');
-            return;
-        }
-
         // Calculate the number of tasks to start.
         const currentIndexingLength =
             this.indexingConfigs.prefetchQueueSize - this.indexingTasks.length;
