@@ -387,6 +387,7 @@ export class ContractEvaluator extends Logger {
         }
 
         return {
+            address: evaluation.contractAddress,
             bytecode: this.bytecode,
             network: this.getNetwork(),
             gasLimit: difference, //OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
@@ -406,18 +407,16 @@ export class ContractEvaluator extends Logger {
             log: (buffer: Buffer) => {
                 this.onDebug(buffer);
             },
-            /*encodeAddress: async (data: Buffer) => {
-                return this.encodeAddress(data);
-            },*/
         };
     }
 
     private async loadContractFromBytecode(evaluation: ContractEvaluation): Promise<boolean> {
         let errored: boolean = false;
         try {
-            this._contractInstance = new RustContract(this.generateContractParameters(evaluation));
+            const params = this.generateContractParameters(evaluation);
+
+            this._contractInstance = new RustContract(params);
         } catch (e) {
-            //console.log(`Unable to load contract from bytecode: ${(e as Error).stack}`);
             errored = true;
         }
 

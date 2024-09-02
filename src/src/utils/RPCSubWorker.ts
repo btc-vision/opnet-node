@@ -15,6 +15,7 @@ import {
     ContractInformation,
     ContractInformationAsString,
 } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
+import { contractManager } from '../vm/isolated/RustContract.js';
 
 class RPCManager extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -215,6 +216,8 @@ class RPCManager extends Logger {
                 const vmManager = this.vmManagers[i];
                 vmManager.clear();
             }
+
+            contractManager.destroyAll();
         }, 30000);
     }
 

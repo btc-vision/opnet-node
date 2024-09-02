@@ -61,8 +61,4 @@ export class GasTracker {
 
         this.#gasUsed = gas;
     }
-
-    public addGas(gas: bigint) {
-        this.setGas(this.#gasUsed + gas);
-    }
 }

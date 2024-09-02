@@ -331,7 +331,7 @@ export class VMManager extends Logger {
     public updateBlockValuesFromResult(
         evaluation: ContractEvaluation | undefined | null,
         contractAddress: Address,
-        transactionId?: string,
+        transactionId: string,
         disableStorageCheck: boolean = this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
     ): void {
         if (this.isExecutor) {
@@ -346,27 +346,28 @@ export class VMManager extends Logger {
             throw new Error('Receipt state not found');
         }
 
-        if (transactionId) {
-            let saved: boolean = false;
+        if (!transactionId) {
+            throw new Error('Transaction ID not found');
+        }
 
-            if (evaluation) {
-                const result = evaluation.getEvaluationResult();
+        let saved: boolean = false;
+        if (evaluation) {
+            const result = evaluation.getEvaluationResult();
 
-                if (!evaluation.revert && result.result) {
-                    for (const [contract, val] of result.changedStorage) {
-                        this.blockState.updateValues(contract, val);
-                    }
-
-                    this.receiptState.updateValue(contractAddress, transactionId, result.result);
-
-                    saved = true;
+            if (!evaluation.revert && result.result) {
+                for (const [contract, val] of result.changedStorage) {
+                    this.blockState.updateValues(contract, val);
                 }
-            }
 
-            if (!saved) {
-                // we store 0 (revert.)
-                this.receiptState.updateValue(contractAddress, transactionId, new Uint8Array(1));
+                this.receiptState.updateValue(contractAddress, transactionId, result.result);
+
+                saved = true;
             }
+        }
+
+        if (!saved) {
+            // we store 0 (revert.)
+            this.receiptState.updateValue(contractAddress, transactionId, new Uint8Array(1));
         }
 
         if (!disableStorageCheck) {
@@ -715,19 +716,16 @@ export class VMManager extends Logger {
         };
 
         // Execute the function
-        const evaluation: ContractEvaluation | null = await vmEvaluator
-            .execute(executionParams)
-            .catch(async (e) => {
-                if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                    const error = (await e) as Error;
+        const evaluation: ContractEvaluation | null = await vmEvaluator.execute(executionParams);
+        /*.catch(async (e) => {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                const error = (await e) as Error;
 
-                    if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-                        this.panic(`Evaluation failed: ${error}`);
-                    }
-                }
+                this.panic(`Evaluation failed: ${error}`);
+            }
 
-                return null;
-            });
+            return null;
+        });*/
 
         // Executors can not save block state changes.
         if (!params.externalCall && params.transactionId) {

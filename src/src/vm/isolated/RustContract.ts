@@ -3,10 +3,12 @@ import {
     ContractManager,
     ThreadSafeJsImportResponse,
 } from '@btc-vision/op-vm';
+import { Address } from '@btc-vision/bsi-binary';
 
 export const contractManager = new ContractManager();
 
 export interface ContractParameters {
+    readonly address: Address;
     readonly bytecode: Buffer;
     readonly gasLimit: bigint;
     readonly network: BitcoinNetworkRequest;
@@ -24,6 +26,7 @@ export class RustContract {
 
     private readonly enableDebug: boolean = false;
     private readonly enableDisposeLog: boolean = false;
+
     private gasUsed: bigint = 0n;
 
     constructor(params: ContractParameters) {
@@ -34,13 +37,12 @@ export class RustContract {
 
     public get id() {
         if (this.disposed) {
-            throw new Error('Contract is already disposed');
+            throw new Error('Contract is disposed.');
         }
 
-        if (!this._id) {
-            this._instantiated = true;
-
+        if (this._id == null) {
             this._id = contractManager.instantiate(
+                this.params.address,
                 this.params.bytecode,
                 this.params.gasLimit,
                 this.params.network,
@@ -77,6 +79,8 @@ export class RustContract {
                     this.params.log(buf);
                 },
             );
+
+            this._instantiated = true;
         }
 
         return this._id;
@@ -105,6 +109,8 @@ export class RustContract {
     }
 
     public dispose(): void {
+        if (!this.instantiated) return;
+
         if (this._id == null) {
             throw new Error('Contract is not instantiated');
         }
@@ -481,7 +487,9 @@ export class RustContract {
         const line = abortData.line;
         const column = abortData.column;
 
-        this.dispose();
+        try {
+            this.dispose();
+        } catch {}
 
         return new Error(`Execution aborted: ${message} at ${fileName}:${line}:${column}`);
     }
