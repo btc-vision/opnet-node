@@ -11,7 +11,7 @@ export class IndexedTransactions extends IndexedCollection<OPNetCollections.Tran
             { key: { _id: 1 }, name: '_id_' },
             { key: { blockHeight: 1 }, name: 'blockHeight_1' },
             { key: { hash: 'hashed' }, name: 'hash_hashed' },
-            { key: { id: 1 }, name: 'id_1' },
+            { key: { id: 'hashed' }, name: 'id_hashed' },
             /*{
                 key: { 'inputs.originalTransactionId': 1 },
                 name: 'inputs.originalTransactionId_1',
