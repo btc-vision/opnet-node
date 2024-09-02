@@ -39,7 +39,7 @@ export class DiscoveryResponsePacket extends Packet<
             throw new Error(`Error while verifying message: ${verificationError}`);
         } else {
             let schema = this.packet.create(convertedMsgToPack);
-            console.log('schema', msgToPack.peers[0].addresses);
+            console.log('schema', msgToPack.peers[0]);
 
             let message = this.packet.encode(schema).finish();
             console.log('message', message);
