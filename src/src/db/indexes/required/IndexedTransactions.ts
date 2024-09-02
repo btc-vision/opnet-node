@@ -25,8 +25,8 @@ export class IndexedTransactions extends IndexedCollection<OPNetCollections.Tran
                 name: 'outputs.scriptPubKey.addresses_1',
             },*/
             {
-                key: { hash: 1, blockHeight: 1 },
-                name: 'hash_1_blockHeight_1',
+                key: { hash: 'hashed', blockHeight: 1 },
+                name: 'hash_hashed_blockHeight_1',
             },
         ];
     }
