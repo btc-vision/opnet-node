@@ -49,6 +49,8 @@ export class VMMongoStorage extends VMStorage {
     private currentSession: ClientSession | undefined;
     private transactionSession: ClientSession | undefined;
 
+    private saveTxSessions: ClientSession[] = [];
+
     private pointerRepository: ContractPointerValueRepository | undefined;
     private contractRepository: ContractRepository | undefined;
     private blockRepository: BlockRepository | undefined;
@@ -391,12 +393,8 @@ export class VMMongoStorage extends VMStorage {
         this.currentSession = sessions[0];
         this.transactionSession = sessions[1];
 
-        const options: TransactionOptions = {
-            maxCommitTimeMS: 29 * 60000,
-        };
-
-        this.currentSession.startTransaction(options);
-        this.transactionSession.startTransaction(options);
+        this.currentSession.startTransaction(this.getTransactionOptions());
+        this.transactionSession.startTransaction(this.getTransactionOptions());
     }
 
     public async terminateBlock(): Promise<void> {
@@ -411,6 +409,7 @@ export class VMMongoStorage extends VMStorage {
         await Promise.all([
             this.currentSession.commitTransaction(),
             this.transactionSession.commitTransaction(),
+            ...this.saveTxSessions.map((session) => session.commitTransaction()),
         ]);
 
         await this.terminateSession();
@@ -428,6 +427,7 @@ export class VMMongoStorage extends VMStorage {
         await Promise.all([
             this.currentSession.abortTransaction(),
             this.transactionSession.abortTransaction(),
+            ...this.saveTxSessions.map((session) => session.abortTransaction()),
         ]);
 
         await this.terminateSession();
@@ -478,20 +478,6 @@ export class VMMongoStorage extends VMStorage {
         };
     }
 
-    /*public async saveTransaction(
-        transaction: ITransactionDocument<OPNetTransactionTypes>,
-    ): Promise<void> {
-        if (!this.transactionRepository) {
-            throw new Error('Transaction repository not initialized');
-        }
-
-        if (!this.transactionSession) {
-            throw new Error('Session not started');
-        }
-
-        await this.transactionRepository.saveTransaction(transaction, this.transactionSession);
-    }*/
-
     public async insertUTXOs(
         blockHeight: bigint,
         transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
@@ -511,27 +497,18 @@ export class VMMongoStorage extends VMStorage {
         );
     }
 
-    /*public saveTransactions(
-        blockHeight: bigint,
-        transactions: ITransactionDocument<OPNetTransactionTypes>[],
-    ): void {
-        if (!this.transactionRepository || !this.unspentTransactionRepository) {
+    /*public async saveTransaction(
+        transaction: ITransactionDocument<OPNetTransactionTypes>,
+    ): Promise<void> {
+        if (!this.transactionRepository) {
             throw new Error('Transaction repository not initialized');
         }
 
-        if (!this.transactionSession || !this.currentSession) {
+        if (!this.transactionSession) {
             throw new Error('Session not started');
         }
 
-        const promise = this.transactionRepository.saveTransactions(
-            transactions,
-            this.transactionSession,
-        );
-
-        const data = this.writeTransactions.get(blockHeight) || [];
-        data.push(promise);
-
-        this.writeTransactions.set(blockHeight, data);
+        await this.transactionRepository.saveTransaction(transaction, this.transactionSession);
     }*/
 
     public async setStorage(
@@ -558,6 +535,29 @@ export class VMMongoStorage extends VMStorage {
             this.currentSession,
         );
     }
+
+    /*public saveTransactions(
+        blockHeight: bigint,
+        transactions: ITransactionDocument<OPNetTransactionTypes>[],
+    ): void {
+        if (!this.transactionRepository || !this.unspentTransactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        if (!this.transactionSession || !this.currentSession) {
+            throw new Error('Session not started');
+        }
+
+        const promise = this.transactionRepository.saveTransactions(
+            transactions,
+            this.transactionSession,
+        );
+
+        const data = this.writeTransactions.get(blockHeight) || [];
+        data.push(promise);
+
+        this.writeTransactions.set(blockHeight, data);
+    }*/
 
     public async setStoragePointers(
         storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
@@ -780,15 +780,45 @@ export class VMMongoStorage extends VMStorage {
     public async saveTransactions(
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void> {
-        if (!this.transactionRepository) {
-            throw new Error('Transaction repository not initialized');
-        }
+        const chunks = this.chunkArray(transactions, 200);
 
-        if (!this.transactionSession) {
-            throw new Error('Transaction session not started');
-        }
+        const promises = chunks.map(async (chunk) => {
+            if (!this.transactionRepository) {
+                throw new Error('Transaction repository not initialized');
+            }
 
-        await this.transactionRepository.saveTransactions(transactions, this.transactionSession);
+            let session = await this.databaseManager.startSession();
+            this.saveTxSessions.push(session);
+
+            try {
+                session.startTransaction(this.getTransactionOptions());
+
+                return this.transactionRepository.saveTransactions(chunk, this.transactionSession);
+            } catch (e) {
+                try {
+                    await session.endSession();
+                } catch {}
+                throw e;
+            }
+        });
+
+        await Promise.all(promises);
+    }
+
+    private chunkArray<T>(array: T[], size: number): T[][] {
+        return array.reduce((acc, _, i) => {
+            if (i % size === 0) {
+                acc.push(array.slice(i, i + size));
+            }
+
+            return acc;
+        }, [] as T[][]);
+    }
+
+    private getTransactionOptions(): TransactionOptions {
+        return {
+            maxCommitTimeMS: 29 * 60000,
+        };
     }
 
     private convertBlockHeaderToBlockHeaderDocument(
@@ -833,11 +863,14 @@ export class VMMongoStorage extends VMStorage {
         const promiseTerminate: Promise<void>[] = [
             this.currentSession.endSession(),
             this.transactionSession.endSession(),
+            ...this.saveTxSessions.map((session) => session.endSession()),
         ];
+
         await Promise.all(promiseTerminate);
 
         this.currentSession = undefined;
         this.transactionSession = undefined;
+        this.saveTxSessions = [];
     }
 
     private addBytes(value: MemoryValue): Uint8Array {
