@@ -786,11 +786,13 @@ export class VMMongoStorage extends VMStorage {
                 throw new Error('Transaction repository not initialized');
             }
 
-            //let session = await this.databaseManager.startSession();
-            //this.saveTxSessions.push(session);
+            let session = await this.databaseManager.startSession();
+            session.startTransaction(this.getTransactionOptions());
+
+            this.saveTxSessions.push(session);
 
             try {
-                await this.transactionRepository.saveTransactions(chunk);
+                await this.transactionRepository.saveTransactions(chunk, session);
             } catch (e) {
                 throw e;
             }
