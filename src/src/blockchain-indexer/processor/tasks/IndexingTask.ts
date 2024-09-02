@@ -161,7 +161,7 @@ export class IndexingTask extends Logger {
         const processEndTime = Date.now();
         if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
             this.info(
-                `Block ${this.tip} processed successfully. (BlockHash: ${this.block.hash} - previous: ${this.block.previousBlockHash}) {Transaction(s): ${this.block.header.nTx} | Saved: ${this.prefetchEnd - this.prefetchStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Complete: ${processEndTime - this.finalizeEnd}ms | Took ${processEndTime - this.processedAt}ms})`,
+                `Block ${this.tip} processed successfully. (BlockHash: ${this.block.hash} - previous: ${this.block.previousBlockHash}) {Transaction(s): ${this.block.header.nTx} | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Complete: ${processEndTime - this.finalizeEnd}ms | Took ${processEndTime - this.processedAt}ms})`,
             );
         }
     }
