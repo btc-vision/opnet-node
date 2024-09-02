@@ -10,13 +10,13 @@ export class IndexedUnspentTransactions extends IndexedCollection<OPNetCollectio
         return [
             { key: { blockHeight: 1 }, name: 'blockHeight_1' },
             {
-                key: { transactionId: 1, outputIndex: 1 },
-                name: 'transactionId_1_outputIndex_1',
+                key: { transactionId: 'hashed', outputIndex: 1 },
+                name: 'transactionId_hashed_outputIndex_1',
             },
             { key: { deletedAtBlock: 1 }, name: 'deletedAtBlock_1' },
             {
-                key: { 'scriptPubKey.address': 1 },
-                name: 'address_1',
+                key: { 'scriptPubKey.address': 'hashed' },
+                name: 'address_hashed',
             },
         ];
     }
