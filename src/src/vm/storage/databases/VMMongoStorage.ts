@@ -793,8 +793,10 @@ export class VMMongoStorage extends VMStorage {
             try {
                 session.startTransaction(this.getTransactionOptions());
 
-                return this.transactionRepository.saveTransactions(chunk, this.transactionSession);
+                await this.transactionRepository.saveTransactions(chunk, this.transactionSession);
             } catch (e) {
+                console.log(e);
+
                 try {
                     await session.endSession();
                 } catch {}
