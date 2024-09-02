@@ -214,6 +214,8 @@ export class IndexingTask extends Logger {
     }
 
     private async revertBlock(): Promise<void> {
+        await this.vmStorage.revertDataUntilBlock(this.tip);
+        
         if (this._block) {
             await this.block.revertBlock(this.vmManager);
         } else {
