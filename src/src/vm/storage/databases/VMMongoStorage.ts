@@ -493,7 +493,7 @@ export class VMMongoStorage extends VMStorage {
         await this.unspentTransactionRepository.insertTransactions(
             blockHeight,
             transactions,
-            this.currentSession,
+            this.transactionSession,
         );
     }
 
