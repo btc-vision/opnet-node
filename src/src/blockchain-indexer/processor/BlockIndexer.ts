@@ -131,12 +131,6 @@ export class BlockIndexer extends Logger {
 
         // Purge.
         await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
-
-        /*this.blockFetcher.prefetchBlocks(
-            this.chainObserver.pendingBlockHeight,
-            this.chainObserver.targetBlockHeight,
-        );*/
-
         await this.reorgWatchdog.init(this.chainObserver.pendingBlockHeight);
     }
 
@@ -155,6 +149,14 @@ export class BlockIndexer extends Logger {
     private async onBlockChange(header: BlockHeaderInfo): Promise<void> {
         this.reorgWatchdog.onBlockChange(header);
         await this.chainObserver.onBlockChange(header);
+
+        if (this.taskInProgress) {
+            return;
+        }
+
+        if (this.indexingTasks.length === 0) {
+            void this.startTasks();
+        }
     }
 
     private async onChainReorganisation(
