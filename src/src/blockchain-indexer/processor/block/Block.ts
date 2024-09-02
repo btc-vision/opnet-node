@@ -262,10 +262,10 @@ export class Block extends Logger {
 
     public async insertPartialTransactions(vmManager: VMManager): Promise<void> {
         // temporary
-        await vmManager.insertUTXOs(
+        /*await vmManager.insertUTXOs(
             this.height,
             this.transactions.map((t) => t.toBitcoinDocument()),
-        );
+        );*/
 
         // thread this.
         this.saveGenericPromises = [
