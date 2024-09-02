@@ -49,9 +49,10 @@ export class ServerPeerManager extends AbstractPacketManager {
             peers: await this.getOPNetPeers(),
         };
 
-        console.log(discoverResponseData.peers);
-
-        await this.sendMsg(packet.pack(discoverResponseData));
+        // TODO: Verify this?
+        try {
+            await this.sendMsg(packet.pack(discoverResponseData));
+        } catch {}
     }
 
     private async onDiscover(packet: OPNetPacket): Promise<void> {
