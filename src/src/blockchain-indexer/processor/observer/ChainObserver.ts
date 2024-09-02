@@ -211,7 +211,13 @@ export class ChainObserver extends Logger {
             throw new Error('Current block height not found in database.');
         }
 
-        return BigInt(currentBlockHeight.inProgressBlock) - 1n;
+        const block = BigInt(currentBlockHeight.inProgressBlock);
+
+        if (block <= 0n) {
+            return block;
+        }
+
+        return block - 1n;
     }
 
     private updateStatus(): void {
