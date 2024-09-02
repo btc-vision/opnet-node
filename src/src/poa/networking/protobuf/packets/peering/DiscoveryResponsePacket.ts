@@ -33,15 +33,13 @@ export class DiscoveryResponsePacket extends Packet<
 
     public pack(msgToPack: IDiscoveryResponse): Uint8Array {
         let convertedMsgToPack = this.castInputAs(msgToPack as unknown as IDiscoveryResponse);
-
         let verificationError = this.packet.verify(convertedMsgToPack);
-        console.log('verificationError', verificationError);
 
         if (verificationError) {
             throw new Error(`Error while verifying message: ${verificationError}`);
         } else {
             let schema = this.packet.create(convertedMsgToPack);
-            console.log('schema', schema);
+            console.log('schema', msgToPack.peers[0].addresses);
 
             let message = this.packet.encode(schema).finish();
             console.log('message', message);
