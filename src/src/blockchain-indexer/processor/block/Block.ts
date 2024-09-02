@@ -331,11 +331,10 @@ export class Block extends Logger {
 
             if (!this.saveGenericPromises) throw new Error('Generic promises not found');
 
+            this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
+
             // We must wait for the generic transactions to be saved before finalizing the block
             await Promise.all(this.saveGenericPromises);
-
-            // And finally, we can save the transactions
-            await this.saveOPNetTransactions(vmManager);
 
             // We must wait for the generic transactions to be saved before finalizing the block
             //await this.saveGenericTransactionPromise;
