@@ -9,6 +9,8 @@ export interface RPCBlockFetcherConfiguration extends BlockFetcherConfiguration 
 export class RPCBlockFetcher extends BlockFetcher {
     private readonly rpc: BitcoinRPC;
 
+    private syncBlockHash: string | null = null;
+
     public constructor(config: RPCBlockFetcherConfiguration) {
         super(config);
 
@@ -35,10 +37,6 @@ export class RPCBlockFetcher extends BlockFetcher {
                 throw new Error('Error fetching block height.');
             }
 
-            this.info(
-                `Current block height: ${currentBlockHeight.blockHeight} (${currentBlockHeight.blockHash})`,
-            );
-
             const blockHeader = await this.rpc.getBlockHeader(currentBlockHeight.blockHash);
             if (!blockHeader) {
                 throw new Error(
@@ -46,7 +44,10 @@ export class RPCBlockFetcher extends BlockFetcher {
                 );
             }
 
-            this.notifyBlockChangesSubscribers(blockHeader);
+            if (this.syncBlockHash !== blockHeader.hash) {
+                this.syncBlockHash = blockHeader.hash;
+                this.notifyBlockChangesSubscribers(blockHeader);
+            }
         } catch (e) {
             const error = e as Error;
 

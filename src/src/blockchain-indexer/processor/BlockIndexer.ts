@@ -108,8 +108,6 @@ export class BlockIndexer extends Logger {
             rpc: this.rpcClient,
         });
 
-        this.registerEvents();
-
         await this.vmStorage.init();
         await this.chainObserver.init();
 
@@ -132,6 +130,8 @@ export class BlockIndexer extends Logger {
         // Purge.
         await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
         await this.reorgWatchdog.init(this.chainObserver.pendingBlockHeight);
+
+        this.registerEvents();
     }
 
     private registerEvents(): void {
@@ -270,7 +270,6 @@ export class BlockIndexer extends Logger {
         // Start the indexing tasks.
         for (let i = 0; i < currentIndexingLength; i++) {
             if (this.chainObserver.targetBlockHeight < this.chainObserver.pendingTaskHeight) {
-                this.warn(`No more tasks to start.`);
                 break;
             }
 
@@ -351,11 +350,9 @@ export class BlockIndexer extends Logger {
             this.taskInProgress = true;
 
             const task = this.indexingTasks.shift();
-            if (!task) {
-                throw new Error('No tasks to process.');
+            if (task) {
+                await task.process();
             }
-
-            await task.process();
         } catch (e) {
             await this.stopAllTasks();
 

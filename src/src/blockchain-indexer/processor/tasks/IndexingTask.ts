@@ -205,6 +205,8 @@ export class IndexingTask extends Logger {
         // Verify Reorg
         const hasReorged = await this.verifyReorg();
         if (hasReorged) {
+            this.warn(`Chain reorg detected at block ${this.tip}`);
+
             await this.revertBlock();
 
             throw new Error('Chain reorg detected');

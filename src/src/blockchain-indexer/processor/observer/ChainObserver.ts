@@ -138,7 +138,7 @@ export class ChainObserver extends Logger {
 
         this.updateStatus();
 
-        this.info(`Block change detected: ${height} - ${hash}`);
+        this.log(`Block change detected: ${height} - ${hash}`);
     }
 
     public async watchBlockchain(): Promise<void> {
@@ -211,7 +211,7 @@ export class ChainObserver extends Logger {
             throw new Error('Current block height not found in database.');
         }
 
-        return BigInt(currentBlockHeight.inProgressBlock);
+        return BigInt(currentBlockHeight.inProgressBlock) - 1n;
     }
 
     private updateStatus(): void {

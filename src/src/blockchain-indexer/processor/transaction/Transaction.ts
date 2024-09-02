@@ -7,7 +7,6 @@ import * as zlib from 'zlib';
 import {
     ITransactionDocumentBasic,
     TransactionDocument,
-    TransactionDocumentBasic,
 } from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
@@ -172,7 +171,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     // This represent OP_NET burned fees, priority fees, THIS IS NOT MINING FEES
     public get burnedFee(): bigint {
-        return this._burnedFee; //+ this.rndBigInt(0, 1000);
+        return this._burnedFee;
     }
 
     public get transactionId(): string {
