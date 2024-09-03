@@ -30,23 +30,4 @@ export class DiscoveryResponsePacket extends Packet<
     constructor(protobufType: Type) {
         super(protobufType);
     }
-
-    public pack(msgToPack: IDiscoveryResponse): Uint8Array {
-        let convertedMsgToPack = this.castInputAs(msgToPack as unknown as IDiscoveryResponse);
-        let verificationError = this.packet.verify(convertedMsgToPack);
-
-        if (verificationError) {
-            throw new Error(`Error while verifying message: ${verificationError}`);
-        } else {
-            let schema = this.packet.create(convertedMsgToPack);
-            console.log('schema', msgToPack.peers[0]);
-
-            let message = this.packet.encode(schema).finish();
-            console.log('message', message);
-
-            if (this.opcode === null) throw new Error(`Opcode is null.`);
-
-            return new Uint8Array([this.opcode, ...message]);
-        }
-    }
 }
