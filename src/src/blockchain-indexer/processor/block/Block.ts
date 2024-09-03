@@ -39,7 +39,7 @@ export interface RawBlockParam {
 
 export interface DeserializedBlock extends Omit<RawBlockParam, 'abortController' | 'network'> {
     readonly rawTransactionData: TransactionData[];
-    readonly transactionOrder: string[];
+    readonly transactionOrder?: string[];
 
     readonly abortController?: AbortController;
     readonly network?: Network;
@@ -322,17 +322,17 @@ export class Block extends Logger {
 
     public async insertPartialTransactions(vmManager: VMManager): Promise<void> {
         // temporary
-        //await vmManager.insertUTXOs(
-        //    this.height,
-        //    this.transactions.map((t) => t.toBitcoinDocument()),
-        //);
+        /*await vmManager.insertUTXOs(
+            this.height,
+            this.transactions.map((t) => t.toBitcoinDocument()),
+        );*/
 
         // thread this.
         this.saveGenericPromises = [
-            /*vmManager.insertUTXOs(
+            vmManager.insertUTXOs(
                 this.height,
                 this.transactions.map((t) => t.toBitcoinDocument()),
-            ),*/
+            ),
             this.saveGenericTransactions(vmManager),
         ];
     }
@@ -397,12 +397,11 @@ export class Block extends Logger {
             this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
 
             // We must wait for the generic transactions to be saved before finalizing the block
-            await Promise.all(this.saveGenericPromises);
+            await vmManager.saveBlock(this);
 
             // We must wait for the generic transactions to be saved before finalizing the block
-            //await this.saveGenericTransactionPromise;
+            await Promise.all(this.saveGenericPromises);
 
-            await vmManager.saveBlock(this);
             await vmManager.terminateBlock();
 
             return true;

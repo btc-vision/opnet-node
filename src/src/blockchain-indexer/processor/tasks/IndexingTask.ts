@@ -255,14 +255,13 @@ export class IndexingTask extends Logger {
             throw blockData.error;
         }
 
-        const start = Date.now();
-        const newBlock = new Block({
+        const block = new Block({
             ...blockData,
             network: this.network,
             abortController: this.abortController,
         });
 
-        return newBlock;
+        return block;
     }
 
     private async processPrefetch(): Promise<void> {
@@ -272,7 +271,7 @@ export class IndexingTask extends Logger {
 
         try {
             // Create block
-            const chainBlock = await this.requestBlock(this.tip); //await this.blockFetcher.getBlock(this.tip);
+            const chainBlock = await this.requestBlock(this.tip);
             if (this.aborted) {
                 throw new Error('Task aborted');
             }

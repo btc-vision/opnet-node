@@ -25,7 +25,10 @@ import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
-import { ITransactionDocument } from '../db/interfaces/ITransactionDocument.js';
+import {
+    ITransactionDocument,
+    ITransactionDocumentBasic,
+} from '../db/interfaces/ITransactionDocument.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
@@ -101,6 +104,13 @@ export class VMManager extends Logger {
             default:
                 throw new Error('Invalid VM Storage type.');
         }
+    }
+
+    public async insertUTXOs(
+        blockHeight: bigint,
+        transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
+    ): Promise<void> {
+        await this.vmStorage.insertUTXOs(blockHeight, transactions);
     }
 
     public async saveTransactions(

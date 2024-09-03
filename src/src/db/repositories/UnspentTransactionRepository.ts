@@ -6,7 +6,10 @@ import {
 } from '@btc-vision/bsi-common';
 import {
     AggregateOptions,
+    AnyBulkWriteOperation,
     Binary,
+    BulkWriteOptions,
+    BulkWriteResult,
     ClientSession,
     Collection,
     Db,
@@ -105,6 +108,13 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
     ): Promise<void> {
         const start = Date.now();
 
+        let promise: Promise<void> | undefined;
+        if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
+            await this.purgeSpentUTXOsFromBlockHeight(
+                blockHeight - BigInt(Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS),
+            );
+        }
+
         const convertedSpentTransactions = this.convertSpentTransactions(transactions);
         const convertedUnspentTransactions = this.convertToUnspentTransactions(
             transactions,
@@ -126,7 +136,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                             deletedAtBlock: currentBlockHeight,
                         },
                     },
-                    upsert: true, // allow upsert, if not exist?
+                    upsert: false,
                 },
             };
         });
@@ -137,7 +147,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                     filter: {
                         transactionId: transaction.transactionId,
                         outputIndex: transaction.outputIndex,
-                        blockHeight: transaction.blockHeight,
+                        //blockHeight: transaction.blockHeight,
                     },
                     update: {
                         $set: transaction,
@@ -152,17 +162,46 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             await this.bulkWrite(operations, currentSession);
         }
 
-        if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
-            await this.purgeSpentUTXOsFromBlockHeight(
-                blockHeight - BigInt(Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS),
-                currentSession,
-            );
-        }
+        //await promise;
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE && Config.DEV_MODE) {
             this.log(
                 `Saved ${convertedUnspentTransactions.length} UTXOs, deleted ${convertedSpentTransactions.length} spent UTXOs in ${Date.now() - start}ms`,
             );
+        }
+    }
+
+    public async bulkWrite(
+        operations: AnyBulkWriteOperation<IUnspentTransaction>[],
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        try {
+            const collection = this.getCollection();
+            const options: BulkWriteOptions = this.getOptions(currentSession);
+            options.ordered = false;
+            options.writeConcern = { w: 1 };
+
+            const result: BulkWriteResult = await collection.bulkWrite(operations, options);
+
+            if (result.hasWriteErrors()) {
+                result.getWriteErrors().forEach((error) => {
+                    this.error(`Bulk write error: ${error}`);
+                });
+
+                throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
+            }
+
+            if (!result.isOk()) {
+                throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                const errorDescription: string = error.stack || error.message;
+
+                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
+            } else {
+                throw error;
+            }
         }
     }
 

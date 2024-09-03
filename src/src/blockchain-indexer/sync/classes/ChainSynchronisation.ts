@@ -70,7 +70,6 @@ export class ChainSynchronisation extends Logger {
             throw new Error(`Block ${blockNumber} not found`);
         }
 
-        const start = Date.now();
         const block = new Block({
             network: this.network,
             abortController: new AbortController(),
@@ -78,10 +77,15 @@ export class ChainSynchronisation extends Logger {
         });
 
         // Deserialize the block
-        block.setRawTransactionData(blockData.tx);
-        block.deserialize();
+        //block.setRawTransactionData(blockData.tx);
+        //block.deserialize();
 
-        return block.toJSON();
+        return {
+            //block.toJSON(); will become handy later.
+            header: block.header.toJSON(),
+            rawTransactionData: blockData.tx,
+            transactionOrder: undefined,
+        };
     }
 
     private async deserializeBlock(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {

@@ -129,6 +129,8 @@ export class BlockIndexer extends Logger {
             ? BigInt(Config.OP_NET.REINDEX_FROM_BLOCK)
             : this.chainObserver.pendingBlockHeight;
 
+        this.warn(`Purging data from block ${purgeFromBlock}`);
+
         // Purge.
         await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
         await this.reorgWatchdog.init(this.chainObserver.pendingBlockHeight);

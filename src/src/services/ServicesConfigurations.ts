@@ -45,7 +45,7 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
     },
 
     [ThreadTypes.SYNCHRONISATION]: {
-        maxInstance: 1,
+        maxInstance: 3,
         managerTarget: './src/blockchain-indexer/sync/SynchronisationManager.js',
         target: './src/blockchain-indexer/sync/SynchronisationThread.js',
     },
