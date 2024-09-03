@@ -20,11 +20,14 @@ export class IndexingTask extends Logger {
     private prefetchPromise: Promise<Error | undefined> | null = null;
     private prefetchResolver: ((error?: Error) => void) | null = null;
 
-    private prefetchStart: number = Date.now();
+    private prefetchStart: number = 0;
     private prefetchEnd: number = 0;
     private processedAt: number = 0;
     private finalizeBlockStart: number = 0;
     private finalizeEnd: number = 0;
+
+    private downloadStart: number = 0;
+    private downloadEnd: number = 0;
 
     public constructor(
         public readonly tip: bigint,
@@ -157,7 +160,7 @@ export class IndexingTask extends Logger {
         const processEndTime = Date.now();
         if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
             this.info(
-                `Block ${this.tip} processed successfully. (BlockHash: ${this.block.hash} - previous: ${this.block.previousBlockHash}) {Transaction(s): ${this.block.header.nTx} | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms | Took ${processEndTime - this.processedAt}ms})`,
+                `Block ${this.tip} processed successfully. (BlockHash: ${this.block.hash} - previous: ${this.block.previousBlockHash}) {Transaction(s): ${this.block.header.nTx} | Download: ${this.downloadEnd - this.downloadStart} | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms | Took: ${processEndTime - this.processedAt}ms})`,
             );
         }
     }
@@ -246,15 +249,18 @@ export class IndexingTask extends Logger {
     }
 
     private async requestBlock(tip: bigint): Promise<Block> {
+        this.downloadStart = Date.now();
         const blockData = (await this.sendMessageToThread(ThreadTypes.SYNCHRONISATION, {
             type: MessageType.DESERIALIZE_BLOCK,
             data: tip,
         })) as DeserializedBlock | { error: Error };
+        this.downloadEnd = Date.now();
 
         if ('error' in blockData) {
             throw blockData.error;
         }
 
+        this.prefetchStart = Date.now();
         const block = new Block({
             ...blockData,
             network: this.network,
