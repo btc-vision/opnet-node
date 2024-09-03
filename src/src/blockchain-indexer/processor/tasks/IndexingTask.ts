@@ -262,7 +262,7 @@ export class IndexingTask extends Logger {
             abortController: this.abortController,
         });
 
-        this.log(`Block regenerated in ${Date.now() - start}ms`);
+        this.log(`Block ${this.tip} regenerated in ${Date.now() - start}ms`);
 
         return newBlock;
     }
