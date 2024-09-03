@@ -424,6 +424,10 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
+        if (this.currentSession.hasEnded) {
+            throw new Error('Current session has ended');
+        }
+
         await Promise.all([
             this.currentSession.abortTransaction(),
             this.transactionSession.abortTransaction(),
