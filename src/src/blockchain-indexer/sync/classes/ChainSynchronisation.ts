@@ -81,8 +81,6 @@ export class ChainSynchronisation extends Logger {
         block.setRawTransactionData(blockData.tx);
         block.deserialize();
 
-        this.log(`Block ${blockNumber} deserialized in ${Date.now() - start}ms`);
-
         return block.toJSON();
     }
 
