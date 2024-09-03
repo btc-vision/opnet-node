@@ -426,7 +426,7 @@ export class P2PManager extends Logger {
 
         /** Already broadcasted. */
         if (this.knownMempoolIdentifiers.has(identifier)) {
-            this.info(`Transaction ${identifier} already known.`);
+            //this.info(`Transaction ${identifier} already known.`);
             return;
         }
 
