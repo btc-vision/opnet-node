@@ -18,6 +18,7 @@ export interface IndexerConfig {
     readonly STORAGE_TYPE: IndexerStorageType;
     readonly READONLY_MODE: boolean;
 
+    readonly DISABLE_UTXO_INDEXING: boolean;
     readonly PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: number;
 }
 

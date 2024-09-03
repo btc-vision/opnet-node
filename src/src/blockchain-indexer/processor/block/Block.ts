@@ -327,14 +327,16 @@ export class Block extends Logger {
             this.transactions.map((t) => t.toBitcoinDocument()),
         );*/
 
-        // thread this.
-        this.saveGenericPromises = [
-            vmManager.insertUTXOs(
-                this.height,
-                this.transactions.map((t) => t.toBitcoinDocument()),
-            ),
-            this.saveGenericTransactions(vmManager),
-        ];
+        this.saveGenericPromises = [this.saveGenericTransactions(vmManager)];
+
+        if (!Config.INDEXER.DISABLE_UTXO_INDEXING) {
+            this.saveGenericPromises.push(
+                vmManager.insertUTXOs(
+                    this.height,
+                    this.transactions.map((t) => t.toBitcoinDocument()),
+                ),
+            );
+        }
     }
 
     /** Block Execution */

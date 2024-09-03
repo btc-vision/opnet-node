@@ -48,6 +48,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ALLOW_PURGE: true,
             BLOCK_QUERY_INTERVAL: 5000,
             READONLY_MODE: false,
+            DISABLE_UTXO_INDEXING: false,
             PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
         },
 
@@ -249,6 +250,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 parsedConfig.INDEXER.READONLY_MODE !== undefined
             ) {
                 throw new Error(`Oops the property INDEXER.READONLY_MODE is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.INDEXER.DISABLE_UTXO_INDEXING !== undefined &&
+                typeof parsedConfig.INDEXER.DISABLE_UTXO_INDEXING !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property INDEXER.DISABLE_UTXO_INDEXING is not a boolean.`,
+                );
             }
 
             if (
