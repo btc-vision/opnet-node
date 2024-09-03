@@ -9,4 +9,6 @@ export enum MessageType {
     CURRENT_INDEXER_BLOCK,
     START_INDEXER,
     EXIT_THREAD,
+
+    DESERIALIZE_BLOCK,
 }

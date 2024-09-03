@@ -248,12 +248,6 @@ export class BlockIndexer extends Logger {
         }
     }
 
-    private async notifyBlockNotifier(): Promise<void> {
-        await this.sendMessageToThread(ThreadTypes.SYNCHRONISATION, {
-            type: MessageType.START_INDEXER,
-        });
-    }
-
     private async startAndPurgeIndexer(): Promise<void> {
         try {
             await this.startTasks();
@@ -292,7 +286,6 @@ export class BlockIndexer extends Logger {
         const task = new IndexingTask(
             currentBestTip,
             this.network,
-            this.blockFetcher,
             this.chainObserver,
             this.consensusTracker,
             this.vmStorage,
@@ -305,6 +298,8 @@ export class BlockIndexer extends Logger {
         task.verifyReorg = async () => this.reorgWatchdog.verifyChainReorgForBlock(task);
 
         this.indexingTasks.push(task);
+
+        task.prefetch();
 
         return task;
     }
@@ -377,8 +372,6 @@ export class BlockIndexer extends Logger {
         }
 
         await this.init();
-
-        await this.notifyBlockNotifier();
         this.started = true;
 
         void this.startAndPurgeIndexer();

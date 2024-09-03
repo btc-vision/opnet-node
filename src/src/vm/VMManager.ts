@@ -25,10 +25,7 @@ import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
-import {
-    ITransactionDocument,
-    ITransactionDocumentBasic,
-} from '../db/interfaces/ITransactionDocument.js';
+import { ITransactionDocument } from '../db/interfaces/ITransactionDocument.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
@@ -167,13 +164,6 @@ export class VMManager extends Logger {
         }
 
         await this.clear();
-    }
-
-    public insertUTXOs(
-        blockHeight: bigint,
-        transaction: ITransactionDocumentBasic<OPNetTransactionTypes>[],
-    ): Promise<void> {
-        return this.vmStorage.insertUTXOs(blockHeight, transaction);
     }
 
     public busy(): boolean {

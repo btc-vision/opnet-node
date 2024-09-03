@@ -1,8 +1,8 @@
 import { Address, MemorySlotPointer } from '@btc-vision/bsi-binary';
-import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
+import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin from 'bitcoinjs-lib';
+import { Network } from 'bitcoinjs-lib';
 import { Config } from '../../../config/Config.js';
 import {
     BlockHeaderBlockDocument,
@@ -20,7 +20,7 @@ import { TransactionSorter } from '../transaction/transaction-sorter/Transaction
 import { Transaction } from '../transaction/Transaction.js';
 import { DeploymentTransaction } from '../transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../transaction/transactions/InteractionTransaction.js';
-import { BlockHeader } from './classes/BlockHeader.js';
+import { BlockDataWithoutTransactionData, BlockHeader } from './classes/BlockHeader.js';
 import { ChecksumMerkle } from './merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from './types/ZeroValue.js';
 import { WrapTransaction } from '../transaction/transactions/WrapTransaction.js';
@@ -30,6 +30,20 @@ import { ICompromisedTransactionDocument } from '../../../db/interfaces/Compromi
 import { UnwrapTransaction } from '../transaction/transactions/UnwrapTransaction.js';
 import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../../db/interfaces/IWBTCUTXODocument.js';
 import assert from 'node:assert';
+
+export interface RawBlockParam {
+    header: BlockDataWithoutTransactionData;
+    abortController: AbortController;
+    network: Network;
+}
+
+export interface DeserializedBlock extends Omit<RawBlockParam, 'abortController' | 'network'> {
+    readonly rawTransactionData: TransactionData[];
+    readonly transactionOrder: string[];
+
+    readonly abortController?: AbortController;
+    readonly network?: Network;
+}
 
 export class Block extends Logger {
     // Block Header
@@ -44,7 +58,7 @@ export class Block extends Logger {
     protected transactions: Transaction<OPNetTransactionTypes>[] = [];
 
     // Allow us to keep track of errored transactions
-    protected readonly erroredTransactions: Set<TransactionData> = new Set();
+    protected erroredTransactions: Set<TransactionData> = new Set();
 
     // Ensure that the block is processed only once
     protected processed: boolean = false;
@@ -53,6 +67,10 @@ export class Block extends Logger {
     protected executed: boolean = false;
 
     protected readonly signal: AbortSignal;
+    protected readonly network: Network;
+    protected readonly abortController: AbortController;
+
+    private rawTransactionData: TransactionData[] | undefined;
 
     // Private
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
@@ -60,32 +78,46 @@ export class Block extends Logger {
 
     private genericTransactions: Transaction<OPNetTransactionTypes>[] = [];
     private opnetTransactions: Transaction<OPNetTransactionTypes>[] = [];
-
     private specialTransaction: Transaction<OPNetTransactionTypes>[] = [];
+
     private specialExecutionPromise: Promise<void> | undefined;
 
     #compromised: boolean = false;
     #_storageRoot: string | undefined;
     #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
-    #_receiptRoot: string | undefined;
 
+    #_receiptRoot: string | undefined;
     #_receiptProofs: Map<Address, Map<string, string[]>> | undefined;
     #_checksumMerkle: ChecksumMerkle = new ChecksumMerkle();
+
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
 
     private saveGenericPromises: Promise<void>[] | undefined;
 
-    constructor(
-        protected readonly rawBlockData: BlockDataWithTransactionData,
-        protected readonly network: bitcoin.networks.Network,
-        protected readonly abortController: AbortController,
-    ) {
+    constructor(params: RawBlockParam | DeserializedBlock) {
         super();
 
-        this.signal = this.abortController.signal;
+        if (!params.abortController) {
+            throw new Error('Abort controller not found');
+        }
 
-        this.header = new BlockHeader(rawBlockData);
+        if (!params.network) {
+            throw new Error('Network not found');
+        }
+
+        this.abortController = params.abortController;
+        this.network = params.network;
+
+        this.signal = this.abortController.signal;
+        this.header = new BlockHeader(params.header);
+
+        if ('rawTransactionData' in params) {
+            this.setRawTransactionData(params.rawTransactionData);
+            this.deserialize(params.transactionOrder);
+
+            this.processed = true;
+        }
     }
 
     private _reverted: boolean = false;
@@ -197,6 +229,17 @@ export class Block extends Logger {
         return this.#_checksumProofs;
     }
 
+    public static fromJSON(data: DeserializedBlock): Block {
+        return new Block(data);
+    }
+
+    public setRawTransactionData(rawTransactionData: TransactionData[]): void {
+        this.rawTransactionData = rawTransactionData;
+
+        // First, we have to create transaction object corresponding to the transactions types in the block
+        this.createTransactions();
+    }
+
     public getBlockHeaderDocument(): BlockHeaderBlockDocument {
         return {
             checksumRoot: this.checksumRoot,
@@ -227,11 +270,8 @@ export class Block extends Logger {
     }
 
     /** Block Processing */
-    public deserialize(): void {
+    public deserialize(transactionOrder?: string[]): void {
         this.ensureNotProcessed();
-
-        // First, we have to create transaction object corresponding to the transactions types in the block
-        this.createTransactions();
 
         if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
             if (this.erroredTransactions.size > 0) {
@@ -239,8 +279,16 @@ export class Block extends Logger {
             }
         }
 
-        // Then, we can sort the transactions by their priority
-        this.transactions = this.transactionSorter.sortTransactions(this.transactions);
+        if (transactionOrder) {
+            // If the transaction order is provided, we can sort the transactions by their order
+            this.transactions = this.transactionSorter.sortTransactionsByOrder(
+                transactionOrder,
+                this.transactions,
+            );
+        } else {
+            // Then, we can sort the transactions by their priority
+            this.transactions = this.transactionSorter.sortTransactions(this.transactions);
+        }
 
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.info(
@@ -248,9 +296,21 @@ export class Block extends Logger {
             );
         }
 
-        const separatedTransactions = this.separateGenericTransactions();
-        this.genericTransactions = separatedTransactions.genericTransactions;
-        this.opnetTransactions = separatedTransactions.opnetTransactions;
+        this.defineGeneric();
+    }
+
+    public toJSON(): DeserializedBlock {
+        if (!this.rawTransactionData) {
+            throw new Error('Block data not found');
+        }
+
+        if (!this.processed) throw new Error('Block not processed');
+
+        return {
+            rawTransactionData: this.rawTransactionData,
+            transactionOrder: this.transactions.map((t) => t.transactionId),
+            header: this.header.toJSON(),
+        };
     }
 
     /** Get all transactions hashes of this block */
@@ -263,9 +323,9 @@ export class Block extends Logger {
     public async insertPartialTransactions(vmManager: VMManager): Promise<void> {
         // temporary
         //await vmManager.insertUTXOs(
-        //                 this.height,
-        //                 this.transactions.map((t) => t.toBitcoinDocument()),
-        //             )
+        //    this.height,
+        //    this.transactions.map((t) => t.toBitcoinDocument()),
+        //);
 
         // thread this.
         this.saveGenericPromises = [
@@ -279,6 +339,9 @@ export class Block extends Logger {
 
     /** Block Execution */
     public async execute(vmManager: VMManager, specialManager: SpecialManager): Promise<boolean> {
+        // Free up some memory, we don't need the raw transaction data anymore
+        this.rawTransactionData = [];
+
         this.ensureNotExecuted();
 
         try {
@@ -516,6 +579,12 @@ export class Block extends Logger {
                 true,
             );
         }
+    }
+
+    private defineGeneric(): void {
+        const separatedTransactions = this.separateGenericTransactions();
+        this.genericTransactions = separatedTransactions.genericTransactions;
+        this.opnetTransactions = separatedTransactions.opnetTransactions;
     }
 
     private isOPNetEnabled(): boolean {
@@ -802,10 +871,14 @@ export class Block extends Logger {
             throw new Error('Transactions are already created');
         }
 
+        if (!this.rawTransactionData) {
+            throw new Error('Raw transaction data not found');
+        }
+
         this.erroredTransactions.clear();
 
-        for (let i = 0; i < this.rawBlockData.tx.length; i++) {
-            const rawTransactionData = this.rawBlockData.tx[i];
+        for (let i = 0; i < this.rawTransactionData.length; i++) {
+            const rawTransactionData = this.rawTransactionData[i];
 
             try {
                 const transaction = this.transactionFactory.parseTransaction(
@@ -814,6 +887,7 @@ export class Block extends Logger {
                     this.height,
                     this.network,
                 );
+
                 transaction.originalIndex = i;
 
                 this.transactions.push(transaction);
@@ -831,9 +905,6 @@ export class Block extends Logger {
                 this.erroredTransactions.add(rawTransactionData);
             }
         }
-
-        // Free up some memory, we don't need the raw transaction data anymore
-        this.rawBlockData.tx = [];
     }
 
     private treatAsGenericTransaction(rawTransactionData: TransactionData): boolean {

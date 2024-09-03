@@ -1,7 +1,7 @@
-import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
-import { Transaction } from '../Transaction.js';
-import { TransactionGroupBuilder } from './TransactionGroupBuilder.js';
-import { TransactionGroupFeesSorter } from './TransactionGroupFeesSorter.js';
+import {OPNetTransactionTypes} from '../enums/OPNetTransactionTypes.js';
+import {Transaction} from '../Transaction.js';
+import {TransactionGroupBuilder} from './TransactionGroupBuilder.js';
+import {TransactionGroupFeesSorter} from './TransactionGroupFeesSorter.js';
 
 /**
  * The goal of this class is to sort transactions in bitcoin blocks where their position in a block is topologically sorted.
@@ -56,6 +56,30 @@ export class TransactionSorter {
         }
 
         return finalList;
+    }
+
+    public sortTransactionsByOrder(
+        transactionIds: string[],
+        transactions: Transaction<OPNetTransactionTypes>[],
+    ): Transaction<OPNetTransactionTypes>[] {
+        if (transactionIds.length !== transactions.length) {
+            throw new Error(
+                `Transaction count changed during sorting. Expected ${transactions.length}, got ${transactionIds.length}.`,
+            );
+        }
+
+        const newOrder: Transaction<OPNetTransactionTypes>[] = [];
+
+        for (let i = 0; i < transactionIds.length; i++) {
+            const tx = transactions.find((t) => t.transactionId === transactionIds[i]);
+            if (tx) {
+                newOrder.push(tx);
+            } else {
+                throw new Error(`Transaction with id ${transactionIds[i]} not found.`);
+            }
+        }
+
+        return newOrder;
     }
 
     // Optional to avoid duplicated transactions

@@ -7,11 +7,10 @@ import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { Config } from '../../../config/Config.js';
-import { Block } from '../block/Block.js';
+import { Block, DeserializedBlock } from '../block/Block.js';
 import { Network } from 'bitcoinjs-lib';
 import { VMManager } from '../../../vm/VMManager.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
-import { BlockFetcher } from '../../fetcher/abstract/BlockFetcher.js';
 
 export class IndexingTask extends Logger {
     public readonly logColor: string = '#9545c5';
@@ -30,7 +29,6 @@ export class IndexingTask extends Logger {
     public constructor(
         public readonly tip: bigint,
         private readonly network: Network,
-        private readonly blockFetcher: BlockFetcher,
         private readonly chainObserver: ChainObserver,
         private readonly consensusTracker: ConsensusTracker,
         private readonly vmStorage: VMStorage,
@@ -48,8 +46,6 @@ export class IndexingTask extends Logger {
                 this.prefetchResolver(new Error('Task aborted'));
             }
         });
-
-        this.prefetch();
     }
 
     private _block: Block | null = null;
@@ -172,6 +168,24 @@ export class IndexingTask extends Logger {
         this.destroy();
     }
 
+    public prefetch(): void {
+        if (Config.DEBUG_LEVEL > DebugLevel.DEBUG) {
+            this.debug(`Prefetching block ${this.tip}`);
+        }
+
+        this.prefetchPromise = new Promise<Error | undefined>(
+            async (resolve: (error?: Error) => void) => {
+                this.prefetchResolver = (error?: Error) => {
+                    this.prefetchResolver = null;
+
+                    resolve(error);
+                };
+
+                await this.processPrefetch();
+            },
+        );
+    }
+
     private async processBlock(): Promise<void> {
         // Define consensus block height
         this.consensusTracker.setConsensusBlockHeight(this.tip);
@@ -231,29 +245,41 @@ export class IndexingTask extends Logger {
         this.prefetchResolver = null;
     }
 
+    private async requestBlock(tip: bigint): Promise<Block> {
+        const blockData = (await this.sendMessageToThread(ThreadTypes.SYNCHRONISATION, {
+            type: MessageType.DESERIALIZE_BLOCK,
+            data: tip,
+        })) as DeserializedBlock | { error: Error };
+
+        if ('error' in blockData) {
+            throw blockData.error;
+        }
+
+        const start = Date.now();
+        const newBlock = new Block({
+            ...blockData,
+            network: this.network,
+            abortController: this.abortController,
+        });
+
+        this.log(`Block regenerated in ${Date.now() - start}ms`);
+
+        return newBlock;
+    }
+
     private async processPrefetch(): Promise<void> {
         if (!this.prefetchResolver) {
             throw new Error('Prefetch resolver not set');
         }
 
         try {
-            const block = await this.blockFetcher.getBlock(this.tip);
-
+            // Create block
+            const chainBlock = await this.requestBlock(this.tip); //await this.blockFetcher.getBlock(this.tip);
             if (this.aborted) {
                 throw new Error('Task aborted');
             }
 
-            if (!block) {
-                return await this.refresh();
-            }
-
-            this._blockHash = block.hash;
-
-            // Create block
-            const chainBlock = new Block(block, this.network, this.abortController);
-
-            // Deserialize block
-            chainBlock.deserialize();
+            this._blockHash = chainBlock.hash;
 
             this._block = chainBlock;
             this.prefetchEnd = Date.now();
@@ -266,23 +292,5 @@ export class IndexingTask extends Logger {
                 this.error(`Error processing block ${this.tip}: ${e}`);
             }
         }
-    }
-
-    private prefetch(): void {
-        if (Config.DEBUG_LEVEL > DebugLevel.DEBUG) {
-            this.debug(`Prefetching block ${this.tip}`);
-        }
-
-        this.prefetchPromise = new Promise<Error | undefined>(
-            async (resolve: (error?: Error) => void) => {
-                this.prefetchResolver = (error?: Error) => {
-                    this.prefetchResolver = null;
-
-                    resolve(error);
-                };
-
-                await this.processPrefetch();
-            },
-        );
     }
 }

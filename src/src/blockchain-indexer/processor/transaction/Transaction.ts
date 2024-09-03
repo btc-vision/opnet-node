@@ -47,10 +47,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     protected readonly _computedIndexingHash: Buffer;
     protected readonly transactionHashBuffer: Buffer;
+
     protected readonly transactionHash: string;
     protected readonly vInputIndex: number;
     protected readonly _authorizedVaultUsage: boolean = false;
+
     private readonly vaultDecoder: VaultInputDecoder = new VaultInputDecoder();
+
     readonly #vaultInputs: VaultInput[] = [];
 
     protected constructor(
