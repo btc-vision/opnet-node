@@ -134,6 +134,10 @@ export class BlockIndexer extends Logger {
         await this.reorgWatchdog.init(this.chainObserver.pendingBlockHeight);
 
         this.registerEvents();
+
+        await this.startAndPurgeIndexer();
+
+        this.started = true;
     }
 
     private registerEvents(): void {
@@ -261,10 +265,6 @@ export class BlockIndexer extends Logger {
         const currentIndexingLength =
             this.indexingConfigs.prefetchQueueSize - this.indexingTasks.length;
 
-        /*this.log(
-            `Starting ${currentIndexingLength} tasks... {Current height: ${this.chainObserver.pendingBlockHeight} | Target height: ${this.chainObserver.targetBlockHeight} | Network: ${this.chainObserver.chain}}`,
-        );*/
-
         // Start the indexing tasks.
         for (let i = 0; i < currentIndexingLength; i++) {
             if (this.chainObserver.targetBlockHeight < this.chainObserver.pendingTaskHeight) {
@@ -371,10 +371,7 @@ export class BlockIndexer extends Logger {
             };
         }
 
-        await this.init();
-        this.started = true;
-
-        void this.startAndPurgeIndexer();
+        void this.init();
 
         return {
             started: true,
