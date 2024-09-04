@@ -256,6 +256,10 @@ export class IndexingTask extends Logger {
         })) as DeserializedBlock | { error: Error };
         this.downloadEnd = Date.now();
 
+        if (!blockData) {
+            throw new Error('Block data not found');
+        }
+
         if ('error' in blockData) {
             throw blockData.error;
         }
