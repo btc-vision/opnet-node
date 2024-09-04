@@ -24,6 +24,7 @@ export class ChainSynchronisation extends Logger {
     private readonly network: Network = NetworkConverter.getNetwork();
 
     private unspentTransactionOutputs: ProcessUnspentTransactionList = [];
+    private amountOfUTXOs: number = 0;
 
     constructor() {
         super();
@@ -95,12 +96,13 @@ export class ChainSynchronisation extends Logger {
 
         setTimeout(() => {
             this.startSaveLoop();
-        }, 10);
+        }, 100);
     }
 
     private async saveUTXOs(): Promise<void> {
         const utxos = this.unspentTransactionOutputs;
         this.unspentTransactionOutputs = [];
+        this.amountOfUTXOs = 0;
 
         await this.unspentTransactionRepository.insertTransactions(utxos);
 
@@ -125,6 +127,8 @@ export class ChainSynchronisation extends Logger {
         // Save UTXOs
         const utxos = block.getUTXOs();
 
+        this.amountOfUTXOs += utxos.length;
+
         // Save UTXOs to database
         this.unspentTransactionOutputs = this.unspentTransactionOutputs.concat({
             blockHeight: block.header.height,
@@ -133,8 +137,8 @@ export class ChainSynchronisation extends Logger {
     }
 
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
-        // bigger than 10
-        if (this.unspentTransactionOutputs.length > 10) {
+        // bigger than 10_000
+        if (this.amountOfUTXOs > 10_000) {
             await this.awaitUTXOWrites();
         }
 
