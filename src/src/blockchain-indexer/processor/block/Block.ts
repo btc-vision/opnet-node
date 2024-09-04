@@ -399,8 +399,10 @@ export class Block extends Logger {
 
             this.saveGenericPromises.push(vmManager.saveBlock(this));
 
+            const start = Date.now();
             // We must wait for the generic transactions to be saved before finalizing the block
             await Promise.all(this.saveGenericPromises);
+            console.log(`Wait promises took ${Date.now() - start}ms`);
 
             await vmManager.terminateBlock();
 
