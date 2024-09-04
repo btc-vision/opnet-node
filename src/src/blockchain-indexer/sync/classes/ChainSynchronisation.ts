@@ -25,6 +25,7 @@ export class ChainSynchronisation extends Logger {
 
     private unspentTransactionOutputs: ProcessUnspentTransactionList = [];
     private amountOfUTXOs: number = 0;
+    private isProcessing: boolean = false;
 
     constructor() {
         super();
@@ -100,11 +101,16 @@ export class ChainSynchronisation extends Logger {
     }
 
     private async saveUTXOs(): Promise<void> {
+        if (this.isProcessing) return;
+
         const utxos = this.unspentTransactionOutputs;
         this.unspentTransactionOutputs = [];
         this.amountOfUTXOs = 0;
+        this.isProcessing = true;
 
         await this.unspentTransactionRepository.insertTransactions(utxos);
+
+        this.isProcessing = false;
 
         this.success(`Saved ${utxos.length} block UTXOs to database.`);
     }
@@ -112,7 +118,7 @@ export class ChainSynchronisation extends Logger {
     private awaitUTXOWrites(): Promise<void> {
         this.important('Awaiting UTXO writes to complete... Can take a while.');
         return new Promise(async (resolve) => {
-            while (this.unspentTransactionOutputs.length) {
+            while (this.isProcessing) {
                 await new Promise((r) => setTimeout(r, 100));
             }
 
