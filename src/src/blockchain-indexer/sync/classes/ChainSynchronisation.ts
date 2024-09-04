@@ -70,7 +70,7 @@ export class ChainSynchronisation extends Logger {
 
         this._unspentTransactionRepository = new UnspentTransactionRepository(DBManagerInstance.db);
 
-        await this.startSaveLoop();
+        //await this.startSaveLoop();
     }
 
     public async handleMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
@@ -115,7 +115,9 @@ export class ChainSynchronisation extends Logger {
         this.success(`Saved ${utxos.length} block UTXOs to database.`);
     }
 
-    private awaitUTXOWrites(): Promise<void> {
+    private async awaitUTXOWrites(): Promise<void> {
+        if (!this.isProcessing) await this.saveUTXOs();
+
         this.important('Awaiting UTXO writes to complete... Can take a while.');
         return new Promise(async (resolve) => {
             while (this.isProcessing) {
@@ -144,7 +146,7 @@ export class ChainSynchronisation extends Logger {
 
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
         // bigger than 10_000
-        if (this.amountOfUTXOs > 100_000) {
+        if (this.amountOfUTXOs > 25_000) {
             await this.awaitUTXOWrites();
         }
 
