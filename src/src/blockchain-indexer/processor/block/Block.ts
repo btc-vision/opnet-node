@@ -325,17 +325,12 @@ export class Block extends Logger {
         this.saveGenericPromises.push(this.saveGenericTransactions(vmManager));
 
         if (!Config.INDEXER.DISABLE_UTXO_INDEXING) {
-            const t = Date.now();
-            await vmManager.insertUTXOs(
-                this.height,
-                this.transactions.map((t) => t.toBitcoinDocument()),
+            this.saveGenericPromises.push(
+                vmManager.insertUTXOs(
+                    this.height,
+                    this.transactions.map((t) => t.toBitcoinDocument()),
+                ),
             );
-
-            console.log(`Insert UTXOs took ${Date.now() - t}ms`);
-
-            //this.saveGenericPromises.push(
-
-            //);
         }
     }
 
