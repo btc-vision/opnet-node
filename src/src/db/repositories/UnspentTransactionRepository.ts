@@ -157,6 +157,10 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             };
         });
 
+        this.debug(
+            `Writing ${bulkWriteOperations.length} UTXOs, deleting ${bulkDeleteOperations.length} spent UTXOs`,
+        );
+
         const operations = [...bulkWriteOperations, ...bulkDeleteOperations];
         if (bulkWriteOperations.length) {
             const chunks = this.chunkArray(operations, 500);
