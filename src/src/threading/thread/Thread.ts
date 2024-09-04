@@ -68,7 +68,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                         );
 
                         resolve(null);
-                    }, 12_000);
+                    }, 60_000);
 
                     const task: ThreadTaskCallback = {
                         timeout: timeout,
