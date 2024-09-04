@@ -413,7 +413,9 @@ export class Block extends Logger {
                 `[FinalizeBlock] Something went wrong while executing the block: ${Config.DEV_MODE ? error.stack : error.message}`,
             );
 
-            await this.revertBlock(vmManager);
+            try {
+                await this.revertBlock(vmManager);
+            } catch {}
 
             return false;
         }

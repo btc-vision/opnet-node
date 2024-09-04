@@ -169,13 +169,14 @@ export class VMManager extends Logger {
 
         try {
             await this.vmBitcoinBlock.terminate();
+            await this.clear();
         } catch (e) {
             this.error(`Error terminating block: ${(e as Error).stack}`);
 
-            await this.vmBitcoinBlock.revert();
-        }
+            await this.clear();
 
-        await this.clear();
+            throw e;
+        }
     }
 
     public busy(): boolean {
