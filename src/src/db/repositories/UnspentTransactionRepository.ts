@@ -77,7 +77,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
         await this.delete(
             {
-                deletedAtBlock: undefined,
                 value: undefined,
             },
             currentSession,
