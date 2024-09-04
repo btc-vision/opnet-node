@@ -164,8 +164,24 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         const bulkWriteOperations: AnyBulkWriteOperation<IUnspentTransaction>[] =
             convertedUnspentTransactions.map((transaction) => {
                 return {
-                    insertOne: {
-                        document: transaction,
+                    updateOne: {
+                        filter: {
+                            transactionId: transaction.transactionId,
+                            outputIndex: transaction.outputIndex,
+                        },
+                        update: {
+                            $set: {
+                                transactionId: transaction.transactionId,
+                                outputIndex: transaction.outputIndex,
+                                value: transaction.value,
+                                blockHeight: transaction.blockHeight,
+                                scriptPubKey: {
+                                    hex: transaction.scriptPubKey.hex,
+                                    address: transaction.scriptPubKey.address,
+                                },
+                            },
+                        },
+                        upsert: true,
                     },
                 };
             });
