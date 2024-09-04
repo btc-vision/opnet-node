@@ -330,12 +330,17 @@ export class Block extends Logger {
         this.saveGenericPromises.push(this.saveGenericTransactions(vmManager));
 
         if (!Config.INDEXER.DISABLE_UTXO_INDEXING) {
-            this.saveGenericPromises.push(
-                vmManager.insertUTXOs(
-                    this.height,
-                    this.transactions.map((t) => t.toBitcoinDocument()),
-                ),
+            const t = Date.now();
+            await vmManager.insertUTXOs(
+                this.height,
+                this.transactions.map((t) => t.toBitcoinDocument()),
             );
+
+            console.log(`Insert UTXOs took ${Date.now() - t}ms`);
+
+            //this.saveGenericPromises.push(
+
+            //);
         }
     }
 
@@ -380,9 +385,7 @@ export class Block extends Logger {
                 timeAfterGenericTransactions - timeAfterBlockProcessing;
 
             // We must process opnet transactions
-            const start = Date.now();
-            await this.saveOPNetTransactions(vmManager); //this.saveGenericPromises.push(
-            console.log(`Save OPNet took ${Date.now() - start}ms`);
+            this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
 
             return true;
         } catch (e) {
@@ -399,13 +402,7 @@ export class Block extends Logger {
         try {
             this.verifyIfBlockAborted();
 
-            //vmManager.saveBlock(this)
-
-            const startSave = Date.now();
-            await vmManager.saveBlock(this);
-            console.log(`Save block took ${Date.now() - startSave}ms`);
-
-            //this.saveGenericPromises.push();
+            this.saveGenericPromises.push(vmManager.saveBlock(this));
 
             const start = Date.now();
             // We must wait for the generic transactions to be saved before finalizing the block
