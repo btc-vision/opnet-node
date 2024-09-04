@@ -380,7 +380,9 @@ export class Block extends Logger {
                 timeAfterGenericTransactions - timeAfterBlockProcessing;
 
             // We must process opnet transactions
-            this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
+            const start = Date.now();
+            await this.saveOPNetTransactions(vmManager); //this.saveGenericPromises.push(
+            console.log(`Save OPNet took ${Date.now() - start}ms`);
 
             return true;
         } catch (e) {
@@ -397,7 +399,13 @@ export class Block extends Logger {
         try {
             this.verifyIfBlockAborted();
 
-            this.saveGenericPromises.push(vmManager.saveBlock(this));
+            //vmManager.saveBlock(this)
+
+            const startSave = Date.now();
+            await vmManager.saveBlock(this);
+            console.log(`Save block took ${Date.now() - startSave}ms`);
+
+            //this.saveGenericPromises.push();
 
             const start = Date.now();
             // We must wait for the generic transactions to be saved before finalizing the block
