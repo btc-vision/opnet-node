@@ -70,7 +70,7 @@ export class ChainSynchronisation extends Logger {
 
         this._unspentTransactionRepository = new UnspentTransactionRepository(DBManagerInstance.db);
 
-        //await this.startSaveLoop();
+        await this.startSaveLoop();
     }
 
     public async handleMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
@@ -146,7 +146,7 @@ export class ChainSynchronisation extends Logger {
 
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
         // bigger than 10_000
-        if (this.amountOfUTXOs > 100) {
+        if (this.amountOfUTXOs > 10_000) {
             await this.awaitUTXOWrites();
         }
 
