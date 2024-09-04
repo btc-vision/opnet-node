@@ -335,7 +335,13 @@ export class BlockIndexer extends Logger {
 
         task.destroy();
 
+        if (!this.taskInProgress) {
+            throw new Error('Database corrupted. Two tasks are running at the same time.');
+        }
+
         if (!Config.DEV.PROCESS_ONLY_ONE_BLOCK) {
+            this.taskInProgress = false;
+
             void this.startTasks();
         }
     }
@@ -361,9 +367,9 @@ export class BlockIndexer extends Logger {
             this.panic(`Processing error: ${Config.DEV_MODE ? error.stack : error.message}`);
 
             this.chainObserver.nextBestTip = this.chainObserver.pendingBlockHeight - 3n;
-        }
 
-        this.taskInProgress = false;
+            this.taskInProgress = false;
+        }
     }
 
     private async startIndexer(): Promise<ThreadData> {
