@@ -799,6 +799,7 @@ export class VMMongoStorage extends VMStorage {
     public async saveTransactions(
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void> {
+        const start = Date.now();
         const chunks = this.chunkArray(transactions, 500);
         const promises = chunks.map(async (chunk) => {
             if (!this.transactionRepository) {
@@ -818,6 +819,8 @@ export class VMMongoStorage extends VMStorage {
         });
 
         await Promise.all(promises);
+
+        console.log(`Transaction save time: ${Date.now() - start}ms`);
     }
 
     private async commitUTXOChanges(): Promise<void> {
