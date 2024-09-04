@@ -138,7 +138,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         const convertedSpentTransactions = this.convertSpentTransactions(transactions);
         const convertedUnspentTransactions = this.convertToUnspentTransactions(
             transactions,
-            convertedSpentTransactions,
+            //convertedSpentTransactions,
         );
 
         const bulkDeleteOperations: AnyBulkWriteOperation<IUnspentTransaction>[] =
@@ -393,20 +393,20 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
     private convertToUnspentTransactions(
         blocks: ProcessUnspentTransactionList,
-        spentTransactions: ISpentTransaction[],
+        //spentTransactions: ISpentTransaction[],
     ): IUnspentTransaction[] {
         const finalList: IUnspentTransaction[] = [];
-        const spentSet = new Set(
-            spentTransactions.map((st) => `${st.transactionId}:${st.outputIndex}`),
-        );
+        //const spentSet = new Set(
+        //    spentTransactions.map((st) => `${st.transactionId}:${st.outputIndex}`),
+        //);
 
         for (const block of blocks) {
             for (const transaction of block.transactions) {
                 for (const output of transaction.outputs) {
-                    const spentKey = `${transaction.id}:${output.index}`;
+                    //const spentKey = `${transaction.id}:${output.index}`;
 
                     if (
-                        !spentSet.has(spentKey) &&
+                        //!spentSet.has(spentKey) &&
                         output.value.toString() !== '0' &&
                         output.scriptPubKey.address
                     ) {
@@ -425,7 +425,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             }
         }
 
-        spentSet.clear();
+        //spentSet.clear();
 
         return finalList;
     }
