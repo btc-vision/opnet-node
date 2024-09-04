@@ -163,15 +163,17 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
         const operations = [...bulkWriteOperations, ...bulkDeleteOperations];
         if (bulkWriteOperations.length) {
-            const chunks = this.chunkArray(operations, 500);
+            //const chunks = this.chunkArray(operations, 500);
             console.log(`Took ${Date.now() - start}ms to convert transactions`);
 
-            let promises = [];
+            /*let promises = [];
             for (const chunk of chunks) {
                 promises.push(this.bulkWrite(chunk, currentSession));
             }
 
-            await Promise.all(promises);
+            await Promise.all(promises);*/
+
+            await this.bulkWrite(operations, currentSession);
         }
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE && Config.DEV_MODE) {
