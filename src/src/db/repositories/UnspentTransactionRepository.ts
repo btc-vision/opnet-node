@@ -137,7 +137,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         const bulkDeleteOperations: AnyBulkWriteOperation<IUnspentTransaction>[] =
             convertedSpentTransactions.map((transaction) => {
                 return {
-                    updateOne: {
+                    replaceOne: {
                         filter: {
                             transactionId: transaction.transactionId,
                             outputIndex: transaction.outputIndex,
@@ -149,7 +149,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                                 deletedAtBlock: transaction.deletedAtBlock as Long,
                             },
                         },
-                        upsert: false,
+                        upsert: true,
                     },
                 };
             });
@@ -157,16 +157,8 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         const bulkWriteOperations: AnyBulkWriteOperation<IUnspentTransaction>[] =
             convertedUnspentTransactions.map((transaction) => {
                 return {
-                    updateOne: {
-                        filter: {
-                            transactionId: transaction.transactionId,
-                            outputIndex: transaction.outputIndex,
-                            //blockHeight: transaction.blockHeight,
-                        },
-                        update: {
-                            $set: transaction,
-                        },
-                        upsert: true,
+                    insertOne: {
+                        document: transaction,
                     },
                 };
             });

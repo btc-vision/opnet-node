@@ -96,7 +96,7 @@ export class ChainSynchronisation extends Logger {
 
         setTimeout(() => {
             this.startSaveLoop();
-        }, 100);
+        }, 1000);
     }
 
     private async saveUTXOs(): Promise<void> {
