@@ -47,7 +47,9 @@ export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
 
     private currentSession: ClientSession | undefined;
-    private transactionSession: ClientSession | undefined;
+    private utxoSession: ClientSession | undefined;
+    private lastUtxoSession: ClientSession | undefined | null;
+    private commitUTXOPromise: Promise<void> | undefined;
 
     private saveTxSessions: ClientSession[] = [];
 
@@ -222,22 +224,6 @@ export class VMMongoStorage extends VMStorage {
         return await this.blockWitnessRepository.getWitnesses(height, trusted, limit, page);
     }
 
-    /*public async awaitPendingWrites(): Promise<void> {
-        if (this.blockHeightSaveLoop) clearTimeout(this.blockHeightSaveLoop);
-
-        for (let action of this.writeTransactions.values()) {
-            await Promise.all(action);
-        }
-
-        for (let session of this.waitingCommits.values()) {
-            await session;
-        }
-
-        this.clearCache();
-
-        await this.updateBlockHeight();
-    }*/
-
     public async init(): Promise<void> {
         await this.connectDatabase();
 
@@ -265,6 +251,22 @@ export class VMMongoStorage extends VMStorage {
 
         this.usedUTXOsRepository = new UsedWbtcUxtoRepository(this.databaseManager.db);
     }
+
+    /*public async awaitPendingWrites(): Promise<void> {
+        if (this.blockHeightSaveLoop) clearTimeout(this.blockHeightSaveLoop);
+
+        for (let action of this.writeTransactions.values()) {
+            await Promise.all(action);
+        }
+
+        for (let session of this.waitingCommits.values()) {
+            await session;
+        }
+
+        this.clearCache();
+
+        await this.updateBlockHeight();
+    }*/
 
     public async purgePointers(block: bigint): Promise<void> {
         if (!this.pointerRepository) {
@@ -381,7 +383,7 @@ export class VMMongoStorage extends VMStorage {
             this.debug('Preparing new block');
         }
 
-        if (this.currentSession || this.transactionSession) {
+        if (this.currentSession || this.utxoSession) {
             throw new Error('Session already started');
         }
 
@@ -391,10 +393,10 @@ export class VMMongoStorage extends VMStorage {
         ]);
 
         this.currentSession = sessions[0];
-        this.transactionSession = sessions[1];
+        this.utxoSession = sessions[1];
 
         this.currentSession.startTransaction(this.getTransactionOptions());
-        this.transactionSession.startTransaction(this.getTransactionOptions());
+        this.utxoSession.startTransaction(this.getTransactionOptions());
     }
 
     public async terminateBlock(): Promise<void> {
@@ -402,15 +404,22 @@ export class VMMongoStorage extends VMStorage {
             this.debug('Terminating block');
         }
 
-        if (!this.currentSession || !this.transactionSession) {
+        if (!this.currentSession || !this.utxoSession) {
             throw new Error('Session not started');
         }
 
         await Promise.all([
             this.currentSession.commitTransaction(),
-            this.transactionSession.commitTransaction(),
+            this.commitUTXOPromise,
             ...this.saveTxSessions.map((session) => session.commitTransaction()),
         ]);
+
+        if (this.lastUtxoSession && this.commitUTXOPromise) {
+            throw new Error('Last UTXO session not committed');
+        }
+
+        this.lastUtxoSession = this.utxoSession;
+        this.commitUTXOPromise = this.commitUTXOChanges();
 
         await this.terminateSession();
     }
@@ -420,7 +429,7 @@ export class VMMongoStorage extends VMStorage {
             this.debug('Reverting changes');
         }
 
-        if (!this.currentSession || !this.transactionSession) {
+        if (!this.currentSession || !this.utxoSession) {
             throw new Error('Session not started');
         }
 
@@ -428,11 +437,17 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Current session has ended');
         }
 
+        try {
+            await this.commitUTXOPromise;
+        } catch {}
+
         await Promise.all([
             this.currentSession.abortTransaction(),
-            this.transactionSession.abortTransaction(),
+            this.utxoSession.abortTransaction(),
             ...this.saveTxSessions.map((session) => session.abortTransaction()),
         ]);
+
+        await this.utxoSession.endSession();
 
         await this.terminateSession();
     }
@@ -497,23 +512,9 @@ export class VMMongoStorage extends VMStorage {
         await this.unspentTransactionRepository.insertTransactions(
             blockHeight,
             transactions,
-            this.transactionSession,
+            this.utxoSession,
         );
     }
-
-    /*public async saveTransaction(
-        transaction: ITransactionDocument<OPNetTransactionTypes>,
-    ): Promise<void> {
-        if (!this.transactionRepository) {
-            throw new Error('Transaction repository not initialized');
-        }
-
-        if (!this.transactionSession) {
-            throw new Error('Session not started');
-        }
-
-        await this.transactionRepository.saveTransaction(transaction, this.transactionSession);
-    }*/
 
     public async setStorage(
         address: Address,
@@ -540,6 +541,35 @@ export class VMMongoStorage extends VMStorage {
         );
     }
 
+    /*public async saveTransaction(
+        transaction: ITransactionDocument<OPNetTransactionTypes>,
+    ): Promise<void> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        if (!this.transactionSession) {
+            throw new Error('Session not started');
+        }
+
+        await this.transactionRepository.saveTransaction(transaction, this.transactionSession);
+    }*/
+
+    public async setStoragePointers(
+        storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
+        lastSeenAt: bigint,
+    ): Promise<void> {
+        if (!this.pointerRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        if (!this.currentSession) {
+            throw new Error('Session not started');
+        }
+
+        await this.pointerRepository.setStoragePointers(storage, lastSeenAt, this.currentSession);
+    }
+
     /*public saveTransactions(
         blockHeight: bigint,
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
@@ -562,21 +592,6 @@ export class VMMongoStorage extends VMStorage {
 
         this.writeTransactions.set(blockHeight, data);
     }*/
-
-    public async setStoragePointers(
-        storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
-        lastSeenAt: bigint,
-    ): Promise<void> {
-        if (!this.pointerRepository) {
-            throw new Error('Repository not initialized');
-        }
-
-        if (!this.currentSession) {
-            throw new Error('Session not started');
-        }
-
-        await this.pointerRepository.setStoragePointers(storage, lastSeenAt, this.currentSession);
-    }
 
     public async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
         if (!this.blockRepository) {
@@ -805,6 +820,27 @@ export class VMMongoStorage extends VMStorage {
         await Promise.all(promises);
     }
 
+    private async commitUTXOChanges(): Promise<void> {
+        if (!this.lastUtxoSession) {
+            console.log('No UTXO session to commit');
+            return;
+        }
+
+        try {
+            const time = Date.now();
+            await this.lastUtxoSession.commitTransaction();
+            await this.lastUtxoSession.endSession();
+
+            this.lastUtxoSession = null;
+
+            console.log(`UTXO commit time: ${Date.now() - time}ms`);
+        } catch (e) {
+            this.lastUtxoSession = null;
+
+            throw new Error('Unable to commit UTXOs.');
+        }
+    }
+
     private chunkArray<T>(array: T[], size: number): T[][] {
         return array.reduce((acc, _, i) => {
             if (i % size === 0) {
@@ -852,7 +888,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     private async terminateSession(): Promise<void> {
-        if (!this.currentSession || !this.transactionSession) {
+        if (!this.currentSession || !this.utxoSession) {
             throw new Error('Session not started');
         }
 
@@ -862,14 +898,13 @@ export class VMMongoStorage extends VMStorage {
 
         const promiseTerminate: Promise<void>[] = [
             this.currentSession.endSession(),
-            this.transactionSession.endSession(),
             ...this.saveTxSessions.map((session) => session.endSession()),
         ];
 
         await Promise.all(promiseTerminate);
 
         this.currentSession = undefined;
-        this.transactionSession = undefined;
+        this.utxoSession = undefined;
         this.saveTxSessions = [];
     }
 
