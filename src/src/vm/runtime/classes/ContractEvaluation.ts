@@ -95,22 +95,22 @@ export class ContractEvaluation implements IEvaluationParameters {
     }
 
     public incrementContractDeployDepth(): void {
-        this.contractDeployDepth++;
-
         if (
-            this.contractDeployDepth >
+            this.contractDeployDepth >=
             OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_DEPLOYMENT_DEPTH
         ) {
             throw new Error('Contract deployment depth exceeded');
         }
+
+        this.contractDeployDepth++;
     }
 
     public incrementCallDepth(): void {
-        this.callDepth++;
-
-        if (this.callDepth > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_CALL_DEPTH) {
+        if (this.callDepth >= OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_CALL_DEPTH) {
             throw new Error('Call depth exceeded');
         }
+
+        this.callDepth++;
     }
 
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {

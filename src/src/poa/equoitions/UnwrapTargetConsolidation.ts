@@ -6,6 +6,10 @@ export class UnwrapTargetConsolidation {
         k: number = 0.0111,
         A: bigint = 100000000n,
     ): bigint {
+        if (!vaultMinimumAmount) {
+            return 0n;
+        }
+
         // Ensure the requested amount is not less than the minimum amount
         if (requestedAmount < vaultMinimumAmount) {
             return vaultMinimumAmount;

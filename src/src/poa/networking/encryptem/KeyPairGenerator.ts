@@ -96,6 +96,10 @@ export class KeyPairGenerator extends Logger {
         const signature = sodium.sodium_malloc(sodium.crypto_sign_BYTES);
         sodium.crypto_sign_detached(signature, data, privateKey);
 
+        if (!signature.byteLength) {
+            throw new Error('Invalid signature.');
+        }
+
         return signature;
     }
 

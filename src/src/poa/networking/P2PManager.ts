@@ -658,9 +658,10 @@ export class P2PManager extends Logger {
 
         try {
             if (this.node) {
-                const hasPeer = await this.node?.peerStore.has(peerId);
+                const peer = await this.node.peerStore.get(peerId);
 
-                if (hasPeer) {
+                if (peer) {
+                    this.blacklistPeerIps(peer, reason);
                     await this.node.peerStore.delete(peerId);
                 }
             }
@@ -754,13 +755,6 @@ export class P2PManager extends Logger {
 
         if (code !== DisconnectionCode.RECONNECT && code !== DisconnectionCode.EXPECTED) {
             await this.blackListPeerId(peerId, code);
-
-            try {
-                const peer = await this.node.peerStore.get(peerId);
-                if (peer) {
-                    this.blacklistPeerIps(peer, code);
-                }
-            } catch (e) {}
         } else if (code !== DisconnectionCode.EXPECTED) {
             const info = this.blackListedPeerIds.get(peerId.toString()) || {
                 reason: DisconnectionCode.RECONNECT,
@@ -808,12 +802,27 @@ export class P2PManager extends Logger {
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
         const peerIdStr: string = evt.detail.toString();
         const peer = this.peers.get(peerIdStr);
+        const peerId = peerIdFromString(peerIdStr);
+
         if (peer) {
-            return;
+            return await this.disconnectPeer(
+                peerId,
+                DisconnectionCode.BAD_BEHAVIOR,
+                'Bad behavior.',
+            );
         }
 
-        const peerId = peerIdFromString(peerIdStr);
-        if (!peerId) return;
+        if (this.blackListedPeerIds.size > 250) {
+            return await this.disconnectPeer(peerId, DisconnectionCode.FLOOD, 'Flood.');
+        }
+
+        if (!peerId) {
+            return await this.disconnectPeer(
+                peerId,
+                DisconnectionCode.BAD_BEHAVIOR,
+                'Bad behavior.',
+            );
+        }
 
         const agent = `OPNet`;
         const version = `1.0.0`;

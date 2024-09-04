@@ -1,12 +1,10 @@
 import { Logger } from '@btc-vision/bsi-common';
-import { Buffer } from 'buffer';
 import sodium from 'sodium-native';
 
 /** Merge client and server encryption and decryption into one class */
 export class EncryptemServer extends Logger {
     public logColor: string = `#f61a3b`;
 
-    private started: boolean = false;
     private sodium: typeof sodium = sodium;
 
     #serverPrivateKey: Buffer | null = null;
@@ -25,7 +23,6 @@ export class EncryptemServer extends Logger {
     public destroy(): void {
         this.reset();
 
-        this.started = false;
         this.#clientSignaturePublicKey = null;
 
         this.#serverSignaturePublicKey = null;
@@ -66,36 +63,18 @@ export class EncryptemServer extends Logger {
         this.#serverPublicKey = keys.publicKey;
         this.#serverPrivateKey = keys.privateKey;
 
-        const signatureSeededKeyPairs = await this.generateSignatureSeededKeyPairs(
-            this.#serverPublicKey,
-        );
+        const signatureSeededKeyPairs = await this.generateSignatureSeededKeyPairs(keys.publicKey);
 
         this.#serverSignaturePublicKey = signatureSeededKeyPairs.publicKey;
         this.#serverSignaturePrivateKey = signatureSeededKeyPairs.privateKey;
     }
 
-    public startEncryption(): void {
-        this.started = true;
-    }
-
     public encrypt(msg: Uint8Array): Uint8Array {
-        if (!this.started) {
-            return msg;
-        } else if (this.#clientPublicKey && this.#serverPrivateKey) {
-            const encryptedBuffer = this.#encrypt(
-                Buffer.from(msg),
-                this.#clientPublicKey,
-                this.#serverPrivateKey,
-            );
-
-            if (encryptedBuffer !== null) {
-                return encryptedBuffer;
-            } else {
-                throw new Error('Encryption failed.');
-            }
-        } else {
+        if (!(this.#clientPublicKey && this.#serverPrivateKey)) {
             throw new Error('Encryption failed. Client public key or server private key is null.');
         }
+
+        return this.#encrypt(Buffer.from(msg), this.#clientPublicKey, this.#serverPrivateKey);
     }
 
     public verifyAuth(out: Buffer, input: Buffer): boolean {
@@ -110,49 +89,40 @@ export class EncryptemServer extends Logger {
     }
 
     public decrypt(msg: Uint8Array): Uint8Array {
-        if (!this.started) {
-            return msg;
-        } else if (
-            this.#clientPublicKey &&
-            this.#serverPrivateKey &&
-            this.#clientSignaturePublicKey
-        ) {
-            const auth: Buffer = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
-            const signature: Buffer = Buffer.from(msg.slice(auth.length, auth.length + 64));
-            const data: Buffer = Buffer.from(msg.slice(auth.length + 64, msg.length));
-
-            if (!this.verifyAuth(auth, signature)) {
-                throw new Error('[Server] Bad AHEAD authentication.');
-            }
-
-            try {
-                const decryptedBuffer = this.#decrypt(
-                    data,
-                    this.#clientPublicKey,
-                    this.#serverPrivateKey,
-                    signature,
-                    this.#clientSignaturePublicKey,
-                    auth,
-                );
-                if (decryptedBuffer !== null) {
-                    msg = decryptedBuffer;
-                }
-            } catch (err: unknown) {
-                const e: Error = err as Error;
-                this.error(`[SERVER] Decryption failed.`);
-
-                console.log(e);
-            }
-
-            return msg;
-        } else {
+        if (!(this.#clientPublicKey && this.#serverPrivateKey && this.#clientSignaturePublicKey)) {
             throw new Error('Decryption failed. Client public key or server private key is null.');
         }
+        const auth: Buffer = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
+        const signature: Buffer = Buffer.from(msg.slice(auth.length, auth.length + 64));
+        const data: Buffer = Buffer.from(msg.slice(auth.length + 64, msg.length));
+
+        if (!this.verifyAuth(auth, signature)) {
+            throw new Error('[Server] Bad AHEAD authentication.');
+        }
+
+        try {
+            const decryptedBuffer = this.#decrypt(
+                data,
+                this.#clientPublicKey,
+                this.#serverPrivateKey,
+                signature,
+                this.#clientSignaturePublicKey,
+                auth,
+            );
+            if (decryptedBuffer !== null) {
+                msg = decryptedBuffer;
+            }
+        } catch (err: unknown) {
+            const e: Error = err as Error;
+            this.error(`[SERVER] Decryption failed.`);
+
+            console.log(e);
+        }
+
+        return msg;
     }
 
     public reset(): void {
-        this.started = false;
-
         this.#serverPrivateKey = null;
         this.#clientPublicKey = null;
         this.#serverSignaturePublicKey = null;
@@ -166,34 +136,27 @@ export class EncryptemServer extends Logger {
         return keyBuf;
     }
 
-    #encrypt(m: Buffer, receiverPublicKey: Buffer, senderPrivateKey: Buffer): Uint8Array | null {
+    #encrypt(m: Buffer, receiverPublicKey: Buffer, senderPrivateKey: Buffer): Uint8Array {
         if (!this.#serverSignaturePublicKey) {
             throw new Error('Server signature public key is null.');
         }
 
-        try {
-            const nonce = this.generateNonce();
-            const cipherMsg = this.sodium.sodium_malloc(m.length + this.sodium.crypto_box_MACBYTES);
+        const nonce = this.generateNonce();
+        const cipherMsg = this.sodium.sodium_malloc(m.length + this.sodium.crypto_box_MACBYTES);
 
-            this.sodium.crypto_box_easy(cipherMsg, m, nonce, receiverPublicKey, senderPrivateKey);
+        this.sodium.crypto_box_easy(cipherMsg, m, nonce, receiverPublicKey, senderPrivateKey);
 
-            const finalMsg = Buffer.concat([nonce, cipherMsg]);
-            const signedMessage = this.#signMessageV2(cipherMsg);
+        const finalMsg = Buffer.concat([nonce, cipherMsg]);
+        const signedMessage = this.#signMessageV2(cipherMsg);
 
-            if (signedMessage === null) {
-                throw new Error(`Failed to sign message.`);
-            }
-
-            const auth = this.#authenticate(signedMessage, this.#serverSignaturePublicKey);
-            const finalMessageBuffer = Buffer.concat([auth, signedMessage, finalMsg]);
-
-            return new Uint8Array(finalMessageBuffer);
-        } catch (err: unknown) {
-            const e: Error = err as Error;
-            console.error(e.stack);
+        if (signedMessage === null) {
+            throw new Error(`Failed to sign message.`);
         }
 
-        return null;
+        const auth = this.#authenticate(signedMessage, this.#serverSignaturePublicKey);
+        const finalMessageBuffer = Buffer.concat([auth, signedMessage, finalMsg]);
+
+        return new Uint8Array(finalMessageBuffer);
     }
 
     #decrypt(
@@ -250,17 +213,10 @@ export class EncryptemServer extends Logger {
     }
 
     #verifySignature(m: Buffer, signature: Buffer, publicKey: Buffer): boolean {
-        if (m !== null && m) {
-            try {
-                //this.sodium.crypto_sign_open(m, signature, publicKey);
-                return this.sodium.crypto_sign_verify_detached(signature, m, publicKey);
-            } catch (err: unknown) {
-                const e: Error = err as Error;
-                console.log(e.stack);
-                return false;
-            }
-        } else {
-            console.log('message is null');
+        try {
+            //this.sodium.crypto_sign_open(m, signature, publicKey);
+            return this.sodium.crypto_sign_verify_detached(signature, m, publicKey);
+        } catch (err: unknown) {
             return false;
         }
     }
