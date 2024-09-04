@@ -424,7 +424,9 @@ export class VMMongoStorage extends VMStorage {
         this.lastUtxoSession = this.utxoSession;
         this.commitUTXOPromise = this.commitUTXOChanges();
 
+        const terminateStart = Date.now();
         await this.terminateSession();
+        console.log(`Terminate time: ${Date.now() - terminateStart}ms`);
     }
 
     public async revertChanges(_blockId: bigint): Promise<void> {
