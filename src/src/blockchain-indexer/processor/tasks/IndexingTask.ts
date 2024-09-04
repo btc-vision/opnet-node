@@ -212,7 +212,7 @@ export class IndexingTask extends Logger {
             // Reset
             this.specialTransactionManager.reset();
         } catch (e) {
-            await this.revertBlock();
+            await this.revertBlock(e as Error);
 
             this.specialTransactionManager.reset();
 
@@ -224,13 +224,13 @@ export class IndexingTask extends Logger {
         if (hasReorged) {
             this.warn(`Chain reorg detected at block ${this.tip}`);
 
-            await this.revertBlock();
+            await this.revertBlock(new Error('Chain reorg detected'));
 
             throw new Error('Chain reorg detected');
         }
     }
 
-    private async revertBlock(): Promise<void> {
+    private async revertBlock(error: Error): Promise<void> {
         await this.vmStorage.revertDataUntilBlock(this.tip);
 
         if (this._block) {
@@ -239,7 +239,7 @@ export class IndexingTask extends Logger {
             await this.vmManager.revertBlock();
         }
 
-        throw new Error(`Block ${this.tip} reverted`);
+        throw new Error(`Block ${this.tip} reverted: ${error.stack}`);
     }
 
     private clear(): void {
