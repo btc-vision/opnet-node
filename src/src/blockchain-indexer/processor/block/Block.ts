@@ -327,7 +327,11 @@ export class Block extends Logger {
             this.transactions.map((t) => t.toBitcoinDocument()),
         );*/
 
-        this.saveGenericPromises.push(this.saveGenericTransactions(vmManager));
+        const generic = Date.now();
+        await this.saveGenericTransactions(vmManager);
+        console.log(`Save generic took ${Date.now() - generic}ms`);
+
+        //this.saveGenericPromises.push(
 
         if (!Config.INDEXER.DISABLE_UTXO_INDEXING) {
             const t = Date.now();
