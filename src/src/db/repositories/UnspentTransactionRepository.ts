@@ -222,7 +222,9 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             //await session.commitTransaction();
             //await session.endSession();
 
-            this.important(`[UTXO]: Bulk write (step 2) took ${Date.now() - deleteStart}ms`);
+            this.important(
+                `[UTXO]: Bulk write (step 2) took ${Date.now() - deleteStart}ms - Height: ${blockHeight}`,
+            );
         }
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE && Config.DEV_MODE) {
