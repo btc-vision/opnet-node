@@ -133,20 +133,18 @@ export class IndexingTask extends Logger {
                 throw new Error('Block reverted');
             }
 
-            const start = Date.now();
-            await this.vmStorage.deleteTransactionsById(this.block.getTransactionsHashes());
-
             this.finalizeBlockStart = Date.now();
 
-            console.log('Finalizing block', this.finalizeBlockStart - start + 'ms');
-
             // Finalize block
-            const resp = await Promise.all([this.block.finalizeBlock(this.vmManager)]);
+            const resp = await Promise.all([
+                this.vmStorage.deleteTransactionsById(this.block.getTransactionsHashes()),
+                this.block.finalizeBlock(this.vmManager),
+            ]);
 
             this.finalizeEnd = Date.now();
 
             // Verify finalization
-            if (resp[0] === false) {
+            if (resp[1] === false) {
                 throw new Error('Block finalization failed');
             }
 
