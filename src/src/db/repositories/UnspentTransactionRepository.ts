@@ -108,7 +108,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
     ): Promise<void> {
         const start = Date.now();
 
-        let promise: Promise<void> | undefined;
+        //let promise: Promise<void> | undefined;
         if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
             await this.purgeSpentUTXOsFromBlockHeight(
                 blockHeight - BigInt(Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS),
@@ -156,6 +156,8 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                 },
             };
         });
+
+        console.log(`Took ${Date.now() - start}ms to convert transactions`);
 
         const operations = [...bulkWriteOperations, ...bulkDeleteOperations];
         if (bulkWriteOperations.length) {
