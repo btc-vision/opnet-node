@@ -33,7 +33,6 @@ import {
     UTXOSOutputTransactionFromDBV2,
 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
-import { DBManagerInstance } from '../DBManager.js';
 
 export interface ProcessUnspentTransaction {
     transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[];
@@ -182,8 +181,8 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         ];*/
 
         if (bulkWriteOperations.length) {
-            const session = await DBManagerInstance.startSession();
-            session.startTransaction();
+            //const session = await DBManagerInstance.startSession();
+            //session.startTransaction();
 
             this.important(`[UTXO]: Conversion took ${Date.now() - start}ms`);
 
@@ -192,7 +191,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
             let promises = [];
             for (const chunk of chunks) {
-                promises.push(this.bulkWrite(chunk, session));
+                promises.push(this.bulkWrite(chunk));
             }
 
             await Promise.all(promises);
@@ -204,13 +203,13 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             const deleteStart = Date.now();
             const deleteChunks = this.chunkArray(bulkDeleteOperations, 500);
             for (const chunk of deleteChunks) {
-                promises.push(this.bulkWrite(chunk, session));
+                promises.push(this.bulkWrite(chunk));
             }
 
             await Promise.all(promises);
 
-            await session.commitTransaction();
-            await session.endSession();
+            //await session.commitTransaction();
+            //await session.endSession();
 
             this.important(`[UTXO]: Bulk write (step 2) took ${Date.now() - deleteStart}ms`);
         }
@@ -230,7 +229,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             const collection = this.getCollection();
             const options: BulkWriteOptions = this.getOptions(currentSession);
             options.ordered = false;
-            options.writeConcern = { w: 1 };
+            options.writeConcern = { w: 'majority' };
 
             const time = Date.now();
             const result: BulkWriteResult = await collection.bulkWrite(operations, options);
