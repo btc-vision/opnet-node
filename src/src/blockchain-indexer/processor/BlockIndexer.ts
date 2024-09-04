@@ -178,6 +178,7 @@ export class BlockIndexer extends Logger {
 
         // Stop all tasks.
         await this.stopAllTasks();
+        await this.vmStorage.killAllPendingWrites();
 
         // Revert block
         await this.chainObserver.setNewHeight(fromHeight);
