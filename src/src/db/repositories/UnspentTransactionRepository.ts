@@ -138,7 +138,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         const convertedSpentTransactions = this.convertSpentTransactions(transactions);
         const convertedUnspentTransactions = this.convertToUnspentTransactions(
             transactions,
-            //convertedSpentTransactions,
+            convertedSpentTransactions,
         );
 
         const bulkDeleteOperations: AnyBulkWriteOperation<IUnspentTransaction>[] =
@@ -150,11 +150,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                             outputIndex: transaction.outputIndex,
                         },
                         update: {
-                            $set: {
-                                transactionId: transaction.transactionId,
-                                outputIndex: transaction.outputIndex,
-                                deletedAtBlock: transaction.deletedAtBlock as Long,
-                            },
+                            $set: transaction,
                         },
                         upsert: true,
                     },
@@ -393,39 +389,50 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
     private convertToUnspentTransactions(
         blocks: ProcessUnspentTransactionList,
-        //spentTransactions: ISpentTransaction[],
+        spentTransactions: ISpentTransaction[],
     ): IUnspentTransaction[] {
         const finalList: IUnspentTransaction[] = [];
-        //const spentSet = new Set(
-        //    spentTransactions.map((st) => `${st.transactionId}:${st.outputIndex}`),
-        //);
+        const spentSet: Map<string, IUnspentTransaction> = new Map();
+
+        for (const spent of spentTransactions) {
+            spentSet.set(
+                `${spent.transactionId}:${spent.outputIndex}`,
+                spent as IUnspentTransaction,
+            );
+        }
 
         for (const block of blocks) {
             for (const transaction of block.transactions) {
                 for (const output of transaction.outputs) {
-                    //const spentKey = `${transaction.id}:${output.index}`;
+                    const spentKey = `${transaction.id}:${output.index}`;
+                    const spent = spentSet.get(spentKey);
 
-                    if (
-                        //!spentSet.has(spentKey) &&
-                        output.value.toString() !== '0' &&
-                        output.scriptPubKey.address
-                    ) {
-                        finalList.push({
-                            blockHeight: this.decimal128ToLong(transaction.blockHeight),
-                            transactionId: transaction.id,
-                            outputIndex: output.index,
-                            value: this.decimal128ToLong(output.value),
-                            scriptPubKey: {
+                    if (output.value.toString() !== '0' && output.scriptPubKey.address) {
+                        if (spent) {
+                            spent.blockHeight = this.decimal128ToLong(transaction.blockHeight);
+                            spent.value = this.decimal128ToLong(output.value);
+                            spent.scriptPubKey = {
                                 hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                 address: output.scriptPubKey.address ?? null,
-                            },
-                        });
+                            };
+                        } else {
+                            finalList.push({
+                                blockHeight: this.decimal128ToLong(transaction.blockHeight),
+                                transactionId: transaction.id,
+                                outputIndex: output.index,
+                                value: this.decimal128ToLong(output.value),
+                                scriptPubKey: {
+                                    hex: Binary.createFromHexString(output.scriptPubKey.hex),
+                                    address: output.scriptPubKey.address ?? null,
+                                },
+                            });
+                        }
                     }
                 }
             }
         }
 
-        //spentSet.clear();
+        spentSet.clear();
 
         return finalList;
     }

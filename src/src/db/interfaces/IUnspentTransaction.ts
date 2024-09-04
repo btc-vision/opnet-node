@@ -7,13 +7,13 @@ export interface ShortScriptPubKey {
 }
 
 export interface IUnspentTransaction {
-    readonly blockHeight: Long;
+    blockHeight: Long;
 
     readonly transactionId: string;
     readonly outputIndex: number;
-    readonly value: Long;
+    value: Long;
 
-    readonly scriptPubKey: ShortScriptPubKey;
+    scriptPubKey: ShortScriptPubKey;
 
     readonly deletedAtBlock?: Long;
 }
