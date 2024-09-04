@@ -385,8 +385,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                                 address: output.scriptPubKey.address ?? null,
                             },
                         });
-                    } else if (!output.scriptPubKey.address) {
-                        this.warn(`Output ${transaction.id}:${output.index} has no address!`);
                     }
                 }
             }

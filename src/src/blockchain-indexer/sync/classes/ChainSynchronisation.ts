@@ -95,7 +95,7 @@ export class ChainSynchronisation extends Logger {
 
         setTimeout(() => {
             this.startSaveLoop();
-        }, 1000);
+        }, 500);
     }
 
     private async saveUTXOs(): Promise<void> {
@@ -105,6 +105,17 @@ export class ChainSynchronisation extends Logger {
         await this.unspentTransactionRepository.insertTransactions(utxos);
 
         this.success(`Saved ${utxos.length} block UTXOs to database.`);
+    }
+
+    private awaitUTXOWrites(): Promise<void> {
+        this.important('Awaiting UTXO writes to complete... Can take a while.');
+        return new Promise(async (resolve) => {
+            while (this.unspentTransactionOutputs.length) {
+                await new Promise((r) => setTimeout(r, 100));
+            }
+
+            resolve();
+        });
     }
 
     private async queryUTXOs(block: Block, txs: TransactionData[]): Promise<void> {
@@ -122,6 +133,11 @@ export class ChainSynchronisation extends Logger {
     }
 
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
+        // bigger than 10
+        if (this.unspentTransactionOutputs.length > 10) {
+            await this.awaitUTXOWrites();
+        }
+
         const blockData = await this.blockFetcher.getBlock(blockNumber);
         if (!blockData) {
             throw new Error(`Block ${blockNumber} not found`);
