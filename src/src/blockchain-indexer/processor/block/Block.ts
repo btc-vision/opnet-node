@@ -93,7 +93,7 @@ export class Block extends Logger {
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
 
-    private saveGenericPromises: Promise<void>[] | undefined;
+    private saveGenericPromises: Promise<void>[] = [];
 
     constructor(params: RawBlockParam | DeserializedBlock) {
         super();
@@ -327,7 +327,7 @@ export class Block extends Logger {
             this.transactions.map((t) => t.toBitcoinDocument()),
         );*/
 
-        this.saveGenericPromises = [this.saveGenericTransactions(vmManager)];
+        this.saveGenericPromises.push(this.saveGenericTransactions(vmManager));
 
         if (!Config.INDEXER.DISABLE_UTXO_INDEXING) {
             this.saveGenericPromises.push(
@@ -379,6 +379,9 @@ export class Block extends Logger {
             this.timeForGenericTransactions =
                 timeAfterGenericTransactions - timeAfterBlockProcessing;
 
+            // We must process opnet transactions
+            this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
+
             return true;
         } catch (e) {
             const error: Error = e as Error;
@@ -393,10 +396,6 @@ export class Block extends Logger {
     public async finalizeBlock(vmManager: VMManager): Promise<boolean> {
         try {
             this.verifyIfBlockAborted();
-
-            if (!this.saveGenericPromises) throw new Error('Generic promises not found');
-
-            this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
 
             // We must wait for the generic transactions to be saved before finalizing the block
             await vmManager.saveBlock(this);
