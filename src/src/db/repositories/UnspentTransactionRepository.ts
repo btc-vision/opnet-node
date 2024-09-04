@@ -137,7 +137,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         const bulkDeleteOperations: AnyBulkWriteOperation<IUnspentTransaction>[] =
             convertedSpentTransactions.map((transaction) => {
                 return {
-                    replaceOne: {
+                    updateOne: {
                         filter: {
                             transactionId: transaction.transactionId,
                             outputIndex: transaction.outputIndex,
