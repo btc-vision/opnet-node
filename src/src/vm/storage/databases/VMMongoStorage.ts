@@ -825,18 +825,14 @@ export class VMMongoStorage extends VMStorage {
 
     private async commitUTXOChanges(): Promise<void> {
         if (!this.lastUtxoSession) {
-            console.log('No UTXO session to commit');
             return;
         }
 
         try {
-            const time = Date.now();
             await this.lastUtxoSession.commitTransaction();
             await this.lastUtxoSession.endSession();
 
             this.lastUtxoSession = null;
-
-            console.log(`UTXO commit time: ${Date.now() - time}ms`);
         } catch (e) {
             this.lastUtxoSession = null;
 
