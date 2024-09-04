@@ -408,14 +408,11 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
-        const commitStart = Date.now();
         await Promise.all([
             this.currentSession.commitTransaction(),
             this.commitUTXOPromise,
             ...this.saveTxSessions.map((session) => session.commitTransaction()),
         ]);
-
-        console.log(`Commit time: ${Date.now() - commitStart}ms`);
 
         if (this.lastUtxoSession && this.commitUTXOPromise) {
             throw new Error('Last UTXO session not committed');
@@ -424,9 +421,7 @@ export class VMMongoStorage extends VMStorage {
         this.lastUtxoSession = this.utxoSession;
         this.commitUTXOPromise = this.commitUTXOChanges();
 
-        const terminateStart = Date.now();
         await this.terminateSession();
-        console.log(`Terminate time: ${Date.now() - terminateStart}ms`);
     }
 
     public async revertChanges(_blockId: bigint): Promise<void> {

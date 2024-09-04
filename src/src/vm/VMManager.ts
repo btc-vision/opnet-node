@@ -168,8 +168,14 @@ export class VMManager extends Logger {
         }
 
         try {
+            let s = Date.now();
             await this.vmBitcoinBlock.terminate();
+            console.log(`Terminated block ${this.vmBitcoinBlock.height} in ${Date.now() - s}ms`);
+
+            s = Date.now();
             await this.clear();
+
+            console.log(`Cleared block ${this.vmBitcoinBlock.height} in ${Date.now() - s}ms`);
         } catch (e) {
             this.error(`Error terminating block: ${(e as Error).stack}`);
 
