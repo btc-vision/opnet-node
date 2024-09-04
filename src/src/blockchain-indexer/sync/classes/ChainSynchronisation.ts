@@ -146,7 +146,7 @@ export class ChainSynchronisation extends Logger {
 
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
         // bigger than 10_000
-        if (this.amountOfUTXOs > 10_000) {
+        if (this.amountOfUTXOs > 100_000) {
             await this.awaitUTXOWrites();
         }
 
