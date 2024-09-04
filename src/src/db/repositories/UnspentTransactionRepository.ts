@@ -240,11 +240,9 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             const collection = this.getCollection();
             const options: BulkWriteOptions = this.getOptions(currentSession);
             options.ordered = false;
-            options.writeConcern = { w: 'majority' };
+            options.writeConcern = { w: 1 };
 
-            const time = Date.now();
             const result: BulkWriteResult = await collection.bulkWrite(operations, options);
-            this.important(`[UTXO]: Bulk write took ${Date.now() - time}ms`);
 
             if (result.hasWriteErrors()) {
                 result.getWriteErrors().forEach((error) => {
