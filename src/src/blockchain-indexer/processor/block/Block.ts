@@ -397,8 +397,7 @@ export class Block extends Logger {
         try {
             this.verifyIfBlockAborted();
 
-            // We must wait for the generic transactions to be saved before finalizing the block
-            await vmManager.saveBlock(this);
+            this.saveGenericPromises.push(vmManager.saveBlock(this));
 
             // We must wait for the generic transactions to be saved before finalizing the block
             await Promise.all(this.saveGenericPromises);
