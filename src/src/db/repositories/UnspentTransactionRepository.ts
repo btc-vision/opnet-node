@@ -157,14 +157,18 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             };
         });
 
-        console.log(`Took ${Date.now() - start}ms to convert transactions`);
-
         const operations = [...bulkWriteOperations, ...bulkDeleteOperations];
         if (bulkWriteOperations.length) {
-            await this.bulkWrite(operations, currentSession);
-        }
+            const chunks = this.chunkArray(operations, 500);
+            console.log(`Took ${Date.now() - start}ms to convert transactions`);
 
-        //await promise;
+            let promises = [];
+            for (const chunk of chunks) {
+                promises.push(this.bulkWrite(chunk, currentSession));
+            }
+
+            await Promise.all(promises);
+        }
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE && Config.DEV_MODE) {
             this.log(
@@ -291,6 +295,16 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
     protected override getCollection(): Collection<IUnspentTransaction> {
         return this._db.collection(OPNetCollections.UnspentTransactions);
+    }
+
+    private chunkArray<T>(array: T[], size: number): T[][] {
+        return array.reduce((acc, _, i) => {
+            if (i % size === 0) {
+                acc.push(array.slice(i, i + size));
+            }
+
+            return acc;
+        }, [] as T[][]);
     }
 
     // Transactions to delete
