@@ -8,10 +8,7 @@ import {
     BlockHeaderBlockDocument,
 } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
-import {
-    ITransactionDocument,
-    ITransactionDocumentBasic,
-} from '../../db/interfaces/ITransactionDocument.js';
+import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocument.js';
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
@@ -30,11 +27,6 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     }
 
     public abstract revertDataUntilBlock(height: bigint): Promise<void>;
-
-    public abstract insertUTXOs(
-        blockHeight: bigint,
-        transaction: ITransactionDocumentBasic<OPNetTransactionTypes>[],
-    ): Promise<void>;
 
     public abstract getWitnesses(
         height: bigint | -1,

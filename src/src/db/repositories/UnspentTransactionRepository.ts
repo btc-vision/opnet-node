@@ -34,6 +34,13 @@ import {
 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 
+export interface ProcessUnspentTransaction {
+    transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[];
+    blockHeight: bigint;
+}
+
+export type ProcessUnspentTransactionList = ProcessUnspentTransaction[];
+
 export class UnspentTransactionRepository extends BaseRepository<IUnspentTransaction> {
     public readonly logColor: string = '#afeeee';
 
@@ -66,7 +73,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             deletedAtBlock: { $gte: this.bigIntToLong(blockHeight) },
         };
 
-        await this.updateMany(criteriaSpent, { deletedAtBlock: null }, currentSession);
+        await this.updateMany(criteriaSpent, { deletedAtBlock: undefined }, currentSession);
     }
 
     public async updateMany(
@@ -102,11 +109,17 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
     }
 
     public async insertTransactions(
-        blockHeight: bigint,
-        transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
+        transactions: ProcessUnspentTransactionList,
         currentSession?: ClientSession,
     ): Promise<void> {
         const start = Date.now();
+
+        let blockHeight = 0n;
+        for (const data of transactions) {
+            if (data.blockHeight > blockHeight) {
+                blockHeight = data.blockHeight;
+            }
+        }
 
         //let promise: Promise<void> | undefined;
         if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
@@ -116,55 +129,61 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         }
 
         const convertedSpentTransactions = this.convertSpentTransactions(transactions);
+        const allTransactions = transactions.flatMap((transaction) => transaction.transactions);
         const convertedUnspentTransactions = this.convertToUnspentTransactions(
-            transactions,
+            allTransactions,
             convertedSpentTransactions,
         );
 
-        const currentBlockHeight = this.bigIntToLong(blockHeight);
-        const bulkDeleteOperations = convertedSpentTransactions.map((transaction) => {
-            return {
-                updateOne: {
-                    filter: {
-                        transactionId: transaction.transactionId,
-                        outputIndex: transaction.outputIndex,
-                    },
-                    update: {
-                        $set: {
+        const bulkDeleteOperations: AnyBulkWriteOperation<IUnspentTransaction>[] =
+            convertedSpentTransactions.map((transaction) => {
+                return {
+                    updateOne: {
+                        filter: {
                             transactionId: transaction.transactionId,
                             outputIndex: transaction.outputIndex,
-                            deletedAtBlock: currentBlockHeight,
                         },
+                        update: {
+                            $set: {
+                                transactionId: transaction.transactionId,
+                                outputIndex: transaction.outputIndex,
+                                deletedAtBlock: transaction.deletedAtBlock as Long,
+                            },
+                        },
+                        upsert: false,
                     },
-                    upsert: false,
-                },
-            };
-        });
+                };
+            });
 
-        const bulkWriteOperations = convertedUnspentTransactions.map((transaction) => {
-            return {
-                updateOne: {
-                    filter: {
-                        transactionId: transaction.transactionId,
-                        outputIndex: transaction.outputIndex,
-                        //blockHeight: transaction.blockHeight,
+        const bulkWriteOperations: AnyBulkWriteOperation<IUnspentTransaction>[] =
+            convertedUnspentTransactions.map((transaction) => {
+                return {
+                    updateOne: {
+                        filter: {
+                            transactionId: transaction.transactionId,
+                            outputIndex: transaction.outputIndex,
+                            //blockHeight: transaction.blockHeight,
+                        },
+                        update: {
+                            $set: transaction,
+                        },
+                        upsert: true,
                     },
-                    update: {
-                        $set: transaction,
-                    },
-                    upsert: true,
-                },
-            };
-        });
+                };
+            });
 
-        this.debug(
-            `Writing ${bulkWriteOperations.length} UTXOs, deleting ${bulkDeleteOperations.length} spent UTXOs`,
+        this.important(
+            `[UTXO]: Writing ${bulkWriteOperations.length} UTXOs, deleting ${bulkDeleteOperations.length} spent UTXOs`,
         );
 
-        const operations = [...bulkWriteOperations, ...bulkDeleteOperations];
+        const operations: AnyBulkWriteOperation<IUnspentTransaction>[] = [
+            ...bulkWriteOperations,
+            ...bulkDeleteOperations,
+        ];
+
         if (bulkWriteOperations.length) {
             //const chunks = this.chunkArray(operations, 500);
-            console.log(`Took ${Date.now() - start}ms to convert transactions`);
+            this.important(`[UTXO]: Conversion took ${Date.now() - start}ms`);
 
             /*let promises = [];
             for (const chunk of chunks) {
@@ -195,7 +214,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
             const time = Date.now();
             const result: BulkWriteResult = await collection.bulkWrite(operations, options);
-            console.log(`Took ${Date.now() - time}ms to bulk write`);
+            this.important(`[UTXO]: Bulk write took ${Date.now() - time}ms`);
 
             if (result.hasWriteErrors()) {
                 result.getWriteErrors().forEach((error) => {
@@ -315,22 +334,33 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
     // Transactions to delete
     private convertSpentTransactions(
-        transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
+        transactions: ProcessUnspentTransactionList,
     ): ISpentTransaction[] {
-        return transactions.flatMap((transaction) => {
-            return transaction.inputs
-                .map((input) => {
-                    if (!input.originalTransactionId || input.outputTransactionIndex == null) {
-                        return null;
-                    }
+        let finalList: ISpentTransaction[] = [];
 
-                    return {
-                        transactionId: input.originalTransactionId,
-                        outputIndex: input.outputTransactionIndex || 0, // legacy block miner rewards?
-                    };
-                })
-                .filter((input) => input !== null);
-        });
+        for (const block of transactions) {
+            const blockHeight = this.bigIntToLong(block.blockHeight);
+
+            const subList = block.transactions.flatMap((transaction) => {
+                return transaction.inputs
+                    .map((input) => {
+                        if (!input.originalTransactionId || input.outputTransactionIndex == null) {
+                            return null;
+                        }
+
+                        return {
+                            transactionId: input.originalTransactionId,
+                            outputIndex: input.outputTransactionIndex || 0, // legacy block miner rewards?
+                            deletedAtBlock: blockHeight,
+                        };
+                    })
+                    .filter((input) => input !== null);
+            });
+
+            finalList = finalList.concat(subList);
+        }
+
+        return finalList;
     }
 
     private convertToUnspentTransactions(
@@ -370,7 +400,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                             hex: Binary.createFromHexString(output.scriptPubKey.hex),
                             address: output.scriptPubKey.address ?? null,
                         },
-                        deletedAtBlock: null, // force to null
                     };
                 })
                 .filter((output) => output !== null);

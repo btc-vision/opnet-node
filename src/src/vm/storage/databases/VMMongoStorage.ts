@@ -14,10 +14,7 @@ import {
     IBlockHeaderBlockDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../../db/interfaces/IReorgDocument.js';
-import {
-    ITransactionDocument,
-    ITransactionDocumentBasic,
-} from '../../../db/interfaces/ITransactionDocument.js';
+import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { BlockWitnessRepository } from '../../../db/repositories/BlockWitnessRepository.js';
@@ -497,7 +494,7 @@ export class VMMongoStorage extends VMStorage {
         };
     }
 
-    public async insertUTXOs(
+    /*public async insertUTXOs(
         blockHeight: bigint,
         transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
     ): Promise<void> {
@@ -514,7 +511,7 @@ export class VMMongoStorage extends VMStorage {
             transactions,
             this.utxoSession,
         );
-    }
+    }*/
 
     public async setStorage(
         address: Address,
@@ -799,7 +796,6 @@ export class VMMongoStorage extends VMStorage {
     public async saveTransactions(
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void> {
-        const start = Date.now();
         const chunks = this.chunkArray(transactions, 500);
         const promises = chunks.map(async (chunk) => {
             if (!this.transactionRepository) {
@@ -819,8 +815,6 @@ export class VMMongoStorage extends VMStorage {
         });
 
         await Promise.all(promises);
-
-        console.log(`Transaction save time: ${Date.now() - start}ms`);
     }
 
     private async commitUTXOChanges(): Promise<void> {

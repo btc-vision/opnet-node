@@ -10,6 +10,12 @@ import { Config } from '../../../config/Config.js';
 import { RPCBlockFetcher } from '../../fetcher/RPCBlockFetcher.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import { Block, DeserializedBlock } from '../../processor/block/Block.js';
+import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc/build/rpc/types/BlockData.js';
+import {
+    ProcessUnspentTransactionList,
+    UnspentTransactionRepository,
+} from '../../../db/repositories/UnspentTransactionRepository.js';
+import { DBManagerInstance } from '../../../db/DBManager.js';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -17,8 +23,20 @@ export class ChainSynchronisation extends Logger {
     private readonly rpcClient: BitcoinRPC = new BitcoinRPC(500, false);
     private readonly network: Network = NetworkConverter.getNetwork();
 
+    private unspentTransactionOutputs: ProcessUnspentTransactionList = [];
+
     constructor() {
         super();
+    }
+
+    private _unspentTransactionRepository: UnspentTransactionRepository | undefined;
+
+    private get unspentTransactionRepository(): UnspentTransactionRepository {
+        if (!this._unspentTransactionRepository) {
+            throw new Error('UnspentTransactionRepository not initialized');
+        }
+
+        return this._unspentTransactionRepository;
     }
 
     private _blockFetcher: BlockFetcher | undefined;
@@ -39,12 +57,18 @@ export class ChainSynchronisation extends Logger {
     };
 
     public async init(): Promise<void> {
+        if (!DBManagerInstance.db) throw new Error('Database not initialized');
+
         await this.rpcClient.init(Config.BLOCKCHAIN);
 
         this._blockFetcher = new RPCBlockFetcher({
             maximumPrefetchBlocks: Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS,
             rpc: this.rpcClient,
         });
+
+        this._unspentTransactionRepository = new UnspentTransactionRepository(DBManagerInstance.db);
+
+        await this.startSaveLoop();
     }
 
     public async handleMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
@@ -64,6 +88,39 @@ export class ChainSynchronisation extends Logger {
         return resp ?? null;
     }
 
+    private async startSaveLoop(): Promise<void> {
+        if (this.unspentTransactionOutputs.length) {
+            await this.saveUTXOs();
+        }
+
+        setTimeout(() => {
+            this.startSaveLoop();
+        }, 1000);
+    }
+
+    private async saveUTXOs(): Promise<void> {
+        const utxos = this.unspentTransactionOutputs;
+        this.unspentTransactionOutputs = [];
+
+        await this.unspentTransactionRepository.insertTransactions(utxos);
+
+        this.success(`Saved ${utxos.length} block UTXOs to database.`);
+    }
+
+    private async queryUTXOs(block: Block, txs: TransactionData[]): Promise<void> {
+        block.setRawTransactionData(txs);
+        block.deserialize();
+
+        // Save UTXOs
+        const utxos = block.getUTXOs();
+
+        // Save UTXOs to database
+        this.unspentTransactionOutputs = this.unspentTransactionOutputs.concat({
+            blockHeight: block.header.height,
+            transactions: utxos,
+        });
+    }
+
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
         const blockData = await this.blockFetcher.getBlock(blockNumber);
         if (!blockData) {
@@ -75,6 +132,8 @@ export class ChainSynchronisation extends Logger {
             abortController: new AbortController(),
             header: blockData,
         });
+
+        void this.queryUTXOs(block, blockData.tx);
 
         // Deserialize the block
         //block.setRawTransactionData(blockData.tx);

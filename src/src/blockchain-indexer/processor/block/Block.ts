@@ -8,7 +8,10 @@ import {
     BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { TransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
+import {
+    ITransactionDocumentBasic,
+    TransactionDocument,
+} from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedStates } from '../../../vm/evaluated/EvaluatedStates.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import {
@@ -320,18 +323,22 @@ export class Block extends Logger {
         });
     }
 
+    public getUTXOs(): ITransactionDocumentBasic<OPNetTransactionTypes>[] {
+        return this.transactions.map((t) => t.toBitcoinDocument());
+    }
+
     public async insertPartialTransactions(vmManager: VMManager): Promise<void> {
         // temporary
         this.saveGenericPromises.push(this.saveGenericTransactions(vmManager));
 
-        if (!Config.INDEXER.DISABLE_UTXO_INDEXING) {
+        /*if (!Config.INDEXER.DISABLE_UTXO_INDEXING) {
             this.saveGenericPromises.push(
                 vmManager.insertUTXOs(
                     this.height,
                     this.transactions.map((t) => t.toBitcoinDocument()),
                 ),
             );
-        }
+        }*/
     }
 
     /** Block Execution */
@@ -394,10 +401,8 @@ export class Block extends Logger {
 
             this.saveGenericPromises.push(vmManager.saveBlock(this));
 
-            const start = Date.now();
             // We must wait for the generic transactions to be saved before finalizing the block
             await Promise.all(this.saveGenericPromises);
-            console.log(`Wait promises took ${Date.now() - start}ms`);
 
             await vmManager.terminateBlock();
 

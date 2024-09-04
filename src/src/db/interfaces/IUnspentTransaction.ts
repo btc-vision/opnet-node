@@ -15,10 +15,11 @@ export interface IUnspentTransaction {
 
     readonly scriptPubKey: ShortScriptPubKey;
 
-    readonly deletedAtBlock: Long | null;
+    readonly deletedAtBlock?: Long;
 }
 
 export interface ISpentTransaction {
     readonly transactionId: string;
     readonly outputIndex: number;
+    readonly deletedAtBlock?: Long;
 }
