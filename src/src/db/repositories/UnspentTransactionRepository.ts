@@ -129,9 +129,8 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         }
 
         const convertedSpentTransactions = this.convertSpentTransactions(transactions);
-        const allTransactions = transactions.flatMap((transaction) => transaction.transactions);
         const convertedUnspentTransactions = this.convertToUnspentTransactions(
-            allTransactions,
+            transactions,
             convertedSpentTransactions,
         );
 
@@ -336,73 +335,65 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
     private convertSpentTransactions(
         transactions: ProcessUnspentTransactionList,
     ): ISpentTransaction[] {
-        let finalList: ISpentTransaction[] = [];
+        const finalList: ISpentTransaction[] = [];
 
         for (const block of transactions) {
             const blockHeight = this.bigIntToLong(block.blockHeight);
 
-            const subList = block.transactions.flatMap((transaction) => {
-                return transaction.inputs
-                    .map((input) => {
-                        if (!input.originalTransactionId || input.outputTransactionIndex == null) {
-                            return null;
-                        }
-
-                        return {
+            for (const transaction of block.transactions) {
+                for (const input of transaction.inputs) {
+                    if (input.originalTransactionId && input.outputTransactionIndex != null) {
+                        finalList.push({
                             transactionId: input.originalTransactionId,
                             outputIndex: input.outputTransactionIndex || 0, // legacy block miner rewards?
                             deletedAtBlock: blockHeight,
-                        };
-                    })
-                    .filter((input) => input !== null);
-            });
-
-            finalList = finalList.concat(subList);
+                        });
+                    }
+                }
+            }
         }
 
         return finalList;
     }
 
     private convertToUnspentTransactions(
-        transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
+        blocks: ProcessUnspentTransactionList,
         spentTransactions: ISpentTransaction[],
     ): IUnspentTransaction[] {
-        return transactions.flatMap((transaction) => {
-            return transaction.outputs
-                .map((output) => {
-                    if (
-                        spentTransactions.some(
-                            (spent) =>
-                                spent.transactionId === transaction.id &&
-                                spent.outputIndex === output.index,
-                        )
-                    ) {
-                        return null;
-                    }
+        const finalList: IUnspentTransaction[] = [];
+        const spentSet = new Set(
+            spentTransactions.map((st) => `${st.transactionId}:${st.outputIndex}`),
+        );
+
+        for (const block of blocks) {
+            for (const transaction of block.transactions) {
+                for (const output of transaction.outputs) {
+                    const spentKey = `${transaction.id}:${output.index}`;
 
                     if (
-                        (typeof output.value === 'string' && output.value === '0') ||
-                        output.value.toString() === '0'
+                        !spentSet.has(spentKey) &&
+                        output.value.toString() !== '0' &&
+                        output.scriptPubKey.address
                     ) {
-                        return null;
-                    }
-
-                    if (!output.scriptPubKey.address) {
+                        finalList.push({
+                            blockHeight: this.decimal128ToLong(transaction.blockHeight),
+                            transactionId: transaction.id,
+                            outputIndex: output.index,
+                            value: this.decimal128ToLong(output.value),
+                            scriptPubKey: {
+                                hex: Binary.createFromHexString(output.scriptPubKey.hex),
+                                address: output.scriptPubKey.address ?? null,
+                            },
+                        });
+                    } else if (!output.scriptPubKey.address) {
                         this.warn(`Output ${transaction.id}:${output.index} has no address!`);
                     }
+                }
+            }
+        }
 
-                    return {
-                        blockHeight: this.decimal128ToLong(transaction.blockHeight),
-                        transactionId: transaction.id,
-                        outputIndex: output.index,
-                        value: this.decimal128ToLong(output.value),
-                        scriptPubKey: {
-                            hex: Binary.createFromHexString(output.scriptPubKey.hex),
-                            address: output.scriptPubKey.address ?? null,
-                        },
-                    };
-                })
-                .filter((output) => output !== null);
-        });
+        spentSet.clear();
+
+        return finalList;
     }
 }
