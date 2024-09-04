@@ -322,7 +322,7 @@ export class Block extends Logger {
 
     public async insertPartialTransactions(vmManager: VMManager): Promise<void> {
         // temporary
-        this.saveGenericPromises.push(this.saveGenericTransactions(vmManager);
+        this.saveGenericPromises.push(this.saveGenericTransactions(vmManager));
 
         if (!Config.INDEXER.DISABLE_UTXO_INDEXING) {
             const t = Date.now();
