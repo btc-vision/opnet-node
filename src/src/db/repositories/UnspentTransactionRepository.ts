@@ -175,23 +175,36 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             `[UTXO]: Writing ${bulkWriteOperations.length} UTXOs, deleting ${bulkDeleteOperations.length} spent UTXOs`,
         );
 
-        const operations: AnyBulkWriteOperation<IUnspentTransaction>[] = [
+        /*const operations: AnyBulkWriteOperation<IUnspentTransaction>[] = [
             ...bulkWriteOperations,
             ...bulkDeleteOperations,
-        ];
+        ];*/
 
         if (bulkWriteOperations.length) {
-            //const chunks = this.chunkArray(operations, 500);
             this.important(`[UTXO]: Conversion took ${Date.now() - start}ms`);
 
-            /*let promises = [];
-            for (const chunk of chunks) {
+            const writeStart = Date.now();
+            let promises = [];
+            for (const chunk of this.chunkArray(bulkWriteOperations, 500)) {
                 promises.push(this.bulkWrite(chunk, currentSession));
             }
 
-            await Promise.all(promises);*/
+            await Promise.all(promises);
 
-            await this.bulkWrite(operations, currentSession);
+            this.important(`[UTXO]: Bulk write (step 1) took ${Date.now() - writeStart}ms`);
+
+            promises = [];
+
+            const deleteStart = Date.now();
+            for (const chunk of this.chunkArray(bulkDeleteOperations, 500)) {
+                promises.push(this.bulkWrite(chunk, currentSession));
+            }
+
+            await Promise.all(promises);
+
+            this.important(`[UTXO]: Bulk write (step 2) took ${Date.now() - deleteStart}ms`);
+
+            //await this.bulkWrite(operations, currentSession);
         }
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE && Config.DEV_MODE) {
