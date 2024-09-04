@@ -170,6 +170,8 @@ export class VMManager extends Logger {
         try {
             await this.vmBitcoinBlock.terminate();
         } catch (e) {
+            this.error(`Error terminating block: ${(e as Error).stack}`);
+
             await this.vmBitcoinBlock.revert();
         }
 

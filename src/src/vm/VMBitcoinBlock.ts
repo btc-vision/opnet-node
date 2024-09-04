@@ -57,9 +57,12 @@ export class VMBitcoinBlock extends Logger {
         const blockId = this.blockId;
         this.reset();
 
-        await this.vmStorage.terminateBlock(blockId);
-
-        return;
+        try {
+            await this.vmStorage.terminateBlock(blockId);
+        } catch (e) {
+            await this.vmStorage.revertChanges(blockId);
+            throw e;
+        }
     }
 
     private reset(): void {
