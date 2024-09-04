@@ -183,7 +183,9 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             options.ordered = false;
             options.writeConcern = { w: 1 };
 
+            const time = Date.now();
             const result: BulkWriteResult = await collection.bulkWrite(operations, options);
+            console.log(`Took ${Date.now() - time}ms to bulk write`);
 
             if (result.hasWriteErrors()) {
                 result.getWriteErrors().forEach((error) => {

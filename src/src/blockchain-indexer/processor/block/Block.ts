@@ -322,16 +322,7 @@ export class Block extends Logger {
 
     public async insertPartialTransactions(vmManager: VMManager): Promise<void> {
         // temporary
-        /*await vmManager.insertUTXOs(
-            this.height,
-            this.transactions.map((t) => t.toBitcoinDocument()),
-        );*/
-
-        const generic = Date.now();
-        await this.saveGenericTransactions(vmManager);
-        console.log(`Save generic took ${Date.now() - generic}ms`);
-
-        //this.saveGenericPromises.push(
+        this.saveGenericPromises.push(this.saveGenericTransactions(vmManager);
 
         if (!Config.INDEXER.DISABLE_UTXO_INDEXING) {
             const t = Date.now();
