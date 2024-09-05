@@ -361,6 +361,8 @@ export class BlockIndexer extends Logger {
             const task = this.indexingTasks.shift();
             if (task) {
                 await task.process();
+            } else {
+                this.taskInProgress = false;
             }
         } catch (e) {
             await this.stopAllTasks();
