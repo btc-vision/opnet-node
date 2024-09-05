@@ -161,6 +161,7 @@ export class BlockIndexer extends Logger {
         await this.chainObserver.onBlockChange(header);
 
         if (this.taskInProgress) {
+            this.warn(`Block ${header.height} received while task in progress.`);
             return;
         }
 

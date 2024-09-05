@@ -118,7 +118,7 @@ export class ChainSynchronisation extends Logger {
     private async awaitUTXOWrites(): Promise<void> {
         if (!this.isProcessing) await this.saveUTXOs();
 
-        this.important('Awaiting UTXO writes to complete... Can take a while.');
+        this.warn('Awaiting UTXO writes to complete... Can take a while.');
         return new Promise(async (resolve) => {
             while (this.isProcessing) {
                 await new Promise((r) => setTimeout(r, 100));
