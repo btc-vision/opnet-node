@@ -134,7 +134,11 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         }
 
         // Ensure we don't have any duplicates or bad data
-        await this.deleteTransactionsFromBlockHeight(lowestBlockHeight, currentSession);
+        const criteria: Partial<Filter<IUnspentTransaction>> = {
+            blockHeight: { $gte: this.bigIntToLong(blockHeight) },
+        };
+
+        await this.delete(criteria, currentSession);
 
         //let promise: Promise<void> | undefined;
         if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
