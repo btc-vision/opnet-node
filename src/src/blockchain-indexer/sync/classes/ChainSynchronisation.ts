@@ -108,11 +108,15 @@ export class ChainSynchronisation extends Logger {
         this.amountOfUTXOs = 0;
         this.isProcessing = true;
 
-        await this.unspentTransactionRepository.insertTransactions(utxos);
+        try {
+            await this.unspentTransactionRepository.insertTransactions(utxos);
+
+            this.success(`Saved ${utxos.length} block UTXOs to database.`);
+        } catch (e) {
+            this.fail(`Failed to save UTXOs to database. ${(e as Error).message}`);
+        }
 
         this.isProcessing = false;
-
-        this.success(`Saved ${utxos.length} block UTXOs to database.`);
     }
 
     private async awaitUTXOWrites(): Promise<void> {
