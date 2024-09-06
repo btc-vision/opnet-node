@@ -571,6 +571,8 @@ export class VMManager extends Logger {
             return this.cachedBlockHeader.get(height);
         }
 
+        console.log('height', height, this.cachedBlockHeader.has(height));
+
         const blockHeader: BlockHeaderBlockDocument | undefined =
             await this.vmStorage.getBlockHeader(height);
 

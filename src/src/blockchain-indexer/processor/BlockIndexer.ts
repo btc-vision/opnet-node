@@ -316,8 +316,6 @@ export class BlockIndexer extends Logger {
 
         await this.chainObserver.setNewHeight(task.tip);
 
-        this.vmManager.setLastBlockHeader(processedBlock.getBlockHeaderDocument());
-
         void this.notifyBlockProcessed({
             blockNumber: processedBlock.height,
             blockHash: processedBlock.hash,
@@ -338,6 +336,8 @@ export class BlockIndexer extends Logger {
         });
 
         task.destroy();
+
+        this.vmManager.setLastBlockHeader(processedBlock.getBlockHeaderDocument());
 
         if (!this.taskInProgress) {
             throw new Error('Database corrupted. Two tasks are running at the same time.');
@@ -374,7 +374,11 @@ export class BlockIndexer extends Logger {
 
             this.chainObserver.nextBestTip = this.chainObserver.pendingBlockHeight - 3n;
 
+            await this.vmStorage.revertDataUntilBlock(this.chainObserver.pendingBlockHeight - 3n);
+
             this.taskInProgress = false;
+
+            void this.startTasks();
         }
     }
 
