@@ -135,8 +135,6 @@ export class VMManager extends Logger {
             this.debug(`Preparing block ${blockId}...`);
         }
 
-        await this.clear();
-
         await this.vmBitcoinBlock.prepare(blockId);
 
         this.blockState = new StateMerkleTree();
@@ -570,8 +568,6 @@ export class VMManager extends Logger {
         if (this.cachedBlockHeader.has(height)) {
             return this.cachedBlockHeader.get(height);
         }
-
-        console.log('height', height, this.cachedBlockHeader.has(height));
 
         const blockHeader: BlockHeaderBlockDocument | undefined =
             await this.vmStorage.getBlockHeader(height);
