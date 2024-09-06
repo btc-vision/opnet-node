@@ -133,6 +133,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             }
         }
 
+        // Ensure we don't have any duplicates or bad data
         await this.deleteTransactionsFromBlockHeight(lowestBlockHeight, currentSession);
 
         //let promise: Promise<void> | undefined;
