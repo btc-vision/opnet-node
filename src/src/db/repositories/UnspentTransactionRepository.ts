@@ -122,11 +122,18 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         const start = Date.now();
 
         let blockHeight = 0n;
+        let lowestBlockHeight = 0n;
         for (const data of transactions) {
             if (data.blockHeight > blockHeight) {
                 blockHeight = data.blockHeight;
             }
+
+            if (data.blockHeight < lowestBlockHeight) {
+                lowestBlockHeight = data.blockHeight;
+            }
         }
+
+        await this.deleteTransactionsFromBlockHeight(lowestBlockHeight, currentSession);
 
         //let promise: Promise<void> | undefined;
         if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
