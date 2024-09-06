@@ -539,17 +539,9 @@ export class VMManager extends Logger {
 
         await this.updateReceiptState();
 
-        const freezeStart = Date.now();
         this.blockState.freeze();
 
-        const freezeEnd = Date.now();
         await this.saveBlockStateChanges();
-
-        const saveEnd = Date.now();
-
-        console.log(
-            `Block state freeze took ${freezeEnd - freezeStart}ms and saving took ${saveEnd - freezeEnd}ms`,
-        );
 
         const states: EvaluatedStates = {
             storage: this.blockState,
@@ -587,6 +579,10 @@ export class VMManager extends Logger {
         }
 
         return blockHeader;
+    }
+
+    public setLastBlockHeader(blockHeader: BlockHeaderBlockDocument): void {
+        this.cachedBlockHeader.set(DataConverter.fromDecimal128(blockHeader.height), blockHeader);
     }
 
     public async clear(): Promise<void> {
@@ -968,12 +964,9 @@ export class VMManager extends Logger {
             throw new Error('Receipt state not found');
         }
 
-        const a = Date.now();
         const lastChecksum: string | undefined = await this.getPreviousBlockChecksumOfHeight(
             this.vmBitcoinBlock.height,
         );
-
-        console.log('lastChecksum query took', Date.now() - a, 'ms');
 
         if (lastChecksum) {
             this.receiptState.updateValue(MAX_HASH, MAX_HASH, Buffer.from(lastChecksum, 'hex'));

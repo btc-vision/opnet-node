@@ -316,6 +316,8 @@ export class BlockIndexer extends Logger {
 
         await this.chainObserver.setNewHeight(task.tip);
 
+        this.vmManager.setLastBlockHeader(processedBlock.getBlockHeaderDocument());
+
         void this.notifyBlockProcessed({
             blockNumber: processedBlock.height,
             blockHash: processedBlock.hash,
