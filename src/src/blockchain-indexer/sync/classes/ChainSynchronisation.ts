@@ -97,7 +97,7 @@ export class ChainSynchronisation extends Logger {
 
         setTimeout(() => {
             this.startSaveLoop();
-        }, 1000);
+        }, 2500);
     }
 
     private async saveUTXOs(): Promise<void> {
@@ -125,7 +125,7 @@ export class ChainSynchronisation extends Logger {
         this.warn('Awaiting UTXO writes to complete... Can take a while.');
         return new Promise(async (resolve) => {
             while (this.isProcessing) {
-                await new Promise((r) => setTimeout(r, 100));
+                await new Promise((r) => setTimeout(r, 50));
             }
 
             resolve();
