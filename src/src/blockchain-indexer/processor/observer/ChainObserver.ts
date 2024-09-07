@@ -13,7 +13,7 @@ import { Config } from '../../../config/Config.js';
 export class ChainObserver extends Logger {
     public readonly logColor: string = '#5eff00';
 
-    private readonly synchronisationStatus: SynchronisationStatus = {
+    public readonly synchronisationStatus: SynchronisationStatus = {
         bestBlockHash: null,
 
         currentBlockHash: null,
@@ -120,6 +120,8 @@ export class ChainObserver extends Logger {
         this.info(
             `Chain reorganisation detected: ${fromHeight} -> ${toHeight} - (${this.synchronisationStatus.bestBlockHash} -> ${newBest})`,
         );
+
+        if (fromHeight === 0n) throw new Error('Invalid from height.');
 
         this.synchronisationStatus.bestBlockHash = newBest;
         this.pendingBlockHeight = fromHeight;

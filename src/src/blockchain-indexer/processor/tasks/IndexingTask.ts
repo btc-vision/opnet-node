@@ -230,15 +230,11 @@ export class IndexingTask extends Logger {
         }
     }
 
-    private min(a: bigint, b: bigint = this.tip): bigint {
-        return a < b ? a : b;
-    }
-
     private async revertBlock(error: Error): Promise<void> {
         await this.vmStorage.killAllPendingWrites();
-        await this.vmStorage.revertDataUntilBlock(
+        /*await this.vmStorage.revertDataUntilBlock(
             this.min(this.tip - BigInt(Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS), 0n),
-        );
+        );*/
 
         if (this._block) {
             await this.block.revertBlock(this.vmManager);

@@ -357,24 +357,34 @@ export class BlockIndexer extends Logger {
     }
 
     private async processNextTask(): Promise<void> {
+        const task = this.indexingTasks.shift();
+        if (!task) {
+            return;
+        }
+
         try {
             this.taskInProgress = true;
 
-            const task = this.indexingTasks.shift();
-            if (task) {
-                await task.process();
-            } else {
-                this.taskInProgress = false;
-            }
+            await task.process();
         } catch (e) {
             await this.stopAllTasks();
 
             const error = e as Error;
             this.panic(`Processing error: ${Config.DEV_MODE ? error.stack : error.message}`);
 
-            this.chainObserver.nextBestTip = this.chainObserver.pendingBlockHeight - 3n;
+            /** Revert 1 block */
+            const newHeight = this.chainObserver.pendingBlockHeight - 1n;
+            this.chainObserver.nextBestTip = newHeight;
 
-            await this.vmStorage.revertDataUntilBlock(this.chainObserver.pendingBlockHeight - 3n);
+            await this.vmStorage.revertDataUntilBlock(newHeight);
+            await this.chainObserver.setNewHeight(newHeight - 1n);
+
+            console.log(
+                'new height',
+                newHeight,
+                'pending',
+                this.chainObserver.synchronisationStatus,
+            );
 
             this.taskInProgress = false;
 
