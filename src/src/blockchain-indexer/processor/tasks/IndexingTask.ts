@@ -16,13 +16,16 @@ export class IndexingTask extends Logger {
     public readonly logColor: string = '#9545c5';
 
     public _blockHash: string | null = null;
+    public chainReorged: boolean = false;
 
     private prefetchPromise: Promise<Error | undefined> | null = null;
     private prefetchResolver: ((error?: Error) => void) | null = null;
 
     private prefetchStart: number = 0;
     private prefetchEnd: number = 0;
+
     private processedAt: number = 0;
+
     private finalizeBlockStart: number = 0;
     private finalizeEnd: number = 0;
 
@@ -100,14 +103,6 @@ export class IndexingTask extends Logger {
         this.clear();
     }
 
-    public async refresh(): Promise<void> {
-        if (this.abortController.signal.aborted) return;
-
-        this.clear();
-
-        await this.process();
-    }
-
     public async process(): Promise<void> {
         this.processedAt = Date.now();
 
@@ -165,8 +160,14 @@ export class IndexingTask extends Logger {
         }
     }
 
-    public cancel(): void {
+    public async cancel(reorged: boolean): Promise<void> {
+        this.chainReorged = reorged;
+
         this.abortController.abort('Task cancelled');
+
+        if (this.prefetchPromise) {
+            await this.prefetchPromise;
+        }
 
         this.destroy();
     }
@@ -212,6 +213,8 @@ export class IndexingTask extends Logger {
             // Reset
             this.specialTransactionManager.reset();
         } catch (e) {
+            if (this.chainReorged) return;
+
             await this.revertBlock(e as Error);
 
             this.specialTransactionManager.reset();
@@ -219,22 +222,14 @@ export class IndexingTask extends Logger {
             throw e;
         }
 
-        // Verify Reorg
-        const hasReorged = await this.verifyReorg();
-        if (hasReorged) {
-            this.warn(`Chain reorg detected at block ${this.tip}`);
-
-            await this.revertBlock(new Error('Chain reorg detected'));
-
-            throw new Error('Chain reorg detected');
+        if (!this.chainReorged) {
+            // Verify Reorg
+            this.chainReorged = await this.verifyReorg();
         }
     }
 
     private async revertBlock(error: Error): Promise<void> {
         await this.vmStorage.killAllPendingWrites();
-        /*await this.vmStorage.revertDataUntilBlock(
-            this.min(this.tip - BigInt(Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS), 0n),
-        );*/
 
         if (this._block) {
             await this.block.revertBlock(this.vmManager);

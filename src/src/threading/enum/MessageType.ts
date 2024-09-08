@@ -11,4 +11,5 @@ export enum MessageType {
     EXIT_THREAD,
 
     DESERIALIZE_BLOCK,
+    CHAIN_REORG,
 }

@@ -26,7 +26,7 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
     }
 
     /**
-     * Taproot!
+     * Finalizes the PSBT for the unwrap transaction.
      * @private
      * @returns {Promise<FinalizedPSBT>} - The finalized PSBT
      */

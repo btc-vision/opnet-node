@@ -80,6 +80,10 @@ export class ChainSynchronisation extends Logger {
                 resp = await this.deserializeBlock(m);
                 break;
             }
+            case MessageType.CHAIN_REORG: {
+                resp = this.onReorg();
+                break;
+            }
             default: {
                 throw new Error(
                     `Unknown message type: ${m.type} received in synchronisation thread.`,
@@ -88,6 +92,16 @@ export class ChainSynchronisation extends Logger {
         }
 
         return resp ?? null;
+    }
+
+    private async onReorg(): Promise<ThreadData> {
+        this.purgeUTXOs();
+
+        if (this.isProcessing) {
+            await this.awaitUTXOWrites();
+        }
+
+        return {};
     }
 
     private async startSaveLoop(): Promise<void> {
@@ -100,12 +114,17 @@ export class ChainSynchronisation extends Logger {
         }, 2500);
     }
 
+    private purgeUTXOs(): void {
+        this.unspentTransactionOutputs = [];
+        this.amountOfUTXOs = 0;
+    }
+
     private async saveUTXOs(): Promise<void> {
         if (this.isProcessing) return;
 
         const utxos = this.unspentTransactionOutputs;
-        this.unspentTransactionOutputs = [];
-        this.amountOfUTXOs = 0;
+        this.purgeUTXOs();
+
         this.isProcessing = true;
 
         try {
@@ -122,7 +141,7 @@ export class ChainSynchronisation extends Logger {
     private async awaitUTXOWrites(): Promise<void> {
         if (!this.isProcessing) await this.saveUTXOs();
 
-        this.warn('Awaiting UTXO writes to complete... Can take a while.');
+        this.warn('Awaiting UTXO writes to complete... May take a while.');
         return new Promise(async (resolve) => {
             while (this.isProcessing) {
                 await new Promise((r) => setTimeout(r, 50));

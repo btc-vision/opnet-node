@@ -28,6 +28,8 @@ import { SpecialManager } from './special-transaction/SpecialManager.js';
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
 
+    private chainReorged: boolean = false;
+
     private readonly database: ConfigurableDBManager = new ConfigurableDBManager(Config);
     private readonly vmStorage: VMStorage = this.getVMStorage();
 
@@ -35,6 +37,8 @@ export class BlockIndexer extends Logger {
     private readonly rpcClient: BitcoinRPC = new BitcoinRPC(500, false);
     private readonly consensusTracker: ConsensusTracker = new ConsensusTracker();
     private readonly specialTransactionManager: SpecialManager = new SpecialManager(this.vmManager);
+
+    private currentTask?: IndexingTask;
 
     private started: boolean = false;
 
@@ -170,16 +174,38 @@ export class BlockIndexer extends Logger {
         }
     }
 
+    private async notifyThreadReorg(
+        fromHeight: bigint,
+        toHeight: bigint,
+        newBest: string,
+    ): Promise<void> {
+        const msg: ThreadMessageBase<MessageType> = {
+            type: MessageType.CHAIN_REORG,
+            data: {
+                fromHeight: fromHeight,
+                toHeight: toHeight,
+                newBest: newBest,
+            },
+        };
+
+        await this.sendMessageToThread(ThreadTypes.SYNCHRONISATION, msg);
+    }
+
     private async onChainReorganisation(
         fromHeight: bigint,
         toHeight: bigint,
         newBest: string,
     ): Promise<void> {
+        // Lock tasks.
+        this.chainReorged = true;
         this.log(`Chain reorganisation detected: ${fromHeight} -> ${toHeight} - (${newBest})`);
 
         // Stop all tasks.
-        await this.stopAllTasks();
+        await this.stopAllTasks(true);
         await this.vmStorage.killAllPendingWrites();
+
+        // Notify thread.
+        await this.notifyThreadReorg(fromHeight, toHeight, newBest);
 
         // Revert block
         await this.chainObserver.setNewHeight(fromHeight);
@@ -189,6 +215,11 @@ export class BlockIndexer extends Logger {
         // Revert data.
         await this.reorgFromHeight(fromHeight, toHeight);
         await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
+
+        this.info(`Restarting task after reorg.`);
+
+        // Unlock tasks.
+        this.chainReorged = false;
 
         // Start tasks.
         void this.restartTasks();
@@ -214,11 +245,16 @@ export class BlockIndexer extends Logger {
         await this.vmStorage.setReorg(reorgData);
     }
 
-    private async stopAllTasks(): Promise<void> {
-        for (const task of this.indexingTasks) {
-            task.cancel();
+    private async stopAllTasks(reorged: boolean): Promise<void> {
+        if (this.currentTask) {
+            await this.currentTask.cancel(reorged);
         }
 
+        for (const task of this.indexingTasks) {
+            await task.cancel(reorged);
+        }
+
+        this.currentTask = undefined;
         this.indexingTasks = [];
     }
 
@@ -226,7 +262,7 @@ export class BlockIndexer extends Logger {
         // TODO: Verify if sync was stopped unexpectedly.
 
         try {
-            //await this.vmStorage.killAllPendingWrites();
+            await this.vmStorage.killAllPendingWrites();
 
             return true;
         } catch (e) {
@@ -265,6 +301,9 @@ export class BlockIndexer extends Logger {
     }
 
     private async startTasks(): Promise<void> {
+        // Check if the chain is reorged.
+        if (this.chainReorged) return;
+
         // Calculate the number of tasks to start.
         const currentIndexingLength =
             this.indexingConfigs.prefetchQueueSize - this.indexingTasks.length;
@@ -309,13 +348,17 @@ export class BlockIndexer extends Logger {
     }
 
     private async onCompletedTask(task: IndexingTask): Promise<void> {
+        if (task.chainReorged) return;
+
         const processedBlock = task.block;
         if (processedBlock.compromised) {
             await this.consensusTracker.lockdown();
         }
 
+        // Update height.
         await this.chainObserver.setNewHeight(task.tip);
 
+        // Notify PoA
         void this.notifyBlockProcessed({
             blockNumber: processedBlock.height,
             blockHash: processedBlock.hash,
@@ -339,6 +382,9 @@ export class BlockIndexer extends Logger {
 
         this.vmManager.setLastBlockHeader(processedBlock.getBlockHeaderDocument());
 
+        // Release task.
+        this.currentTask = undefined;
+
         if (!this.taskInProgress) {
             throw new Error('Database corrupted. Two tasks are running at the same time.');
         }
@@ -357,17 +403,25 @@ export class BlockIndexer extends Logger {
     }
 
     private async processNextTask(): Promise<void> {
-        const task = this.indexingTasks.shift();
-        if (!task) {
+        this.currentTask = this.indexingTasks.shift();
+        if (!this.currentTask) {
             return;
         }
 
-        try {
-            this.taskInProgress = true;
+        // Mark as in progress.
+        this.taskInProgress = true;
 
-            await task.process();
+        try {
+            await this.currentTask.process();
         } catch (e) {
-            await this.stopAllTasks();
+            // Verify if the chain reorged.
+            if (this.chainReorged || !this.currentTask || this.currentTask.chainReorged) {
+                this.taskInProgress = false;
+
+                return;
+            }
+
+            await this.stopAllTasks(false);
 
             const error = e as Error;
             this.panic(`Processing error: ${Config.DEV_MODE ? error.stack : error.message}`);
@@ -378,13 +432,6 @@ export class BlockIndexer extends Logger {
 
             await this.vmStorage.revertDataUntilBlock(newHeight);
             await this.chainObserver.setNewHeight(newHeight - 1n);
-
-            console.log(
-                'new height',
-                newHeight,
-                'pending',
-                this.chainObserver.synchronisationStatus,
-            );
 
             this.taskInProgress = false;
 
