@@ -29,7 +29,7 @@ integrity and functionality of Wrapped Bitcoin (WBTC) transactions.
 
 ## Features
 
-- **Smart Inscription Execution**: Execution of smart contracts through the WASM VM, handling sophisticated logic and
+- **Contract Execution**: Execution of smart contracts through the OP-VM, handling sophisticated logic and
   state changes.
 - **State Management and Proofs**: Robust management of contract states, including computing and validating state
   changes using Merkle proofs.
@@ -37,8 +37,11 @@ integrity and functionality of Wrapped Bitcoin (WBTC) transactions.
   contract states and transaction outcomes.
 - **Recovery and Reversion**: Capabilities to revert states or initiate full rescans in the event of discrepancies or
   blockchain reorganizations.
-- **Validator-Based Governance**: Integration with Proof of Authority (PoA) to ensure trusted and reliable network
-  governance by verified validators.
+- **WBTC Validator-Based Governance**: Integration with Proof of Authority (PoA) to ensure trusted and reliable network
+  governance by verified validators. This will be in place until PoS is implemented.
+- **Decentralized Network**: OP_NET is a decentralized network that leverages the Bitcoin blockchain for security and
+  immutability. Proofs and state changes are validated by a decentralized network of validators which anyone can join.
+  Proof of Stake (PoS) will be implemented in the future.
 
 ## Getting Started
 
@@ -46,7 +49,8 @@ To get started with the indexer, follow these setup instructions:
 
 ### Prerequisites
 
-- Node.js version 20.x or higher, we recommend using node 21.x.
+- Node.js version 20.x or higher, we recommend using node 21.x. Do not use node js 22.x as it is unstable and cause
+  crashes.
 - npm (Node Package Manager)
 - Bitcoin Node (Latest version)
 - MongoDB (Latest version)
