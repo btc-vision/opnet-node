@@ -2,7 +2,7 @@ import { Address, BufferHelper } from '@btc-vision/bsi-binary';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession, TransactionOptions } from 'mongodb';
 import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
-import { SafeBigInt } from '../../../api/routes/safe/SafeMath.js';
+import { SafeBigInt } from '../../../api/routes/safe/BlockParamsConverter.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
@@ -76,7 +76,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async revertDataUntilBlock(blockId: bigint): Promise<void> {
-        if(blockId <= 0n) {
+        if (blockId <= 0n) {
             throw new Error(`Block height must be greater than 0`);
         }
 

@@ -7,7 +7,7 @@ import { UTXOsByAddressParams } from '../../../../json-rpc/types/interfaces/para
 import { UTXOsOutputResult } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputResult.js';
 import { UTXOsOutputTransactions } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { Route } from '../../../Route.js';
-import { SafeString } from '../../../safe/SafeMath.js';
+import { SafeString } from '../../../safe/BlockParamsConverter.js';
 
 export class UTXOsRoute extends Route<
     Routes.UTXOS,

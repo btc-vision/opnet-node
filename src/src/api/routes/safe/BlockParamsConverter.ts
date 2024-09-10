@@ -10,7 +10,7 @@ import {
 export type SafeBigInt = -1 | bigint;
 export type SafeString = string | null;
 
-export class SafeMath {
+export class BlockParamsConverter {
     public static getParameterAsBigIntForBlock(
         params: BlockByIdParamsAsObject | BlockByIdParamsAsArray,
     ): SafeBigInt {

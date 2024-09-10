@@ -6,7 +6,7 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { GetBalanceParams } from '../../../../json-rpc/types/interfaces/params/address/GetBalanceParams.js';
 import { GetBalanceResult } from '../../../../json-rpc/types/interfaces/results/address/GetBalanceResult.js';
 import { Route } from '../../../Route.js';
-import { SafeString } from '../../../safe/SafeMath.js';
+import { SafeString } from '../../../safe/BlockParamsConverter.js';
 
 export class GetBalanceRoute extends Route<
     Routes.GET_BALANCE,
