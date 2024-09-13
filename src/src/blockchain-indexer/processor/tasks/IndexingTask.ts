@@ -163,7 +163,9 @@ export class IndexingTask extends Logger {
     public async cancel(reorged: boolean): Promise<void> {
         this.chainReorged = reorged;
 
-        this.abortController.abort('Task cancelled');
+        if (this._abortController) {
+            this.abortController.abort('Task cancelled');
+        }
 
         if (this.prefetchPromise) {
             await this.prefetchPromise;
@@ -262,14 +264,17 @@ export class IndexingTask extends Logger {
             throw blockData.error;
         }
 
+        if (!this._abortController) {
+            throw new Error('Error while fetching block.');
+        }
+
         this.prefetchStart = Date.now();
-        const block = new Block({
+
+        return new Block({
             ...blockData,
             network: this.network,
-            abortController: this.abortController,
+            abortController: this._abortController,
         });
-
-        return block;
     }
 
     private async processPrefetch(): Promise<void> {
