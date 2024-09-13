@@ -240,6 +240,10 @@ export class BlockIndexer extends Logger {
             timestamp: new Date(),
         };
 
+        if (fromHeight <= 0n) {
+            throw new Error(`Block height must be greater than 0. Was ${fromHeight}.`);
+        }
+
         await this.vmStorage.revertDataUntilBlock(fromHeight + 1n);
         await this.vmStorage.setReorg(reorgData);
     }
@@ -427,6 +431,10 @@ export class BlockIndexer extends Logger {
 
             /** Revert 1 block */
             const newHeight = this.chainObserver.pendingBlockHeight - 1n;
+            if (newHeight <= 0n) {
+                throw new Error(`[processNextTask] Block height must be greater than 0. Was ${newHeight}.`);
+            }
+
             this.chainObserver.nextBestTip = newHeight;
 
             await this.vmStorage.revertDataUntilBlock(newHeight);

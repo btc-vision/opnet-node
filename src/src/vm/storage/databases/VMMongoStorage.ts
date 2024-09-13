@@ -76,10 +76,6 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async revertDataUntilBlock(blockId: bigint): Promise<void> {
-        if (blockId <= 0n) {
-            throw new Error(`Block height must be greater than 0. Was ${blockId}.`);
-        }
-
         /** We must delete all the data until the blockId */
         if (!this.blockRepository) {
             throw new Error('Block header repository not initialized');
