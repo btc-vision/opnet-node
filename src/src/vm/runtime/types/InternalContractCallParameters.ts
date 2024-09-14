@@ -33,7 +33,7 @@ export interface ExecutionParameters {
     readonly contractAddress: Address;
     readonly isView: boolean;
     readonly abi: number;
-    readonly calldata: Buffer;
+    readonly calldata: Uint8Array;
 
     readonly msgSender: Address;
     readonly txOrigin: Address;

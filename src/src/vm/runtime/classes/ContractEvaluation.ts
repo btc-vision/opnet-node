@@ -22,9 +22,11 @@ export class ContractEvaluation implements IEvaluationParameters {
     public readonly contractAddress: Address;
     public readonly isView: boolean;
     public readonly abi: number;
+
     public readonly calldata: Uint8Array;
     public readonly msgSender: Address;
     public readonly txOrigin: Address;
+
     public canWrite: boolean;
 
     public readonly blockNumber: bigint;
