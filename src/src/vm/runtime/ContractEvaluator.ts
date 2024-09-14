@@ -204,8 +204,8 @@ export class ContractEvaluator extends Logger {
 
     private async defineSelectorAndSetupEnvironment(params: ExecutionParameters): Promise<void> {
         await this.setEnvironment(
-            params.caller,
-            params.callee,
+            params.msgSender,
+            params.txOrigin,
             params.blockNumber,
             params.blockMedian,
         );
@@ -276,8 +276,8 @@ export class ContractEvaluator extends Logger {
         const gasUsed: bigint = evaluation.gasTracker.gasUsed;
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
-            from: evaluation.caller,
-            callee: evaluation.contractAddress,
+            from: evaluation.msgSender,
+            txOrigin: evaluation.contractAddress,
 
             maxGas: evaluation.gasTracker.maxGas,
             gasUsed: gasUsed,
@@ -515,8 +515,8 @@ export class ContractEvaluator extends Logger {
     }
 
     private async setEnvironment(
-        caller: Address,
-        callee: Address,
+        msgSender: Address,
+        txOrigin: Address,
         blockNumber: bigint,
         blockMedian: bigint,
     ): Promise<void> {
@@ -525,8 +525,8 @@ export class ContractEvaluator extends Logger {
         }
 
         const binaryWriter: BinaryWriter = new BinaryWriter();
-        binaryWriter.writeAddress(caller);
-        binaryWriter.writeAddress(callee);
+        binaryWriter.writeAddress(msgSender);
+        binaryWriter.writeAddress(txOrigin);
         binaryWriter.writeU256(blockNumber);
 
         binaryWriter.writeAddress(this.contractOwner);

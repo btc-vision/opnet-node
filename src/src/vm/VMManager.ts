@@ -202,7 +202,7 @@ export class VMManager extends Logger {
             const params: InternalContractCallParameters = {
                 contractAddress: contractAddress,
                 from: from,
-                callee: from,
+                txOrigin: from,
                 maxGas: OPNetConsensus.consensus.TRANSACTIONS.EMULATION_MAX_GAS,
                 calldata: Buffer.from(calldataString, 'hex'),
                 blockHeight: currentHeight,
@@ -287,7 +287,7 @@ export class VMManager extends Logger {
             const params: InternalContractCallParameters = {
                 contractAddress: contractAddress,
                 from: interactionTransaction.from,
-                callee: interactionTransaction.callee,
+                txOrigin: interactionTransaction.callee,
                 maxGas: maxGas,
                 calldata: interactionTransaction.calldata,
                 blockHeight: blockHeight,
@@ -695,8 +695,8 @@ export class VMManager extends Logger {
             isView: isView,
             abi: selector,
             calldata: finalBuffer,
-            caller: caller,
-            callee: params.callee,
+            msgSender: caller,
+            txOrigin: params.txOrigin,
             maxGas: params.maxGas,
             gasUsed: params.gasUsed,
             externalCall: params.externalCall,

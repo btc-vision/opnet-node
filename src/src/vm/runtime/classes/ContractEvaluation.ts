@@ -23,8 +23,8 @@ export class ContractEvaluation implements IEvaluationParameters {
     public readonly isView: boolean;
     public readonly abi: number;
     public readonly calldata: Uint8Array;
-    public readonly caller: Address;
-    public readonly callee: Address;
+    public readonly msgSender: Address;
+    public readonly txOrigin: Address;
     public canWrite: boolean;
 
     public readonly blockNumber: bigint;
@@ -55,8 +55,8 @@ export class ContractEvaluation implements IEvaluationParameters {
         this.isView = params.isView;
         this.abi = params.abi;
         this.calldata = params.calldata;
-        this.caller = params.caller;
-        this.callee = params.callee;
+        this.msgSender = params.msgSender;
+        this.txOrigin = params.txOrigin;
         this.canWrite = params.canWrite;
         this.externalCall = params.externalCall;
         this.blockNumber = params.blockNumber;

@@ -4,7 +4,7 @@ import { ContractInformation } from '../../../blockchain-indexer/processor/trans
 export interface InternalContractCallParameters {
     contractAddress: Address;
     readonly from: Address;
-    readonly callee: Address;
+    readonly txOrigin: Address;
 
     readonly maxGas: bigint;
 
@@ -33,10 +33,10 @@ export interface ExecutionParameters {
     readonly contractAddress: Address;
     readonly isView: boolean;
     readonly abi: number;
-    readonly calldata: Uint8Array;
+    readonly calldata: Buffer;
 
-    readonly caller: Address;
-    readonly callee: Address;
+    readonly msgSender: Address;
+    readonly txOrigin: Address;
 
     readonly transactionId: string | null; // external call have this empty
     readonly transactionHash: string | null; // external call have this empty
