@@ -24,7 +24,7 @@ import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { PeerToPeerMethod } from '../../config/interfaces/PeerToPeerMethod.js';
 import { OPNetPathFinder } from '../identity/OPNetPathFinder.js';
 import { BootstrapNodes } from './BootstrapNodes.js';
-import { P2PVersion } from './P2PVersion.js';
+import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 
 interface BackedUpPeer {
     id: string;
@@ -209,7 +209,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get identifyConfiguration(): IdentifyInit {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
-            agentVersion: P2PVersion,
+            agentVersion: P2PMajorVersion,
             timeout: 8000,
             maxInboundStreams: 4,
             maxOutboundStreams: 4,
@@ -218,7 +218,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     public get protocol(): string {
-        return `${P2PConfigurations.protocolName}/op/${P2PVersion}`;
+        return `${P2PConfigurations.protocolName}/op/${P2PMajorVersion}`;
     }
 
     public async peerIdConfigurations(): Promise<PeerId | undefined> {

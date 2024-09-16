@@ -130,6 +130,7 @@ export class Server extends Logger {
     private globalErrorHandler(_request: Request, response: Response, _error: Error): void {
         response.status(500);
 
+        console.log(_error);
         this.error(`API Error: ${_error.stack}`);
 
         response.json({
@@ -174,7 +175,7 @@ export class Server extends Logger {
         websocket.close();
     }
 
-    private handleAny(_req: Request, res: Response, _next: MiddlewareNext): void {
+    private handleAny(_req: Request, res: Response, next: MiddlewareNext): void {
         if (_req.method !== 'OPTIONS') {
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
@@ -186,9 +187,8 @@ export class Server extends Logger {
 
         res.removeHeader('uWebSockets');
 
-        // I disabled this because for some reason it's calling the next method twice?
-        /*if (typeof next === 'function') {
-            console.log('next', next);
-        }*/
+        if (typeof next === 'function') {
+            next();
+        }
     }
 }

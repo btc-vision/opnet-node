@@ -753,10 +753,11 @@ export class P2PManager extends Logger {
             throw new Error('Node not initialized');
         }
 
+        const peerStr = peerId.toString();
         if (code !== DisconnectionCode.RECONNECT && code !== DisconnectionCode.EXPECTED) {
             await this.blackListPeerId(peerId, code);
         } else if (code !== DisconnectionCode.EXPECTED) {
-            const info = this.blackListedPeerIds.get(peerId.toString()) || {
+            const info = this.blackListedPeerIds.get(peerStr) || {
                 reason: DisconnectionCode.RECONNECT,
                 timestamp: Date.now(),
                 attempts: 0,
@@ -768,16 +769,16 @@ export class P2PManager extends Logger {
 
             info.attempts += 1;
 
-            this.info(
-                `Peer ${peerId.toString()} disconnected. Reason: ${code}. Attempts: ${info.attempts}`,
-            );
+            this.info(`Peer ${peerStr} disconnected. Reason: ${code}. Attempts: ${info.attempts}`);
 
-            this.blackListedPeerIds.set(peerId.toString(), info);
+            this.blackListedPeerIds.set(peerStr, info);
         }
 
-        this.peers.delete(peerId.toString());
+        this.peers.delete(peerStr);
 
-        await this.node.hangUp(peerId).catch(() => {});
+        await this.node.hangUp(peerId).catch((e: unknown) => {
+            console.log('Error while hanging up peer:', e);
+        });
     }
 
     private blacklistPeerIps(peer: Peer, reason: DisconnectionCode): void {
