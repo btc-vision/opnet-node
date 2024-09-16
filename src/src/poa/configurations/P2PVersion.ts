@@ -18,6 +18,7 @@ import {WBTC_ADDRESS_REGTEST} from '@btc-vision/transaction';
  */
 export const P2PVersion: TrustedVersion = TrustedVersion.V0_0_1;
 
+// TODO: Add the trusted checksum for the new version
 export const TRUSTED_CHECKSUM: { [key in TrustedVersion]: string } = {
     [TrustedVersion.V0_0_1]: '0x00000000',
 };
