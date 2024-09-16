@@ -317,7 +317,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             index: this.index,
 
-            inputs: this.inputs,
+            inputs: this.inputs.map((input) => {
+                return {
+                    originalTransactionId: input.originalTransactionId,
+                    outputTransactionIndex: input.outputTransactionIndex,
+                    sequenceId: input.sequenceId,
+                    transactionInWitness: input.transactionInWitness,
+                };
+            }),
             outputs: outputDocuments,
 
             OPNetType: this.transactionType,
@@ -339,7 +346,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                 this.receipt && this.receipt.gasUsed ? this.receipt.gasUsed : 0n,
             ),
 
-            inputs: this.inputs,
+            inputs: this.inputs.map((input) => {
+                return {
+                    originalTransactionId: input.originalTransactionId,
+                    outputTransactionIndex: input.outputTransactionIndex,
+                    sequenceId: input.sequenceId,
+                    transactionInWitness: input.transactionInWitness,
+                };
+            }),
             outputs: outputDocuments,
 
             OPNetType: this.transactionType,

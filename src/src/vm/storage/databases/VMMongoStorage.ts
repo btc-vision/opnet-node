@@ -775,10 +775,10 @@ export class VMMongoStorage extends VMStorage {
         try {
             await this.databaseManager.db.command({
                 killAllSessions: [
-                    {
-                        user: Config.DATABASE.AUTH.USERNAME,
-                        db: Config.DATABASE.DATABASE_NAME,
-                    },
+                    //{
+                    //    user: 'admin', //Config.DATABASE.AUTH.USERNAME
+                    //    db: Config.DATABASE.DATABASE_NAME,
+                    //},
                 ],
             });
         } catch (e) {
