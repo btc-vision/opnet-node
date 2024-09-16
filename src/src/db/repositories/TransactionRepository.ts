@@ -6,7 +6,6 @@ import {
     BulkWriteResult,
     ClientSession,
     Collection,
-    Db,
     Decimal128,
     Document,
     Filter,
@@ -21,10 +20,6 @@ export class TransactionRepository extends BaseRepository<
 > {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
-        super(db);
-    }
-
     public async deleteTransactionsFromBlockHeight(
         blockHeight: bigint,
         currentSession?: ClientSession,
@@ -37,23 +32,6 @@ export class TransactionRepository extends BaseRepository<
 
         await Promise.all(promises);
     }
-
-    /*public async saveTransaction(
-        transactionData: ITransactionDocument<OPNetTransactionTypes>,
-        currentSession?: ClientSession,
-    ): Promise<void> {
-        const criteria: Partial<Filter<ITransactionDocument<OPNetTransactionTypes>>> = {
-            hash: transactionData.hash,
-            id: transactionData.id,
-            blockHeight: transactionData.blockHeight,
-        };
-
-        const promises: Promise<unknown>[] = [
-            this.updatePartial(criteria, transactionData, currentSession),
-        ];
-
-        await Promise.all(promises);
-    }*/
 
     public async bulkWrite(
         operations: AnyBulkWriteOperation<ITransactionDocument<OPNetTransactionTypes>>[],

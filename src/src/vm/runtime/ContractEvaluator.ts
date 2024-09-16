@@ -69,17 +69,15 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [getStorage]');
     }
 
-    public setStorage(_address: Address, _pointer: bigint, _value: bigint): Promise<void> {
+    public setStorage(_address: Address, _pointer: bigint, _value: bigint): void {
         throw new Error('Method not implemented. [setStorage]');
     }
 
-    public async callExternal(
-        _params: InternalContractCallParameters,
-    ): Promise<ContractEvaluation> {
+    public callExternal(_params: InternalContractCallParameters): Promise<ContractEvaluation> {
         throw new Error('Method not implemented. [callExternal]');
     }
 
-    public async deployContractAtAddress(
+    public deployContractAtAddress(
         _address: Address,
         _salt: Buffer,
         _evaluation: ContractEvaluation,
@@ -153,7 +151,7 @@ export class ContractEvaluator extends Logger {
                 canWrite: false,
             });
 
-            await this.loadContractFromBytecode(evaluation);
+            this.loadContractFromBytecode(evaluation);
             await this.defineSelectorAndSetupEnvironment(evaluation);
             await this.setupContract();
 
@@ -241,10 +239,7 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Store a pointer */
-    private async store(
-        data: Buffer,
-        evaluation: ContractEvaluation,
-    ): Promise<Buffer | Uint8Array> {
+    private store(data: Buffer, evaluation: ContractEvaluation): Buffer | Uint8Array {
         const reader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
         const value: bigint = reader.readU256();
@@ -395,8 +390,11 @@ export class ContractEvaluator extends Logger {
             load: async (data: Buffer) => {
                 return await this.load(data, evaluation);
             },
-            store: async (data: Buffer) => {
-                return await this.store(data, evaluation);
+            store: (data: Buffer) => {
+                // TODO: Remove the promise
+                return new Promise<Buffer | Uint8Array>((resolve) => {
+                    resolve(this.store(data, evaluation));
+                });
             },
             call: async (data: Buffer) => {
                 return await this.call(data, evaluation);
@@ -410,13 +408,13 @@ export class ContractEvaluator extends Logger {
         };
     }
 
-    private async loadContractFromBytecode(evaluation: ContractEvaluation): Promise<boolean> {
+    private loadContractFromBytecode(evaluation: ContractEvaluation): boolean {
         let errored: boolean = false;
         try {
             const params = this.generateContractParameters(evaluation);
 
             this._contractInstance = new RustContract(params);
-        } catch (e) {
+        } catch {
             errored = true;
         }
 
@@ -481,7 +479,7 @@ export class ContractEvaluator extends Logger {
 
         if (!evaluation.revert && !error) {
             if (!evaluation.externalCall) {
-                let deploymentPromises: Promise<void>[] = [];
+                const deploymentPromises: Promise<void>[] = [];
                 if (evaluation.deployedContracts.length > 0) {
                     for (let i = 0; i < evaluation.deployedContracts.length; i++) {
                         const contract = evaluation.deployedContracts[i];

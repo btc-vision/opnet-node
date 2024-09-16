@@ -788,9 +788,18 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Database not connected');
         }
 
-        await this.databaseManager.db.command({
-            killAllSessions: [],
-        });
+        try {
+            await this.databaseManager.db.command({
+                killAllSessions: [
+                    {
+                        user: Config.DATABASE.AUTH.USERNAME,
+                        db: Config.DATABASE.DATABASE_NAME,
+                    },
+                ],
+            });
+        } catch (e) {
+            this.error(`Error killing all pending writes: ${e}`);
+        }
     }
 
     public async saveTransactions(
@@ -802,16 +811,12 @@ export class VMMongoStorage extends VMStorage {
                 throw new Error('Transaction repository not initialized');
             }
 
-            let session = await this.databaseManager.startSession();
+            const session = await this.databaseManager.startSession();
             session.startTransaction(this.getTransactionOptions());
 
             this.saveTxSessions.push(session);
 
-            try {
-                await this.transactionRepository.saveTransactions(chunk, session);
-            } catch (e) {
-                throw e;
-            }
+            await this.transactionRepository.saveTransactions(chunk, session);
         });
 
         await Promise.all(promises);

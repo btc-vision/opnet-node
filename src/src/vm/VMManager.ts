@@ -63,7 +63,7 @@ export class VMManager extends Logger {
     private verifiedBlockHeights: Map<bigint, Promise<boolean>> = new Map();
     private contractCache: Map<string, ContractInformation> = new Map();
 
-    private vmEvaluators: Map<Address, Promise<ContractEvaluator>> = new Map();
+    private vmEvaluators: Map<Address, Promise<ContractEvaluator | null>> = new Map();
     private contractAddressCache: Map<Address, Address> = new Map();
     private cachedLastBlockHeight: Promise<bigint> | undefined;
     private isProcessing: boolean = false;
@@ -592,7 +592,7 @@ export class VMManager extends Logger {
         this.verifiedBlockHeights.clear();
         this.contractCache.clear();
 
-        for (let vmEvaluator of this.vmEvaluators.values()) {
+        for (const vmEvaluator of this.vmEvaluators.values()) {
             await vmEvaluator;
         }
 
@@ -617,10 +617,12 @@ export class VMManager extends Logger {
         blockHeight: bigint,
         contract?: ContractInformation,
     ): Promise<ContractEvaluator | null> {
-        return await this.getVMEvaluator(contractAddress, blockHeight, contract).catch((e) => {
-            this.warn(`Error getting VM evaluator: ${e as Error}`);
-            return null;
-        });
+        return await this.getVMEvaluator(contractAddress, blockHeight, contract).catch(
+            (e: unknown) => {
+                this.warn(`Error getting VM evaluator: ${e as Error}`);
+                return null;
+            },
+        );
     }
 
     private async executeCallInternal(
@@ -635,7 +637,7 @@ export class VMManager extends Logger {
         }
 
         if (params.deployedContracts) {
-            for (let contract of params.deployedContracts) {
+            for (const contract of params.deployedContracts) {
                 if (
                     contract.contractAddress === params.contractAddress ||
                     contract.virtualAddress === params.contractAddress
@@ -734,7 +736,7 @@ export class VMManager extends Logger {
 
         /** Delete the contract to prevent damage on states. */
         if (!evaluation) {
-            let error: string = 'execution reverted (evaluation)';
+            const error: string = 'execution reverted (evaluation)';
             throw new Error(error);
         }
 
@@ -909,7 +911,7 @@ export class VMManager extends Logger {
     private async getVMEvaluator(
         contractAddress: Address,
         height: bigint,
-        contractInformation?: ContractInformation | undefined,
+        contractInformation?: ContractInformation,
     ): Promise<ContractEvaluator | null> {
         if (!contractInformation) {
             contractInformation = await this.getContractInformation(contractAddress, height);
@@ -946,15 +948,16 @@ export class VMManager extends Logger {
         });
 
         // This was move on top of the error on purpose. It prevents timeout during initialization for faster processing.
-        this.vmEvaluators.set(contractAddress, newVmEvaluator as Promise<ContractEvaluator>);
+        this.vmEvaluators.set(contractAddress, newVmEvaluator);
 
-        if (!newVmEvaluator) {
+        const value: ContractEvaluator | null = await newVmEvaluator;
+        if (!value) {
             throw new Error(
                 `[getVMEvaluatorFromCache] Unable to initialize contract ${contractAddress}`,
             );
         }
 
-        return newVmEvaluator as Promise<ContractEvaluator>;
+        return value;
     }
 
     private async updateReceiptState(): Promise<void> {
@@ -1029,7 +1032,10 @@ export class VMManager extends Logger {
         /** Nothing to save. */
         if (!stateChanges) return;
 
-        let storageToUpdate: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>> = new Map();
+        const storageToUpdate: Map<
+            Address,
+            Map<StoragePointer, [MemoryValue, string[]]>
+        > = new Map();
 
         for (const [address, val] of stateChanges.entries()) {
             for (const [key, value] of val.entries()) {
@@ -1057,7 +1063,7 @@ export class VMManager extends Logger {
     }
 
     /** We must ENSURE that NOTHING get modified EVEN during the execution of the block. This is performance costly but required. */
-    private async setStorage(address: Address, pointer: bigint, value: bigint): Promise<void> {
+    private setStorage(address: Address, pointer: bigint, value: bigint): void {
         if (this.isExecutor) {
             return;
         }

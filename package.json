@@ -44,9 +44,10 @@
     "@btc-vision/bsi-db": "^1.0.4",
     "@btc-vision/logger": "^1.0.4",
     "@btc-vision/op-vm": "^0.1.4",
-    "@btc-vision/transaction": "^1.0.99",
+    "@btc-vision/transaction": "^1.0.100",
     "@chainsafe/libp2p-noise": "^15.0.0",
     "@chainsafe/libp2p-yamux": "^6.0.2",
+    "@eslint/js": "^9.10.0",
     "@libp2p/bootstrap": "^10.0.22",
     "@libp2p/identify": "^2.0.0",
     "@libp2p/interface-transport": "^4.0.3",
@@ -63,8 +64,8 @@
     "@types/debug": "^4.1.12",
     "@types/sodium-native": "^2.3.9",
     "@types/swagger-ui-express": "^4.1.6",
-    "@typescript-eslint/eslint-plugin": "^7.10.0",
-    "@typescript-eslint/parser": "^7.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.5.0",
+    "@typescript-eslint/parser": "^8.5.0",
     "asyncapi-validator": "^4.0.0",
     "bignumber.js": "^9.1.2",
     "bitcoinjs-lib": "github:btc-vision/bitcoinjs-lib",
@@ -76,7 +77,6 @@
     "figlet": "^1.7.0",
     "gulp": "^5.0.0",
     "gulp-cached": "^1.1.1",
-    "gulp-eslint": "^6.0.0",
     "gulp-logger": "^0.0.2",
     "gulp-typescript": "^6.0.0-alpha.1",
     "gulplog": "^2.2.0",
@@ -92,6 +92,7 @@
     "swagger-ui-express": "^5.0.0",
     "tiny-secp256k1": "^2.2.3",
     "toml": "^3.0.0",
+    "typescript-eslint": "^8.5.0",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.47.0",
     "xxhash-addon": "^2.0.3"
   },
@@ -99,10 +100,9 @@
     "@types/figlet": "^1.5.8",
     "@types/node": "^22.5.5",
     "@types/ssh2": "^1.15.0",
-    "eslint": "^8.57.0",
+    "eslint": "^9.10.0",
     "gulp-clean": "^0.4.0",
     "prettier": "3.2.5",
-    "typescript": "^5.6.2",
-    "typescript-eslint": "^7.10.0"
+    "typescript": "^5.6.2"
   }
 }
