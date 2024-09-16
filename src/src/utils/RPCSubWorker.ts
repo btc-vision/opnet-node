@@ -39,23 +39,20 @@ class RPCManager extends Logger {
             const data = JSON.parse(message) as { taskId: string; data: object; type: string };
 
             if (data.type === 'call') {
-                let result = await this.onCallRequest(data.data as CallRequestData);
+                let result: CallRequestResponse | undefined = await this.onCallRequest(
+                    data.data as CallRequestData,
+                );
                 if (result && !('error' in result)) {
-                    result = {
-                        ...result,
-                        // @ts-ignore
+                    result = Object.assign(result, {
                         result: result.result ? Buffer.from(result.result).toString('hex') : '',
-                        // @ts-ignore
                         changedStorage: result.changedStorage
                             ? this.convertMapToArray(result.changedStorage)
                             : [],
-                        // @ts-ignore
                         events: result.events ? this.convertEventsToArray(result.events) : [],
-                        // @ts-ignore
                         deployedContracts: result.deployedContracts
                             ? this.convertDeployedContractsToArray(result.deployedContracts)
                             : [],
-                    };
+                    });
                 }
 
                 this.send({
@@ -86,7 +83,7 @@ class RPCManager extends Logger {
         }
 
         return new Promise<VMManager>((resolve) => {
-            let startNumber = this.currentVMManagerIndex;
+            const startNumber = this.currentVMManagerIndex;
             let vmManager: VMManager | undefined;
 
             do {
@@ -211,17 +208,17 @@ class RPCManager extends Logger {
             this.vmManagers.push(vmManager);
         }
 
-        setInterval(() => {
+        setInterval(async () => {
             for (let i = 0; i < this.vmManagers.length; i++) {
                 const vmManager = this.vmManagers[i];
-                vmManager.clear();
+                await vmManager.clear();
             }
 
             contractManager.destroyAll();
         }, 30000);
     }
 
-    private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
+    private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.info(
                 `Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`,
@@ -230,7 +227,7 @@ class RPCManager extends Logger {
 
         const vmManager = await this.getNextVMManager();
 
-        let result: CallRequestResponse | void;
+        let result: CallRequestResponse | undefined;
         try {
             result = await vmManager.execute(
                 data.to,
@@ -248,80 +245,6 @@ class RPCManager extends Logger {
 
         return result;
     }
-
-    /*private async validateBlockHeaders(data: BlockDataAtHeightData): Promise<ValidatedBlockHeader> {
-        const blockNumber = BigInt(data.blockNumber);
-        const blockHeader = data.blockHeader;
-
-        const vmBlockHeader: Partial<BlockHeaderBlockDocument> = {
-            previousBlockHash: blockHeader.previousBlockHash,
-            height: DataConverter.toDecimal128(blockNumber),
-            receiptRoot: blockHeader.receiptRoot,
-            storageRoot: blockHeader.storageRoot,
-            hash: blockHeader.blockHash,
-            merkleRoot: blockHeader.merkleRoot,
-            checksumRoot: blockHeader.checksumHash,
-            previousBlockChecksum: blockHeader.previousBlockChecksum,
-            checksumProofs: this.getChecksumProofs(blockHeader.checksumProofs),
-        };
-
-        const vmManager = await this.getNextVMManager();
-
-        try {
-            const requests: [
-                Promise<boolean | null>,
-                Promise<BlockHeaderBlockDocument | undefined>,
-            ] = [
-                vmManager.validateBlockChecksum(vmBlockHeader),
-                vmManager.getBlockHeader(blockNumber),
-            ];
-
-            const [hasValidProofs, fetchedBlockHeader] = await Promise.all(requests);
-            return {
-                hasValidProofs: hasValidProofs,
-                storedBlockHeader: fetchedBlockHeader ?? null,
-            };
-        } catch (e) {}
-
-        return {
-            hasValidProofs: false,
-            storedBlockHeader: null,
-        };
-    }
-
-    private async broadcastTransaction(transaction: string): Promise<BroadcastResponse> {
-        const response: BroadcastResponse = {
-            success: false,
-            identifier: 0n,
-        };
-
-        const result: string | null = await this.bitcoinRPC
-            .sendRawTransaction({ hexstring: transaction })
-            .catch((e) => {
-                const error = e as Error;
-                response.error = error.message || 'Unknown error';
-
-                return null;
-            });
-
-        response.success = result !== null;
-        if (result) response.result = result;
-
-        return response;
-    }
-
-    private getChecksumProofs(rawProofs: ChecksumProof[]): BlockHeaderChecksumProof {
-        const proofs: BlockHeaderChecksumProof = [];
-
-        for (let i = 0; i < rawProofs.length; i++) {
-            const proof = rawProofs[i];
-            const data: [number, string[]] = [i, proof.proof];
-
-            proofs.push(data);
-        }
-
-        return proofs;
-    }*/
 }
 
 new RPCManager();

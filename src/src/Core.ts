@@ -147,24 +147,24 @@ export class Core extends Logger {
 
     private listenEvents(): void {
         let called = false;
-        process.on('SIGINT', async () => {
+        process.on('SIGINT', () => {
             if (!called) {
                 called = true;
-                await this.terminateAllActions();
+                void this.terminateAllActions();
             }
         });
 
-        process.on('SIGQUIT', async () => {
+        process.on('SIGQUIT', () => {
             if (!called) {
                 called = true;
-                await this.terminateAllActions();
+                void this.terminateAllActions();
             }
         });
 
-        process.on('SIGTERM', async () => {
+        process.on('SIGTERM', () => {
             if (!called) {
                 called = true;
-                await this.terminateAllActions();
+                void this.terminateAllActions();
             }
         });
     }
@@ -190,7 +190,7 @@ export class Core extends Logger {
     private async terminateAllActions(): Promise<void> {
         const promises: Promise<void>[] = [];
 
-        for (let thread of this.threads) {
+        for (const thread of this.threads) {
             promises.push(this.requestExitThread(thread));
         }
 
@@ -212,8 +212,7 @@ export class Core extends Logger {
                 throw new Error(`No manager target found for thread type ${type}.`);
             }
 
-            let thread = new Worker(settings.managerTarget);
-
+            const thread = new Worker(settings.managerTarget);
             thread.on('online', () => {
                 this.masterThreads[type] = thread;
 

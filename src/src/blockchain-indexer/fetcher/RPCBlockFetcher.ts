@@ -54,8 +54,8 @@ export class RPCBlockFetcher extends BlockFetcher {
             this.fail(`Error fetching block height: ${error.message}`);
         }
 
-        setTimeout(() => {
-            this.watchBlockChanges();
+        setTimeout(async () => {
+            await this.watchBlockChanges();
         }, Config.INDEXER.BLOCK_QUERY_INTERVAL);
     }
 }

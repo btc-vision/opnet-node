@@ -52,7 +52,7 @@ export class ConsensusTracker extends Logger {
         }
     }
 
-    public async lockdown(): Promise<void> {
+    public lockdown(): void {
         this.notifyArt(
             'panic',
             `LOCKDOWN`,

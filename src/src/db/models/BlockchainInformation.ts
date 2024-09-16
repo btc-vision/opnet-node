@@ -12,11 +12,9 @@ export class BlockchainInformation extends BaseModel {
     }
 
     public toDocument(): Readonly<IBlockchainInformationDocument> {
-        const document: IBlockchainInformationDocument = {
+        return {
             network: this.network,
             inProgressBlock: this.inProgressBlock,
         };
-
-        return document;
     }
 }

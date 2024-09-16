@@ -20,7 +20,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
 
     protected abstract _encryptem: EncryptemServer | EncryptemClient | undefined;
 
-    private eventHandlers: Map<string, NetworkingEventHandler<object>[]> = new Map();
+    private eventHandlers: Map<string, NetworkingEventHandler[]> = new Map();
 
     protected constructor(protected selfIdentity: OPNetIdentity | undefined) {
         super();
@@ -53,7 +53,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
             this.eventHandlers.set(event, []);
         }
 
-        this.eventHandlers.get(event)?.push(eventHandler as NetworkingEventHandler<object>);
+        this.eventHandlers.get(event)?.push(eventHandler as NetworkingEventHandler);
     }
 
     public decrypt(_raw: Uint8Array): Uint8Array {
@@ -99,10 +99,11 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
     }
 
     protected async emit<T extends string, U extends object>(event: T, data: U): Promise<void> {
-        if (!this.eventHandlers.has(event)) return;
+        const handlerFunctions = this.eventHandlers.get(event);
+        if (!handlerFunctions) return;
 
         const promises: Promise<void>[] = [];
-        for (const handler of this.eventHandlers.get(event)!) {
+        for (const handler of handlerFunctions) {
             promises.push(handler(data));
         }
 

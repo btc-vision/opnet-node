@@ -10,8 +10,6 @@ export interface TransactionInputBase {
     readonly transactionInWitness: string[];
 }
 
-export interface APIDocumentInput extends TransactionInputBase {}
-
 export class TransactionInput implements TransactionInputBase {
     public readonly originalTransactionId: string | undefined;
     public readonly outputTransactionIndex: number | undefined; // consumer output index

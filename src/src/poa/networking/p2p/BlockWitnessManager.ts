@@ -64,7 +64,7 @@ export class BlockWitnessManager extends Logger {
         }, 30000);
     }
 
-    public async init(): Promise<void> {
+    public init(): void {
         if (!DBManagerInstance.db) throw new Error('Database not initialized.');
 
         this.blockWitnessRepository = new BlockWitnessRepository(DBManagerInstance.db);
@@ -145,14 +145,13 @@ export class BlockWitnessManager extends Logger {
     public sendMessageToThread: (
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ) => Promise<ThreadData | null> = async () => {
+    ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
 
-    public broadcastBlockWitness: (blockWitness: IBlockHeaderWitness) => Promise<void> =
-        async () => {
-            throw new Error('broadcastBlockWitness not implemented.');
-        };
+    public broadcastBlockWitness: (blockWitness: IBlockHeaderWitness) => Promise<void> = () => {
+        throw new Error('broadcastBlockWitness not implemented.');
+    };
 
     public async setCurrentBlock(newBlock?: bigint): Promise<void> {
         this.currentBlock = newBlock === undefined ? await this.getCurrentBlock() : newBlock;
@@ -207,7 +206,7 @@ export class BlockWitnessManager extends Logger {
     private revertKnownWitnessesReorg(toBlock: bigint): void {
         const blocks: bigint[] = Array.from(this.knownTrustedWitnesses.keys());
 
-        for (let blockNumber of blocks) {
+        for (const blockNumber of blocks) {
             if (blockNumber >= toBlock) {
                 this.knownTrustedWitnesses.delete(blockNumber);
             }
@@ -490,7 +489,7 @@ export class BlockWitnessManager extends Logger {
 
     private async requestRPCData(
         data: RPCMessageData<BitcoinRPCThreadMessageType>,
-    ): Promise<ThreadData | void> {
+    ): Promise<ThreadData | undefined> {
         const message: ThreadMessageBase<MessageType> = {
             type: MessageType.RPC_METHOD,
             data: data,

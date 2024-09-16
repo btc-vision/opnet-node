@@ -90,7 +90,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
     }
 
     protected async onPacket(packet: OPNetPacket): Promise<boolean> {
-        const opcode: number = packet.opcode;
+        const opcode: ServerInBound = packet.opcode as ServerInBound;
 
         switch (opcode) {
             case ServerInBound.AUTHENTICATION:
@@ -138,7 +138,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return;
         }
 
-        await this.encryptem.generateServerCipherKeyPair();
+        this.encryptem.generateServerCipherKeyPair();
 
         this.generateChallenge();
 
@@ -210,7 +210,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
     private async onPingMessage(packet: OPNetPacket): Promise<void> {
         if (!this.protocol) return;
 
-        const pingPacket = await this.protocol.onIncomingPacket<IPingPacket>(packet);
+        const pingPacket = this.protocol.onIncomingPacket<IPingPacket>(packet);
         if (!pingPacket) {
             return;
         }
@@ -242,7 +242,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (!this.encryptem) return;
 
         const authPacket: ClientKeyCipherExchange | undefined =
-            (await this.protocol.onIncomingPacket<IClientKeyCipherExchangePacket>(packet)) as
+            this.protocol.onIncomingPacket<IClientKeyCipherExchangePacket>(packet) as
                 | ClientKeyCipherExchange
                 | undefined;
 
@@ -423,7 +423,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         }
 
         const authPacket: AuthenticationPacket | undefined =
-            (await this.protocol.onIncomingPacket<IAuthenticationPacket>(packet)) as
+            this.protocol.onIncomingPacket<IAuthenticationPacket>(packet) as
                 | AuthenticationPacket
                 | undefined;
 

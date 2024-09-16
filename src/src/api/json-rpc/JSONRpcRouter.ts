@@ -7,10 +7,8 @@ import { JSONRpc2ResultData } from './types/interfaces/JSONRpc2ResultData.js';
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 
 export class JSONRpcRouter {
-    constructor() {}
-
     public hasMethod(method: string): boolean {
-        return JSONRpcRouteMethods.hasOwnProperty(method);
+        return Object.prototype.hasOwnProperty.call(JSONRpcRouteMethods, method);
     }
 
     public async requestResponse<T extends JSONRpcMethods>(

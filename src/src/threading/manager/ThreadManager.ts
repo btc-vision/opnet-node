@@ -48,7 +48,7 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
         await this.threadManager.createThreads();
     }
 
-    protected async init(): Promise<void> {
+    protected init(): void {
         this.threadManager.onGlobalMessage = this.onGlobalMessage.bind(this);
         this.threadManager.sendLinkToThreadsOfType = this.sendLinkToThreadsOfType.bind(this);
         this.threadManager.sendLinkMessageToThreadOfType =
@@ -61,25 +61,25 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
         }, 3000);
     }
 
-    protected abstract createLinkBetweenThreads(): Promise<void>;
+    protected abstract createLinkBetweenThreads(): Promise<void> | void;
 
     protected abstract sendLinkToThreadsOfType(
         threadType: ThreadTypes,
         threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean>;
+    ): Promise<boolean> | boolean;
 
     protected abstract sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         message: LinkThreadRequestMessage,
-    ): Promise<boolean>;
+    ): Promise<boolean> | boolean;
 
     protected abstract onGlobalMessage(
         msg: ThreadMessageBase<MessageType>,
         thread: Worker,
-    ): Promise<void>;
+    ): Promise<void> | void;
 
-    protected abstract onExitRequested(): Promise<void>;
+    protected abstract onExitRequested(): Promise<void> | void;
 
     private async onParentMessage(msg: ThreadMessageBase<MessageType>): Promise<void> {
         switch (msg.type) {

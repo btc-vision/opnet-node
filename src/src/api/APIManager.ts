@@ -18,13 +18,10 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
     constructor() {
         super();
 
-        void this.init();
+        this.init();
     }
 
-    protected async onGlobalMessage(
-        msg: ThreadMessageBase<MessageType>,
-        _thread: Worker,
-    ): Promise<void> {
+    protected onGlobalMessage(msg: ThreadMessageBase<MessageType>, _thread: Worker): void {
         switch (msg.type) {
             default: {
                 throw new Error('Unknown message type.');
@@ -34,11 +31,11 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
 
     protected async createLinkBetweenThreads(): Promise<void> {}
 
-    protected async sendLinkToThreadsOfType(
+    protected sendLinkToThreadsOfType(
         threadType: ThreadTypes,
         _threadId: number,
         _message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean> {
+    ): boolean {
         switch (threadType) {
             default: {
                 return false;
@@ -46,16 +43,16 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
         }
     }
 
-    protected async onExitRequested(): Promise<void> {
-        await this.threadManager.sendToAllThreads({
+    protected onExitRequested(): void {
+        this.threadManager.sendToAllThreads({
             type: MessageType.EXIT_THREAD,
         });
     }
 
-    protected async sendLinkMessageToThreadOfType(
+    protected sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,
-    ): Promise<boolean> {
+    ): boolean {
         switch (threadType) {
             default: {
                 return false;
@@ -65,4 +62,4 @@ export class APIManager extends ThreadManager<ThreadTypes.API> {
 }
 
 const apiManager = new APIManager();
-void apiManager.createThreads();
+await apiManager.createThreads();

@@ -15,7 +15,7 @@ export class RPCSubWorkerManager extends Logger {
 
     private nextWorkerIndex: number = 0;
 
-    public async startWorkers(): Promise<void> {
+    public startWorkers(): void {
         for (let i = 0; i < this.numConcurrent; i++) {
             const worker = this.createWorker();
             this.workers.push(worker);
@@ -52,7 +52,7 @@ export class RPCSubWorkerManager extends Logger {
         return `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
     }
 
-    private async onMessage(message: { taskId: string; data: object }): Promise<void> {
+    private onMessage(message: { taskId: string; data: object }): void {
         try {
             const task = this.tasks.get(message.taskId);
             if (task) {

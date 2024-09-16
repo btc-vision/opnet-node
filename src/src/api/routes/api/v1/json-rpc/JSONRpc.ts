@@ -18,7 +18,7 @@ export class JSONRpc extends Route<
         super(Routes.JSON_RPC, RouteType.POST);
     }
 
-    public async getData(): Promise<JSONRpc2Result<JSONRpcMethods> | undefined> {
+    public getData(): JSONRpc2Result<JSONRpcMethods> | undefined {
         return undefined;
     }
 

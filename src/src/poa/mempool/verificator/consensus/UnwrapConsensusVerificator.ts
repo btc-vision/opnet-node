@@ -38,7 +38,7 @@ export abstract class UnwrapConsensusVerificator<T extends Consensus> extends Lo
         super();
     }
 
-    public abstract createRepositories(): Promise<void>;
+    public abstract createRepositories(): void;
 
     public abstract verify(
         data: PartialUnwrapPSBTDecodedData,

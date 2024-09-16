@@ -33,9 +33,17 @@ export class ContractEvaluator extends Logger {
 
     private isProcessing: boolean = false;
 
-    private viewAbi: SelectorsMap = new DeterministicMap(BinaryReader.stringCompare);
-    private methodAbi: MethodMap = new DeterministicSet<Selector>(BinaryReader.numberCompare);
-    private writeMethods: MethodMap = new DeterministicSet<Selector>(BinaryReader.numberCompare);
+    private viewAbi: SelectorsMap = new DeterministicMap((a: string, b: string) => {
+        return BinaryReader.stringCompare(a, b);
+    });
+
+    private methodAbi: MethodMap = new DeterministicSet<Selector>((a: number, b: number) => {
+        return BinaryReader.numberCompare(a, b);
+    });
+
+    private writeMethods: MethodMap = new DeterministicSet<Selector>((a: number, b: number) => {
+        return BinaryReader.numberCompare(a, b);
+    });
 
     private contractOwner: Address | undefined;
     private contractAddress: Address | undefined;

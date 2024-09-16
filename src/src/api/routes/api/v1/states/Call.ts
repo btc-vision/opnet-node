@@ -277,9 +277,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         let blockNumber: bigint | undefined;
 
         if (Array.isArray(params)) {
-            address = params.shift() as Address | undefined;
-            calldata = params.shift() as string | undefined;
-            from = params.shift() as Address | undefined;
+            address = params.shift();
+            calldata = params.shift();
+            from = params.shift();
             blockNumber = params.shift() as bigint | undefined;
         } else {
             address = params.to;

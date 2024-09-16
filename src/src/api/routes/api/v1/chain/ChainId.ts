@@ -7,16 +7,12 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { ChainIdResult } from '../../../../json-rpc/types/interfaces/results/chain/ChainIdResult.js';
 import { Route } from '../../../Route.js';
 
-export class ChainId extends Route<
-    Routes.CHAIN_ID,
-    JSONRpcMethods.CHAIN_ID,
-    ChainIdResult | undefined
-> {
+export class ChainId extends Route<Routes.CHAIN_ID, JSONRpcMethods.CHAIN_ID, ChainIdResult> {
     constructor() {
         super(Routes.CHAIN_ID, RouteType.GET);
     }
 
-    public async getData(): Promise<ChainIdResult | undefined> {
+    public getData(): ChainIdResult {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
@@ -24,8 +20,8 @@ export class ChainId extends Route<
         return `0x${this.getChainId().toString(16)}`;
     }
 
-    public async getDataRPC(): Promise<ChainIdResult | undefined> {
-        const data = await this.getData();
+    public getDataRPC(): ChainIdResult {
+        const data = this.getData();
         if (!data) throw new Error(`Failed to get chain ID`);
 
         return data;
@@ -43,9 +39,9 @@ export class ChainId extends Route<
      * @response default - Unexpected error
      * @responseContent {string} 200.application/json
      */
-    protected async onRequest(_req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
+    protected onRequest(_req: Request, res: Response, _next?: MiddlewareNext): undefined {
         try {
-            const data = await this.getData();
+            const data = this.getData();
 
             if (data) {
                 res.status(200);

@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/bsi-common';
+import {Logger} from '@btc-vision/bsi-common';
 
 import sodium from 'sodium-native';
 
@@ -17,7 +17,7 @@ export class EncryptemClient extends Logger {
     #serverPublicKey: Buffer | null = null;
     #serverSignaturePublicKey: Buffer | null = null;
 
-    constructor() {
+    public constructor() {
         super();
     }
 
@@ -61,13 +61,13 @@ export class EncryptemClient extends Logger {
         return this.#serverSignaturePublicKey;
     }
 
-    public async generateClientCipherKeyPair(authKey: Uint8Array): Promise<boolean> {
-        const keys = await this.generateNewCipherKey();
+    public generateClientCipherKeyPair(authKey: Uint8Array): boolean {
+        const keys = this.generateNewCipherKey();
 
         this.setClientPublicKey(keys.publicKey);
         this.setClientSecretKey(keys.privateKey);
 
-        const signatureSeededKeyPairs = await this.generateSignatureSeededKeyPairs(authKey);
+        const signatureSeededKeyPairs = this.generateSignatureSeededKeyPairs(authKey);
         this.#clientSignaturePublicKey = signatureSeededKeyPairs.publicKey;
         this.#clientSignaturePrivateKey = signatureSeededKeyPairs.privateKey;
 
@@ -105,9 +105,9 @@ export class EncryptemClient extends Logger {
         if (!(this.#serverPublicKey && this.#clientSecretKey && this.#serverSignaturePublicKey)) {
             throw new Error('One of the client key is null.');
         }
-        let auth = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
-        let signature = Buffer.from(msg.slice(auth.length, auth.length + 64));
-        let data = Buffer.from(msg.slice(auth.length + 64, msg.length));
+        const auth = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
+        const signature = Buffer.from(msg.slice(auth.length, auth.length + 64));
+        const data = Buffer.from(msg.slice(auth.length + 64, msg.length));
 
         return this.#decrypt(
             data,
@@ -141,12 +141,12 @@ export class EncryptemClient extends Logger {
         return this.sodium.crypto_auth_verify(out, input, k);
     }
 
-    private async generateNewCipherKey(): Promise<{
+    private generateNewCipherKey(): {
         publicKey: Buffer;
         privateKey: Buffer;
-    }> {
-        let publicKey = this.sodium.sodium_malloc(this.sodium.crypto_box_PUBLICKEYBYTES);
-        let privateKey = this.sodium.sodium_malloc(this.sodium.crypto_box_PUBLICKEYBYTES);
+    } {
+        const publicKey = this.sodium.sodium_malloc(this.sodium.crypto_box_PUBLICKEYBYTES);
+        const privateKey = this.sodium.sodium_malloc(this.sodium.crypto_box_PUBLICKEYBYTES);
 
         this.sodium.crypto_box_keypair(publicKey, privateKey);
 
@@ -157,7 +157,7 @@ export class EncryptemClient extends Logger {
     }
 
     private generateNonce(): Buffer {
-        let keyBuf = this.sodium.sodium_malloc(this.sodium.crypto_box_NONCEBYTES);
+        const keyBuf = this.sodium.sodium_malloc(this.sodium.crypto_box_NONCEBYTES);
         this.sodium.randombytes_buf(keyBuf);
         return keyBuf;
     }
@@ -169,13 +169,13 @@ export class EncryptemClient extends Logger {
         senderPublicKey: Buffer,
         senderSigningPrivateKey: Buffer,
     ): Uint8Array {
-        let nonce = this.generateNonce();
-        let cipherMsg = this.sodium.sodium_malloc(m.length + this.sodium.crypto_box_MACBYTES);
+        const nonce = this.generateNonce();
+        const cipherMsg = this.sodium.sodium_malloc(m.length + this.sodium.crypto_box_MACBYTES);
 
         this.sodium.crypto_box_easy(cipherMsg, m, nonce, receiverPublicKey, senderPrivateKey);
 
-        let finalMsg = Buffer.concat([nonce, cipherMsg]);
-        let signedMessage = this.#signMessageV2(
+        const finalMsg = Buffer.concat([nonce, cipherMsg]);
+        const signedMessage = this.#signMessageV2(
             cipherMsg,
             senderPublicKey,
             senderSigningPrivateKey,
@@ -184,8 +184,8 @@ export class EncryptemClient extends Logger {
             throw new Error(`Failed to sign message.`);
         }
 
-        let auth = this.#authenticate(signedMessage, senderPublicKey);
-        let finalMessageBuffer = Buffer.concat([auth, signedMessage, finalMsg]);
+        const auth = this.#authenticate(signedMessage, senderPublicKey);
+        const finalMessageBuffer = Buffer.concat([auth, signedMessage, finalMsg]);
 
         return new Uint8Array(finalMessageBuffer);
     }
@@ -221,7 +221,7 @@ export class EncryptemClient extends Logger {
             receiverPrivateKey,
         );
 
-        let verified = this.#verifySignature(cipher, signature, senderSigningPublicKey);
+        const verified = this.#verifySignature(cipher, signature, senderSigningPublicKey);
         if (!verified) {
             throw new Error('Invalid signature');
         }
@@ -229,8 +229,8 @@ export class EncryptemClient extends Logger {
     }
 
     #authenticate(input: Buffer, sender: Buffer): Buffer {
-        let out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
-        let k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
+        const out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
+        const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
         this.sodium.randombytes_buf_deterministic(k, sender);
 
         this.sodium.crypto_auth(out, input, k);
@@ -241,7 +241,7 @@ export class EncryptemClient extends Logger {
     #verifySignature(m: Buffer, signature: Buffer, publicKey: Buffer): boolean {
         if (m !== null && m) {
             try {
-                let signed = this.sodium.crypto_sign_verify_detached(signature, m, publicKey); //this.sodium.crypto_sign_open(m, signature, publicKey);
+                const signed = this.sodium.crypto_sign_verify_detached(signature, m, publicKey); //this.sodium.crypto_sign_open(m, signature, publicKey);
 
                 return signed;
             } catch (e) {
@@ -258,7 +258,7 @@ export class EncryptemClient extends Logger {
 
         this.sodium.crypto_sign_detached(signedMessageBuffer, m, privateKey);
 
-        let signed: boolean = this.#verifySignature(m, signedMessageBuffer, publicSignKey);
+        const signed: boolean = this.#verifySignature(m, signedMessageBuffer, publicSignKey);
         if (!signed) {
             return null;
         }
@@ -266,25 +266,10 @@ export class EncryptemClient extends Logger {
         return signedMessageBuffer;
     }
 
-    #signMessage(m: Buffer, publicSignKey: Buffer, privateSigningKey: Buffer): Buffer | null {
-        let MESSAGE_LEN = m.length;
-        let signedLength = this.sodium.crypto_sign_BYTES + MESSAGE_LEN;
-        let signedMessageBuffer = this.sodium.sodium_malloc(signedLength);
-
-        this.sodium.crypto_sign(signedMessageBuffer, m, privateSigningKey);
-
-        let signed = this.#verifySignature(m, signedMessageBuffer, publicSignKey);
-        if (!signed) {
-            return null;
-        } else {
-            return signedMessageBuffer;
-        }
-    }
-
-    private async generateSignatureSeededKeyPairs(authKey: Uint8Array): Promise<{
+    private generateSignatureSeededKeyPairs(authKey: Uint8Array): {
         publicKey: Buffer;
         privateKey: Buffer;
-    }> {
+    } {
         const privateKey = authKey.slice(0, 64);
         const publicKey = authKey.slice(64, 96);
 

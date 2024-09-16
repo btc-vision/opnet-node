@@ -7,10 +7,6 @@ export interface BalanceOfOutputTransactionFromDB {
 }
 
 export class BalanceOfAggregation extends UTXOsAggregation {
-    constructor() {
-        super();
-    }
-
     public getAggregation(wallet: Address, filterOrdinals: boolean = true): Document[] {
         const aggregation: Document[] = super.getAggregation(wallet, false, filterOrdinals);
 

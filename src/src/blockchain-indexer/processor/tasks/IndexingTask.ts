@@ -81,22 +81,22 @@ export class IndexingTask extends Logger {
     public sendMessageToThread: (
         type: ThreadTypes,
         message: ThreadMessageBase<MessageType>,
-    ) => Promise<ThreadData | null> = async () => {
+    ) => Promise<ThreadData | null> | null = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
 
-    public onComplete: () => Promise<void> = async () => {
+    public onComplete: () => Promise<void> | void = () => {
         throw new Error('onComplete not implemented.');
     };
 
-    public verifyReorg: () => Promise<boolean> = async () => {
+    public verifyReorg: () => Promise<boolean> | boolean = () => {
         throw new Error('verifyReorg not implemented.');
     };
 
     public destroy(): void {
-        this.sendMessageToThread = async () => null;
-        this.onComplete = async () => void 0;
-        this.verifyReorg = async () => true;
+        this.sendMessageToThread = () => null;
+        this.onComplete = () => void 0;
+        this.verifyReorg = () => true;
 
         this._abortController = null;
 
@@ -113,8 +113,8 @@ export class IndexingTask extends Logger {
         // Process task
         try {
             // First we wait for the prefetch to complete
-            const response = await this.prefetchPromise.catch((error) => {
-                throw error;
+            const response = await this.prefetchPromise.catch((error: unknown) => {
+                throw error as Error;
             });
 
             this.prefetchPromise = null;
@@ -139,7 +139,7 @@ export class IndexingTask extends Logger {
             this.finalizeEnd = Date.now();
 
             // Verify finalization
-            if (resp[1] === false) {
+            if (!resp[1]) {
                 throw new Error('Block finalization failed');
             }
 
@@ -180,14 +180,14 @@ export class IndexingTask extends Logger {
         }
 
         this.prefetchPromise = new Promise<Error | undefined>(
-            async (resolve: (error?: Error) => void) => {
+            (resolve: (error?: Error) => void) => {
                 this.prefetchResolver = (error?: Error) => {
                     this.prefetchResolver = null;
 
                     resolve(error);
                 };
 
-                await this.processPrefetch();
+                void this.processPrefetch();
             },
         );
     }
@@ -200,7 +200,7 @@ export class IndexingTask extends Logger {
             await this.vmManager.prepareBlock(this.tip);
 
             // Save generic transactions
-            await this.block.insertPartialTransactions(this.vmManager);
+            this.block.insertPartialTransactions(this.vmManager);
 
             // Process block.
             const success = await this.block.execute(

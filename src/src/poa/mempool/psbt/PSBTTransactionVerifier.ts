@@ -38,7 +38,7 @@ export class PSBTTransactionVerifier extends Logger {
     }
 
     public async verify(data: Uint8Array): Promise<KnownPSBTObject | false> {
-        const psbtType = data[0];
+        const psbtType: PSBTTypes = data[0];
         const version = data[1];
 
         data = data.slice(2);

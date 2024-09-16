@@ -15,12 +15,12 @@ export interface IAuthenticationPacket extends PackedMessage {
     magicNumber?: number;
 }
 
-export class AuthenticationPacket extends Packet<IAuthenticationPacket, {}, {}> {
+export class AuthenticationPacket extends Packet<IAuthenticationPacket, object, object> {
     public static TYPE: Packets = Packets.Authentication;
 
     protected opcode: ServerInBound | ServerOutBound = ServerInBound.AUTHENTICATION;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

@@ -14,7 +14,7 @@ export class Ping extends Packet<IPingPacket, IPingPacket, IPingPacket> {
 
     protected readonly opcode: ServerInBound = ServerInBound.PING;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

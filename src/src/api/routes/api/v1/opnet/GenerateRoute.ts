@@ -79,7 +79,7 @@ export class GenerateRoute extends Route<
 
         switch (target) {
             case GenerateTarget.WRAP:
-                return await this.onGenerateWrap(amount);
+                return this.onGenerateWrap(amount);
             case GenerateTarget.UNWRAP:
                 return await this.generateUnwrapParameters(BigInt(amount), receiver);
             default:
@@ -144,9 +144,11 @@ export class GenerateRoute extends Route<
             throw new Error('Params not provided.');
         }
 
-        const amount: string | bigint = req.body.amount;
-        const target: GenerateTarget = req.body.target;
-        const receiver: Address | undefined = req.body.receiver;
+        const body = req.body as GenerateParamsAsObject;
+
+        const amount: string | bigint | undefined = body.amount;
+        const target: GenerateTarget | string | undefined = body.target;
+        const receiver: Address | undefined = body.receiver;
 
         if (!req.body || !amount) {
             res.status(400);
@@ -165,7 +167,6 @@ export class GenerateRoute extends Route<
         const writer = new BinaryWriter();
         writer.writeSelector(GenerateRoute.WITHDRAWABLE_BALANCE_OF);
         writer.writeAddress(receiver);
-        1;
         return Buffer.from(writer.getBuffer()).toString('hex');
     }
 
@@ -215,7 +216,7 @@ export class GenerateRoute extends Route<
         return generated;
     }
 
-    private async onGenerateWrap(amount: bigint): Promise<WrappedGenerationResult | undefined> {
+    private onGenerateWrap(amount: bigint): WrappedGenerationResult | undefined {
         if (amount < this.MINIMUM_AMOUNT) {
             throw new Error(`Amount must be at least ${this.MINIMUM_AMOUNT} sat.`);
         }
@@ -225,7 +226,7 @@ export class GenerateRoute extends Route<
         };
 
         const generated: WrappedGenerationResult | undefined =
-            await this.wrapTransactionGenerator.generateWrapParameters(params);
+            this.wrapTransactionGenerator.generateWrapParameters(params);
 
         if (!generated) throw new Error('Failed to generate wrap transaction');
 

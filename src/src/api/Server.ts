@@ -1,6 +1,6 @@
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import cors from 'cors';
-import HyperExpress, { MiddlewareHandler } from 'hyper-express';
+import HyperExpress, { MiddlewareHandler, WSRouteHandler, WSRouteOptions } from 'hyper-express';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -13,6 +13,7 @@ import { DefinedRoutes } from './routes/DefinedRoutes.js';
 import { DBManagerInstance } from '../db/DBManager.js';
 import { BlockchainInfoRepository } from '../db/repositories/BlockchainInfoRepository.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
+import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
 
 Globals.register();
 
@@ -49,9 +50,8 @@ export class Server extends Logger {
     private readonly storage: VMStorage = new VMMongoStorage(Config);
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
-    #blockHeight: bigint | undefined;
 
-    constructor() {
+    public constructor() {
         super();
     }
 
@@ -84,11 +84,14 @@ export class Server extends Logger {
         this.loadRoutes();
 
         // WS
-        // @ts-ignore
-        this.app.ws(`${this.apiPrefix}/live`, this.onNewWebsocketConnection.bind(this), {
-            maxPayloadLength: 16 * 1024 * 1024,
-            idleTimeout: 4 * 3,
-        });
+        this.app.ws(
+            `${this.apiPrefix}/live`,
+            {
+                maxPayloadLength: 16 * 1024 * 1024,
+                idleTimeout: 4 * 3,
+            } as WSRouteOptions,
+            this.onNewWebsocketConnection.bind(this) as WSRouteHandler,
+        );
 
         //LISTEN
         await this.app.listen(this.serverPort);
@@ -104,14 +107,6 @@ export class Server extends Logger {
         await this.createServer();
     }
 
-    private blockHeight(): bigint {
-        if (this.#blockHeight === undefined) {
-            throw new Error('Block height not set.');
-        }
-
-        return this.#blockHeight;
-    }
-
     private async setupConsensus(): Promise<void> {
         if (!DBManagerInstance.db) {
             throw new Error('DBManager not initialized');
@@ -122,7 +117,6 @@ export class Server extends Logger {
         this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
             try {
                 OPNetConsensus.setBlockHeight(blockHeight);
-                this.#blockHeight = blockHeight;
             } catch (e) {
                 this.error(`Error setting block height.`);
             }
@@ -161,30 +155,26 @@ export class Server extends Logger {
 
     /**
      * Handles new websocket connections.
-     * @param _req The request
-     * @param res The response
+     * @param {Websocket} websocket
      * @private
      * @async
      */
-    private async onNewWebsocketConnection(_req: Request, res: Response): Promise<void> {
+    private onNewWebsocketConnection(websocket: Websocket): void {
         this.log('New websocket connection detected');
 
-        // @ts-ignore
-        res.on('connection', (ws: IWebSocket<{}>) => {
-            /*let newClient = new WebsocketClientManager(req, res, ws);
-            this.websockets.push(newClient);
+        /*let newClient = new WebsocketClientManager(req, res, ws);
+        this.websockets.push(newClient);
 
-            newClient.onDestroy = () => {
-                this.websockets.splice(this.websockets.indexOf(newClient), 1);
-            };
+        newClient.onDestroy = () => {
+            this.websockets.splice(this.websockets.indexOf(newClient), 1);
+        };
 
-            newClient.init();*/
+        newClient.init();*/
 
-            ws.close();
-        });
+        websocket.close();
     }
 
-    private async handleAny(_req: Request, res: Response, _next: MiddlewareNext): Promise<void> {
+    private handleAny(_req: Request, res: Response, _next: MiddlewareNext): void {
         if (_req.method !== 'OPTIONS') {
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');

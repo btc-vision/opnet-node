@@ -29,5 +29,5 @@ export abstract class UnwrapConsensus<T extends Consensus> extends Logger {
         super();
     }
 
-    public abstract finalizePSBT(psbt: Psbt, data: UnwrapPSBTDecodedData): Promise<FinalizedPSBT>;
+    public abstract finalizePSBT(psbt: Psbt, data: UnwrapPSBTDecodedData): Promise<FinalizedPSBT> | FinalizedPSBT;
 }

@@ -9,8 +9,6 @@ import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/process
 import { TransactionDocumentForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 
 export class DeploymentTxEncoder {
-    constructor() {}
-
     public async addDeploymentData(
         tx: TransactionDocumentForAPI<OPNetTransactionTypes>,
         height: bigint,

@@ -135,7 +135,7 @@ export class P2PManager extends Logger {
     public sendMessageToThread: (
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ) => Promise<ThreadData | null> = async () => {
+    ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
 
@@ -154,12 +154,12 @@ export class P2PManager extends Logger {
         await DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
-        await this.blockWitnessManager.init();
+        this.blockWitnessManager.init();
         await this.blockWitnessManager.setCurrentBlock();
 
         this.node = await this.createNode();
 
-        await this.addListeners();
+        this.addListeners();
         await this.startNode();
         await this.addHandles();
         await this.onStarted();
@@ -253,7 +253,7 @@ export class P2PManager extends Logger {
         },
     ): Promise<number> {
         const broadcastPromises: Promise<void>[] = [];
-        for (let peer of this.peers.values()) {
+        for (const peer of this.peers.values()) {
             if (!peer.isAuthenticated) continue;
 
             broadcastPromises.push(peer.broadcastMempoolTransaction(transaction));
@@ -291,7 +291,7 @@ export class P2PManager extends Logger {
         for (const [_peerId, peer] of this.peers) {
             if (!peer.isAuthenticated) continue;
 
-            generatedWitness = await peer.generateWitnessToBroadcast(blockWitness);
+            generatedWitness = peer.generateWitnessToBroadcast(blockWitness);
             if (generatedWitness) break;
         }
 
@@ -315,7 +315,7 @@ export class P2PManager extends Logger {
         return this.config.P2P.IS_BOOTSTRAP_NODE;
     }
 
-    private async addListeners(): Promise<void> {
+    private addListeners(): void {
         if (this.node === undefined) {
             throw new Error('Node not initialized');
         }
@@ -350,7 +350,7 @@ export class P2PManager extends Logger {
         }, 15000);
     }
 
-    private async onPeerDiscovery(evt: CustomEvent<PeerInfo>): Promise<void> {
+    private onPeerDiscovery(evt: CustomEvent<PeerInfo>): void {
         const peerId = evt.detail.id.toString();
 
         this.info(`Discovered peer: ${peerId}`);
@@ -528,7 +528,7 @@ export class P2PManager extends Logger {
             const batch = peersToTry.slice(i, i + maxPerBatch);
             const promises: Promise<Peer>[] = [];
 
-            for (let peerData of batch) {
+            for (const peerData of batch) {
                 //const has = await this.node.peerStore.has(peerData.id);
                 //if (has) continue;
 
@@ -552,10 +552,10 @@ export class P2PManager extends Logger {
     }
 
     private reportAuthenticatedPeer(_peerId: PeerId): void {
-        void this.logOPNetInfo();
+        this.logOPNetInfo();
     }
 
-    private async logOPNetInfo(): Promise<void> {
+    private logOPNetInfo(): void {
         if (!this.startedIndexer) {
             this.startedIndexer = true;
 
@@ -572,7 +572,7 @@ export class P2PManager extends Logger {
         }
     }
 
-    private async startIndexing(): Promise<void> {
+    private startIndexing(): void {
         // We use a delay here, so it allow the user to view their peer information. This delay is not required.
         setTimeout(async () => {
             const startupMessage: StartIndexer = {
@@ -639,7 +639,7 @@ export class P2PManager extends Logger {
         // While there remain elements to shuffle...
         while (currentIndex != 0) {
             // Pick a remaining element...
-            let randomIndex = Math.floor(Math.random() * currentIndex);
+            const randomIndex = Math.floor(Math.random() * currentIndex);
             currentIndex--;
 
             // And swap it with the current element.
@@ -696,7 +696,7 @@ export class P2PManager extends Logger {
         this.p2pConfigurations.savePeer(this.node.peerId);
 
         await this.refreshRouting();
-        await this.startIndexing();
+        this.startIndexing();
     }
 
     private notifyArt(
@@ -746,7 +746,7 @@ export class P2PManager extends Logger {
 
     private async disconnectPeer(
         peerId: PeerId,
-        code: number = DisconnectionCode.RECONNECT,
+        code: DisconnectionCode = DisconnectionCode.RECONNECT,
         _reason?: string,
     ): Promise<void> {
         if (this.node === undefined) {
@@ -984,6 +984,7 @@ export class P2PManager extends Logger {
         };
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await
     private async denyOutboundUpgradedConnection(
         peerId: PeerId,
         _maConn: MultiaddrConnection,
@@ -1001,6 +1002,7 @@ export class P2PManager extends Logger {
         return false;
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await
     private async denyOutboundConnection(
         peerId: PeerId,
         _maConn: MultiaddrConnection,
@@ -1028,10 +1030,12 @@ export class P2PManager extends Logger {
         return info !== undefined;
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await
     private async denyInboundConnection(_maConn: MultiaddrConnection): Promise<boolean> {
         return false;
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await
     private async denyInboundUpgradedConnection(
         peerId: PeerId,
         _maConn: MultiaddrConnection,
@@ -1060,6 +1064,7 @@ export class P2PManager extends Logger {
         return baseConfigs;
     }
 
+    // eslint-disable-next-line @typescript-eslint/require-await
     private async addressFilter(peerId: PeerId, multiaddr: Multiaddr): Promise<boolean> {
         const peerIdStr: string = peerId.toString();
         const ip: string = multiaddr.nodeAddress().address;

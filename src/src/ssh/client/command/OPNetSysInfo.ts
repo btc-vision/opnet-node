@@ -12,7 +12,7 @@ export class OPNetSysInfo extends Command {
 
     private interval: NodeJS.Timeout | null = null;
 
-    constructor() {
+    public constructor() {
         super();
     }
 

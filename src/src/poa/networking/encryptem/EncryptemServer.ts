@@ -1,4 +1,4 @@
-import { Logger } from '@btc-vision/bsi-common';
+import {Logger} from '@btc-vision/bsi-common';
 import sodium from 'sodium-native';
 
 /** Merge client and server encryption and decryption into one class */
@@ -16,7 +16,7 @@ export class EncryptemServer extends Logger {
     #clientSignaturePublicKey: Buffer | null = null;
     #clientPublicKey: Buffer | null = null;
 
-    constructor() {
+    public constructor() {
         super();
     }
 
@@ -58,12 +58,12 @@ export class EncryptemServer extends Logger {
         return this.#serverSignaturePublicKey;
     }
 
-    public async generateServerCipherKeyPair(): Promise<void> {
-        const keys = await this.generateNewCipherKey();
+    public generateServerCipherKeyPair(): void {
+        const keys = this.generateNewCipherKey();
         this.#serverPublicKey = keys.publicKey;
         this.#serverPrivateKey = keys.privateKey;
 
-        const signatureSeededKeyPairs = await this.generateSignatureSeededKeyPairs(keys.publicKey);
+        const signatureSeededKeyPairs = this.generateSignatureSeededKeyPairs(keys.publicKey);
 
         this.#serverSignaturePublicKey = signatureSeededKeyPairs.publicKey;
         this.#serverSignaturePrivateKey = signatureSeededKeyPairs.privateKey;
@@ -203,8 +203,8 @@ export class EncryptemServer extends Logger {
     }
 
     #authenticate(input: Buffer, sender: Buffer): Buffer {
-        let out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
-        let k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
+        const out = this.sodium.sodium_malloc(this.sodium.crypto_auth_BYTES);
+        const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
         this.sodium.randombytes_buf_deterministic(k, sender);
 
         this.sodium.crypto_auth(out, input, k);
@@ -226,9 +226,7 @@ export class EncryptemServer extends Logger {
             throw new Error('Server signature private key is null.');
         }
 
-        const signedLength = this.sodium.crypto_sign_BYTES;
-        const signedMessageBuffer = this.sodium.sodium_malloc(signedLength);
-
+        const signedMessageBuffer = this.sodium.sodium_malloc(this.sodium.crypto_sign_BYTES);
         this.sodium.crypto_sign_detached(signedMessageBuffer, m, this.#serverSignaturePrivateKey);
 
         if (!this.#serverSignaturePublicKey) {
@@ -248,9 +246,10 @@ export class EncryptemServer extends Logger {
         return signedMessageBuffer;
     }
 
-    private async generateSignatureSeededKeyPairs(
-        seed: Buffer,
-    ): Promise<{ publicKey: Buffer; privateKey: Buffer }> {
+    private generateSignatureSeededKeyPairs(seed: Buffer): {
+        publicKey: Buffer;
+        privateKey: Buffer;
+    } {
         const publicKey = this.sodium.sodium_malloc(this.sodium.crypto_sign_PUBLICKEYBYTES);
         const privateKey = this.sodium.sodium_malloc(this.sodium.crypto_sign_SECRETKEYBYTES);
         this.sodium.crypto_sign_seed_keypair(publicKey, privateKey, seed);
@@ -261,7 +260,7 @@ export class EncryptemServer extends Logger {
         };
     }
 
-    private async generateNewCipherKey(): Promise<{ publicKey: Buffer; privateKey: Buffer }> {
+    private generateNewCipherKey(): { publicKey: Buffer; privateKey: Buffer } {
         const publicKey = this.sodium.sodium_malloc(this.sodium.crypto_box_PUBLICKEYBYTES);
         const privateKey = this.sodium.sodium_malloc(this.sodium.crypto_box_PUBLICKEYBYTES);
 

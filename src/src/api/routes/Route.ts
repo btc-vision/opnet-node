@@ -16,7 +16,7 @@ import { Config } from '../../config/Config.js';
 export abstract class Route<
     T extends Routes,
     R extends JSONRpcMethods,
-    U extends unknown | undefined,
+    U extends object | string | undefined,
 > extends Logger {
     protected storage: VMStorage | undefined;
 
@@ -70,7 +70,7 @@ export abstract class Route<
         req: Request,
         res: Response,
         next?: MiddlewareNext,
-    ): Promise<void | MiddlewarePromise> | void | MiddlewarePromise;
+    ): Promise<undefined | MiddlewarePromise> | undefined | MiddlewarePromise;
 
     protected abstract initialize(): void;
 
@@ -78,7 +78,7 @@ export abstract class Route<
         req: Request,
         res: Response,
         next?: MiddlewareNext,
-    ): Promise<MiddlewarePromise | void> {
+    ): Promise<MiddlewarePromise | undefined> {
         return this.onRequest(req, res, next);
     }
 }

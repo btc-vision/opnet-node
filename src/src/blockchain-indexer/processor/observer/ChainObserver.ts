@@ -106,7 +106,7 @@ export class ChainObserver extends Logger {
         this.consensusTracker.setConsensusBlockHeight(this.pendingTaskHeight);
     }
 
-    public notifyBlockProcessed: (block: BlockProcessedData) => Promise<void> = async () => {
+    public notifyBlockProcessed: (block: BlockProcessedData) => Promise<void> = () => {
         throw new Error('notifyBlockProcessed not implemented.');
     };
 
@@ -131,7 +131,7 @@ export class ChainObserver extends Logger {
         this.updateStatus();
     }
 
-    public async onBlockChange(blockInfo: BlockHeaderInfo): Promise<void> {
+    public onBlockChange(blockInfo: BlockHeaderInfo): void {
         const height = BigInt(blockInfo.height);
         const hash = blockInfo.hash;
 
@@ -143,7 +143,7 @@ export class ChainObserver extends Logger {
         this.log(`Block change detected: ${height} - ${hash}`);
     }
 
-    public async watchBlockchain(): Promise<void> {
+    public watchBlockchain(): void {
         this.info(`Read only mode enabled.`);
 
         // TODO: Verify this.

@@ -118,7 +118,9 @@ export class ContractEvaluation implements IEvaluationParameters {
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
         const current =
             this.storage.get(this.contractAddress) ||
-            new DeterministicMap(BinaryReader.bigintCompare);
+            new DeterministicMap((a: bigint, b: bigint) => {
+                return BinaryReader.bigintCompare(a, b);
+            });
 
         current.set(pointer, value);
 
@@ -261,7 +263,8 @@ export class ContractEvaluation implements IEvaluationParameters {
         }
 
         for (const [key, value] of storage) {
-            const current: PointerStorageMap = this.modifiedStorage.get(key) || new Map();
+            const current: PointerStorageMap =
+                this.modifiedStorage.get(key) || (new Map() as PointerStorageMap);
 
             for (const [k, v] of value) {
                 current.set(k, v);

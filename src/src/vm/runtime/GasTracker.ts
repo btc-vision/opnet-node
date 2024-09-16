@@ -33,7 +33,7 @@ export class GasTracker {
     }
 
     public static convertSatToGas(sat: bigint, maxGas: bigint, ratio: bigint): bigint {
-        let gas = sat * ratio;
+        const gas = sat * ratio;
         return gas < maxGas ? gas : maxGas;
     }
 

@@ -43,7 +43,7 @@ export class ServerPeerNetworking extends AuthenticationManager {
         throw new Error('onBlockWitnessResponse not implemented.');
     };
 
-    public async broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Promise<Uint8Array> {
+    public broadcastBlockWitness(blockWitness: IBlockHeaderWitness): Uint8Array {
         if (this.destroyed) {
             throw new Error('Server peer networking is destroyed.');
         }

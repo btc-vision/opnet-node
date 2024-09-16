@@ -73,7 +73,7 @@ export class WrapTransaction extends InteractionTransaction {
     private stackingFee: bigint = 0n;
     private indexerFee: bigint = 0n;
 
-    constructor(
+    public constructor(
         rawTransactionData: TransactionData,
         vIndexIn: number,
         blockHash: string,
@@ -165,6 +165,8 @@ export class WrapTransaction extends InteractionTransaction {
             } else {
                 throw new Error(`Invalid pub keys found in wrap transaction.`);
             }
+
+            i++;
         } while (scriptData.length);
 
         return contractBytecode;
@@ -406,7 +408,7 @@ export class WrapTransaction extends InteractionTransaction {
     private giveFeesToIndexer(): Map<Address, bigint> {
         const fees: Map<Address, bigint> = new Map<Address, bigint>();
 
-        let indexerWallets: Set<Address> = new Set<Address>();
+        const indexerWallets: Set<Address> = new Set<Address>();
         for (const validators of this.pubKeys) {
             const address: Address | undefined =
                 authorityManager.getWalletFromPublicKey(validators);

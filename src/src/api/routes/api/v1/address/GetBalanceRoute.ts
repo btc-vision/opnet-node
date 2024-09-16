@@ -11,13 +11,13 @@ import { SafeString } from '../../../safe/BlockParamsConverter.js';
 export class GetBalanceRoute extends Route<
     Routes.GET_BALANCE,
     JSONRpcMethods.GET_BALANCE,
-    GetBalanceResult | undefined
+    GetBalanceResult
 > {
     constructor() {
         super(Routes.GET_BALANCE, RouteType.GET);
     }
 
-    public async getData(params: GetBalanceParams): Promise<GetBalanceResult | undefined> {
+    public async getData(params: GetBalanceParams): Promise<GetBalanceResult> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
@@ -33,7 +33,7 @@ export class GetBalanceRoute extends Route<
         return `0x${balanceOf.toString(16)}`;
     }
 
-    public async getDataRPC(params: GetBalanceParams): Promise<GetBalanceResult | undefined> {
+    public async getDataRPC(params: GetBalanceParams): Promise<GetBalanceResult> {
         const data = await this.getData(params);
         if (!data) throw new Error(`Could not fetch balance for the given address.`);
 

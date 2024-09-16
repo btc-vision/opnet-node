@@ -25,7 +25,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
 
     public async hasContract(
         contractAddress: string,
-        currentSession?: ClientSession | undefined,
+        currentSession?: ClientSession,
     ): Promise<boolean> {
         const collection = this.getCollection();
         const options: FindOptions = this.getOptions(currentSession);
@@ -45,7 +45,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
     public async getContract(
         contractAddress: string,
         height?: bigint,
-        currentSession?: ClientSession | undefined,
+        currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
         const criteria: Filter<Document> = {
             $or: [
@@ -70,7 +70,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
     public async getContractAddressAt(
         contractAddress: string,
         height?: bigint,
-        currentSession?: ClientSession | undefined,
+        currentSession?: ClientSession,
     ): Promise<Address | undefined> {
         const criteria: Filter<Document> = {
             $or: [
@@ -84,13 +84,13 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             criteria.blockHeight = { $lt: DataConverter.toDecimal128(height) };
         }
 
-        const contract: { contractAddress: string } | null = (await this.queryOneAndProject(
+        const contract: { contractAddress: string } | null = await this.queryOneAndProject(
             criteria,
             {
                 contractAddress: 1,
             },
             currentSession,
-        )) as { contractAddress: string } | null;
+        );
 
         if (!contract) {
             return;
@@ -113,7 +113,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
 
     public async getContractAtVirtualAddress(
         virtualAddress: string,
-        currentSession?: ClientSession | undefined,
+        currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
         const contract = await this.queryOne({ virtualAddress }, currentSession);
         if (!contract) {

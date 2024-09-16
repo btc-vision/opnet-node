@@ -20,7 +20,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
         //console.log(`BlockchainIndexerThread: Received message:`, message);
     }
 
-    protected async init(): Promise<void> {
+    protected init(): Promise<void> | void {
         this.log(`Starting up blockchain indexer thread...`);
 
         this.blockIndexer.sendMessageToThread = this.sendMessageToThread.bind(this);
@@ -32,7 +32,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
     ): Promise<ThreadData | undefined> {
         switch (type) {
             case ThreadTypes.POA: {
-                return await this.onPoAMessage(m);
+                return this.onPoAMessage(m);
             }
 
             default:
@@ -42,8 +42,10 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
         }
     }
 
-    private async onPoAMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData | undefined> {
-        return await this.blockIndexer.handleMessage(m);
+    private onPoAMessage(
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<ThreadData | undefined> | ThreadData | undefined {
+        return this.blockIndexer.handleMessage(m);
     }
 }
 

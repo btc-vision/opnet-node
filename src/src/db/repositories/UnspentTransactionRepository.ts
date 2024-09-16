@@ -365,13 +365,13 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
     }
 
     private chunkArray<T>(array: T[], size: number): T[][] {
-        return array.reduce((acc, _, i) => {
+        return array.reduce<T[][]>((acc, _, i) => {
             if (i % size === 0) {
                 acc.push(array.slice(i, i + size));
             }
 
             return acc;
-        }, [] as T[][]);
+        }, []);
     }
 
     // Transactions to delete

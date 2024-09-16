@@ -18,14 +18,14 @@ import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
 
 export class JSONRpc2Manager extends Logger {
-    public static readonly RPC_VERSION: '2.0' = '2.0';
+    public static readonly RPC_VERSION = '2.0' as const;
 
     public readonly logColor: string = '#afeeee';
     private readonly router: JSONRpcRouter = new JSONRpcRouter();
 
     private pendingRequests: number = 0;
 
-    constructor() {
+    public constructor() {
         super();
     }
 

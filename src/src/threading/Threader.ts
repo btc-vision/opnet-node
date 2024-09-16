@@ -61,24 +61,23 @@ export class Threader<T extends ThreadTypes> extends Logger {
     }
 
     private get nextThread(): number {
-        let id = (this.currentId + 1) % this.threads.length;
-
+        const id = (this.currentId + 1) % this.threads.length;
         this.currentId = id;
 
         return id;
     }
 
-    public async onGlobalMessage(
+    public onGlobalMessage(
         _msg: ThreadMessageBase<MessageType>,
         _thread: Worker,
-    ): Promise<void> {
+    ): Promise<void> | void {
         throw new Error('Not implemented.');
     }
 
-    public async sendLinkMessageToThreadOfType(
+    public sendLinkMessageToThreadOfType(
         _threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,
-    ): Promise<boolean> {
+    ): Promise<boolean> | boolean {
         throw new Error('Not implemented.');
     }
 
@@ -87,7 +86,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
         const requestedThreadType = data.threadType;
 
         if (this.threadType === requestedThreadType) {
-            for (let thisThread of this.threads) {
+            for (const thisThread of this.threads) {
                 if (
                     message.data.targetThreadId === thisThread.threadId &&
                     message.data.targetThreadType === this.threadType
@@ -119,16 +118,16 @@ export class Threader<T extends ThreadTypes> extends Logger {
 
         this.linkThreadTypes.push(threadType);
 
-        for (let thread of this.threads) {
+        for (const thread of this.threads) {
             await this.requestThreadLink(thread, threadType);
         }
     }
 
-    public async sendLinkToThreadsOfType(
+    public sendLinkToThreadsOfType(
         _threadType: ThreadTypes,
         _threadId: number,
         _message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean> {
+    ): Promise<boolean> | boolean {
         throw new Error('Method not implemented.');
     }
 
@@ -164,24 +163,19 @@ export class Threader<T extends ThreadTypes> extends Logger {
         }
     }
 
-    public async executeNoResp(m: ThreadMessageBase<MessageType>): Promise<ThreadData | null> {
-        return new Promise(
-            async (resolve: (value: ThreadData | PromiseLike<ThreadData> | null) => void) => {
-                let selectedThread: Worker = this.threads[this.nextThread];
+    public executeNoResp(m: ThreadMessageBase<MessageType>): ThreadData | null {
+        const selectedThread: Worker = this.threads[this.nextThread];
+        if (selectedThread) {
+            this.executeMessageOnThreadNoResponse(m, selectedThread);
+        }
 
-                if (selectedThread) {
-                    resolve(this.executeMessageOnThreadNoResponse(m, selectedThread));
-                } else {
-                    resolve(null);
-                }
-            },
-        );
+        return null;
     }
 
-    public async execute<T>(m: ThreadMessageBase<MessageType>): Promise<ThreadData | null> {
+    public async execute(m: ThreadMessageBase<MessageType>): Promise<ThreadData | null> {
         return new Promise(
-            async (resolve: (value: ThreadData | PromiseLike<ThreadData> | null) => void) => {
-                let selectedThread: Worker = this.threads[this.nextThread];
+            (resolve: (value: ThreadData | PromiseLike<ThreadData> | null) => void) => {
+                const selectedThread: Worker = this.threads[this.nextThread];
 
                 if (selectedThread) {
                     resolve(this.executeMessageOnThread(m, selectedThread));
@@ -193,14 +187,10 @@ export class Threader<T extends ThreadTypes> extends Logger {
         );
     }
 
-    public async sendToAllThreads(m: ThreadMessageBase<MessageType>): Promise<void> {
-        return new Promise(async (resolve: (value: void | PromiseLike<void>) => void) => {
-            for (let thread of this.threads) {
-                await this.executeMessageOnThreadNoResponse(m, thread);
-            }
-
-            resolve();
-        });
+    public sendToAllThreads(m: ThreadMessageBase<MessageType>): void {
+        for (const thread of this.threads) {
+            this.executeMessageOnThreadNoResponse(m, thread);
+        }
     }
 
     public createChannel(): { tx: MessagePort; rx: MessagePort } {
@@ -213,105 +203,92 @@ export class Threader<T extends ThreadTypes> extends Logger {
     }
 
     public async createThreads(): Promise<void> {
-        return new Promise(async (resolve: (value: void | PromiseLike<void>) => void) => {
-            let threads: Promise<void | Worker>[] = [];
+        const threads: Promise<Worker | undefined>[] = [];
+        for (let i = 0; i < this.maxInstance; i++) {
+            threads.push(this.createThread(i));
+        }
 
-            for (let i = 0; i < this.maxInstance; i++) {
-                threads.push(this.createThread(i));
-            }
-
-            Promise.all(threads).then(() => {
-                threads = [];
-                resolve();
-            });
-        });
+        await Promise.all(threads);
     }
 
-    public async createThread(i: number): Promise<void | Worker> {
-        return new Promise(
-            (resolve: (value: (void | Worker) | PromiseLike<void | Worker>) => void) => {
-                setTimeout(() => {
-                    if (!this.target) return;
+    public async createThread(i: number): Promise<undefined | Worker> {
+        return new Promise((resolve: (value?: Worker | PromiseLike<Worker>) => void) => {
+            setTimeout(() => {
+                if (!this.target) return;
 
-                    const specificConfig: WorkerOptions = WorkerConfigurations[this.threadType];
-                    const workerOpts: WorkerOptions = {
-                        ...ThreadConfigurations.WORKER_OPTIONS,
-                        ...specificConfig,
+                const specificConfig: WorkerOptions = WorkerConfigurations[this.threadType];
+                const workerOpts: WorkerOptions = {
+                    ...ThreadConfigurations.WORKER_OPTIONS,
+                    ...specificConfig,
+                };
+
+                workerOpts.name = `Thread ${i} - ${this.target
+                    .split('/')
+                    .reverse()[0]
+                    .replace('.js', '')}`;
+
+                const thread: Worker = new Worker(this.target, workerOpts);
+                const messageChannel = new MessageChannel();
+
+                this.subChannels[thread.threadId] = messageChannel;
+
+                messageChannel.port2.on('error', () => {
+                    this.error('Something went wrong with the message port?');
+                });
+
+                messageChannel.port2.on('message', (m: ThreadMessageBase<MessageType>) => {
+                    this.onThreadMessage(thread, m);
+                });
+
+                thread.on('online', async () => {
+                    const msg: SetMessagePort = {
+                        type: MessageType.SET_MESSAGE_PORT,
+                        data: messageChannel.port1,
                     };
 
-                    workerOpts.name = `Thread ${i} - ${this.target
-                        .split('/')
-                        .reverse()[0]
-                        .replace('.js', '')}`;
+                    thread.postMessage(msg, [messageChannel.port1]);
+                    resolve(thread);
 
-                    let thread: Worker = new Worker(this.target, workerOpts);
-                    let messageChannel = new MessageChannel();
+                    this.threads.push(thread);
 
-                    this.subChannels[thread.threadId] = messageChannel;
+                    await this.linkAllThreads(thread);
+                });
 
-                    messageChannel.port2.on('error', () => {
-                        this.error('Something went wrong with the message port?');
-                    });
+                thread.on('message', (m: ThreadMessageBase<MessageType>) => {
+                    this.onThreadMessage(thread, m);
+                });
 
-                    messageChannel.port2.on('message', (m: ThreadMessageBase<MessageType>) => {
-                        this.onThreadMessage(thread, m);
-                    });
+                thread.on('exit', (e: Error) => {
+                    this.error(`Thread #${i} died. {Target: ${this.target} | ExitCode -> ${e}}`);
 
-                    thread.on('online', async () => {
-                        let msg: SetMessagePort = {
-                            type: MessageType.SET_MESSAGE_PORT,
-                            data: messageChannel.port1,
-                        };
+                    fs.appendFileSync(
+                        'threader.log',
+                        `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${e}}\n`,
+                    );
 
-                        thread.postMessage(msg, [messageChannel.port1]);
-                        resolve(thread);
+                    // remove thread
+                    this.threads.splice(i, 1);
 
-                        this.threads.push(thread);
-
-                        await this.linkAllThreads(thread);
-                    });
-
-                    thread.on('message', (m: ThreadMessageBase<MessageType>) => {
-                        this.onThreadMessage(thread, m);
-                    });
-
-                    thread.on('exit', (e: Error) => {
-                        this.error(
-                            `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${e}}`,
+                    setTimeout(async () => {
+                        this.warn(
+                            `!!!!!!!!!!!!!! ------------ Restarting thread #${i}... ------------ !!!!!!!!!!!!!!`,
                         );
 
-                        fs.appendFileSync(
-                            'threader.log',
-                            `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${e}}\n`,
-                        );
+                        await this.createThread(i);
+                    }, 1000);
+                });
 
-                        // remove thread
-                        this.threads.splice(i, 1);
-
-                        // TODO - HANDLE THREAD RESTART
-
-                        setTimeout(() => {
-                            this.warn(
-                                `!!!!!!!!!!!!!! ------------ Restarting thread #${i}... ------------ !!!!!!!!!!!!!!`,
-                            );
-                            this.createThread(i);
-                        }, 1000);
-                    });
-
-                    thread.on('error', (e: Error) => {
-                        fs.appendFileSync(
-                            'threader.log',
-                            `Thread #${i} errored. {Target: ${this.target} | Details -> ${e}}\n`,
-                        );
-                        this.error(
-                            `Thread #${i} errored. {Target: ${this.target} | Details: ${e}}`,
-                        );
-                        this.error(e.stack);
-                        resolve();
-                    });
-                }, i * 200);
-            },
-        );
+                thread.on('error', (e: Error) => {
+                    fs.appendFileSync(
+                        'threader.log',
+                        `Thread #${i} errored. {Target: ${this.target} | Details -> ${e}}\n`,
+                    );
+                    this.error(`Thread #${i} errored. {Target: ${this.target} | Details: ${e}}`);
+                    this.error(e.stack);
+                    resolve();
+                });
+            }, i * 200);
+        });
     }
 
     private async createThreadLinkBetween(
@@ -369,8 +346,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
 
     private async requestThreadLink(thread: Worker, targetType: ThreadTypes): Promise<void> {
         const threadId = thread.threadId;
-
-        let m: LinkThreadRequestMessage = {
+        const m: LinkThreadRequestMessage = {
             type: MessageType.LINK_THREAD_REQUEST,
             toServer: false,
             data: {
@@ -394,7 +370,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
         }
 
         if (m.taskId && !m.toServer) {
-            let task: ThreadTaskCallback | undefined = this.tasks.get(m.taskId);
+            const task: ThreadTaskCallback | undefined = this.tasks.get(m.taskId);
 
             if (task) {
                 clearTimeout(task.timeout);
@@ -408,7 +384,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
     }
 
     private async linkAllThreads(thread: Worker): Promise<void> {
-        for (let threadType of this.linkThreadTypes) {
+        for (const threadType of this.linkThreadTypes) {
             await this.requestThreadLink(thread, threadType);
         }
     }
@@ -421,53 +397,47 @@ export class Threader<T extends ThreadTypes> extends Logger {
         message: ThreadMessageBase<MessageType>,
         selectedThread: Worker,
     ): Promise<ThreadData> {
-        return new Promise(
-            async (resolve: (value: ThreadData | PromiseLike<ThreadData>) => void) => {
-                let taskId: string = this.generateRndTaskId();
-                let timeout = setTimeout(() => {
-                    this.warn(`[A] Thread task ${taskId} timed out.`);
+        return new Promise((resolve: (value: ThreadData | PromiseLike<ThreadData>) => void) => {
+            const taskId: string = this.generateRndTaskId();
+            const timeout = setTimeout(() => {
+                this.warn(`[A] Thread task ${taskId} timed out.`);
 
-                    resolve({
-                        error: true,
-                    });
-                }, 30000);
+                resolve({
+                    error: true,
+                });
+            }, 30000);
 
-                let task: ThreadTaskCallback = {
-                    timeout: timeout,
-                    resolve: resolve,
-                };
+            const task: ThreadTaskCallback = {
+                timeout: timeout,
+                resolve: resolve,
+            };
 
-                if (!message.taskId) {
-                    message.taskId = taskId;
-                }
-
-                this.tasks.set(taskId, task);
-
-                if (this.subChannels[selectedThread.threadId]) {
-                    this.subChannels[selectedThread.threadId].port2.postMessage(message);
-                } else {
-                    selectedThread.postMessage(message);
-                }
-            },
-        );
-    }
-
-    private async executeMessageOnThreadNoResponse(
-        message: ThreadMessageBase<MessageType>,
-        selectedThread: Worker,
-    ): Promise<void> {
-        return new Promise(async (resolve: (value: void | PromiseLike<void>) => void) => {
             if (!message.taskId) {
-                message.taskId = this.generateRndTaskId();
+                message.taskId = taskId;
             }
+
+            this.tasks.set(taskId, task);
 
             if (this.subChannels[selectedThread.threadId]) {
                 this.subChannels[selectedThread.threadId].port2.postMessage(message);
             } else {
                 selectedThread.postMessage(message);
             }
-
-            resolve();
         });
+    }
+
+    private executeMessageOnThreadNoResponse(
+        message: ThreadMessageBase<MessageType>,
+        selectedThread: Worker,
+    ): void {
+        if (!message.taskId) {
+            message.taskId = this.generateRndTaskId();
+        }
+
+        if (this.subChannels[selectedThread.threadId]) {
+            this.subChannels[selectedThread.threadId].port2.postMessage(message);
+        } else {
+            selectedThread.postMessage(message);
+        }
     }
 }

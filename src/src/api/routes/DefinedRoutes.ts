@@ -20,7 +20,9 @@ import { Route } from './Route.js';
 import { BroadcastTransaction } from './api/v1/transaction/BroadcastTransaction.js';
 import { GenerateRoute } from './api/v1/opnet/GenerateRoute.js';
 
-export const DefinedRoutes: { [key in Routes]: Route<key, JSONRpcMethods, unknown> } = {
+export const DefinedRoutes: {
+    [key in Routes]: Route<key, JSONRpcMethods, object | string | undefined>;
+} = {
     /** Blocks */
     [Routes.LATEST_BLOCK]: new LatestBlock(),
 

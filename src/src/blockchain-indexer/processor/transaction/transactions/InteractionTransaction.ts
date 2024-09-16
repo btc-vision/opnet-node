@@ -69,7 +69,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
     protected interactionWitnessData: InteractionWitnessData | undefined;
 
-    constructor(
+    public constructor(
         rawTransactionData: TransactionData,
         vIndexIn: number,
         blockHash: string,
@@ -332,7 +332,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
         }
 
-        this._from = address as string;
+        this._from = address;
 
         this.senderPubKeyHash = this.interactionWitnessData.senderPubKeyHash160;
         this.senderPubKey = this.interactionWitnessData.senderPubKey;

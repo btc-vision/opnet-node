@@ -23,7 +23,10 @@ export abstract class PSBTProcessor<T extends PSBTTypes> extends Logger {
         super();
     }
 
-    public abstract createRepositories(rpc: BitcoinRPC): Promise<void>;
+    public abstract createRepositories(rpc: BitcoinRPC): void;
 
-    public abstract process(psbt: Psbt, data: PSBTDecodedData): Promise<PSBTProcessedResponse>;
+    public abstract process(
+        psbt: Psbt,
+        data: PSBTDecodedData,
+    ): Promise<PSBTProcessedResponse> | PSBTProcessedResponse;
 }

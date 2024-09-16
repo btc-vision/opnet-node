@@ -28,7 +28,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         return this.#utxoRepository;
     }
 
-    public async createRepositories(): Promise<void> {
+    public createRepositories(): void {
         if (!this.db.db) throw new Error('Database connection not established.');
 
         this.#utxoRepository = new WBTCUTXORepository(this.db.db);
@@ -60,11 +60,11 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
     private findVaultWithMostPublicKeys(
         vaultsMap: Map<Address, VerificationVault>,
     ): VerificationVault {
-        let vaults = this.orderVaultsByAddress(vaultsMap);
+        const vaults = this.orderVaultsByAddress(vaultsMap);
         let mostPublicKeys: number = 0;
         let vault: VerificationVault | undefined;
 
-        for (let v of vaults) {
+        for (const v of vaults) {
             if (v.publicKeys.length > mostPublicKeys) {
                 mostPublicKeys = v.publicKeys.length;
                 vault = v;
@@ -84,24 +84,22 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         psbt: Psbt,
         vaults: Map<Address, VerificationVault>,
     ): MinimumUtxoInformation[] {
-        let inputs: { [key: string]: { value: bigint } } = {};
-        for (let vault of vaults.values()) {
-            for (let tx in vault.utxoDetails) {
-                let data = vault.utxoDetails[tx];
-
+        const inputs: { [key: string]: { value: bigint } } = {};
+        for (const vault of vaults.values()) {
+            for (const data of vault.utxoDetails) {
                 inputs[data.hash] = { value: data.value };
             }
         }
 
-        let order: MinimumUtxoInformation[] = [];
+        const order: MinimumUtxoInformation[] = [];
         for (let i = 0; i < psbt.txInputs.length; i++) {
             if (i === 0) {
                 continue;
             }
 
-            let input = psbt.txInputs[i];
-            let hash = this.convertInputHashBufferToString(input.hash);
-            let val = inputs[hash];
+            const input = psbt.txInputs[i];
+            const hash = this.convertInputHashBufferToString(input.hash);
+            const val = inputs[hash];
 
             if (!val) {
                 throw new Error(`Input hash not found in vaults.`);
@@ -113,7 +111,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         // input order validation
         for (let i = 0; i < order.length - 1; i++) {
             // we verify if the next input is greater than the current one, if it is we throw an error
-            let input = order[i];
+            const input = order[i];
 
             if (order[i + 1].value < input.value) {
                 throw new Error(
@@ -122,11 +120,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
             }
         }
 
-        return order; /*.sort((a: MinimumUtxoInformation, b: MinimumUtxoInformation) => {
-            if (a.value === b.value) return 0;
-
-            return a.value < b.value ? -1 : 1;
-        });*/
+        return order;
     }
 
     private verifyConsolidatedInputs(
@@ -138,7 +132,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         let totalUsedSatisfyAmount = 0n;
 
         let isConsolidating: boolean = false;
-        let consolidation: MinimumUtxoInformation[] = [];
+        const consolidation: MinimumUtxoInformation[] = [];
         let amountLeft: bigint = 0n;
 
         let consolidationAmount = 0n;
@@ -153,7 +147,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         for (let i = 0; i < orderedInputs.length; i++) {
             if (i !== 0) refundAmount += prepaidFees;
 
-            let utxoAmount = orderedInputs[i].value;
+            const utxoAmount = orderedInputs[i].value;
             if (!isConsolidating) {
                 totalUsedSatisfyAmount += utxoAmount;
 
@@ -347,8 +341,8 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
     private calculateVaultTotalHoldings(vaults: Map<Address, VerificationVault>): bigint {
         let totalHoldings: bigint = 0n;
 
-        for (let vault of vaults.values()) {
-            for (let utxo of vault.utxoDetails) {
+        for (const vault of vaults.values()) {
+            for (const utxo of vault.utxoDetails) {
                 totalHoldings += BigInt(utxo.value);
             }
         }
@@ -363,7 +357,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         let refund: bigint = -OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
 
         let totalVaults: number = 0;
-        for (let vault of usedVaults.values()) {
+        for (const vault of usedVaults.values()) {
             for (let i = 0; i < vault.utxoDetails.length; i++) {
                 refund += OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
                 totalVaults++;
@@ -371,7 +365,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         }
 
         // TODO: Verify this.
-        let amountLeft = this.calculateVaultTotalHoldings(usedVaults) - amount;
+        const amountLeft = this.calculateVaultTotalHoldings(usedVaults) - amount;
         if (totalVaults === 1) {
             if (
                 amountLeft < OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT
@@ -392,7 +386,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
     }
 
     private getAllInputHashesFromTx(tx: Psbt): string[] {
-        let hashes: string[] = [];
+        const hashes: string[] = [];
 
         // Always skip the first input.
         for (let i = 1; i < tx.txInputs.length; i++) {
@@ -415,7 +409,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         vaults: Map<Address, VerificationVault>;
         hashes: string[];
     }> {
-        let vaults: Map<Address, VerificationVault> = new Map();
+        const vaults: Map<Address, VerificationVault> = new Map();
 
         const hashUTXOs: string[] = this.getAllInputHashesFromTx(tx);
         if (!hashUTXOs.length) {
@@ -425,7 +419,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         const vaultsFromDb = await this.utxoRepository.queryVaultsFromHashes(hashUTXOs);
         if (!vaultsFromDb.length) throw new Error('No vaults found in database.');
 
-        for (let hash of hashUTXOs) {
+        for (const hash of hashUTXOs) {
             const vault = vaultsFromDb.find((v) => v.utxoDetails.find((h) => h.hash === hash));
             if (!vault) throw new Error(`Vault not found for hash: ${hash}`);
 

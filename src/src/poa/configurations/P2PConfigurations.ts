@@ -121,8 +121,8 @@ export class P2PConfigurations extends OPNetPathFinder {
         listenAt.push(`/ip4/${host}/${protocol}/${port}`);
 
         if (this.config.P2P.ENABLE_IPV6) {
-            let host = this.config.P2P.P2P_HOST_V6 ?? '::';
-            let port = this.config.P2P.P2P_PORT_V6 ?? 0;
+            const host = this.config.P2P.P2P_HOST_V6 ?? '::';
+            const port = this.config.P2P.P2P_PORT_V6 ?? 0;
 
             listenAt.push(`/ip6/${host}/${protocol}/${port}`);
         }
@@ -295,7 +295,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             const lastPeerIdentity = fs.readFileSync(this.peerFilePath());
             const decrypted = this.decryptToString(new Uint8Array(lastPeerIdentity));
 
-            return JSON.parse(decrypted);
+            return JSON.parse(decrypted) as BackedUpPeer;
         } catch (e) {
             const error = e as Error;
             if (error.message.includes('no such file or directory')) {

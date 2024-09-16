@@ -1,3 +1,3 @@
 import { JSONRpcMethods } from '../enums/JSONRpcMethods.js';
 
-export interface JSONRpc2ResultData<T extends JSONRpcMethods> {}
+export type JSONRpc2ResultData<T extends JSONRpcMethods> = object | string;

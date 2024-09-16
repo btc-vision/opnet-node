@@ -30,11 +30,11 @@ class BlockchainIndexerManager extends ThreadManager<ThreadTypes.INDEXER> {
         throw new Error('Method not implemented.');
     }
 
-    protected async sendLinkToThreadsOfType(
+    protected sendLinkToThreadsOfType(
         _threadType: ThreadTypes,
         _threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean> {
+    ): boolean {
         const targetThreadType = message.data.targetThreadType;
 
         switch (targetThreadType) {
@@ -44,10 +44,10 @@ class BlockchainIndexerManager extends ThreadManager<ThreadTypes.INDEXER> {
         }
     }
 
-    protected async sendLinkMessageToThreadOfType(
+    protected sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,
-    ): Promise<boolean> {
+    ): boolean {
         switch (threadType) {
             default: {
                 return false;
@@ -55,8 +55,8 @@ class BlockchainIndexerManager extends ThreadManager<ThreadTypes.INDEXER> {
         }
     }
 
-    protected async onExitRequested(): Promise<void> {
-        await this.threadManager.sendToAllThreads({
+    protected onExitRequested(): void {
+        this.threadManager.sendToAllThreads({
             type: MessageType.EXIT_THREAD,
         });
     }
@@ -66,7 +66,7 @@ class BlockchainIndexerManager extends ThreadManager<ThreadTypes.INDEXER> {
     }
 
     protected async init(): Promise<void> {
-        await super.init();
+        super.init();
 
         this.important('Creating threads for bitcoin-rpc...');
         await this.bitcoinRPCThreads.createThreads();

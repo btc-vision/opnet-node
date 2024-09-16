@@ -7,7 +7,7 @@ import { Transaction } from '../Transaction.js';
 export class GenericTransaction extends Transaction<OPNetTransactionTypes.Generic> {
     public readonly transactionType: OPNetTransactionTypes.Generic = GenericTransaction.getType();
 
-    constructor(
+    public constructor(
         rawTransactionData: TransactionData,
         vIndexIn: number,
         blockHash: string,
@@ -17,7 +17,7 @@ export class GenericTransaction extends Transaction<OPNetTransactionTypes.Generi
         super(rawTransactionData, vIndexIn, blockHash, blockHeight, network);
     }
 
-    public static is(data: TransactionData): TransactionInformation | undefined {
+    public static is(_data: TransactionData): TransactionInformation | undefined {
         return {
             type: this.getType(),
             vInIndex: 0,

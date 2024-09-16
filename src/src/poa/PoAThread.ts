@@ -14,12 +14,12 @@ export class PoAThread extends Thread<ThreadTypes.POA> {
     constructor() {
         super();
 
-        void this.init();
+        this.init();
     }
 
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
-    protected async init(): Promise<void> {
+    protected init(): void {
         this.poa.sendMessageToThread = this.sendMessageToThread.bind(this);
 
         /**
@@ -33,7 +33,7 @@ export class PoAThread extends Thread<ThreadTypes.POA> {
     protected async onLinkMessage(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<void | ThreadData> {
+    ): Promise<undefined | ThreadData> {
         switch (type) {
             case ThreadTypes.INDEXER: {
                 return await this.handleBitcoinIndexerMessage(m);

@@ -23,7 +23,7 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
     private readonly blockUpdateListeners: Array<(blockHeight: bigint) => void> = [];
     private changeStream: BlockChangeStream;
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 

@@ -9,13 +9,13 @@ import { Route } from '../../../Route.js';
 export class LatestBlock extends Route<
     Routes.LATEST_BLOCK,
     JSONRpcMethods.BLOCK_BY_NUMBER,
-    BlockByNumberResult | undefined
+    BlockByNumberResult
 > {
     constructor() {
         super(Routes.LATEST_BLOCK, RouteType.GET);
     }
 
-    public async getData(): Promise<BlockByNumberResult | undefined> {
+    public async getData(): Promise<BlockByNumberResult> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
@@ -25,7 +25,7 @@ export class LatestBlock extends Route<
         return `0x${BigInt(latestBlock?.height || '0').toString(16)}`;
     }
 
-    public async getDataRPC(): Promise<BlockByNumberResult | undefined> {
+    public async getDataRPC(): Promise<BlockByNumberResult> {
         const data = await this.getData();
         if (!data) throw new Error(`Block not found at given height.`);
 

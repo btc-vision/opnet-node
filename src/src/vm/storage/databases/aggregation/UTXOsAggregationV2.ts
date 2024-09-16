@@ -11,10 +11,6 @@ export interface UTXOSOutputTransactionFromDBV2 {
 }
 
 export class UTXOsAggregationV2 extends Aggregation {
-    constructor() {
-        super();
-    }
-
     public getAggregation(
         wallet: Address,
         limit: boolean = true,

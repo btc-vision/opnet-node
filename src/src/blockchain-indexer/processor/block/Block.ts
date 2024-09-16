@@ -327,7 +327,7 @@ export class Block extends Logger {
         return this.transactions.map((t) => t.toBitcoinDocument());
     }
 
-    public async insertPartialTransactions(vmManager: VMManager): Promise<void> {
+    public insertPartialTransactions(vmManager: VMManager): void {
         // temporary
         this.saveGenericPromises.push(this.saveGenericTransactions(vmManager));
 
@@ -789,7 +789,7 @@ export class Block extends Logger {
             }
         }
 
-        let promises: Promise<void>[] = [];
+        const promises: Promise<void>[] = [];
         if (usedUTXOs.length) {
             promises.push(vmStorage.setSpentWBTCUTXOs(usedUTXOs, this.height));
         }

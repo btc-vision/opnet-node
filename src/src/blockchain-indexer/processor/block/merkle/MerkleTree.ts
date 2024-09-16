@@ -1,6 +1,6 @@
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 
-export abstract class MerkleTree<K extends unknown, V extends unknown> {
+export abstract class MerkleTree<K, V> {
     protected tree: StandardMerkleTree<[Buffer, Buffer]> | undefined;
     protected readonly values: Map<string, Map<K, V>> = new Map();
 

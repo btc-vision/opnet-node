@@ -206,7 +206,9 @@ export class VMManager extends Logger {
                 maxGas: OPNetConsensus.consensus.TRANSACTIONS.EMULATION_MAX_GAS,
                 calldata: Buffer.from(calldataString, 'hex'),
                 blockHeight: currentHeight,
-                storage: new DeterministicMap(BinaryReader.stringCompare),
+                storage: new DeterministicMap((a: string, b: string) => {
+                    return BinaryReader.stringCompare(a, b);
+                }),
                 blockMedian: BigInt(Date.now()), // add support for this
                 allowCached: true,
                 externalCall: false,
@@ -294,7 +296,9 @@ export class VMManager extends Logger {
                 blockMedian: blockMedian,
                 transactionId: interactionTransaction.transactionId,
                 transactionHash: interactionTransaction.hash,
-                storage: new DeterministicMap(BinaryReader.stringCompare),
+                storage: new DeterministicMap((a: string, b: string) => {
+                    return BinaryReader.stringCompare(a, b);
+                }),
                 allowCached: true,
                 externalCall: false,
                 gasUsed: 0n,
@@ -1048,7 +1052,10 @@ export class VMManager extends Logger {
                 const pointer: StoragePointer = BufferHelper.pointerToUint8Array(key);
                 const data: MemoryValue = BufferHelper.valueToUint8Array(value[0]);
 
-                const storage = storageToUpdate.get(address) || new Map();
+                const storage =
+                    storageToUpdate.get(address) ||
+                    (new Map() as Map<StoragePointer, [MemoryValue, string[]]>);
+
                 if (!storageToUpdate.has(address)) {
                     storageToUpdate.set(address, storage);
                 }

@@ -364,7 +364,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(`Oops the property BITCOIN.NETWORK_MAGIC is not an array.`);
             } else if (parsedConfig.BITCOIN.NETWORK_MAGIC) {
-                for (let magic of parsedConfig.BITCOIN.NETWORK_MAGIC) {
+                for (const magic of parsedConfig.BITCOIN.NETWORK_MAGIC) {
                     if (typeof magic !== 'number') {
                         throw new Error(
                             `Oops the property BITCOIN.NETWORK_MAGIC is not an array of numbers.`,
@@ -827,9 +827,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             throw new Error(`Oops the default config is not defined.`);
         }
 
-        let newIndexerConfig: Partial<T> = {};
-        let configData: Partial<T> = config || {};
-        for (let setting of Object.keys(defaultConfig)) {
+        const newIndexerConfig: Partial<T> = {};
+        const configData: Partial<T> = config || {};
+        for (const setting of Object.keys(defaultConfig)) {
             const settingKey = setting as keyof T;
 
             newIndexerConfig[settingKey] = configData[settingKey] ?? defaultConfig[settingKey];

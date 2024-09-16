@@ -73,7 +73,9 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     }
 
     protected async onPacket(packet: OPNetPacket): Promise<boolean> {
-        const opcode: number = packet.opcode;
+        const opcode: ServerOutBound | CommonPackets = packet.opcode as
+            | ServerOutBound
+            | CommonPackets;
 
         switch (opcode) {
             case ServerOutBound.AUTHENTICATION_STATUS: {
@@ -82,12 +84,12 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
             }
 
             case ServerOutBound.SERVER_CIPHER_EXCHANGE: {
-                await this.handleServerCipherExchangePacket(packet);
+                this.handleServerCipherExchangePacket(packet);
                 break;
             }
 
             case CommonPackets.PONG: {
-                await this.handlePongPacket(packet);
+                this.handlePongPacket(packet);
                 break;
             }
 
@@ -198,8 +200,8 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
     }
 
     private async setupKey(uint8Key: Uint8Array): Promise<void> {
-        return new Promise(async (resolve, reject) => {
-            const isOk = await this.setupEncryptem(uint8Key);
+        return new Promise((resolve, reject) => {
+            const isOk = this.setupEncryptem(uint8Key);
             if (!isOk) {
                 reject(new Error('Failed to setup client encryptem.'));
             }
@@ -218,8 +220,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
                     reject(new Error('Failed to get  public key.'));
                 }
             } catch (e) {
-                console.log(e);
-                reject(e);
+                reject(e as Error);
             }
         });
     }
@@ -245,14 +246,14 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         };
     }
 
-    private async setupEncryptem(authKey: Uint8Array): Promise<boolean> {
+    private setupEncryptem(authKey: Uint8Array): boolean {
         this.encryptemClient.destroy();
 
-        return await this.encryptemClient.generateClientCipherKeyPair(authKey);
+        return this.encryptemClient.generateClientCipherKeyPair(authKey);
     }
 
-    private async handlePongPacket(packet: OPNetPacket): Promise<void> {
-        const serverPong = (await this.protocol.onIncomingPacket<IPongPacket>(packet)) as Pong;
+    private handlePongPacket(packet: OPNetPacket): void {
+        const serverPong = this.protocol.onIncomingPacket<IPongPacket>(packet) as Pong;
         if (!serverPong) {
             return;
         }
@@ -274,11 +275,10 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         void this.sendPing();
     }
 
-    private async handleServerCipherExchangePacket(packet: OPNetPacket): Promise<void> {
-        const serverCipherPacket =
-            (await this.protocol.onIncomingPacket<IServerKeyCipherExchangePacket>(
-                packet,
-            )) as ServerKeyCipherExchange;
+    private handleServerCipherExchangePacket(packet: OPNetPacket): void {
+        const serverCipherPacket = this.protocol.onIncomingPacket<IServerKeyCipherExchangePacket>(
+            packet,
+        ) as ServerKeyCipherExchange;
 
         if (!serverCipherPacket) {
             return;
@@ -299,7 +299,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
             throw new Error(`Invalid server cipher data.`);
         }
 
-        await this.setCipherKeys(
+        this.setCipherKeys(
             unpackedServerCipherData.serverKeyCipher,
             unpackedServerCipherData.serverSigningCipher,
         );
@@ -308,18 +308,15 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
         this.onAuthenticated();
     }
 
-    private async setCipherKeys(
-        serverKeyCipher: Uint8Array,
-        serverSigningCipher: Uint8Array,
-    ): Promise<void> {
+    private setCipherKeys(serverKeyCipher: Uint8Array, serverSigningCipher: Uint8Array): void {
         this.encryptemClient.setServerPublicKey(Buffer.from(serverKeyCipher));
         this.encryptemClient.setServerSignaturePublicKey(Buffer.from(serverSigningCipher));
     }
 
     private async handleAuthenticationStatusPacket(packet: OPNetPacket): Promise<void> {
-        const authPacket = (await this.protocol.onIncomingPacket<IAuthenticationStatusPacket>(
+        const authPacket = this.protocol.onIncomingPacket<IAuthenticationStatusPacket>(
             packet,
-        )) as AuthenticationStatus;
+        ) as AuthenticationStatus;
 
         if (!authPacket) {
             return;

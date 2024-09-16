@@ -33,7 +33,7 @@ export class OPNetPeer extends Logger {
 
     private peerDiscoveryTimeout: NodeJS.Timeout | undefined;
 
-    private eventHandlers: Map<string, NetworkingEventHandler<object>[]> = new Map();
+    private eventHandlers: Map<string, NetworkingEventHandler[]> = new Map();
 
     constructor(
         private _peerIdentity: OPNetConnectionInfo | undefined,
@@ -143,15 +143,13 @@ export class OPNetPeer extends Logger {
         await this.authenticate();
     }
 
-    public sendMsg: (peerId: PeerId, data: Uint8Array | Buffer) => Promise<void> = async () => {
+    public sendMsg: (peerId: PeerId, data: Uint8Array | Buffer) => Promise<void> = () => {
         throw new Error('Method not implemented.');
     };
 
-    public async generateWitnessToBroadcast(
-        blockWitness: IBlockHeaderWitness,
-    ): Promise<Uint8Array | undefined> {
+    public generateWitnessToBroadcast(blockWitness: IBlockHeaderWitness): Uint8Array | undefined {
         try {
-            return await this.serverNetworkingManager.broadcastBlockWitness(blockWitness);
+            return this.serverNetworkingManager.broadcastBlockWitness(blockWitness);
         } catch (e) {
             this.error(`Failed to broadcast block witness. ${e}`);
         }
@@ -205,7 +203,7 @@ export class OPNetPeer extends Logger {
             this.eventHandlers.set(event, []);
         }
 
-        this.eventHandlers.get(event)?.push(eventHandler as NetworkingEventHandler<object>);
+        this.eventHandlers.get(event)?.push(eventHandler as NetworkingEventHandler);
     }
 
     public async destroy(shouldDisconnect: boolean = true): Promise<void> {
@@ -245,10 +243,11 @@ export class OPNetPeer extends Logger {
     }
 
     protected async emit<T extends string, U extends object>(event: T, data: U): Promise<void> {
-        if (!this.eventHandlers.has(event)) return;
+        const obj = this.eventHandlers.get(event);
+        if (!obj) return;
 
         const promises: Promise<void>[] = [];
-        for (const handler of this.eventHandlers.get(event)!) {
+        for (const handler of obj) {
             promises.push(handler(data));
         }
 
@@ -257,7 +256,6 @@ export class OPNetPeer extends Logger {
 
     protected async disconnect(code: DisconnectionCode, reason?: string): Promise<void> {
         if (this.isDestroyed) return;
-
         this.isClientAuthenticated = false;
 
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
@@ -351,8 +349,8 @@ export class OPNetPeer extends Logger {
         await this.clientNetworkingManager.discoverPeers();
 
         if (this.isDestroyed) return;
-        this.peerDiscoveryTimeout = setTimeout(() => {
-            this.discoverPeers();
+        this.peerDiscoveryTimeout = setTimeout(async () => {
+            await this.discoverPeers();
         }, PEER_DISCOVERY_TIMEOUT);
     }
 

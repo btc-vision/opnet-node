@@ -43,8 +43,8 @@ export abstract class BlockFetcher extends Logger {
             this.lastBlockHash = block.hash;
 
             return block;
-        } catch (e) {
-            let error = e as Error;
+        } catch (e: unknown) {
+            const error = e as Error;
             this.error(`Error fetching block ${expectedBlockId}: ${error.message}`);
 
             throw e;

@@ -84,26 +84,28 @@ export class BlockIndexer extends Logger {
     public sendMessageToThread: (
         type: ThreadTypes,
         message: ThreadMessageBase<MessageType>,
-    ) => Promise<ThreadData | null> = async () => {
+    ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
 
-    public async handleMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
+    public handleMessage(
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<ThreadData | undefined> | ThreadData | undefined {
         let resp: ThreadData;
         switch (m.type) {
             case MessageType.CURRENT_INDEXER_BLOCK: {
-                resp = await this.getCurrentBlock();
+                resp = this.getCurrentBlock();
                 break;
             }
             case MessageType.START_INDEXER: {
-                resp = await this.startIndexer();
+                resp = this.startIndexer();
                 break;
             }
             default:
                 throw new Error(`Unknown message type: ${m.type} received in PoA.`);
         }
 
-        return resp ?? null;
+        return resp ?? undefined;
     }
 
     private async init(): Promise<void> {
@@ -119,7 +121,7 @@ export class BlockIndexer extends Logger {
 
         // First, we check if this node is allowed to write data.
         if (Config.INDEXER.READONLY_MODE) {
-            await this.chainObserver.watchBlockchain();
+            this.chainObserver.watchBlockchain();
             return;
         }
 
@@ -141,7 +143,7 @@ export class BlockIndexer extends Logger {
 
         this.registerEvents();
 
-        await this.startAndPurgeIndexer();
+        this.startAndPurgeIndexer();
 
         this.started = true;
     }
@@ -150,7 +152,7 @@ export class BlockIndexer extends Logger {
         this.blockFetcher.subscribeToBlockChanges((header: BlockHeaderInfo) => {
             if (!this.started) return;
 
-            void this.onBlockChange(header);
+            this.onBlockChange(header);
         });
 
         this.reorgWatchdog.subscribeToReorgs(
@@ -160,16 +162,16 @@ export class BlockIndexer extends Logger {
         );
     }
 
-    private async onBlockChange(header: BlockHeaderInfo): Promise<void> {
+    private onBlockChange(header: BlockHeaderInfo): void {
         this.reorgWatchdog.onBlockChange(header);
-        await this.chainObserver.onBlockChange(header);
+        this.chainObserver.onBlockChange(header);
 
         if (this.taskInProgress) {
             return;
         }
 
         if (this.indexingTasks.length === 0) {
-            void this.startTasks();
+            this.startTasks();
         }
     }
 
@@ -230,7 +232,7 @@ export class BlockIndexer extends Logger {
         }
 
         // Start tasks.
-        await this.startAndPurgeIndexer();
+        this.startAndPurgeIndexer();
     }
 
     private async reorgFromHeight(fromHeight: bigint, toBlock: bigint): Promise<void> {
@@ -295,15 +297,15 @@ export class BlockIndexer extends Logger {
         }
     }
 
-    private async startAndPurgeIndexer(): Promise<void> {
+    private startAndPurgeIndexer(): void {
         try {
-            await this.startTasks();
+            this.startTasks();
         } catch (e) {
             this.panic(`Error starting tasks: ${e}`);
         }
     }
 
-    private async startTasks(): Promise<void> {
+    private startTasks(): void {
         // Check if the chain is reorged.
         if (this.chainReorged) return;
 
@@ -355,7 +357,7 @@ export class BlockIndexer extends Logger {
 
         const processedBlock = task.block;
         if (processedBlock.compromised) {
-            await this.consensusTracker.lockdown();
+            this.consensusTracker.lockdown();
         }
 
         // Update height.
@@ -395,7 +397,7 @@ export class BlockIndexer extends Logger {
         if (!Config.DEV.PROCESS_ONLY_ONE_BLOCK) {
             this.taskInProgress = false;
 
-            void this.startTasks();
+            this.startTasks();
         }
     }
 
@@ -432,7 +434,9 @@ export class BlockIndexer extends Logger {
             /** Revert 1 block */
             const newHeight = this.chainObserver.pendingBlockHeight - 1n;
             if (newHeight <= 0n) {
-                throw new Error(`[processNextTask] Block height must be greater than 0. Was ${newHeight}.`);
+                throw new Error(
+                    `[processNextTask] Block height must be greater than 0. Was ${newHeight}.`,
+                );
             }
 
             this.chainObserver.nextBestTip = newHeight;
@@ -442,11 +446,11 @@ export class BlockIndexer extends Logger {
 
             this.taskInProgress = false;
 
-            void this.startTasks();
+            this.startTasks();
         }
     }
 
-    private async startIndexer(): Promise<ThreadData> {
+    private startIndexer(): ThreadData {
         if (Config.P2P.IS_BOOTSTRAP_NODE) {
             return {
                 started: true,
@@ -460,7 +464,7 @@ export class BlockIndexer extends Logger {
         };
     }
 
-    private async getCurrentBlock(): Promise<CurrentIndexerBlockResponseData> {
+    private getCurrentBlock(): CurrentIndexerBlockResponseData {
         return {
             blockNumber: this.chainObserver.pendingBlockHeight,
         };

@@ -18,18 +18,18 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.RPC> {
     constructor() {
         super();
 
-        void this.init();
+        this.init();
     }
 
     public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
         throw new Error('Method not implemented.');
     }
 
-    protected async sendLinkToThreadsOfType(
+    protected sendLinkToThreadsOfType(
         _threadType: ThreadTypes,
         _threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean> {
+    ): boolean {
         const targetThreadType = message.data.targetThreadType;
 
         switch (targetThreadType) {
@@ -39,10 +39,10 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.RPC> {
         }
     }
 
-    protected async sendLinkMessageToThreadOfType(
+    protected sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,
-    ): Promise<boolean> {
+    ): boolean {
         switch (threadType) {
             default: {
                 return false;
@@ -50,8 +50,8 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.RPC> {
         }
     }
 
-    protected async onExitRequested(): Promise<void> {
-        await this.threadManager.sendToAllThreads({
+    protected onExitRequested(): void {
+        this.threadManager.sendToAllThreads({
             type: MessageType.EXIT_THREAD,
         });
     }

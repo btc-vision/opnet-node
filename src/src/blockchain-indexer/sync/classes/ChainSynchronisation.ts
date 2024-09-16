@@ -27,7 +27,7 @@ export class ChainSynchronisation extends Logger {
     private amountOfUTXOs: number = 0;
     private isProcessing: boolean = false;
 
-    constructor() {
+    public constructor() {
         super();
     }
 
@@ -54,7 +54,7 @@ export class ChainSynchronisation extends Logger {
     public sendMessageToThread: (
         type: ThreadTypes,
         message: ThreadMessageBase<MessageType>,
-    ) => Promise<ThreadData | null> = async () => {
+    ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
 
@@ -110,7 +110,7 @@ export class ChainSynchronisation extends Logger {
         }
 
         setTimeout(() => {
-            this.startSaveLoop();
+            void this.startSaveLoop();
         }, 2500);
     }
 
@@ -142,16 +142,13 @@ export class ChainSynchronisation extends Logger {
         if (!this.isProcessing) await this.saveUTXOs();
 
         this.warn('Awaiting UTXO writes to complete... May take a while.');
-        return new Promise(async (resolve) => {
-            while (this.isProcessing) {
-                await new Promise((r) => setTimeout(r, 50));
-            }
 
-            resolve();
-        });
+        while (this.isProcessing) {
+            await new Promise((r) => setTimeout(r, 50));
+        }
     }
 
-    private async queryUTXOs(block: Block, txs: TransactionData[]): Promise<void> {
+    private queryUTXOs(block: Block, txs: TransactionData[]): void {
         block.setRawTransactionData(txs);
         block.deserialize();
 
@@ -184,7 +181,7 @@ export class ChainSynchronisation extends Logger {
             header: blockData,
         });
 
-        void this.queryUTXOs(block, blockData.tx);
+        this.queryUTXOs(block, blockData.tx);
 
         // Deserialize the block
         //block.setRawTransactionData(blockData.tx);

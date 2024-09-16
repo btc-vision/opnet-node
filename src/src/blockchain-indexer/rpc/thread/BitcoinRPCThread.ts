@@ -22,7 +22,10 @@ import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../../../threading/thread/Thread.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { BitcoinRPCThreadMessageType } from './messages/BitcoinRPCThreadMessage.js';
-import { BroadcastResponse } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import {
+    BroadcastRequest,
+    BroadcastResponse,
+} from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
@@ -58,7 +61,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
         await this.setBlockHeight();
         await this.createVMManagers();
-        await this.rpcSubWorkerManager.startWorkers();
+        this.rpcSubWorkerManager.startWorkers();
     }
 
     protected async getNextVMManager(tries: number = 0): Promise<VMManager> {
@@ -67,7 +70,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         }
 
         return new Promise<VMManager>((resolve) => {
-            let startNumber = this.currentVMManagerIndex;
+            const startNumber = this.currentVMManagerIndex;
             let vmManager: VMManager | undefined;
 
             do {
@@ -80,13 +83,15 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             } while (this.currentVMManagerIndex !== startNumber);
 
             if (!vmManager) {
-                setTimeout(async () => {
-                    this.warn(
-                        `High load detected. Try to increase your RPC thread limit or do fewer requests.`,
-                    );
+                setTimeout(() => {
+                    void (async () => {
+                        this.warn(
+                            `High load detected. Try to increase your RPC thread limit or do fewer requests.`,
+                        );
 
-                    const vmManager = await this.getNextVMManager(tries + 1);
-                    resolve(vmManager);
+                        const vmManager = await this.getNextVMManager(tries + 1);
+                        resolve(vmManager);
+                    })();
                 }, 100);
             }
 
@@ -97,7 +102,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     protected async onLinkMessage(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<ThreadData | void> {
+    ): Promise<ThreadData | undefined> {
         if (m.type !== MessageType.RPC_METHOD) throw new Error('Invalid message type');
 
         switch (type) {
@@ -150,20 +155,26 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             this.vmManagers.push(vmManager);
         }
 
-        setInterval(() => {
-            for (let i = 0; i < this.vmManagers.length; i++) {
-                const vmManager = this.vmManagers[i];
-                vmManager.clear();
-            }
+        await this.purgeVMManagers();
+    }
+
+    private async purgeVMManagers(): Promise<void> {
+        for (let i = 0; i < this.vmManagers.length; i++) {
+            const vmManager = this.vmManagers[i];
+            await vmManager.clear();
+        }
+
+        setTimeout(() => {
+            void this.purgeVMManagers();
         }, 30000);
     }
 
-    private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
+    private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
         const response = (await this.rpcSubWorkerManager.resolve(data, 'call')) as
             | (Omit<CallRequestResponse, 'response'> & {
                   result: string | Uint8Array;
               })
-            | void;
+            | undefined;
 
         if (!response) {
             return;
@@ -171,26 +182,27 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
         if (response && !('error' in response)) {
             if (typeof response.result === 'string') {
-                response.result = Uint8Array.from(Buffer.from(response.result as string, 'hex'));
+                response.result = Uint8Array.from(Buffer.from(response.result, 'hex'));
             }
 
-            // @ts-ignore
-            response.gasUsed = response.gasUsed ? BigInt(response.gasUsed) : null;
+            // @ts-expect-error - TODO: Fix this.
+            response.gasUsed = response.gasUsed ? BigInt(response.gasUsed as string) : null;
 
-            // @ts-ignore
+            // @ts-expect-error - TODO: Fix this.
             response.changedStorage = response.changedStorage
-                ? // @ts-ignore
-                  this.convertArrayToMap(response.changedStorage)
+                ? // @ts-expect-error - TODO: Fix this.
+                  this.convertArrayToMap(response.changedStorage as [string, [string, string][]][])
                 : null;
 
-            // @ts-ignore
+            // @ts-expect-error - TODO: Fix this.
             response.events = response.events
-                ? // @ts-ignore
-                  this.convertArrayEventsToEvents(response.events)
+                ? this.convertArrayEventsToEvents(
+                      // @ts-expect-error - TODO: Fix this.
+                      response.events as [string, [string, string, string][]][],
+                  )
                 : null;
 
-            // TODO: FIX THIS.
-            // @ts-ignore
+            // @ts-expect-error - TODO: Fix this.
             response.deployedContracts = [];
         }
 
@@ -308,15 +320,21 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     //private async getWBTCBalanceOf(address: Address): Promise<WBTCBalanceResponse> {}
 
-    private async broadcastTransaction(transaction: string): Promise<BroadcastResponse> {
+    private async broadcastTransaction(
+        transactionData: BroadcastRequest,
+    ): Promise<BroadcastResponse> {
         const response: BroadcastResponse = {
             success: false,
             identifier: 0n,
         };
 
+        if (!transactionData.data.rawTransaction) {
+            throw new Error('No raw transaction data provided');
+        }
+
         const result: string | null = await this.bitcoinRPC
-            .sendRawTransaction({ hexstring: transaction })
-            .catch((e) => {
+            .sendRawTransaction({ hexstring: transactionData.data.rawTransaction })
+            .catch((e: unknown) => {
                 const error = e as Error;
                 response.error = error.message || 'Unknown error';
 
@@ -344,7 +362,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     private async processAPIMessage(
         message: RPCMessage<BitcoinRPCThreadMessageType>,
-    ): Promise<ThreadData | void> {
+    ): Promise<ThreadData | undefined> {
         const rpcMethod = message.data.rpcMethod;
 
         switch (rpcMethod) {
@@ -353,8 +371,10 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             }
 
             case BitcoinRPCThreadMessageType.GET_TX: {
-                return await this.bitcoinRPC.getRawTransaction(
-                    message.data.data as BitcoinRawTransactionParams,
+                return (
+                    (await this.bitcoinRPC.getRawTransaction(
+                        message.data.data as BitcoinRawTransactionParams,
+                    )) ?? undefined
                 );
             }
 
@@ -367,7 +387,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             }
 
             case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE: {
-                return await this.broadcastTransaction(message.data.data as string);
+                return await this.broadcastTransaction(message.data as BroadcastRequest);
             }
 
             default:

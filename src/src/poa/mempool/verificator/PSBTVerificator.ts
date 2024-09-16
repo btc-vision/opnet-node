@@ -22,7 +22,7 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
         super();
     }
 
-    public abstract createRepositories(): Promise<void>;
+    public abstract createRepositories(): void;
 
     public abstract verify(data: Psbt, version: number): Promise<KnownPSBTObject | false>;
 
@@ -108,7 +108,7 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
                     };
                 });
             } else if (input.finalScriptWitness) {
-                let decodedData = TransactionBuilder.readScriptWitnessToWitnessStack(
+                const decodedData = TransactionBuilder.readScriptWitnessToWitnessStack(
                     input.finalScriptWitness,
                 );
 
@@ -118,7 +118,6 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
                     decodedData[decodedData.length - 2],
                 ];
 
-                // @ts-ignore
                 input.finalScriptWitness = TransactionBuilder.witnessStackToScriptWitness(decoded);
             }
         }
@@ -130,7 +129,7 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
     }
 
     private removeUnsignedInputs(clone: Psbt): Psbt {
-        let newInputs = [];
+        const newInputs = [];
         for (const input of clone.data.inputs) {
             if (input.finalScriptWitness) {
                 newInputs.push(input);

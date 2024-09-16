@@ -287,7 +287,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     protected static getDataChecksum(data: Array<Buffer | number>): Buffer {
-        let checksum: number[] = [];
+        const checksum: number[] = [];
 
         for (let i = 0; i < data.length; i++) {
             if (typeof data[i] === 'number') {
@@ -357,7 +357,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     /** We must verify every single transaction and decode any vault inputs */
     protected decodeVaults(): void {
-        for (let input of this.inputs) {
+        for (const input of this.inputs) {
             const vault = this.vaultDecoder.decodeInput(input);
             if (!vault) {
                 continue;

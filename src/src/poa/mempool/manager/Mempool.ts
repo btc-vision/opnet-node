@@ -30,6 +30,7 @@ import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInf
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
 import { Address } from '@btc-vision/bsi-binary';
 import { WBTCBalanceRequest } from '../../../threading/interfaces/thread-messages/messages/api/WBTCBalanceRequest.js';
+import { BroadcastTransactionResult } from '../../../api/json-rpc/types/interfaces/results/transactions/BroadcastTransactionResult.js';
 
 export class Mempool extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -83,7 +84,7 @@ export class Mempool extends Logger {
     public sendMessageToThread: (
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ) => Promise<ThreadData | null> = async () => {
+    ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
 
@@ -127,8 +128,8 @@ export class Mempool extends Logger {
             this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
                 try {
                     OPNetConsensus.setBlockHeight(blockHeight);
-                    this.mempoolRepository.purgeOldTransactions(blockHeight);
-                } catch (e) {}
+                    void this.mempoolRepository.purgeOldTransactions(blockHeight);
+                } catch {}
             });
         }
 
@@ -168,7 +169,7 @@ export class Mempool extends Logger {
         }
 
         setTimeout(() => {
-            this.estimateFees();
+            void this.estimateFees();
         }, 20000);
     }
 
@@ -223,9 +224,9 @@ export class Mempool extends Logger {
             };
 
             if (psbt) {
-                return this.decodePSBTAndProcess(transaction);
+                return await this.decodePSBTAndProcess(transaction);
             } else {
-                return this.decodeTransactionAndProcess(transaction);
+                return await this.decodeTransactionAndProcess(transaction);
             }
         } catch (e) {
             if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
@@ -342,7 +343,7 @@ export class Mempool extends Logger {
             ];
 
             const result = await Promise.all(submitData);
-            const broadcastResult = result[1] as BroadcastResponse | undefined;
+            const broadcastResult = result[1] as BroadcastTransactionResult | undefined;
             console.log('broadcastResult', broadcastResult);
 
             if (broadcastResult?.success) {
@@ -426,7 +427,9 @@ export class Mempool extends Logger {
                 type: MessageType.RPC_METHOD,
                 data: {
                     rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE,
-                    data: data,
+                    data: {
+                        rawTransaction: data,
+                    },
                 } as BroadcastRequest,
             };
 

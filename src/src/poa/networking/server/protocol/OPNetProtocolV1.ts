@@ -35,16 +35,17 @@ export class OPNetProtocolV1 {
     public onAuthenticated(): void {
         this.opnetProtocol = {
             ...this.commonProtocol(),
-            [ServerInBound.DISCOVER]: this.handleDiscoveryPacket,
-            [ServerOutBound.DISCOVERY_RESPONSE]: this.handleDiscoveryResponsePacket,
-            [CommonPackets.BLOCK_HEADER_WITNESS]: this.handleBlockHeaderWitnessPacket,
+            [ServerInBound.DISCOVER]: () => this.handleDiscoveryPacket(),
+            [ServerOutBound.DISCOVERY_RESPONSE]: () => this.handleDiscoveryResponsePacket(),
+            [CommonPackets.BLOCK_HEADER_WITNESS]: () => this.handleBlockHeaderWitnessPacket(),
 
             /** Sync */
-            [ServerInBound.SYNC_BLOCK_HEADERS_REQUEST]: this.handleSyncBlockHeadersRequest,
-            [ServerOutBound.SYNC_BLOCK_HEADERS_RESPONSE]: this.handleSyncBlockHeadersResponse,
+            [ServerInBound.SYNC_BLOCK_HEADERS_REQUEST]: () => this.handleSyncBlockHeadersRequest(),
+            [ServerOutBound.SYNC_BLOCK_HEADERS_RESPONSE]: () =>
+                this.handleSyncBlockHeadersResponse(),
 
             /** Transaction */
-            [CommonPackets.BROADCAST_TRANSACTION]: this.handleTransactionBroadcast,
+            [CommonPackets.BROADCAST_TRANSACTION]: () => this.handleTransactionBroadcast(),
         };
     }
 
@@ -60,9 +61,9 @@ export class OPNetProtocolV1 {
         delete this.opnetProtocol;
     }
 
-    public async onIncomingPacket<T extends PackedMessage>(
+    public onIncomingPacket<T extends PackedMessage>(
         packet: OPNetPacket,
-    ): Promise<Packet<T, PackedMessage, PackedMessage> | null> {
+    ): Packet<T, PackedMessage, PackedMessage> | null {
         if (!this.opnetProtocol) return null;
 
         const packetHandler = this.opnetProtocol[packet.opcode];
@@ -133,8 +134,8 @@ export class OPNetProtocolV1 {
 
     private commonProtocol(): Partial<ProtocolV1Inbound> {
         return {
-            [CommonPackets.PONG]: this.handlePongPacket,
-            [ServerInBound.PING]: this.handlePingPacket,
+            [CommonPackets.PONG]: () => this.handlePongPacket(),
+            [ServerInBound.PING]: () => this.handlePingPacket(),
         };
     }
 
@@ -142,11 +143,11 @@ export class OPNetProtocolV1 {
         this.opnetProtocol = {
             ...this.commonProtocol(),
 
-            [ServerInBound.AUTHENTICATION]: this.handleAuthenticationPacket,
-            [ServerInBound.CLIENT_CIPHER_EXCHANGE]: this.handleClientCipherExchange,
+            [ServerInBound.AUTHENTICATION]: () => this.handleAuthenticationPacket(),
+            [ServerInBound.CLIENT_CIPHER_EXCHANGE]: () => this.handleClientCipherExchange(),
 
-            [ServerOutBound.AUTHENTICATION_STATUS]: this.handleAuthenticationStatusPacket,
-            [ServerOutBound.SERVER_CIPHER_EXCHANGE]: this.handleServerCipherExchangePacket,
+            [ServerOutBound.AUTHENTICATION_STATUS]: () => this.handleAuthenticationStatusPacket(),
+            [ServerOutBound.SERVER_CIPHER_EXCHANGE]: () => this.handleServerCipherExchangePacket(),
         };
     }
 }

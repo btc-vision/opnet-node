@@ -28,7 +28,7 @@ export class MempoolThread extends Thread<ThreadTypes.MEMPOOL> {
     protected async onLinkMessage(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<void | ThreadData> {
+    ): Promise<undefined | ThreadData> {
         switch (type) {
             case ThreadTypes.INDEXER: {
                 return await this.handleRequest(m);

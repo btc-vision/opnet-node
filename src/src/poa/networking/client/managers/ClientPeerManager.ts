@@ -15,7 +15,7 @@ import { Config } from '../../../../config/Config.js';
 import { DebugLevel } from '@btc-vision/bsi-common';
 
 export class ClientPeerManager extends AbstractPacketManager {
-    constructor(
+    public constructor(
         protocol: OPNetProtocolV1,
         peerId: string,
         selfIdentity: OPNetIdentity | undefined,
@@ -63,9 +63,9 @@ export class ClientPeerManager extends AbstractPacketManager {
             this.info(`Peer ${this.peerId} got discovery a response.`);
         }
 
-        const discoveryPacket = (await this.protocol.onIncomingPacket<IDiscoveryResponse>(
+        const discoveryPacket = this.protocol.onIncomingPacket<IDiscoveryResponse>(
             packet,
-        )) as DiscoveryResponsePacket;
+        ) as DiscoveryResponsePacket;
 
         if (!discoveryPacket) {
             return;

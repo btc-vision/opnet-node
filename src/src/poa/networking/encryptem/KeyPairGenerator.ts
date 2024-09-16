@@ -23,7 +23,7 @@ type SodiumKeyPair = {
 export class KeyPairGenerator extends Logger {
     public readonly logColor: string = '#ffcc00';
 
-    constructor() {
+    public constructor() {
         super();
     }
 

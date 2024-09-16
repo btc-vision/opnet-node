@@ -182,8 +182,8 @@ export class UnwrapTransaction extends InteractionTransaction {
         const authorities: TrustedCompanies[] = [];
         const usedUTXOs: UsedUTXOToDelete[] = [];
 
-        for (let input of this.vaultInputs) {
-            for (let key of input.keys) {
+        for (const input of this.vaultInputs) {
+            for (const key of input.keys) {
                 const authority = key.authority;
 
                 if (!authorities.includes(authority)) {

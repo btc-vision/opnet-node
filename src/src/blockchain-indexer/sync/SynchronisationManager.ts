@@ -27,11 +27,11 @@ class SynchronisationManager extends ThreadManager<ThreadTypes.SYNCHRONISATION> 
         throw new Error('Method not implemented.');
     }
 
-    protected async sendLinkToThreadsOfType(
+    protected sendLinkToThreadsOfType(
         _threadType: ThreadTypes,
         _threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean> {
+    ): boolean {
         const targetThreadType = message.data.targetThreadType;
 
         switch (targetThreadType) {
@@ -41,10 +41,10 @@ class SynchronisationManager extends ThreadManager<ThreadTypes.SYNCHRONISATION> 
         }
     }
 
-    protected async sendLinkMessageToThreadOfType(
+    protected sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,
-    ): Promise<boolean> {
+    ): boolean {
         switch (threadType) {
             default: {
                 return false;
@@ -52,8 +52,8 @@ class SynchronisationManager extends ThreadManager<ThreadTypes.SYNCHRONISATION> 
         }
     }
 
-    protected async onExitRequested(): Promise<void> {
-        await this.threadManager.sendToAllThreads({
+    protected onExitRequested(): void {
+        this.threadManager.sendToAllThreads({
             type: MessageType.EXIT_THREAD,
         });
     }
@@ -63,7 +63,7 @@ class SynchronisationManager extends ThreadManager<ThreadTypes.SYNCHRONISATION> 
     }
 
     protected async init(): Promise<void> {
-        await super.init();
+        super.init();
 
         this.log('Starting block indexer...');
         await this.createThreads();

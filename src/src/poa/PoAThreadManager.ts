@@ -25,11 +25,11 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.POA> {
         throw new Error('Method not implemented.');
     }
 
-    protected async sendLinkToThreadsOfType(
+    protected sendLinkToThreadsOfType(
         _threadType: ThreadTypes,
         _threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean> {
+    ): Promise<boolean> | boolean {
         const targetThreadType = message.data.targetThreadType;
 
         switch (targetThreadType) {
@@ -39,10 +39,10 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.POA> {
         }
     }
 
-    protected async sendLinkMessageToThreadOfType(
+    protected sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,
-    ): Promise<boolean> {
+    ): Promise<boolean> | boolean {
         switch (threadType) {
             default: {
                 return false;
@@ -50,8 +50,8 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.POA> {
         }
     }
 
-    protected async onExitRequested(): Promise<void> {
-        await this.threadManager.sendToAllThreads({
+    protected onExitRequested(): void {
+        this.threadManager.sendToAllThreads({
             type: MessageType.EXIT_THREAD,
         });
     }
@@ -62,7 +62,7 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.POA> {
     }
 
     private async createAllThreads(): Promise<void> {
-        await this.init();
+        this.init();
 
         await this.threadManager.createThreads();
     }
