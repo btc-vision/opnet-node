@@ -78,6 +78,7 @@
     "gulp": "^5.0.0",
     "gulp-cached": "^1.1.1",
     "gulp-eslint": "^6.0.0",
+    "gulp-eslint-new": "^2.3.0",
     "gulp-logger": "^0.0.2",
     "gulp-typescript": "^6.0.0-alpha.1",
     "gulplog": "^2.2.0",
