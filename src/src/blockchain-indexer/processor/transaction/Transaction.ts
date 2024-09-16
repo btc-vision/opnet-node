@@ -279,7 +279,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                         isCorrectType = y;
                         break;
                     }
-                } catch (e) {}
+                } catch {}
             }
         }
 
