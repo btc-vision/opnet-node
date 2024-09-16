@@ -18,7 +18,6 @@ import { IncomingStreamData } from '@libp2p/interface/src/stream-handler/index.j
 import { KadDHT, kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
 import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';
-import { mplex } from '@libp2p/mplex';
 import { peerIdFromBytes, peerIdFromString } from '@libp2p/peer-id';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { tcp } from '@libp2p/tcp';
@@ -1104,10 +1103,7 @@ export class P2PManager extends Logger {
             ],
             connectionEncryption: [noise()],
             connectionGater: this.getConnectionGater(),
-            streamMuxers: [
-                yamux(this.p2pConfigurations.yamuxConfiguration),
-                mplex(this.p2pConfigurations.mplexConfiguration),
-            ],
+            streamMuxers: [yamux(this.p2pConfigurations.yamuxConfiguration)],
             addresses: this.p2pConfigurations.listeningConfiguration,
             peerDiscovery: peerDiscovery as unknown as ((
                 components: Components,

@@ -6,7 +6,6 @@ import { NodeInfo, PeerId } from '@libp2p/interface';
 import { FaultTolerance } from '@libp2p/interface-transport';
 import { KadDHTInit } from '@libp2p/kad-dht';
 import { MulticastDNSInit } from '@libp2p/mdns/dist/src/mdns.js';
-import { MplexInit } from '@libp2p/mplex';
 import { createFromJSON } from '@libp2p/peer-id-factory';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { TCPOptions } from '@libp2p/tcp';
@@ -79,36 +78,6 @@ export class P2PConfigurations extends OPNetPathFinder {
             maxOutboundStreams: this.config.P2P.MAXIMUM_OUTBOUND_STREAMS,
 
             maxMessageSize: P2PConfigurations.maxMessageSize,
-        };
-    }
-
-    public get mplexConfiguration(): MplexInit {
-        return {
-            /**
-             * The total number of inbound protocol streams that can be opened on a given connection
-             */
-            maxInboundStreams: this.config.P2P.MAXIMUM_INBOUND_STREAMS,
-
-            /**
-             * The total number of outbound protocol streams that can be opened on a given connection
-             */
-            maxOutboundStreams: this.config.P2P.MAXIMUM_OUTBOUND_STREAMS,
-
-            /**
-             * How much incoming data in bytes to buffer while attempting to parse messages - peers sending many small messages in batches may cause this buffer to grow
-             */
-            maxUnprocessedMessageQueueSize: 100,
-
-            /**
-             * How much message data in bytes to buffer after parsing - slow stream consumers may cause this buffer to grow
-             */
-            maxStreamBufferSize: P2PConfigurations.maxMessageSize,
-
-            /**
-             * Mplex does not support backpressure so to protect ourselves, if `maxInboundStreams` is
-             * hit and the remote opens more than this many streams per second, close the connection
-             */
-            disconnectThreshold: 15,
         };
     }
 
