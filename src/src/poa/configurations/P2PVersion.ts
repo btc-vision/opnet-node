@@ -1,14 +1,15 @@
-import { ChainIds } from '../../config/enums/ChainIds.js';
-import { MainnetTrustedKeys001 } from './keys/bitcoin/0.0.1/MainnetTrustedKeys001.js';
-import { RegTestTrustedKeys001 } from './keys/bitcoin/0.0.1/RegtestTrustedKeys001.js';
-import { TestNetTrustedKeys001 } from './keys/bitcoin/0.0.1/TestnetTrustedKeys001.js';
-import { TrustedPublicKeys } from './types/TrustedPublicKeys.js';
-import { SignetTrustedKeys001 } from './keys/bitcoin/0.0.1/SignetTrustedKeys001.js';
-import { TrustedVersion } from './version/TrustedVersion.js';
-import { MainnetTrustedKeys001Fractal } from './keys/fractal/0.0.1/MainnetTrustedKeys001Fractal.js';
-import { TestnetTrustedKeys001Fractal } from './keys/fractal/0.0.1/TestnetTrustedKeys001Fractal.js';
+import {ChainIds} from '../../config/enums/ChainIds.js';
+import {MainnetTrustedKeys001} from './keys/bitcoin/0.0.1/MainnetTrustedKeys001.js';
+import {RegTestTrustedKeys001} from './keys/bitcoin/0.0.1/RegtestTrustedKeys001.js';
+import {TestNetTrustedKeys001} from './keys/bitcoin/0.0.1/TestnetTrustedKeys001.js';
+import {TrustedPublicKeys} from './types/TrustedPublicKeys.js';
+import {SignetTrustedKeys001} from './keys/bitcoin/0.0.1/SignetTrustedKeys001.js';
+import {TrustedVersion} from './version/TrustedVersion.js';
+import {MainnetTrustedKeys001Fractal} from './keys/fractal/0.0.1/MainnetTrustedKeys001Fractal.js';
+import {TestnetTrustedKeys001Fractal} from './keys/fractal/0.0.1/TestnetTrustedKeys001Fractal.js';
 
-import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';
+import {BitcoinNetwork} from '../../config/network/BitcoinNetwork.js';
+import {WBTC_ADDRESS_REGTEST} from '@btc-vision/transaction';
 
 /**
  * DO NOT MODIFY THIS FILE IF YOU DON'T KNOW WHAT YOU ARE DOING.
@@ -38,7 +39,7 @@ export const WBTC_CONTRACT_ADDRESS: {
         },
 
         [BitcoinNetwork.regtest]: {
-            addresses: ['bcrt1qdr7sjgtnudda8zrfklw8l5cnrxum5hns7e46hf'],
+            addresses: [WBTC_ADDRESS_REGTEST],
             deployer: 'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gs0xjlhn',
         },
 
