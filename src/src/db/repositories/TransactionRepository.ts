@@ -6,6 +6,7 @@ import {
     BulkWriteResult,
     ClientSession,
     Collection,
+    Db,
     Decimal128,
     Document,
     Filter,
@@ -19,6 +20,10 @@ export class TransactionRepository extends BaseRepository<
     ITransactionDocument<OPNetTransactionTypes>
 > {
     public readonly logColor: string = '#afeeee';
+
+    public constructor(db: Db) {
+        super(db);
+    }
 
     public async deleteTransactionsFromBlockHeight(
         blockHeight: bigint,

@@ -46,7 +46,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
 
     private cachedVaultQuery: Promise<SelectedUTXOs | undefined> | undefined;
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 
@@ -300,7 +300,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
             // Fees are prepaid up to a certain value. We need to add the consolidation fees to the requested amount.
             let currentAmount: bigint = 0n;
             let consolidating: boolean = false;
-            let selectedUTXOs: IWBTCUTXODocument[] = [];
+            const selectedUTXOs: IWBTCUTXODocument[] = [];
             let consolidatedInputs: IWBTCUTXODocument[] = [];
             let consolidationAmount: bigint = 0n;
             let amountLeft: bigint = 0n;

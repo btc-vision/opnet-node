@@ -8,7 +8,7 @@ import { DataConverter } from '@btc-vision/bsi-db';
 export class VaultRepository extends BaseRepository<IVaultDocument> {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 

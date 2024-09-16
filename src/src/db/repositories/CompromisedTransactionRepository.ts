@@ -10,7 +10,7 @@ import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 export class CompromisedTransactionRepository extends BaseRepository<CompromisedTransactionDocument> {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 

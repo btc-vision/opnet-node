@@ -24,7 +24,7 @@ export interface IContractPointerValue {
 export class ContractPointerValueRepository extends BaseRepository<IContractPointerValueDocument> {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 

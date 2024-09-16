@@ -8,7 +8,7 @@ import { Address } from '@btc-vision/bsi-binary';
 export class ContractRepository extends BaseRepository<IContractDocument> {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 

@@ -8,7 +8,7 @@ import { Config } from '../../config/Config.js';
 export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 

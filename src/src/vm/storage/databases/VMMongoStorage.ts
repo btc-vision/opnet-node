@@ -249,22 +249,6 @@ export class VMMongoStorage extends VMStorage {
         this.usedUTXOsRepository = new UsedWbtcUxtoRepository(this.databaseManager.db);
     }
 
-    /*public async awaitPendingWrites(): Promise<void> {
-        if (this.blockHeightSaveLoop) clearTimeout(this.blockHeightSaveLoop);
-
-        for (let action of this.writeTransactions.values()) {
-            await Promise.all(action);
-        }
-
-        for (let session of this.waitingCommits.values()) {
-            await session;
-        }
-
-        this.clearCache();
-
-        await this.updateBlockHeight();
-    }*/
-
     public async purgePointers(block: bigint): Promise<void> {
         if (!this.pointerRepository) {
             throw new Error('Pointer repository not initialized');
@@ -832,7 +816,7 @@ export class VMMongoStorage extends VMStorage {
             await this.lastUtxoSession.endSession();
 
             this.lastUtxoSession = null;
-        } catch (e) {
+        } catch {
             this.lastUtxoSession = null;
 
             throw new Error('Unable to commit UTXOs.');
@@ -840,13 +824,13 @@ export class VMMongoStorage extends VMStorage {
     }
 
     private chunkArray<T>(array: T[], size: number): T[][] {
-        return array.reduce((acc, _, i) => {
+        return array.reduce<T[][]>((acc, _, i) => {
             if (i % size === 0) {
                 acc.push(array.slice(i, i + size));
             }
 
             return acc;
-        }, [] as T[][]);
+        }, []);
     }
 
     private getTransactionOptions(): TransactionOptions {

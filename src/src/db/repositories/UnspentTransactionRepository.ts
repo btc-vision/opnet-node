@@ -47,7 +47,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
     private readonly uxtosAggregation: UTXOsAggregationV2 = new UTXOsAggregationV2();
     private readonly balanceOfAggregation: BalanceOfAggregationV2 = new BalanceOfAggregationV2();
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 

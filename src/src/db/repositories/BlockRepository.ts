@@ -10,7 +10,7 @@ import {
 export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 
