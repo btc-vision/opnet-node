@@ -145,9 +145,9 @@ export class WrapTransaction extends InteractionTransaction {
     ): Buffer | undefined {
         let contractBytecode: Buffer | undefined = undefined;
 
-        let i: number = 0;
+        //let i: number = 0;
         do {
-            if (scriptData[i] === breakWhenReachOpcode) {
+            if (scriptData[0] === breakWhenReachOpcode) {
                 break;
             }
 
@@ -166,7 +166,7 @@ export class WrapTransaction extends InteractionTransaction {
                 throw new Error(`Invalid pub keys found in wrap transaction.`);
             }
 
-            i++;
+            //i++;
         } while (scriptData.length);
 
         return contractBytecode;
