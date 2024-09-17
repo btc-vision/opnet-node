@@ -17,8 +17,6 @@ function onError(e) {
 }
 
 function buildESM() {
-    clean();
-
     return tsProject
         .src()
         .on('error', onError)
@@ -87,7 +85,7 @@ function buildConfig() {
 }
 
 export const optionals = gulp.parallel(buildYaml, buildProto, buildConfig);
-export const build = gulp.series(buildESM, optionals);
+export const build = gulp.series(clean, buildESM, optionals);
 export default build;
 
 export function watch() {
