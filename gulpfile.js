@@ -89,7 +89,7 @@ export const build = gulp.series(clean, buildESM, optionals);
 export default build;
 
 export function watch() {
-    gulp.watch(['src/**/*.ts', 'src/**/*.js'], gulp.series(buildESM));
+    gulp.watch(['src/**/*.ts', 'src/**/*.js'], gulp.series(clean, buildESM));
     gulp.watch(
         [
             'src/components/*.yaml',
