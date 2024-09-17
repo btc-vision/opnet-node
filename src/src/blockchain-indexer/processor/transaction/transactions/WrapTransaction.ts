@@ -147,6 +147,7 @@ export class WrapTransaction extends InteractionTransaction {
 
         //let i: number = 0;
         do {
+            // TODO: Verify this.
             if (scriptData[0] === breakWhenReachOpcode) {
                 break;
             }
