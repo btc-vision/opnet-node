@@ -20,6 +20,7 @@ function buildESM() {
     return tsProject
         .src()
         .on('error', onError)
+        .pipe(gulpcache())
         .pipe(
             logger({
                 before: 'Starting...',
@@ -30,7 +31,6 @@ function buildESM() {
         )
         .pipe(gulpESLintNew())
         .pipe(gulpESLintNew.format())
-        .pipe(gulpcache())
         .pipe(tsProject())
         .pipe(gulp.dest('build'));
 }
