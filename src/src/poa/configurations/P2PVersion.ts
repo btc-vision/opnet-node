@@ -9,7 +9,6 @@ import {MainnetTrustedKeys001Fractal} from './keys/fractal/0.0.1/MainnetTrustedK
 import {TestnetTrustedKeys001Fractal} from './keys/fractal/0.0.1/TestnetTrustedKeys001Fractal.js';
 
 import {BitcoinNetwork} from '../../config/network/BitcoinNetwork.js';
-import {WBTC_ADDRESS_REGTEST} from '@btc-vision/transaction';
 
 /**
  * DO NOT MODIFY THIS FILE IF YOU DON'T KNOW WHAT YOU ARE DOING.
@@ -42,7 +41,7 @@ export const WBTC_CONTRACT_ADDRESS: {
         },
 
         [BitcoinNetwork.regtest]: {
-            addresses: [WBTC_ADDRESS_REGTEST], //bcrt1qdr7sjgtnudda8zrfklw8l5cnrxum5hns7e46hf
+            addresses: ['bcrt1qdr7sjgtnudda8zrfklw8l5cnrxum5hns7e46hf'], //WBTC_ADDRESS_REGTEST
             deployer: 'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gs0xjlhn',
         },
 
