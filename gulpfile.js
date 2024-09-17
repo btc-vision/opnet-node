@@ -17,6 +17,8 @@ function onError(e) {
 }
 
 function buildESM() {
+    clean();
+
     return tsProject
         .src()
         .on('error', onError)
@@ -35,7 +37,7 @@ function buildESM() {
         .pipe(gulp.dest('build'));
 }
 
-export async function clean() {
+export function clean() {
     return gulp.src('./build/src', { read: false }).pipe(gulpClean());
 }
 
