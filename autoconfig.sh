@@ -9,6 +9,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[1;34m'
 NC='\033[0m' # No Color
 
+# Variables to store auto-generated credentials
+password_auto_generated=false
+auto_generated_password=""
+
 # Clear the screen
 clear
 
@@ -183,6 +187,12 @@ install_and_configure_mongodb() {
     echo -e "${BLUE}Installing gnupg and curl...${NC}"
     sudo apt-get install gnupg curl -y
 
+    # Check if OpenSSL is installed
+    if ! command_exists openssl; then
+        echo -e "${BLUE}OpenSSL is not installed. Installing OpenSSL...${NC}"
+        sudo apt-get install openssl -y
+    fi
+
     # Check if MongoDB public GPG Key is already in the system
     if [ -f /usr/share/keyrings/mongodb-server-7.0.gpg ]; then
         echo -e "${YELLOW}MongoDB public GPG key already exists.${NC}"
@@ -279,8 +289,16 @@ install_and_configure_mongodb() {
     mongodb_admin_username=${mongodb_admin_username:-opnet}
 
     # Prompt for password for the custom username
-    read -s -p "Enter a password for MongoDB user '$mongodb_admin_username': " mongodb_password
+    read -s -p "Enter a password for MongoDB user '$mongodb_admin_username' (leave empty to generate a random password): " mongodb_password
     echo ""
+
+    if [[ -z "$mongodb_password" ]]; then
+        # Generate a random password
+        mongodb_password=$(openssl rand -base64 16)
+        echo -e "${BLUE}A random password has been generated for MongoDB user '$mongodb_admin_username'.${NC}"
+        password_auto_generated=true
+        auto_generated_password="$mongodb_password"
+    fi
 
     read -p "Enter the amount of RAM (in GB) to allocate for each shard (or press Enter for auto-select): " shard_ram
 
@@ -437,6 +455,9 @@ install_and_configure_mongodb() {
     done
 
     echo -e "${GREEN}MongoDB installation and configuration completed successfully.${NC}"
+
+    # Inform the user to keep the password safe
+    echo -e "${YELLOW}Please make sure to save the MongoDB admin username and password securely.${NC}"
 }
 
 # Function to install Node.js 21
@@ -727,6 +748,19 @@ fi
 
 if [ "$setup_indexer" = true ]; then
     setup_opnet_indexer
+fi
+
+# At the end of the script, if the password was auto-generated, offer to display it
+if [ "$password_auto_generated" = true ]; then
+    echo ""
+    echo -e "${YELLOW}Note:${NC} You chose to generate a random password for MongoDB user '$mongodb_admin_username'."
+    read -p "Would you like to view the auto-generated MongoDB password now? [y/N]: " show_password
+    if [[ "$show_password" == "y" || "$show_password" == "Y" ]]; then
+        echo -e "${GREEN}Your MongoDB password is:${NC} ${auto_generated_password}"
+        echo -e "${YELLOW}Please copy and store it securely.${NC}"
+    else
+        echo -e "${YELLOW}You can retrieve the password from the log file or reset it if necessary.${NC}"
+    fi
 fi
 
 echo -e "${GREEN}Installation completed successfully!${NC}"
