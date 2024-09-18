@@ -78,6 +78,72 @@ command_exists() {
     command -v "$1" &> /dev/null
 }
 
+# Function to wait for MongoDB service to be ready
+wait_for_mongo() {
+    local host=$1
+    local port=$2
+    local retries=30
+    local wait=2
+
+    for ((i=1; i<=retries; i++)); do
+        nc -z "$host" "$port" && break
+        echo -e "${YELLOW}Waiting for MongoDB at $host:$port... (${i}/${retries})${NC}"
+        sleep "$wait"
+    done
+
+    if (( i > retries )); then
+        echo -e "${RED}MongoDB at $host:$port is not responding. Exiting.${NC}"
+        exit 1
+    fi
+}
+
+# Function to check MongoDB service status and attempt to correct errors
+check_and_fix_mongo_service() {
+    local service_name=$1
+
+    # Check if the service is active
+    if ! sudo systemctl is-active --quiet "$service_name"; then
+        echo -e "${RED}$service_name service is not running.${NC}"
+        echo -e "${BLUE}Attempting to restart $service_name...${NC}"
+        sudo systemctl restart "$service_name"
+        sleep 5
+        if ! sudo systemctl is-active --quiet "$service_name"; then
+            echo -e "${RED}Failed to restart $service_name. Please check the service status for more details.${NC}"
+            exit 1
+        else
+            echo -e "${GREEN}$service_name restarted successfully.${NC}"
+        fi
+    fi
+
+    # Check for errors in the service status
+    service_status=$(sudo systemctl status "$service_name" --no-pager)
+
+    if echo "$service_status" | grep -q "Failed to start"; then
+        echo -e "${RED}Detected 'Failed to start' error in $service_name.${NC}"
+        echo -e "${BLUE}Attempting to fix common issues...${NC}"
+
+        # Check for keyfile permission issues
+        if echo "$service_status" | grep -q "permissions on the keyfile are too open"; then
+            echo -e "${YELLOW}Keyfile permissions are too open. Fixing permissions...${NC}"
+            sudo chown mongodb:mongodb /etc/mongodb/keys/mongo-key
+            sudo chmod 400 /etc/mongodb/keys/mongo-key
+        fi
+
+        # Restart the service after attempting fixes
+        echo -e "${BLUE}Restarting $service_name...${NC}"
+        sudo systemctl restart "$service_name"
+        sleep 5
+        if ! sudo systemctl is-active --quiet "$service_name"; then
+            echo -e "${RED}Failed to restart $service_name after fixes. Please check the service status for more details.${NC}"
+            exit 1
+        else
+            echo -e "${GREEN}$service_name restarted successfully after fixes.${NC}"
+        fi
+    fi
+
+    echo -e "${GREEN}$service_name is running properly.${NC}"
+}
+
 # Function to install and configure MongoDB
 install_and_configure_mongodb() {
     echo -e "${BLUE}Starting MongoDB installation...${NC}"
@@ -88,14 +154,29 @@ install_and_configure_mongodb() {
         read -p "Do you want to uninstall it and proceed with fresh installation? [y/N]: " uninstall_mongo
         if [[ "$uninstall_mongo" =~ ^[Yy]$ ]]; then
             echo -e "${BLUE}Uninstalling existing MongoDB installation...${NC}"
-            sudo systemctl stop mongod
+
+            # Stop MongoDB services if running
+            for service in mongod mongos shard1 shard2 configdb; do
+                if systemctl is-active --quiet "$service"; then
+                    echo -e "${BLUE}Stopping $service service...${NC}"
+                    sudo systemctl stop "$service"
+                fi
+            done
+
             sudo apt-get purge mongodb-org* -y
             sudo rm -r /var/log/mongodb
             sudo rm -r /var/lib/mongodb
+            sudo rm -r /etc/mongodb
         else
             echo -e "${RED}Canceled by user.${NC}"
             exit 1
         fi
+    fi
+
+    # Install netcat for port checking
+    if ! command_exists nc; then
+        echo -e "${BLUE}Installing netcat for port checking...${NC}"
+        sudo apt-get install netcat -y
     fi
 
     # Install gnupg and curl
@@ -141,10 +222,32 @@ install_and_configure_mongodb() {
     # Now configure MongoDB
     echo -e "${BLUE}Configuring MongoDB...${NC}"
     # Step 1: Create keyfile and directories
+
+    # Check if /mnt/data/ exists
+    if [ -d "/mnt/data" ]; then
+        echo -e "${YELLOW}/mnt/data/ directory already exists.${NC}"
+        read -p "Do you want to purge it and reinstall? [y/N]: " purge_data
+        if [[ "$purge_data" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}Purging /mnt/data/...${NC}"
+            sudo rm -rf /mnt/data
+            sudo mkdir -p /mnt/data/configdb
+            sudo mkdir -p /mnt/data/shard1
+            sudo mkdir -p /mnt/data/shard2
+        else
+            echo -e "${YELLOW}Keeping existing data in /mnt/data/.${NC}"
+            # Ensure required subdirectories exist
+            [ -d "/mnt/data/configdb" ] || sudo mkdir -p /mnt/data/configdb
+            [ -d "/mnt/data/shard1" ] || sudo mkdir -p /mnt/data/shard1
+            [ -d "/mnt/data/shard2" ] || sudo mkdir -p /mnt/data/shard2
+        fi
+    else
+        sudo mkdir -p /mnt/data/configdb
+        sudo mkdir -p /mnt/data/shard1
+        sudo mkdir -p /mnt/data/shard2
+    fi
+
+    sudo mkdir -p /etc/mongodb
     sudo mkdir -p /etc/mongodb/keys
-    sudo mkdir -p /mnt/data/configdb
-    sudo mkdir -p /mnt/data/shard1
-    sudo mkdir -p /mnt/data/shard2
 
     # Step 2: Generate keyfile
     if [ -f /etc/mongodb/keys/mongo-key ]; then
@@ -152,12 +255,12 @@ install_and_configure_mongodb() {
         read -p "Do you want to overwrite it? [y/N]: " overwrite_key
         if [[ "$overwrite_key" =~ ^[Yy]$ ]]; then
             sudo rm /etc/mongodb/keys/mongo-key
-            sudo openssl rand -base64 756 | sudo tee /etc/mongodb/keys/mongo-key > /dev/null
+            sudo openssl rand -base64 756 > /etc/mongodb/keys/mongo-key
         else
             echo -e "${YELLOW}Using existing keyfile.${NC}"
         fi
     else
-        sudo openssl rand -base64 756 | sudo tee /etc/mongodb/keys/mongo-key > /dev/null
+        sudo openssl rand -base64 756 > /etc/mongodb/keys/mongo-key
     fi
 
     # Set permissions
@@ -235,45 +338,77 @@ install_and_configure_mongodb() {
 
     # Step 5: Start MongoDB Services
     echo -e "${BLUE}Starting MongoDB services...${NC}"
-    sudo systemctl start mongos
     sudo systemctl start configdb
     sudo systemctl start shard1
     sudo systemctl start shard2
 
-    # Verify services are running
-    echo -e "${BLUE}Verifying MongoDB services...${NC}"
-    for service in mongos configdb shard1 shard2; do
-        sudo systemctl is-active --quiet $service
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}Service $service failed to start.${NC}"
-            exit 1
-        fi
+    # Verify services are running and attempt to fix if not
+    echo -e "${BLUE}Verifying and fixing MongoDB services...${NC}"
+    for service in configdb shard1 shard2; do
+        check_and_fix_mongo_service "$service"
     done
 
-    echo -e "${GREEN}MongoDB services started successfully.${NC}"
+    echo -e "${GREEN}MongoDB services are running properly.${NC}"
+
+    # Wait for MongoDB services to be ready
+    wait_for_mongo "localhost" 25480
+    wait_for_mongo "localhost" 25481
 
     # Step 6: Initialize the MongoDB Cluster
     echo -e "${BLUE}Initializing MongoDB Cluster...${NC}"
-    # Connect to config server and initialize the cluster
-    mongosh --port 25480 --host 0.0.0.0 --eval "rs.initiate({ _id: 'configdb', configsvr: true, members: [ { _id: 0, host: 'localhost:25480' }] })"
+
+    # Function to run MongoDB commands with retries
+    run_mongo_command() {
+        local mongo_command=$1
+        local host=$2
+        local port=$3
+        local auth_args=$4
+        local retries=10
+        local wait=5
+
+        for ((i=1; i<=retries; i++)); do
+            mongosh --host "$host" --port "$port" $auth_args --eval "$mongo_command" && break
+            echo -e "${YELLOW}Retrying MongoDB command... (${i}/${retries})${NC}"
+            sleep "$wait"
+        done
+
+        if (( i > retries )); then
+            echo -e "${RED}Failed to run MongoDB command after multiple attempts. Exiting.${NC}"
+            exit 1
+        fi
+    }
+
+    # Initialize config server
+    echo -e "${BLUE}Initializing config server...${NC}"
+    run_mongo_command "rs.initiate({ _id: 'configdb', configsvr: true, members: [ { _id: 0, host: 'localhost:25480' }] })" "localhost" 25480 ""
 
     # Create admin user
-    mongosh --port 25480 --host 0.0.0.0 --eval "db.getSiblingDB('admin').createUser({ user: 'opnet', pwd: '$mongodb_password', roles: [{ role: 'root', db: 'admin' }] });"
+    echo -e "${BLUE}Creating admin user...${NC}"
+    run_mongo_command "db.getSiblingDB('admin').createUser({ user: 'opnet', pwd: '$mongodb_password', roles: [{ role: 'root', db: 'admin' }] });" "localhost" 25480 ""
+
+    echo -e "${BLUE}Starting MongoS...${NC}"
+
+    # Start mongos
+    sudo systemctl start mongos
+
+    # Verify mongos is running and attempt to fix if not
+    check_and_fix_mongo_service mongos
+
+    # Wait for mongos to be ready
+    wait_for_mongo "localhost" 25485
 
     # Initialize shard1
-    mongosh --port 25481 --host 0.0.0.0 --eval "rs.initiate({ _id: 'shard1', members: [ { _id: 0, host: 'localhost:25481' }, { _id: 1, host: 'localhost:25482' }] })"
+    echo -e "${BLUE}Initializing shard1...${NC}"
+    run_mongo_command "rs.initiate({ _id: 'shard1', members: [ { _id: 0, host: 'localhost:25481' }, { _id: 1, host: 'localhost:25482' }] })" "localhost" 25481 ""
 
     # Step 7: Add shards to the cluster
-    mongosh --port 25485 --host 0.0.0.0 --username opnet --password "$mongodb_password" --eval "sh.addShard('shard1/localhost:25481,localhost:25482')"
+    echo -e "${BLUE}Adding shards to the cluster...${NC}"
+    run_mongo_command "sh.addShard('shard1/localhost:25481,localhost:25482')" "localhost" 25485 "--username opnet --password '$mongodb_password'"
 
     # Verify services are still running
     echo -e "${BLUE}Verifying MongoDB services after initialization...${NC}"
     for service in mongos configdb shard1 shard2; do
-        sudo systemctl is-active --quiet $service
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}Service $service failed to run after initialization.${NC}"
-            exit 1
-        fi
+        check_and_fix_mongo_service "$service"
     done
 
     echo -e "${GREEN}MongoDB installation and configuration completed successfully.${NC}"
@@ -364,7 +499,10 @@ setup_opnet_indexer() {
     if [ ! -d "$HOME/bsi-indexer" ]; then
         echo -e "${BLUE}Cloning the OPNet Indexer repository...${NC}"
         git clone https://github.com/btc-vision/bsi-indexer.git "$HOME/bsi-indexer"
+        cd "$HOME/bsi-indexer" || exit 1
         git checkout features/recode-sync-task
+    else
+        cd "$HOME/bsi-indexer" || exit 1
     fi
 
     # Install global dependencies
@@ -373,7 +511,6 @@ setup_opnet_indexer() {
 
     # Install project dependencies
     echo -e "${BLUE}Installing project npm dependencies...${NC}"
-    cd "$HOME/bsi-indexer" || exit 1
     npm install
 
     # Configure the indexer config file
@@ -477,6 +614,13 @@ setup_opnet_indexer() {
     DATABASE_PORT=25480
     DATABASE_NAME="BTC"
     DATABASE_USERNAME="opnet"
+
+    # Check if $mongodb_password is set; if not, prompt the user
+    if [ -z "$mongodb_password" ]; then
+        echo -e "${YELLOW}MongoDB password is not set.${NC}"
+        read -s -p "Please enter the MongoDB password for user 'opnet': " mongodb_password
+        echo ""
+    fi
     DATABASE_PASSWORD="$mongodb_password"
 
     # Generate the configuration file
