@@ -54,8 +54,8 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
 export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
     [ThreadTypes.API]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 32,
-            maxYoungGenerationSizeMb: 1024 * 8,
+            maxOldGenerationSizeMb: 1024 * 16,
+            maxYoungGenerationSizeMb: 1024 * 4,
             stackSizeMb: 512,
         },
     },
@@ -70,7 +70,7 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.INDEXER]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 8,
+            maxOldGenerationSizeMb: 1024 * 12,
             maxYoungGenerationSizeMb: 1024 * 4,
             stackSizeMb: 256,
         },
@@ -78,7 +78,7 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.RPC]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 3,
+            maxOldGenerationSizeMb: 1024 * 2,
             maxYoungGenerationSizeMb: 1024,
             stackSizeMb: 256,
         },
@@ -86,15 +86,15 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.POA]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 4,
-            maxYoungGenerationSizeMb: 1024,
+            maxOldGenerationSizeMb: 1024 * 6,
+            maxYoungGenerationSizeMb: 1024 * 2,
             stackSizeMb: 256,
         },
     },
 
     [ThreadTypes.SSH]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 2,
+            maxOldGenerationSizeMb: 1024,
             maxYoungGenerationSizeMb: 1024,
             stackSizeMb: 256,
         },
@@ -110,8 +110,8 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.SYNCHRONISATION]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 2,
-            maxYoungGenerationSizeMb: 1024,
+            maxOldGenerationSizeMb: 1024 * 4,
+            maxYoungGenerationSizeMb: 1024 * 2,
             stackSizeMb: 256,
         },
     },
