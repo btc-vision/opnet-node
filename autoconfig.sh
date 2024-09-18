@@ -539,6 +539,8 @@ install_rust() {
     fi
 }
 
+BACKUP_DIR=""
+
 # Function to handle build/bin directory backup and restoration
 handle_bin_directory() {
     local action="$1"           # "install" or "update"
@@ -547,11 +549,12 @@ handle_bin_directory() {
     local backup_bin_dir="$HOME/bin_backup_${action}"
 
     if [ -d "$bin_dir" ]; then
-        echo -e "${RED}${BOLD}WARNING:${NC}"
+        echo -e "${RED}${BOLD}WARNING:${NC}" && sleep 0.1
         echo -e "${RED}The directory ${YELLOW}$bin_dir${RED} contains important information about the current peer you are running.${NC}"
         echo -e "${RED}If you discard this directory, your indexer wallet and identity will be ${BOLD}LOST.${NC}"
         echo -e "${RED}It is crucial to preserve this directory during the ${action} process.${NC}"
         echo ""
+
         read -p "Do you understand and wish to proceed with the ${action}, preserving your wallet and identity? [y/N]: " proceed_choice
         if [[ "$proceed_choice" != "y" && "$proceed_choice" != "Y" ]]; then
             echo -e "${YELLOW}${action^} canceled by user.${NC}"
@@ -564,7 +567,7 @@ handle_bin_directory() {
     fi
 
     # Return the path to the backup directory
-    echo "$backup_bin_dir"
+    BACKUP_DIR="$backup_bin_dir"
 }
 
 # Function to restore build/bin directory after cloning
@@ -620,7 +623,7 @@ setup_opnet_indexer() {
         echo -e "${YELLOW}OPNet Indexer directory already exists.${NC}"
 
         # Handle build/bin directory backup
-        backup_bin_dir=$(handle_bin_directory "install" "$INDEXER_DIR")
+        handle_bin_directory "install" "$INDEXER_DIR"
 
         read -p "Do you want to remove the existing directory and proceed with a fresh installation? [y/N]: " reinstall_choice
         if [[ "$reinstall_choice" == "y" || "$reinstall_choice" == "Y" ]]; then
@@ -636,7 +639,7 @@ setup_opnet_indexer() {
     clone_and_build_indexer "$INDEXER_DIR"
 
     # Restore build/bin directory if it was backed up
-    restore_bin_directory "$backup_bin_dir" "$INDEXER_DIR"
+    restore_bin_directory "$BACKUP_DIR" "$INDEXER_DIR"
 
     if [ -f "$CONFIG_FILE" ]; then
         echo -e "${YELLOW}Configuration file already exists at $CONFIG_FILE.${NC}"
@@ -670,7 +673,7 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x0488b21e"
             EXT_SECRET_KEY="0x0488ade4"
             HRP="bc"
-            NETWORK_MAGIC='["0xf9", "0xbe", "0xb4", "0xd9"]'  # Bitcoin mainnet
+            NETWORK_MAGIC='[249, 190, 180, 217]'  # Bitcoin mainnet
         elif [[ "$NETWORK" == "testnet" ]]; then
             PUBKEY_ADDRESS="0x6f"
             SCRIPT_ADDRESS="0xc4"
@@ -678,7 +681,7 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x043587cf"
             EXT_SECRET_KEY="0x04358394"
             HRP="tb"
-            NETWORK_MAGIC='["0x0b", "0x11", "0x09", "0x07"]'  # Bitcoin testnet
+            NETWORK_MAGIC='[11, 17, 9, 7]'  # Bitcoin testnet
         elif [[ "$NETWORK" == "regtest" ]]; then
             PUBKEY_ADDRESS="0x6f"
             SCRIPT_ADDRESS="0xc4"
@@ -686,11 +689,11 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x043587cf"
             EXT_SECRET_KEY="0x04358394"
             HRP="bcrt"
-            NETWORK_MAGIC='["0xfa", "0xbf", "0xb5", "0xda"]'  # Bitcoin regtest
+            NETWORK_MAGIC='[250, 191, 181, 218]'  # Bitcoin regtest
         else
             echo -e "${YELLOW}Unknown NETWORK. Please provide the configurations manually.${NC}"
             # Prompt for manual input
-            read -p "Enter the NETWORK_MAGIC (e.g., [\"0xfa\", \"0xbf\", \"0xb5\", \"0xda\"]): " NETWORK_MAGIC
+            read -p "Enter the NETWORK_MAGIC (e.g., [250, 191, 181, 218]): " NETWORK_MAGIC
             echo "[BASE58]"
             read -p "PUBKEY_ADDRESS: " PUBKEY_ADDRESS
             read -p "SCRIPT_ADDRESS: " SCRIPT_ADDRESS
@@ -701,7 +704,7 @@ setup_opnet_indexer() {
             read -p "HRP: " HRP
         fi
     else
-        echo -e "${YELLOW}Custom CHAIN_ID detected. Please provide NETWORK_MAGIC (e.g., [\"0xfa\", \"0xbf\", \"0xb5\", \"0xda\"]):${NC}"
+        echo -e "${YELLOW}Custom CHAIN_ID detected. Please provide NETWORK_MAGIC (e.g., [250, 191, 181, 218]):${NC}"
         read -p "NETWORK_MAGIC: " NETWORK_MAGIC
         echo "[BASE58]"
         read -p "PUBKEY_ADDRESS: " PUBKEY_ADDRESS
@@ -804,8 +807,8 @@ PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS = 1000 # Purge spent UTXOs older than this nu
 MODE = "$MODE" # ARCHIVE, FULL, SNAP, LIGHT. Only ARCHIVE is supported at this time
 
 ENABLED_AT_BLOCK = 0 # Block height at which the OP_NET should be enabled
-REINDEX = true # Set to true to reindex the OP_NET
-REINDEX_FROM_BLOCK = 8725 # Block height from which to reindex the OP_NET
+REINDEX = false # Set to true to reindex the OP_NET
+REINDEX_FROM_BLOCK = 0 # Block height from which to reindex the OP_NET
 
 TRANSACTIONS_MAXIMUM_CONCURRENT = 100 # Maximum number of concurrent transactions to process
 PENDING_BLOCK_THRESHOLD = 12 # Maximum number of pending blocks to process
@@ -931,7 +934,7 @@ update_opnet_indexer() {
         if [[ "$upgrade_choice" == "y" || "$upgrade_choice" == "Y" ]]; then
 
             # Handle build/bin directory backup
-            backup_bin_dir=$(handle_bin_directory "update" "$INDEXER_DIR")
+            handle_bin_directory "update" "$INDEXER_DIR"
 
             # Backup configuration file
             if [ -f "$CONFIG_FILE" ]; then
@@ -956,7 +959,7 @@ update_opnet_indexer() {
             fi
 
             # Restore build/bin directory
-            restore_bin_directory "$backup_bin_dir" "$INDEXER_DIR"
+            restore_bin_directory "$BACKUP_DIR" "$INDEXER_DIR"
 
             echo -e "${GREEN}OPNet Indexer has been updated to version $latest_version.${NC}"
             echo -e "${YELLOW}Please review your configuration file for any new settings that may be required.${NC}"
