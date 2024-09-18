@@ -85,7 +85,7 @@
     "it-length-prefixed-stream": "^1.1.7",
     "libp2p": "^1.5.1",
     "long": "^5.2.3",
-    "mongodb": "^6.5.0",
+    "mongodb": "^6.9.0",
     "openapi-comment-parser": "^1.0.0",
     "protobufjs": "github:btc-vision/protobuf.js",
     "sodium-native": "^4.1.1",

@@ -7,7 +7,10 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[1;34m'
+CYAN='\033[0;36m'
 BOLD='\033[1m'
+ORANGE='\033[38;2;255;165;0m'
+PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Variables to store auto-generated credentials
@@ -18,15 +21,13 @@ auto_generated_password=""
 clear
 
 # ASCII Art for OPNet
-echo -e "${BLUE}"
-echo "    _////     _///////        _///     _//_////////_/// _//////"
-echo "  _//    _//  _//    _//      _/ _//   _//_//           _//    "
-echo "_//        _//_//    _//      _// _//  _//_//           _//    "
-echo "_//        _//_///////        _//  _// _//_//////       _//    "
-echo "_//        _//_//             _//   _/ _//_//           _//    "
-echo "  _//     _// _//             _//    _/ //_//           _//    "
-echo "    _////     _//             _//      _//_////////     _//    "
-echo "                        _/////                                 "
+echo -e "${ORANGE}"
+echo -e " ██████╗ ██████╗    ███╗   ██╗███████╗████████╗"
+echo -e "██╔═══██╗██╔══██╗   ████╗  ██║██╔════╝╚══██╔══╝"
+echo -e "██║   ██║██████╔╝   ██╔██╗ ██║█████╗     ██║   "
+echo -e "██║   ██║██╔═══╝    ██║╚██╗██║██╔══╝     ██║   "
+echo -e "╚██████╔╝██║███████╗██║ ╚████║███████╗   ██║   "
+echo -e " ╚═════╝ ╚═╝╚══════╝╚═╝  ╚═══╝╚══════╝   ╚═╝   "
 echo -e "${NC}"
 
 echo -e "${GREEN}Welcome to the OPNet Indexer Installation Wizard!${NC}"
@@ -39,13 +40,13 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Present options to the user
-echo "Please select an option:"
-echo "1. Install & Configure all the necessary dependencies (default)"
-echo "2. Install & Configure MongoDB"
-echo "3. Install Node.js 21"
-echo "4. Install Cargo (Rust)"
-echo "5. Setup OPNet Indexer"
-echo "6. Update OPNet Indexer"
+echo -e "${CYAN}Please select an option:${NC}"
+echo -e "${GREEN}1.${NC} ${PURPLE}Install & Configure all the necessary dependencies (default)${NC}"
+echo -e "${GREEN}2.${NC} ${PURPLE}Install & Configure MongoDB${NC}"
+echo -e "${GREEN}3.${NC} ${PURPLE}Install Node.js 21${NC}"
+echo -e "${GREEN}4.${NC} ${PURPLE}Install Cargo (Rust)${NC}"
+echo -e "${GREEN}5.${NC} ${PURPLE}Setup OPNet Indexer${NC}"
+echo -e "${GREEN}6.${NC} ${PURPLE}Update OPNet Indexer${NC}"
 
 # Read user choice
 read -p "Enter your choice [1-6]: " choice

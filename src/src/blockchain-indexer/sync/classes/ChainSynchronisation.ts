@@ -164,15 +164,36 @@ export class ChainSynchronisation extends Logger {
         });
     }
 
+    private async getBlockHeightForEver(): Promise<bigint> {
+        let height: bigint | undefined = undefined;
+
+        do {
+            try {
+                height = await this.blockFetcher.getChainHeight();
+
+                if (height != undefined) break;
+            } catch (e) {
+                this.error(`Failed to get chain height: ${(e as Error).message}`);
+            }
+        } while (height == undefined);
+
+        return height;
+    }
+
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
-        // bigger than 10_000
         if (this.amountOfUTXOs > 100_000) {
             await this.awaitUTXOWrites();
         }
 
         const blockData = await this.blockFetcher.getBlock(blockNumber);
         if (!blockData) {
-            throw new Error(`Block ${blockNumber} not found`);
+            const chainHeight = await this.getBlockHeightForEver();
+            if (blockNumber > chainHeight) {
+                throw new Error(`Block ${blockNumber} not found`);
+            }
+
+            // And we retry forever.
+            return new Promise((r) => setTimeout(() => r(this.queryBlock(blockNumber)), 1000));
         }
 
         const block = new Block({

@@ -23,6 +23,10 @@ export abstract class BlockFetcher extends Logger {
         this.blockChangesSubscribers.push(cb);
     }
 
+    public async getChainHeight(): Promise<bigint> {
+        return this.queryBlockHeight();
+    }
+
     public async getBlock(expectedBlockId: bigint): Promise<BlockDataWithTransactionData | null> {
         try {
             const block = await this.queryBlock(expectedBlockId);
@@ -54,6 +58,8 @@ export abstract class BlockFetcher extends Logger {
     protected notifyBlockChangesSubscribers(blockHeight: BlockHeaderInfo): void {
         this.blockChangesSubscribers.forEach((cb) => cb(blockHeight));
     }
+
+    protected abstract queryBlockHeight(): Promise<bigint>;
 
     protected abstract watchBlockChanges(): Promise<void>;
 

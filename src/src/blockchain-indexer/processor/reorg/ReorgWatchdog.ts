@@ -6,6 +6,8 @@ import { VMManager } from '../../../vm/VMManager.js';
 import { Logger } from '@btc-vision/bsi-common';
 import { IndexingTask } from '../tasks/IndexingTask.js';
 import { BlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { ChainObserver } from '../observer/ChainObserver.js';
+import { ConsensusTracker } from '../consensus/ConsensusTracker.js';
 
 interface LastBlock {
     hash?: string;
@@ -35,8 +37,18 @@ export class ReorgWatchdog extends Logger {
         private readonly vmStorage: VMStorage,
         private readonly vmManager: VMManager,
         private readonly rpcClient: BitcoinRPC,
+        private readonly chainObserver: ChainObserver,
+        private readonly consensusTracker: ConsensusTracker,
     ) {
         super();
+    }
+
+    public get pendingBlockHeight(): bigint {
+        if (this.lastBlock.blockNumber === undefined) {
+            throw new Error('Last block number is not set');
+        }
+
+        return this.lastBlock.blockNumber;
     }
 
     private _currentHeader: HeaderInfo | null = null;
@@ -79,9 +91,12 @@ export class ReorgWatchdog extends Logger {
             return;
         }
 
-        const lastBlock = await this.vmStorage.getBlockHeader(currentHeight - 1n);
+        const height = currentHeight - 1n;
+        const lastBlock = await this.vmStorage.getBlockHeader(height);
         if (!lastBlock) {
-            throw new Error(`Unable to fetch block ${currentHeight} from db. Is it corrupted?`);
+            this.error(`Database corrupted. Attempting to restore from block ${height}.`);
+
+            return this.init(height);
         }
 
         this.lastBlock = {

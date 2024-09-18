@@ -58,4 +58,13 @@ export class RPCBlockFetcher extends BlockFetcher {
             await this.watchBlockChanges();
         }, Config.INDEXER.BLOCK_QUERY_INTERVAL);
     }
+
+    protected async queryBlockHeight(): Promise<bigint> {
+        const blockHeight = await this.rpc.getBlockHeight();
+        if (blockHeight == null) {
+            throw new Error('Error fetching block height.');
+        }
+
+        return BigInt(blockHeight.blockHeight);
+    }
 }

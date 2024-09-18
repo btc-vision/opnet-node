@@ -42,12 +42,6 @@ export class BlockIndexer extends Logger {
 
     private started: boolean = false;
 
-    private readonly reorgWatchdog: ReorgWatchdog = new ReorgWatchdog(
-        this.vmStorage,
-        this.vmManager,
-        this.rpcClient,
-    );
-
     private readonly indexingConfigs = {
         prefetchQueueSize: Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS,
     };
@@ -58,6 +52,14 @@ export class BlockIndexer extends Logger {
         this.rpcClient,
         this.consensusTracker,
         this.vmStorage,
+    );
+
+    private readonly reorgWatchdog: ReorgWatchdog = new ReorgWatchdog(
+        this.vmStorage,
+        this.vmManager,
+        this.rpcClient,
+        this.chainObserver,
+        this.consensusTracker,
     );
 
     private readonly network: Network = NetworkConverter.getNetwork();
@@ -138,13 +140,40 @@ export class BlockIndexer extends Logger {
         this.warn(`Purging data from block ${purgeFromBlock}`);
 
         // Purge.
+        const originalHeight = this.chainObserver.pendingBlockHeight;
         await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
-        await this.reorgWatchdog.init(this.chainObserver.pendingBlockHeight);
+        await this.reorgWatchdog.init(originalHeight);
+
+        // If we detect db corruption, we try to restore from the last known good block.
+        if (this.reorgWatchdog.pendingBlockHeight !== originalHeight) {
+            this.fail(
+                `Reorg watchdog height mismatch: ${this.reorgWatchdog.pendingBlockHeight}. Reverting.`,
+            );
+
+            await this.onChainReorganisation(
+                this.reorgWatchdog.pendingBlockHeight,
+                originalHeight,
+                'database-corrupted',
+            );
+
+            /*let restoreFromBlock =
+                this.reorgWatchdog.pendingBlockHeight -
+                BigInt(Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS);
+
+            if (restoreFromBlock < 0n) {
+                restoreFromBlock = 0n;
+            }
+
+            await this.chainObserver.setNewHeight(restoreFromBlock);
+            this.consensusTracker.setConsensusBlockHeight(restoreFromBlock);
+
+            this.chainObserver.nextBestTip = restoreFromBlock - 1n;
+            await this.vmStorage.revertDataUntilBlock(restoreFromBlock);*/
+        } else {
+            this.startAndPurgeIndexer();
+        }
 
         this.registerEvents();
-
-        this.startAndPurgeIndexer();
-
         this.started = true;
     }
 
