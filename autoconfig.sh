@@ -743,19 +743,28 @@ setup_opnet_indexer() {
     fi
     DATABASE_PASSWORD="$mongodb_password"
 
-    DATABASE_HOST=""
-    DATABASE_PORT=25480
-    DATABASE_NAME="BTC"
+     # Database configuration prompt
+    echo -e "${BLUE}Please provide database connection details (press Enter to use default values):${NC}"
+    read -p "DATABASE_HOST [localhost]: " DATABASE_HOST
+    DATABASE_HOST=${DATABASE_HOST:-localhost}
+    read -p "DATABASE_PORT [25485]: " DATABASE_PORT
+    DATABASE_PORT=${DATABASE_PORT:-25485}
+    read -p "DATABASE_NAME [BTC]: " DATABASE_NAME
+    DATABASE_NAME=${DATABASE_NAME:-BTC}
 
     # Generate the configuration file
     cat <<EOF > "$CONFIG_FILE"
 DEBUG_LEVEL = 4
 DEV_MODE = false
 
+[DEV]
+PROCESS_ONLY_ONE_BLOCK = false # Set to true to process only one block
+
 [BITCOIN]
 CHAIN_ID = $CHAIN_ID
 NETWORK = "$NETWORK"
 NETWORK_MAGIC = $NETWORK_MAGIC
+DNS_SEEDS = [] # Add your own DNS seeds here
 
 [BASE58]
 PUBKEY_ADDRESS = "$PUBKEY_ADDRESS"
@@ -765,7 +774,18 @@ EXT_PUBLIC_KEY = "$EXT_PUBLIC_KEY"
 EXT_SECRET_KEY = "$EXT_SECRET_KEY"
 
 [BECH32]
-HRP = "$HRP"
+HRP = "$HRP" # hrp for Bitcoin, leave empty for auto-detection available hrps are: bc, tb, bcrt
+
+[RPC]
+THREADS = 2 # Number of threads to process calls such as rpc calls, smart contract calls, etc.
+
+[POA]
+ENABLED = true # Enable Proof of Authority consensus
+
+[MEMPOOL]
+THREADS = 2 # Number of threads to process the mempool
+EXPIRATION_BLOCKS = 20 # Number of blocks before a transaction is removed from the mempool
+ENABLE_BLOCK_PURGE = true
 
 [INDEXER]
 ENABLED = true
@@ -775,7 +795,64 @@ STORAGE_TYPE = "MONGODB"
 DISABLE_UTXO_INDEXING = $DISABLE_UTXO_INDEXING
 
 [OP_NET]
-MODE = "$MODE"
+MODE = "$MODE" # ARCHIVE, FULL, SNAP, LIGHT. Only ARCHIVE is supported at this time
+
+ENABLED_AT_BLOCK = 0 # Block height at which the OP_NET should be enabled
+REINDEX = true # Set to true to reindex the OP_NET
+REINDEX_FROM_BLOCK = 8725 # Block height from which to reindex the OP_NET
+
+TRANSACTIONS_MAXIMUM_CONCURRENT = 100 # Maximum number of concurrent transactions to process
+PENDING_BLOCK_THRESHOLD = 12 # Maximum number of pending blocks to process
+MAXIMUM_PREFETCH_BLOCKS = 10 # You should not change this value unless you know what you are doing
+
+VERIFY_INTEGRITY_ON_STARTUP = false # Set to true to verify the integrity of the OP_NET on startup
+DISABLE_SCANNED_BLOCK_STORAGE_CHECK = true # Set to true to disable the scanned block storage check
+
+[P2P]
+IS_BOOTSTRAP_NODE = false # Set to true if you are running a bootstrap node
+CLIENT_MODE = false # IF YOUR NODE IS NOT RUNNING IN A DATACENTER, WE RECOMMEND SETTING THIS TO TRUE
+ENABLE_IPV6 = false
+
+P2P_HOST = "0.0.0.0" # Leave as 0.0.0.0 for all interfaces
+P2P_PORT = 9800 # 0 for next available port
+P2P_PROTOCOL = "tcp" # TCP (stable), WS (experimental), QUIC (not implemented yet)
+
+MINIMUM_PEERS = 50 # Minimum number of peers to attempt to maintain
+MAXIMUM_PEERS = 100 # Maximum number of peers that can be connected to your node
+MAXIMUM_INCOMING_PENDING_PEERS = 50 # Maximum number of incoming pending peers to maintain
+
+PEER_INACTIVITY_TIMEOUT = 60000 # Time in milliseconds before a peer is considered inactive
+
+MAXIMUM_INBOUND_STREAMS = 100 # Maximum number of inbound streams to maintain
+MAXIMUM_OUTBOUND_STREAMS = 100 # Maximum number of outbound streams to maintain
+
+BOOTSTRAP_NODES = [] # Add your own bootstrap nodes here
+TRUSTED_VALIDATORS = [] # DANGER. This setting should be altered very rarely and only by experienced users. Proceed with caution.
+TRUSTED_VALIDATORS_CHECKSUM_HASH = "" # DANGER. This setting should be altered very rarely and only by experienced users. Proceed with caution.
+
+[API]
+ENABLED = true # Enable the API
+PORT = 9001 # API port
+THREADS = 1 # Number of threads to process API calls
+
+MAXIMUM_PENDING_REQUESTS_PER_THREADS = 1000 # Maximum number of pending requests per thread
+BATCH_PROCESSING_SIZE = 15 # Number of requests to process in a batch in parallel
+MAXIMUM_PARALLEL_BLOCK_QUERY = 50 # Maximum number of parallel block queries to process
+MAXIMUM_REQUESTS_PER_BATCH = 500 # Maximum number of requests to process in a batch
+
+MAXIMUM_PENDING_CALL_REQUESTS = 80
+MAXIMUM_TRANSACTION_BROADCAST = 50
+
+[INDEXER]
+ENABLED = true # Enable the indexer
+BLOCK_UPDATE_METHOD = "RPC" # P2P, RPC
+STORAGE_TYPE = "MONGODB" # MONGODB
+
+READONLY_MODE = false # Set to true to run the indexer in read-only mode, useful for scaling
+
+ALLOW_PURGE = true # Allow purging of spent UTXOs
+DISABLE_UTXO_INDEXING = false # Set to true to disable UTXO indexing
+PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS = 1000 # Purge spent UTXOs older than this number of blocks
 
 [BLOCKCHAIN]
 BITCOIND_HOST = "$BITCOIND_HOST"
@@ -791,6 +868,24 @@ DATABASE_NAME = "$DATABASE_NAME"
 [DATABASE.AUTH]
 USERNAME = "$DATABASE_USERNAME"
 PASSWORD = "$DATABASE_PASSWORD"
+
+[SSH]
+ENABLED = false # Enable SSH
+PORT = 4800 # SSH port
+HOST = "0.0.0.0" # SSH host
+NO_AUTH = false # Set to true to disable authentication
+
+USERNAME = "opnet" # SSH username
+PASSWORD = "opnet" # SSH password
+
+PUBLIC_KEY = '' # Leave empty to disable public key authentication
+
+ALLOWED_IPS = ["127.0.0.1", "0.0.0.0", "localhost"] # Allowed IPs
+
+[DOCS]
+ENABLED = false # Enable the documentation server
+PORT = 7000 # Documentation server port
+
 EOF
 
     echo -e "${GREEN}Configuration file saved at $CONFIG_FILE.${NC}"
