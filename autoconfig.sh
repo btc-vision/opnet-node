@@ -164,9 +164,9 @@ install_and_configure_mongodb() {
             done
 
             sudo apt-get purge mongodb-org* -y
-            sudo rm -r /var/log/mongodb
-            sudo rm -r /var/lib/mongodb
-            sudo rm -r /etc/mongodb
+            sudo rm -rf /var/log/mongodb
+            sudo rm -rf /var/lib/mongodb
+            sudo rm -rf /etc/mongodb
         else
             echo -e "${RED}Canceled by user.${NC}"
             exit 1
@@ -183,9 +183,14 @@ install_and_configure_mongodb() {
     echo -e "${BLUE}Installing gnupg and curl...${NC}"
     sudo apt-get install gnupg curl -y
 
-    # Import the MongoDB public GPG Key
-    echo -e "${BLUE}Importing MongoDB public GPG Key...${NC}"
-    curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+    # Check if MongoDB public GPG Key is already in the system
+    if [ -f /usr/share/keyrings/mongodb-server-7.0.gpg ]; then
+        echo -e "${YELLOW}MongoDB public GPG key already exists.${NC}"
+    else
+        # Import the MongoDB public GPG Key
+        echo -e "${BLUE}Importing MongoDB public GPG Key...${NC}"
+        curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+    fi
 
     # Determine Ubuntu version
     ubuntu_version=$(lsb_release -rs)
@@ -268,9 +273,15 @@ install_and_configure_mongodb() {
     sudo chmod 400 /etc/mongodb/keys/mongo-key
 
     # Step 3: Create MongoDB Config Files
-    # Fetch and configure mongos.conf, shard1.conf, shard2.conf, configdb.conf
-    read -s -p "Enter a password for MongoDB user 'opnet': " mongodb_password
+
+    # Prompt for custom database username
+    read -p "Enter MongoDB admin username [opnet]: " mongodb_admin_username
+    mongodb_admin_username=${mongodb_admin_username:-opnet}
+
+    # Prompt for password for the custom username
+    read -s -p "Enter a password for MongoDB user '$mongodb_admin_username': " mongodb_password
     echo ""
+
     read -p "Enter the amount of RAM (in GB) to allocate for each shard (or press Enter for auto-select): " shard_ram
 
     if [[ -z "$shard_ram" ]]; then
@@ -279,6 +290,17 @@ install_and_configure_mongodb() {
         total_ram_gb=$(echo "scale=2; $total_ram_kb / 1024 / 1024" | bc)
         shard_ram=$(echo "scale=0; $total_ram_gb * 0.3 / 1" | bc)
         echo -e "${BLUE}Automatically allocated $shard_ram GB of RAM per shard.${NC}"
+    fi
+
+    # Ask the user if they wish to expose MongoDB to the internet
+    echo -e "${BLUE}Do you wish to expose MongoDB to the internet?${NC}"
+    read -p "Type 'yes' to expose, or 'no' to bind to localhost only [no]: " expose_mongodb
+    expose_mongodb=${expose_mongodb:-no}
+
+    if [[ "$expose_mongodb" == "yes" ]]; then
+        bind_ip="0.0.0.0"
+    else
+        bind_ip="127.0.0.1"
     fi
 
     # Function to fetch and configure a config file
@@ -301,6 +323,9 @@ install_and_configure_mongodb() {
 
         # Replace cacheSizeGB
         sudo sed -i "s/cacheSizeGB:.*/cacheSizeGB: $shard_ram/g" "$conf_path"
+
+        # Replace bindIp
+        sudo sed -i "s/bindIp:.*/bindIp: $bind_ip/g" "$conf_path"
     }
 
     # Fetch and configure mongos.conf, shard1.conf, shard2.conf, configdb.conf
@@ -384,7 +409,7 @@ install_and_configure_mongodb() {
 
     # Create admin user
     echo -e "${BLUE}Creating admin user...${NC}"
-    run_mongo_command "db.getSiblingDB('admin').createUser({ user: 'opnet', pwd: '$mongodb_password', roles: [{ role: 'root', db: 'admin' }] });" "localhost" 25480 ""
+    run_mongo_command "db.getSiblingDB('admin').createUser({ user: '$mongodb_admin_username', pwd: '$mongodb_password', roles: [{ role: 'root', db: 'admin' }] });" "localhost" 25480 ""
 
     echo -e "${BLUE}Starting MongoS...${NC}"
 
@@ -403,7 +428,7 @@ install_and_configure_mongodb() {
 
     # Step 7: Add shards to the cluster
     echo -e "${BLUE}Adding shards to the cluster...${NC}"
-    run_mongo_command "sh.addShard('shard1/localhost:25481,localhost:25482')" "localhost" 25485 "--username opnet --password '$mongodb_password'"
+    run_mongo_command "sh.addShard('shard1/localhost:25481,localhost:25482')" "localhost" 25485 "--username $mongodb_admin_username --password '$mongodb_password'"
 
     # Verify services are still running
     echo -e "${BLUE}Verifying MongoDB services after initialization...${NC}"
@@ -610,18 +635,20 @@ setup_opnet_indexer() {
 
     # Configure DATABASE settings
     echo -e "${BLUE}Configuring database settings...${NC}"
-    DATABASE_HOST=""
-    DATABASE_PORT=25480
-    DATABASE_NAME="BTC"
-    DATABASE_USERNAME="opnet"
+    read -p "Enter MongoDB username [opnet]: " DATABASE_USERNAME
+    DATABASE_USERNAME=${DATABASE_USERNAME:-opnet}
 
     # Check if $mongodb_password is set; if not, prompt the user
     if [ -z "$mongodb_password" ]; then
         echo -e "${YELLOW}MongoDB password is not set.${NC}"
-        read -s -p "Please enter the MongoDB password for user 'opnet': " mongodb_password
+        read -s -p "Please enter the MongoDB password for user '$DATABASE_USERNAME': " mongodb_password
         echo ""
     fi
     DATABASE_PASSWORD="$mongodb_password"
+
+    DATABASE_HOST=""
+    DATABASE_PORT=25480
+    DATABASE_NAME="BTC"
 
     # Generate the configuration file
     cat <<EOF > "$config_file"
