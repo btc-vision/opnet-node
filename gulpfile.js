@@ -36,7 +36,9 @@ function buildESM() {
 }
 
 export function clean() {
-    return gulp.src('./build/src', { read: false }).pipe(gulpClean());
+    return gulp
+        .src('./build/src', { read: false, allowEmpty: true })
+        .pipe(gulpClean({ allowEmpty: true }));
 }
 
 function buildYaml() {

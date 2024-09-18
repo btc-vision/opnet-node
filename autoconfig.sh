@@ -31,6 +31,12 @@ echo -e "${NC}"
 echo -e "${GREEN}Welcome to the OPNet Indexer Installation Wizard!${NC}"
 echo ""
 
+# Check if the script is run as root
+if [ "$EUID" -ne 0 ]; then
+    echo -e "${RED}Please run this script as root or with sudo.${NC}"
+    exit 1
+fi
+
 # Present options to the user
 echo "Please select an option:"
 echo "1. Install & Configure all the necessary dependencies (default)"
@@ -38,9 +44,10 @@ echo "2. Install & Configure MongoDB"
 echo "3. Install Node.js 21"
 echo "4. Install Cargo (Rust)"
 echo "5. Setup OPNet Indexer"
+echo "6. Update OPNet Indexer"
 
 # Read user choice
-read -p "Enter your choice [1-5]: " choice
+read -p "Enter your choice [1-6]: " choice
 
 # Default choice is 1 if empty
 if [[ -z "$choice" ]]; then
@@ -70,6 +77,10 @@ case $choice in
     5)
         echo "You have chosen to setup the OPNet Indexer."
         setup_indexer=true
+        ;;
+    6)
+        echo "You have chosen to update the OPNet Indexer."
+        update_indexer=true
         ;;
     *)
         echo -e "${RED}Invalid choice. Exiting.${NC}"
@@ -733,6 +744,94 @@ EOF
     fi
 }
 
+# Function to update OPNet Indexer
+update_opnet_indexer() {
+    echo -e "${BLUE}Updating OPNet Indexer...${NC}"
+
+    INDEXER_DIR="$HOME/bsi-indexer"
+    CONFIG_FILE="$INDEXER_DIR/build/config/btc.conf"
+    BACKUP_CONFIG_FILE="$HOME/btc.conf.backup"
+
+    # Check if the indexer directory exists
+    if [ ! -d "$INDEXER_DIR" ]; then
+        echo -e "${RED}OPNet Indexer is not installed in $INDEXER_DIR.${NC}"
+        echo -e "${YELLOW}Please run the setup first.${NC}"
+        exit 1
+    fi
+
+    # Get local version from package.json
+    if [ -f "$INDEXER_DIR/package.json" ]; then
+        local_version=$(grep '"version":' "$INDEXER_DIR/package.json" | head -1 | awk -F '"' '{print $4}')
+        echo -e "${BLUE}Local OPNet Indexer version: $local_version${NC}"
+    else
+        echo -e "${RED}Cannot find package.json in $INDEXER_DIR.${NC}"
+        exit 1
+    fi
+
+    # Get latest version from GitHub
+    echo -e "${BLUE}Fetching latest version from GitHub...${NC}"
+    latest_version=$(curl -s https://raw.githubusercontent.com/btc-vision/bsi-indexer/features/recode-sync-task/package.json | grep '"version":' | head -1 | awk -F '"' '{print $4}')
+    if [ -z "$latest_version" ]; then
+        echo -e "${RED}Failed to fetch latest version from GitHub.${NC}"
+        exit 1
+    fi
+    echo -e "${BLUE}Latest OPNet Indexer version on GitHub: $latest_version${NC}"
+
+    # Compare versions
+    if [ "$local_version" == "$latest_version" ]; then
+        echo -e "${GREEN}You already have the latest version of the OPNet Indexer.${NC}"
+    else
+        echo -e "${YELLOW}Your local version ($local_version) is outdated.${NC}"
+        read -p "Do you wish to upgrade to version $latest_version? [y/N]: " upgrade_choice
+        if [[ "$upgrade_choice" == "y" || "$upgrade_choice" == "Y" ]]; then
+            # Backup configuration file
+            if [ -f "$CONFIG_FILE" ]; then
+                cp "$CONFIG_FILE" "$BACKUP_CONFIG_FILE"
+                echo -e "${GREEN}Your configuration file has been backed up to $BACKUP_CONFIG_FILE.${NC}"
+            else
+                echo -e "${YELLOW}No configuration file found to backup.${NC}"
+            fi
+
+            # Remove old repository
+            rm -rf "$INDEXER_DIR"
+            echo -e "${BLUE}Old OPNet Indexer repository has been removed.${NC}"
+
+            # Clone new repository
+            echo -e "${BLUE}Cloning the latest OPNet Indexer repository...${NC}"
+            git clone https://github.com/btc-vision/bsi-indexer.git "$INDEXER_DIR"
+            cd "$INDEXER_DIR" || exit 1
+            git checkout features/recode-sync-task
+
+            # Restore configuration file
+            if [ -f "$BACKUP_CONFIG_FILE" ]; then
+                mkdir -p "$INDEXER_DIR/build/config"
+                mv "$BACKUP_CONFIG_FILE" "$CONFIG_FILE"
+                echo -e "${GREEN}Your configuration file has been restored.${NC}"
+            fi
+
+            # Install dependencies
+            echo -e "${BLUE}Installing npm dependencies...${NC}"
+            npm install
+
+            # Build the project
+            echo -e "${BLUE}Building the project...${NC}"
+            npm run build
+
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}OPNet Indexer has been updated to version $latest_version.${NC}"
+                echo -e "${YELLOW}Please review your configuration file for any new settings that may be required.${NC}"
+                echo -e "${GREEN}To start the OPNet Indexer, run the following command in the project directory:${NC}"
+                echo -e "${YELLOW}npm start${NC}"
+            else
+                echo -e "${RED}Project build failed.${NC}"
+                exit 1
+            fi
+        else
+            echo -e "${YELLOW}Upgrade canceled by user.${NC}"
+        fi
+    fi
+}
+
 # Proceed with the installations based on user's choice
 if [ "$install_mongodb" = true ]; then
     install_and_configure_mongodb
@@ -748,6 +847,10 @@ fi
 
 if [ "$setup_indexer" = true ]; then
     setup_opnet_indexer
+fi
+
+if [ "$update_indexer" = true ]; then
+    update_opnet_indexer
 fi
 
 # At the end of the script, if the password was auto-generated, offer to display it
