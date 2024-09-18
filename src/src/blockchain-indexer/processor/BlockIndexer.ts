@@ -145,7 +145,10 @@ export class BlockIndexer extends Logger {
         await this.reorgWatchdog.init(originalHeight);
 
         // If we detect db corruption, we try to restore from the last known good block.
-        if (this.reorgWatchdog.pendingBlockHeight !== originalHeight) {
+        if (
+            this.reorgWatchdog.pendingBlockHeight !== originalHeight &&
+            this.reorgWatchdog.pendingBlockHeight !== -1n
+        ) {
             this.fail(
                 `Reorg watchdog height mismatch: ${this.reorgWatchdog.pendingBlockHeight}. Reverting.`,
             );
