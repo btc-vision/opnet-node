@@ -670,7 +670,7 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x0488b21e"
             EXT_SECRET_KEY="0x0488ade4"
             HRP="bc"
-            NETWORK_MAGIC="[0xf9, 0xbe, 0xb4, 0xd9]"  # Bitcoin mainnet
+            NETWORK_MAGIC='["0xf9", "0xbe", "0xb4", "0xd9"]'  # Bitcoin mainnet
         elif [[ "$NETWORK" == "testnet" ]]; then
             PUBKEY_ADDRESS="0x6f"
             SCRIPT_ADDRESS="0xc4"
@@ -678,7 +678,7 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x043587cf"
             EXT_SECRET_KEY="0x04358394"
             HRP="tb"
-            NETWORK_MAGIC="[0x0b, 0x11, 0x09, 0x07]"  # Bitcoin testnet
+            NETWORK_MAGIC='["0x0b", "0x11", "0x09", "0x07"]'  # Bitcoin testnet
         elif [[ "$NETWORK" == "regtest" ]]; then
             PUBKEY_ADDRESS="0x6f"
             SCRIPT_ADDRESS="0xc4"
@@ -686,11 +686,11 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x043587cf"
             EXT_SECRET_KEY="0x04358394"
             HRP="bcrt"
-            NETWORK_MAGIC="[0xfa, 0xbf, 0xb5, 0xda]"  # Bitcoin regtest
+            NETWORK_MAGIC='["0xfa", "0xbf", "0xb5", "0xda"]'  # Bitcoin regtest
         else
             echo -e "${YELLOW}Unknown NETWORK. Please provide the configurations manually.${NC}"
             # Prompt for manual input
-            read -p "NETWORK_MAGIC (e.g., [232, 173, 163, 200]): " NETWORK_MAGIC
+            read -p "Enter the NETWORK_MAGIC (e.g., [\"0xfa\", \"0xbf\", \"0xb5\", \"0xda\"]): " NETWORK_MAGIC
             echo "[BASE58]"
             read -p "PUBKEY_ADDRESS: " PUBKEY_ADDRESS
             read -p "SCRIPT_ADDRESS: " SCRIPT_ADDRESS
@@ -701,7 +701,7 @@ setup_opnet_indexer() {
             read -p "HRP: " HRP
         fi
     else
-        echo -e "${YELLOW}Custom CHAIN_ID detected. Please provide NETWORK_MAGIC (e.g., [232, 173, 163, 200]):${NC}"
+        echo -e "${YELLOW}Custom CHAIN_ID detected. Please provide NETWORK_MAGIC (e.g., [\"0xfa\", \"0xbf\", \"0xb5\", \"0xda\"]):${NC}"
         read -p "NETWORK_MAGIC: " NETWORK_MAGIC
         echo "[BASE58]"
         read -p "PUBKEY_ADDRESS: " PUBKEY_ADDRESS
@@ -794,8 +794,11 @@ ENABLE_BLOCK_PURGE = true
 ENABLED = true
 BLOCK_UPDATE_METHOD = "RPC"
 STORAGE_TYPE = "MONGODB"
+READONLY_MODE = false # Set to true to run the indexer in read-only mode, useful for scaling
 
-DISABLE_UTXO_INDEXING = $DISABLE_UTXO_INDEXING
+DISABLE_UTXO_INDEXING = $DISABLE_UTXO_INDEXING # Set to true to disable UTXO indexing
+ALLOW_PURGE = true # Allow purging of spent UTXOs
+PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS = 1000 # Purge spent UTXOs older than this number of blocks
 
 [OP_NET]
 MODE = "$MODE" # ARCHIVE, FULL, SNAP, LIGHT. Only ARCHIVE is supported at this time
@@ -845,17 +848,6 @@ MAXIMUM_REQUESTS_PER_BATCH = 500 # Maximum number of requests to process in a ba
 
 MAXIMUM_PENDING_CALL_REQUESTS = 80
 MAXIMUM_TRANSACTION_BROADCAST = 50
-
-[INDEXER]
-ENABLED = true # Enable the indexer
-BLOCK_UPDATE_METHOD = "RPC" # P2P, RPC
-STORAGE_TYPE = "MONGODB" # MONGODB
-
-READONLY_MODE = false # Set to true to run the indexer in read-only mode, useful for scaling
-
-ALLOW_PURGE = true # Allow purging of spent UTXOs
-DISABLE_UTXO_INDEXING = false # Set to true to disable UTXO indexing
-PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS = 1000 # Purge spent UTXOs older than this number of blocks
 
 [BLOCKCHAIN]
 BITCOIND_HOST = "$BITCOIND_HOST"
