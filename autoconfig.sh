@@ -919,7 +919,7 @@ update_opnet_indexer() {
 
     # Get latest version from GitHub
     echo -e "${BLUE}Fetching latest version from GitHub...${NC}"
-    latest_version=$(curl -s https://raw.githubusercontent.com/btc-vision/bsi-indexer/features/recode-sync-task/package.json | grep '"version":' | head -1 | awk -F '"' '{print $4}')
+    latest_version=$(curl -s https://raw.githubusercontent.com/btc-vision/bsi-indexer/main/package.json | grep '"version":' | head -1 | awk -F '"' '{print $4}')
     if [ -z "$latest_version" ]; then
         echo -e "${RED}Failed to fetch latest version from GitHub.${NC}"
         exit 1
