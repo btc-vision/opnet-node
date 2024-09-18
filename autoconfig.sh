@@ -7,6 +7,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[1;34m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # Variables to store auto-generated credentials
@@ -538,59 +539,56 @@ install_rust() {
     fi
 }
 
-# Function to setup OPNet Indexer
-setup_opnet_indexer() {
-    echo -e "${BLUE}Setting up OPNet Indexer...${NC}"
+# Function to handle build/bin directory backup and restoration
+handle_bin_directory() {
+    local action="$1"           # "install" or "update"
+    local indexer_dir="$2"
+    local bin_dir="$indexer_dir/build/bin"
+    local backup_bin_dir="$HOME/bin_backup_${action}"
 
-    # Clone or pull the repository
-    INDEXER_DIR="$HOME/bsi-indexer"
-    CONFIG_FILE="$INDEXER_DIR/build/config/btc.conf"
-    BIN_DIR="$INDEXER_DIR/build/bin"
-    BACKUP_BIN_DIR="$HOME/bin_backup_install"
-
-    if [ -d "$INDEXER_DIR" ]; then
-        echo -e "${YELLOW}OPNet Indexer directory already exists.${NC}"
-
-        # Check if build/bin directory exists
-        if [ -d "$BIN_DIR" ]; then
-            echo -e "${RED}${BOLD}WARNING:${NC}"
-            echo -e "${RED}The directory ${YELLOW}$BIN_DIR${RED} contains important information about the current peer you are running.${NC}"
-            echo -e "${RED}If you discard this directory, your indexer wallet and identity will be ${BOLD}LOST.${NC}"
-            echo -e "${RED}It is crucial to preserve this directory during the installation process.${NC}"
-            echo ""
-            read -p "Do you understand and wish to proceed with the installation, preserving your wallet and identity? [y/N]: " proceed_choice
-            if [[ "$proceed_choice" != "y" && "$proceed_choice" != "Y" ]]; then
-                echo -e "${YELLOW}Installation canceled by user.${NC}"
-                exit 1
-            fi
-
-            # Backup the build/bin directory
-            cp -r "$BIN_DIR" "$BACKUP_BIN_DIR"
-            echo -e "${GREEN}Your build/bin directory has been backed up to $BACKUP_BIN_DIR.${NC}"
-        fi
-
-        read -p "Do you want to remove the existing directory and proceed with a fresh installation? [y/N]: " reinstall_choice
-        if [[ "$reinstall_choice" == "y" || "$reinstall_choice" == "Y" ]]; then
-            rm -rf "$INDEXER_DIR"
-            echo -e "${BLUE}Old OPNet Indexer directory removed.${NC}"
-        else
-            echo -e "${RED}Installation canceled by user.${NC}"
+    if [ -d "$bin_dir" ]; then
+        echo -e "${RED}${BOLD}WARNING:${NC}"
+        echo -e "${RED}The directory ${YELLOW}$bin_dir${RED} contains important information about the current peer you are running.${NC}"
+        echo -e "${RED}If you discard this directory, your indexer wallet and identity will be ${BOLD}LOST.${NC}"
+        echo -e "${RED}It is crucial to preserve this directory during the ${action} process.${NC}"
+        echo ""
+        read -p "Do you understand and wish to proceed with the ${action}, preserving your wallet and identity? [y/N]: " proceed_choice
+        if [[ "$proceed_choice" != "y" && "$proceed_choice" != "Y" ]]; then
+            echo -e "${YELLOW}${action^} canceled by user.${NC}"
             exit 1
         fi
+
+        # Backup the build/bin directory
+        cp -r "$bin_dir" "$backup_bin_dir"
+        echo -e "${GREEN}Your build/bin directory has been backed up to $backup_bin_dir.${NC}"
     fi
+
+    # Return the path to the backup directory
+    echo "$backup_bin_dir"
+}
+
+# Function to restore build/bin directory after cloning
+restore_bin_directory() {
+    local backup_bin_dir="$1"
+    local indexer_dir="$2"
+    local bin_dir="$indexer_dir/build/bin"
+
+    if [ -d "$backup_bin_dir" ]; then
+        mkdir -p "$indexer_dir/build"
+        mv "$backup_bin_dir" "$bin_dir"
+        echo -e "${GREEN}Your build/bin directory has been restored.${NC}"
+    fi
+}
+
+# Function to clone and build the OPNet Indexer
+clone_and_build_indexer() {
+    local indexer_dir="$1"
 
     # Clone the repository
     echo -e "${BLUE}Cloning the OPNet Indexer repository...${NC}"
-    git clone git@github.com:btc-vision/bsi-indexer.git "$INDEXER_DIR"
-    cd "$INDEXER_DIR" || exit 1
+    git clone git@github.com:btc-vision/bsi-indexer.git "$indexer_dir"
+    cd "$indexer_dir" || exit 1
     git checkout features/recode-sync-task
-
-    # Restore build/bin directory if it was backed up
-    if [ -d "$BACKUP_BIN_DIR" ]; then
-        mkdir -p "$INDEXER_DIR/build"
-        mv "$BACKUP_BIN_DIR" "$BIN_DIR"
-        echo -e "${GREEN}Your build/bin directory has been restored.${NC}"
-    fi
 
     # Install npm dependencies
     echo -e "${BLUE}Installing npm dependencies...${NC}"
@@ -609,12 +607,39 @@ setup_opnet_indexer() {
     else
         echo -e "${GREEN}Project built successfully.${NC}"
     fi
+}
 
-    # Configure the indexer config file
-    config_file="$HOME/bsi-indexer/build/config/btc.conf"
+# Function to setup OPNet Indexer
+setup_opnet_indexer() {
+    echo -e "${BLUE}Setting up OPNet Indexer...${NC}"
 
-    if [ -f "$config_file" ]; then
-        echo -e "${YELLOW}Configuration file already exists at $config_file.${NC}"
+    INDEXER_DIR="$HOME/bsi-indexer"
+    CONFIG_FILE="$INDEXER_DIR/build/config/btc.conf"
+
+    if [ -d "$INDEXER_DIR" ]; then
+        echo -e "${YELLOW}OPNet Indexer directory already exists.${NC}"
+
+        # Handle build/bin directory backup
+        backup_bin_dir=$(handle_bin_directory "install" "$INDEXER_DIR")
+
+        read -p "Do you want to remove the existing directory and proceed with a fresh installation? [y/N]: " reinstall_choice
+        if [[ "$reinstall_choice" == "y" || "$reinstall_choice" == "Y" ]]; then
+            rm -rf "$INDEXER_DIR"
+            echo -e "${BLUE}Old OPNet Indexer directory removed.${NC}"
+        else
+            echo -e "${RED}Installation canceled by user.${NC}"
+            exit 1
+        fi
+    fi
+
+    # Clone and build the indexer
+    clone_and_build_indexer "$INDEXER_DIR"
+
+    # Restore build/bin directory if it was backed up
+    restore_bin_directory "$backup_bin_dir" "$INDEXER_DIR"
+
+    if [ -f "$CONFIG_FILE" ]; then
+        echo -e "${YELLOW}Configuration file already exists at $CONFIG_FILE.${NC}"
         read -p "Do you want to overwrite it? [y/N]: " overwrite_config
         if [[ ! "$overwrite_config" =~ ^[Yy]$ ]]; then
             echo -e "${YELLOW}Using existing configuration file.${NC}"
@@ -723,7 +748,7 @@ setup_opnet_indexer() {
     DATABASE_NAME="BTC"
 
     # Generate the configuration file
-    cat <<EOF > "$config_file"
+    cat <<EOF > "$CONFIG_FILE"
 DEBUG_LEVEL = 4
 DEV_MODE = false
 
@@ -768,16 +793,10 @@ USERNAME = "$DATABASE_USERNAME"
 PASSWORD = "$DATABASE_PASSWORD"
 EOF
 
-    echo -e "${GREEN}Configuration file saved at $config_file.${NC}"
+    echo -e "${GREEN}Configuration file saved at $CONFIG_FILE.${NC}"
 
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Project built successfully.${NC}"
-        echo -e "${GREEN}To start the OPNet Indexer, run the following command in the project directory:${NC}"
-        echo -e "${YELLOW}npm start${NC}"
-    else
-        echo -e "${RED}Project build failed.${NC}"
-        exit 1
-    fi
+    echo -e "${GREEN}To start the OPNet Indexer, run the following command in the project directory:${NC}"
+    echo -e "${YELLOW}npm start${NC}"
 }
 
 # Function to update OPNet Indexer
@@ -787,8 +806,6 @@ update_opnet_indexer() {
     INDEXER_DIR="$HOME/bsi-indexer"
     CONFIG_FILE="$INDEXER_DIR/build/config/btc.conf"
     BACKUP_CONFIG_FILE="$HOME/btc.conf.backup"
-    BIN_DIR="$INDEXER_DIR/build/bin"
-    BACKUP_BIN_DIR="$HOME/bin_backup"
 
     # Check if the indexer directory exists
     if [ ! -d "$INDEXER_DIR" ]; then
@@ -823,25 +840,8 @@ update_opnet_indexer() {
         read -p "Do you wish to upgrade to version $latest_version? [y/N]: " upgrade_choice
         if [[ "$upgrade_choice" == "y" || "$upgrade_choice" == "Y" ]]; then
 
-            # Check if build/bin directory exists
-            if [ -d "$BIN_DIR" ]; then
-                echo -e "${RED}${BOLD}WARNING:${NC}"
-                echo -e "${RED}The directory ${YELLOW}$BIN_DIR${RED} contains important information about the current peer you are running.${NC}"
-                echo -e "${RED}If you discard this directory, your indexer wallet and identity will be ${BOLD}LOST.${NC}"
-                echo -e "${RED}It is crucial to preserve this directory during the update process.${NC}"
-                echo ""
-                read -p "Do you understand and wish to proceed with the update, preserving your wallet and identity? [y/N]: " proceed_choice
-                if [[ "$proceed_choice" != "y" && "$proceed_choice" != "Y" ]]; then
-                    echo -e "${YELLOW}Update canceled by user.${NC}"
-                    exit 1
-                fi
-
-                # Backup the build/bin directory
-                cp -r "$BIN_DIR" "$BACKUP_BIN_DIR"
-                echo -e "${GREEN}Your build/bin directory has been backed up to $BACKUP_BIN_DIR.${NC}"
-            else
-                echo -e "${YELLOW}No build/bin directory found to backup.${NC}"
-            fi
+            # Handle build/bin directory backup
+            backup_bin_dir=$(handle_bin_directory "update" "$INDEXER_DIR")
 
             # Backup configuration file
             if [ -f "$CONFIG_FILE" ]; then
@@ -855,11 +855,8 @@ update_opnet_indexer() {
             rm -rf "$INDEXER_DIR"
             echo -e "${BLUE}Old OPNet Indexer repository has been removed.${NC}"
 
-            # Clone new repository
-            echo -e "${BLUE}Cloning the latest OPNet Indexer repository...${NC}"
-            git clone git@github.com:btc-vision/bsi-indexer.git "$INDEXER_DIR"
-            cd "$INDEXER_DIR" || exit 1
-            git checkout features/recode-sync-task
+            # Clone and build the indexer
+            clone_and_build_indexer "$INDEXER_DIR"
 
             # Restore configuration file
             if [ -f "$BACKUP_CONFIG_FILE" ]; then
@@ -869,29 +866,7 @@ update_opnet_indexer() {
             fi
 
             # Restore build/bin directory
-            if [ -d "$BACKUP_BIN_DIR" ]; then
-                mkdir -p "$INDEXER_DIR/build"
-                mv "$BACKUP_BIN_DIR" "$BIN_DIR"
-                echo -e "${GREEN}Your build/bin directory has been restored.${NC}"
-            fi
-
-            # Install dependencies
-            echo -e "${BLUE}Installing npm dependencies...${NC}"
-            npm install
-
-            # Build the project and capture output
-            echo -e "${BLUE}Building the project...${NC}"
-            build_output=$(npm run build 2>&1)
-
-            # Check for build errors
-            if echo "$build_output" | grep -q "errored after"; then
-                echo -e "${RED}Build failed with errors.${NC}"
-                echo -e "${YELLOW}Build output:${NC}"
-                echo "$build_output"
-                exit 1
-            else
-                echo -e "${GREEN}Project built successfully.${NC}"
-            fi
+            restore_bin_directory "$backup_bin_dir" "$INDEXER_DIR"
 
             echo -e "${GREEN}OPNet Indexer has been updated to version $latest_version.${NC}"
             echo -e "${YELLOW}Please review your configuration file for any new settings that may be required.${NC}"
