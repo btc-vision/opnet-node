@@ -670,6 +670,7 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x0488b21e"
             EXT_SECRET_KEY="0x0488ade4"
             HRP="bc"
+            NETWORK_MAGIC="[0xf9, 0xbe, 0xb4, 0xd9]"  # Bitcoin mainnet
         elif [[ "$NETWORK" == "testnet" ]]; then
             PUBKEY_ADDRESS="0x6f"
             SCRIPT_ADDRESS="0xc4"
@@ -677,6 +678,7 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x043587cf"
             EXT_SECRET_KEY="0x04358394"
             HRP="tb"
+            NETWORK_MAGIC="[0x0b, 0x11, 0x09, 0x07]"  # Bitcoin testnet
         elif [[ "$NETWORK" == "regtest" ]]; then
             PUBKEY_ADDRESS="0x6f"
             SCRIPT_ADDRESS="0xc4"
@@ -684,6 +686,7 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x043587cf"
             EXT_SECRET_KEY="0x04358394"
             HRP="bcrt"
+            NETWORK_MAGIC="[0xfa, 0xbf, 0xb5, 0xda]"  # Bitcoin regtest
         else
             echo -e "${YELLOW}Unknown NETWORK. Please provide the configurations manually.${NC}"
             # Prompt for manual input
@@ -753,7 +756,7 @@ setup_opnet_indexer() {
     DATABASE_NAME=${DATABASE_NAME:-BTC}
 
     # Generate the configuration file
-    cat <<EOF > "$CONFIG_FILE"
+    cat << EOF > "$CONFIG_FILE"
 DEBUG_LEVEL = 4
 DEV_MODE = false
 
