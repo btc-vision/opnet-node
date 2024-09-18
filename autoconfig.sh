@@ -542,37 +542,45 @@ install_rust() {
 setup_opnet_indexer() {
     echo -e "${BLUE}Setting up OPNet Indexer...${NC}"
 
-    # Clone the repository
-    if [ -d "$HOME/bsi-indexer" ]; then
-        echo -e "${YELLOW}Repository already cloned at $HOME/bsi-indexer.${NC}"
-        read -p "Do you want to remove it and clone again? [y/N]: " clone_again
-        if [[ "$clone_again" =~ ^[Yy]$ ]]; then
-            rm -rf "$HOME/bsi-indexer"
+    # Clone or pull the repository
+    INDEXER_DIR="$HOME/bsi-indexer"
+    CONFIG_FILE="$INDEXER_DIR/build/config/btc.conf"
+
+    if [ -d "$INDEXER_DIR" ]; then
+        echo -e "${YELLOW}OPNet Indexer directory already exists.${NC}"
+        read -p "Do you want to remove the existing directory and proceed with a fresh installation? [y/N]: " reinstall_choice
+        if [[ "$reinstall_choice" == "y" || "$reinstall_choice" == "Y" ]]; then
+            rm -rf "$INDEXER_DIR"
+            echo -e "${BLUE}Old OPNet Indexer directory removed.${NC}"
         else
-            echo -e "${YELLOW}Using existing repository.${NC}"
+            echo -e "${RED}Installation canceled by user.${NC}"
+            exit 1
         fi
     fi
 
-    if [ ! -d "$HOME/bsi-indexer" ]; then
-        echo -e "${BLUE}Cloning the OPNet Indexer repository...${NC}"
-        git clone git@github.com:btc-vision/bsi-indexer.git "$HOME/bsi-indexer"
-        cd "$HOME/bsi-indexer" || exit 1
-        git checkout features/recode-sync-task
-    else
-        cd "$HOME/bsi-indexer" || exit 1
-    fi
+    # Clone the repository
+    echo -e "${BLUE}Cloning the OPNet Indexer repository...${NC}"
+    git clone https://github.com/btc-vision/bsi-indexer.git "$INDEXER_DIR"
+    cd "$INDEXER_DIR" || exit 1
+    git checkout features/recode-sync-task
 
-    # Install global dependencies
-    echo -e "${BLUE}Installing global npm dependencies...${NC}"
-    sudo npm install -g gulp
-
-    # Install project dependencies
-    echo -e "${BLUE}Installing project npm dependencies...${NC}"
+    # Install npm dependencies
+    echo -e "${BLUE}Installing npm dependencies...${NC}"
     npm install
 
-    # Build the project
+    # Build the project and capture output
     echo -e "${BLUE}Building the project...${NC}"
-    npm run build
+    build_output=$(npm run build 2>&1)
+
+    # Check for build errors
+    if echo "$build_output" | grep -q "errored after"; then
+        echo -e "${RED}Build failed with errors.${NC}"
+        echo -e "${YELLOW}Build output:${NC}"
+        echo "$build_output"
+        exit 1
+    else
+        echo -e "${GREEN}Project built successfully.${NC}"
+    fi
 
     # Configure the indexer config file
     config_file="$HOME/bsi-indexer/build/config/btc.conf"
