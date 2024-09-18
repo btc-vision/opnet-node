@@ -544,7 +544,7 @@ setup_opnet_indexer() {
 
     if [ ! -d "$HOME/bsi-indexer" ]; then
         echo -e "${BLUE}Cloning the OPNet Indexer repository...${NC}"
-        git clone https://github.com/btc-vision/bsi-indexer.git "$HOME/bsi-indexer"
+        git clone git@github.com:btc-vision/bsi-indexer.git "$HOME/bsi-indexer"
         cd "$HOME/bsi-indexer" || exit 1
         git checkout features/recode-sync-task
     else
@@ -558,6 +558,10 @@ setup_opnet_indexer() {
     # Install project dependencies
     echo -e "${BLUE}Installing project npm dependencies...${NC}"
     npm install
+
+    # Build the project
+    echo -e "${BLUE}Building the project...${NC}"
+    npm run build
 
     # Configure the indexer config file
     config_file="$HOME/bsi-indexer/build/config/btc.conf"
@@ -718,10 +722,6 @@ PASSWORD = "$DATABASE_PASSWORD"
 EOF
 
     echo -e "${GREEN}Configuration file saved at $config_file.${NC}"
-
-    # Build the project
-    echo -e "${BLUE}Building the project...${NC}"
-    npm run build
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Project built successfully.${NC}"
