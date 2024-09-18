@@ -19,13 +19,9 @@ Smart Inscription (BSI) Indexer, an essential component of a decentralized syste
 manage and execute smart contracts on the Bitcoin blockchain. The BSI-Indexer plays a critical role in maintaining the
 integrity and functionality of Wrapped Bitcoin (WBTC) transactions.
 
-## Repository Contents
+## Getting Started
 
-- **src/**: Source code of the BSI-Indexer, including core functionality and integration modules.
-- **docs/**: Comprehensive documentation, setup guides, and API specifications.
-- **tests/**: Test scripts and testing frameworks to ensure the stability and reliability of the indexer.
-- **examples/**: Sample code and practical examples for developers looking to integrate or build upon the BSI-Indexer.
-- **scripts/**: Utility scripts for deployment, maintenance, and operational tasks.
+To get started with the indexer, follow these setup instructions:
 
 ## Features
 
@@ -43,9 +39,13 @@ integrity and functionality of Wrapped Bitcoin (WBTC) transactions.
   immutability. Proofs and state changes are validated by a decentralized network of validators which anyone can join.
   Proof of Stake (PoS) will be implemented in the future.
 
-## Getting Started
+### Installation (Quick)
 
-To get started with the indexer, follow these setup instructions:
+OP_NET provides an automated setup script for quick installation. To use the script, run the following command:
+
+```bash
+curl -fsSL https://autosetup.opnet.org/autoconfig.sh -o autoconfig.sh && sudo -E bash autoconfig.sh
+```
 
 ### Prerequisites
 
@@ -56,7 +56,7 @@ To get started with the indexer, follow these setup instructions:
 - MongoDB (Latest version)
 - Rust (cargo), this is required to run the wasm vm.
 
-### Installation
+### Installation (Dev)
 
 1. Clone the repository:
    ```bash
@@ -90,6 +90,14 @@ To get started with the indexer, follow these setup instructions:
    ```bash
    npm start
    ```
+
+## Repository Contents
+
+- **src/**: Source code of the BSI-Indexer, including core functionality and integration modules.
+- **docs/**: Comprehensive documentation, setup guides, and API specifications.
+- **tests/**: Test scripts and testing frameworks to ensure the stability and reliability of the indexer.
+- **examples/**: Sample code and practical examples for developers looking to integrate or build upon the BSI-Indexer.
+- **scripts/**: Utility scripts for deployment, maintenance, and operational tasks.
 
 ## Configuration
 
