@@ -354,8 +354,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
     private async waitForAllSessionsCommitted(pollInterval: number = 100): Promise<void> {
         return new Promise<void>(async (resolve, reject) => {
             const checkWrites = async (): Promise<boolean> => {
-                this.info(`Awaiting for write operations to finish...`);
-
                 if (!this._db) {
                     throw new Error('Database not connected');
                 }
