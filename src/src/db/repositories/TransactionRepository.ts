@@ -33,9 +33,11 @@ export class TransactionRepository extends BaseRepository<
             blockHeight: { $gte: DataConverter.toDecimal128(blockHeight) },
         };
 
-        const promises: Promise<unknown>[] = [this.delete(criteria, currentSession)];
+        await this.delete(criteria, currentSession);
 
-        await Promise.all(promises);
+        //const promises: Promise<unknown>[] = [this.delete(criteria, currentSession)];
+
+        //await Promise.all(promises);
     }
 
     public async bulkWrite(

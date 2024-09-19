@@ -75,12 +75,12 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
         await this.updateMany(criteriaSpent, { deletedAtBlock: undefined }, currentSession);
 
-        await this.delete(
+        /*await this.delete(
             {
                 value: undefined,
             },
             currentSession,
-        );
+        );*/
     }
 
     public async updateMany(
