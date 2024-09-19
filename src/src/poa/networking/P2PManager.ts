@@ -88,7 +88,7 @@ export class P2PManager extends Logger {
     private blackListedPeerIds: Map<string, BlacklistedPeerInfo> = new Map();
     private blackListedPeerIps: Map<string, BlacklistedPeerInfo> = new Map();
 
-    private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 300_000;
+    private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 30_000;
 
     private readonly identity: OPNetIdentity;
     private startedIndexer: boolean = false;
@@ -116,7 +116,7 @@ export class P2PManager extends Logger {
             this.broadcastedIdentifiers.clear();
 
             this.purgeOldBlacklistedPeers();
-        }, 10000);
+        }, 10_000);
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -992,7 +992,7 @@ export class P2PManager extends Logger {
         const id: string = peerId.toString();
 
         if (this.isBlackListedPeerId(peerId.toString())) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && this.config.DEV_MODE) {
                 this.debug(`[OUT] Peer ${id} is blacklisted. Flushing connection...`);
             }
 
