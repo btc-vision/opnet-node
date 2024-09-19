@@ -58,8 +58,6 @@ export class BlockIndexer extends Logger {
         this.vmStorage,
         this.vmManager,
         this.rpcClient,
-        //this.chainObserver,
-        //this.consensusTracker,
     );
 
     private readonly network: Network = NetworkConverter.getNetwork();
@@ -118,6 +116,8 @@ export class BlockIndexer extends Logger {
     }
 
     private async init(): Promise<void> {
+        this.debugBright(`Starting up blockchain indexer thread...`);
+
         await this.rpcClient.init(Config.BLOCKCHAIN);
 
         this._blockFetcher = new RPCBlockFetcher({
@@ -125,6 +125,7 @@ export class BlockIndexer extends Logger {
             rpc: this.rpcClient,
         });
 
+        // Start the chain observer.
         await this.vmStorage.init();
         await this.chainObserver.init();
 
@@ -299,6 +300,7 @@ export class BlockIndexer extends Logger {
 
     private async verifyCommitConflicts(): Promise<boolean> {
         // TODO: Verify if sync was stopped unexpectedly.
+        this.warn(`Verifying database integrity...`);
 
         try {
             await this.vmStorage.killAllPendingWrites();

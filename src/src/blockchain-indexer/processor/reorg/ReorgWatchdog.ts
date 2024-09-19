@@ -33,8 +33,6 @@ export class ReorgWatchdog extends Logger {
         private readonly vmStorage: VMStorage,
         private readonly vmManager: VMManager,
         private readonly rpcClient: BitcoinRPC,
-        //private readonly chainObserver: ChainObserver,
-        //private readonly consensusTracker: ConsensusTracker,
     ) {
         super();
     }

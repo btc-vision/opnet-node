@@ -39,6 +39,55 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Function to check system requirements
+check_system_requirements() {
+    echo -e "${BLUE}Checking system requirements...${NC}"
+
+    # Minimum and recommended requirements
+    MIN_CORES=4
+    RECOMMENDED_CORES=24
+    MIN_RAM=16
+    RECOMMENDED_RAM=96
+    MIN_DISK_SPACE=2000  # Minimum 2 TB SSD required
+    RECOMMENDED_DISK_SPACE=3000  # Recommended 3 TB SSD for safety
+
+    # Check CPU cores
+    cpu_cores=$(nproc --all)
+    if [ "$cpu_cores" -lt "$MIN_CORES" ]; then
+        echo -e "${RED}WARNING: Your system has only $cpu_cores CPU cores. A minimum of ${MIN_CORES} CPU cores is required to run an OPNet Indexer.${NC}"
+    elif [ "$cpu_cores" -lt "$RECOMMENDED_CORES" ]; then
+        echo -e "${YELLOW}Your system has $cpu_cores CPU cores. It is recommended to have ${RECOMMENDED_CORES} cores for optimal performance.${NC}"
+    else
+        echo -e "${GREEN}CPU cores: $cpu_cores (Recommended: ${RECOMMENDED_CORES} cores).${NC}"
+    fi
+
+    # Check RAM
+    total_ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    total_ram_gb=$(echo "scale=2; $total_ram_kb / 1024 / 1024" | bc)
+    if (( $(echo "$total_ram_gb < $MIN_RAM" | bc -l) )); then
+        echo -e "${RED}WARNING: Your system has only ${total_ram_gb} GB of RAM. A minimum of ${MIN_RAM} GB of RAM is required to run an OPNet Indexer.${NC}"
+    elif (( $(echo "$total_ram_gb < $RECOMMENDED_RAM" | bc -l) )); then
+        echo -e "${YELLOW}Your system has ${total_ram_gb} GB of RAM. It is recommended to have ${RECOMMENDED_RAM} GB of RAM for optimal performance.${NC}"
+    else
+        echo -e "${GREEN}RAM: ${total_ram_gb} GB (Recommended: 96 GB).${NC}"
+    fi
+
+    # Check Disk Space for MongoDB
+    disk_space=$(df -BG --output=avail / | tail -n 1 | sed 's/G//')
+    if [ "$disk_space" -lt "$MIN_DISK_SPACE" ]; then
+        echo -e "${RED}WARNING: Your system has only ${disk_space} GB of available disk space. MongoDB on the Bitcoin mainnet requires at least 2 TB of SSD.${NC}"
+    elif [ "$disk_space" -lt "$RECOMMENDED_DISK_SPACE" ]; then
+        echo -e "${YELLOW}Your system has ${disk_space} GB of available disk space. It is recommended to have 3 TB of SSD for optimal performance.${NC}"
+    else
+        echo -e "${GREEN}Disk space: ${disk_space} GB (Recommended: 3 TB SSD for Bitcoin mainnet).${NC}"
+    fi
+
+    echo ""
+}
+
+# Automatically run system requirements check at the end of the script
+check_system_requirements
+
 # Present options to the user
 echo -e "${CYAN}Please select an option:${NC}"
 echo -e "${GREEN}1.${NC} ${PURPLE}Install & Configure all the necessary dependencies (default)${NC}"
@@ -398,6 +447,11 @@ install_and_configure_mongodb() {
     sudo systemctl start shard1
     sudo systemctl start shard2
 
+    # Add services to startup
+    sudo systemctl enable configdb
+    sudo systemctl enable shard1
+    sudo systemctl enable shard2
+
     # Verify services are running and attempt to fix if not
     echo -e "${BLUE}Verifying and fixing MongoDB services...${NC}"
     for service in configdb shard1 shard2; do
@@ -489,6 +543,9 @@ install_nodejs() {
             exit 1
         fi
     fi
+
+    # Install optional dependencies
+    sudo apt-get install -y build-essential gcc g++ make python3.6 git manpages-dev libcairo2-dev libatk1.0-0 libatk-bridge2.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates fonts-liberation libnss3 lsb-release xdg-utils libtool autoconf software-properties-common gcc-12 g++-12 gcc-13 g++-13 cmake
 
     # Install Node.js 21
     echo -e "${BLUE}Installing Node.js 21...${NC}"
@@ -616,6 +673,24 @@ clone_and_build_indexer() {
 # Function to setup OPNet Indexer
 setup_opnet_indexer() {
     echo -e "${BLUE}Setting up OPNet Indexer...${NC}"
+
+    # Check if Node.js is installed
+    if ! command_exists node; then
+        echo -e "${YELLOW}Node.js is not installed. Installing Node.js 21...${NC}"
+        install_nodejs
+    else
+        node_version=$(node -v)
+        echo -e "${GREEN}Node.js is already installed (Version: $node_version).${NC}"
+    fi
+
+    # Check if Cargo (Rust) is installed
+    if ! command_exists cargo; then
+        echo -e "${YELLOW}Rust (Cargo) is not installed. Installing Rust...${NC}"
+        install_rust
+    else
+        rust_version=$(cargo --version)
+        echo -e "${GREEN}Rust (Cargo) is already installed ($rust_version).${NC}"
+    fi
 
     INDEXER_DIR="$HOME/bsi-indexer"
     CONFIG_FILE="$INDEXER_DIR/build/config/btc.conf"
@@ -812,8 +887,8 @@ REINDEX = false # Set to true to reindex the OP_NET
 REINDEX_FROM_BLOCK = 0 # Block height from which to reindex the OP_NET
 
 TRANSACTIONS_MAXIMUM_CONCURRENT = 100 # Maximum number of concurrent transactions to process
-PENDING_BLOCK_THRESHOLD = 12 # Maximum number of pending blocks to process
-MAXIMUM_PREFETCH_BLOCKS = 10 # You should not change this value unless you know what you are doing
+PENDING_BLOCK_THRESHOLD = 25 # Maximum number of pending blocks to process
+MAXIMUM_PREFETCH_BLOCKS = 20 # You should not change this value unless you know what you are doing
 
 VERIFY_INTEGRITY_ON_STARTUP = false # Set to true to verify the integrity of the OP_NET on startup
 DISABLE_SCANNED_BLOCK_STORAGE_CHECK = true # Set to true to disable the scanned block storage check

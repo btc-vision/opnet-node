@@ -8,7 +8,7 @@ import {
     TrustedNetworkPublicKeys,
 } from '../types/TrustedPublicKeys.js';
 import { TrustedCompanies } from '../TrustedCompanies.js';
-import { P2PVersion, TRUSTED_PUBLIC_KEYS, WBTC_CONTRACT_ADDRESS } from '../P2PVersion.js';
+import { P2PVersion, TRUSTED_PUBLIC_KEYS } from '../P2PVersion.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { KeyPairGenerator } from '../../networking/encryptem/KeyPairGenerator.js';
 import { TrustedVersion } from '../version/TrustedVersion.js';
@@ -18,6 +18,7 @@ import { OPNET_FEE_WALLET } from '../../wbtc/WBTCRules.js';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
+import { WBTC_CONTRACT_ADDRESS } from '../WBTCContracts.js';
 
 export type TrustedPublicKeys = {
     [key in TrustedCompanies]: Buffer[];
