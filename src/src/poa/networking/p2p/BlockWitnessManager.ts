@@ -510,6 +510,15 @@ export class BlockWitnessManager extends Logger {
         const validatorWitnesses: OPNetBlockWitness[] = blockWitness.validatorWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = blockWitness.trustedWitnesses;
 
+        console.log(
+            'blockChecksumHash',
+            blockChecksumHash.toString('hex'),
+            'validatorWitnesses',
+            validatorWitnesses,
+            'trustedWitnesses',
+            trustedWitnesses,
+        );
+
         if (validatorWitnesses.length <= 0 || trustedWitnesses.length <= 0 || !blockChecksumHash) {
             return;
         }
