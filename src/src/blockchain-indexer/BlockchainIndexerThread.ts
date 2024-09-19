@@ -24,6 +24,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
         this.log(`Starting up blockchain indexer thread...`);
 
         this.blockIndexer.sendMessageToThread = this.sendMessageToThread.bind(this);
+        this.blockIndexer.sendMessageToAllThreads = this.sendMessageToAllThreads.bind(this);
     }
 
     protected async onLinkMessage(

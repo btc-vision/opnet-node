@@ -33,6 +33,10 @@ import {
     UTXOSOutputTransactionFromDBV2,
 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
+import {
+    CurrentOpOutput,
+    OperationDetails,
+} from '../../vm/storage/interfaces/StorageInterfaces.js';
 
 export interface ProcessUnspentTransaction {
     transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[];
@@ -74,13 +78,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         };
 
         await this.updateMany(criteriaSpent, { deletedAtBlock: undefined }, currentSession);
-
-        /*await this.delete(
-            {
-                value: undefined,
-            },
-            currentSession,
-        );*/
     }
 
     public async updateMany(
@@ -198,19 +195,12 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             `[UTXO]: Writing ${bulkWriteOperations.length} UTXOs, deleting ${bulkDeleteOperations.length} spent UTXOs`,
         );
 
-        /*const operations: AnyBulkWriteOperation<IUnspentTransaction>[] = [
-            ...bulkWriteOperations,
-            ...bulkDeleteOperations,
-        ];*/
-
         if (bulkWriteOperations.length) {
-            //const session = await DBManagerInstance.startSession();
-            //session.startTransaction();
-
-            this.important(`[UTXO]: Conversion took ${Date.now() - start}ms`);
-
             const writeStart = Date.now();
             const chunks = this.chunkArray(bulkWriteOperations, 500);
+
+            this.important(`[UTXO]: Conversion took ${Date.now() - start}ms. Awaiting writes...`);
+            await this.waitForAllSessionsCommitted();
 
             let promises = [];
             for (const chunk of chunks) {
@@ -230,9 +220,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             }
 
             await Promise.all(promises);
-
-            //await session.commitTransaction();
-            //await session.endSession();
 
             this.important(
                 `[UTXO]: Bulk write (step 2) took ${Date.now() - deleteStart}ms - Range: ${lowestBlockHeight} - ${blockHeight}`,
@@ -362,6 +349,57 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
     protected override getCollection(): Collection<IUnspentTransaction> {
         return this._db.collection(OPNetCollections.UnspentTransactions);
+    }
+
+    private async waitForAllSessionsCommitted(pollInterval: number = 100): Promise<void> {
+        return new Promise<void>(async (resolve, reject) => {
+            const checkWrites = async (): Promise<boolean> => {
+                this.info(`Awaiting for write operations to finish...`);
+
+                if (!this._db) {
+                    throw new Error('Database not connected');
+                }
+
+                try {
+                    // Fetch the current operations using currentOp command
+                    const result = (await this._db.admin().command({
+                        currentOp: true,
+                    })) as CurrentOpOutput;
+
+                    // Filter write operations (insert, update, delete, findAndModify)
+                    const writeOps = result.inprog.filter((op: OperationDetails) => {
+                        if (
+                            (op.active && op.transaction) ||
+                            op.op === 'insert' ||
+                            op.op === 'update' ||
+                            op.op === 'remove'
+                        ) {
+                            return true;
+                        }
+                    });
+
+                    // If no write operations are active, resolve true
+                    return writeOps.length === 0;
+                } catch (error) {
+                    console.error('Error checking write operations:', error);
+                    reject(error as Error);
+                    return false;
+                }
+            };
+
+            // Polling function
+            const poll = async () => {
+                const writesFinished = await checkWrites();
+                if (writesFinished) {
+                    resolve();
+                } else {
+                    setTimeout(poll, pollInterval);
+                }
+            };
+
+            // Start polling
+            await poll();
+        });
     }
 
     private chunkArray<T>(array: T[], size: number): T[][] {

@@ -83,6 +83,13 @@ export class BlockIndexer extends Logger {
         return this._blockFetcher;
     }
 
+    public sendMessageToAllThreads: (
+        threadType: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ) => Promise<void> = () => {
+        throw new Error('sendMessageToAllThreads not implemented.');
+    };
+
     public sendMessageToThread: (
         type: ThreadTypes,
         message: ThreadMessageBase<MessageType>,
@@ -208,7 +215,7 @@ export class BlockIndexer extends Logger {
             },
         };
 
-        await this.sendMessageToThread(ThreadTypes.SYNCHRONISATION, msg);
+        await this.sendMessageToAllThreads(ThreadTypes.SYNCHRONISATION, msg);
     }
 
     /**
