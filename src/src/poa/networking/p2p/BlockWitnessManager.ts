@@ -352,15 +352,6 @@ export class BlockWitnessManager extends Logger {
             return;
         }
 
-        /*if (validWitnesses.opnetWitnesses.length === 0) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.fail(
-                    `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
-                );
-            }
-            return;
-        }*/
-
         const opnetWitnesses: OPNetBlockWitness[] = validWitnesses.opnetWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = validWitnesses.validTrustedWitnesses;
 
@@ -510,7 +501,10 @@ export class BlockWitnessManager extends Logger {
         const validatorWitnesses: OPNetBlockWitness[] = blockWitness.validatorWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = blockWitness.trustedWitnesses;
 
-        if (validatorWitnesses.length <= 0 || trustedWitnesses.length <= 0 || !blockChecksumHash) {
+        if (
+            (validatorWitnesses.length <= 0 && trustedWitnesses.length <= 0) ||
+            !blockChecksumHash
+        ) {
             return;
         }
 
