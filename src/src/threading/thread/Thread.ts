@@ -158,14 +158,9 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
     private createInternalThreadLink(m: LinkThreadMessage<LinkType>): void {
         const data = m.data;
-        //const linkType = data.type;
         const threadType = data.sourceThreadType;
 
         if (this.threadType !== data.targetThreadType) {
-            /*throw new Error(
-                `Thread type ${this.threadType} is not the target thread type ${data.targetThreadType}.`,
-            );*/
-
             return;
         }
 
@@ -188,9 +183,15 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         threadType: ThreadTypes,
         messagePort: MessagePort,
     ): Promise<void> {
-        const response = await this.onLinkMessageInternal(threadType, m);
+        let response: ThreadData | undefined;
 
-        if (response) {
+        try {
+            response = await this.onLinkMessageInternal(threadType, m);
+        } catch (e) {
+            this.error(`Error processing event message. {Details: ${e}}`);
+        }
+
+        if (m.taskId && response != undefined) {
             const resp: ThreadMessageResponse = {
                 type: MessageType.THREAD_RESPONSE,
                 data: response,
@@ -225,10 +226,10 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         if (m !== null && m && m.taskId && !m.toServer) {
             const task: ThreadTaskCallback | undefined = this.tasks.get(m.taskId);
             if (task) {
-                clearTimeout(task.timeout);
-
-                task.resolve(m.data);
                 this.tasks.delete(m.taskId);
+
+                clearTimeout(task.timeout);
+                task.resolve(m.data);
             } else {
                 this.error(`Thread response task not found. {TaskId: ${m.taskId}}`);
             }

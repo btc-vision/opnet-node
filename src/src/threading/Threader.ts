@@ -430,9 +430,9 @@ export class Threader<T extends ThreadTypes> extends Logger {
         message: ThreadMessageBase<MessageType>,
         selectedThread: Worker,
     ): void {
-        if (!message.taskId) {
-            message.taskId = this.generateRndTaskId();
-        }
+        //if (!message.taskId) {
+        //    message.taskId = this.generateRndTaskId();
+        //}
 
         if (this.subChannels[selectedThread.threadId]) {
             this.subChannels[selectedThread.threadId].port2.postMessage(message);

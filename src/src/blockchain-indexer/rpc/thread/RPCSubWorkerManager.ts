@@ -30,7 +30,7 @@ export class RPCSubWorkerManager extends Logger {
                 timeout: setTimeout(() => {
                     this.tasks.delete(taskId);
                     resolve(undefined);
-                }, 10000),
+                }, 30000),
             });
 
             this.requestToWorker(JSON.stringify({ type, taskId, data }));
