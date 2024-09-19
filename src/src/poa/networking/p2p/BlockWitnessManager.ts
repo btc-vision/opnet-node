@@ -355,6 +355,15 @@ export class BlockWitnessManager extends Logger {
         const opnetWitnesses: OPNetBlockWitness[] = validWitnesses.opnetWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = validWitnesses.validTrustedWitnesses;
 
+        if (opnetWitnesses.length + trustedWitnesses.length < 1) {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.fail(
+                    `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
+                );
+            }
+            return;
+        }
+
         if (this.config.DEV.DISPLAY_VALID_BLOCK_WITNESS) {
             this.success(
                 `BLOCK (${blockNumber}) VALIDATION SUCCESSFUL. Received ${opnetWitnesses.length} validation witness(es) and ${trustedWitnesses.length} trusted witness(es). Data integrity is maintained.`,

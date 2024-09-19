@@ -20,8 +20,7 @@ import { ContractInformation } from '../../../blockchain-indexer/processor/trans
 
 export class ContractEvaluation implements IEvaluationParameters {
     public readonly contractAddress: Address;
-    public readonly isView: boolean;
-    public readonly abi: number;
+    public readonly selector: number;
 
     public readonly calldata: Uint8Array;
     public readonly msgSender: Address;
@@ -54,8 +53,7 @@ export class ContractEvaluation implements IEvaluationParameters {
 
     constructor(params: IEvaluationParameters) {
         this.contractAddress = params.contractAddress;
-        this.isView = params.isView;
-        this.abi = params.abi;
+        this.selector = params.selector;
         this.calldata = params.calldata;
         this.msgSender = params.msgSender;
         this.txOrigin = params.txOrigin;

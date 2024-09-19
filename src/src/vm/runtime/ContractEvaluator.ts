@@ -31,7 +31,7 @@ export class ContractEvaluator extends Logger {
 
     private isProcessing: boolean = false;
 
-    private viewAbi: IterableIterator<number> | undefined;
+    private viewAbi: number[] | undefined;
 
     private methodAbi: MethodMap | undefined;
     private writeMethods: MethodMap | undefined;
@@ -111,25 +111,18 @@ export class ContractEvaluator extends Logger {
         delete this._contractInstance;
     }
 
-    public isViewMethod(selector: Selector): boolean {
+    /*public async isViewMethod(selector: Selector): Promise<boolean> {
         if (!this.viewAbi) {
-            throw new Error('View ABI not initialized');
+            const viewAbi = await this.getViewABI();
+            this.viewAbi = Array.from(viewAbi.values());
+
+            console.log(this.viewAbi);
         }
 
-        for (const key of this.viewAbi) {
-            if (key === selector) {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        return this.viewAbi.includes(selector);
+    }*/
 
     public async execute(params: ExecutionParameters): Promise<ContractEvaluation> {
-        if (!params.calldata && !params.isView) {
-            throw new Error('Calldata is required.');
-        }
-
         if (this.isProcessing) {
             throw new Error('Contract is already processing');
         }
@@ -145,10 +138,15 @@ export class ContractEvaluator extends Logger {
             });
 
             this.loadContractFromBytecode(evaluation);
-            await this.defineSelectorAndSetupEnvironment(evaluation);
-            await this.setupContract();
 
-            const canWrite: boolean = this.canWrite(evaluation.abi);
+            /*const isView: boolean = await this.isViewMethod(params.selector);
+            if (!params.calldata && !isView) {
+                throw new Error('Calldata is required.');
+            }*/
+
+            await this.defineSelectorAndSetupEnvironment(evaluation);
+
+            const canWrite: boolean = await this.canWrite(evaluation.selector);
             evaluation.setCanWrite(canWrite);
 
             try {
@@ -198,15 +196,6 @@ export class ContractEvaluator extends Logger {
         );
 
         await this.contractInstance.defineSelectors();
-    }
-
-    // TODO: Cache this, (add the gas it took to compute in the final gas)
-    private async setupContract(): Promise<void> {
-        const viewAbi = await this.getViewABI();
-        this.viewAbi = viewAbi.values();
-
-        this.methodAbi = await this.getMethodABI();
-        this.writeMethods = await this.getWriteMethodABI();
     }
 
     /** Load a pointer */
@@ -419,10 +408,10 @@ export class ContractEvaluator extends Logger {
         }
 
         if (!this.methodAbi) {
-            throw new Error('Method ABI not initialized');
+            this.methodAbi = await this.getMethodABI();
         }
 
-        const hasSelectorInMethods = this.methodAbi.has(evaluation.abi) ?? false;
+        const hasSelectorInMethods = this.methodAbi.has(evaluation.selector) ?? false;
 
         let result: Uint8Array | undefined | null;
         let error: Error | undefined;
@@ -430,8 +419,8 @@ export class ContractEvaluator extends Logger {
         // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
         try {
             result = hasSelectorInMethods
-                ? await this.contractInstance.readMethod(evaluation.abi, evaluation.calldata)
-                : await this.contractInstance.readView(evaluation.abi);
+                ? await this.contractInstance.readMethod(evaluation.selector, evaluation.calldata)
+                : await this.contractInstance.readView(evaluation.selector);
         } catch (e) {
             error = (await e) as Error;
         }
@@ -530,9 +519,9 @@ export class ContractEvaluator extends Logger {
         return value ? BufferHelper.uint8ArrayToValue(value) : null;
     }
 
-    private canWrite(abi: Selector): boolean {
+    private async canWrite(abi: Selector): Promise<boolean> {
         if (!this.writeMethods) {
-            throw new Error('Write methods not initialized');
+            this.writeMethods = await this.getWriteMethodABI();
         }
 
         return this.writeMethods.has(abi);
@@ -540,7 +529,7 @@ export class ContractEvaluator extends Logger {
 
     private async getViewABI(): Promise<SelectorsMap> {
         if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
+            throw new Error('Contract not initialized [getViewABI]');
         }
 
         const abi = await this.contractInstance.getViewABI();
@@ -551,7 +540,7 @@ export class ContractEvaluator extends Logger {
 
     private async getMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
+            throw new Error('Contract not initialized [getMethodABI]');
         }
 
         const abi = await this.contractInstance.getMethodABI();
@@ -562,7 +551,7 @@ export class ContractEvaluator extends Logger {
 
     private async getWriteMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
+            throw new Error('Contract not initialized [getWriteMethodABI]');
         }
 
         const abi = await this.contractInstance.getWriteMethods();

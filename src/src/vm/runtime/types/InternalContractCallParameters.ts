@@ -31,8 +31,7 @@ export interface InternalContractCallParameters {
 
 export interface ExecutionParameters {
     readonly contractAddress: Address;
-    readonly isView: boolean;
-    readonly abi: number;
+    readonly selector: number;
     readonly calldata: Uint8Array;
 
     readonly msgSender: Address;

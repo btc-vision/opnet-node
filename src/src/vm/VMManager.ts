@@ -684,11 +684,10 @@ export class VMManager extends Logger {
         calldata.copy(finalBuffer, 0, 4, calldata.byteLength);
 
         const selector: Selector = calldata.readUInt32BE(0);
-        const isView: boolean = vmEvaluator.isViewMethod(selector);
 
         if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debugBright(
-                `Executing function selector ${selector} (IsReadOnly: ${isView}) for contract ${params.contractAddress} at block ${params.blockHeight || 'latest'} with calldata ${calldata.toString(
+                `Executing function selector ${selector} (Contract ${params.contractAddress} at block ${params.blockHeight || 'latest'} with calldata ${calldata.toString(
                     'hex',
                 )}`,
             );
@@ -698,8 +697,7 @@ export class VMManager extends Logger {
         const caller: Address = params.from;
         const executionParams: ExecutionParameters = {
             contractAddress: params.contractAddress,
-            isView: isView,
-            abi: selector,
+            selector: selector,
             calldata: finalBuffer,
             msgSender: caller,
             txOrigin: params.txOrigin,
