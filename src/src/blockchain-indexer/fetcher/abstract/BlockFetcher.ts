@@ -47,7 +47,7 @@ export abstract class BlockFetcher extends Logger {
 
             this.lastBlockHash = block.hash;
 
-            // Cause problems on purpose
+            // Sometimes, the emptiness feels heavier than the pain.
             if (Config.DEV.CAUSE_FETCHING_FAILURE && Math.random() > 0.95) {
                 throw new Error('Random error');
             }
