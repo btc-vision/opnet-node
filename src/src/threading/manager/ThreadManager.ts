@@ -56,9 +56,10 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
 
         this.listenParentManager();
 
+        // TODO: We must fix this. It's a temporary solution. The problem is that if we dont wait, some link might not be created.
         setTimeout(async () => {
             await this.createLinkBetweenThreads();
-        }, 3000);
+        }, 6000);
     }
 
     protected abstract createLinkBetweenThreads(): Promise<void> | void;
