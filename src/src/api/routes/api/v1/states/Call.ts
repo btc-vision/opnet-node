@@ -30,7 +30,6 @@ import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 import { AddressVerificator } from '@btc-vision/transaction';
 import { NetworkConverter } from '../../../../../config/network/NetworkConverter.js';
-import { DebugLevel } from '@btc-vision/logger';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private readonly network: bitcoin.networks.Network = bitcoin.networks.testnet;
@@ -99,7 +98,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         } catch (e) {
             this.decrementPendingRequests();
 
-            if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
+            if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
                 this.error(
                     `Failed to execute the given calldata at the requested contract: ${(e as Error).stack}`,
                 );

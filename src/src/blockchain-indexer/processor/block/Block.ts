@@ -528,7 +528,7 @@ export class Block extends Logger {
         } catch (e) {
             const error: Error = e as Error;
 
-            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
                 this.error(
                     `Failed to execute transaction ${transaction.txid} (took ${Date.now() - start}): ${error.message}`,
                 );
