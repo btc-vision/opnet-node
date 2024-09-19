@@ -58,8 +58,8 @@ export class BlockIndexer extends Logger {
         this.vmStorage,
         this.vmManager,
         this.rpcClient,
-        this.chainObserver,
-        this.consensusTracker,
+        //this.chainObserver,
+        //this.consensusTracker,
     );
 
     private readonly network: Network = NetworkConverter.getNetwork();
@@ -137,7 +137,7 @@ export class BlockIndexer extends Logger {
             ? BigInt(Config.OP_NET.REINDEX_FROM_BLOCK)
             : this.chainObserver.pendingBlockHeight;
 
-        this.warn(`Purging data from block ${purgeFromBlock}`);
+        this.warn(`Safely purging data from block ${purgeFromBlock}`);
 
         // Purge.
         const originalHeight = this.chainObserver.pendingBlockHeight;
@@ -153,27 +153,14 @@ export class BlockIndexer extends Logger {
                 `Reorg watchdog height mismatch: ${this.reorgWatchdog.pendingBlockHeight}. Reverting.`,
             );
 
-            await this.onChainReorganisation(
+            await this.revertChain(
                 this.reorgWatchdog.pendingBlockHeight,
                 originalHeight,
                 'database-corrupted',
+                false,
             );
-
-            /*let restoreFromBlock =
-                this.reorgWatchdog.pendingBlockHeight -
-                BigInt(Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS);
-
-            if (restoreFromBlock < 0n) {
-                restoreFromBlock = 0n;
-            }
-
-            await this.chainObserver.setNewHeight(restoreFromBlock);
-            this.consensusTracker.setConsensusBlockHeight(restoreFromBlock);
-
-            this.chainObserver.nextBestTip = restoreFromBlock - 1n;
-            await this.vmStorage.revertDataUntilBlock(restoreFromBlock);*/
         } else {
-            this.startAndPurgeIndexer();
+            this.startTasks();
         }
 
         this.registerEvents();
@@ -189,7 +176,7 @@ export class BlockIndexer extends Logger {
 
         this.reorgWatchdog.subscribeToReorgs(
             async (fromHeight: bigint, toHeight: bigint, newBest: string) => {
-                await this.onChainReorganisation(fromHeight, toHeight, newBest);
+                await this.revertChain(fromHeight, toHeight, newBest, true);
             },
         );
     }
@@ -224,47 +211,56 @@ export class BlockIndexer extends Logger {
         await this.sendMessageToThread(ThreadTypes.SYNCHRONISATION, msg);
     }
 
-    private async onChainReorganisation(
+    /**
+     * Revert the chain to the specified height.
+     * @param fromHeight The height to revert from.
+     * @param toHeight The height to revert to.
+     * @param newBest The new best block hash or a reason for the reorg.
+     * @param reorged Whether the chain was reorged.
+     * @private
+     */
+    private async revertChain(
         fromHeight: bigint,
         toHeight: bigint,
         newBest: string,
+        reorged: boolean,
     ): Promise<void> {
         // Lock tasks.
         this.chainReorged = true;
-        this.log(`Chain reorganisation detected: ${fromHeight} -> ${toHeight} - (${newBest})`);
 
         // Stop all tasks.
-        await this.stopAllTasks(true);
-        await this.vmStorage.killAllPendingWrites();
+        await this.stopAllTasks(reorged);
 
         // Notify thread.
         await this.notifyThreadReorg(fromHeight, toHeight, newBest);
 
+        // Await all pending writes.
+        await this.vmStorage.killAllPendingWrites();
+
         // Revert block
-        await this.chainObserver.setNewHeight(fromHeight);
-
-        this.consensusTracker.setConsensusBlockHeight(fromHeight);
-
-        // Revert data.
-        await this.reorgFromHeight(fromHeight, toHeight);
+        await this.vmStorage.revertDataUntilBlock(fromHeight);
         await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
 
-        this.info(`Restarting task after reorg.`);
+        // Revert data.
+        if (reorged) await this.reorgFromHeight(fromHeight, toHeight);
 
         // Unlock tasks.
         this.chainReorged = false;
+        this.taskInProgress = false;
 
         // Start tasks.
-        void this.restartTasks();
+        await this.restartTasks();
     }
 
     private async restartTasks(): Promise<void> {
         if (this.taskInProgress) {
+            this.warn(`Task in progress. Waiting for completion.`);
+
             await this.awaitTaskCompletion();
         }
 
         // Start tasks.
-        this.startAndPurgeIndexer();
+        this.startTasks();
     }
 
     private async reorgFromHeight(fromHeight: bigint, toBlock: bigint): Promise<void> {
@@ -278,7 +274,6 @@ export class BlockIndexer extends Logger {
             throw new Error(`Block height must be greater than 0. Was ${fromHeight}.`);
         }
 
-        await this.vmStorage.revertDataUntilBlock(fromHeight + 1n);
         await this.vmStorage.setReorg(reorgData);
     }
 
@@ -326,14 +321,6 @@ export class BlockIndexer extends Logger {
                 return new VMMongoStorage(Config, this.database);
             default:
                 throw new Error('Invalid VM Storage type.');
-        }
-    }
-
-    private startAndPurgeIndexer(): void {
-        try {
-            this.startTasks();
-        } catch (e) {
-            this.panic(`Error starting tasks: ${e}`);
         }
     }
 
@@ -455,15 +442,16 @@ export class BlockIndexer extends Logger {
             if (this.chainReorged || !this.currentTask || this.currentTask.chainReorged) {
                 this.taskInProgress = false;
 
+                this.warn(`Processing error: ${e}`);
+
                 return;
             }
 
-            await this.stopAllTasks(false);
-
             const error = e as Error;
-            this.panic(`Processing error: ${Config.DEV_MODE ? error.stack : error.message}`);
+            this.panic(
+                `Processing error (block: ${this.currentTask.tip}): ${Config.DEV_MODE ? error.stack : error.message}`,
+            );
 
-            /** Revert 1 block */
             const newHeight = this.chainObserver.pendingBlockHeight - 1n;
             if (newHeight <= 0n) {
                 throw new Error(
@@ -471,14 +459,12 @@ export class BlockIndexer extends Logger {
                 );
             }
 
-            this.chainObserver.nextBestTip = newHeight;
-
-            await this.vmStorage.revertDataUntilBlock(newHeight);
-            await this.chainObserver.setNewHeight(newHeight - 1n);
-
-            this.taskInProgress = false;
-
-            this.startTasks();
+            await this.revertChain(
+                this.chainObserver.pendingBlockHeight,
+                newHeight,
+                'processing-error',
+                false,
+            );
         }
     }
 

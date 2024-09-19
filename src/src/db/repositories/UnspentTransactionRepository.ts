@@ -122,13 +122,13 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         const start = Date.now();
 
         let blockHeight = 0n;
-        let lowestBlockHeight = 0n;
+        let lowestBlockHeight = -1n;
         for (const data of transactions) {
             if (data.blockHeight > blockHeight) {
                 blockHeight = data.blockHeight;
             }
 
-            if (data.blockHeight < lowestBlockHeight) {
+            if (data.blockHeight < lowestBlockHeight || lowestBlockHeight === -1n) {
                 lowestBlockHeight = data.blockHeight;
             }
         }
@@ -235,7 +235,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             //await session.endSession();
 
             this.important(
-                `[UTXO]: Bulk write (step 2) took ${Date.now() - deleteStart}ms - Height: ${blockHeight}`,
+                `[UTXO]: Bulk write (step 2) took ${Date.now() - deleteStart}ms - Range: ${lowestBlockHeight} - ${blockHeight}`,
             );
         }
 

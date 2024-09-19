@@ -276,10 +276,10 @@ export class Block extends Logger {
     public deserialize(transactionOrder?: string[]): void {
         this.ensureNotProcessed();
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            if (this.erroredTransactions.size > 0) {
-                this.error(`Failed to parse ${this.erroredTransactions.size} transactions.`);
-            }
+        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG && this.erroredTransactions.size > 0) {
+            this.error(
+                `Block ${this.height} contains ${this.erroredTransactions.size} errored transactions.`,
+            );
         }
 
         if (transactionOrder) {
@@ -513,16 +513,14 @@ export class Block extends Logger {
                         ? transaction.receipt.revert
                         : new Error(transaction.receipt.revert);
 
-                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                    if (Config.DEV_MODE) {
-                        this.error(
-                            `Transaction ${transaction.txid} reverted with reason: ${error}`,
-                        );
-                    } else {
-                        this.error(
-                            `Transaction ${transaction.txid} reverted with reason: ${error.message}`,
-                        );
-                    }
+                if (Config.DEV_MODE) {
+                    this.error(`Transaction ${transaction.txid} reverted with reason: ${error}`);
+                } else if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
+                    this.error(
+                        `Transaction ${transaction.txid} reverted with reason: ${error.message}`,
+                    );
+                } else if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    this.error(`Transaction ${transaction.txid} reverted.`);
                 }
 
                 transaction.revert = error;
@@ -895,7 +893,7 @@ export class Block extends Logger {
 
                 this.transactions.push(transaction);
             } catch (e) {
-                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                if (Config.DEV.DEBUG_TRANSACTION_PARSE_FAILURE) {
                     const error: Error = e as Error;
 
                     this.error(

@@ -1,13 +1,10 @@
 import { BitcoinRPC, BlockHeaderInfo } from '@btc-vision/bsi-bitcoin-rpc';
 import { Block } from '../block/Block.js';
-import { Config } from '../../../config/Config.js';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { Logger } from '@btc-vision/bsi-common';
 import { IndexingTask } from '../tasks/IndexingTask.js';
 import { BlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { ChainObserver } from '../observer/ChainObserver.js';
-import { ConsensusTracker } from '../consensus/ConsensusTracker.js';
 
 interface LastBlock {
     hash?: string;
@@ -31,14 +28,13 @@ export class ReorgWatchdog extends Logger {
     > = [];
 
     private lastBlock: LastBlock = {};
-    private processOnlyOneBlock: boolean = Config.DEV.PROCESS_ONLY_ONE_BLOCK;
 
     constructor(
         private readonly vmStorage: VMStorage,
         private readonly vmManager: VMManager,
         private readonly rpcClient: BitcoinRPC,
-        private readonly chainObserver: ChainObserver,
-        private readonly consensusTracker: ConsensusTracker,
+        //private readonly chainObserver: ChainObserver,
+        //private readonly consensusTracker: ConsensusTracker,
     ) {
         super();
     }
@@ -120,7 +116,7 @@ export class ReorgWatchdog extends Logger {
 
             return false;
         }
-        
+
         const chainReorged: boolean = await this.verifyChainReorg(task.block);
         if (!chainReorged) {
             this.updateBlock(task.block);

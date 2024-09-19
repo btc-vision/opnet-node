@@ -16,6 +16,7 @@ import {
     UnspentTransactionRepository,
 } from '../../../db/repositories/UnspentTransactionRepository.js';
 import { DBManagerInstance } from '../../../db/DBManager.js';
+import { IChainReorg } from '../../../threading/interfaces/thread-messages/messages/indexer/IChainReorg.js';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -26,6 +27,8 @@ export class ChainSynchronisation extends Logger {
     private unspentTransactionOutputs: ProcessUnspentTransactionList = [];
     private amountOfUTXOs: number = 0;
     private isProcessing: boolean = false;
+
+    private abortControllers: Map<bigint, AbortController> = new Map();
 
     public constructor() {
         super();
@@ -81,7 +84,7 @@ export class ChainSynchronisation extends Logger {
                 break;
             }
             case MessageType.CHAIN_REORG: {
-                resp = this.onReorg();
+                resp = await this.onReorg(m.data as IChainReorg);
                 break;
             }
             default: {
@@ -94,8 +97,11 @@ export class ChainSynchronisation extends Logger {
         return resp ?? null;
     }
 
-    private async onReorg(): Promise<ThreadData> {
-        this.purgeUTXOs();
+    private async onReorg(reorg: IChainReorg): Promise<ThreadData> {
+        this.panic(`CHAIN_REORG message received. Cancelling all tasks.`);
+
+        this.abortAllControllers();
+        this.purgeUTXOs(reorg.fromHeight);
 
         if (this.isProcessing) {
             await this.awaitUTXOWrites();
@@ -114,18 +120,30 @@ export class ChainSynchronisation extends Logger {
         }, 2500);
     }
 
-    private purgeUTXOs(): void {
-        this.unspentTransactionOutputs = [];
-        this.amountOfUTXOs = 0;
+    private purgeUTXOs(fromBlock?: bigint): void {
+        if (fromBlock === undefined) {
+            this.unspentTransactionOutputs = [];
+            this.amountOfUTXOs = 0;
+
+            return;
+        }
+
+        this.unspentTransactionOutputs = this.unspentTransactionOutputs.filter(
+            (utxo) => utxo.blockHeight < fromBlock, // do not include the same block, this one must be purged.
+        );
+
+        this.amountOfUTXOs = this.unspentTransactionOutputs.reduce(
+            (acc, utxo) => acc + utxo.transactions.length,
+            0,
+        );
     }
 
     private async saveUTXOs(): Promise<void> {
         if (this.isProcessing) return;
+        this.isProcessing = true;
 
         const utxos = this.unspentTransactionOutputs;
         this.purgeUTXOs();
-
-        this.isProcessing = true;
 
         try {
             await this.unspentTransactionRepository.insertTransactions(utxos);
@@ -146,6 +164,14 @@ export class ChainSynchronisation extends Logger {
         while (this.isProcessing) {
             await new Promise((r) => setTimeout(r, 50));
         }
+    }
+
+    private abortAllControllers(): void {
+        for (const controller of this.abortControllers.values()) {
+            controller.abort('Process cancelled');
+        }
+
+        this.abortControllers.clear();
     }
 
     private queryUTXOs(block: Block, txs: TransactionData[]): void {
@@ -180,6 +206,7 @@ export class ChainSynchronisation extends Logger {
         return height;
     }
 
+    // TODO: Move fetching to an other thread.
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
         if (this.amountOfUTXOs > 100_000) {
             await this.awaitUTXOWrites();
@@ -196,9 +223,12 @@ export class ChainSynchronisation extends Logger {
             return new Promise((r) => setTimeout(() => r(this.queryBlock(blockNumber)), 1000));
         }
 
+        const abortController = new AbortController();
+        this.abortControllers.set(blockNumber, abortController);
+
         const block = new Block({
             network: this.network,
-            abortController: new AbortController(),
+            abortController: abortController,
             header: blockData,
         });
 
@@ -207,6 +237,8 @@ export class ChainSynchronisation extends Logger {
         // Deserialize the block
         //block.setRawTransactionData(blockData.tx);
         //block.deserialize();
+
+        this.abortControllers.delete(blockNumber);
 
         return {
             //block.toJSON(); will become handy later.

@@ -232,6 +232,8 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async revertDataUntilBlock(blockId: bigint): Promise<void> {
+        this.warn(`REVERT DATA UNTIL BLOCK ${blockId}`);
+
         /** We must delete all the data until the blockId */
         if (!this.blockRepository) {
             throw new Error('Block header repository not initialized');

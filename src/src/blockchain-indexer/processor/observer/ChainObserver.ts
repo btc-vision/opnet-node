@@ -117,15 +117,21 @@ export class ChainObserver extends Logger {
     ): Promise<void> {
         this.synchronisationStatus.isReorging = true;
 
-        this.info(
+        this.debugBright(
             `Chain reorganisation detected: ${fromHeight} -> ${toHeight} - (${this.synchronisationStatus.bestBlockHash} -> ${newBest})`,
         );
 
         if (fromHeight === 0n) throw new Error('Invalid from height.');
 
         this.synchronisationStatus.bestBlockHash = newBest;
-        this.pendingBlockHeight = fromHeight;
-        this.targetBlockHeight = await this.fetchChainHeight();
+
+        const [blockHeight] = await Promise.all([
+            this.fetchChainHeight(),
+            this.setNewHeight(fromHeight),
+        ]);
+
+        this.consensusTracker.setConsensusBlockHeight(fromHeight);
+        this.targetBlockHeight = blockHeight;
         this.nextBestTip = fromHeight;
 
         this.updateStatus();
@@ -174,6 +180,10 @@ export class ChainObserver extends Logger {
     public async setNewHeight(height: bigint): Promise<void> {
         this.pendingBlockHeight = height;
 
+        await this.updateCurrentBlockProgress();
+    }
+
+    private async updateCurrentBlockProgress(): Promise<void> {
         await this.blockchainRepository.updateCurrentBlockInProgress(
             this.network,
             Number(this.pendingBlockHeight + 1n),

@@ -112,6 +112,9 @@ export interface APIExtendedConfigurations extends APIConfig {
 
 export interface DevConfig {
     readonly PROCESS_ONLY_ONE_BLOCK: boolean;
+    readonly DEBUG_TRANSACTION_FAILURE: boolean;
+    readonly DEBUG_TRANSACTION_PARSE_FAILURE: boolean;
+    readonly CAUSE_FETCHING_FAILURE: boolean;
 }
 
 export interface Bech32Config {

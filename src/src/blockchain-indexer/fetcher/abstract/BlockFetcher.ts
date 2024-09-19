@@ -1,5 +1,6 @@
 import { BlockDataWithTransactionData, BlockHeaderInfo } from '@btc-vision/bsi-bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
+import { Config } from '../../../config/Config.js';
 
 export interface BlockFetcherConfiguration {
     readonly maximumPrefetchBlocks: number;
@@ -45,6 +46,11 @@ export abstract class BlockFetcher extends Logger {
             }
 
             this.lastBlockHash = block.hash;
+
+            // Cause problems on purpose
+            if (Config.DEV.CAUSE_FETCHING_FAILURE && Math.random() > 0.95) {
+                throw new Error('Random error');
+            }
 
             return block;
         } catch (e: unknown) {

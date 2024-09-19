@@ -54,6 +54,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         DEV: {
             PROCESS_ONLY_ONE_BLOCK: false,
+            DEBUG_TRANSACTION_FAILURE: false,
+            DEBUG_TRANSACTION_PARSE_FAILURE: false,
+            CAUSE_FETCHING_FAILURE: false,
         },
 
         BASE58: {},
@@ -648,6 +651,31 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.DEV.PROCESS_ONLY_ONE_BLOCK !== 'boolean'
             ) {
                 throw new Error(`Oops the property DEV.PROCESS_ONLY_ONE_BLOCK is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.DEV.DEBUG_TRANSACTION_FAILURE !== undefined &&
+                typeof parsedConfig.DEV.DEBUG_TRANSACTION_FAILURE !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property DEV.DEBUG_TRANSACTION_FAILURE is not a boolean.`,
+                );
+            }
+
+            if (
+                parsedConfig.DEV.DEBUG_TRANSACTION_PARSE_FAILURE !== undefined &&
+                typeof parsedConfig.DEV.DEBUG_TRANSACTION_PARSE_FAILURE !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property DEV.DEBUG_TRANSACTION_FAILURE is not a boolean.`,
+                );
+            }
+
+            if (
+                parsedConfig.DEV.CAUSE_FETCHING_FAILURE !== undefined &&
+                typeof parsedConfig.DEV.CAUSE_FETCHING_FAILURE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.CAUSE_FETCHING_FAILURE is not a boolean.`);
             }
         }
 
