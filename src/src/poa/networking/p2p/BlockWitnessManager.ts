@@ -518,13 +518,6 @@ export class BlockWitnessManager extends Logger {
             validatorWitnesses,
         );
 
-        console.log(
-            'validOPNetWitnesses',
-            validOPNetWitnesses,
-            'validTrustedWitnesses',
-            validTrustedWitnesses,
-        );
-
         return {
             validTrustedWitnesses: validTrustedWitnesses,
             opnetWitnesses: validOPNetWitnesses,
