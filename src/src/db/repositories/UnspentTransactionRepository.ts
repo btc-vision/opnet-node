@@ -196,10 +196,10 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         );
 
         if (bulkWriteOperations.length) {
-            const writeStart = Date.now();
+            //const writeStart = Date.now();
             const chunks = this.chunkArray(bulkWriteOperations, 500);
 
-            this.important(`[UTXO]: Conversion took ${Date.now() - start}ms. Awaiting writes...`);
+            //this.important(`[UTXO]: Conversion took ${Date.now() - start}ms. Awaiting writes...`);
             await this.waitForAllSessionsCommitted();
 
             let promises = [];
@@ -209,7 +209,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
             await Promise.all(promises);
 
-            this.important(`[UTXO]: Bulk write (step 1) took ${Date.now() - writeStart}ms`);
+            //this.important(`[UTXO]: Bulk write (step 1) took ${Date.now() - writeStart}ms`);
 
             promises = [];
 

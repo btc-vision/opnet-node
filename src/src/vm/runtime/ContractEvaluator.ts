@@ -4,8 +4,6 @@ import {
     BinaryReader,
     BinaryWriter,
     BufferHelper,
-    DeterministicMap,
-    DeterministicSet,
     MemorySlotPointer,
     MethodMap,
     NetEvent,
@@ -33,17 +31,10 @@ export class ContractEvaluator extends Logger {
 
     private isProcessing: boolean = false;
 
-    private viewAbi: SelectorsMap = new DeterministicMap((a: string, b: string) => {
-        return BinaryReader.stringCompare(a, b);
-    });
+    private viewAbi: IterableIterator<number> | undefined;
 
-    private methodAbi: MethodMap = new DeterministicSet<Selector>((a: number, b: number) => {
-        return BinaryReader.numberCompare(a, b);
-    });
-
-    private writeMethods: MethodMap = new DeterministicSet<Selector>((a: number, b: number) => {
-        return BinaryReader.numberCompare(a, b);
-    });
+    private methodAbi: MethodMap | undefined;
+    private writeMethods: MethodMap | undefined;
 
     private contractOwner: Address | undefined;
     private contractAddress: Address | undefined;
@@ -120,22 +111,12 @@ export class ContractEvaluator extends Logger {
         delete this._contractInstance;
     }
 
-    public getViewSelectors(): SelectorsMap {
-        return this.viewAbi;
-    }
-
-    public getMethodSelectors(): MethodMap {
-        return this.methodAbi;
-    }
-
-    //public getWriteMethods(): MethodMap {
-    //    return this.writeMethods;
-    //}
-
     public isViewMethod(selector: Selector): boolean {
-        const keys = Array.from(this.viewAbi.values());
+        if (!this.viewAbi) {
+            throw new Error('View ABI not initialized');
+        }
 
-        for (const key of keys) {
+        for (const key of this.viewAbi) {
             if (key === selector) {
                 return true;
             }
@@ -145,6 +126,10 @@ export class ContractEvaluator extends Logger {
     }
 
     public async execute(params: ExecutionParameters): Promise<ContractEvaluation> {
+        if (!params.calldata && !params.isView) {
+            throw new Error('Calldata is required.');
+        }
+
         if (this.isProcessing) {
             throw new Error('Contract is already processing');
         }
@@ -162,10 +147,6 @@ export class ContractEvaluator extends Logger {
             this.loadContractFromBytecode(evaluation);
             await this.defineSelectorAndSetupEnvironment(evaluation);
             await this.setupContract();
-
-            if (!evaluation.calldata && !evaluation.isView) {
-                throw new Error('Calldata is required.');
-            }
 
             const canWrite: boolean = this.canWrite(evaluation.abi);
             evaluation.setCanWrite(canWrite);
@@ -221,7 +202,9 @@ export class ContractEvaluator extends Logger {
 
     // TODO: Cache this, (add the gas it took to compute in the final gas)
     private async setupContract(): Promise<void> {
-        this.viewAbi = await this.getViewABI();
+        const viewAbi = await this.getViewABI();
+        this.viewAbi = viewAbi.values();
+
         this.methodAbi = await this.getMethodABI();
         this.writeMethods = await this.getWriteMethodABI();
     }
@@ -351,21 +334,6 @@ export class ContractEvaluator extends Logger {
         this.warn(`Contract log: ${logData}`);*/
     }
 
-    /*private async encodeAddress(data: Buffer): Promise<Buffer | Uint8Array> {
-        const reader = new BinaryReader(data);
-        const virtualAddress = reader.readBytesWithLength();
-
-        const address: Address = AddressGenerator.generatePKSH(
-            Buffer.from(virtualAddress),
-            this.network,
-        );
-
-        const response = new BinaryWriter();
-        response.writeAddress(address);
-
-        return response.getBuffer();
-    }*/
-
     private getNetwork(): BitcoinNetworkRequest {
         switch (this.network) {
             case networks.bitcoin:
@@ -448,6 +416,10 @@ export class ContractEvaluator extends Logger {
     private async evaluate(evaluation: ContractEvaluation): Promise<void> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized');
+        }
+
+        if (!this.methodAbi) {
+            throw new Error('Method ABI not initialized');
         }
 
         const hasSelectorInMethods = this.methodAbi.has(evaluation.abi) ?? false;
@@ -559,6 +531,10 @@ export class ContractEvaluator extends Logger {
     }
 
     private canWrite(abi: Selector): boolean {
+        if (!this.writeMethods) {
+            throw new Error('Write methods not initialized');
+        }
+
         return this.writeMethods.has(abi);
     }
 
