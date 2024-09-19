@@ -142,8 +142,6 @@ export class P2PManager extends Logger {
         data: BlockProcessedData,
         isSelf: boolean = false,
     ): Promise<void> {
-        this.debug(`Generating block witness for block ${data.blockNumber}`);
-
         // Generate block witness.
         await this.blockWitnessManager.generateBlockHeaderProof(data, isSelf);
 
