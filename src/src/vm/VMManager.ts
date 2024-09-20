@@ -44,7 +44,7 @@ import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
 import { GasTracker } from './runtime/GasTracker.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/transaction';
-import bitcoin from 'bitcoinjs-lib';
+import bitcoin, { address } from 'bitcoinjs-lib';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { contractManager } from './isolated/RustContract.js';
 
@@ -920,7 +920,7 @@ export class VMManager extends Logger {
         }
 
         if (!contractInformation) {
-            console.log('contractInformation', contractInformation, contractAddress, height);
+            console.log('not found', address);
             return null;
         }
 
@@ -953,7 +953,6 @@ export class VMManager extends Logger {
         this.vmEvaluators.set(contractAddress, newVmEvaluator);
 
         const value: ContractEvaluator | null = await newVmEvaluator;
-        console.log('value', value);
         if (!value) {
             throw new Error(
                 `[getVMEvaluatorFromCache] Unable to initialize contract ${contractAddress}`,
