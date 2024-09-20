@@ -425,8 +425,6 @@ export class VMManager extends Logger {
             prevBlockHash ? BufferHelper.hexToUint8Array(prevBlockHash) : new Uint8Array(32),
         ];
 
-        console.log('check', checksumRoot, BufferHelper.hexToUint8Array(blockHash));
-
         const prevHashProof = this.getProofForIndex(proofs, 0);
         const hasValidPrevHash: boolean = ChecksumMerkle.verify(
             checksumRoot,
@@ -473,21 +471,6 @@ export class VMManager extends Logger {
             ChecksumMerkle.TREE_TYPE,
             [5, BufferHelper.hexToUint8Array(blockReceipt)],
             blockReceiptProof,
-        );
-
-        console.log(
-            'hasValidPrevHash',
-            hasValidPrevHash,
-            'hasValidPrevChecksum',
-            hasValidPrevChecksum,
-            'hasValidBlockHash',
-            hasValidBlockHash,
-            'hasValidBlockMerkelRoot',
-            hasValidBlockMerkelRoot,
-            'hasValidBlockStorage',
-            hasValidBlockStorage,
-            'hasValidBlockReceipt',
-            hasValidBlockReceipt,
         );
 
         return (
