@@ -920,7 +920,7 @@ export class VMManager extends Logger {
         }
 
         if (!contractInformation) {
-            console.log('contractInformation', contractInformation);
+            console.log('contractInformation', contractInformation, contractAddress, height);
             return null;
         }
 
@@ -953,6 +953,7 @@ export class VMManager extends Logger {
         this.vmEvaluators.set(contractAddress, newVmEvaluator);
 
         const value: ContractEvaluator | null = await newVmEvaluator;
+        console.log('value', value);
         if (!value) {
             throw new Error(
                 `[getVMEvaluatorFromCache] Unable to initialize contract ${contractAddress}`,
