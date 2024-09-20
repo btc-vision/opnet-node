@@ -704,7 +704,7 @@ export class VMManager extends Logger {
             contractAddress: params.contractAddress,
             selector: selector,
             calldata: finalBuffer,
-            msgSender: !externalCall ? caller : params.msgSender,
+            msgSender: externalCall ? caller : params.msgSender,
             txOrigin: params.txOrigin,
             maxGas: params.maxGas,
             gasUsed: params.gasUsed,
