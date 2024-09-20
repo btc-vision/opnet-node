@@ -657,6 +657,8 @@ export class VMManager extends Logger {
         }
 
         if (!vmEvaluator) {
+            console.log('query', this.vmBitcoinBlock.height, params.blockHeight);
+
             vmEvaluator = params.allowCached
                 ? await this.getVMEvaluatorFromCache(
                       params.contractAddress,
