@@ -479,11 +479,6 @@ export class BlockIndexer extends Logger {
 
     private startIndexer(): ThreadData {
         this.panic(`Starting blockchain indexer...`);
-        if (Config.P2P.IS_BOOTSTRAP_NODE) {
-            return {
-                started: true,
-            };
-        }
 
         void this.init();
 

@@ -161,7 +161,8 @@ export class P2PManager extends Logger {
         this.addListeners();
         await this.startNode();
         await this.addHandles();
-        await this.onStarted();
+
+        this.onStarted();
     }
 
     public override info(...args: string[]): void {
@@ -338,7 +339,7 @@ export class P2PManager extends Logger {
         this.info(`Identified peer: ${peerInfo.peerId.toString()}`);
     }
 
-    private async refreshRouting(): Promise<void> {
+    /*private async refreshRouting(): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
         //this.info('Refreshing routing table...');
@@ -347,7 +348,7 @@ export class P2PManager extends Logger {
         setTimeout(() => {
             void this.refreshRouting();
         }, 15000);
-    }
+    }*/
 
     private onPeerDiscovery(evt: CustomEvent<PeerInfo>): void {
         const peerId = evt.detail.id.toString();
@@ -591,7 +592,7 @@ export class P2PManager extends Logger {
             } else {
                 this.fail(`Failed to start indexer.`);
             }
-        }, 6000);
+        }, 4000);
     }
 
     private async getOPNetPeers(): Promise<OPNetPeerInfo[]> {
@@ -669,7 +670,7 @@ export class P2PManager extends Logger {
         } catch (e) {}
     }
 
-    private async onStarted(): Promise<void> {
+    private onStarted(): void {
         if (!this.node) {
             throw new Error('Node not initialized');
         }
@@ -698,7 +699,7 @@ export class P2PManager extends Logger {
 
         this.p2pConfigurations.savePeer(this.node.peerId);
 
-        await this.refreshRouting();
+        //await this.refreshRouting();
     }
 
     private notifyArt(
