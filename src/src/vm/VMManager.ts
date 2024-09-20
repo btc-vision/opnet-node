@@ -945,7 +945,8 @@ export class VMManager extends Logger {
             return vmEvaluator;
         }
 
-        const newVmEvaluator = this.getVMEvaluator(contractAddress, height).catch(() => {
+        const newVmEvaluator = this.getVMEvaluator(contractAddress, height).catch((e) => {
+            console.log(`Error getting VM evaluator: ${e}`);
             return null;
         });
 
