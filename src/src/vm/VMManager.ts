@@ -920,7 +920,6 @@ export class VMManager extends Logger {
         }
 
         if (!contractInformation) {
-            console.trace('not found', contractAddress);
             return null;
         }
 
