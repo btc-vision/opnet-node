@@ -984,7 +984,7 @@ export class VMManager extends Logger {
         contractAddress: Address,
         height: bigint | undefined,
     ): Promise<ContractInformation | undefined> {
-        console.log(this.contractCache.has(contractAddress), contractAddress);
+        console.log(this.contractCache.has(contractAddress), contractAddress, height);
         if (this.contractCache.has(contractAddress)) {
             return this.contractCache.get(contractAddress);
         }
