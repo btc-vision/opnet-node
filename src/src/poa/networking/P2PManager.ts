@@ -345,9 +345,9 @@ export class P2PManager extends Logger {
         //this.info('Refreshing routing table...');
 
         await this.node.services.kadDHT.refreshRoutingTable();
-        setTimeout(() => {
-            void this.refreshRouting();
-        }, 15000);
+        //setTimeout(() => {
+        //    void this.refreshRouting();
+        //}, 15000);
     }
 
     private onPeerDiscovery(evt: CustomEvent<PeerInfo>): void {
