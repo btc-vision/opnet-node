@@ -425,6 +425,8 @@ export class VMManager extends Logger {
             prevBlockHash ? BufferHelper.hexToUint8Array(prevBlockHash) : new Uint8Array(32),
         ];
 
+        console.log('check', checksumRoot, BufferHelper.hexToUint8Array(blockHash));
+
         const prevHashProof = this.getProofForIndex(proofs, 0);
         const hasValidPrevHash: boolean = ChecksumMerkle.verify(
             checksumRoot,
