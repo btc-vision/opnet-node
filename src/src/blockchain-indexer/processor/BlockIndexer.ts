@@ -478,7 +478,12 @@ export class BlockIndexer extends Logger {
     }
 
     private startIndexer(): ThreadData {
-        this.panic(`Starting blockchain indexer...`);
+        if (this.started) {
+            return {
+                started: false,
+                message: 'Indexer already started',
+            };
+        }
 
         void this.init();
 

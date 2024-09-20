@@ -570,7 +570,7 @@ export class P2PManager extends Logger {
                 `Looking for peers...\n\n`,
             );
 
-            this.startIndexing();
+            if (!this.isBootstrapNode()) this.startIndexing();
         }
     }
 
