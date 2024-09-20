@@ -203,6 +203,7 @@ export class VMManager extends Logger {
                 contractAddress: contractAddress,
                 from: from,
                 txOrigin: from,
+                msgSender: from,
                 maxGas: OPNetConsensus.consensus.TRANSACTIONS.EMULATION_MAX_GAS,
                 calldata: Buffer.from(calldataString, 'hex'),
                 blockHeight: currentHeight,
@@ -290,6 +291,7 @@ export class VMManager extends Logger {
                 contractAddress: contractAddress,
                 from: interactionTransaction.from,
                 txOrigin: interactionTransaction.txOrigin,
+                msgSender: interactionTransaction.msgSender,
                 maxGas: maxGas,
                 calldata: interactionTransaction.calldata,
                 blockHeight: blockHeight,
@@ -608,7 +610,7 @@ export class VMManager extends Logger {
     ): Promise<ContractEvaluation> {
         params.allowCached = !this.isExecutor;
 
-        const result = await this.executeCallInternal(params);
+        const result = await this.executeCallInternal(params, true);
         if (!result.result) {
             throw new Error(`execution reverted (external call: ${result.revert})`);
         }
@@ -631,6 +633,7 @@ export class VMManager extends Logger {
 
     private async executeCallInternal(
         params: InternalContractCallParameters,
+        externalCall: boolean = false,
     ): Promise<ContractEvaluation> {
         let vmEvaluator: ContractEvaluator | null = null;
 
@@ -699,7 +702,7 @@ export class VMManager extends Logger {
             contractAddress: params.contractAddress,
             selector: selector,
             calldata: finalBuffer,
-            msgSender: caller,
+            msgSender: !externalCall ? caller : params.msgSender,
             txOrigin: params.txOrigin,
             maxGas: params.maxGas,
             gasUsed: params.gasUsed,

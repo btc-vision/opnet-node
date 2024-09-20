@@ -175,7 +175,7 @@ export class UnwrapTransaction extends InteractionTransaction {
         const unwrappedOutput: TransactionOutput = this.outputs[this.outputs.length - 1];
         this.#unwrapAmount = unwrappedOutput.value;
 
-        this._txOrigin = authorityManager.WBTC_DEPLOYER; // authorize the burn.
+        this._msgSender = authorityManager.WBTC_DEPLOYER; // authorize the burn.
     }
 
     private parseVaults(): void {

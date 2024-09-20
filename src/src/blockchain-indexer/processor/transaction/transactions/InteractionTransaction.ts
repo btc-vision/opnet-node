@@ -108,6 +108,12 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return this._txOrigin || this.from;
     }
 
+    protected _msgSender: Address | undefined;
+
+    public get msgSender(): Address {
+        return this._msgSender || this.from;
+    }
+
     public get gasUsed(): bigint {
         if (!this.receipt) {
             return 0n;

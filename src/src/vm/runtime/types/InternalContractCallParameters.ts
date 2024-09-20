@@ -3,8 +3,10 @@ import { ContractInformation } from '../../../blockchain-indexer/processor/trans
 
 export interface InternalContractCallParameters {
     contractAddress: Address;
+
     readonly from: Address;
     readonly txOrigin: Address;
+    readonly msgSender: Address;
 
     readonly maxGas: bigint;
 
@@ -34,8 +36,8 @@ export interface ExecutionParameters {
     readonly selector: number;
     readonly calldata: Uint8Array;
 
-    readonly msgSender: Address;
     readonly txOrigin: Address;
+    readonly msgSender: Address;
 
     readonly transactionId: string | null; // external call have this empty
     readonly transactionHash: string | null; // external call have this empty
