@@ -920,6 +920,7 @@ export class VMManager extends Logger {
         }
 
         if (!contractInformation) {
+            console.log('contractInformation', contractInformation);
             return null;
         }
 
@@ -945,10 +946,8 @@ export class VMManager extends Logger {
             return vmEvaluator;
         }
 
-        const newVmEvaluator = this.getVMEvaluator(contractAddress, height).catch((e: unknown) => {
-            console.log(`Error getting VM evaluator: ${e}`);
-            return null;
-        });
+        const newVmEvaluator = this.getVMEvaluator(contractAddress, height);
+        console.log('newVmEvaluator', newVmEvaluator);
 
         // This was move on top of the error on purpose. It prevents timeout during initialization for faster processing.
         this.vmEvaluators.set(contractAddress, newVmEvaluator);
