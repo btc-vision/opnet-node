@@ -473,6 +473,21 @@ export class VMManager extends Logger {
             blockReceiptProof,
         );
 
+        console.log(
+            'hasValidPrevHash',
+            hasValidPrevHash,
+            'hasValidPrevChecksum',
+            hasValidPrevChecksum,
+            'hasValidBlockHash',
+            hasValidBlockHash,
+            'hasValidBlockMerkelRoot',
+            hasValidBlockMerkelRoot,
+            'hasValidBlockStorage',
+            hasValidBlockStorage,
+            'hasValidBlockReceipt',
+            hasValidBlockReceipt,
+        );
+
         return (
             hasValidPrevHash &&
             hasValidPrevChecksum &&

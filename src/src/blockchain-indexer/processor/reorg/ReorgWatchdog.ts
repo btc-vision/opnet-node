@@ -109,11 +109,11 @@ export class ReorgWatchdog extends Logger {
 
     public async verifyChainReorgForBlock(task: IndexingTask): Promise<boolean> {
         const syncBlockDiff = this.currentHeader.blockNumber - task.tip;
-        if (syncBlockDiff >= 100) {
-            this.updateBlock(task.block);
-
-            return false;
-        }
+        //if (syncBlockDiff >= 100) {
+        //    this.updateBlock(task.block);
+        //
+        //    return false;
+        //}
 
         const chainReorged: boolean = await this.verifyChainReorg(task.block);
         if (!chainReorged) {
