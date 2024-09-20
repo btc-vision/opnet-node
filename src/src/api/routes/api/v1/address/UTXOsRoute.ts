@@ -99,7 +99,8 @@ export class UTXOsRoute extends Route<
                 includeTransactions = false;
             }
         } else {
-            includeTransactions = (params.optimize || params.optimized) ?? false;
+            includeTransactions =
+                (params.optimize === 'true' || params.optimized === 'true') ?? false;
         }
 
         return includeTransactions;
