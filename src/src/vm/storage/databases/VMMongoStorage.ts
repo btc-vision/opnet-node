@@ -800,7 +800,7 @@ export class VMMongoStorage extends VMStorage {
                 throw new Error('Transaction repository not initialized');
             }
 
-            const session = await this.databaseManager.startSession();
+            const session = this.databaseManager.startSession();
             session.startTransaction(this.getTransactionOptions());
 
             this.saveTxSessions.push(session);
@@ -919,7 +919,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     private async connectDatabase(): Promise<void> {
-        await this.databaseManager.setup();
+        this.databaseManager.setup();
         await this.databaseManager.connect();
     }
 

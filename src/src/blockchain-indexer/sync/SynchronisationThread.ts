@@ -27,7 +27,7 @@ export class SynchronisationThread extends Thread<ThreadTypes.SYNCHRONISATION> {
 
         this.blockchainNotifier.sendMessageToThread = this.sendMessageToThread.bind(this);
 
-        await DBManagerInstance.setup();
+        DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
         await this.blockchainNotifier.init();

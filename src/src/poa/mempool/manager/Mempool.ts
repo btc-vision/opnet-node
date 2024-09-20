@@ -107,7 +107,7 @@ export class Mempool extends Logger {
     public async init(): Promise<void> {
         this.log(`Starting Mempool...`);
 
-        await this.db.setup();
+        this.db.setup();
         await Promise.all([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
 
         if (!this.db.db) throw new Error('Database connection not established.');

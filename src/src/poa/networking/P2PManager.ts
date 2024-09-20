@@ -150,7 +150,7 @@ export class P2PManager extends Logger {
     }
 
     public async init(): Promise<void> {
-        await DBManagerInstance.setup();
+        DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
         this.blockWitnessManager.init();
@@ -164,7 +164,7 @@ export class P2PManager extends Logger {
         await this.onStarted();
     }
 
-    public override info(...args: unknown[]): void {
+    public override info(...args: string[]): void {
         if (this.config.DEBUG_LEVEL < DebugLevel.INFO) {
             return;
         }
@@ -912,7 +912,10 @@ export class P2PManager extends Logger {
                 await lp.write(new Uint8Array([0x01])).catch(() => {});
             } catch (e) {
                 if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-                    this.debug('Error while handling incoming stream', (e as Error).stack);
+                    this.debug(
+                        'Error while handling incoming stream',
+                        (e as Error).stack as string,
+                    );
                 }
             }
 

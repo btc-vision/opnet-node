@@ -157,7 +157,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
                 try {
                     parentPort?.postMessage(txMessage, [txMessage.data.port]);
                 } catch (e) {
-                    this.error(e);
+                    this.error((e as Error).stack as string);
                 }
             }
         }
@@ -284,7 +284,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
                         `Thread #${i} errored. {Target: ${this.target} | Details -> ${e}}\n`,
                     );
                     this.error(`Thread #${i} errored. {Target: ${this.target} | Details: ${e}}`);
-                    this.error(e.stack);
+                    this.error(e.stack as string);
                     resolve();
                 });
             }, i * 200);

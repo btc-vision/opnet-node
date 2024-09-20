@@ -31,7 +31,7 @@ class ServerThreadBase extends Thread<ThreadTypes.API> {
     protected async init() {
         this.log(`Starting API on port ${Config.API.PORT}.`);
 
-        await DBManagerInstance.setup();
+        DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
         await this.server.init(Config.API.PORT);

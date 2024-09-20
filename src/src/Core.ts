@@ -81,7 +81,7 @@ export class Core extends Logger {
     }
 
     private async setupDB(): Promise<boolean> {
-        await DBManagerInstance.setup();
+        DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
         if (!DBManagerInstance.db) {

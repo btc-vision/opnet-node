@@ -73,7 +73,7 @@ export class RPCSubWorkerManager extends Logger {
         worker.on('message', this.onMessage.bind(this));
 
         worker.on('error', (error: Error) => {
-            this.error(error);
+            this.error(error.stack as string);
         });
 
         worker.on('exit', (code: number) => {

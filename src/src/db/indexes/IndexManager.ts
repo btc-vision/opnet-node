@@ -1,6 +1,6 @@
 import {ConfigurableDBManager, DebugLevel, Logger} from '@btc-vision/bsi-common';
 import {Document} from 'bson';
-import {Collection, CreateIndexesOptions, Db, IndexDescription, IndexDirection,} from 'mongodb';
+import {Collection, CreateIndexesOptions, Db, IndexDescription, IndexDirection} from 'mongodb';
 import {IndexedBlockchainInformation} from './required/IndexedBlockchainInformation.js';
 import {IndexedBlocks} from './required/IndexedBlocks.js';
 import {IndexedBlockWitnesses} from './required/IndexedBlockWitnesses.js';
@@ -49,7 +49,7 @@ export class IndexManager extends Logger {
     }
 
     public async setupDB(): Promise<void> {
-        await this.opnetDB.setup();
+        this.opnetDB.setup();
         await this.opnetDB.connect();
 
         if (!this.opnetDB.db) {

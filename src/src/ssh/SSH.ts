@@ -84,7 +84,7 @@ export class SSH extends Logger {
     }
 
     private async connect(): Promise<void> {
-        await this.db.setup();
+        this.db.setup();
         await Promise.all([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
 
         if (!this.db.db) throw new Error('Database connection not established.');
