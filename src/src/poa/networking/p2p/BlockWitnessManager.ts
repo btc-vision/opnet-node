@@ -615,16 +615,27 @@ export class BlockWitnessManager extends Logger {
             data: {},
         };
 
-        const resp = (await this.sendMessageToThread(
-            ThreadTypes.INDEXER,
-            msg,
-        )) as CurrentIndexerBlockResponseData | null;
+        try {
+            const resp = (await this.sendMessageToThread(
+                ThreadTypes.INDEXER,
+                msg,
+            )) as CurrentIndexerBlockResponseData | null;
 
-        if (!resp) {
-            return -1n;
+            if (!resp) {
+                return -1n;
+            }
+
+            return resp.blockNumber;
+        } catch (e) {
+            this.info('Failed to get current block number. Retrying in 5 seconds.');
+            await this.sleep(5000);
+
+            return await this.getCurrentBlock();
         }
+    }
 
-        return resp.blockNumber;
+    private sleep(ms: number) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     private generateBlockHeaderChecksumHash(
