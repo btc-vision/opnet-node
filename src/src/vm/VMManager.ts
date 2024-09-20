@@ -182,6 +182,7 @@ export class VMManager extends Logger {
             throw new Error(`VM is already processing: ${JSON.stringify(this.currentRequest)}`);
         }
 
+        this.isProcessing = true;
         this.currentRequest = {
             to,
             from,
@@ -190,13 +191,12 @@ export class VMManager extends Logger {
         };
 
         try {
-            this.isProcessing = true;
-
-            const currentHeight: bigint = height || 1n + (await this.fetchCachedBlockHeight());
             const contractAddress: Address | undefined = await this.getContractAddress(to);
             if (!contractAddress) {
                 throw new Error('Contract not found');
             }
+
+            const currentHeight: bigint = height || 1n + (await this.fetchCachedBlockHeight());
 
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
@@ -657,8 +657,6 @@ export class VMManager extends Logger {
         }
 
         if (!vmEvaluator) {
-            console.log('query', this.vmBitcoinBlock.height, params.blockHeight);
-
             vmEvaluator = params.allowCached
                 ? await this.getVMEvaluatorFromCache(
                       params.contractAddress,

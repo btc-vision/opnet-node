@@ -229,14 +229,6 @@ class RPCManager extends Logger {
 
         let result: CallRequestResponse | undefined;
         try {
-            console.log(
-                'execute',
-                data.to,
-                data.from || BTC_FAKE_ADDRESS,
-                data.calldata,
-                data.blockNumber,
-            );
-
             result = await vmManager.execute(
                 data.to,
                 data.from || BTC_FAKE_ADDRESS,

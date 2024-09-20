@@ -65,8 +65,6 @@ export class VMMongoStorage extends VMStorage {
     private compromisedTransactionRepository: CompromisedTransactionRepository | undefined;
     private usedUTXOsRepository: UsedWbtcUxtoRepository | undefined;
 
-    private cachedLatestBlock: BlockHeaderAPIBlockDocument | undefined;
-
     constructor(
         private readonly config: IBtcIndexerConfig,
         databaseManager?: ConfigurableDBManager,
@@ -273,18 +271,12 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Block header repository not initialized');
         }
 
-        if (this.cachedLatestBlock) {
-            return this.cachedLatestBlock;
-        }
-
         const latestBlock = await this.blockRepository.getLatestBlock();
         if (!latestBlock) {
             throw new Error('No latest block found');
         }
 
-        this.cachedLatestBlock = this.convertBlockHeaderToBlockHeaderDocument(latestBlock);
-
-        return this.cachedLatestBlock;
+        return this.convertBlockHeaderToBlockHeaderDocument(latestBlock);
     }
 
     public async getReorgs(

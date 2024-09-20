@@ -16,9 +16,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
         void this.init();
     }
 
-    protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {
-        //console.log(`BlockchainIndexerThread: Received message:`, message);
-    }
+    protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected init(): Promise<void> | void {
         this.log(`Starting up blockchain indexer thread...`);
