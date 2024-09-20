@@ -698,8 +698,6 @@ export class VMManager extends Logger {
 
         // we define the caller here.
         const caller: Address = params.from;
-        console.log('caller', caller, params.msgSender, params.txOrigin);
-
         const executionParams: ExecutionParameters = {
             contractAddress: params.contractAddress,
             selector: selector,
