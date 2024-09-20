@@ -922,7 +922,7 @@ export class VMManager extends Logger {
         }
 
         if (!contractInformation) {
-            console.log('not found', contractAddress);
+            console.trace('not found', contractAddress);
             return null;
         }
 

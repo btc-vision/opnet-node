@@ -139,7 +139,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
         setTimeout(() => {
             void this.setBlockHeight();
-        }, 5000);
+        }, 1000);
     }
 
     private async createVMManagers(): Promise<void> {
