@@ -44,7 +44,7 @@ import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
 import { GasTracker } from './runtime/GasTracker.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/transaction';
-import bitcoin, { address } from 'bitcoinjs-lib';
+import bitcoin from 'bitcoinjs-lib';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { contractManager } from './isolated/RustContract.js';
 
@@ -920,7 +920,7 @@ export class VMManager extends Logger {
         }
 
         if (!contractInformation) {
-            console.log('not found', address);
+            console.log('not found', contractAddress);
             return null;
         }
 
@@ -947,7 +947,6 @@ export class VMManager extends Logger {
         }
 
         const newVmEvaluator = this.getVMEvaluator(contractAddress, height);
-        console.log('newVmEvaluator', newVmEvaluator);
 
         // This was move on top of the error on purpose. It prevents timeout during initialization for faster processing.
         this.vmEvaluators.set(contractAddress, newVmEvaluator);
