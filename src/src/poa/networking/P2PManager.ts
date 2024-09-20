@@ -568,6 +568,8 @@ export class P2PManager extends Logger {
                 `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n`,
                 `Looking for peers...\n\n`,
             );
+
+            this.startIndexing();
         }
     }
 
@@ -589,7 +591,7 @@ export class P2PManager extends Logger {
             } else {
                 this.fail(`Failed to start indexer.`);
             }
-        }, 2000);
+        }, 6000);
     }
 
     private async getOPNetPeers(): Promise<OPNetPeerInfo[]> {
@@ -685,6 +687,8 @@ export class P2PManager extends Logger {
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
                 `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n\n`,
             );
+
+            this.startIndexing();
         }
 
         const addresses = this.multiAddresses;
@@ -695,7 +699,6 @@ export class P2PManager extends Logger {
         this.p2pConfigurations.savePeer(this.node.peerId);
 
         await this.refreshRouting();
-        this.startIndexing();
     }
 
     private notifyArt(
