@@ -162,7 +162,7 @@ export class P2PManager extends Logger {
         await this.startNode();
         await this.addHandles();
 
-        this.onStarted();
+        await this.onStarted();
     }
 
     public override info(...args: string[]): void {
@@ -339,7 +339,7 @@ export class P2PManager extends Logger {
         this.info(`Identified peer: ${peerInfo.peerId.toString()}`);
     }
 
-    /*private async refreshRouting(): Promise<void> {
+    private async refreshRouting(): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
         //this.info('Refreshing routing table...');
@@ -348,7 +348,7 @@ export class P2PManager extends Logger {
         setTimeout(() => {
             void this.refreshRouting();
         }, 15000);
-    }*/
+    }
 
     private onPeerDiscovery(evt: CustomEvent<PeerInfo>): void {
         const peerId = evt.detail.id.toString();
@@ -670,7 +670,7 @@ export class P2PManager extends Logger {
         } catch (e) {}
     }
 
-    private onStarted(): void {
+    private onStarted(): Promise<void> {
         if (!this.node) {
             throw new Error('Node not initialized');
         }
@@ -699,7 +699,7 @@ export class P2PManager extends Logger {
 
         this.p2pConfigurations.savePeer(this.node.peerId);
 
-        //await this.refreshRouting();
+        return this.refreshRouting();
     }
 
     private notifyArt(
