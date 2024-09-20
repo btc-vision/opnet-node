@@ -102,10 +102,10 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this._contractAddress = contractAddress;
     }
 
-    protected _callee: Address | undefined;
+    protected _txOrigin: Address | undefined;
 
-    public get callee(): Address {
-        return this._callee || this.from;
+    public get txOrigin(): Address {
+        return this._txOrigin || this.from;
     }
 
     public get gasUsed(): bigint {

@@ -392,7 +392,7 @@ export class WrapTransaction extends InteractionTransaction {
 
         delete this.interactionWitnessData; // free up some memory.
 
-        this._callee = authorityManager.WBTC_DEPLOYER; // authorize the mint.
+        this._txOrigin = authorityManager.WBTC_DEPLOYER; // authorize the mint.
     }
 
     private calculateFees(): void {

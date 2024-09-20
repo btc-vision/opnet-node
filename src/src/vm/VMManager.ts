@@ -289,7 +289,7 @@ export class VMManager extends Logger {
             const params: InternalContractCallParameters = {
                 contractAddress: contractAddress,
                 from: interactionTransaction.from,
-                txOrigin: interactionTransaction.callee,
+                txOrigin: interactionTransaction.txOrigin,
                 maxGas: maxGas,
                 calldata: interactionTransaction.calldata,
                 blockHeight: blockHeight,
