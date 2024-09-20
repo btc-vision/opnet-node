@@ -251,7 +251,9 @@ export class ContractEvaluator extends Logger {
         const gasUsed: bigint = evaluation.gasTracker.gasUsed;
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
+
             from: evaluation.msgSender,
+            msgSender: evaluation.msgSender,
             txOrigin: evaluation.contractAddress,
 
             maxGas: evaluation.gasTracker.maxGas,
