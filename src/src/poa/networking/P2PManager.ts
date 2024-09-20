@@ -592,7 +592,7 @@ export class P2PManager extends Logger {
             } else {
                 this.fail(`Failed to start indexer.`);
             }
-        }, 10000);
+        }, 5000);
     }
 
     private async getOPNetPeers(): Promise<OPNetPeerInfo[]> {
