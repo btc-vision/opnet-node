@@ -52,6 +52,7 @@ class BlockchainBase {
         this.bindings.clear();
     }
 
+    // For future use?
     public cleanUp(): void {
         this.contractManager.destroyAll();
         this.contractManager.destroy();
@@ -73,7 +74,7 @@ class BlockchainBase {
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (load)');
         }
 
         return c.load(buf);
@@ -94,7 +95,7 @@ class BlockchainBase {
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (store)');
         }
 
         return c.store(buf);
@@ -115,7 +116,7 @@ class BlockchainBase {
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (call)');
         }
 
         return c.call(buf);
@@ -136,7 +137,7 @@ class BlockchainBase {
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (deploy)');
         }
 
         return c.deployContractAtAddress(buf);
@@ -154,7 +155,7 @@ class BlockchainBase {
             const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
 
             if (!c) {
-                throw new Error('Binding not found');
+                throw new Error('Binding not found (log)');
             }
 
             return c.log(buf);
