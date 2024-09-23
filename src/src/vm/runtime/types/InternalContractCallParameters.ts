@@ -6,7 +6,7 @@ export interface InternalContractCallParameters {
 
     readonly from: Address;
     readonly txOrigin: Address;
-    readonly msgSender: Address;
+    readonly msgSender: Address | undefined;
 
     readonly maxGas: bigint;
 

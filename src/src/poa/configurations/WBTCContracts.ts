@@ -1,6 +1,5 @@
 import { ChainIds } from '../../config/enums/ChainIds.js';
 import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';
-import { WBTC_ADDRESS_REGTEST } from '@btc-vision/transaction';
 
 export const WBTC_CONTRACT_ADDRESS: {
     [key in ChainIds]: Partial<{
@@ -19,8 +18,8 @@ export const WBTC_CONTRACT_ADDRESS: {
         },
 
         [BitcoinNetwork.regtest]: {
-            addresses: [WBTC_ADDRESS_REGTEST],
-            deployer: 'bcrt1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qupwyqz', //'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gs0xjlhn',
+            addresses: ['bcrt1qdr7sjgtnudda8zrfklw8l5cnrxum5hns7e46hf'], //WBTC_ADDRESS_REGTEST bcrt1qdr7sjgtnudda8zrfklw8l5cnrxum5hns7e46hf
+            deployer: 'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gs0xjlhn', // 'bcrt1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qupwyqz',
         },
 
         [BitcoinNetwork.signet]: {

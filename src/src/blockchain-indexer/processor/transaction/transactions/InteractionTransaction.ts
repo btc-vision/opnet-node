@@ -110,8 +110,8 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
     protected _msgSender: Address | undefined;
 
-    public get msgSender(): Address {
-        return this._msgSender || this.from;
+    public get msgSender(): Address | undefined {
+        return this._msgSender;
     }
 
     public get gasUsed(): bigint {

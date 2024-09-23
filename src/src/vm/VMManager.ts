@@ -47,6 +47,7 @@ import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/t
 import bitcoin from 'bitcoinjs-lib';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { contractManager } from './isolated/RustContract.js';
+import { UnwrapTransaction } from '../blockchain-indexer/processor/transaction/transactions/UnwrapTransaction.js';
 
 Globals.register();
 
@@ -239,7 +240,7 @@ export class VMManager extends Logger {
     public async executeTransaction(
         blockHeight: bigint,
         blockMedian: bigint,
-        interactionTransaction: InteractionTransaction | WrapTransaction,
+        interactionTransaction: InteractionTransaction | WrapTransaction | UnwrapTransaction,
         unlimitedGas: boolean = false,
     ): Promise<EvaluatedResult> {
         if (this.isProcessing) {
@@ -289,9 +290,11 @@ export class VMManager extends Logger {
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
                 contractAddress: contractAddress,
+
                 from: interactionTransaction.from,
                 txOrigin: interactionTransaction.txOrigin,
                 msgSender: interactionTransaction.msgSender,
+
                 maxGas: maxGas,
                 calldata: interactionTransaction.calldata,
                 blockHeight: blockHeight,
@@ -610,7 +613,7 @@ export class VMManager extends Logger {
     ): Promise<ContractEvaluation> {
         params.allowCached = !this.isExecutor;
 
-        const result = await this.executeCallInternal(params, true);
+        const result = await this.executeCallInternal(params);
         if (!result.result) {
             throw new Error(`execution reverted (external call: ${result.revert})`);
         }
@@ -633,7 +636,6 @@ export class VMManager extends Logger {
 
     private async executeCallInternal(
         params: InternalContractCallParameters,
-        externalCall: boolean = false,
     ): Promise<ContractEvaluation> {
         let vmEvaluator: ContractEvaluator | null = null;
 
@@ -697,12 +699,12 @@ export class VMManager extends Logger {
         }
 
         // we define the caller here.
-        const caller: Address = params.from;
+        const caller: Address = params.msgSender || params.from;
         const executionParams: ExecutionParameters = {
             contractAddress: params.contractAddress,
             selector: selector,
             calldata: finalBuffer,
-            msgSender: externalCall ? caller : params.msgSender,
+            msgSender: caller,
             txOrigin: params.txOrigin,
             maxGas: params.maxGas,
             gasUsed: params.gasUsed,
