@@ -179,6 +179,14 @@ export class VMManager extends Logger {
         calldataString: string,
         height?: bigint,
     ): Promise<EvaluatedResult> {
+        const toCheck = to.replace(/[^a-zA-Z]/g, '');
+        const fromCheck = from.replace(/[^a-zA-Z]/g, '');
+        const calldataCheck = calldataString.replace(/[^a-zA-Z]/g, '');
+
+        if (!toCheck || !fromCheck || !calldataCheck) {
+            throw new Error('Invalid input');
+        }
+
         if (this.isProcessing) {
             throw new Error(`VM is already processing: ${JSON.stringify(this.currentRequest)}`);
         }
