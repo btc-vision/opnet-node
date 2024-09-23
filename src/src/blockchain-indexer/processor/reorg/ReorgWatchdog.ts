@@ -190,7 +190,7 @@ export class ReorgWatchdog extends Logger {
 
             try {
                 const verifiedProofs: boolean =
-                    await this.vmManager.validateBlockChecksum(opnetHeaders);
+                    await this.vmManager.blockHeaderValidator.validateBlockChecksum(opnetHeaders);
 
                 if (verifiedProofs) {
                     this.success(`Validated checksum proofs for block ${previousBlock}... (GOOD)`);
@@ -232,7 +232,7 @@ export class ReorgWatchdog extends Logger {
             };
         }
 
-        const previousBlock = await this.vmManager.getBlockHeader(height);
+        const previousBlock = await this.vmManager.blockHeaderValidator.getBlockHeader(height);
         if (!previousBlock) {
             throw new Error(
                 `Error fetching previous block hash. Can not verify chain reorg. Block height: ${height}`,
@@ -268,7 +268,9 @@ export class ReorgWatchdog extends Logger {
 
         // Verify opnet checksum proofs.
         try {
-            const verifiedProofs: boolean = await this.vmManager.validateBlockChecksum(opnetBlock);
+            const verifiedProofs: boolean =
+                await this.vmManager.blockHeaderValidator.validateBlockChecksum(opnetBlock);
+
             if (block.previousBlockChecksum) {
                 const opnetBadChecksum = opnetBlock.checksumRoot !== block.previousBlockChecksum;
 

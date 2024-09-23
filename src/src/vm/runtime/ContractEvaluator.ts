@@ -25,6 +25,7 @@ import { Network, networks } from 'bitcoinjs-lib';
 import { BitcoinNetworkRequest } from '@btc-vision/op-vm';
 import assert from 'node:assert';
 import { ContractParameters, RustContract } from '../isolated/RustContract.js';
+import { Blockchain } from '../Blockchain.js';
 
 export class ContractEvaluator extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -350,6 +351,7 @@ export class ContractEvaluator extends Logger {
         }
 
         return {
+            contractManager: Blockchain.contractManager,
             address: evaluation.contractAddress,
             bytecode: this.bytecode,
             network: this.getNetwork(),

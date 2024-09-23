@@ -703,7 +703,7 @@ export class Block extends Logger {
 
         /** We must fetch the previous block checksum */
         const previousBlockChecksum: string | undefined =
-            await vmManager.getPreviousBlockChecksumOfHeight(this.height);
+            await vmManager.blockHeaderValidator.getPreviousBlockChecksumOfHeight(this.height);
 
         if (!previousBlockChecksum) {
             throw new Error(

@@ -413,7 +413,7 @@ export class BlockIndexer extends Logger {
 
         task.destroy();
 
-        this.vmManager.setLastBlockHeader(processedBlock.getBlockHeaderDocument());
+        this.vmManager.blockHeaderValidator.setLastBlockHeader(processedBlock.getBlockHeaderDocument());
 
         // Release task.
         this.currentTask = undefined;

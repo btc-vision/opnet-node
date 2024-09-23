@@ -20,13 +20,11 @@ import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../../../threading/thread/Thread.js';
-import { VMManager } from '../../../vm/VMManager.js';
 import { BitcoinRPCThreadMessageType } from './messages/BitcoinRPCThreadMessage.js';
 import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
 import {
@@ -35,16 +33,20 @@ import {
     PointerStorageMap,
 } from '../../../vm/evaluated/EvaluatedResult.js';
 import { Address, NetEvent } from '@btc-vision/bsi-binary';
+import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
+import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
 
     private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC(1000, false);
-    private readonly vmManagers: VMManager[] = [];
-    private currentVMManagerIndex: number = 0;
+    //private readonly vmManagers: VMManager[] = [];
+    //private currentVMManagerIndex: number = 0;
+    //private readonly CONCURRENT_VMS: number = 1;
 
-    private readonly CONCURRENT_VMS: number = 1;
+    private readonly vmStorage: VMMongoStorage = new VMMongoStorage(Config);
 
+    private blockHeaderValidator: BlockHeaderValidator;
     private currentBlockHeight: bigint = 0n;
 
     private readonly rpcSubWorkerManager: RPCSubWorkerManager = new RPCSubWorkerManager();
@@ -52,19 +54,24 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     constructor() {
         super();
 
+        this.vmStorage = new VMMongoStorage(Config);
+        this.blockHeaderValidator = new BlockHeaderValidator(Config, this.vmStorage);
+
         void this.init();
     }
 
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected async init(): Promise<void> {
+        await this.vmStorage.init();
+
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
         await this.setBlockHeight();
-        await this.createVMManagers();
+
         this.rpcSubWorkerManager.startWorkers();
     }
 
-    protected async getNextVMManager(tries: number = 0): Promise<VMManager> {
+    /*protected async getNextVMManager(tries: number = 0): Promise<VMManager> {
         if (tries > 10) {
             throw new Error('Failed to get a VMManager');
         }
@@ -97,7 +104,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
             resolve(vmManager);
         });
-    }
+    }*/
 
     protected async onLinkMessage(
         type: ThreadTypes,
@@ -142,7 +149,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         }, 1000);
     }
 
-    private async createVMManagers(): Promise<void> {
+    /*private async createVMManagers(): Promise<void> {
         let vmStorage: VMStorage | undefined = undefined;
         for (let i = 0; i < this.CONCURRENT_VMS; i++) {
             const vmManager: VMManager = new VMManager(Config, true, vmStorage);
@@ -167,7 +174,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         setTimeout(() => {
             void this.purgeVMManagers();
         }, 30000);
-    }
+    }*/
 
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
         const response = (await this.rpcSubWorkerManager.resolve(data, 'call')) as
@@ -294,15 +301,13 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             checksumProofs: this.getChecksumProofs(blockHeader.checksumProofs),
         };
 
-        const vmManager = await this.getNextVMManager();
-
         try {
             const requests: [
                 Promise<boolean | null>,
                 Promise<BlockHeaderBlockDocument | undefined>,
             ] = [
-                vmManager.validateBlockChecksum(vmBlockHeader),
-                vmManager.getBlockHeader(blockNumber),
+                this.blockHeaderValidator.validateBlockChecksum(vmBlockHeader),
+                this.blockHeaderValidator.getBlockHeader(blockNumber),
             ];
 
             const [hasValidProofs, fetchedBlockHeader] = await Promise.all(requests);

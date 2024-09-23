@@ -1,24 +1,16 @@
-import {
-    BitcoinNetworkRequest,
-    ContractManager,
-    ThreadSafeJsImportResponse,
-} from '@btc-vision/op-vm';
+import { BitcoinNetworkRequest, ContractManager } from '@btc-vision/op-vm';
 import { Address } from '@btc-vision/bsi-binary';
+import { RustContractBinding } from './RustContractBindings.js';
+import { Blockchain } from '../Blockchain.js';
 
-export const contractManager = new ContractManager();
-
-export interface ContractParameters {
+export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: Address;
     readonly bytecode: Buffer;
     readonly gasLimit: bigint;
     readonly network: BitcoinNetworkRequest;
     readonly gasCallback: (gas: bigint, method: string) => void;
 
-    readonly load: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly store: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly call: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly deployContractAtAddress: (data: Buffer) => Promise<Buffer | Uint8Array>;
-    readonly log: (data: Buffer) => void;
+    readonly contractManager: ContractManager;
 }
 
 export class RustContract {
@@ -29,8 +21,11 @@ export class RustContract {
 
     private gasUsed: bigint = 0n;
 
+    private readonly contractManager: ContractManager;
+
     constructor(params: ContractParameters) {
         this._params = params;
+        this.contractManager = params.contractManager;
     }
 
     private _id?: bigint;
@@ -41,45 +36,23 @@ export class RustContract {
         }
 
         if (this._id == null) {
-            this._id = contractManager.instantiate(
+            this._id = this.contractManager.reserveId();
+
+            Blockchain.registerBinding({
+                id: this._id,
+                load: this.params.load,
+                store: this.params.store,
+                call: this.params.call,
+                deployContractAtAddress: this.params.deployContractAtAddress,
+                log: this.params.log,
+            });
+
+            this.contractManager.instantiate(
+                this._id,
                 this.params.address,
                 this.params.bytecode,
                 this.params.gasLimit,
                 this.params.network,
-                (_: never, value: ThreadSafeJsImportResponse): Promise<Buffer | Uint8Array> => {
-                    if (this.enableDebug) console.log('LOAD', value.buffer);
-
-                    const u = new Uint8Array(value.buffer);
-                    const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-
-                    return this.params.load(buf);
-                },
-                (_: never, value: ThreadSafeJsImportResponse): Promise<Buffer | Uint8Array> => {
-                    const u = new Uint8Array(value.buffer);
-                    const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-
-                    return this.params.store(buf);
-                },
-                (_: never, value: ThreadSafeJsImportResponse): Promise<Buffer | Uint8Array> => {
-                    const u = new Uint8Array(value.buffer);
-                    const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-
-                    return this.params.call(buf);
-                },
-                (_: never, value: ThreadSafeJsImportResponse): Promise<Buffer | Uint8Array> => {
-                    const u = new Uint8Array(value.buffer);
-                    const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-                    return this.params.deployContractAtAddress(buf);
-                },
-                (_: never, value: ThreadSafeJsImportResponse): Promise<void> => {
-                    return new Promise<void>(() => {
-                        // temporary
-                        const u = new Uint8Array(value.buffer);
-                        const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-
-                        this.params.log(buf);
-                    });
-                },
             );
 
             this._instantiated = true;
@@ -123,23 +96,22 @@ export class RustContract {
             this.gasUsed = this.getUsedGas();
         } catch {}
 
+        delete this._params;
+
         this.refCounts.clear();
 
         if (this.disposed) return;
         this._disposed = true;
 
-        delete this._params;
-
-        try {
-            contractManager.destroy(this._id);
-        } catch {}
+        Blockchain.removeBinding(this._id);
+        this.contractManager.destroyContract(this._id);
     }
 
     public async defineSelectors(): Promise<void> {
         if (this.enableDebug) console.log('Defining selectors');
 
         try {
-            const resp = await contractManager.call(this.id, 'defineSelectors', []);
+            const resp = await this.contractManager.call(this.id, 'defineSelectors', []);
             this.gasCallback(resp.gasUsed, 'defineSelectors');
         } catch (e) {
             if (this.enableDebug) console.log('Error in defineSelectors', e);
@@ -158,7 +130,7 @@ export class RustContract {
 
             let finalResult;
             try {
-                const resp = await contractManager.call(this.id, 'readMethod', [method, data]);
+                const resp = await this.contractManager.call(this.id, 'readMethod', [method, data]);
                 this.gasCallback(resp.gasUsed, 'readMethod');
 
                 const result = resp.result.filter((n) => n !== undefined);
@@ -181,7 +153,7 @@ export class RustContract {
 
         let finalResult: Uint8Array;
         try {
-            const resp = await contractManager.call(this.id, 'readView', [method]);
+            const resp = await this.contractManager.call(this.id, 'readView', [method]);
 
             this.gasCallback(resp.gasUsed, 'readView');
             const result = resp.result.filter((n) => n !== undefined);
@@ -202,7 +174,7 @@ export class RustContract {
 
         let finalResult: Uint8Array;
         try {
-            const resp = await contractManager.call(this.id, 'getViewABI', []);
+            const resp = await this.contractManager.call(this.id, 'getViewABI', []);
             this.gasCallback(resp.gasUsed, 'getViewABI');
 
             const result = resp.result.filter((n) => n !== undefined);
@@ -222,7 +194,7 @@ export class RustContract {
 
         let finalResult: Uint8Array;
         try {
-            const resp = await contractManager.call(this.id, 'getEvents', []);
+            const resp = await this.contractManager.call(this.id, 'getEvents', []);
             this.gasCallback(resp.gasUsed, 'getEvents');
 
             const result = resp.result.filter((n) => n !== undefined);
@@ -244,7 +216,7 @@ export class RustContract {
 
         let finalResult: Uint8Array;
         try {
-            const resp = await contractManager.call(this.id, 'getMethodABI', []);
+            const resp = await this.contractManager.call(this.id, 'getMethodABI', []);
             this.gasCallback(resp.gasUsed, 'getMethodABI');
 
             const result = resp.result.filter((n) => n !== undefined);
@@ -264,7 +236,7 @@ export class RustContract {
 
         let finalResult: Uint8Array;
         try {
-            const resp = await contractManager.call(this.id, 'getWriteMethods', []);
+            const resp = await this.contractManager.call(this.id, 'getWriteMethods', []);
             this.gasCallback(resp.gasUsed, 'getWriteMethods');
 
             const result = resp.result.filter((n) => n !== undefined);
@@ -286,7 +258,7 @@ export class RustContract {
             const data = await this.__lowerTypedArray(13, 0, buffer);
             if (data == null) throw new Error('Data cannot be null');
 
-            const resp = await contractManager.call(this.id, 'setEnvironment', [data]);
+            const resp = await this.contractManager.call(this.id, 'setEnvironment', [data]);
             this.gasCallback(resp.gasUsed, 'setEnvironment');
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
@@ -298,7 +270,7 @@ export class RustContract {
 
     public setUsedGas(gas: bigint): void {
         try {
-            contractManager.setUsedGas(this.id, gas);
+            this.contractManager.setUsedGas(this.id, gas);
         } catch (e) {
             const error = e as Error;
             throw this.getError(error);
@@ -311,7 +283,7 @@ export class RustContract {
                 return this.gasUsed;
             }
 
-            return contractManager.getUsedGas(this.id);
+            return this.contractManager.getUsedGas(this.id);
         } catch (e) {
             const error = e as Error;
             throw this.getError(error);
@@ -320,7 +292,7 @@ export class RustContract {
 
     public useGas(amount: bigint): void {
         try {
-            return contractManager.useGas(this.id, amount);
+            return this.contractManager.useGas(this.id, amount);
         } catch (e) {
             const error = e as Error;
             throw this.getError(error);
@@ -329,7 +301,7 @@ export class RustContract {
 
     public getRemainingGas(): bigint {
         try {
-            return contractManager.getRemainingGas(this.id);
+            return this.contractManager.getRemainingGas(this.id);
         } catch (e) {
             const error = e as Error;
             throw this.getError(error);
@@ -338,7 +310,7 @@ export class RustContract {
 
     public setRemainingGas(gas: bigint): void {
         try {
-            contractManager.setRemainingGas(this.id, gas);
+            this.contractManager.setRemainingGas(this.id, gas);
         } catch (e) {
             const error = e as Error;
             throw this.getError(error);
@@ -384,7 +356,7 @@ export class RustContract {
 
         // Read the length of the string
         const lengthPointer = pointer - 4;
-        const lengthBuffer = contractManager.readMemory(this.id, BigInt(lengthPointer), 4n);
+        const lengthBuffer = this.contractManager.readMemory(this.id, BigInt(lengthPointer), 4n);
         const length = new Uint32Array(lengthBuffer.buffer)[0];
 
         const end = (pointer + length) >>> 1;
@@ -392,13 +364,13 @@ export class RustContract {
         let start = pointer >>> 1;
 
         while (end - start > 1024) {
-            const chunkBuffer = contractManager.readMemory(this.id, BigInt(start * 2), 2048n);
+            const chunkBuffer = this.contractManager.readMemory(this.id, BigInt(start * 2), 2048n);
             const memoryU16 = new Uint16Array(chunkBuffer.buffer);
             stringParts.push(String.fromCharCode(...memoryU16));
             start += 1024;
         }
 
-        const remainingBuffer = contractManager.readMemory(
+        const remainingBuffer = this.contractManager.readMemory(
             this.id,
             BigInt(start * 2),
             BigInt((end - start) * 2),
@@ -416,14 +388,14 @@ export class RustContract {
         if (!pointer) throw new Error('Pointer cannot be null');
 
         // Read the data offset and length
-        const buffer = contractManager.readMemory(this.id, BigInt(pointer + 4), 8n);
+        const buffer = this.contractManager.readMemory(this.id, BigInt(pointer + 4), 8n);
 
         const dataView = new DataView(buffer.buffer);
         const dataOffset = dataView.getUint32(0, true);
         const length = dataView.getUint32(4, true) / Uint8Array.BYTES_PER_ELEMENT;
 
         // Read the actual data
-        const dataBuffer = contractManager.readMemory(
+        const dataBuffer = this.contractManager.readMemory(
             this.id,
             BigInt(dataOffset),
             BigInt(length * Uint8Array.BYTES_PER_ELEMENT),
@@ -457,11 +429,11 @@ export class RustContract {
         headerView.setUint32(0, buffer, true);
         headerView.setUint32(4, buffer, true);
         headerView.setUint32(8, bufferSize, true);
-        contractManager.writeMemory(this.id, BigInt(header), headerBuffer);
+        this.contractManager.writeMemory(this.id, BigInt(header), headerBuffer);
 
         // Write the values into the buffer
         const valuesBuffer = Buffer.from(values.buffer, values.byteOffset, values.byteLength);
-        contractManager.writeMemory(this.id, BigInt(buffer), valuesBuffer);
+        this.contractManager.writeMemory(this.id, BigInt(buffer), valuesBuffer);
 
         await this.__unpin(buffer);
         return header;
@@ -483,7 +455,7 @@ export class RustContract {
     }
 
     private abort(): Error {
-        const abortData = contractManager.getAbortData(this.id);
+        const abortData = this.contractManager.getAbortData(this.id);
         const message = this.__liftString(abortData.message);
         const fileName = this.__liftString(abortData.fileName);
         const line = abortData.line;
@@ -501,7 +473,7 @@ export class RustContract {
 
         let finalResult: number;
         try {
-            const resp = await contractManager.call(this.id, '__pin', [pointer]);
+            const resp = await this.contractManager.call(this.id, '__pin', [pointer]);
             this.gasCallback(resp.gasUsed, '__pin');
 
             const result = resp.result.filter((n) => n !== undefined);
@@ -521,7 +493,7 @@ export class RustContract {
 
         let finalResult: number;
         try {
-            const resp = await contractManager.call(this.id, '__unpin', [pointer]);
+            const resp = await this.contractManager.call(this.id, '__unpin', [pointer]);
             this.gasCallback(resp.gasUsed, '__unpin');
 
             const result = resp.result.filter((n) => n !== undefined);
@@ -541,7 +513,7 @@ export class RustContract {
 
         let finalResult;
         try {
-            const resp = await contractManager.call(this.id, '__new', [size, align]);
+            const resp = await this.contractManager.call(this.id, '__new', [size, align]);
             this.gasCallback(resp.gasUsed, '__new');
 
             const result = resp.result.filter((n) => n !== undefined);
