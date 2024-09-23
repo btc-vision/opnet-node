@@ -1,5 +1,5 @@
 import { RustContractBinding } from './isolated/RustContractBindings.js';
-import { ContractManager, ThreadSafeJsImportResponse } from '../../../../bsi-wasmer-vm/index.js';
+import { ContractManager, ThreadSafeJsImportResponse } from '@btc-vision/op-vm';
 
 class BlockchainBase {
     private readonly bindings: Map<bigint, RustContractBinding> = new Map<
