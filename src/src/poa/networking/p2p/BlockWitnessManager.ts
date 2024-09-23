@@ -344,7 +344,10 @@ export class BlockWitnessManager extends Logger {
 
         const validWitnesses = this.validateBlockHeaderSignatures(blockWitness);
         if (!validWitnesses) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && this.config.DEV_MODE) {
+            if (
+                this.config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
+                this.config.DEV.DISPLAY_VALID_BLOCK_WITNESS
+            ) {
                 this.fail(
                     `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
                 );
@@ -356,7 +359,10 @@ export class BlockWitnessManager extends Logger {
         const trustedWitnesses: OPNetBlockWitness[] = validWitnesses.validTrustedWitnesses;
 
         if (opnetWitnesses.length + trustedWitnesses.length < 1) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && this.config.DEV_MODE) {
+            if (
+                this.config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
+                this.config.DEV.DISPLAY_VALID_BLOCK_WITNESS
+            ) {
                 this.fail(
                     `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()} (NO VALID WITNESSES)`,
                 );
