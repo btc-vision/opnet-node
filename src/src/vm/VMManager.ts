@@ -212,7 +212,6 @@ export class VMManager extends Logger {
                 contractAddress: contractAddress,
                 from: from,
                 txOrigin: from,
-                msgSender: from,
                 maxGas: OPNetConsensus.consensus.TRANSACTIONS.EMULATION_MAX_GAS,
                 calldata: Buffer.from(calldataString, 'hex'),
                 blockHeight: currentHeight,

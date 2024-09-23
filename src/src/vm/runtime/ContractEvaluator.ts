@@ -253,8 +253,9 @@ export class ContractEvaluator extends Logger {
             contractAddress: contractAddress,
 
             from: evaluation.msgSender,
-            msgSender: evaluation.msgSender,
-            txOrigin: evaluation.contractAddress,
+
+            txOrigin: evaluation.txOrigin,
+            msgSender: evaluation.contractAddress,
 
             maxGas: evaluation.gasTracker.maxGas,
             gasUsed: gasUsed,
