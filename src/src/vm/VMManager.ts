@@ -182,8 +182,16 @@ export class VMManager extends Logger {
         const fromCheck = from.replace(/[^a-zA-Z]/g, '');
         const calldataCheck = calldataString.replace(/[^a-zA-Z]/g, '');
 
-        if (toCheck !== to || fromCheck !== from || calldataCheck !== calldataCheck) {
-            throw new Error('Invalid input');
+        if (toCheck !== to) {
+            throw new Error(`Invalid input data to ${toCheck} !== ${to}`);
+        }
+
+        if (fromCheck !== from) {
+            throw new Error(`Invalid input data from ${fromCheck} !== ${from}`);
+        }
+
+        if (calldataCheck !== calldataCheck) {
+            throw new Error(`Invalid input data calldata ${calldataCheck} !== ${calldataString}`);
         }
 
         if (this.isProcessing) {
