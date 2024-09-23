@@ -88,6 +88,10 @@ export class VMManager extends Logger {
         this._blockHeaderValidator = new BlockHeaderValidator(config, this.vmStorage);
     }
 
+    public get blockHeaderValidator(): BlockHeaderValidator {
+        return this._blockHeaderValidator;
+    }
+
     public getVMStorage(): VMStorage {
         if (this.vmStorage) return this.vmStorage;
 
@@ -122,10 +126,6 @@ export class VMManager extends Logger {
         } catch (e) {
             this.panic(`Error purging contract instances: ${e}`);
         }
-    }
-
-    public get blockHeaderValidator(): BlockHeaderValidator {
-        return this._blockHeaderValidator;
     }
 
     public async prepareBlock(blockId: bigint): Promise<void> {
@@ -178,9 +178,9 @@ export class VMManager extends Logger {
         calldataString: string,
         height?: bigint,
     ): Promise<EvaluatedResult> {
-        const toCheck = to.replace(/[^a-zA-Z]/g, '');
-        const fromCheck = from.replace(/[^a-zA-Z]/g, '');
-        const calldataCheck = calldataString.replace(/[^a-zA-Z]/g, '');
+        const toCheck = to.replace(/[^a-zA-Z0-9]/g, '');
+        const fromCheck = from.replace(/[^a-zA-Z0-9]/g, '');
+        const calldataCheck = calldataString.replace(/[^a-zA-Z0-9]/g, '');
 
         if (toCheck !== to) {
             throw new Error(`Invalid input data to ${toCheck} !== ${to}`);
