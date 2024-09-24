@@ -176,7 +176,9 @@ export class Server extends Logger {
     }
 
     private handleAny(_req: Request, res: Response, next: MiddlewareNext): void {
-        this.info(`Incoming request: ${_req.method} ${_req.url}`);
+        this.info(
+            `Incoming request: ${_req.method} ${_req.url} from ${_req.ip} - ${_req.headers['user-agent']} - ${_req.body}`,
+        );
 
         if (_req.method !== 'OPTIONS') {
             res.setHeader('Access-Control-Allow-Origin', '*');
