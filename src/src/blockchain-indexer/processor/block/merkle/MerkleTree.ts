@@ -48,7 +48,10 @@ export abstract class MerkleTree<K, V> {
 
     public abstract getValue(address: string, key: K): V | undefined;
 
-    public abstract getValueWithProofs(address: string, key: K): [V, string[]] | undefined;
+    public abstract getValueWithProofs(
+        address: string,
+        key: K,
+    ): [V | Uint8Array, string[]] | undefined;
 
     public hasTree(): boolean {
         return !!this.tree;

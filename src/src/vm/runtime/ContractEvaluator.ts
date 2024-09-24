@@ -363,7 +363,9 @@ export class ContractEvaluator extends Logger {
             store: (data: Buffer) => {
                 // TODO: Remove the promise
                 return new Promise<Buffer | Uint8Array>((resolve) => {
-                    resolve(this.store(data, evaluation));
+                    const resp = this.store(data, evaluation);
+
+                    resolve(resp);
                 });
             },
             call: async (data: Buffer) => {

@@ -241,10 +241,8 @@ export class EncryptemClient extends Logger {
     #verifySignature(m: Buffer, signature: Buffer, publicKey: Buffer): boolean {
         if (m !== null && m) {
             try {
-                const signed = this.sodium.crypto_sign_verify_detached(signature, m, publicKey); //this.sodium.crypto_sign_open(m, signature, publicKey);
-
-                return signed;
-            } catch (e) {
+                return this.sodium.crypto_sign_verify_detached(signature, m, publicKey);
+            } catch {
                 return false;
             }
         } else {
@@ -253,8 +251,7 @@ export class EncryptemClient extends Logger {
     }
 
     #signMessageV2(m: Buffer, publicSignKey: Buffer, privateKey: Buffer): Buffer | null {
-        const signedLength = this.sodium.crypto_sign_BYTES;
-        const signedMessageBuffer = this.sodium.sodium_malloc(signedLength);
+        const signedMessageBuffer = this.sodium.sodium_malloc(this.sodium.crypto_sign_BYTES);
 
         this.sodium.crypto_sign_detached(signedMessageBuffer, m, privateKey);
 

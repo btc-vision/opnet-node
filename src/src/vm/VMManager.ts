@@ -3,6 +3,7 @@ import {
     BinaryReader,
     BufferHelper,
     DeterministicMap,
+    MemorySlotData,
     Selector,
 } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
@@ -72,6 +73,8 @@ export class VMManager extends Logger {
               height?: bigint;
           }
         | undefined;
+    private pointerCache: Map<Address, Map<MemorySlotData<bigint>, [Uint8Array, string[]] | null>> =
+        new Map();
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -458,6 +461,7 @@ export class VMManager extends Logger {
         this.blockState = undefined;
         this.receiptState = undefined;
 
+        this.pointerCache.clear();
         this.contractAddressCache.clear();
         this._blockHeaderValidator.clear();
         this.verifiedBlockHeights.clear();
@@ -971,6 +975,30 @@ export class VMManager extends Logger {
         }
     }
 
+    private getPointerFromCache(
+        address: Address,
+        pointer: MemorySlotData<bigint>,
+    ): [Uint8Array, string[]] | undefined | null {
+        const addressCache = this.pointerCache.get(address);
+        if (addressCache === undefined) return undefined;
+
+        return addressCache.get(pointer) || undefined;
+    }
+
+    private storePointerInCache(
+        address: Address,
+        pointer: bigint,
+        value: [Uint8Array, string[]] | null,
+    ): void {
+        let addressCache = this.pointerCache.get(address);
+        if (!addressCache) {
+            addressCache = new Map();
+            this.pointerCache.set(address, addressCache);
+        }
+
+        addressCache.set(pointer, value);
+    }
+
     /** We must verify that the storage is correct */
     private async getStorage(
         address: Address,
@@ -985,10 +1013,16 @@ export class VMManager extends Logger {
         }
 
         const pointerBigInt: bigint = BufferHelper.uint8ArrayToPointer(pointer);
-        const valueBigInt = this.blockState?.getValueWithProofs(address, pointerBigInt);
+        const valueBigInt =
+            this.blockState?.getValueWithProofs(address, pointerBigInt) ||
+            this.getPointerFromCache(address, pointerBigInt);
+
+        if (valueBigInt === null) {
+            return null;
+        }
 
         let memoryValue: ProvenMemoryValue | null;
-        if (!valueBigInt) {
+        if (valueBigInt === undefined) {
             const result = await this.getStorageFromDB(
                 address,
                 pointer,
@@ -996,12 +1030,10 @@ export class VMManager extends Logger {
                 setIfNotExit,
                 blockNumber,
             );
-
             if (!result) return null;
+            if (result.memory) return result.memory;
 
-            if (result?.memory) return result.memory;
-
-            if (result?.proven) {
+            if (result.proven) {
                 memoryValue = result.proven;
             } else {
                 throw new Error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
@@ -1010,10 +1042,10 @@ export class VMManager extends Logger {
             OPNetConsensus.consensus.TRANSACTIONS
                 .SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION
         ) {
-            return BufferHelper.valueToUint8Array(valueBigInt[0]);
+            return valueBigInt[0];
         } else {
             memoryValue = {
-                value: BufferHelper.valueToUint8Array(valueBigInt[0]),
+                value: valueBigInt[0],
                 proofs: valueBigInt[1],
                 lastSeenAt: this.vmBitcoinBlock.height,
             };
@@ -1024,6 +1056,8 @@ export class VMManager extends Logger {
 
             throw new Error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
         }
+
+        this.storePointerInCache(address, pointerBigInt, [memoryValue.value, memoryValue.proofs]);
 
         const encodedPointer = StateMerkleTree.encodePointerBuffer(address, pointer);
 
