@@ -57,6 +57,10 @@ export class JSONRpc2Manager extends Logger {
             const requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined =
                 await req.json();
 
+            this.info(
+                `Incoming request: ${req.method} ${req.url} - ${req.headers['user-agent']} - ${requestData}`,
+            );
+
             let response:
                 | JSONRpc2ResponseResult<JSONRpcMethods>
                 | JSONRpc2ResponseResult<JSONRpcMethods>[];
