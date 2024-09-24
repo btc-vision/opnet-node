@@ -58,7 +58,7 @@ export class JSONRpc2Manager extends Logger {
                 await req.json();
 
             this.info(
-                `Incoming request: ${req.method} ${req.url} - ${req.headers['user-agent']} - ${requestData}`,
+                `Incoming request: ${req.method} ${req.url} - ${req.headers['user-agent']} - ${JSON.stringify(requestData)}`,
             );
 
             let response:
