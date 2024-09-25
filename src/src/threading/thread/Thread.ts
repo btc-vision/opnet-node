@@ -89,7 +89,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                         if (Config.DEV.SAVE_TIMEOUTS_TO_FILE) {
                             fs.appendFileSync(
                                 './thread-timeouts.log',
-                                `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType}) - Trace: ${JSON.stringify(m.data)}\n`,
+                                `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType}) - Trace: ${JSON.stringify(m)}\n`,
                             );
                         }
 
