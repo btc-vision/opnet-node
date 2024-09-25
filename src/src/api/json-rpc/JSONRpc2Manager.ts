@@ -185,8 +185,6 @@ export class JSONRpc2Manager extends Logger {
             requestData.method = requestData.method.replace('eth_', 'btc_') as JSONRpcMethods;
         }
 
-        this.info(`Incoming request: ${requestData.method}`);
-
         if (!this.hasMethod(requestData.method as string)) {
             this.warn(`Method not found: ${requestData.method}`);
             this.sendInvalidMethod(res, requestData.id);
