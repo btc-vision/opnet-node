@@ -58,6 +58,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             DEBUG_TRANSACTION_PARSE_FAILURE: false,
             CAUSE_FETCHING_FAILURE: false,
             DISPLAY_VALID_BLOCK_WITNESS: false,
+            SAVE_TIMEOUTS_TO_FILE: false,
         },
 
         BASE58: {},
@@ -686,6 +687,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(
                     `Oops the property DEV.DISPLAY_VALID_BLOCK_WITNESS is not a boolean.`,
                 );
+            }
+
+            if (
+                parsedConfig.DEV.SAVE_TIMEOUTS_TO_FILE !== undefined &&
+                typeof parsedConfig.DEV.SAVE_TIMEOUTS_TO_FILE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.SAVE_TIMEOUTS_TO_FILE is not a boolean.`);
             }
         }
 

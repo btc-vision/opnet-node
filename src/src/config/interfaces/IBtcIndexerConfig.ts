@@ -116,6 +116,7 @@ export interface DevConfig {
     readonly DEBUG_TRANSACTION_PARSE_FAILURE: boolean;
     readonly CAUSE_FETCHING_FAILURE: boolean;
     readonly DISPLAY_VALID_BLOCK_WITNESS: boolean;
+    readonly SAVE_TIMEOUTS_TO_FILE: boolean;
 }
 
 export interface Bech32Config {

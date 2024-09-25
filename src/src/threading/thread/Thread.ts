@@ -12,6 +12,8 @@ import { ThreadData } from '../interfaces/ThreadData.js';
 import { ThreadTaskCallback } from '../Threader.js';
 import { ThreadTypes } from './enums/ThreadTypes.js';
 import { IThread } from './interfaces/IThread.js';
+import { Config } from '../../config/Config.js';
+import fs from 'fs';
 
 const genRanHex = (size: number) =>
     [...(Array(size) as number[])].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
@@ -83,6 +85,13 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                         this.warn(
                             `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType}) - Trace: ${JSON.stringify(m.data)}`,
                         );
+
+                        if (Config.DEV.SAVE_TIMEOUTS_TO_FILE) {
+                            fs.appendFileSync(
+                                './thread-timeouts.log',
+                                `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType}) - Trace: ${JSON.stringify(m.data)}\n`,
+                            );
+                        }
 
                         resolve(null);
                     }, 60_000);
