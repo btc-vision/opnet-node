@@ -214,6 +214,11 @@ check_and_fix_mongo_service() {
 install_and_configure_mongodb() {
     echo -e "${BLUE}Starting MongoDB installation...${NC}"
 
+    # Initialize variables
+    raid_created=false
+    raid_mount_point=""
+    data_dir=""
+
     # Check if MongoDB is already installed
     if command_exists mongod; then
         echo -e "${YELLOW}MongoDB is already installed.${NC}"
@@ -254,6 +259,80 @@ install_and_configure_mongodb() {
         echo -e "${BLUE}OpenSSL is not installed. Installing OpenSSL...${NC}"
         sudo apt-get install openssl -y
     fi
+
+    # Function to detect unused disks
+    detect_unused_disks() {
+        local disks=()
+        for disk in $(lsblk -dn -o NAME,TYPE | grep disk | awk '{print $1}'); do
+            # Check if the disk has any partitions
+            if [ -z "$(lsblk -n /dev/$disk | grep part)" ]; then
+                # Check if the disk is mounted
+                if ! mount | grep -q "/dev/$disk"; then
+                    disks+=("/dev/$disk")
+                fi
+            fi
+        done
+        echo "${disks[@]}"
+    }
+
+    # Detect unused disks and attempt RAID creation
+    unused_disks=($(detect_unused_disks))
+
+    if [ "${#unused_disks[@]}" -ge 3 ]; then
+        # shellcheck disable=SC2145
+        echo -e "${BLUE}Detected ${#unused_disks[@]} unused disks: ${unused_disks[@]}${NC}"
+        read -p "Would you like to create a RAID 5 array using these disks for MongoDB data storage? [y/N]: " create_raid_choice
+        if [[ "$create_raid_choice" == "y" || "$create_raid_choice" == "Y" ]]; then
+            # Attempt to create RAID 5
+            # Install mdadm if not installed
+            if ! command_exists mdadm; then
+                echo -e "${BLUE}Installing mdadm package...${NC}"
+                sudo apt-get install mdadm -y
+            fi
+            # Create RAID 5 array
+            raid_device="/dev/md0"
+            echo -e "${BLUE}Creating RAID 5 array at $raid_device...${NC}"
+            # shellcheck disable=SC2068
+            sudo mdadm --create --verbose "$raid_device" --level=5 --raid-devices=${#unused_disks[@]} ${unused_disks[@]}
+            # Wait for the RAID array to be ready
+            sleep 5
+            # Create filesystem on the RAID array
+            echo -e "${BLUE}Creating ext4 filesystem on $raid_device...${NC}"
+            sudo mkfs.ext4 "$raid_device"
+            # Create mount point
+            raid_mount_point="/mnt/raid"
+            echo -e "${BLUE}Creating mount point at $raid_mount_point...${NC}"
+            sudo mkdir -p "$raid_mount_point"
+            # Mount the RAID device
+            sudo mount "$raid_device" "$raid_mount_point"
+            # Add entry to /etc/fstab
+            echo -e "${BLUE}Updating /etc/fstab...${NC}"
+            uuid=$(sudo blkid -s UUID -o value "$raid_device")
+            echo "UUID=$uuid $raid_mount_point ext4 defaults,nofail,discard 0 0" | sudo tee -a /etc/fstab
+            raid_created=true
+            echo -e "${GREEN}RAID 5 array created and mounted at $raid_mount_point.${NC}"
+        else
+            echo -e "${YELLOW}Skipping RAID creation.${NC}"
+        fi
+    else
+        echo -e "${YELLOW}Not enough unused disks to create RAID 5. At least 3 disks are required.${NC}"
+    fi
+
+    # Set data directory based on RAID creation or user input
+    if [ "$raid_created" = true ]; then
+        data_dir="$raid_mount_point"
+    else
+        # Ask user if they want to set a custom data directory
+        read -p "Do you want to set a custom data directory for MongoDB? [y/N]: " custom_data_dir_choice
+        if [[ "$custom_data_dir_choice" == "y" || "$custom_data_dir_choice" == "Y" ]]; then
+            read -p "Please enter the custom data directory path: " custom_data_dir
+            data_dir="$custom_data_dir"
+        else
+            data_dir="/mnt/data"
+        fi
+    fi
+
+    # Now proceed to install MongoDB
 
     # Check if MongoDB public GPG Key is already in the system
     if [ -f /usr/share/keyrings/mongodb-server-7.0.gpg ]; then
@@ -300,28 +379,31 @@ install_and_configure_mongodb() {
     echo -e "${BLUE}Configuring MongoDB...${NC}"
     # Step 1: Create keyfile and directories
 
-    # Check if /mnt/data/ exists
-    if [ -d "/mnt/data" ]; then
-        echo -e "${YELLOW}/mnt/data/ directory already exists.${NC}"
+    # Check if data_dir exists
+    if [ -d "$data_dir" ]; then
+        echo -e "${YELLOW}$data_dir directory already exists.${NC}"
         read -p "Do you want to purge it and reinstall? [y/N]: " purge_data
         if [[ "$purge_data" =~ ^[Yy]$ ]]; then
-            echo -e "${BLUE}Purging /mnt/data/...${NC}"
-            sudo rm -rf /mnt/data
-            sudo mkdir -p /mnt/data/configdb
-            sudo mkdir -p /mnt/data/shard1
-            sudo mkdir -p /mnt/data/shard2
+            # Check if data_dir is a mount point
+            if mountpoint -q "$data_dir"; then
+                echo -e "${BLUE}Directory $data_dir is a mount point. Deleting contents inside it...${NC}"
+                sudo rm -rf "${data_dir:?}/"*
+            else
+                echo -e "${BLUE}Purging $data_dir...${NC}"
+                sudo rm -rf "$data_dir"
+                sudo mkdir -p "$data_dir"
+            fi
         else
-            echo -e "${YELLOW}Keeping existing data in /mnt/data/.${NC}"
-            # Ensure required subdirectories exist
-            [ -d "/mnt/data/configdb" ] || sudo mkdir -p /mnt/data/configdb
-            [ -d "/mnt/data/shard1" ] || sudo mkdir -p /mnt/data/shard1
-            [ -d "/mnt/data/shard2" ] || sudo mkdir -p /mnt/data/shard2
+            echo -e "${YELLOW}Keeping existing data in $data_dir.${NC}"
         fi
     else
-        sudo mkdir -p /mnt/data/configdb
-        sudo mkdir -p /mnt/data/shard1
-        sudo mkdir -p /mnt/data/shard2
+        sudo mkdir -p "$data_dir"
     fi
+
+    # Create necessary subdirectories
+    sudo mkdir -p "$data_dir/configdb"
+    sudo mkdir -p "$data_dir/shard1"
+    sudo mkdir -p "$data_dir/shard2"
 
     sudo mkdir -p /etc/mongodb
     sudo mkdir -p /etc/mongodb/keys
@@ -406,6 +488,28 @@ install_and_configure_mongodb() {
 
         # Replace bindIp
         sudo sed -i "s/bindIp:.*/bindIp: $bind_ip/g" "$conf_path"
+
+        # Determine dbPath directory based on conf_name
+        local conf_dbpath_dir=""
+        case "$conf_name" in
+            "mongos.conf")
+                # Mongos does not have dbPath
+                ;;
+            "shard1.conf")
+                conf_dbpath_dir="shard1"
+                ;;
+            "shard2.conf")
+                conf_dbpath_dir="shard2"
+                ;;
+            "configdb.conf")
+                conf_dbpath_dir="configdb"
+                ;;
+        esac
+
+        # Replace dbPath if applicable
+        if [ -n "$conf_dbpath_dir" ]; then
+            sudo sed -i "s|dbPath:.*|dbPath: $data_dir/$conf_dbpath_dir|g" "$conf_path"
+        fi
     }
 
     # Fetch and configure mongos.conf, shard1.conf, shard2.conf, configdb.conf
