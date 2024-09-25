@@ -263,12 +263,20 @@ install_and_configure_mongodb() {
     # Function to detect unused disks
     detect_unused_disks() {
         local disks=()
-        for disk in $(lsblk -dn -o NAME,TYPE | grep disk | awk '{print $1}'); do
+        for disk in $(lsblk -dn -o NAME); do
+            local disk_path="/dev/$disk"
+
+            # Check if the disk is part of an existing RAID array
+            if sudo mdadm --examine "$disk_path" &> /dev/null; then
+                # Disk is part of an existing RAID array
+                continue
+            fi
+
             # Check if the disk has any partitions
-            if [ -z "$(lsblk -n /dev/$disk | grep part)" ]; then
+            if [ -z "$(lsblk -n $disk_path | grep part)" ]; then
                 # Check if the disk is mounted
-                if ! mount | grep -q "/dev/$disk"; then
-                    disks+=("/dev/$disk")
+                if ! mount | grep -q "$disk_path"; then
+                    disks+=("$disk_path")
                 fi
             fi
         done
