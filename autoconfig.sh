@@ -5,7 +5,7 @@
 # Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+YELLOW='\033[38;5;226m'  # Yellow in 256-color
 BLUE='\033[1;34m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
@@ -266,18 +266,14 @@ install_and_configure_mongodb() {
         for disk in $(lsblk -dn -o NAME); do
             local disk_path="/dev/$disk"
 
-            # Check if the disk is part of an existing RAID array
-            if sudo mdadm --examine "$disk_path" &> /dev/null; then
-                # Disk is part of an existing RAID array
+            # Check if the disk has any partitions
+            if [ -n "$(lsblk -n "$disk_path" | grep part)" ]; then
                 continue
             fi
 
-            # Check if the disk has any partitions
-            if [ -z "$(lsblk -n $disk_path | grep part)" ]; then
-                # Check if the disk is mounted
-                if ! mount | grep -q "$disk_path"; then
-                    disks+=("$disk_path")
-                fi
+            # Check if the disk is mounted
+            if ! mount | grep -q "$disk_path"; then
+                disks+=("$disk_path")
             fi
         done
         echo "${disks[@]}"
