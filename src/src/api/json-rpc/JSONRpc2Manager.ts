@@ -57,10 +57,6 @@ export class JSONRpc2Manager extends Logger {
             const requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined =
                 await req.json();
 
-            /*this.info(
-                `Incoming request: ${req.method} ${req.url} - ${req.headers['user-agent']} - ${JSON.stringify(requestData)}`,
-            );*/
-
             let response:
                 | JSONRpc2ResponseResult<JSONRpcMethods>
                 | JSONRpc2ResponseResult<JSONRpcMethods>[];
@@ -188,6 +184,8 @@ export class JSONRpc2Manager extends Logger {
         if (requestData.method?.startsWith('eth_')) {
             requestData.method = requestData.method.replace('eth_', 'btc_') as JSONRpcMethods;
         }
+
+        this.info(`Incoming request: ${requestData.method}`);
 
         if (!this.hasMethod(requestData.method as string)) {
             this.warn(`Method not found: ${requestData.method}`);
