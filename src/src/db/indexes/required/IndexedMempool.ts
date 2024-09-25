@@ -34,6 +34,20 @@ export class IndexedMempool extends IndexedCollection<OPNetCollections.Mempool> 
                 },
                 name: 'blockHeight_1',
             },
+            {
+                key: {
+                    'outputs.address': 1,
+                    id: 1,
+                },
+                name: 'outputs_address_1_id_1',
+            },
+
+            {
+                key: {
+                    'inputs.transactionId': 1,
+                },
+                name: 'inputs_transactionId_1',
+            },
         ];
     }
 }

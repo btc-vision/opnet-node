@@ -27,7 +27,7 @@ import { Config } from '../../config/Config.js';
 import { Address } from '@btc-vision/bsi-binary';
 import { BalanceOfOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/BalanceOfAggregation.js';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import { UTXOSOutputTransaction } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import {
     UTXOsAggregationV2,
     UTXOSOutputTransactionFromDBV2,
@@ -307,7 +307,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         wallet: Address,
         optimize: boolean = false,
         currentSession?: ClientSession,
-    ): Promise<UTXOsOutputTransactions> {
+    ): Promise<UTXOSOutputTransaction[]> {
         // TODO: Add cursor page support.
         const aggregation: Document[] = this.uxtosAggregation.getAggregation(
             wallet,
@@ -326,7 +326,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
             );
 
             const results: UTXOSOutputTransactionFromDBV2[] = await aggregatedDocument.toArray();
-
             return results.map((result) => {
                 return {
                     transactionId: result.transactionId,

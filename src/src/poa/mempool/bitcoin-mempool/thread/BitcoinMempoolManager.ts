@@ -1,20 +1,20 @@
 import { Worker } from 'worker_threads';
-import { MessageType } from '../../threading/enum/MessageType.js';
+import { ThreadManager } from '../../../../threading/manager/ThreadManager.js';
+import { Threader } from '../../../../threading/Threader.js';
+import { ThreadTypes } from '../../../../threading/thread/enums/ThreadTypes.js';
+import { ThreadMessageBase } from '../../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import { MessageType } from '../../../../threading/enum/MessageType.js';
 import {
     LinkThreadMessage,
     LinkType,
-} from '../../threading/interfaces/thread-messages/messages/LinkThreadMessage.js';
-import { LinkThreadRequestMessage } from '../../threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
-import { ThreadMessageBase } from '../../threading/interfaces/thread-messages/ThreadMessageBase.js';
-import { ThreadManager } from '../../threading/manager/ThreadManager.js';
-import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
-import { Threader } from '../../threading/Threader.js';
+} from '../../../../threading/interfaces/thread-messages/messages/LinkThreadMessage.js';
+import { LinkThreadRequestMessage } from '../../../../threading/interfaces/thread-messages/messages/LinkThreadRequestMessage.js';
 
-export class MempoolThreadManager extends ThreadManager<ThreadTypes.MEMPOOL> {
+class BitcoinMempoolManager extends ThreadManager<ThreadTypes.MEMPOOL_MANAGER> {
     public readonly logColor: string = '#00f2fa';
 
-    protected readonly threadManager: Threader<ThreadTypes.MEMPOOL> = new Threader(
-        ThreadTypes.MEMPOOL,
+    protected readonly threadManager: Threader<ThreadTypes.MEMPOOL_MANAGER> = new Threader(
+        ThreadTypes.MEMPOOL_MANAGER,
     );
 
     constructor() {
@@ -59,10 +59,7 @@ export class MempoolThreadManager extends ThreadManager<ThreadTypes.MEMPOOL> {
     }
 
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL_MANAGER);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
     }
 
     private async createMempoolThreads(): Promise<void> {
@@ -71,4 +68,4 @@ export class MempoolThreadManager extends ThreadManager<ThreadTypes.MEMPOOL> {
     }
 }
 
-new MempoolThreadManager();
+new BitcoinMempoolManager();

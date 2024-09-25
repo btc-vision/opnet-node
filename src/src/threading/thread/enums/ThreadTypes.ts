@@ -5,6 +5,7 @@ export enum ThreadTypes {
     RPC = `rpc`,
     POA = `poa`,
     MEMPOOL = `mempool`,
+    MEMPOOL_MANAGER = `mempool-manager`,
     SSH = `ssh`,
     SYNCHRONISATION = `sync`,
 }

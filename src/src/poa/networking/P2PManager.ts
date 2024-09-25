@@ -342,12 +342,7 @@ export class P2PManager extends Logger {
     private async refreshRouting(): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
-        //this.info('Refreshing routing table...');
-
         await this.node.services.kadDHT.refreshRoutingTable();
-        //setTimeout(() => {
-        //    void this.refreshRouting();
-        //}, 15000);
     }
 
     private onPeerDiscovery(evt: CustomEvent<PeerInfo>): void {
@@ -403,7 +398,9 @@ export class P2PManager extends Logger {
         const verifiedTransaction = await this.verifyOPNetTransaction(
             tx.transaction,
             tx.psbt,
-            xxHash.hash(Buffer.from(tx.transaction)),
+            xxHash.hash(
+                Buffer.isBuffer(tx.transaction) ? tx.transaction : Buffer.from(tx.transaction),
+            ),
         );
 
         if (!verifiedTransaction || !verifiedTransaction.success) {

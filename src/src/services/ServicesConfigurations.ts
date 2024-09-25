@@ -44,6 +44,12 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
         managerTarget: './src/poa/mempool/MempoolThreadManager.js',
     },
 
+    [ThreadTypes.MEMPOOL_MANAGER]: {
+        maxInstance: 1,
+        target: './src/poa/mempool/bitcoin-mempool/thread/BitcoinMempoolThread.js',
+        managerTarget: './src/poa/mempool/bitcoin-mempool/thread/BitcoinMempoolManager.js',
+    },
+
     [ThreadTypes.SYNCHRONISATION]: {
         maxInstance: 4,
         managerTarget: './src/blockchain-indexer/sync/SynchronisationManager.js',
@@ -101,6 +107,14 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
     },
 
     [ThreadTypes.MEMPOOL]: {
+        resourceLimits: {
+            maxOldGenerationSizeMb: 1024 * 2,
+            maxYoungGenerationSizeMb: 1024,
+            stackSizeMb: 256,
+        },
+    },
+
+    [ThreadTypes.MEMPOOL_MANAGER]: {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 2,
             maxYoungGenerationSizeMb: 1024,
