@@ -62,7 +62,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
             for (const port of relation) {
                 promises.push(this.sendMessage({ ...m }, port));
             }
-            
+
             await Promise.all(promises);
         } else {
             throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
@@ -81,7 +81,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
                     const timeout = setTimeout(() => {
                         this.warn(
-                            `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType})`,
+                            `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType}) - Trace: ${JSON.stringify(m.data)}`,
                         );
 
                         resolve(null);
