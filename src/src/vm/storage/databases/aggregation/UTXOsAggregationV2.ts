@@ -32,7 +32,7 @@ export class UTXOsAggregationV2 extends Aggregation {
 
         if (limit) {
             aggregation.push({
-                $limit: 1000,
+                $limit: 1500,
             });
         }
 
