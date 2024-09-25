@@ -161,6 +161,7 @@ export class MempoolManager extends Logger {
     }
 
     private async generateMempoolPopulation(): Promise<void> {
+        const startedAt = Date.now();
         const txsList: string[] | null = await this.bitcoinRPC.getRawMempool(BitcoinVerbosity.RAW);
         if (!txsList) {
             this.error('Failed to fetch mempool transactions');
@@ -179,7 +180,7 @@ export class MempoolManager extends Logger {
 
         const end = Date.now();
         this.log(
-            `Found ${txsList.length} tx - ${unknownTxs.length} new tx - ${alreadyKnownTxs.length} already known. (verified db under ${end - start}ms)`,
+            `Found ${txsList.length} tx - ${unknownTxs.length} new tx - ${alreadyKnownTxs.length} already known. (verified db under ${end - start}ms - precomputed under ${end - startedAt}ms)`,
         );
 
         const newTxs = unknownTxs.filter((tx) => !alreadyKnownTxs.includes(tx));
