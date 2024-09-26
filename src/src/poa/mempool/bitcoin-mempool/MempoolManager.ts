@@ -91,6 +91,8 @@ export class MempoolManager extends Logger {
                 OPNetConsensus.setBlockHeight(blockHeight);
             } catch {}
 
+            console.log('blockHeight', blockHeight);
+
             if (!this.startedMainLoop) {
                 const currentBlockHeight = await this.bitcoinRPC.getBlockHeight();
                 if (!currentBlockHeight) {
