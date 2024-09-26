@@ -91,8 +91,6 @@ export class MempoolManager extends Logger {
                 OPNetConsensus.setBlockHeight(blockHeight);
             } catch {}
 
-            console.log('blockHeight', blockHeight);
-
             if (!this.startedMainLoop) {
                 const currentBlockHeight = await this.bitcoinRPC.getBlockHeight();
                 if (!currentBlockHeight) {
@@ -100,6 +98,34 @@ export class MempoolManager extends Logger {
                 }
 
                 const blockDiff = BigInt(currentBlockHeight.blockHeight) - blockHeight;
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
+                console.log(blockDiff);
                 console.log(blockDiff);
                 if (blockDiff > 1n) {
                     return;
