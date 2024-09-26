@@ -161,40 +161,47 @@ export class MempoolManager extends Logger {
     }
 
     private async generateMempoolPopulation(): Promise<void> {
-        const startedAt = Date.now();
-        const txsList: string[] | null = await this.bitcoinRPC.getRawMempool(BitcoinVerbosity.RAW);
-        if (!txsList) {
-            this.error('Failed to fetch mempool transactions');
-            return;
+        try {
+            const startedAt = Date.now();
+            const txsList: string[] | null = await this.bitcoinRPC.getRawMempool(
+                BitcoinVerbosity.RAW,
+            );
+            if (!txsList) {
+                this.error('Failed to fetch mempool transactions');
+                return;
+            }
+
+            const unknownTxs = txsList.filter((tx) => !this.mempoolTransactionCache.has(tx));
+            this.mempoolTransactionCache = new Set(txsList);
+
+            if (!unknownTxs.length) {
+                return;
+            }
+
+            const start = Date.now();
+            const alreadyKnownTxs =
+                await this.mempoolRepository.getAllTransactionIncluded(unknownTxs);
+
+            const end = Date.now();
+            this.log(
+                `Found ${txsList.length} tx - ${unknownTxs.length} new tx - ${alreadyKnownTxs.length} already known. (verified db under ${end - start}ms - precomputed under ${end - startedAt}ms)`,
+            );
+
+            const newTxs = unknownTxs.filter((tx) => !alreadyKnownTxs.includes(tx));
+            if (!newTxs.length) {
+                return;
+            }
+
+            const fetchedTxs = await this.fetchAllUnknownTransactions(newTxs);
+            if (!fetchedTxs.length) {
+                return;
+            }
+
+            this.warn(`Adding ${fetchedTxs.length} new transactions in the mempool.`);
+
+            await this.mempoolRepository.storeTransactions(fetchedTxs);
+        } catch (e) {
+            this.error(`Failed to fetch mempool transactions: ${(e as Error).message}`);
         }
-
-        const unknownTxs = txsList.filter((tx) => !this.mempoolTransactionCache.has(tx));
-        this.mempoolTransactionCache = new Set(txsList);
-
-        if (!unknownTxs.length) {
-            return;
-        }
-
-        const start = Date.now();
-        const alreadyKnownTxs = await this.mempoolRepository.getAllTransactionIncluded(unknownTxs);
-
-        const end = Date.now();
-        this.log(
-            `Found ${txsList.length} tx - ${unknownTxs.length} new tx - ${alreadyKnownTxs.length} already known. (verified db under ${end - start}ms - precomputed under ${end - startedAt}ms)`,
-        );
-
-        const newTxs = unknownTxs.filter((tx) => !alreadyKnownTxs.includes(tx));
-        if (!newTxs.length) {
-            return;
-        }
-
-        const fetchedTxs = await this.fetchAllUnknownTransactions(newTxs);
-        if (!fetchedTxs.length) {
-            return;
-        }
-
-        this.warn(`Adding ${fetchedTxs.length} new transactions in the mempool.`);
-
-        await this.mempoolRepository.storeTransactions(fetchedTxs);
     }
 }
