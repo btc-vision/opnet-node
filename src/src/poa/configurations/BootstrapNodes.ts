@@ -25,11 +25,11 @@ export const BootstrapNodes: BootstrapNodes = {
     },
 
     [ChainIds.Fractal]: {
-        [BitcoinNetwork.mainnet]: [
+        [BitcoinNetwork.mainnet]: [],
+
+        [BitcoinNetwork.testnet]: [
             '/ip4/15.204.163.30/tcp/9801/p2p/12D3KooWJ8w5QHsdKGhv96gmEeKve9kAvNMnxbac2waxWcHkF765',
         ],
-
-        [BitcoinNetwork.testnet]: [],
 
         [BitcoinNetwork.regtest]: [],
 
