@@ -967,14 +967,14 @@ EXT_SECRET_KEY = "$EXT_SECRET_KEY"
 HRP = "$HRP" # hrp for Bitcoin, leave empty for auto-detection available hrps are: bc, tb, bcrt
 
 [RPC]
-THREADS = 2 # Number of threads to process calls such as rpc calls, smart contract calls, etc.
+THREADS = 4 # Number of threads to process calls such as rpc calls, smart contract calls, etc.
 
 [POA]
 ENABLED = true # Enable Proof of Authority consensus
 
 [MEMPOOL]
 THREADS = 2 # Number of threads to process the mempool
-EXPIRATION_BLOCKS = 20 # Number of blocks before a transaction is removed from the mempool
+EXPIRATION_BLOCKS = 500 # Number of blocks before a transaction is removed from the mempool
 ENABLE_BLOCK_PURGE = true
 
 [INDEXER]
@@ -1026,7 +1026,7 @@ TRUSTED_VALIDATORS_CHECKSUM_HASH = "" # DANGER. This setting should be altered v
 [API]
 ENABLED = true # Enable the API
 PORT = 9001 # API port
-THREADS = 1 # Number of threads to process API calls
+THREADS = 4 # Number of threads to process API calls
 
 MAXIMUM_PENDING_REQUESTS_PER_THREADS = 1000 # Maximum number of pending requests per thread
 BATCH_PROCESSING_SIZE = 15 # Number of requests to process in a batch in parallel
