@@ -209,7 +209,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
             promises = [];
 
-            const deleteStart = Date.now();
+            //const deleteStart = Date.now();
             const deleteChunks = this.chunkArray(bulkDeleteOperations, 500);
             for (const chunk of deleteChunks) {
                 promises.push(this.bulkWrite(chunk));
@@ -217,9 +217,9 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
             await Promise.all(promises);
 
-            this.important(
+            /*this.important(
                 `[UTXO]: Bulk write (step 2) took ${Date.now() - deleteStart}ms - Range: ${lowestBlockHeight} - ${blockHeight}`,
-            );
+            );*/
         }
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE && Config.DEV_MODE) {
