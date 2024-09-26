@@ -137,7 +137,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
         await this.delete(criteria, currentSession);
 
-        //let promise: Promise<void> | undefined;
         if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
             await this.purgeSpentUTXOsFromBlockHeight(
                 blockHeight - BigInt(Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS),
