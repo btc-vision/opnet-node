@@ -112,10 +112,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         }
     }
 
-    public async insertTransactions(
-        transactions: ProcessUnspentTransactionList,
-        currentSession?: ClientSession,
-    ): Promise<void> {
+    public async insertTransactions(transactions: ProcessUnspentTransactionList): Promise<void> {
         const start = Date.now();
 
         let blockHeight = 0n;
@@ -131,11 +128,11 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         }
 
         // Ensure we don't have any duplicates or bad data
-        const criteria: Partial<Filter<IUnspentTransaction>> = {
+        /*const criteria: Partial<Filter<IUnspentTransaction>> = {
             blockHeight: { $gte: this.bigIntToLong(blockHeight) },
         };
 
-        await this.delete(criteria, currentSession);
+        await this.delete(criteria, currentSession);*/
 
         if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
             await this.purgeSpentUTXOsFromBlockHeight(
