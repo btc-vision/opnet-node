@@ -5,6 +5,7 @@ import { ThreadMessageBase } from '../../../../threading/interfaces/thread-messa
 import { ThreadData } from '../../../../threading/interfaces/ThreadData.js';
 import { MessageType } from '../../../../threading/enum/MessageType.js';
 import { MempoolManager } from '../MempoolManager.js';
+import { Config } from '../../../../config/Config.js';
 
 class BitcoinMempoolThread extends Thread<ThreadTypes.MEMPOOL_MANAGER> {
     public readonly threadType: ThreadTypes.MEMPOOL_MANAGER = ThreadTypes.MEMPOOL_MANAGER;
@@ -20,7 +21,9 @@ class BitcoinMempoolThread extends Thread<ThreadTypes.MEMPOOL_MANAGER> {
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected async init(): Promise<void> {
-        await this.mempoolManager.init();
+        if (!Config.INDEXER.READONLY_MODE) {
+            await this.mempoolManager.init();
+        }
 
         this.mempoolManager.sendMessageToThread = this.sendMessageToThread.bind(this);
     }

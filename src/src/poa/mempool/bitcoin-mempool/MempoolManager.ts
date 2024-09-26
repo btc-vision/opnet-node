@@ -24,6 +24,7 @@ export class MempoolManager extends Logger {
 
     private mempoolTransactionCache: Set<string> = new Set();
     private currentBlockHeight: bigint = 0n;
+    private startedMainLoop: boolean = false;
 
     public constructor() {
         super();
@@ -80,17 +81,32 @@ export class MempoolManager extends Logger {
         this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
         await this.watchBlockchain();
-
-        void this.startFetchingMempool();
     }
 
     private async watchBlockchain(): Promise<void> {
-        this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
+        this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
             this.currentBlockHeight = blockHeight;
 
             try {
                 OPNetConsensus.setBlockHeight(blockHeight);
             } catch {}
+
+            if (!this.startedMainLoop) {
+                const currentBlockHeight = await this.bitcoinRPC.getBlockHeight();
+                if (!currentBlockHeight) {
+                    return;
+                }
+
+                const blockDiff = BigInt(currentBlockHeight.blockHeight) - blockHeight;
+                if (blockDiff > 1n) {
+                    return;
+                }
+
+                this.info(`Starting to track mempool transactions...`);
+                this.startedMainLoop = true;
+
+                void this.startFetchingMempool();
+            }
         });
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
