@@ -134,11 +134,11 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
         await this.delete(criteria, currentSession);*/
 
-        if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
+        /*if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
             await this.purgeSpentUTXOsFromBlockHeight(
                 blockHeight - BigInt(Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS),
             );
-        }
+        }*/
 
         const convertedSpentTransactions = this.convertSpentTransactions(transactions);
         const convertedUnspentTransactions = this.convertToUnspentTransactions(
