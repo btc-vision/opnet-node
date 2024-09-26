@@ -98,36 +98,7 @@ export class MempoolManager extends Logger {
                 }
 
                 const blockDiff = BigInt(currentBlockHeight.blockHeight) - blockHeight;
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                console.log(blockDiff);
-                if (blockDiff > 1n) {
+                if (blockDiff >= 10n) {
                     return;
                 }
 
