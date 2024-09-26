@@ -182,11 +182,6 @@ export class MempoolManager extends Logger {
             const alreadyKnownTxs =
                 await this.mempoolRepository.getAllTransactionIncluded(unknownTxs);
 
-            const end = Date.now();
-            this.log(
-                `Found ${txsList.length} tx - ${unknownTxs.length} new tx - ${alreadyKnownTxs.length} already known. (verified db under ${end - start}ms - precomputed under ${end - startedAt}ms)`,
-            );
-
             const newTxs = unknownTxs.filter((tx) => !alreadyKnownTxs.includes(tx));
             if (!newTxs.length) {
                 return;
@@ -197,7 +192,10 @@ export class MempoolManager extends Logger {
                 return;
             }
 
-            this.warn(`Adding ${fetchedTxs.length} new transactions in the mempool.`);
+            const end = Date.now();
+            this.log(
+                `Found ${txsList.length} tx - ${unknownTxs.length} new tx - ${alreadyKnownTxs.length} already known. (verified db under ${end - start}ms - precomputed under ${end - startedAt}ms)`,
+            );
 
             await this.mempoolRepository.storeTransactions(fetchedTxs);
         } catch (e) {
