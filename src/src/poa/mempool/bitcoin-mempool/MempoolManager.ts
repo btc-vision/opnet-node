@@ -103,9 +103,11 @@ export class MempoolManager extends Logger {
                 }
 
                 this.info(`Starting to track mempool transactions...`);
-                this.startedMainLoop = true;
 
-                void this.startFetchingMempool();
+                if (!this.startedMainLoop) {
+                    this.startedMainLoop = true;
+                    void this.startFetchingMempool();
+                }
             }
         });
 
