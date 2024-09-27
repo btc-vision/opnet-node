@@ -25,7 +25,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         /** Networking */
         MAXIMUM_TRANSACTION_BROADCAST_SIZE: 800_000, // Cap to 800k bytes.
 
-        PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 1_000_000, // Cap to 1M bytes.
+        PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 3_000_000, // Cap to 1M bytes.
     },
 
     TRANSACTIONS: {
