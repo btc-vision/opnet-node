@@ -106,6 +106,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             MAXIMUM_TRANSACTION_BROADCAST: 50,
             MAXIMUM_PENDING_CALL_REQUESTS: 100,
+
+            UTXO_LIMIT: 500
         },
 
         POA: {
@@ -643,6 +645,33 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(
                     `Oops the property API.MAXIMUM_PENDING_CALL_REQUESTS is not a number.`,
+                );
+            }
+
+            if(
+                parsedConfig.API.UTXO_LIMIT &&
+                typeof parsedConfig.API.UTXO_LIMIT !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.UTXO_LIMIT is not a number.`,
+                );
+            }
+
+            if(
+                parsedConfig.API.MAXIMUM_REQUESTS_PER_BATCH &&
+                typeof parsedConfig.API.MAXIMUM_REQUESTS_PER_BATCH !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.MAXIMUM_REQUESTS_PER_BATCH is not a number.`,
+                );
+            }
+
+            if(
+                parsedConfig.API.THREADS &&
+                typeof parsedConfig.API.THREADS !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.THREADS is not a number.`,
                 );
             }
         }

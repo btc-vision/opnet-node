@@ -2,6 +2,7 @@ import { Address } from '@btc-vision/bsi-binary';
 import { Decimal128, Document, Long } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 import { ShortScriptPubKey } from '../../../../db/interfaces/IUnspentTransaction.js';
+import {Config} from "../../../../config/Config.js";
 
 export interface UTXOSOutputTransactionFromDBV2 {
     readonly transactionId: string;
@@ -32,7 +33,7 @@ export class UTXOsAggregationV2 extends Aggregation {
 
         if (limit) {
             aggregation.push({
-                $limit: 1500,
+                $limit: Config.API.UTXO_LIMIT,
             });
         }
 

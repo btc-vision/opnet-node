@@ -108,6 +108,8 @@ export interface APIExtendedConfigurations extends APIConfig {
 
     readonly MAXIMUM_TRANSACTION_BROADCAST: number; // Maximum number of transactions to broadcast
     readonly MAXIMUM_PENDING_CALL_REQUESTS: number; // Maximum number of pending call requests
+
+    readonly UTXO_LIMIT: number; // UTXO limit
 }
 
 export interface DevConfig {
