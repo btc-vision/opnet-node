@@ -24,24 +24,26 @@ export function getOutputAddressForScript(script: Buffer): string | null {
 }
 
 export function parseAndStoreInputOutputs(data: Buffer, transaction: IMempoolTransactionObj): void {
-    const decoded = bitcoin.Transaction.fromBuffer(data);
+    try {
+        const decoded = bitcoin.Transaction.fromBuffer(data);
 
-    for (const input of decoded.ins) {
-        transaction.inputs.push({
-            transactionId: input.hash.reverse().toString('hex'),
-            outputIndex: input.index,
-        });
-    }
+        for (const input of decoded.ins) {
+            transaction.inputs.push({
+                transactionId: input.hash.reverse().toString('hex'),
+                outputIndex: input.index,
+            });
+        }
 
-    for (let i = 0; i < decoded.outs.length; i++) {
-        const out = decoded.outs[i];
+        for (let i = 0; i < decoded.outs.length; i++) {
+            const out = decoded.outs[i];
 
-        const outputAddress = getOutputAddressForScript(out.script);
-        transaction.outputs.push({
-            data: out.script,
-            outputIndex: i,
-            value: Long.fromNumber(out.value),
-            address: outputAddress,
-        });
-    }
+            const outputAddress = getOutputAddressForScript(out.script);
+            transaction.outputs.push({
+                data: out.script,
+                outputIndex: i,
+                value: Long.fromNumber(out.value),
+                address: outputAddress,
+            });
+        }
+    } catch {}
 }
