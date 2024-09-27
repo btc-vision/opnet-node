@@ -233,7 +233,7 @@ export class Mempool extends Logger {
                 return await this.decodeTransactionAndProcess(transaction);
             }
         } catch (e) {
-            console.log(e);
+            console.log(`Error processing transaction: ${(e as Error).stack}`);
 
             if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.error(`Error processing transaction: ${(e as Error).stack}`);
@@ -266,7 +266,7 @@ export class Mempool extends Logger {
         const buf = Buffer.from(transaction.data);
         const rawHex: string = buf.toString('hex');
 
-        console.log(buf);
+        console.log(transaction);
 
         const broadcast = await this.broadcastBitcoinTransaction(rawHex);
         if (broadcast && broadcast.success && broadcast.result) {

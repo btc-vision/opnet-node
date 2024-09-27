@@ -89,6 +89,10 @@ export class BroadcastTransaction extends Route<
             if (verification.success) {
                 this.decrementPendingRequests();
 
+                if (!parsedData) {
+                    throw new Error('Could not parse data');
+                }
+
                 const result: BroadcastResponse | undefined = await this.broadcastOPNetTransaction(
                     parsedData,
                     isPsbt,
