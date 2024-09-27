@@ -60,6 +60,7 @@ export class BroadcastTransaction extends Route<
 
             const parsedDataAsBuf = Buffer.from(data, 'hex');
             let parsedData: Uint8Array = Uint8Array.from(parsedDataAsBuf);
+            console.log('data', parsedData);
 
             const identifier = xxHash.hash(parsedDataAsBuf);
             const verification: BroadcastResponse | undefined = await this.verifyOPNetTransaction(
