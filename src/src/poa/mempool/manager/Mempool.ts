@@ -254,6 +254,7 @@ export class Mempool extends Logger {
             transaction.identifier,
             transaction.psbt,
         );
+
         if (exist) {
             return {
                 success: false,
@@ -264,13 +265,16 @@ export class Mempool extends Logger {
 
         const buf = Buffer.from(transaction.data);
         const rawHex: string = buf.toString('hex');
-        parseAndStoreInputOutputs(buf, transaction);
 
         const broadcast = await this.broadcastBitcoinTransaction(rawHex);
         if (broadcast && broadcast.success && broadcast.result) {
             transaction.id = broadcast.result;
 
             await this.mempoolRepository.storeTransaction(transaction);
+        }
+
+        if (broadcast?.success) {
+            parseAndStoreInputOutputs(buf, transaction);
         }
 
         return (
@@ -339,8 +343,6 @@ export class Mempool extends Logger {
                 outputs: [],
             };
 
-            parseAndStoreInputOutputs(txBuffer, transaction);
-
             if (transaction.identifier === finalTransaction.identifier) {
                 this.error('Transaction and PSBT identifier are the same.');
                 return {
@@ -362,6 +364,9 @@ export class Mempool extends Logger {
             if (broadcastResult?.success) {
                 console.log('broadcastResult.result', broadcastResult.result, finalTransaction.id);
                 finalTransaction.id = broadcastResult.result;
+
+                parseAndStoreInputOutputs(txBuffer, transaction);
+
                 await this.mempoolRepository.storeTransaction(finalTransaction);
 
                 return {
