@@ -200,6 +200,8 @@ export class JSONRpc2Manager extends Logger {
             );
         }*/
 
+        this.debugBright(`JSON-RPC requested method: ${requestData.method}`);
+
         const method: JSONRpcMethods = requestData.method as JSONRpcMethods;
         const result = await this.router.requestResponse(method, params);
 
