@@ -175,6 +175,8 @@ export class JSONRpc2Manager extends Logger {
         res: Response,
         requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined,
     ): Promise<JSONRpc2ResponseResult<JSONRpcMethods> | undefined> {
+        console.log(requestData);
+
         const hasValidRequest = this.verifyRequest(requestData);
         if (!hasValidRequest || !requestData) {
             this.sendInvalidRequest(res, requestData?.id);
