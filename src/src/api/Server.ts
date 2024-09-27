@@ -42,9 +42,9 @@ export class Server extends Logger {
 
     private serverPort: number = 0;
     private app: HyperExpress.Server = new HyperExpress.Server({
-        max_body_length: 1024 * 1024 * 2.5, // 1mb.
+        max_body_length: 1024 * 1024 * 5, // 1mb.
         fast_abort: true,
-        max_body_buffer: 1024 * 1024 * 32, // 1mb.
+        max_body_buffer: 1024 * 32, // 1mb.
     });
 
     private readonly storage: VMStorage = new VMMongoStorage(Config);
