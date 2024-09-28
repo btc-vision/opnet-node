@@ -270,12 +270,12 @@ export class Mempool extends Logger {
         if (broadcast && broadcast.success && broadcast.result) {
             transaction.id = broadcast.result;
 
+            parseAndStoreInputOutputs(buf, transaction);
+
             await this.mempoolRepository.storeTransaction(transaction);
         }
 
-        if (broadcast?.success) {
-            parseAndStoreInputOutputs(buf, transaction);
-        }
+        console.log('broadcast', broadcast);
 
         return (
             broadcast || {
