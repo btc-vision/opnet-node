@@ -45,7 +45,5 @@ export function parseAndStoreInputOutputs(data: Buffer, transaction: IMempoolTra
                 address: outputAddress,
             });
         }
-    } catch (e) {
-        console.log(e);
-    }
+    } catch {}
 }

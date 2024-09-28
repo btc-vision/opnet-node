@@ -275,8 +275,6 @@ export class Mempool extends Logger {
             await this.mempoolRepository.storeTransaction(transaction);
         }
 
-        console.log('broadcast', broadcast);
-
         return (
             broadcast || {
                 success: false,
