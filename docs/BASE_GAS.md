@@ -10,7 +10,7 @@ transaction reversion due to block gas limits.
 - **$b_{\text{current}}$**: Current base gas price (in satoshi per gas unit).
 - **$b_{\text{next}}$**: Next block's base gas price to be calculated.
 - **$G_{\text{total}}$**: Total gas used by `OP_NET` transactions in the current block.
-- **$G_{\text{target\_block}}$**: Target gas usage per block for `OP_NET` transactions.
+- **$G_{\text{targetBlock}}$**: Target gas usage per block for `OP_NET` transactions.
 - **$\alpha$**: Sensitivity factor determining the rate of adjustment ($0 < \alpha \leq 1$).
 - **$\beta$**: EMA smoothing factor ($0 < \beta < 1$).
 - **$U_{\text{current}}$**: Current block gas utilization ratio.
@@ -34,7 +34,7 @@ b_{\text{min}},\
 b_{\text{current}} \times \min \left(
 \max \left(
 1 + \alpha \left(
-\beta \frac{G_{\text{total}}}{G_{\text{target\_block}}} + (1 - \beta) \text{EMA}_{\text{prev}} - U_{\text{target}}
+\beta \frac{G_{\text{total}}}{G_{\text{targetBlock}}} + (1 - \beta) \text{EMA}_{\text{prev}} - U_{\text{target}}
 \right),\
 1 - \Delta_{\text{max}}
 \right),\
@@ -50,11 +50,11 @@ $$
 Compute the current block's gas utilization ratio ($U_{\text{current}}$) for `OP_NET` transactions:
 
 $$
-U_{\text{current}} = \frac{G_{\text{total}}}{G_{\text{target\_block}}}
+U_{\text{current}} = \frac{G_{\text{total}}}{G_{\text{targetBlock}}}
 $$
 
 - **$G_{\text{total}}$**: Sum of gas used by all `OP_NET` transactions (successful and reverted) in the current block.
-- **$G_{\text{target\_block}}$**: The desired gas usage per block for `OP_NET` transactions.
+- **$G_{\text{targetBlock}}$**: The desired gas usage per block for `OP_NET` transactions.
 
 ### 2. Update Exponential Moving Average (EMA) of Utilization
 
@@ -144,7 +144,7 @@ Assuming:
 
 - **$b_{\text{current}}$**: 1 satoshi/gas unit.
 - **$G_{\text{total}}$**: 1,200,000 gas units (from `OP_NET` transactions).
-- **$G_{\text{target\_block}}$**: 1,000,000 gas units.
+- **$G_{\text{targetBlock}}$**: 1,000,000 gas units.
 - **$\text{EMA}_{\text{prev}}$**: 1.0.
 - **$\alpha$**: 0.5.
 - **$\beta$**: 0.8.
