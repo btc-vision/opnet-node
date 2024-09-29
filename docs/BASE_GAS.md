@@ -54,7 +54,8 @@ U_{\text{current}} = \frac{G_{\text{total}}}{G_{\text{targetBlock}}}
 ```
 
 - **$G_{\text{total}}$**: Sum of gas used by all OP_NET transactions (successful and reverted) in the current block.
-- **$G_{\text{targetBlock}}$**: The desired gas usage per block for OP_NET transactions.
+- **$G_{\text{targetBlock}}$**: This is a predefined value that represent target maximum block gas usage for OP_NET
+  transactions.
 
 ### 2. Update Exponential Moving Average (EMA) of Utilization
 
