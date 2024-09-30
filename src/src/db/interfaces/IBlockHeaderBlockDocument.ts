@@ -26,19 +26,27 @@ export interface BaseBlockDocument {
     receiptRoot: string;
 
     checksumProofs: BlockHeaderChecksumProof;
+
+    ema: bigint;
+    baseGas: bigint;
 }
 
-export interface BlockHeaderBlockDocument extends BaseBlockDocument {
+export interface BlockHeaderBlockDocument extends Omit<BaseBlockDocument, 'ema' | 'baseGas'> {
     height: Decimal128;
     time: Date;
     medianTime: Date;
+    ema: number;
+    baseGas: number;
 }
 
-export interface BlockHeaderAPIBlockDocument extends BaseBlockDocument {
+export interface BlockHeaderAPIBlockDocument extends Omit<BaseBlockDocument, 'ema' | 'baseGas'> {
     height: string;
 
     time: number;
     medianTime: number;
+
+    ema: string;
+    baseGas: string;
 }
 
 export type IBlockHeaderBlockDocument = BlockHeaderBlockDocument & IBaseDocument;

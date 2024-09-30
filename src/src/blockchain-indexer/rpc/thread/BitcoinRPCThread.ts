@@ -210,7 +210,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         try {
             const requests: [
                 Promise<boolean | null>,
-                Promise<BlockHeaderBlockDocument | undefined>,
+                Promise<BlockHeaderBlockDocument | undefined | null>,
             ] = [
                 this.blockHeaderValidator.validateBlockChecksum(vmBlockHeader),
                 this.blockHeaderValidator.getBlockHeader(blockNumber),

@@ -42,6 +42,7 @@ import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { UnwrapTransaction } from '../blockchain-indexer/processor/transaction/transactions/UnwrapTransaction.js';
 import { Blockchain } from './Blockchain.js';
 import { BlockHeaderValidator } from './BlockHeaderValidator.js';
+import { Config } from '../config/Config.js';
 
 Globals.register();
 
@@ -222,7 +223,7 @@ export class VMManager extends Logger {
                 contractAddress: contractAddress,
                 from: from,
                 txOrigin: from,
-                maxGas: OPNetConsensus.consensus.TRANSACTIONS.EMULATION_MAX_GAS,
+                maxGas: OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
                 calldata: Buffer.from(calldataString, 'hex'),
                 blockHeight: currentHeight,
                 storage: new DeterministicMap((a: string, b: string) => {
@@ -243,10 +244,6 @@ export class VMManager extends Logger {
             const result = evaluation.getEvaluationResult();
             this.isProcessing = false;
 
-            if (result.revert) {
-                throw result.revert;
-            }
-
             return result;
         } catch (e) {
             this.isProcessing = false;
@@ -259,13 +256,12 @@ export class VMManager extends Logger {
         blockMedian: bigint,
         interactionTransaction: InteractionTransaction | WrapTransaction | UnwrapTransaction,
         unlimitedGas: boolean = false,
-    ): Promise<EvaluatedResult> {
+    ): Promise<ContractEvaluation> {
         if (this.isProcessing) {
             throw new Error('VM is already processing');
         }
 
         try {
-            const start = Date.now();
             if (this.vmBitcoinBlock.height !== blockHeight) {
                 throw new Error('Block height mismatch');
             }
@@ -295,13 +291,12 @@ export class VMManager extends Logger {
             }
 
             // Trace the execution time
-            const startBeforeExecution = Date.now();
             const maxGas: bigint = unlimitedGas
-                ? OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS
+                ? OPNetConsensus.consensus.GAS.TARGET_GAS
                 : GasTracker.convertSatToGas(
                       burnedBitcoins,
-                      OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
-                      OPNetConsensus.consensus.TRANSACTIONS.SAT_TO_GAS_RATIO,
+                      OPNetConsensus.consensus.GAS.TARGET_GAS,
+                      OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO,
                   );
 
             // Define the parameters for the internal call.
@@ -329,16 +324,9 @@ export class VMManager extends Logger {
             };
 
             const result: ContractEvaluation = await this.executeCallInternal(params);
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.debug(
-                    `Executed transaction ${interactionTransaction.txid} for contract ${contractAddress}. (Took ${startBeforeExecution - start}ms to initialize, ${Date.now() - startBeforeExecution}ms to execute, ${result.gasUsed} gas used)`,
-                );
-            }
-
-            const response = result.getEvaluationResult();
             this.isProcessing = false;
 
-            return response;
+            return result;
         } catch (e) {
             this.isProcessing = false;
             throw e;
@@ -372,6 +360,8 @@ export class VMManager extends Logger {
             const result = evaluation.getEvaluationResult();
 
             if (!evaluation.revert && result.result) {
+                if (!result.changedStorage) throw new Error('Changed storage not found');
+
                 for (const [contract, val] of result.changedStorage) {
                     this.blockState.updateValues(contract, val);
                 }
@@ -400,7 +390,7 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && Config.DEV_MODE) {
             this.debugBright(
                 `Attempting to deploy contract ${contractDeploymentTransaction.p2trAddress}`,
             );
@@ -413,10 +403,6 @@ export class VMManager extends Logger {
 
         // We must save the contract information
         await this.setContractAt(contractInformation);
-
-        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
-            this.info(`Contract ${contractInformation.contractAddress} deployed.`);
-        }
     }
 
     public async updateEvaluatedStates(): Promise<EvaluatedStates> {
@@ -527,6 +513,12 @@ export class VMManager extends Logger {
             }
         }
 
+        // Get the function selector
+        const calldata: Buffer = params.calldata;
+        if (calldata.byteLength < 4) {
+            throw new Error('Calldata too short');
+        }
+
         if (!vmEvaluator) {
             vmEvaluator = params.allowCached
                 ? await this.getVMEvaluatorFromCache(
@@ -543,12 +535,6 @@ export class VMManager extends Logger {
             throw new Error(
                 `[executeTransaction] Unable to initialize contract ${params.contractAddress}`,
             );
-        }
-
-        // Get the function selector
-        const calldata: Buffer = params.calldata;
-        if (calldata.byteLength < 4) {
-            throw new Error('Calldata too short');
         }
 
         const finalBuffer: Buffer = Buffer.alloc(calldata.byteLength - 4);
@@ -598,14 +584,14 @@ export class VMManager extends Logger {
         });*/
 
         // Executors can not save block state changes.
-        if (!params.externalCall && params.transactionId) {
+        /*if (!params.externalCall && params.transactionId) {
             this.updateBlockValuesFromResult(
                 evaluation,
                 params.contractAddress,
                 params.transactionId,
                 this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
             );
-        }
+        }*/
 
         /** Delete the contract to prevent damage on states. */
         if (!evaluation) {
@@ -775,10 +761,6 @@ export class VMManager extends Logger {
         }
 
         await this.setContractAt(contractInformation);
-
-        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
-            this.info(`Contract ${contractInformation.contractAddress} deployed.`);
-        }
     }
 
     private async getVMEvaluator(
@@ -1115,8 +1097,14 @@ export class VMManager extends Logger {
         }
 
         /** We must get the block root states */
-        const blockHeaders: BlockHeaderBlockDocument | undefined =
+        const blockHeaders: BlockHeaderBlockDocument | null | undefined =
             await this._blockHeaderValidator.getBlockHeader(blockHeight);
+
+        if (blockHeaders === null) {
+            throw new Error(
+                `This should never happen. Block 0 can not verify any past state history.`,
+            );
+        }
 
         if (!blockHeaders) {
             throw new Error(

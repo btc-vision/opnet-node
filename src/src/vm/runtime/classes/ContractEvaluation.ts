@@ -1,4 +1,4 @@
-import { IEvaluationParameters } from '../types/InternalContractCallParameters.js';
+import { ExecutionParameters } from '../types/InternalContractCallParameters.js';
 import {
     Address,
     BinaryReader,
@@ -18,15 +18,13 @@ import { MemorySlotData, MemorySlotPointer } from '@btc-vision/bsi-binary/src/bu
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 
-export class ContractEvaluation implements IEvaluationParameters {
+export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
     public readonly selector: number;
 
     public readonly calldata: Uint8Array;
     public readonly msgSender: Address;
     public readonly txOrigin: Address;
-
-    public canWrite: boolean;
 
     public readonly blockNumber: bigint;
     public readonly blockMedian: bigint;
@@ -38,7 +36,9 @@ export class ContractEvaluation implements IEvaluationParameters {
     public events: EvaluatedEvents = new Map();
 
     public result: Uint8Array | undefined;
-    public readonly gasTracker: GasTracker = new GasTracker();
+    public readonly gasTracker: GasTracker = new GasTracker(
+        OPNetConsensus.consensus.GAS.TARGET_GAS,
+    );
 
     public contractDeployDepth: number;
     public callDepth: number;
@@ -51,13 +51,12 @@ export class ContractEvaluation implements IEvaluationParameters {
 
     public callStack: Address[];
 
-    constructor(params: IEvaluationParameters) {
+    constructor(params: ExecutionParameters) {
         this.contractAddress = params.contractAddress;
         this.selector = params.selector;
         this.calldata = params.calldata;
         this.msgSender = params.msgSender;
         this.txOrigin = params.txOrigin;
-        this.canWrite = params.canWrite;
         this.externalCall = params.externalCall;
         this.blockNumber = params.blockNumber;
         this.blockMedian = params.blockMedian;
@@ -138,10 +137,6 @@ export class ContractEvaluation implements IEvaluationParameters {
         this.gasTracker.setGas(gas);
     };
 
-    public setCanWrite(canWrite: boolean): void {
-        this.canWrite = canWrite;
-    }
-
     public setEvent(contract: Address, events: NetEvent[]) {
         if (!this.events) throw new Error('Events not set');
 
@@ -166,9 +161,9 @@ export class ContractEvaluation implements IEvaluationParameters {
             throw new Error('Cannot call self');
         }
 
-        if (!this.canWrite && extern.canWrite) {
-            throw new Error(`OPNET: READONLY_CALLED_WRITE`);
-        }
+        //if (!this.canWrite && extern.canWrite) {
+        //    throw new Error(`OPNET: READONLY_CALLED_WRITE`);
+        //}
 
         this.callStack = extern.callStack;
         this.checkReentrancy(extern.callStack);
@@ -210,8 +205,6 @@ export class ContractEvaluation implements IEvaluationParameters {
         const events = this.revert ? new Map() : this.events;
         const result = this.revert ? new Uint8Array(1) : this.result;
         const deployedContracts = this.revert ? [] : this.deployedContracts;
-
-        if (!modifiedStorage) throw new Error('Modified storage not set');
 
         return {
             changedStorage: modifiedStorage,

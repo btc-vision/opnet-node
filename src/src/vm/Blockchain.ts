@@ -53,12 +53,12 @@ class BlockchainBase {
     }
 
     // For future use?
-    public cleanUp(): void {
+    /*public cleanUp(): void {
         this.contractManager.destroyAll();
         this.contractManager.destroy();
 
         delete this._contractManager;
-    }
+    }*/
 
     private loadJsFunction: (
         _: never,
@@ -145,11 +145,11 @@ class BlockchainBase {
 
     private logJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
         _: never,
-        value: ThreadSafeJsImportResponse,
+        _value: ThreadSafeJsImportResponse,
     ): Promise<void> => {
         return new Promise<void>(() => {
             // temporary
-            const u = new Uint8Array(value.buffer);
+            /*const u = new Uint8Array(value.buffer);
             const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
             const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
@@ -158,7 +158,7 @@ class BlockchainBase {
                 throw new Error('Binding not found (log)');
             }
 
-            return c.log(buf);
+            return c.log(buf);*/
         });
     };
 }

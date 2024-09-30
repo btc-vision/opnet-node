@@ -33,6 +33,8 @@ import { ICompromisedTransactionDocument } from '../../../db/interfaces/Compromi
 import { UnwrapTransaction } from '../transaction/transactions/UnwrapTransaction.js';
 import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../../db/interfaces/IWBTCUTXODocument.js';
 import assert from 'node:assert';
+import { BlockGasPredictor, CalculatedBlockGas } from '../gas/BlockGasPredictor.js';
+import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
@@ -84,19 +86,20 @@ export class Block extends Logger {
     private specialTransaction: Transaction<OPNetTransactionTypes>[] = [];
 
     private specialExecutionPromise: Promise<void> | undefined;
-
     #compromised: boolean = false;
+
     #_storageRoot: string | undefined;
     #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
-
     #_receiptRoot: string | undefined;
     #_receiptProofs: Map<Address, Map<string, string[]>> | undefined;
     #_checksumMerkle: ChecksumMerkle = new ChecksumMerkle();
-
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
 
     private saveGenericPromises: Promise<void>[] = [];
+    private _predictedGas: CalculatedBlockGas | undefined;
+
+    private blockUsedGas: bigint = 0n;
 
     constructor(params: RawBlockParam | DeserializedBlock) {
         super();
@@ -121,6 +124,22 @@ export class Block extends Logger {
 
             this.processed = true;
         }
+    }
+
+    public get ema(): bigint {
+        if (!this._predictedGas) {
+            throw new Error('Predicted gas not found');
+        }
+
+        return this._predictedGas.ema;
+    }
+
+    public get baseGas(): bigint {
+        if (!this._predictedGas) {
+            throw new Error('Predicted gas not found');
+        }
+
+        return this._predictedGas.bNext;
     }
 
     private _reverted: boolean = false;
@@ -232,6 +251,16 @@ export class Block extends Logger {
         return this.#_checksumProofs;
     }
 
+    private _blockGasPredictor: BlockGasPredictor | undefined;
+
+    private get blockGasPredictor(): BlockGasPredictor {
+        if (!this._blockGasPredictor) {
+            throw new Error('Block gas predictor not found');
+        }
+
+        return this._blockGasPredictor;
+    }
+
     public static fromJSON(data: DeserializedBlock): Block {
         return new Block(data);
     }
@@ -269,6 +298,9 @@ export class Block extends Logger {
             merkleRoot: this.merkleRoot,
             time: this.time,
             medianTime: this.medianTime,
+
+            ema: Number(this.ema),
+            baseGas: Number(this.baseGas),
         };
     }
 
@@ -276,7 +308,11 @@ export class Block extends Logger {
     public deserialize(transactionOrder?: string[]): void {
         this.ensureNotProcessed();
 
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG && this.erroredTransactions.size > 0) {
+        if (
+            Config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
+            this.erroredTransactions.size > 0 &&
+            Config.DEV_MODE
+        ) {
             this.error(
                 `Block ${this.height} contains ${this.erroredTransactions.size} errored transactions.`,
             );
@@ -291,12 +327,6 @@ export class Block extends Logger {
         } else {
             // Then, we can sort the transactions by their priority
             this.transactions = this.transactionSorter.sortTransactions(this.transactions);
-        }
-
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.info(
-                `Processing block ${this.hash} containing ${this.transactions.length} transaction(s) at height ${this.height}`,
-            );
         }
 
         this.defineGeneric();
@@ -476,11 +506,6 @@ export class Block extends Logger {
         specialManager: SpecialManager,
     ): Promise<void> {
         const promises: Promise<void>[] = [
-            /*this.executeThreadedGenericTransactions(
-                this.genericTransactions,
-                vmManager,
-                specialManager,
-            ),*/
             this.executeOPNetTransactions(this.opnetTransactions, vmManager, specialManager),
         ];
 
@@ -499,38 +524,46 @@ export class Block extends Logger {
                 throw new Error('OPNet is not enabled');
             }
 
+            // Verify if the block is out of gas, this can overflow. This is an expected behavior.
+            if (OPNetConsensus.consensus.GAS.MAX_THEORETICAL_GAS < this.blockUsedGas) {
+                throw new Error(`Block out of gas`);
+            }
+
             /** We must create a transaction receipt. */
-            transaction.receipt = await vmManager.executeTransaction(
+            const evaluation = await vmManager.executeTransaction(
                 this.height,
                 this.median,
                 transaction,
                 unlimitedGas,
             );
 
-            if (transaction.receipt.revert) {
-                const error =
-                    transaction.receipt.revert instanceof Error
-                        ? transaction.receipt.revert
-                        : new Error(transaction.receipt.revert);
+            transaction.receipt = evaluation.getEvaluationResult();
 
-                if (Config.DEV_MODE) {
-                    this.error(`Transaction ${transaction.txid} reverted with reason: ${error}`);
-                } else if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-                    this.error(
-                        `Transaction ${transaction.txid} reverted with reason: ${error.message}`,
-                    );
-                } else if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                    this.error(`Transaction ${transaction.txid} reverted.`);
-                }
+            this.processRevertedTx(transaction);
 
-                transaction.revert = error;
+            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.debug(
+                    `Executed transaction ${transaction.txid} for contract ${transaction.contractAddress}. (Too ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                );
             }
-        } catch (e) {
-            const error: Error = e as Error;
 
+            if (evaluation.transactionId) {
+                vmManager.updateBlockValuesFromResult(
+                    evaluation,
+                    evaluation.contractAddress,
+                    evaluation.transactionId,
+                    Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+                );
+            }
+
+            this.blockUsedGas += transaction.gasUsed;
+        } catch (e) {
+            this.blockUsedGas += OPNetConsensus.consensus.GAS.PANIC_GAS_COST;
+
+            const error: Error = e as Error;
             if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
                 this.error(
-                    `Failed to execute transaction ${transaction.txid} (took ${Date.now() - start}): ${error.message}`,
+                    `Failed to execute transaction ${transaction.txid} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.gasUsed})`,
                 );
             }
 
@@ -580,6 +613,27 @@ export class Block extends Logger {
                 true,
             );
         }
+    }
+
+    private processRevertedTx(transaction: Transaction<OPNetTransactionTypes>): void {
+        if (!(transaction.receipt && transaction.receipt.revert)) {
+            return;
+        }
+
+        const error =
+            transaction.receipt.revert instanceof Error
+                ? transaction.receipt.revert
+                : new Error(transaction.receipt.revert);
+
+        if (Config.DEV_MODE) {
+            this.error(`Transaction ${transaction.txid} reverted with reason: ${error}`);
+        } else if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
+            this.error(`Transaction ${transaction.txid} reverted with reason: ${error.message}`);
+        } else if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.error(`Transaction ${transaction.txid} reverted.`);
+        }
+
+        transaction.revert = error;
     }
 
     private defineGeneric(): void {
@@ -698,20 +752,60 @@ export class Block extends Logger {
         }
     }
 
+    private calculateNextBlockBaseGas(previousBlockHeaders: BlockHeaderBlockDocument | null): void {
+        if (this._blockGasPredictor) throw new Error('Block gas predictor already found');
+
+        let prevEMA: bigint = BigInt(0);
+        let prevBaseGas: bigint = BigInt(0);
+
+        if (previousBlockHeaders !== null) {
+            prevEMA = BigInt(previousBlockHeaders.ema);
+            prevBaseGas = BigInt(previousBlockHeaders.baseGas);
+        }
+
+        this._blockGasPredictor = new BlockGasPredictor(
+            OPNetConsensus.consensus.GAS.MIN_BASE_GAS,
+            prevBaseGas,
+            OPNetConsensus.consensus.GAS.TARGET_GAS,
+            OPNetConsensus.consensus.GAS.SMOOTHING_FACTOR,
+            OPNetConsensus.consensus.GAS.ALPHA1,
+            OPNetConsensus.consensus.GAS.ALPHA2,
+            OPNetConsensus.consensus.GAS.DELTA_MAX,
+            OPNetConsensus.consensus.GAS.U_TARGET,
+        );
+
+        this._predictedGas = this.blockGasPredictor.calculateNextBaseGas(
+            this.blockUsedGas,
+            prevEMA,
+        );
+
+        if (this.blockUsedGas) {
+            this.log(
+                `Previous EMA: ${prevEMA}, Previous Base Gas: ${prevBaseGas}, Block Used Gas: ${this.blockUsedGas} - Next Base Gas: ${this.baseGas} (EMA: ${this.ema})`,
+            );
+        }
+    }
+
     private async signBlock(vmManager: VMManager): Promise<void> {
         this.assignReceiptProofsToTransactions();
 
-        /** We must fetch the previous block checksum */
-        const previousBlockChecksum: string | undefined =
+        const previousChecksumHeader =
             await vmManager.blockHeaderValidator.getPreviousBlockChecksumOfHeight(this.height);
 
-        if (!previousBlockChecksum) {
+        if (!previousChecksumHeader) {
             throw new Error(
                 `[DATA CORRUPTED] The previous block checksum of block ${this.height} is not found.`,
             );
         }
 
-        this.#_previousBlockChecksum = previousBlockChecksum;
+        this.#_previousBlockChecksum = previousChecksumHeader;
+
+        /** We must fetch the previous block checksum */
+        const previousBlockHeaders: BlockHeaderBlockDocument | null | undefined =
+            await vmManager.blockHeaderValidator.getBlockHeader(this.height - 1n);
+
+        // Calculate next block base gas
+        this.calculateNextBlockBaseGas(previousBlockHeaders || null);
 
         this.#_checksumMerkle.setBlockData(
             this.header.previousBlockHash,
@@ -742,12 +836,6 @@ export class Block extends Logger {
         if (!isValid) {
             throw new Error('Block checksum is invalid');
         }*/
-
-        if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
-            this.debug(
-                `Block ${this.height} signed successfully. Checksum root: ${this.checksumRoot}. Saving ${this.transactions.length} transactions.`,
-            );
-        }
     }
 
     private async saveOPNetTransactions(vmManager: VMManager): Promise<void> {

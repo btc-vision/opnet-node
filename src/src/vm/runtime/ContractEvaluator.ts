@@ -7,8 +7,6 @@ import {
     MemorySlotPointer,
     MethodMap,
     NetEvent,
-    Selector,
-    SelectorsMap,
 } from '@btc-vision/bsi-binary';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
@@ -32,10 +30,10 @@ export class ContractEvaluator extends Logger {
 
     private isProcessing: boolean = false;
 
-    private viewAbi: number[] | undefined;
+    //private viewAbi: number[] | undefined;
 
     private methodAbi: MethodMap | undefined;
-    private writeMethods: MethodMap | undefined;
+    //private writeMethods: MethodMap | undefined;
 
     private contractOwner: Address | undefined;
     private contractAddress: Address | undefined;
@@ -133,31 +131,17 @@ export class ContractEvaluator extends Logger {
         try {
             this.delete();
 
-            const evaluation = new ContractEvaluation({
-                ...params,
-                canWrite: false,
-            });
-
-            this.loadContractFromBytecode(evaluation);
-
-            /*const isView: boolean = await this.isViewMethod(params.selector);
-            if (!params.calldata && !isView) {
-                throw new Error('Calldata is required.');
-            }*/
-
-            await this.defineSelectorAndSetupEnvironment(evaluation);
-
-            const canWrite: boolean = await this.canWrite(evaluation.selector);
-            evaluation.setCanWrite(canWrite);
-
+            const evaluation = new ContractEvaluation(params);
             try {
+                this.loadContractFromBytecode(evaluation);
+
+                await this.defineSelectorAndSetupEnvironment(evaluation);
+
                 // We execute the method.
                 await this.evaluate(evaluation);
             } catch (e) {
                 evaluation.revert = e as Error;
             }
-
-            this.isProcessing = false;
 
             this.delete();
 
@@ -167,17 +151,7 @@ export class ContractEvaluator extends Logger {
                 );
             }
 
-            /*if (!evaluation.revert) {
-                for (let [contractAddress, value] of evaluation.storage) {
-                    for (let [pointer, data] of value) {
-                        console.log(
-                            `Contract: ${contractAddress} - Pointer: ${pointer} - Value: ${data}`,
-                        );
-
-                        await this.setStorage(contractAddress, pointer, data);
-                    }
-                }
-            }*/
+            this.isProcessing = false;
 
             return evaluation;
         } catch (e) {
@@ -526,7 +500,7 @@ export class ContractEvaluator extends Logger {
         return value ? BufferHelper.uint8ArrayToValue(value) : null;
     }
 
-    private async canWrite(abi: Selector): Promise<boolean> {
+    /*private async canWrite(abi: Selector): Promise<boolean> {
         if (!this.writeMethods) {
             this.writeMethods = await this.getWriteMethodABI();
         }
@@ -543,7 +517,7 @@ export class ContractEvaluator extends Logger {
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readViewSelectorsMap();
-    }
+    }*/
 
     private async getMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
@@ -556,7 +530,7 @@ export class ContractEvaluator extends Logger {
         return abiDecoder.readMethodSelectorsMap();
     }
 
-    private async getWriteMethodABI(): Promise<MethodMap> {
+    /*private async getWriteMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized [getWriteMethodABI]');
         }
@@ -565,5 +539,5 @@ export class ContractEvaluator extends Logger {
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readMethodSelectorsMap();
-    }
+    }*/
 }

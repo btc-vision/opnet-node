@@ -3,12 +3,12 @@ import {
     BlockHeaderChecksumProof,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { VMStorage } from './storage/VMStorage.js';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import {BufferHelper} from "@btc-vision/bsi-binary";
-import {ChecksumMerkle} from "../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js";
+import { BufferHelper } from '@btc-vision/bsi-binary';
+import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
+import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 
 export class BlockHeaderValidator extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -30,7 +30,13 @@ export class BlockHeaderValidator extends Logger {
         this.cachedBlockHeader.clear();
     }
 
-    public async getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined> {
+    /**
+     * Returns null if the block is before the enabled block.
+     * @param height
+     */
+    public async getBlockHeader(
+        height: bigint,
+    ): Promise<BlockHeaderBlockDocument | null | undefined> {
         if (this.cachedBlockHeader.has(height)) {
             return this.cachedBlockHeader.get(height);
         }
@@ -45,21 +51,17 @@ export class BlockHeaderValidator extends Logger {
         return blockHeader;
     }
 
-    public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string | undefined> {
-        const newBlockHeight: bigint = height - 1n;
-        if (newBlockHeight < BigInt(this.config.OP_NET.ENABLED_AT_BLOCK)) {
+    public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string> {
+        const newHeight: bigint = height - 1n;
+        if (newHeight < BigInt(this.config.OP_NET.ENABLED_AT_BLOCK)) {
             return ZERO_HASH;
         }
 
-        const blockRootStates: BlockHeaderBlockDocument | undefined =
-            await this.getBlockHeader(newBlockHeight);
+        const blockRootStates: BlockHeaderBlockDocument | undefined | null =
+            await this.getBlockHeader(newHeight);
 
-        if (!blockRootStates) {
-            return;
-        }
-
-        if (!blockRootStates.checksumRoot) {
-            throw new Error('Invalid previous block checksum.');
+        if (!blockRootStates || !blockRootStates.checksumRoot) {
+            throw new Error('Invalid previous block checksum. Block not found.');
         }
 
         return blockRootStates.checksumRoot;

@@ -28,16 +28,45 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 1_000_000, // Cap to 1M bytes.
     },
 
-    TRANSACTIONS: {
-        /** Transactions related properties */
-        MAX_GAS: 300_000_000_000n,
+    GAS: {
+        /** Target block gas limit, a transaction can not pass this limit. */
+        TARGET_GAS: 300_000_000_000n, //100_000_000n,
+
+        /**
+         * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
+         * Can overflow up to the value set to TARGET_GAS.
+         */
+        MAX_THEORETICAL_GAS: 1_000_000_000_000n,
 
         /** btc_call maximum gas */
         EMULATION_MAX_GAS: 15_000_000_000n,
 
-        /** Converts satoshi to BTC */
-        SAT_TO_GAS_RATIO: 1_000_000n, //10_416_666n,
+        /** Panic gas cost */
+        PANIC_GAS_COST: 1_000_000n,
 
+        /** Converts satoshi to BTC */
+        SAT_TO_GAS_RATIO: 1_000_000n,
+
+        /** Minimum base gas, sat/gas unit */
+        MIN_BASE_GAS: 1.0,
+
+        /** Smoothing factor for EMA */
+        SMOOTHING_FACTOR: 0.33333333,
+
+        /** Adjustment factor when G_t > G_targetBlock */
+        ALPHA1: 0.5,
+
+        /** Adjustment factor when G_t <= G_targetBlock */
+        ALPHA2: 0.8,
+
+        /** Maximum adjustment rate per block */
+        DELTA_MAX: 0.5, // +-50%
+
+        /** Target utilization ratio */
+        U_TARGET: 1.0,
+    },
+
+    TRANSACTIONS: {
         /** The maximum size of a receipt in bytes */
         MAXIMUM_RECEIPT_LENGTH: 128,
 

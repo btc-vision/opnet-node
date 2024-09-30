@@ -65,6 +65,8 @@ export class BlockIndexer extends Logger {
     private indexingTasks: IndexingTask[] = [];
     private taskInProgress: boolean = false;
 
+    private processedBlocks: number = 0;
+
     constructor() {
         super();
 
@@ -413,7 +415,9 @@ export class BlockIndexer extends Logger {
 
         task.destroy();
 
-        this.vmManager.blockHeaderValidator.setLastBlockHeader(processedBlock.getBlockHeaderDocument());
+        this.vmManager.blockHeaderValidator.setLastBlockHeader(
+            processedBlock.getBlockHeaderDocument(),
+        );
 
         // Release task.
         this.currentTask = undefined;
@@ -422,11 +426,17 @@ export class BlockIndexer extends Logger {
             throw new Error('Database corrupted. Two tasks are running at the same time.');
         }
 
-        if (!Config.DEV.PROCESS_ONLY_ONE_BLOCK) {
-            this.taskInProgress = false;
+        if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
+            this.processedBlocks++;
 
-            this.startTasks();
+            if (this.processedBlocks >= Config.DEV.PROCESS_ONLY_X_BLOCK) {
+                return;
+            }
         }
+
+        this.taskInProgress = false;
+
+        this.startTasks();
     }
 
     private async awaitTaskCompletion(): Promise<void> {
@@ -463,9 +473,8 @@ export class BlockIndexer extends Logger {
 
             const newHeight = this.chainObserver.pendingBlockHeight - 1n;
             if (newHeight <= 0n) {
-                throw new Error(
-                    `[processNextTask] Block height must be greater than 0. Was ${newHeight}.`,
-                );
+                this.panic(`Please resync the chain from scratch. Something went terribly wrong.`);
+                return;
             }
 
             await this.revertChain(

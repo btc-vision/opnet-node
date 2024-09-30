@@ -111,8 +111,6 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
             height: blockHeader.height,
         };
 
-        //console.log('Saving block header', blockHeader, criteria);
-
         await this.updatePartial(criteria, blockHeader, currentSession);
     }
 

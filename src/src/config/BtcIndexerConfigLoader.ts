@@ -53,11 +53,12 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         DEV: {
-            PROCESS_ONLY_ONE_BLOCK: false,
+            PROCESS_ONLY_X_BLOCK: 0,
             DEBUG_TRANSACTION_FAILURE: false,
             DEBUG_TRANSACTION_PARSE_FAILURE: false,
             CAUSE_FETCHING_FAILURE: false,
             DISPLAY_VALID_BLOCK_WITNESS: false,
+            DISPLAY_INVALID_BLOCK_WITNESS: true,
             SAVE_TIMEOUTS_TO_FILE: false,
         },
 
@@ -107,7 +108,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             MAXIMUM_TRANSACTION_BROADCAST: 50,
             MAXIMUM_PENDING_CALL_REQUESTS: 100,
 
-            UTXO_LIMIT: 500
+            UTXO_LIMIT: 500,
         },
 
         POA: {
@@ -648,16 +649,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 );
             }
 
-            if(
-                parsedConfig.API.UTXO_LIMIT &&
-                typeof parsedConfig.API.UTXO_LIMIT !== 'number'
-            ) {
-                throw new Error(
-                    `Oops the property API.UTXO_LIMIT is not a number.`,
-                );
+            if (parsedConfig.API.UTXO_LIMIT && typeof parsedConfig.API.UTXO_LIMIT !== 'number') {
+                throw new Error(`Oops the property API.UTXO_LIMIT is not a number.`);
             }
 
-            if(
+            if (
                 parsedConfig.API.MAXIMUM_REQUESTS_PER_BATCH &&
                 typeof parsedConfig.API.MAXIMUM_REQUESTS_PER_BATCH !== 'number'
             ) {
@@ -666,22 +662,17 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 );
             }
 
-            if(
-                parsedConfig.API.THREADS &&
-                typeof parsedConfig.API.THREADS !== 'number'
-            ) {
-                throw new Error(
-                    `Oops the property API.THREADS is not a number.`,
-                );
+            if (parsedConfig.API.THREADS && typeof parsedConfig.API.THREADS !== 'number') {
+                throw new Error(`Oops the property API.THREADS is not a number.`);
             }
         }
 
         if (parsedConfig.DEV) {
             if (
-                parsedConfig.DEV.PROCESS_ONLY_ONE_BLOCK !== undefined &&
-                typeof parsedConfig.DEV.PROCESS_ONLY_ONE_BLOCK !== 'boolean'
+                parsedConfig.DEV.PROCESS_ONLY_X_BLOCK !== undefined &&
+                typeof parsedConfig.DEV.PROCESS_ONLY_X_BLOCK !== 'number'
             ) {
-                throw new Error(`Oops the property DEV.PROCESS_ONLY_ONE_BLOCK is not a boolean.`);
+                throw new Error(`Oops the property DEV.PROCESS_ONLY_X_BLOCK is not a number.`);
             }
 
             if (
@@ -715,6 +706,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(
                     `Oops the property DEV.DISPLAY_VALID_BLOCK_WITNESS is not a boolean.`,
+                );
+            }
+
+            if (
+                parsedConfig.DEV.DISPLAY_INVALID_BLOCK_WITNESS !== undefined &&
+                typeof parsedConfig.DEV.DISPLAY_INVALID_BLOCK_WITNESS !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property DEV.DISPLAY_INVALID_BLOCK_WITNESS is not a boolean.`,
                 );
             }
 

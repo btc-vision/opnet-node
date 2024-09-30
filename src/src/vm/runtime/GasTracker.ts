@@ -1,14 +1,12 @@
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 
 export class GasTracker {
-    public static readonly MAX_GAS: bigint = 300_000_000_000n; // Max gas allowed for a contract execution
-
     #gasUsed: bigint = 0n;
     #maxGas: bigint;
 
     #startedAt: number = Date.now();
 
-    constructor(private readonly MAX_GAS: bigint = GasTracker.MAX_GAS) {
+    constructor(private readonly MAX_GAS: bigint) {
         this.#maxGas = MAX_GAS;
     }
 
@@ -25,7 +23,10 @@ export class GasTracker {
     }
 
     public set maxGas(maxGas: bigint) {
-        this.#maxGas = maxGas < GasTracker.MAX_GAS ? maxGas : GasTracker.MAX_GAS;
+        this.#maxGas =
+            maxGas < OPNetConsensus.consensus.GAS.TARGET_GAS
+                ? maxGas
+                : OPNetConsensus.consensus.GAS.TARGET_GAS;
     }
 
     public get timeSpent(): bigint {
@@ -40,9 +41,9 @@ export class GasTracker {
     // round up to 10000000
     public static round(gasUsed: bigint) {
         return (
-            ((gasUsed + (OPNetConsensus.consensus.TRANSACTIONS.SAT_TO_GAS_RATIO - 1n)) /
-                OPNetConsensus.consensus.TRANSACTIONS.SAT_TO_GAS_RATIO) *
-            OPNetConsensus.consensus.TRANSACTIONS.SAT_TO_GAS_RATIO
+            ((gasUsed + (OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO - 1n)) /
+                OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO) *
+            OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO
         );
     }
 

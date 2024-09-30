@@ -23,33 +23,63 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly IS_READY_FOR_NEXT_CONSENSUS: boolean;
     };
 
-    readonly TRANSACTIONS: {
-        /** Transactions related properties */
-        MAX_GAS: bigint;
+    /** Transactions related properties */
+    readonly GAS: {
+        /** Target block gas limit */
+        readonly TARGET_GAS: bigint;
+
+        /**
+         * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
+         * Can overflow up to the value set to TARGET_GAS.
+         */
+        readonly MAX_THEORETICAL_GAS: bigint;
 
         /** btc_call maximum gas */
-        EMULATION_MAX_GAS: bigint;
+        readonly EMULATION_MAX_GAS: bigint;
+
+        /** Panic gas cost */
+        readonly PANIC_GAS_COST: bigint;
 
         /** Converts satoshi to BTC */
-        SAT_TO_GAS_RATIO: bigint;
+        readonly SAT_TO_GAS_RATIO: bigint;
 
+        /** Minimum base gas, sat/gas unit */
+        readonly MIN_BASE_GAS: number;
+
+        /** Smoothing factor for EMA */
+        readonly SMOOTHING_FACTOR: number;
+
+        /** Adjustment factor when G_t > G_targetBlock */
+        readonly ALPHA1: number;
+
+        /** Adjustment factor when G_t <= G_targetBlock */
+        readonly ALPHA2: number;
+
+        /** Maximum adjustment rate per block */
+        readonly DELTA_MAX: number;
+
+        /** Target utilization ratio */
+        readonly U_TARGET: number;
+    };
+
+    readonly TRANSACTIONS: {
         /** The maximum size of a receipt in bytes */
-        MAXIMUM_RECEIPT_LENGTH: number;
+        readonly MAXIMUM_RECEIPT_LENGTH: number;
 
         /** The maximum size of an event in bytes */
-        MAXIMUM_EVENT_LENGTH: number;
+        readonly MAXIMUM_EVENT_LENGTH: number;
 
         /** The maximum amount of contract a transaction can deploy */
-        MAXIMUM_DEPLOYMENT_DEPTH: number;
+        readonly MAXIMUM_DEPLOYMENT_DEPTH: number;
 
         /** The maximum amount of calls possible in a transaction */
-        MAXIMUM_CALL_DEPTH: number;
+        readonly MAXIMUM_CALL_DEPTH: number;
 
         /** The cost of a byte in gas */
-        STORAGE_COST_PER_BYTE: bigint;
+        readonly STORAGE_COST_PER_BYTE: bigint;
 
         /** Skip proof validation for execution before transaction */
-        SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: boolean;
+        readonly SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: boolean;
     };
 
     readonly NETWORK: {

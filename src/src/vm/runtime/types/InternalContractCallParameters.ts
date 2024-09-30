@@ -57,7 +57,3 @@ export interface ExecutionParameters {
 
     readonly storage: BlockchainStorage;
 }
-
-export interface IEvaluationParameters extends ExecutionParameters {
-    readonly canWrite: boolean;
-}

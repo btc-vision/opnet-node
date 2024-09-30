@@ -210,7 +210,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         }
 
         const result: string = Buffer.from(data.result).toString('base64');
-        const accessList: AccessList = this.getAccessList(data.changedStorage);
+        const accessList: AccessList = data.changedStorage
+            ? this.getAccessList(data.changedStorage)
+            : {};
 
         return {
             result: result,

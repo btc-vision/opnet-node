@@ -920,6 +920,8 @@ export class VMMongoStorage extends VMStorage {
             medianTime: blockHeader.medianTime.getTime(),
             previousBlockChecksum: blockHeader.previousBlockChecksum,
             checksumRoot: blockHeader.checksumRoot,
+            ema: blockHeader.ema.toString(),
+            baseGas: blockHeader.baseGas.toString(),
         };
     }
 

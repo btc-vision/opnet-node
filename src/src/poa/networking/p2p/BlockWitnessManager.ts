@@ -28,6 +28,7 @@ import {
 } from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
+import { ZERO_HASH } from '../../../blockchain-indexer/processor/block/types/ZeroValue.js';
 
 interface ValidWitnesses {
     validTrustedWitnesses: OPNetBlockWitness[];
@@ -258,7 +259,7 @@ export class BlockWitnessManager extends Logger {
         return (await this.requestRPCData(message)) as ValidatedBlockHeader | undefined;
     }
 
-    private removeKnownTrustedWitnesses(
+    private filterWitnesses(
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): IBlockHeaderWitness {
@@ -288,7 +289,7 @@ export class BlockWitnessManager extends Logger {
             return; // we do not process old witnesses.
         }
 
-        const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
+        const filteredBlockWitnesses = this.filterWitnesses(blockNumber, blockWitness);
         if (filteredBlockWitnesses.validatorWitnesses.length === 0) {
             return;
         }
@@ -306,16 +307,7 @@ export class BlockWitnessManager extends Logger {
         }
 
         const receivedBlockHeader = blockDataAtHeight.storedBlockHeader;
-        if (!receivedBlockHeader) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
-                this.fail(
-                    `Failed to get block header data at height ${blockNumber.toString()}. (DATA INTEGRITY ERROR)`,
-                );
-            }
-            return;
-        }
-
-        const checksumHash = receivedBlockHeader.checksumRoot;
+        const checksumHash = receivedBlockHeader?.checksumRoot || ZERO_HASH;
         if (checksumHash !== blockWitness.checksumHash) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
                 this.fail(
@@ -346,7 +338,7 @@ export class BlockWitnessManager extends Logger {
         if (!validWitnesses) {
             if (
                 this.config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
-                this.config.DEV.DISPLAY_VALID_BLOCK_WITNESS
+                this.config.DEV.DISPLAY_INVALID_BLOCK_WITNESS
             ) {
                 this.fail(
                     `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
@@ -361,7 +353,7 @@ export class BlockWitnessManager extends Logger {
         if (opnetWitnesses.length + trustedWitnesses.length < 1) {
             if (
                 this.config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
-                this.config.DEV.DISPLAY_VALID_BLOCK_WITNESS
+                this.config.DEV.DISPLAY_INVALID_BLOCK_WITNESS
             ) {
                 this.fail(
                     `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()} (NO VALID WITNESSES)`,
