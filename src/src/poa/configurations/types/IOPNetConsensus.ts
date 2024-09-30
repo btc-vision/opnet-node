@@ -61,9 +61,6 @@ export interface IOPNetConsensus<T extends Consensus> {
         /** Adjustment factor when G_t <= G_targetBlock */
         readonly ALPHA2: number;
 
-        /** Maximum adjustment rate per block */
-        readonly DELTA_MAX: number;
-
         /** Target utilization ratio */
         readonly U_TARGET: number;
     };

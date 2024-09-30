@@ -16,7 +16,6 @@ export class BlockGasPredictor {
 
     private readonly alpha1: bigint; // Adjustment factor when G_t > G_targetBlock (scaled)
     private readonly alpha2: bigint; // Adjustment factor when G_t <= G_targetBlock (scaled)
-    //private readonly deltaMax: bigint; // Maximum adjustment rate per block (scaled)
     private readonly uTarget: bigint; // Target utilization ratio (scaled)
 
     private currentB: bigint; // Current base gas price (scaled)
@@ -29,7 +28,6 @@ export class BlockGasPredictor {
         smoothingFactor: number,
         alpha1: number,
         alpha2: number,
-        //deltaMax: number,
         uTarget: number,
     ) {
         this.bMin = BlockGasPredictor.toBase(bMin);
@@ -38,11 +36,19 @@ export class BlockGasPredictor {
 
         this.alpha1 = BlockGasPredictor.toBase(alpha1);
         this.alpha2 = BlockGasPredictor.toBase(alpha2);
-        //this.deltaMax = this.toBase(deltaMax);
         this.uTarget = BlockGasPredictor.toBase(uTarget);
 
         // Ensure currentB is scaled; if not provided, default to bMin
         this.currentB = currentB !== undefined && currentB > 0n ? currentB : this.bMin;
+    }
+
+    // Converts a number to a scaled bigint
+    public static toBase(value: number): bigint {
+        return BigInt(Math.round(value * Number(BlockGasPredictor.scalingFactor)));
+    }
+
+    public static toBaseBigInt(value: bigint): bigint {
+        return value * BlockGasPredictor.scalingFactor;
     }
 
     // Calculates the current utilization ratio (U_current)
@@ -75,32 +81,11 @@ export class BlockGasPredictor {
         // Step 4: Calculate Adjustment
         const adjustment = this.calculateAdjustment(emaScaled, alpha, sign);
 
-        // Step 5: Apply Rate Limiting
-        // const adjustmentLimited = this.applyRateLimiting(adjustment, sign);
-
-        // Step 6: Calculate bNext
+        // Step 5: Calculate bNext
         this.currentB = this.calculateBNext(adjustment);
 
         return { bNext: this.currentB, ema: emaScaled };
     }
-
-    // Converts a number to a scaled bigint
-    public static toBase(value: number): bigint {
-        return BigInt(Math.round(value * Number(BlockGasPredictor.scalingFactor)));
-    }
-
-    public static toBaseBigInt(value: bigint): bigint {
-        return value * BlockGasPredictor.scalingFactor;
-    }
-
-    // Applies rate limiting to the adjustment factor
-    //private applyRateLimiting(adjustment: bigint, sign: bigint): bigint {
-    //    return this.min(this.max(adjustment, this.one - this.deltaMax), this.one + this.deltaMax);
-    //}
-
-    /*private min(a: bigint, b: bigint): bigint {
-        return a < b ? a : b;
-    }*/
 
     private max(a: bigint, b: bigint): bigint {
         return a > b ? a : b;

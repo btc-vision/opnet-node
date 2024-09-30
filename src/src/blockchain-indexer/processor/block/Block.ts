@@ -800,7 +800,6 @@ export class Block extends Logger {
             OPNetConsensus.consensus.GAS.SMOOTHING_FACTOR,
             OPNetConsensus.consensus.GAS.ALPHA1,
             OPNetConsensus.consensus.GAS.ALPHA2,
-            //OPNetConsensus.consensus.GAS.DELTA_MAX,
             OPNetConsensus.consensus.GAS.U_TARGET,
         );
 
