@@ -156,9 +156,16 @@ export class IndexingTask extends Logger {
         if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
             const processEndTime = Date.now();
             const scale = BlockGasPredictor.scalingFactor / 100_000n;
+            const lightOrange = this.chalk.hex('#ffa943');
+            const pinkLog = this.chalk.hex('#e56ee5');
+
+            const gasLog = pinkLog(
+                `${(Number(this.block.baseGas / scale) / 100000).toFixed(6)}x/gas/sat (${lightOrange(`used ${this.block.gasUsed}`)})`,
+            );
+
             this.info(
                 //| GasUsed: ${this.block.gasUsed}
-                `Block ${this.tip} processed (${processEndTime - this.processedAt}ms). {Transaction(s): ${this.block.header.nTx} | Base Gas: ${(Number(this.block.baseGas / scale) / 100000).toFixed(6)}x/gas/sat (used ${this.block.gasUsed}) | Download: ${this.downloadEnd - this.downloadStart}ms | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms}`,
+                `Block ${this.tip} processed (${pinkLog(`${processEndTime - this.processedAt}ms`)}). {Transaction(s): ${pinkLog(`${this.block.header.nTx}`)} | Base Gas: ${gasLog} | Download: ${pinkLog(`${this.downloadEnd - this.downloadStart}ms`)} | Deserialize: ${pinkLog(`${this.prefetchEnd - this.prefetchStart}ms`)} | Finalize: ${pinkLog(`${this.finalizeEnd - this.finalizeBlockStart}ms`)} | Execution: ${pinkLog(`${this.block.timeForTransactionExecution}ms`)} | States: ${pinkLog(`${this.block.timeForStateUpdate}ms`)} | Processing: ${pinkLog(`${this.block.timeForBlockProcessing}ms`)} | Complete: ${pinkLog(`${processEndTime - this.finalizeEnd}ms}`)}}`,
             );
         }
     }
