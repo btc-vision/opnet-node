@@ -30,13 +30,13 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     GAS: {
         /** Target block gas limit, a transaction can not pass this limit. */
-        TARGET_GAS: 300_000_000_000n, //100_000_000n,
+        TARGET_GAS: 2_000_000_000_000n, //100_000_000n,
 
         /**
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
          */
-        MAX_THEORETICAL_GAS: 1_000_000_000_000n,
+        MAX_THEORETICAL_GAS: 28_000_000_000_000n,
 
         /** btc_call maximum gas */
         EMULATION_MAX_GAS: 15_000_000_000n,
