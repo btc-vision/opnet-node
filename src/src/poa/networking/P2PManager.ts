@@ -146,6 +146,10 @@ export class P2PManager extends Logger {
         await this.blockWitnessManager.generateBlockHeaderProof(data, isSelf);
 
         // Request block witnesses from peers.
+        if (data.blockNumber - 1n > 0n) {
+            await this.requestBlockWitnessesFromPeer(data.blockNumber - 1n);
+        }
+
         await this.requestBlockWitnessesFromPeer(data.blockNumber);
     }
 
