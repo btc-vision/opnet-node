@@ -15,14 +15,13 @@ transaction reversion due to block gas limits.
 - **$\beta$**: EMA smoothing factor ($0 < \beta < 1$).
 - **$U_{\text{current}}$**: Current block gas utilization ratio.
 - **$U_{\text{target}}$**: Target block gas utilization ratio (ideally set to 1 for full utilization).
-- **$\Delta_{\text{max}}$**: Maximum allowed adjustment factor per block to prevent extreme changes.
 - **$\text{EMA}_{\text{prev}}$**: Previous Exponential Moving Average of gas utilization.
 - **$b_{\text{min}}$**: Minimum base gas price (e.g., equivalent to 1 satoshi per gas unit).
 
 ## Algorithm Overview
 
 The algorithm adjusts the base gas price based on the gas utilization of OP_NET transactions in the current block,
-using an Exponential Moving Average (EMA) to smooth out fluctuations and applying rate limiting to prevent extreme
+using an Exponential Moving Average (EMA) to smooth out fluctuations to prevent extreme
 changes. This approach ensures stability and fairness, accommodating the lack of control over transaction inclusion and
 block gas limits.
 
@@ -32,11 +31,8 @@ The next base gas price $b_{\text{next}}$ can be expressed as:
 b_{\text{next}} = \max \left( 
     b_{\text{min}},\ 
     b_{\text{current}} \times \min \left( 
-        \max \left( 
             1 + \alpha \left( 
                 \beta \frac{G_{\text{total}}}{G_{\text{targetBlock}}} + (1 - \beta) \text{EMA}_{\text{prev}} - U_{\text{target}} 
-            \right),\ 
-            1 - \Delta_{\text{max}} 
         \right),\ 
         1 + \Delta_{\text{max}} 
     \right) 
@@ -79,23 +75,7 @@ Calculate the adjustment factor based on the EMA of utilization:
 - **$\alpha$**: Sensitivity factor for adjustment.
 - **$U_{\text{target}}$**: Target utilization ratio (usually set to 1).
 
-### 4. Apply Rate Limiting
-
-Limit the adjustment factor to prevent extreme changes:
-
-```math
-\text{Adjustment}_{\text{limited}} = \min \left(
-\max \left(
-\text{Adjustment},\
-1 - \Delta_{\text{max}}
-\right),\
-1 + \Delta_{\text{max}}
-\right)
-```
-
-- **$\Delta_{\text{max}}$**: Maximum allowed adjustment per block (e.g., 0.5 for ±50.0%).
-
-### 5. Calculate Next Base Gas Price
+### 4. Calculate Next Base Gas Price
 
 Compute the next base gas price:
 
@@ -103,7 +83,7 @@ Compute the next base gas price:
 b_{\text{next}} = b_{\text{current}} \times \text{Adjustment}_{\text{limited}}
 ```
 
-### 6. Ensure Minimum Base Gas Price
+### 5. Ensure Minimum Base Gas Price
 
 Ensure that $b_{\text{next}}$ is not below the minimum base gas price:
 
@@ -161,7 +141,6 @@ Assuming:
 - **$\text{EMA}_{\text{prev}}$**: 1.0.
 - **$\alpha$**: 0.5.
 - **$\beta$**: 0.8.
-- **$\Delta_{\text{max}}$**: 0.125.
 - **$U_{\text{target}}$**: 1.0.
 - **$b_{\text{min}}$**: 1 satoshi/gas unit.
 
@@ -185,22 +164,13 @@ U_{\text{current}} = \frac{1,200,000}{1,000,000} = 1.2
 \text{Adjustment} = 1 + 0.5 \times (1.16 - 1.0) = 1 + 0.08 = 1.08
 ```
 
-4. **Apply Rate Limiting**:
-
-```math
-\text{Adjustment}_{\text{limited}} = \min \left(
-\max \left( 1.08,\ 1 - 0.125 \right),\
-1 + 0.125
-\right) = 1.08
-```
-
-5. **Calculate $b_{\text{next}}$**:
+4. **Calculate $b_{\text{next}}$**:
 
 ```math
 b_{\text{next}} = 1 \times 1.08 = 1.08\ \text{satoshi/gas unit}
 ```
 
-6. **Ensure Minimum Base Gas Price**:
+5. **Ensure Minimum Base Gas Price**:
 
 ```math
 b_{\text{next}} = \max \left( 1.08,\ 1 \right) = 1.08\ \text{satoshi/gas unit}
