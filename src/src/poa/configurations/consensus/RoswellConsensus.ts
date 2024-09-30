@@ -93,7 +93,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     PSBT: {
-        MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: 40n,
+        MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: 5n,
     },
 
     VAULTS: {
@@ -108,7 +108,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         // User must pay for the consolidation, this help the network by having fewer UTXOs.
         VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE: 200_000n * 2n,
 
-        // Everytime an user wrap bitcoin, he prepays the fees for the consolidation at a maximum fee rate of the following determined value.
+        // Everytime a user wrap bitcoin, he prepays the fees for the consolidation at a maximum fee rate of the following determined value.
         // If the fees are lower, the user will be refunded the difference.
         // If the fees are higher, the user must pay the difference.
         UNWRAP_CONSOLIDATION_PREPAID_FEES: 250n,
