@@ -61,6 +61,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             DISPLAY_INVALID_BLOCK_WITNESS: true,
             SAVE_TIMEOUTS_TO_FILE: false,
             SIMULATE_HIGH_GAS_USAGE: false,
+            DEBUG_VALID_TRANSACTIONS: false,
         },
 
         BASE58: {},
@@ -731,6 +732,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.DEV.SIMULATE_HIGH_GAS_USAGE !== 'boolean'
             ) {
                 throw new Error(`Oops the property DEV.SIMULATE_HIGH_GAS_USAGE is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.DEV.DEBUG_VALID_TRANSACTIONS !== undefined &&
+                typeof parsedConfig.DEV.DEBUG_VALID_TRANSACTIONS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.DEBUG_VALID_TRANSACTIONS is not a boolean.`);
             }
         }
 

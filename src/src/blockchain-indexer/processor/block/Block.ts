@@ -570,7 +570,7 @@ export class Block extends Logger {
 
             this.processRevertedTx(transaction);
 
-            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
                 this.debug(
                     `Executed transaction ${transaction.txid} for contract ${transaction.contractAddress}. (Too ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
                 );
