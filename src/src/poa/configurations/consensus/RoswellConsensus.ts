@@ -51,7 +51,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MIN_BASE_GAS: 1.0,
 
         /** Smoothing factor for EMA */
-        SMOOTHING_FACTOR: 0.33333333,
+        SMOOTHING_FACTOR: 0.4,
 
         /** Adjustment factor when G_t > G_targetBlock */
         ALPHA1: 0.5,
