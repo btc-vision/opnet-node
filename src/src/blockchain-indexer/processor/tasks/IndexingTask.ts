@@ -157,7 +157,8 @@ export class IndexingTask extends Logger {
             const processEndTime = Date.now();
             const scale = BlockGasPredictor.scalingFactor / 100_000n;
             this.info(
-                `Block ${this.tip} processed (${processEndTime - this.processedAt}ms). {Transaction(s): ${this.block.header.nTx} | NextBaseGas: ${(Number(this.block.baseGas / scale) / 100000).toFixed(6)}gas/sat | GasUsed: ${this.block.gasUsed} | Download: ${this.downloadEnd - this.downloadStart}ms | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms}`,
+                //| GasUsed: ${this.block.gasUsed}
+                `Block ${this.tip} processed (${processEndTime - this.processedAt}ms). {Transaction(s): ${this.block.header.nTx} | NextBaseGas: ${(Number(this.block.baseGas / scale) / 100000).toFixed(6)}gas/sat | Download: ${this.downloadEnd - this.downloadStart}ms | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms}`,
             );
         }
     }
