@@ -33,7 +33,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         TARGET_GAS: 2_000_000_000_000n,
 
         /** Smooth out gas increase */
-        SMOOTH_OUT_GAS_INCREASE: 2_000_000_000n,
+        SMOOTH_OUT_GAS_INCREASE: 800_000_000n,
 
         /**
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
