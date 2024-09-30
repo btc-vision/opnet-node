@@ -28,7 +28,7 @@ export interface IOPNetConsensus<T extends Consensus> {
         /** Target block gas limit */
         readonly TARGET_GAS: bigint;
 
-        /** Smooth out gas increase */
+        /** Smooth out gas increase when equal to gas target. */
         readonly SMOOTH_OUT_GAS_INCREASE: bigint;
 
         /**
