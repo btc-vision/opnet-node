@@ -689,9 +689,11 @@ export class P2PManager extends Logger {
             this.startIndexing();
         }
 
-        const addresses = this.multiAddresses;
-        for (const address of addresses) {
-            this.info(`Listening on ${address.toString()}`);
+        if (this.config.DEV_MODE) {
+            const addresses = this.multiAddresses;
+            for (const address of addresses) {
+                this.info(`Listening on ${address.toString()}`);
+            }
         }
 
         this.p2pConfigurations.savePeer(this.node.peerId);
