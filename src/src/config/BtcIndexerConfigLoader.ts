@@ -60,6 +60,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             DISPLAY_VALID_BLOCK_WITNESS: false,
             DISPLAY_INVALID_BLOCK_WITNESS: true,
             SAVE_TIMEOUTS_TO_FILE: false,
+            SIMULATE_HIGH_GAS_USAGE: false,
         },
 
         BASE58: {},
@@ -723,6 +724,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.DEV.SAVE_TIMEOUTS_TO_FILE !== 'boolean'
             ) {
                 throw new Error(`Oops the property DEV.SAVE_TIMEOUTS_TO_FILE is not a boolean.`);
+            }
+
+            if (
+                !parsedConfig.DEV.SIMULATE_HIGH_GAS_USAGE &&
+                typeof parsedConfig.DEV.SIMULATE_HIGH_GAS_USAGE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.SIMULATE_HIGH_GAS_USAGE is not a boolean.`);
             }
         }
 

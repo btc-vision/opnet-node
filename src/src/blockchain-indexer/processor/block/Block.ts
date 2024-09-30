@@ -804,7 +804,9 @@ export class Block extends Logger {
             OPNetConsensus.consensus.GAS.U_TARGET,
         );
 
-        this.blockUsedGas += OPNetConsensus.consensus.GAS.TARGET_GAS - 1_000_000n;
+        if (Config.DEV.SIMULATE_HIGH_GAS_USAGE) {
+            this.blockUsedGas += OPNetConsensus.consensus.GAS.TARGET_GAS - 1_000_000n;
+        }
 
         this._predictedGas = this.blockGasPredictor.calculateNextBaseGas(
             this.blockUsedGas,

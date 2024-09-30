@@ -120,6 +120,7 @@ export interface DevConfig {
     readonly DISPLAY_VALID_BLOCK_WITNESS: boolean;
     readonly DISPLAY_INVALID_BLOCK_WITNESS: boolean;
     readonly SAVE_TIMEOUTS_TO_FILE: boolean;
+    readonly SIMULATE_HIGH_GAS_USAGE: boolean;
 }
 
 export interface Bech32Config {
