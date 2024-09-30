@@ -759,8 +759,8 @@ export class Block extends Logger {
         let prevBaseGas: bigint = BigInt(0);
 
         if (previousBlockHeaders !== null) {
-            prevEMA = BigInt(previousBlockHeaders.ema);
-            prevBaseGas = BigInt(previousBlockHeaders.baseGas);
+            prevEMA = BigInt(previousBlockHeaders.ema || 0);
+            prevBaseGas = BigInt(previousBlockHeaders.baseGas || 0);
         }
 
         this._blockGasPredictor = new BlockGasPredictor(
