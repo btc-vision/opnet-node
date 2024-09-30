@@ -11,6 +11,7 @@ import { Block, DeserializedBlock } from '../block/Block.js';
 import { Network } from 'bitcoinjs-lib';
 import { VMManager } from '../../../vm/VMManager.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
+import { BlockGasPredictor } from '../gas/BlockGasPredictor.js';
 
 export class IndexingTask extends Logger {
     public readonly logColor: string = '#9545c5';
@@ -154,8 +155,9 @@ export class IndexingTask extends Logger {
 
         if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
             const processEndTime = Date.now();
+            const scale = BlockGasPredictor.scalingFactor / 100_000n;
             this.info(
-                `Block ${this.tip} processed successfully. {Transaction(s): ${this.block.header.nTx} | NextBaseGas: ${this.block.baseGas} | GasUsed: ${this.block.gasUsed} | Download: ${this.downloadEnd - this.downloadStart}ms | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms | Took: ${processEndTime - this.processedAt}ms}`,
+                `Block ${this.tip} processed (${processEndTime - this.processedAt}ms). {Transaction(s): ${this.block.header.nTx} | NextBaseGas: ${(Number(this.block.baseGas / scale) / 100000).toFixed(6)}gas/sat | GasUsed: ${this.block.gasUsed} | Download: ${this.downloadEnd - this.downloadStart}ms | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms}`,
             );
         }
     }
