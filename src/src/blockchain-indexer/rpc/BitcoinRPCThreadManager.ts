@@ -10,36 +10,26 @@ import { ThreadManager } from '../../threading/manager/ThreadManager.js';
 import { ThreadTypes } from '../../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../../threading/Threader.js';
 
-export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_RPC> {
+export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.RPC> {
     public readonly logColor: string = '#bc00fa';
 
-    protected readonly threadManager: Threader<ThreadTypes.BITCOIN_RPC> = new Threader(
-        ThreadTypes.BITCOIN_RPC,
-    );
+    protected readonly threadManager: Threader<ThreadTypes.RPC> = new Threader(ThreadTypes.RPC);
 
     constructor() {
         super();
 
-        void this.init();
-    }
-
-    public sendLinkToZeroMQThread(_message: LinkThreadMessage<LinkType>): void {
-        throw new Error('Method not implemented.');
-    }
-
-    public sendMessageToZeroMQThread(_message: LinkThreadRequestMessage): void {
-        throw new Error('Method not implemented.');
+        this.init();
     }
 
     public onGlobalMessage(_msg: ThreadMessageBase<MessageType>, _thread: Worker): Promise<void> {
         throw new Error('Method not implemented.');
     }
 
-    protected async sendLinkToThreadsOfType(
+    protected sendLinkToThreadsOfType(
         _threadType: ThreadTypes,
         _threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean> {
+    ): boolean {
         const targetThreadType = message.data.targetThreadType;
 
         switch (targetThreadType) {
@@ -49,25 +39,26 @@ export class BitcoinRPCThreadManager extends ThreadManager<ThreadTypes.BITCOIN_R
         }
     }
 
-    protected async sendLinkMessageToThreadOfType(
+    protected sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
-        message: LinkThreadRequestMessage,
-    ): Promise<boolean> {
+        _message: LinkThreadRequestMessage,
+    ): boolean {
         switch (threadType) {
-            case ThreadTypes.ZERO_MQ: {
-                this.sendMessageToZeroMQThread(message);
-                return true;
-            }
             default: {
                 return false;
             }
         }
     }
 
+    protected onExitRequested(): void {
+        this.threadManager.sendToAllThreads({
+            type: MessageType.EXIT_THREAD,
+        });
+    }
+
     protected async createLinkBetweenThreads(): Promise<void> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
-        //await this.threadManager.createLinkBetweenThreads(ThreadTypes.ZERO_MQ);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }
 }

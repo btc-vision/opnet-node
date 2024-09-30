@@ -1,27 +1,21 @@
 import { Address } from '@btc-vision/bsi-binary';
-import { ScriptPubKey } from '@btc-vision/bsi-bitcoin-rpc';
-import { Decimal128, Document } from 'mongodb';
+import { Document } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 
-export interface UTXOSOutputTransactionFromDB {
-    readonly transactionId: string;
-    readonly outputIndex: number;
-    readonly value: Decimal128;
-    readonly scriptPubKey: ScriptPubKey;
-}
-
 export class UTXOsAggregation extends Aggregation {
-    constructor() {
-        super();
-    }
+    public getAggregation(
+        wallet: Address,
+        limit: boolean = true,
+        optimize: boolean = false,
+    ): Document[] {
+        const minValue: number = optimize ? 20000 : 330;
 
-    public getAggregation(wallet: Address, limit: boolean = true): Document[] {
         const aggregation: Document[] = [
             {
                 $match: {
                     'outputs.scriptPubKey.address': wallet,
                     'outputs.value': {
-                        $gte: 330,
+                        $gte: minValue,
                     },
                 },
             },
@@ -37,7 +31,7 @@ export class UTXOsAggregation extends Aggregation {
                                         $eq: ['$$output.scriptPubKey.address', wallet],
                                     },
                                     {
-                                        $gte: ['$$output.value', 330],
+                                        $gte: ['$$output.value', minValue],
                                     },
                                 ],
                             },

@@ -19,17 +19,13 @@ Smart Inscription (BSI) Indexer, an essential component of a decentralized syste
 manage and execute smart contracts on the Bitcoin blockchain. The BSI-Indexer plays a critical role in maintaining the
 integrity and functionality of Wrapped Bitcoin (WBTC) transactions.
 
-## Repository Contents
+## Getting Started
 
-- **src/**: Source code of the BSI-Indexer, including core functionality and integration modules.
-- **docs/**: Comprehensive documentation, setup guides, and API specifications.
-- **tests/**: Test scripts and testing frameworks to ensure the stability and reliability of the indexer.
-- **examples/**: Sample code and practical examples for developers looking to integrate or build upon the BSI-Indexer.
-- **scripts/**: Utility scripts for deployment, maintenance, and operational tasks.
+To get started with the indexer, follow these setup instructions:
 
 ## Features
 
-- **Smart Inscription Execution**: Execution of smart contracts through the WASM VM, handling sophisticated logic and
+- **Contract Execution**: Execution of smart contracts through the OP-VM, handling sophisticated logic and
   state changes.
 - **State Management and Proofs**: Robust management of contract states, including computing and validating state
   changes using Merkle proofs.
@@ -37,22 +33,30 @@ integrity and functionality of Wrapped Bitcoin (WBTC) transactions.
   contract states and transaction outcomes.
 - **Recovery and Reversion**: Capabilities to revert states or initiate full rescans in the event of discrepancies or
   blockchain reorganizations.
-- **Validator-Based Governance**: Integration with Proof of Authority (PoA) to ensure trusted and reliable network
-  governance by verified validators.
+- **WBTC Validator-Based Governance**: Integration with Proof of Authority (PoA) to ensure trusted and reliable network
+  governance by verified validators. This will be in place until PoS is implemented.
+- **Decentralized Network**: OP_NET is a decentralized network that leverages the Bitcoin blockchain for security and
+  immutability. Proofs and state changes are validated by a decentralized network of validators which anyone can join.
+  Proof of Stake (PoS) will be implemented in the future.
 
-## Getting Started
+### Installation (Quick)
 
-To get started with the indexer, follow these setup instructions:
+OP_NET provides an automated setup script for quick installation. To use the script, run the following command:
+
+```bash
+curl -fsSL https://autosetup.opnet.org/autoconfig.sh -o autoconfig.sh && sudo -E bash autoconfig.sh
+```
 
 ### Prerequisites
 
-- Node.js version 20.x or higher, we recommend using node 21.x.
+- Node.js version 20.x or higher, we recommend using node 21.x. Do not use node js 22.x as it is unstable and cause
+  crashes.
 - npm (Node Package Manager)
 - Bitcoin Node (Latest version)
 - MongoDB (Latest version)
 - Rust (cargo), this is required to run the wasm vm.
 
-### Installation
+### Installation (Dev)
 
 1. Clone the repository:
    ```bash
@@ -87,11 +91,27 @@ To get started with the indexer, follow these setup instructions:
    npm start
    ```
 
+## Repository Contents
+
+- **src/**: Source code of the BSI-Indexer, including core functionality and integration modules.
+- **docs/**: Comprehensive documentation, setup guides, and API specifications.
+- **tests/**: Test scripts and testing frameworks to ensure the stability and reliability of the indexer.
+- **examples/**: Sample code and practical examples for developers looking to integrate or build upon the BSI-Indexer.
+- **scripts/**: Utility scripts for deployment, maintenance, and operational tasks.
+
 ## Configuration
 
 Before launching the indexer, configure the environment variables and settings according to your deployment environment.
 Sample configuration files can be found in the `config/` directory. Adjust the settings for network endpoints, security
 parameters, and operational modes as needed.
+
+## Potential Issues
+
+If you have Python 3.12 installed, you will run into issues. You must run install setup-tools before doing `npm i`.
+
+```bash
+py -3 -m pip install setuptools
+```
 
 ## License
 

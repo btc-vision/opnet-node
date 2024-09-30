@@ -6,7 +6,6 @@ import { NodeInfo, PeerId } from '@libp2p/interface';
 import { FaultTolerance } from '@libp2p/interface-transport';
 import { KadDHTInit } from '@libp2p/kad-dht';
 import { MulticastDNSInit } from '@libp2p/mdns/dist/src/mdns.js';
-import { MplexInit } from '@libp2p/mplex';
 import { createFromJSON } from '@libp2p/peer-id-factory';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { TCPOptions } from '@libp2p/tcp';
@@ -24,7 +23,7 @@ import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { PeerToPeerMethod } from '../../config/interfaces/PeerToPeerMethod.js';
 import { OPNetPathFinder } from '../identity/OPNetPathFinder.js';
 import { BootstrapNodes } from './BootstrapNodes.js';
-import { P2PVersion } from './P2PVersion.js';
+import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 
 interface BackedUpPeer {
     id: string;
@@ -82,36 +81,6 @@ export class P2PConfigurations extends OPNetPathFinder {
         };
     }
 
-    public get mplexConfiguration(): MplexInit {
-        return {
-            /**
-             * The total number of inbound protocol streams that can be opened on a given connection
-             */
-            maxInboundStreams: this.config.P2P.MAXIMUM_INBOUND_STREAMS,
-
-            /**
-             * The total number of outbound protocol streams that can be opened on a given connection
-             */
-            maxOutboundStreams: this.config.P2P.MAXIMUM_OUTBOUND_STREAMS,
-
-            /**
-             * How much incoming data in bytes to buffer while attempting to parse messages - peers sending many small messages in batches may cause this buffer to grow
-             */
-            maxUnprocessedMessageQueueSize: 100,
-
-            /**
-             * How much message data in bytes to buffer after parsing - slow stream consumers may cause this buffer to grow
-             */
-            maxStreamBufferSize: P2PConfigurations.maxMessageSize,
-
-            /**
-             * Mplex does not support backpressure so to protect ourselves, if `maxInboundStreams` is
-             * hit and the remote opens more than this many streams per second, close the connection
-             */
-            disconnectThreshold: 15,
-        };
-    }
-
     public get listeningConfiguration(): AddressManagerInit {
         const listenAt: string[] = [];
         const port = this.config.P2P.P2P_PORT ?? 0;
@@ -121,8 +90,8 @@ export class P2PConfigurations extends OPNetPathFinder {
         listenAt.push(`/ip4/${host}/${protocol}/${port}`);
 
         if (this.config.P2P.ENABLE_IPV6) {
-            let host = this.config.P2P.P2P_HOST_V6 ?? '::';
-            let port = this.config.P2P.P2P_PORT_V6 ?? 0;
+            const host = this.config.P2P.P2P_HOST_V6 ?? '::';
+            const port = this.config.P2P.P2P_PORT_V6 ?? 0;
 
             listenAt.push(`/ip6/${host}/${protocol}/${port}`);
         }
@@ -209,7 +178,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get identifyConfiguration(): IdentifyInit {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
-            agentVersion: P2PVersion,
+            agentVersion: P2PMajorVersion,
             timeout: 8000,
             maxInboundStreams: 4,
             maxOutboundStreams: 4,
@@ -218,7 +187,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     public get protocol(): string {
-        return `${P2PConfigurations.protocolName}/op/${P2PVersion}`;
+        return `${P2PConfigurations.protocolName}/op/${P2PMajorVersion}`;
     }
 
     public async peerIdConfigurations(): Promise<PeerId | undefined> {
@@ -269,14 +238,14 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     private getDefaultBootstrapNodes(): string[] {
         const bootstrapNodes =
-            BootstrapNodes[this.config.OP_NET.CHAIN_ID]?.[this.config.BLOCKCHAIN.BITCOIND_NETWORK];
+            BootstrapNodes[this.config.BITCOIN.CHAIN_ID]?.[this.config.BITCOIN.NETWORK];
 
         if (bootstrapNodes) {
             return bootstrapNodes;
         }
 
         console.warn(
-            `!!! --- No bootstrap nodes found for chain ${this.config.OP_NET.CHAIN_ID} and network ${this.config.BLOCKCHAIN.BITCOIND_NETWORK} --- !!!`,
+            `!!! --- No bootstrap nodes found for chain ${this.config.BITCOIN.CHAIN_ID} and network ${this.config.BITCOIN.NETWORK} --- !!!`,
         );
 
         return [];
@@ -295,7 +264,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             const lastPeerIdentity = fs.readFileSync(this.peerFilePath());
             const decrypted = this.decryptToString(new Uint8Array(lastPeerIdentity));
 
-            return JSON.parse(decrypted);
+            return JSON.parse(decrypted) as BackedUpPeer;
         } catch (e) {
             const error = e as Error;
             if (error.message.includes('no such file or directory')) {

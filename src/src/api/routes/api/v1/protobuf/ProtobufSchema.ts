@@ -7,16 +7,20 @@ import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/bl
 import { Schema } from '../../../../protobuf/Schema.js';
 import { Route } from '../../../Route.js';
 
-export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA, JSONRpcMethods, string | null> {
+export class ProtobufSchema extends Route<
+    Routes.PROTOBUF_SCHEMA,
+    JSONRpcMethods,
+    string | undefined
+> {
     constructor() {
         super(Routes.PROTOBUF_SCHEMA, RouteType.GET);
     }
 
-    public getData(): string | null {
-        return Schema.schema || null;
+    public getData(): string | undefined {
+        return Schema.schema || undefined;
     }
 
-    public async getDataRPC(_params: BlockByIdParams): Promise<{} | undefined> {
+    public getDataRPC(_params: BlockByIdParams): object | undefined {
         throw new Error('Method not implemented.');
     }
 
@@ -34,8 +38,8 @@ export class ProtobufSchema extends Route<Routes.PROTOBUF_SCHEMA, JSONRpcMethods
      * @response default - Unexpected error
      * @responseContent {string} 200.plain/text
      */
-    protected onRequest(_req: Request, res: Response, _next?: MiddlewareNext): void {
-        let response: string | null = this.getData();
+    protected onRequest(_req: Request, res: Response, _next?: MiddlewareNext): undefined {
+        const response: string | undefined = this.getData();
 
         if (response === null || !response) {
             res.status(404);

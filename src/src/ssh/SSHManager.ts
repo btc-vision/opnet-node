@@ -25,11 +25,11 @@ export class SSHThreadManager extends ThreadManager<ThreadTypes.SSH> {
         throw new Error('Method not implemented.');
     }
 
-    protected async sendLinkToThreadsOfType(
+    protected sendLinkToThreadsOfType(
         _threadType: ThreadTypes,
         _threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean> {
+    ): boolean {
         const targetThreadType = message.data.targetThreadType;
 
         switch (targetThreadType) {
@@ -39,10 +39,10 @@ export class SSHThreadManager extends ThreadManager<ThreadTypes.SSH> {
         }
     }
 
-    protected async sendLinkMessageToThreadOfType(
+    protected sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,
-    ): Promise<boolean> {
+    ): Promise<boolean> | boolean {
         switch (threadType) {
             default: {
                 return false;
@@ -50,15 +50,21 @@ export class SSHThreadManager extends ThreadManager<ThreadTypes.SSH> {
         }
     }
 
+    protected onExitRequested(): Promise<void> | void {
+        this.threadManager.sendToAllThreads({
+            type: MessageType.EXIT_THREAD,
+        });
+    }
+
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.BITCOIN_INDEXER);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
     }
 
     private async createAllThreads(): Promise<void> {
-        await this.init();
+        this.init();
 
         await this.threadManager.createThreads();
     }

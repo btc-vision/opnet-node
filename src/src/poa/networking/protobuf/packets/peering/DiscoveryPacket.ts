@@ -13,7 +13,7 @@ export class DiscoverPacket extends Packet<IDiscover, IDiscover, IDiscover> {
 
     protected readonly opcode: ServerInBound = ServerInBound.DISCOVER;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

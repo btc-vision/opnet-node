@@ -24,9 +24,9 @@ export class WrapTransactionGenerator extends Logger {
         super();
     }
 
-    public async generateWrapParameters(
+    public generateWrapParameters(
         params: WrapTransactionParameters,
-    ): Promise<WrappedGenerationResult | undefined> {
+    ): WrappedGenerationResult | undefined {
         const trustedValidators: TrustedPublicKeysWithConstraints =
             this.currentAuthority.trustedPublicKeysRespectingConstraints;
 
@@ -81,7 +81,7 @@ export class WrapTransactionGenerator extends Logger {
             Buffer.from(vault, 'utf-8'),
         ]);
     }
-    
+
     private generateVaultAddress(keys: Buffer[], minimumSignatureRequired: number): string {
         return P2TR_MS.generateMultiSigAddress(keys, minimumSignatureRequired, this.network);
     }

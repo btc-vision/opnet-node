@@ -8,7 +8,7 @@ export class UsedWbtcUxtoRepository extends BaseRepository<IUsedWBTCUTXODocument
 
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 

@@ -1,8 +1,0 @@
-export enum BitcoinZeroMQTopic {
-    HASHTX = 'HASHTX',
-    RAWTX = 'RAWTX',
-    HASHBLOCK = 'HASHBLOCK',
-    RAWBLOCK = 'RAWBLOCK',
-    SEQUENCE = 'SEQUENCE',
-    EVERYTHING = 'EVERYTHING',
-}

@@ -28,15 +28,15 @@ export class MempoolThread extends Thread<ThreadTypes.MEMPOOL> {
     protected async onLinkMessage(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<void | ThreadData> {
+    ): Promise<undefined | ThreadData> {
         switch (type) {
-            case ThreadTypes.BITCOIN_INDEXER: {
+            case ThreadTypes.INDEXER: {
                 return await this.handleRequest(m);
             }
             case ThreadTypes.API: {
                 return await this.handleRequest(m);
             }
-            case ThreadTypes.PoA: {
+            case ThreadTypes.POA: {
                 return await this.handleRequest(m);
             }
             default: {

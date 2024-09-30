@@ -18,7 +18,7 @@ export class TransactionPacket extends Packet<
 
     protected readonly opcode: CommonPackets = CommonPackets.BROADCAST_TRANSACTION;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

@@ -24,8 +24,8 @@ export class TransactionFactory {
     }
 
     protected getTransactionType(data: TransactionData): TransactionInformation {
-        for (let _transactionType in PossibleOpNetTransactions) {
-            const transactionType = _transactionType as unknown as OPNetTransactionTypes;
+        for (const _transactionType in PossibleOpNetTransactions) {
+            const transactionType = _transactionType as OPNetTransactionTypes;
 
             // We filter out the generic transaction type
             if (transactionType === this.genericTransactionType) {

@@ -48,7 +48,7 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
         await this.threadManager.createThreads();
     }
 
-    protected async init(): Promise<void> {
+    protected init(): void {
         this.threadManager.onGlobalMessage = this.onGlobalMessage.bind(this);
         this.threadManager.sendLinkToThreadsOfType = this.sendLinkToThreadsOfType.bind(this);
         this.threadManager.sendLinkMessageToThreadOfType =
@@ -56,28 +56,31 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
 
         this.listenParentManager();
 
+        // TODO: We must fix this. It's a temporary solution. The problem is that if we dont wait, some link might not be created.
         setTimeout(async () => {
             await this.createLinkBetweenThreads();
-        }, 3000);
+        }, 6000);
     }
 
-    protected abstract createLinkBetweenThreads(): Promise<void>;
+    protected abstract createLinkBetweenThreads(): Promise<void> | void;
 
     protected abstract sendLinkToThreadsOfType(
         threadType: ThreadTypes,
         threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean>;
+    ): Promise<boolean> | boolean;
 
     protected abstract sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         message: LinkThreadRequestMessage,
-    ): Promise<boolean>;
+    ): Promise<boolean> | boolean;
 
     protected abstract onGlobalMessage(
         msg: ThreadMessageBase<MessageType>,
         thread: Worker,
-    ): Promise<void>;
+    ): Promise<void> | void;
+
+    protected abstract onExitRequested(): Promise<void> | void;
 
     private async onParentMessage(msg: ThreadMessageBase<MessageType>): Promise<void> {
         switch (msg.type) {
@@ -98,7 +101,12 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
 
     private listenParentManager(): void {
         if (parentPort) {
-            parentPort.on('message', (msg: ThreadMessageBase<MessageType>) => {
+            parentPort.on('message', async (msg: ThreadMessageBase<MessageType>) => {
+                if (msg.type === MessageType.EXIT_THREAD) {
+                    await this.onExitRequested();
+                    return;
+                }
+
                 void this.onParentMessage(msg);
             });
         }

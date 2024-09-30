@@ -4,7 +4,10 @@ import { Network, opcodes, script } from 'bitcoinjs-lib';
 import crypto from 'crypto';
 import { Binary } from 'mongodb';
 import * as zlib from 'zlib';
-import { TransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
+import {
+    ITransactionDocumentBasic,
+    TransactionDocument,
+} from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
@@ -44,10 +47,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     protected readonly _computedIndexingHash: Buffer;
     protected readonly transactionHashBuffer: Buffer;
+
     protected readonly transactionHash: string;
     protected readonly vInputIndex: number;
     protected readonly _authorizedVaultUsage: boolean = false;
+
     private readonly vaultDecoder: VaultInputDecoder = new VaultInputDecoder();
+
     readonly #vaultInputs: VaultInput[] = [];
 
     protected constructor(
@@ -168,7 +174,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     // This represent OP_NET burned fees, priority fees, THIS IS NOT MINING FEES
     public get burnedFee(): bigint {
-        return this._burnedFee; //+ this.rndBigInt(0, 1000);
+        return this._burnedFee;
     }
 
     public get transactionId(): string {
@@ -273,7 +279,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                         isCorrectType = y;
                         break;
                     }
-                } catch (e) {}
+                } catch {}
             }
         }
 
@@ -281,7 +287,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     protected static getDataChecksum(data: Array<Buffer | number>): Buffer {
-        let checksum: number[] = [];
+        const checksum: number[] = [];
 
         for (let i = 0; i < data.length; i++) {
             if (typeof data[i] === 'number') {
@@ -301,6 +307,30 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         };
     }
 
+    public toBitcoinDocument(): ITransactionDocumentBasic<T> {
+        const outputDocuments = this.outputs.map((output) => output.toDocument());
+
+        return {
+            id: this.transactionId,
+            hash: this.hash,
+            blockHeight: DataConverter.toDecimal128(this.blockHeight),
+
+            index: this.index,
+
+            inputs: this.inputs.map((input) => {
+                return {
+                    originalTransactionId: input.originalTransactionId,
+                    outputTransactionIndex: input.outputTransactionIndex,
+                    sequenceId: input.sequenceId,
+                    transactionInWitness: input.transactionInWitness,
+                };
+            }),
+            outputs: outputDocuments,
+
+            OPNetType: this.transactionType,
+        };
+    }
+
     public toDocument(): TransactionDocument<T> {
         const revertData: Uint8Array | undefined = this.revertBuffer;
         const outputDocuments = this.outputs.map((output) => output.toDocument());
@@ -316,7 +346,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                 this.receipt && this.receipt.gasUsed ? this.receipt.gasUsed : 0n,
             ),
 
-            inputs: this.inputs,
+            inputs: this.inputs.map((input) => {
+                return {
+                    originalTransactionId: input.originalTransactionId,
+                    outputTransactionIndex: input.outputTransactionIndex,
+                    sequenceId: input.sequenceId,
+                    transactionInWitness: input.transactionInWitness,
+                };
+            }),
             outputs: outputDocuments,
 
             OPNetType: this.transactionType,
@@ -334,7 +371,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     /** We must verify every single transaction and decode any vault inputs */
     protected decodeVaults(): void {
-        for (let input of this.inputs) {
+        for (const input of this.inputs) {
             const vault = this.vaultDecoder.decodeInput(input);
             if (!vault) {
                 continue;

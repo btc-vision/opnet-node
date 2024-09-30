@@ -12,9 +12,11 @@ import { ThreadData } from '../interfaces/ThreadData.js';
 import { ThreadTaskCallback } from '../Threader.js';
 import { ThreadTypes } from './enums/ThreadTypes.js';
 import { IThread } from './interfaces/IThread.js';
+import { Config } from '../../config/Config.js';
+import fs from 'fs';
 
 const genRanHex = (size: number) =>
-    [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    [...(Array(size) as number[])].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
 export abstract class Thread<T extends ThreadTypes> extends Logger implements IThread<T> {
     public abstract readonly threadType: T;
@@ -52,6 +54,23 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         }
     }
 
+    public async sendMessageToAllThreads(
+        threadType: ThreadTypes,
+        m: ThreadMessageBase<MessageType>,
+    ): Promise<void> {
+        const relation = this.threadRelationsArray[threadType];
+        if (relation) {
+            const promises: Promise<ThreadData | null>[] = [];
+            for (const port of relation) {
+                promises.push(this.sendMessage({ ...m }, port));
+            }
+
+            await Promise.all(promises);
+        } else {
+            throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
+        }
+    }
+
     protected async sendMessage(
         m: ThreadMessageBase<MessageType>,
         port: MessagePort,
@@ -64,11 +83,18 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
                     const timeout = setTimeout(() => {
                         this.warn(
-                            `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType})`,
+                            `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType}) - Trace: ${JSON.stringify(m.data)}`,
                         );
 
+                        if (Config.DEV.SAVE_TIMEOUTS_TO_FILE) {
+                            fs.appendFileSync(
+                                './thread-timeouts.log',
+                                `[B] Thread task ${m.taskId} timed out. (Thread: ${threadId}, ThreadType: ${this.threadType}) - Trace: ${JSON.stringify(m)}\n`,
+                            );
+                        }
+
                         resolve(null);
-                    }, 12_000);
+                    }, 60_000);
 
                     const task: ThreadTaskCallback = {
                         timeout: timeout,
@@ -85,23 +111,23 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 if (hasTaskId) {
                     resolve(null);
                 }
-            } catch (e) {
-                reject(e);
+            } catch (e: unknown) {
+                reject(e as Error);
             }
         });
     }
 
-    protected abstract init(): Promise<void>;
+    protected abstract init(): Promise<void> | void;
 
     protected abstract onMessage(m: ThreadMessageBase<MessageType>): Promise<void>;
 
     protected async onLinkMessageInternal(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<void | ThreadData> {
+    ): Promise<ThreadData | undefined> {
         switch (m.type) {
             case MessageType.THREAD_RESPONSE: {
-                await this.onThreadResponse(m);
+                this.onThreadResponse(m);
                 break;
             }
             default: {
@@ -113,7 +139,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     protected abstract onLinkMessage(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<void | ThreadData>;
+    ): Promise<ThreadData | undefined>;
 
     private getNextAvailableThread(threadType: ThreadTypes): MessagePort {
         const relation = this.threadRelationsArray[threadType];
@@ -121,7 +147,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
             throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
         }
 
-        let currentIndex = this.availableThreads[threadType] || 0;
+        const currentIndex = this.availableThreads[threadType] || 0;
         this.availableThreads[threadType] = (currentIndex + 1) % relation.length;
 
         return relation[currentIndex];
@@ -134,8 +160,8 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     private setMessagePort(msg: SetMessagePort): void {
         this.messagePort = msg.data;
 
-        this.messagePort.on('message', async (msg: ThreadMessageBase<MessageType>) => {
-            await this.onThreadMessage(msg);
+        this.messagePort.on('message', (msg: ThreadMessageBase<MessageType>) => {
+            void this.onThreadMessage(msg);
         });
     }
 
@@ -145,7 +171,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 this.setMessagePort(m as SetMessagePort);
                 break;
             case MessageType.THREAD_RESPONSE:
-                await this.onThreadResponse(m);
+                this.onThreadResponse(m);
                 break;
             case MessageType.LINK_THREAD:
                 this.createInternalThreadLink(m as LinkThreadMessage<LinkType>);
@@ -158,14 +184,9 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
     private createInternalThreadLink(m: LinkThreadMessage<LinkType>): void {
         const data = m.data;
-        const linkType = data.type;
         const threadType = data.sourceThreadType;
 
         if (this.threadType !== data.targetThreadType) {
-            /*throw new Error(
-                `Thread type ${this.threadType} is not the target thread type ${data.targetThreadType}.`,
-            );*/
-
             return;
         }
 
@@ -181,31 +202,44 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         this.threadRelations[threadType] = relation;
 
         this.createEvents(threadType, data.port);
-        /*this.important(
-            `Thread link created. {ThreadType: ${this.threadType}, SourceThreadType: ${data.sourceThreadType}, LinkType: ${linkType}, ThreadId: ${data.targetThreadId}}`,
-        );*/
+    }
+
+    private async onEventMessage(
+        m: ThreadMessageBase<MessageType>,
+        threadType: ThreadTypes,
+        messagePort: MessagePort,
+    ): Promise<void> {
+        let response: ThreadData | undefined;
+
+        try {
+            response = await this.onLinkMessageInternal(threadType, m);
+        } catch (e) {
+            this.error(`Error processing event message. {Details: ${e}}`);
+        }
+
+        if (m.taskId && response != undefined) {
+            const resp: ThreadMessageResponse = {
+                type: MessageType.THREAD_RESPONSE,
+                data: response,
+                taskId: m.taskId,
+                toServer: false,
+            };
+
+            await this.sendMessage(resp, messagePort);
+        }
     }
 
     private createEvents(threadType: ThreadTypes, messagePort: MessagePort): void {
-        messagePort.on('message', async (m: ThreadMessageBase<MessageType>) => {
-            const response = await this.onLinkMessageInternal(threadType, m);
-
-            if (response) {
-                const resp: ThreadMessageResponse = {
-                    type: MessageType.THREAD_RESPONSE,
-                    data: response,
-                    taskId: m.taskId,
-                    toServer: false,
-                };
-
-                await this.sendMessage(resp, messagePort);
-            }
+        messagePort.on('message', (m: ThreadMessageBase<MessageType>) => {
+            void this.onEventMessage(m, threadType, messagePort);
         });
     }
 
     private registerEvents(): void {
         if (parentPort) {
-            parentPort.on('message', this.onThreadMessage.bind(this));
+            parentPort.on('message', (m: ThreadMessageBase<MessageType>) => {
+                void this.onThreadMessage(m);
+            });
             parentPort.on('messageerror', this.onThreadMessageError.bind(this));
         }
     }
@@ -214,14 +248,14 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         this.error(`Thread message error {Details: ${err}}`);
     }
 
-    private async onThreadResponse(m: ThreadMessageBase<MessageType>): Promise<void> {
+    private onThreadResponse(m: ThreadMessageBase<MessageType>): void {
         if (m !== null && m && m.taskId && !m.toServer) {
-            let task: ThreadTaskCallback | undefined = this.tasks.get(m.taskId);
+            const task: ThreadTaskCallback | undefined = this.tasks.get(m.taskId);
             if (task) {
-                clearTimeout(task.timeout);
-
-                task.resolve(m.data);
                 this.tasks.delete(m.taskId);
+
+                clearTimeout(task.timeout);
+                task.resolve(m.data);
             } else {
                 this.error(`Thread response task not found. {TaskId: ${m.taskId}}`);
             }

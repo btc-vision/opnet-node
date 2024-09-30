@@ -1,5 +1,7 @@
 import { BlockDataWithTransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 
+export type BlockDataWithoutTransactionData = Omit<BlockDataWithTransactionData, 'tx'>;
+
 export class BlockHeader {
     public readonly hash: string;
     public readonly height: bigint;
@@ -26,7 +28,9 @@ export class BlockHeader {
     public readonly nTx: number;
     public readonly previousBlockHash: string;
 
-    constructor(rawBlockData: BlockDataWithTransactionData) {
+    private readonly raw: BlockDataWithoutTransactionData & { tx: undefined };
+
+    constructor(rawBlockData: BlockDataWithoutTransactionData) {
         this.hash = rawBlockData.hash;
         this.height = BigInt(rawBlockData.height);
         this.confirmations = rawBlockData.confirmations;
@@ -46,5 +50,14 @@ export class BlockHeader {
         this.chainWork = rawBlockData.chainwork;
         this.nTx = rawBlockData.nTx;
         this.previousBlockHash = rawBlockData.previousblockhash;
+
+        this.raw = {
+            ...rawBlockData,
+            tx: undefined,
+        };
+    }
+
+    public toJSON(): BlockDataWithoutTransactionData {
+        return this.raw;
     }
 }

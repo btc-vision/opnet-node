@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/BtcIndexer.iml" filepath="$PROJECT_DIR$/.idea/BtcIndexer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/bsi-indexer.iml" filepath="$PROJECT_DIR$/.idea/bsi-indexer.iml" />
     </modules>
   </component>
 </project>

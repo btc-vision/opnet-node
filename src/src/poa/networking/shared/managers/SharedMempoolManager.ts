@@ -11,7 +11,7 @@ import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { OPNetProtocolV1 } from '../../server/protocol/OPNetProtocolV1.js';
 
 export class SharedMempoolManager extends AbstractPacketManager {
-    constructor(
+    public constructor(
         protocol: OPNetProtocolV1,
         peerId: string,
         selfIdentity: OPNetIdentity | undefined,
@@ -46,9 +46,9 @@ export class SharedMempoolManager extends AbstractPacketManager {
     }
 
     private async onTransactionBroadcast(packet: OPNetPacket): Promise<void> {
-        const transactionPacket = (await this.protocol.onIncomingPacket<ITransactionPacket>(
+        const transactionPacket = this.protocol.onIncomingPacket<ITransactionPacket>(
             packet,
-        )) as TransactionPacket;
+        ) as TransactionPacket;
 
         if (!transactionPacket) {
             return;

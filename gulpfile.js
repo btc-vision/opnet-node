@@ -1,15 +1,14 @@
-process.on('uncaughtException', function (err) {
-    console.log('Caught exception: ', err);
-});
-
+import gulpESLintNew from 'gulp-eslint-new';
 import gulp from 'gulp';
 import gulpcache from 'gulp-cached';
 
-import clean from 'gulp-clean';
-
-import eslint from 'gulp-eslint';
+import gulpClean from 'gulp-clean';
 import logger from 'gulp-logger';
 import ts from 'gulp-typescript';
+
+process.on('uncaughtException', function (err) {
+    console.log('Caught exception: ', err);
+});
 
 const tsProject = ts.createProject('tsconfig.json');
 
@@ -17,108 +16,82 @@ function onError(e) {
     console.log('Errored', e);
 }
 
-async function build() {
-    return new Promise(async (resolve) => {
-        tsProject
-            .src()
-            .pipe(gulpcache())
-            .pipe(eslint())
-            //.pipe(eslint.format())
-            //.pipe(eslint.failAfterError())
-            .pipe(
-                logger({
-                    before: 'Starting...',
-                    after: 'Project compiled!',
-                    extname: '.js',
-                    showChange: true,
-                }),
-            )
-            .pipe(tsProject())
-            .on('error', onError)
-            .pipe(gulp.dest('build'))
-            .on('end', async () => {
-                resolve();
-            });
-    });
+function buildESM() {
+    return tsProject
+        .src()
+        .on('error', onError)
+        .pipe(gulpcache())
+        .pipe(
+            logger({
+                before: 'Starting...',
+                after: 'Project compiled!',
+                extname: '.js',
+                showChange: true,
+            }),
+        )
+        .pipe(gulpESLintNew())
+        .pipe(gulpESLintNew.format())
+        .pipe(tsProject())
+        .pipe(gulp.dest('build'));
 }
 
-async function cleanFiles() {
-    return new Promise(async (resolve) => {
-        gulp.src('./build/src', { read: false })
-            .pipe(clean())
-            .on('end', async () => {
-                resolve();
-            });
-    });
+export function clean() {
+    return gulp
+        .src('./build/src', { read: false, allowEmpty: true })
+        .pipe(gulpClean({ allowEmpty: true }));
 }
 
-async function buildProtoYaml() {
-    return new Promise(async (resolve) => {
-        gulp.src('./src/**/*.yaml')
-            .pipe(
-                logger({
-                    before: 'Starting...',
-                    after: 'Compiled yaml.',
-                    extname: '.yaml',
-                    showChange: true,
-                }),
-            )
-            .pipe(gulpcache())
-            .pipe(gulp.dest('./build/'))
-            .on('end', () => {
-                gulp.src('./src/**/*.proto')
-                    .pipe(
-                        logger({
-                            before: 'Starting...',
-                            after: 'Compiled protobuf.',
-                            extname: '.proto',
-                            showChange: true,
-                        }),
-                    )
-                    .pipe(gulp.dest('./build/'))
-                    .on('end', async () => {
-                        gulp.src('./src/config/*.conf')
-                            .pipe(
-                                logger({
-                                    before: 'Starting...',
-                                    after: 'Compiled conf.',
-                                    extname: '.conf',
-                                    showChange: true,
-                                }),
-                            )
-                            .pipe(gulpcache())
-                            .pipe(gulp.dest('./build/config'))
-                            .on('end', async () => {
-                                resolve();
-                            });
-                    });
-            });
-    });
+function buildYaml() {
+    return gulp
+        .src('./src/**/*.yaml')
+        .pipe(
+            logger({
+                before: 'Starting...',
+                after: 'Compiled yaml.',
+                extname: '.yaml',
+                showChange: true,
+            }),
+        )
+        .pipe(gulpcache('yaml'))
+        .pipe(gulp.dest('./build/'));
 }
 
-gulp.task('default', async () => {
-    await build().catch((e) => {});
-    await buildProtoYaml();
+function buildProto() {
+    return gulp
+        .src('./src/**/*.proto')
+        .pipe(
+            logger({
+                before: 'Starting...',
+                after: 'Compiled protobuf.',
+                extname: '.proto',
+                showChange: true,
+            }),
+        )
+        .pipe(gulpcache('protobuf'))
+        .pipe(gulp.dest('./build/'));
+}
 
-    return true;
-});
+function buildConfig() {
+    return gulp
+        .src('./src/config/*.conf')
+        .pipe(
+            logger({
+                before: 'Starting...',
+                after: 'Compiled conf.',
+                extname: '.conf',
+                showChange: true,
+            }),
+        )
+        .pipe(gulpcache('config'))
+        .pipe(gulp.dest('./build/config'));
+}
 
-gulp.task(`clean`, async () => {
-    await cleanFiles();
-});
+export const optionals = gulp.parallel(buildYaml, buildProto, buildConfig);
+export const build = gulp.series(clean, buildESM, optionals);
+export default build;
 
-gulp.task('watch', () => {
-    gulp.watch(
-        ['src/**/**/*.ts', 'src/**/*.ts', 'src/**/*.js', 'src/*.ts', 'src/*.js'],
-        async (cb) => {
-            await build().catch((e) => {
-                console.log('Errored 2', e);
-            });
-
-            cb();
-        },
-    );
-
+export function watch() {
+    gulp.watch(['src/**/*.ts', 'src/**/*.js'], gulp.series(buildESM));
     gulp.watch(
         [
             'src/components/*.yaml',
@@ -132,12 +105,6 @@ gulp.task('watch', () => {
             '*.conf',
             'src/config/*.conf',
         ],
-        async (cb) => {
-            await buildProtoYaml().catch((e) => {
-                console.log('Errored 2', e);
-            });
-
-            cb();
-        },
+        optionals,
     );
-});
+}

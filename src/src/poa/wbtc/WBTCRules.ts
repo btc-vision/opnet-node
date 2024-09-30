@@ -1,6 +1,7 @@
 import { ABICoder, Selector } from '@btc-vision/bsi-binary';
 import { ChainIds } from '../../config/enums/ChainIds.js';
-import { BitcoinNetwork } from '@btc-vision/bsi-common';
+
+import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';
 
 export const WRAPPING_INVALID_AMOUNT_PENALTY: bigint = 10000n; // 10000 sat penalty for invalid amount (0.0001 BTC)
 
@@ -20,17 +21,31 @@ export const OPNET_FEE_WALLET: {
     }>;
 } = {
     [ChainIds.Bitcoin]: {
-        [BitcoinNetwork.Mainnet]: {
+        [BitcoinNetwork.mainnet]: {
             address: 'bc1pjune3rz4zcm8scdv9hnu5cld8vh4eqrwagph9wsez0rutjxkvwls6mhr3l',
         },
-        [BitcoinNetwork.TestNet]: {
+        [BitcoinNetwork.testnet]: {
             address: 'tb1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gszlcezf',
         },
-        [BitcoinNetwork.Regtest]: {
+        [BitcoinNetwork.regtest]: {
             address: 'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw52gs0xjlhn',
         },
-        [BitcoinNetwork.Signet]: {
+        [BitcoinNetwork.signet]: {
             address: 'bc1pjune3rz4zcm8scdv9hnu5cld8vh4eqrwagph9wsez0rutjxkvwls6mhr3l',
+        },
+    },
+    [ChainIds.Fractal]: {
+        [BitcoinNetwork.mainnet]: {
+            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+        },
+        [BitcoinNetwork.testnet]: {
+            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+        },
+        [BitcoinNetwork.regtest]: {
+            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+        },
+        [BitcoinNetwork.signet]: {
+            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
         },
     },
 };

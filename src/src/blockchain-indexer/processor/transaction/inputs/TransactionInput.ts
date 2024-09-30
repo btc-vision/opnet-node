@@ -4,13 +4,11 @@ export interface TransactionInputBase {
     readonly originalTransactionId: string | undefined;
     readonly outputTransactionIndex: number | undefined; // consumer output index
 
-    readonly scriptSignature: ScriptSig | undefined;
+    readonly scriptSignature?: ScriptSig;
     readonly sequenceId: number;
 
     readonly transactionInWitness: string[];
 }
-
-export interface APIDocumentInput extends TransactionInputBase {}
 
 export class TransactionInput implements TransactionInputBase {
     public readonly originalTransactionId: string | undefined;

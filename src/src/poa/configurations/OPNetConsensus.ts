@@ -15,7 +15,7 @@ class OPNetConsensusConfiguration extends Logger {
 
     #consensus: IOPNetConsensus<Consensus> | undefined;
 
-    constructor() {
+    public constructor() {
         super();
     }
 

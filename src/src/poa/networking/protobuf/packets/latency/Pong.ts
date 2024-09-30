@@ -14,7 +14,7 @@ export class Pong extends Packet<IPongPacket, IPongPacket, IPongPacket> {
 
     protected readonly opcode: CommonPackets = CommonPackets.PONG;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

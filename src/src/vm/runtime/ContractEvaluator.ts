@@ -4,13 +4,9 @@ import {
     BinaryReader,
     BinaryWriter,
     BufferHelper,
-    DeterministicMap,
-    DeterministicSet,
     MemorySlotPointer,
     MethodMap,
     NetEvent,
-    Selector,
-    SelectorsMap,
 } from '@btc-vision/bsi-binary';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
@@ -20,34 +16,24 @@ import {
     InternalContractCallParameters,
 } from './types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
-import { ContractParameters, ExportedContract, loadRust } from '../isolated/LoaderV2.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { MemorySlotData } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
-import { AddressGenerator } from '@btc-vision/transaction';
 import { Network, networks } from 'bitcoinjs-lib';
-import { BitcoinNetworkRequest } from '@btc-vision/bsi-wasmer-vm';
+import { BitcoinNetworkRequest } from '@btc-vision/op-vm';
 import assert from 'node:assert';
-
-/*import * as v8 from 'node:v8';
-
-v8.setFlagsFromString('--expose_gc');
-
-const gc: (() => void) | undefined = global.gc;
-if (!gc) {
-    throw new Error('Garbage collector not exposed');
-}*/
+import { ContractParameters, RustContract } from '../isolated/RustContract.js';
+import { Blockchain } from '../Blockchain.js';
 
 export class ContractEvaluator extends Logger {
-    private static readonly MAX_CONTRACT_EXTERN_CALLS: number = 8;
-
     public readonly logColor: string = '#00ffe1';
 
     private isProcessing: boolean = false;
 
-    private viewAbi: SelectorsMap = new DeterministicMap(BinaryReader.stringCompare);
-    private methodAbi: MethodMap = new DeterministicSet<Selector>(BinaryReader.numberCompare);
-    private writeMethods: MethodMap = new DeterministicSet<Selector>(BinaryReader.numberCompare);
+    //private viewAbi: number[] | undefined;
+
+    private methodAbi: MethodMap | undefined;
+    //private writeMethods: MethodMap | undefined;
 
     private contractOwner: Address | undefined;
     private contractAddress: Address | undefined;
@@ -59,9 +45,9 @@ export class ContractEvaluator extends Logger {
         super();
     }
 
-    private _contractInstance: ExportedContract | undefined;
+    private _contractInstance: RustContract | undefined;
 
-    private get contractInstance(): ExportedContract {
+    private get contractInstance(): RustContract {
         if (!this._contractInstance) throw new Error('Contract not initialized');
 
         return this._contractInstance;
@@ -81,17 +67,15 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [getStorage]');
     }
 
-    public setStorage(_address: Address, _pointer: bigint, _value: bigint): Promise<void> {
+    public setStorage(_address: Address, _pointer: bigint, _value: bigint): void {
         throw new Error('Method not implemented. [setStorage]');
     }
 
-    public async callExternal(
-        _params: InternalContractCallParameters,
-    ): Promise<ContractEvaluation> {
+    public callExternal(_params: InternalContractCallParameters): Promise<ContractEvaluation> {
         throw new Error('Method not implemented. [callExternal]');
     }
 
-    public async deployContractAtAddress(
+    public deployContractAtAddress(
         _address: Address,
         _salt: Buffer,
         _evaluation: ContractEvaluation,
@@ -119,66 +103,45 @@ export class ContractEvaluator extends Logger {
     }
 
     public delete(): void {
-        this.contractInstance.dispose();
+        if (!this._contractInstance?.disposed && this._contractInstance?.instantiated) {
+            this.contractInstance.dispose();
+        }
+
         delete this._contractInstance;
     }
 
-    public getViewSelectors(): SelectorsMap {
-        return this.viewAbi;
-    }
+    /*public async isViewMethod(selector: Selector): Promise<boolean> {
+        if (!this.viewAbi) {
+            const viewAbi = await this.getViewABI();
+            this.viewAbi = Array.from(viewAbi.values());
 
-    public getMethodSelectors(): MethodMap {
-        return this.methodAbi;
-    }
-
-    public getWriteMethods(): MethodMap {
-        return this.writeMethods;
-    }
-
-    public isViewMethod(selector: Selector): boolean {
-        const keys = Array.from(this.viewAbi.values());
-
-        for (const key of keys) {
-            if (key === selector) {
-                return true;
-            }
+            console.log(this.viewAbi);
         }
 
-        return false;
-    }
+        return this.viewAbi.includes(selector);
+    }*/
 
     public async execute(params: ExecutionParameters): Promise<ContractEvaluation> {
         if (this.isProcessing) {
             throw new Error('Contract is already processing');
         }
 
+        this.isProcessing = true;
+
         try {
-            this.isProcessing = true;
+            this.delete();
 
-            const evaluation = new ContractEvaluation({
-                ...params,
-                canWrite: false,
-            });
-
-            await this.loadContractFromBytecode(evaluation);
-            await this.defineSelectorAndSetupEnvironment(evaluation);
-            await this.setupContract();
-
-            if (!evaluation.calldata && !evaluation.isView) {
-                throw new Error('Calldata is required.');
-            }
-
-            const canWrite: boolean = this.canWrite(evaluation.abi);
-            evaluation.setCanWrite(canWrite);
-
+            const evaluation = new ContractEvaluation(params);
             try {
+                this.loadContractFromBytecode(evaluation);
+
+                await this.defineSelectorAndSetupEnvironment(evaluation);
+
                 // We execute the method.
                 await this.evaluate(evaluation);
             } catch (e) {
                 evaluation.revert = e as Error;
             }
-
-            this.isProcessing = false;
 
             this.delete();
 
@@ -188,20 +151,12 @@ export class ContractEvaluator extends Logger {
                 );
             }
 
-            /*if (!evaluation.revert) {
-                for (let [contractAddress, value] of evaluation.storage) {
-                    for (let [pointer, data] of value) {
-                        console.log(
-                            `Contract: ${contractAddress} - Pointer: ${pointer} - Value: ${data}`,
-                        );
-
-                        await this.setStorage(contractAddress, pointer, data);
-                    }
-                }
-            }*/
+            this.isProcessing = false;
 
             return evaluation;
         } catch (e) {
+            this.delete();
+
             this.isProcessing = false;
             throw e;
         }
@@ -209,20 +164,13 @@ export class ContractEvaluator extends Logger {
 
     private async defineSelectorAndSetupEnvironment(params: ExecutionParameters): Promise<void> {
         await this.setEnvironment(
-            params.caller,
-            params.callee,
+            params.msgSender,
+            params.txOrigin,
             params.blockNumber,
             params.blockMedian,
         );
 
         await this.contractInstance.defineSelectors();
-    }
-
-    // TODO: Cache this, (add the gas it took to compute in the final gas)
-    private async setupContract(): Promise<void> {
-        this.viewAbi = await this.getViewABI();
-        this.methodAbi = await this.getMethodABI();
-        this.writeMethods = await this.getWriteMethodABI();
     }
 
     /** Load a pointer */
@@ -246,10 +194,7 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Store a pointer */
-    private async store(
-        data: Buffer,
-        evaluation: ContractEvaluation,
-    ): Promise<Buffer | Uint8Array> {
+    private store(data: Buffer, evaluation: ContractEvaluation): Buffer | Uint8Array {
         const reader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
         const value: bigint = reader.readU256();
@@ -281,8 +226,11 @@ export class ContractEvaluator extends Logger {
         const gasUsed: bigint = evaluation.gasTracker.gasUsed;
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
-            from: evaluation.caller,
-            callee: evaluation.contractAddress,
+
+            from: evaluation.msgSender,
+
+            txOrigin: evaluation.txOrigin,
+            msgSender: evaluation.contractAddress,
 
             maxGas: evaluation.gasTracker.maxGas,
             gasUsed: gasUsed,
@@ -353,21 +301,6 @@ export class ContractEvaluator extends Logger {
         this.warn(`Contract log: ${logData}`);*/
     }
 
-    private async encodeAddress(data: Buffer): Promise<Buffer | Uint8Array> {
-        const reader = new BinaryReader(data);
-        const virtualAddress = reader.readBytesWithLength();
-
-        const address: Address = AddressGenerator.generatePKSH(
-            Buffer.from(virtualAddress),
-            this.network,
-        );
-
-        const response = new BinaryWriter();
-        response.writeAddress(address);
-
-        return response.getBuffer();
-    }
-
     private getNetwork(): BitcoinNetworkRequest {
         switch (this.network) {
             case networks.bitcoin:
@@ -392,6 +325,8 @@ export class ContractEvaluator extends Logger {
         }
 
         return {
+            contractManager: Blockchain.contractManager,
+            address: evaluation.contractAddress,
             bytecode: this.bytecode,
             network: this.getNetwork(),
             gasLimit: difference, //OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
@@ -399,8 +334,13 @@ export class ContractEvaluator extends Logger {
             load: async (data: Buffer) => {
                 return await this.load(data, evaluation);
             },
-            store: async (data: Buffer) => {
-                return await this.store(data, evaluation);
+            store: (data: Buffer) => {
+                // TODO: Remove the promise
+                return new Promise<Buffer | Uint8Array>((resolve) => {
+                    const resp = this.store(data, evaluation);
+
+                    resolve(resp);
+                });
             },
             call: async (data: Buffer) => {
                 return await this.call(data, evaluation);
@@ -411,18 +351,16 @@ export class ContractEvaluator extends Logger {
             log: (buffer: Buffer) => {
                 this.onDebug(buffer);
             },
-            /*encodeAddress: async (data: Buffer) => {
-                return this.encodeAddress(data);
-            },*/
         };
     }
 
-    private async loadContractFromBytecode(evaluation: ContractEvaluation): Promise<boolean> {
+    private loadContractFromBytecode(evaluation: ContractEvaluation): boolean {
         let errored: boolean = false;
         try {
-            this._contractInstance = await loadRust(this.generateContractParameters(evaluation));
-        } catch (e) {
-            console.log(`Unable to load contract from bytecode: ${(e as Error).stack}`);
+            const params = this.generateContractParameters(evaluation);
+
+            this._contractInstance = new RustContract(params);
+        } catch {
             errored = true;
         }
 
@@ -450,16 +388,20 @@ export class ContractEvaluator extends Logger {
             throw new Error('Contract not initialized');
         }
 
-        const hasSelectorInMethods = this.methodAbi.has(evaluation.abi) ?? false;
+        if (!this.methodAbi) {
+            this.methodAbi = await this.getMethodABI();
+        }
 
-        let result: Uint8Array | undefined;
+        const hasSelectorInMethods = this.methodAbi.has(evaluation.selector) ?? false;
+
+        let result: Uint8Array | undefined | null;
         let error: Error | undefined;
 
         // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
         try {
             result = hasSelectorInMethods
-                ? await this.contractInstance.readMethod(evaluation.abi, evaluation.calldata)
-                : await this.contractInstance.readView(evaluation.abi);
+                ? await this.contractInstance.readMethod(evaluation.selector, evaluation.calldata)
+                : await this.contractInstance.readView(evaluation.selector);
         } catch (e) {
             error = (await e) as Error;
         }
@@ -487,7 +429,7 @@ export class ContractEvaluator extends Logger {
 
         if (!evaluation.revert && !error) {
             if (!evaluation.externalCall) {
-                let deploymentPromises: Promise<void>[] = [];
+                const deploymentPromises: Promise<void>[] = [];
                 if (evaluation.deployedContracts.length > 0) {
                     for (let i = 0; i < evaluation.deployedContracts.length; i++) {
                         const contract = evaluation.deployedContracts[i];
@@ -503,6 +445,10 @@ export class ContractEvaluator extends Logger {
             evaluation.setEvent(evaluation.contractAddress, events);
             evaluation.setResult(result);
         }
+
+        if (evaluation.revert) {
+            this.delete();
+        }
     }
 
     private async getEvents(): Promise<NetEvent[]> {
@@ -510,15 +456,15 @@ export class ContractEvaluator extends Logger {
             throw new Error('Contract not initialized');
         }
 
-        const abi = await this.contractInstance.getEvents();
-        const abiDecoder = new BinaryReader(abi);
+        const abiBuffer = await this.contractInstance.getEvents();
+        const abiDecoder = new BinaryReader(abiBuffer);
 
         return abiDecoder.readEvents();
     }
 
     private async setEnvironment(
-        caller: Address,
-        callee: Address,
+        msgSender: Address,
+        txOrigin: Address,
         blockNumber: bigint,
         blockMedian: bigint,
     ): Promise<void> {
@@ -527,8 +473,8 @@ export class ContractEvaluator extends Logger {
         }
 
         const binaryWriter: BinaryWriter = new BinaryWriter();
-        binaryWriter.writeAddress(caller);
-        binaryWriter.writeAddress(callee);
+        binaryWriter.writeAddress(msgSender);
+        binaryWriter.writeAddress(txOrigin);
         binaryWriter.writeU256(blockNumber);
 
         binaryWriter.writeAddress(this.contractOwner);
@@ -554,24 +500,28 @@ export class ContractEvaluator extends Logger {
         return value ? BufferHelper.uint8ArrayToValue(value) : null;
     }
 
-    private canWrite(abi: Selector): boolean {
+    /*private async canWrite(abi: Selector): Promise<boolean> {
+        if (!this.writeMethods) {
+            this.writeMethods = await this.getWriteMethodABI();
+        }
+
         return this.writeMethods.has(abi);
     }
 
     private async getViewABI(): Promise<SelectorsMap> {
         if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
+            throw new Error('Contract not initialized [getViewABI]');
         }
 
         const abi = await this.contractInstance.getViewABI();
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readViewSelectorsMap();
-    }
+    }*/
 
     private async getMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
+            throw new Error('Contract not initialized [getMethodABI]');
         }
 
         const abi = await this.contractInstance.getMethodABI();
@@ -580,14 +530,14 @@ export class ContractEvaluator extends Logger {
         return abiDecoder.readMethodSelectorsMap();
     }
 
-    private async getWriteMethodABI(): Promise<MethodMap> {
+    /*private async getWriteMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
+            throw new Error('Contract not initialized [getWriteMethodABI]');
         }
 
         const abi = await this.contractInstance.getWriteMethods();
         const abiDecoder = new BinaryReader(abi);
 
         return abiDecoder.readMethodSelectorsMap();
-    }
+    }*/
 }

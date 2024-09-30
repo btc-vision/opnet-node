@@ -6,16 +6,20 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByIdParams.js';
 import { Route } from '../../../Route.js';
 
-export class NotImplemented extends Route<Routes.NOT_IMPLEMENTED, JSONRpcMethods, string | null> {
+export class NotImplemented extends Route<
+    Routes.NOT_IMPLEMENTED,
+    JSONRpcMethods,
+    string | undefined
+> {
     constructor() {
         super(Routes.NOT_IMPLEMENTED, RouteType.GET);
     }
 
-    public getData(): string | null {
+    public getData(): string | undefined {
         return 'Not Implemented';
     }
 
-    public async getDataRPC(_params: BlockByIdParams): Promise<{ error: string } | undefined> {
+    public getDataRPC(_params: BlockByIdParams): { error: string } | undefined {
         return {
             error: 'Not Implemented',
         };
@@ -25,7 +29,7 @@ export class NotImplemented extends Route<Routes.NOT_IMPLEMENTED, JSONRpcMethods
 
     /**
      * GET /api/v1/not-implemented
-     * @tag OpNet
+     * @tag OP_NET
      * @summary Not implemented fallback
      * @description This endpoint is a fallback for not implemented endpoints
      * @response 200 - Not Implemented
@@ -33,8 +37,8 @@ export class NotImplemented extends Route<Routes.NOT_IMPLEMENTED, JSONRpcMethods
      * @response default - Unexpected error
      * @responseContent {error: string} 200.plain/text
      */
-    protected onRequest(_req: Request, res: Response, _next?: MiddlewareNext): void {
-        let response: string | null = this.getData();
+    protected onRequest(_req: Request, res: Response, _next?: MiddlewareNext): undefined {
+        const response: string | undefined = this.getData();
 
         res.status(400);
         res.json(response);

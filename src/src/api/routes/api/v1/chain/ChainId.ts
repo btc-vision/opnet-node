@@ -1,4 +1,3 @@
-import { BitcoinNetwork } from '@btc-vision/bsi-common';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -8,16 +7,12 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { ChainIdResult } from '../../../../json-rpc/types/interfaces/results/chain/ChainIdResult.js';
 import { Route } from '../../../Route.js';
 
-export class ChainId extends Route<
-    Routes.CHAIN_ID,
-    JSONRpcMethods.CHAIN_ID,
-    ChainIdResult | undefined
-> {
+export class ChainId extends Route<Routes.CHAIN_ID, JSONRpcMethods.CHAIN_ID, ChainIdResult> {
     constructor() {
         super(Routes.CHAIN_ID, RouteType.GET);
     }
 
-    public async getData(): Promise<ChainIdResult | undefined> {
+    public getData(): ChainIdResult {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
@@ -25,8 +20,8 @@ export class ChainId extends Route<
         return `0x${this.getChainId().toString(16)}`;
     }
 
-    public async getDataRPC(): Promise<ChainIdResult | undefined> {
-        const data = await this.getData();
+    public getDataRPC(): ChainIdResult {
+        const data = this.getData();
         if (!data) throw new Error(`Failed to get chain ID`);
 
         return data;
@@ -44,9 +39,9 @@ export class ChainId extends Route<
      * @response default - Unexpected error
      * @responseContent {string} 200.application/json
      */
-    protected async onRequest(_req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
+    protected onRequest(_req: Request, res: Response, _next?: MiddlewareNext): undefined {
         try {
-            const data = await this.getData();
+            const data = this.getData();
 
             if (data) {
                 res.status(200);
@@ -62,19 +57,6 @@ export class ChainId extends Route<
 
     private getChainId(): number {
         // we convert this to number because it is a string
-        const chain = Config.BLOCKCHAIN.BITCOIND_NETWORK;
-
-        switch (chain) {
-            case BitcoinNetwork.Mainnet:
-                return 1;
-            case BitcoinNetwork.TestNet:
-                return 2;
-            case BitcoinNetwork.Regtest:
-                return 3;
-            case BitcoinNetwork.Signet:
-                return 4;
-            default:
-                return 0;
-        }
+        return Config.BITCOIN.CHAIN_ID;
     }
 }

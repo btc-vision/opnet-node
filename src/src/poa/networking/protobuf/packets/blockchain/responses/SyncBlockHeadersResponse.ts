@@ -22,7 +22,7 @@ export class SyncBlockHeadersResponse extends Packet<
 
     protected readonly opcode: ServerOutBound = ServerOutBound.SYNC_BLOCK_HEADERS_RESPONSE;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

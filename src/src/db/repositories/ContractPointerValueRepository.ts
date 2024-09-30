@@ -10,7 +10,6 @@ import {
     Db,
     Filter,
 } from 'mongodb';
-import { BitcoinAddress } from '../../bitcoin/types/BitcoinAddress.js';
 import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
@@ -25,7 +24,7 @@ export interface IContractPointerValue {
 export class ContractPointerValueRepository extends BaseRepository<IContractPointerValueDocument> {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 
@@ -82,7 +81,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     }
 
     public async setStoragePointers(
-        storage: Map<BitcoinAddress, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
         currentSession?: ClientSession,
     ): Promise<void> {

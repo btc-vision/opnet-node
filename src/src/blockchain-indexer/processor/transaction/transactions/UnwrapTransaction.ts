@@ -175,15 +175,15 @@ export class UnwrapTransaction extends InteractionTransaction {
         const unwrappedOutput: TransactionOutput = this.outputs[this.outputs.length - 1];
         this.#unwrapAmount = unwrappedOutput.value;
 
-        this._callee = authorityManager.WBTC_DEPLOYER; // authorize the burn.
+        this._msgSender = authorityManager.WBTC_DEPLOYER; // authorize the burn.
     }
 
     private parseVaults(): void {
         const authorities: TrustedCompanies[] = [];
         const usedUTXOs: UsedUTXOToDelete[] = [];
 
-        for (let input of this.vaultInputs) {
-            for (let key of input.keys) {
+        for (const input of this.vaultInputs) {
+            for (const key of input.keys) {
                 const authority = key.authority;
 
                 if (!authorities.includes(authority)) {

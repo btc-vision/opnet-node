@@ -6,20 +6,20 @@ import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../threading/thread/Thread.js';
 import { PoA } from './PoA.js';
 
-export class PoAThread extends Thread<ThreadTypes.PoA> {
-    public readonly threadType: ThreadTypes.PoA = ThreadTypes.PoA;
+export class PoAThread extends Thread<ThreadTypes.POA> {
+    public readonly threadType: ThreadTypes.POA = ThreadTypes.POA;
 
     private poa: PoA = new PoA(Config);
 
     constructor() {
         super();
 
-        void this.init();
+        this.init();
     }
 
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
-    protected async init(): Promise<void> {
+    protected init(): void {
         this.poa.sendMessageToThread = this.sendMessageToThread.bind(this);
 
         /**
@@ -33,9 +33,9 @@ export class PoAThread extends Thread<ThreadTypes.PoA> {
     protected async onLinkMessage(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<void | ThreadData> {
+    ): Promise<undefined | ThreadData> {
         switch (type) {
-            case ThreadTypes.BITCOIN_INDEXER: {
+            case ThreadTypes.INDEXER: {
                 return await this.handleBitcoinIndexerMessage(m);
             }
             case ThreadTypes.API: {

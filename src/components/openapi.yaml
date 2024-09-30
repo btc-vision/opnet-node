@@ -20,10 +20,12 @@ components:
       in: header
       name: X-API-KEY
 servers:
-  - url: https://testnet.opnet.org
-    description: OpNet Testnet
   - url: https://regtest.opnet.org
     description: OpNet Regtest
+  - url: https://fractal.opnet.org
+    description: Fractal Testnet
+  - url: https://testnet.opnet.org
+    description: OpNet Testnet
   - url: https://api.opnet.org
     description: OpNet Mainnet
   - url: http://localhost:9001

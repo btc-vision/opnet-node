@@ -1,22 +1,72 @@
 import { ConfigManager, IConfig } from '@btc-vision/bsi-common';
-import { BitcoinZeroMQTopic } from '../blockchain-indexer/zeromq/enums/BitcoinZeroMQTopic.js';
 import { IndexerStorageType } from '../vm/storage/types/IndexerStorageType.js';
 import { BtcIndexerConfig } from './BtcIndexerConfig.js';
 import { ChainIds } from './enums/ChainIds.js';
 import { IBtcIndexerConfig } from './interfaces/IBtcIndexerConfig.js';
 import { OPNetIndexerMode } from './interfaces/OPNetIndexerMode.js';
 import { PeerToPeerMethod } from './interfaces/PeerToPeerMethod.js';
+import { BlockUpdateMethods } from '../vm/storage/types/BlockUpdateMethods.js';
+import { BitcoinNetwork } from './network/BitcoinNetwork.js';
 
 export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerConfig>> {
     private defaultConfig: Partial<IBtcIndexerConfig> = {
-        INDEXER: {
-            ENABLED: false,
-            STORAGE_TYPE: IndexerStorageType.MONGODB,
-            ALLOW_PURGE: true,
-            READONLY_MODE: false,
+        DOCS: {
+            ENABLED: true,
+            PORT: 7000,
         },
 
-        ZERO_MQ: {},
+        BITCOIN: {
+            CHAIN_ID: ChainIds.Bitcoin,
+            NETWORK: BitcoinNetwork.mainnet,
+            NETWORK_MAGIC: [],
+            DNS_SEEDS: [],
+        },
+
+        BLOCKCHAIN: {
+            BITCOIND_HOST: '',
+            BITCOIND_PORT: 0,
+            BITCOIND_USERNAME: '',
+            BITCOIND_PASSWORD: '',
+        },
+
+        DATABASE: {
+            DATABASE_NAME: '',
+            HOST: '',
+            PORT: 0,
+
+            AUTH: {
+                USERNAME: '',
+                PASSWORD: '',
+            },
+        },
+
+        DEV_MODE: false,
+        INDEXER: {
+            ENABLED: false,
+            BLOCK_UPDATE_METHOD: BlockUpdateMethods.RPC,
+            STORAGE_TYPE: IndexerStorageType.MONGODB,
+            ALLOW_PURGE: true,
+            BLOCK_QUERY_INTERVAL: 5000,
+            READONLY_MODE: false,
+            DISABLE_UTXO_INDEXING: false,
+            PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
+        },
+
+        DEV: {
+            PROCESS_ONLY_X_BLOCK: 0,
+            DEBUG_TRANSACTION_FAILURE: false,
+            DEBUG_TRANSACTION_PARSE_FAILURE: false,
+            CAUSE_FETCHING_FAILURE: false,
+            DISPLAY_VALID_BLOCK_WITNESS: false,
+            DISPLAY_INVALID_BLOCK_WITNESS: true,
+            SAVE_TIMEOUTS_TO_FILE: false,
+            SIMULATE_HIGH_GAS_USAGE: false,
+            DEBUG_VALID_TRANSACTIONS: false,
+        },
+
+        BASE58: {},
+
+        BECH32: {},
 
         P2P: {
             IS_BOOTSTRAP_NODE: false,
@@ -59,6 +109,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             MAXIMUM_TRANSACTION_BROADCAST: 50,
             MAXIMUM_PENDING_CALL_REQUESTS: 100,
+
+            UTXO_LIMIT: 500,
         },
 
         POA: {
@@ -91,20 +143,21 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         OP_NET: {
-            MAXIMUM_TRANSACTION_SESSIONS: 12,
+            PENDING_BLOCK_THRESHOLD: 12,
             TRANSACTIONS_MAXIMUM_CONCURRENT: 100,
             MAXIMUM_PREFETCH_BLOCKS: 10,
 
             ENABLED_AT_BLOCK: 0,
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
+
             VERIFY_INTEGRITY_ON_STARTUP: false,
             DISABLE_SCANNED_BLOCK_STORAGE_CHECK: true,
 
-            CHAIN_ID: ChainIds.Bitcoin,
             MODE: OPNetIndexerMode.ARCHIVE,
         },
     };
+    private verifiedConfig: boolean = false;
 
     constructor(fullFileName: string) {
         super(fullFileName, false);
@@ -124,7 +177,53 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
     }
 
     protected override verifyConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
+        if (this.verifiedConfig) {
+            throw new Error('Config has already been verified.');
+        }
+
         super.verifyConfig(parsedConfig);
+
+        if (parsedConfig.DOCS) {
+            if (parsedConfig.DOCS.ENABLED && typeof parsedConfig.DOCS.ENABLED !== 'boolean') {
+                throw new Error(`Oops the property DOCS.ENABLED is not a boolean.`);
+            }
+
+            if (parsedConfig.DOCS.ENABLED && typeof parsedConfig.DOCS.PORT !== 'number') {
+                throw new Error(`Oops the property DOCS.PORT is not a number.`);
+            }
+        }
+
+        if (parsedConfig.API) {
+            if (parsedConfig.API.ENABLED && typeof parsedConfig.API.ENABLED !== 'boolean') {
+                throw new Error(`Oops the property API.ENABLED is not a boolean.`);
+            }
+
+            if (parsedConfig.API.ENABLED && typeof parsedConfig.API.PORT !== 'number') {
+                throw new Error(`Oops the property API.PORT is not a number.`);
+            }
+        }
+
+        if (parsedConfig.BLOCKCHAIN) {
+            if (typeof parsedConfig.BLOCKCHAIN.BITCOIND_HOST !== 'string') {
+                throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_HOST is not a string.`);
+            }
+
+            if (!parsedConfig.BLOCKCHAIN.BITCOIND_HOST) {
+                throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_HOST is not valid.`);
+            }
+
+            if (typeof parsedConfig.BLOCKCHAIN.BITCOIND_PORT !== 'number') {
+                throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_PORT is not a number.`);
+            }
+
+            if (parsedConfig.BLOCKCHAIN.BITCOIND_PORT === 0) {
+                throw new Error(`Oops the property BLOCKCHAIN.BITCOIND_PORT is not defined.`);
+            }
+        }
+
+        if (parsedConfig.DEV_MODE != null && typeof parsedConfig.DEV_MODE !== 'boolean') {
+            throw new Error(`Oops the property DEV_MODE is not a boolean.`);
+        }
 
         if (parsedConfig.INDEXER) {
             if (parsedConfig.INDEXER.ENABLED && typeof parsedConfig.INDEXER.ENABLED !== 'boolean') {
@@ -141,6 +240,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
+                typeof parsedConfig.INDEXER.BLOCK_UPDATE_METHOD !== 'string' ||
+                BlockUpdateMethods[parsedConfig.INDEXER.BLOCK_UPDATE_METHOD] === undefined
+            ) {
+                throw new Error(
+                    `Oops the property INDEXER.BLOCK_UPDATE_METHOD is not a valid BlockUpdateMethods enum value.`,
+                );
+            }
+
+            if (
                 parsedConfig.INDEXER.ALLOW_PURGE !== undefined &&
                 typeof parsedConfig.INDEXER.ALLOW_PURGE !== 'boolean'
             ) {
@@ -153,24 +261,30 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(`Oops the property INDEXER.READONLY_MODE is not a boolean.`);
             }
-        }
 
-        if (parsedConfig.ZERO_MQ) {
-            for (const topic in parsedConfig.ZERO_MQ) {
-                const subTopic = topic as BitcoinZeroMQTopic;
-                const zeroMQConfig = parsedConfig.ZERO_MQ[subTopic];
+            if (
+                parsedConfig.INDEXER.DISABLE_UTXO_INDEXING !== undefined &&
+                typeof parsedConfig.INDEXER.DISABLE_UTXO_INDEXING !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property INDEXER.DISABLE_UTXO_INDEXING is not a boolean.`,
+                );
+            }
 
-                if (typeof zeroMQConfig !== 'object') {
-                    throw new Error(`Oops the property ZERO_MQ.${topic} is not an object.`);
-                }
+            if (
+                parsedConfig.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS !== undefined &&
+                typeof parsedConfig.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS is not a number.`,
+                );
+            }
 
-                if (!zeroMQConfig.ADDRESS || typeof zeroMQConfig.ADDRESS !== 'string') {
-                    throw new Error(`Oops the property ZERO_MQ.${topic}.ADDRESS is not a string.`);
-                }
-
-                if (!zeroMQConfig.PORT || typeof zeroMQConfig.PORT !== 'number') {
-                    throw new Error(`Oops the property ZERO_MQ.${topic}.PORT is not a string.`);
-                }
+            if (
+                parsedConfig.INDEXER.BLOCK_QUERY_INTERVAL !== undefined &&
+                typeof parsedConfig.INDEXER.BLOCK_QUERY_INTERVAL !== 'number'
+            ) {
+                throw new Error(`Oops the property INDEXER.BLOCK_QUERY_INTERVAL is not a number.`);
             }
         }
 
@@ -230,8 +344,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
-                parsedConfig.OP_NET.MAXIMUM_TRANSACTION_SESSIONS !== undefined &&
-                typeof parsedConfig.OP_NET.MAXIMUM_TRANSACTION_SESSIONS !== 'number'
+                parsedConfig.OP_NET.PENDING_BLOCK_THRESHOLD !== undefined &&
+                typeof parsedConfig.OP_NET.PENDING_BLOCK_THRESHOLD !== 'number'
             ) {
                 throw new Error(`Oops the property OP_NET.TRANSACTIONS_THREADS is not a number.`);
             }
@@ -244,21 +358,45 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                     `Oops the property OP_NET.TRANSACTIONS_MAXIMUM_CONCURRENT is not a number.`,
                 );
             }
+        }
 
+        if (parsedConfig.BITCOIN) {
             if (
-                parsedConfig.OP_NET.CHAIN_ID !== undefined &&
-                typeof parsedConfig.OP_NET.CHAIN_ID !== 'number'
+                parsedConfig.BITCOIN.CHAIN_ID !== undefined &&
+                typeof parsedConfig.BITCOIN.CHAIN_ID !== 'number'
             ) {
                 throw new Error(`Oops the property OP_NET.CHAIN_ID is not a number.`);
             }
 
             if (
-                parsedConfig.OP_NET.CHAIN_ID !== undefined &&
-                parsedConfig.OP_NET.CHAIN_ID in ChainIds
+                parsedConfig.BITCOIN.NETWORK_MAGIC !== undefined &&
+                !Array.isArray(parsedConfig.BITCOIN.NETWORK_MAGIC)
+            ) {
+                throw new Error(`Oops the property BITCOIN.NETWORK_MAGIC is not an array.`);
+            } else if (parsedConfig.BITCOIN.NETWORK_MAGIC) {
+                for (const magic of parsedConfig.BITCOIN.NETWORK_MAGIC) {
+                    if (typeof magic !== 'number') {
+                        throw new Error(
+                            `Oops the property BITCOIN.NETWORK_MAGIC is not an array of numbers.`,
+                        );
+                    }
+                }
+            }
+
+            if (
+                parsedConfig.BITCOIN.NETWORK !== undefined &&
+                !(parsedConfig.BITCOIN.NETWORK in BitcoinNetwork)
             ) {
                 throw new Error(
-                    `Oops the property OP_NET.CHAIN_ID is not a valid ChainIds enum value.`,
+                    `Oops the property BITCOIN.NETWORK is not a valid BitcoinNetwork enum value.`,
                 );
+            }
+
+            if (
+                parsedConfig.BITCOIN.DNS_SEEDS !== undefined &&
+                !Array.isArray(parsedConfig.BITCOIN.DNS_SEEDS)
+            ) {
+                throw new Error(`Oops the property OP_NET.DNS_SEEDS is not an array.`);
             }
         }
 
@@ -512,28 +650,194 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                     `Oops the property API.MAXIMUM_PENDING_CALL_REQUESTS is not a number.`,
                 );
             }
+
+            if (parsedConfig.API.UTXO_LIMIT && typeof parsedConfig.API.UTXO_LIMIT !== 'number') {
+                throw new Error(`Oops the property API.UTXO_LIMIT is not a number.`);
+            }
+
+            if (
+                parsedConfig.API.MAXIMUM_REQUESTS_PER_BATCH &&
+                typeof parsedConfig.API.MAXIMUM_REQUESTS_PER_BATCH !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.MAXIMUM_REQUESTS_PER_BATCH is not a number.`,
+                );
+            }
+
+            if (parsedConfig.API.THREADS && typeof parsedConfig.API.THREADS !== 'number') {
+                throw new Error(`Oops the property API.THREADS is not a number.`);
+            }
         }
+
+        if (parsedConfig.DEV) {
+            if (
+                parsedConfig.DEV.PROCESS_ONLY_X_BLOCK !== undefined &&
+                typeof parsedConfig.DEV.PROCESS_ONLY_X_BLOCK !== 'number'
+            ) {
+                throw new Error(`Oops the property DEV.PROCESS_ONLY_X_BLOCK is not a number.`);
+            }
+
+            if (
+                parsedConfig.DEV.DEBUG_TRANSACTION_FAILURE !== undefined &&
+                typeof parsedConfig.DEV.DEBUG_TRANSACTION_FAILURE !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property DEV.DEBUG_TRANSACTION_FAILURE is not a boolean.`,
+                );
+            }
+
+            if (
+                parsedConfig.DEV.DEBUG_TRANSACTION_PARSE_FAILURE !== undefined &&
+                typeof parsedConfig.DEV.DEBUG_TRANSACTION_PARSE_FAILURE !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property DEV.DEBUG_TRANSACTION_FAILURE is not a boolean.`,
+                );
+            }
+
+            if (
+                parsedConfig.DEV.CAUSE_FETCHING_FAILURE !== undefined &&
+                typeof parsedConfig.DEV.CAUSE_FETCHING_FAILURE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.CAUSE_FETCHING_FAILURE is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.DEV.DISPLAY_VALID_BLOCK_WITNESS !== undefined &&
+                typeof parsedConfig.DEV.DISPLAY_VALID_BLOCK_WITNESS !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property DEV.DISPLAY_VALID_BLOCK_WITNESS is not a boolean.`,
+                );
+            }
+
+            if (
+                parsedConfig.DEV.DISPLAY_INVALID_BLOCK_WITNESS !== undefined &&
+                typeof parsedConfig.DEV.DISPLAY_INVALID_BLOCK_WITNESS !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property DEV.DISPLAY_INVALID_BLOCK_WITNESS is not a boolean.`,
+                );
+            }
+
+            if (
+                parsedConfig.DEV.SAVE_TIMEOUTS_TO_FILE !== undefined &&
+                typeof parsedConfig.DEV.SAVE_TIMEOUTS_TO_FILE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.SAVE_TIMEOUTS_TO_FILE is not a boolean.`);
+            }
+
+            if (
+                !parsedConfig.DEV.SIMULATE_HIGH_GAS_USAGE &&
+                typeof parsedConfig.DEV.SIMULATE_HIGH_GAS_USAGE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.SIMULATE_HIGH_GAS_USAGE is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.DEV.DEBUG_VALID_TRANSACTIONS !== undefined &&
+                typeof parsedConfig.DEV.DEBUG_VALID_TRANSACTIONS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.DEBUG_VALID_TRANSACTIONS is not a boolean.`);
+            }
+        }
+
+        if (parsedConfig.BASE58) {
+            this.verifyBase58Configs(parsedConfig.BASE58);
+        }
+
+        if (parsedConfig.BECH32) {
+            this.verifyBech32Configs(parsedConfig.BECH32);
+        }
+
+        this.verifiedConfig = true;
     }
 
     protected override parsePartialConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
-        this.verifyConfig(parsedConfig);
         super.parsePartialConfig(parsedConfig);
 
         this.parseConfig(parsedConfig);
     }
 
+    private verifyBech32Configs(parsedConfig: Partial<IBtcIndexerConfig['BECH32']>): void {
+        if (parsedConfig.HRP && typeof parsedConfig.HRP !== 'string') {
+            throw new Error(`Oops the property BECH32.HRP is not a string.`);
+        }
+    }
+
+    private verifyBase58Configs(parsedConfig: Partial<IBtcIndexerConfig['BASE58']>): void {
+        if (
+            typeof parsedConfig.PUBKEY_ADDRESS !== 'string' &&
+            parsedConfig.PUBKEY_ADDRESS !== undefined
+        ) {
+            throw new Error(`Oops the property BASE58.PUBKEY_ADDRESS is not a string.`);
+        } else if (parsedConfig.PUBKEY_ADDRESS) {
+            parsedConfig.PUBKEY_ADDRESS = Number(parsedConfig.PUBKEY_ADDRESS);
+
+            if (isNaN(parsedConfig.PUBKEY_ADDRESS)) {
+                throw new Error(`Oops the property BASE58.PUBKEY_ADDRESS is not a number.`);
+            }
+        }
+
+        if (
+            typeof parsedConfig.SCRIPT_ADDRESS !== 'string' &&
+            parsedConfig.SCRIPT_ADDRESS !== undefined
+        ) {
+            throw new Error(`Oops the property BASE58.SCRIPT_ADDRESS is not a string.`);
+        } else if (parsedConfig.SCRIPT_ADDRESS) {
+            parsedConfig.SCRIPT_ADDRESS = Number(parsedConfig.SCRIPT_ADDRESS);
+
+            if (isNaN(parsedConfig.SCRIPT_ADDRESS)) {
+                throw new Error(`Oops the property BASE58.SCRIPT_ADDRESS is not a number.`);
+            }
+        }
+
+        if (typeof parsedConfig.SECRET_KEY !== 'string' && parsedConfig.SECRET_KEY !== undefined) {
+            throw new Error(`Oops the property BASE58.SECRET_KEY is not a number.`);
+        } else if (parsedConfig.SECRET_KEY) {
+            parsedConfig.SECRET_KEY = Number(parsedConfig.SECRET_KEY);
+
+            if (isNaN(parsedConfig.SECRET_KEY)) {
+                throw new Error(`Oops the property BASE58.SECRET_KEY is not a number.`);
+            }
+        }
+
+        if (
+            typeof parsedConfig.EXT_PUBLIC_KEY !== 'string' &&
+            parsedConfig.EXT_PUBLIC_KEY !== undefined
+        ) {
+            throw new Error(`Oops the property BASE58.EXT_PUBLIC_KEY is not a string.`);
+        } else if (parsedConfig.EXT_PUBLIC_KEY) {
+            parsedConfig.EXT_PUBLIC_KEY = Number(parsedConfig.EXT_PUBLIC_KEY);
+
+            if (isNaN(parsedConfig.EXT_PUBLIC_KEY)) {
+                throw new Error(`Oops the property BASE58.EXT_PUBLIC_KEY is not a number.`);
+            }
+        }
+
+        if (
+            typeof parsedConfig.EXT_SECRET_KEY !== 'string' &&
+            parsedConfig.EXT_SECRET_KEY !== undefined
+        ) {
+            throw new Error(`Oops the property BASE58.EXT_SECRET_KEY is not a string.`);
+        } else if (parsedConfig.EXT_SECRET_KEY) {
+            parsedConfig.EXT_SECRET_KEY = Number(parsedConfig.EXT_SECRET_KEY);
+
+            if (isNaN(parsedConfig.EXT_SECRET_KEY)) {
+                throw new Error(`Oops the property BASE58.EXT_SECRET_KEY is not a number.`);
+            }
+        }
+    }
+
     private parseConfig(parsedConfig: Partial<IBtcIndexerConfig>): void {
         const defaultConfigs = this.getDefaultConfig();
+
+        this.config.DEV_MODE = parsedConfig.DEV_MODE ?? defaultConfigs.DEV_MODE;
 
         this.config.INDEXER = this.getConfigModified<
             keyof IBtcIndexerConfig,
             IBtcIndexerConfig['INDEXER']
         >(parsedConfig.INDEXER, defaultConfigs.INDEXER);
-
-        this.config.ZERO_MQ = this.getConfigModified<
-            keyof IBtcIndexerConfig,
-            IBtcIndexerConfig['ZERO_MQ']
-        >(parsedConfig.ZERO_MQ, defaultConfigs.ZERO_MQ);
 
         this.config.RPC = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['RPC']>(
             parsedConfig.RPC,
@@ -565,6 +869,16 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             IBtcIndexerConfig['BLOCKCHAIN']
         >(parsedConfig.BLOCKCHAIN, defaultConfigs.BLOCKCHAIN);
 
+        this.config.DATABASE = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['DATABASE']
+        >(parsedConfig.DATABASE, defaultConfigs.DATABASE);
+
+        this.config.DOCS = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['DOCS']
+        >(parsedConfig.DOCS, defaultConfigs.DOCS);
+
         this.config.SSH = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['SSH']>(
             parsedConfig.SSH,
             defaultConfigs.SSH,
@@ -573,6 +887,26 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         this.config.API = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['API']>(
             parsedConfig.API,
             defaultConfigs.API,
+        );
+
+        this.config.BECH32 = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['BECH32']
+        >(parsedConfig.BECH32 || {}, defaultConfigs.BECH32 || {});
+
+        this.config.BASE58 = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['BASE58']
+        >(parsedConfig.BASE58 || {}, defaultConfigs.BASE58 || {});
+
+        this.config.BITCOIN = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['BITCOIN']
+        >(parsedConfig.BITCOIN || {}, defaultConfigs.BITCOIN || {});
+
+        this.config.DEV = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['DEV']>(
+            parsedConfig.DEV,
+            defaultConfigs.DEV,
         );
     }
 
@@ -584,9 +918,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             throw new Error(`Oops the default config is not defined.`);
         }
 
-        let newIndexerConfig: Partial<T> = {};
-        let configData: Partial<T> = config || {};
-        for (let setting of Object.keys(defaultConfig)) {
+        const newIndexerConfig: Partial<T> = {};
+        const configData: Partial<T> = config || {};
+        for (const setting of Object.keys(defaultConfig)) {
             const settingKey = setting as keyof T;
 
             newIndexerConfig[settingKey] = configData[settingKey] ?? defaultConfig[settingKey];

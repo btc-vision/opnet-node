@@ -6,7 +6,7 @@ import { OPNetPacket } from '../protobuf/types/OPNetPacket.js';
 import { OPNetProtocolV1 } from '../server/protocol/OPNetProtocolV1.js';
 
 export abstract class AbstractPacketManager extends Logger {
-    private eventHandlers: Map<string, NetworkingEventHandler<object>[]> = new Map();
+    private eventHandlers: Map<string, NetworkingEventHandler[]> = new Map();
 
     protected constructor(
         protected readonly protocol: OPNetProtocolV1,
@@ -30,7 +30,7 @@ export abstract class AbstractPacketManager extends Logger {
             this.eventHandlers.set(event, []);
         }
 
-        this.eventHandlers.get(event)?.push(eventHandler as NetworkingEventHandler<object>);
+        this.eventHandlers.get(event)?.push(eventHandler as NetworkingEventHandler);
     }
 
     protected async sendMsg(data: Uint8Array | Buffer): Promise<void> {
@@ -38,10 +38,11 @@ export abstract class AbstractPacketManager extends Logger {
     }
 
     protected async emit<T extends string, U extends object>(event: T, data: U): Promise<void> {
-        if (!this.eventHandlers.has(event)) return;
+        const eventHandlers = this.eventHandlers.get(event);
+        if (!eventHandlers) return;
 
         const promises: Promise<void>[] = [];
-        for (const handler of this.eventHandlers.get(event)!) {
+        for (const handler of eventHandlers) {
             promises.push(handler(data));
         }
 

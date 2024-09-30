@@ -5,6 +5,7 @@ import protobuf, { Root } from 'protobufjs';
 import { ProtocolFileNames } from './const/ProtocolFileNames.js';
 
 protobuf.util.Long = Long;
+protobuf.util.Buffer = Buffer;
 protobuf.configure();
 
 const schemaPath: string = path.join(

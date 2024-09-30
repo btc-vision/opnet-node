@@ -10,7 +10,7 @@ import {
 export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 
@@ -110,8 +110,6 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         const criteria: Partial<Filter<IBlockHeaderBlockDocument>> = {
             height: blockHeader.height,
         };
-
-        //console.log('Saving block header', blockHeader, criteria);
 
         await this.updatePartial(criteria, blockHeader, currentSession);
     }

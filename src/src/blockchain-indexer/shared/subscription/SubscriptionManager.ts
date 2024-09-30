@@ -8,7 +8,7 @@ export class SubscriptionManager extends Logger {
         PossibleSubscriptions[]
     >();
 
-    constructor() {
+    public constructor() {
         super();
     }
 

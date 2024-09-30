@@ -26,7 +26,7 @@ export class OPNetPathFinder {
     }
 
     protected encryptRaw(data: Uint8Array | Buffer): Uint8Array {
-        let encrypted: Uint8Array = new Uint8Array(data.length);
+        const encrypted: Uint8Array = new Uint8Array(data.length);
         for (let i = 0; i < data.length; i++) {
             encrypted[i] = data[i] ^ this.encKey[i % this.encKey.byteLength];
         }
@@ -35,7 +35,7 @@ export class OPNetPathFinder {
     }
 
     protected decrypt(encrypted: Uint8Array | Buffer): Uint8Array {
-        let data: Uint8Array = new Uint8Array(encrypted.byteLength);
+        const data: Uint8Array = new Uint8Array(encrypted.byteLength);
         for (let i = 0; i < encrypted.byteLength; i++) {
             data[i] = encrypted[i] ^ this.encKey[i % this.encKey.byteLength];
         }

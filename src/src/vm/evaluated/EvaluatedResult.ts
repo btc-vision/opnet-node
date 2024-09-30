@@ -11,7 +11,7 @@ export type BlockchainStorageMap = Map<Address, PointerStorageMap>;
 export type EvaluatedEvents = Map<Address, NetEvent[]>;
 
 export interface EvaluatedResult {
-    readonly changedStorage: BlockchainStorageMap;
+    readonly changedStorage: BlockchainStorageMap | undefined;
     readonly result: Uint8Array | undefined;
     readonly events: EvaluatedEvents | undefined;
     readonly gasUsed: bigint;

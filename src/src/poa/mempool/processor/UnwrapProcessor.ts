@@ -41,7 +41,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         return this.#roswell;
     }
 
-    public async createRepositories(rpc: BitcoinRPC): Promise<void> {
+    public createRepositories(rpc: BitcoinRPC): void {
         if (!this.db.db) throw new Error('Database connection not established.');
 
         this.#utxoRepository = new WBTCUTXORepository(this.db.db);
@@ -55,11 +55,11 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
         );
     }
 
-    public async process(psbt: Psbt, data: UnwrapPSBTDecodedData): Promise<PSBTProcessedResponse> {
+    public process(psbt: Psbt, data: UnwrapPSBTDecodedData): PSBTProcessedResponse {
         let final: FinalizedPSBT;
-        switch (data.version) {
+        switch (data.version as Consensus) {
             case Consensus.Roswell:
-                final = await this.roswell.finalizePSBT(psbt, data);
+                final = this.roswell.finalizePSBT(psbt, data);
                 break;
             default:
                 throw new Error('Unsupported consensus');

@@ -30,6 +30,7 @@ export class OPNetWitnessRoute extends Route<
             throw new Error('Storage not initialized');
         }
 
+        // eslint-disable-next-line prefer-const
         let [height, trusted, limit, page] = this.getDecodedParams(params);
         if (typeof height === 'string') height = BigInt(height);
 
@@ -39,6 +40,7 @@ export class OPNetWitnessRoute extends Route<
             limit,
             page,
         );
+
         if (!witnesses) return undefined;
 
         return this.parseResult(witnesses);

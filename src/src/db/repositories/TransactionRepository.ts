@@ -1,8 +1,9 @@
-import { Address } from '@btc-vision/bsi-binary';
-import { BaseRepository } from '@btc-vision/bsi-common';
+import { BaseRepository, DataAccessError, DataAccessErrorType } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import {
-    AggregateOptions,
+    AnyBulkWriteOperation,
+    BulkWriteOptions,
+    BulkWriteResult,
     ClientSession,
     Collection,
     Db,
@@ -11,27 +12,16 @@ import {
     Filter,
     Sort,
 } from 'mongodb';
-import { UTXOsOutputTransactions } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import {
-    BalanceOfAggregation,
-    BalanceOfOutputTransactionFromDB,
-} from '../../vm/storage/databases/aggregation/BalanceOfAggregation.js';
-import {
-    UTXOsAggregation,
-    UTXOSOutputTransactionFromDB,
-} from '../../vm/storage/databases/aggregation/UTXOsAggregation.js';
 import { ITransactionDocument, TransactionDocument } from '../interfaces/ITransactionDocument.js';
+import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 
 export class TransactionRepository extends BaseRepository<
     ITransactionDocument<OPNetTransactionTypes>
 > {
     public readonly logColor: string = '#afeeee';
 
-    private readonly uxtosAggregation: UTXOsAggregation = new UTXOsAggregation();
-    private readonly balanceOfAggregation: BalanceOfAggregation = new BalanceOfAggregation();
-
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 
@@ -44,20 +34,44 @@ export class TransactionRepository extends BaseRepository<
         };
 
         await this.delete(criteria, currentSession);
+
+        //const promises: Promise<unknown>[] = [this.delete(criteria, currentSession)];
+
+        //await Promise.all(promises);
     }
 
-    /** Save block headers */
-    public async saveTransaction(
-        transactionData: ITransactionDocument<OPNetTransactionTypes>,
+    public async bulkWrite(
+        operations: AnyBulkWriteOperation<ITransactionDocument<OPNetTransactionTypes>>[],
         currentSession?: ClientSession,
     ): Promise<void> {
-        const criteria: Partial<Filter<ITransactionDocument<OPNetTransactionTypes>>> = {
-            hash: transactionData.hash,
-            id: transactionData.id,
-            blockHeight: transactionData.blockHeight,
-        };
+        try {
+            const collection = this.getCollection();
+            const options: BulkWriteOptions = this.getOptions(currentSession);
+            options.ordered = false;
+            options.writeConcern = { w: 1 };
 
-        await this.updatePartial(criteria, transactionData, currentSession);
+            const result: BulkWriteResult = await collection.bulkWrite(operations, options);
+
+            if (result.hasWriteErrors()) {
+                result.getWriteErrors().forEach((error) => {
+                    this.error(`Bulk write error: ${error}`);
+                });
+
+                throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
+            }
+
+            if (!result.isOk()) {
+                throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                const errorDescription: string = error.stack || error.message;
+
+                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
+            } else {
+                throw error;
+            }
+        }
     }
 
     public async saveTransactions(
@@ -109,58 +123,7 @@ export class TransactionRepository extends BaseRepository<
         return transaction ?? undefined;
     }
 
-    public async getBalanceOf(wallet: Address, currentSession?: ClientSession): Promise<bigint> {
-        const aggregation: Document[] = this.balanceOfAggregation.getAggregation(wallet);
-        const collection = this.getCollection();
-        const options: AggregateOptions = this.getOptions(currentSession) as AggregateOptions;
-        options.allowDiskUse = true;
-
-        const aggregatedDocument = collection.aggregate<BalanceOfOutputTransactionFromDB>(
-            aggregation,
-            options,
-        );
-
-        const results: BalanceOfOutputTransactionFromDB[] = await aggregatedDocument.toArray();
-        const balance: Decimal128 = results?.[0]?.balance ?? Decimal128.fromString('0');
-
-        return DataConverter.fromDecimal128(balance);
-    }
-
-    public async getWalletUnspentUTXOS(
-        wallet: Address,
-        _optimize: boolean = false,
-        currentSession?: ClientSession,
-    ): Promise<UTXOsOutputTransactions> {
-        // TODO: Add cursor page support.
-        const aggregation: Document[] = this.uxtosAggregation.getAggregation(wallet);
-        const collection = this.getCollection();
-        const options = this.getOptions(currentSession) as AggregateOptions;
-        options.allowDiskUse = true;
-
-        try {
-            const aggregatedDocument = collection.aggregate<UTXOSOutputTransactionFromDB>(
-                aggregation,
-                options,
-            );
-
-            const results: UTXOSOutputTransactionFromDB[] = await aggregatedDocument.toArray();
-
-            return results.map((result) => {
-                return {
-                    transactionId: result.transactionId,
-                    outputIndex: result.outputIndex,
-                    value: DataConverter.fromDecimal128(result.value),
-                    scriptPubKey: result.scriptPubKey,
-                };
-            });
-        } catch (e) {
-            this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
-
-            throw e;
-        }
-    }
-
     protected override getCollection(): Collection<ITransactionDocument<OPNetTransactionTypes>> {
-        return this._db.collection('Transactions');
+        return this._db.collection(OPNetCollections.Transactions);
     }
 }

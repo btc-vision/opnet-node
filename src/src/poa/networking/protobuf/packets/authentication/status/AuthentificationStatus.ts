@@ -21,7 +21,7 @@ export class AuthenticationStatus extends Packet<
 
     protected opcode: ServerOutBound = ServerOutBound.AUTHENTICATION_STATUS;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

@@ -5,8 +5,8 @@ import {
     OPNetTransactionTypes,
 } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
-    APIDocumentInput,
     TransactionInput,
+    TransactionInputBase,
 } from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import {
     APIDocumentOutput,
@@ -14,22 +14,30 @@ import {
 } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { Address } from '@btc-vision/bsi-binary';
 import { TrustedCompanies } from '../../poa/configurations/TrustedCompanies.js';
-import { IWBTCUTXODocument, PartialWBTCUTXODocument, UsedUTXOToDelete } from './IWBTCUTXODocument.js';
+import { PartialWBTCUTXODocument, UsedUTXOToDelete } from './IWBTCUTXODocument.js';
 
-export interface TransactionDocumentBase<T extends OPNetTransactionTypes> {
+export interface TransactionDocumentBasic<T extends OPNetTransactionTypes> {
     readonly id: string;
     readonly hash: string;
 
     readonly index: number; // Mark the order of the transaction in the block
-
     readonly blockHeight: Decimal128 | string | undefined;
-    readonly burnedBitcoin: Decimal128 | string;
-    readonly revert: Binary | undefined | string;
 
-    readonly inputs: TransactionInput[] | APIDocumentInput[];
+    readonly inputs: TransactionInput[] | TransactionInputBase[];
     readonly outputs: ITransactionOutput[] | APIDocumentOutput[];
 
     readonly OPNetType: T;
+}
+
+export interface ITransactionDocumentBasic<T extends OPNetTransactionTypes>
+    extends TransactionDocumentBasic<T> {
+    readonly blockHeight: Decimal128;
+}
+
+export interface TransactionDocumentBase<T extends OPNetTransactionTypes>
+    extends TransactionDocumentBasic<T> {
+    readonly burnedBitcoin: Decimal128 | string;
+    readonly revert: Binary | undefined | string;
 }
 
 export interface TransactionDocument<T extends OPNetTransactionTypes>

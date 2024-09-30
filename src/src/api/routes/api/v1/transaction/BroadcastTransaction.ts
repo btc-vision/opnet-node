@@ -58,11 +58,11 @@ export class BroadcastTransaction extends Route<
                 };
             }
 
-            let parsedDataAsBuf = Buffer.from(data, 'hex');
+            const parsedDataAsBuf = Buffer.from(data, 'hex');
             let parsedData: Uint8Array = Uint8Array.from(parsedDataAsBuf);
 
             const identifier = xxHash.hash(parsedDataAsBuf);
-            const verification = await this.verifyOPNetTransaction(
+            const verification: BroadcastResponse | undefined = await this.verifyOPNetTransaction(
                 parsedData,
                 identifier,
                 psbt ?? false,
@@ -89,14 +89,28 @@ export class BroadcastTransaction extends Route<
             if (verification.success) {
                 this.decrementPendingRequests();
 
+                if (!parsedData) {
+                    throw new Error('Could not parse data');
+                }
+
+                const result: BroadcastResponse | undefined = await this.broadcastOPNetTransaction(
+                    parsedData,
+                    isPsbt,
+                    verification.identifier,
+                );
+
+                if (!result) {
+                    return {
+                        success: false,
+                        error: 'Could not broadcast transaction',
+                        identifier: 0n,
+                    };
+                }
+
                 return {
-                    ...verification,
-                    ...(await this.broadcastOPNetTransaction(
-                        parsedData,
-                        isPsbt,
-                        verification.identifier,
-                    )),
-                };
+                    ...(verification as BroadcastTransactionResult),
+                    ...(result as BroadcastTransactionResult),
+                } as BroadcastTransactionResult;
             }
 
             this.decrementPendingRequests();
@@ -153,6 +167,7 @@ export class BroadcastTransaction extends Route<
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             req.body = await req.json();
 
             const params = this.getParams(req, res);
@@ -182,6 +197,7 @@ export class BroadcastTransaction extends Route<
             throw new Error('Invalid params.');
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         const data: string = req.body.data as string;
         if (!data) {
             res.status(400);
@@ -191,6 +207,7 @@ export class BroadcastTransaction extends Route<
 
         return {
             data,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             psbt: req.body.psbt == true,
         };
     }
@@ -213,7 +230,7 @@ export class BroadcastTransaction extends Route<
                 } as BroadcastOPNetRequest,
             };
 
-        return (await ServerThread.sendMessageToThread(ThreadTypes.PoA, currentBlockMsg)) as
+        return (await ServerThread.sendMessageToThread(ThreadTypes.POA, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
     }

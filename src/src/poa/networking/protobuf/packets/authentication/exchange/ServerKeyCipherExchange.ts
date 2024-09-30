@@ -18,7 +18,7 @@ export class ServerKeyCipherExchange extends Packet<
 
     protected opcode: ServerOutBound = ServerOutBound.SERVER_CIPHER_EXCHANGE;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

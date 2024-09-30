@@ -2,7 +2,7 @@ import Long from 'long';
 import { Type } from 'protobufjs';
 import { PossiblePackets, ServerInBound, ServerOutBound } from '../types/messages/OPNetMessages.js';
 
-export interface PackedMessage {}
+export type PackedMessage = object;
 
 export abstract class Packet<
     T extends PackedMessage,
@@ -21,15 +21,14 @@ export abstract class Packet<
     }
 
     public pack(msgToPack: T): Uint8Array {
-        let convertedMsgToPack = this.castInputAs(msgToPack as unknown as T);
-
-        let verificationError = this.packet.verify(convertedMsgToPack);
+        const convertedMsgToPack = this.castInputAs(msgToPack as unknown as T);
+        const verificationError = this.packet.verify(convertedMsgToPack);
 
         if (verificationError) {
             throw new Error(`Error while verifying message: ${verificationError}`);
         } else {
-            let schema = this.packet.create(convertedMsgToPack);
-            let message = this.packet.encode(schema).finish();
+            const schema = this.packet.create(convertedMsgToPack);
+            const message = this.packet.encode(schema).finish();
 
             if (this.opcode === null) throw new Error(`Opcode is null.`);
 
@@ -38,7 +37,7 @@ export abstract class Packet<
     }
 
     public unpack(msgToUnpack: Uint8Array): T {
-        let message = this.packet.decode(msgToUnpack);
+        const message = this.packet.decode(msgToUnpack);
         const objOutput = this.packet.toObject(message, {
             longs: Long,
             enums: Number,

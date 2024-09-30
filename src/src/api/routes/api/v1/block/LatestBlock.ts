@@ -5,27 +5,30 @@ import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { BlockByNumberResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByNumberResult.js';
 import { Route } from '../../../Route.js';
+import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 
 export class LatestBlock extends Route<
     Routes.LATEST_BLOCK,
     JSONRpcMethods.BLOCK_BY_NUMBER,
-    BlockByNumberResult | undefined
+    BlockByNumberResult
 > {
+    private cachedBlock: Promise<BlockHeaderAPIBlockDocument | undefined> | undefined;
+
     constructor() {
         super(Routes.LATEST_BLOCK, RouteType.GET);
+
+        setInterval(() => {
+            this.cachedBlock = undefined;
+        }, 1000);
     }
 
-    public async getData(): Promise<BlockByNumberResult | undefined> {
-        if (!this.storage) {
-            throw new Error('Storage not initialized');
-        }
-
-        const latestBlock = await this.storage.getLatestBlock();
+    public async getData(): Promise<BlockByNumberResult> {
+        const latestBlock = await this.getBlockHeight();
 
         return `0x${BigInt(latestBlock?.height || '0').toString(16)}`;
     }
 
-    public async getDataRPC(): Promise<BlockByNumberResult | undefined> {
+    public async getDataRPC(): Promise<BlockByNumberResult> {
         const data = await this.getData();
         if (!data) throw new Error(`Block not found at given height.`);
 
@@ -58,5 +61,17 @@ export class LatestBlock extends Route<
         } catch (err) {
             this.handleDefaultError(res, err as Error);
         }
+    }
+
+    private async getBlockHeight(): Promise<BlockHeaderAPIBlockDocument | undefined> {
+        if (!this.storage) {
+            throw new Error('Storage not initialized');
+        }
+
+        if (!this.cachedBlock) {
+            this.cachedBlock = this.storage.getLatestBlock();
+        }
+
+        return await this.cachedBlock;
     }
 }

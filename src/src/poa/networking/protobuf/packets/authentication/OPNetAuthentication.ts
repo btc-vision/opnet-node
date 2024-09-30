@@ -11,14 +11,16 @@ export interface IAuthenticationPacket extends PackedMessage {
     readonly type: number;
     readonly network: number;
     readonly chainId: number;
+
+    magicNumber?: number;
 }
 
-export class AuthenticationPacket extends Packet<IAuthenticationPacket, {}, {}> {
+export class AuthenticationPacket extends Packet<IAuthenticationPacket, object, object> {
     public static TYPE: Packets = Packets.Authentication;
 
     protected opcode: ServerInBound | ServerOutBound = ServerInBound.AUTHENTICATION;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

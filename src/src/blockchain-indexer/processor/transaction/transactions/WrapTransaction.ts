@@ -73,7 +73,7 @@ export class WrapTransaction extends InteractionTransaction {
     private stackingFee: bigint = 0n;
     private indexerFee: bigint = 0n;
 
-    constructor(
+    public constructor(
         rawTransactionData: TransactionData,
         vIndexIn: number,
         blockHash: string,
@@ -145,9 +145,10 @@ export class WrapTransaction extends InteractionTransaction {
     ): Buffer | undefined {
         let contractBytecode: Buffer | undefined = undefined;
 
-        let i: number = 0;
+        //let i: number = 0;
         do {
-            if (scriptData[i] === breakWhenReachOpcode) {
+            // TODO: Verify this.
+            if (scriptData[0] === breakWhenReachOpcode) {
                 break;
             }
 
@@ -165,6 +166,8 @@ export class WrapTransaction extends InteractionTransaction {
             } else {
                 throw new Error(`Invalid pub keys found in wrap transaction.`);
             }
+
+            //i++;
         } while (scriptData.length);
 
         return contractBytecode;
@@ -389,7 +392,7 @@ export class WrapTransaction extends InteractionTransaction {
 
         delete this.interactionWitnessData; // free up some memory.
 
-        this._callee = authorityManager.WBTC_DEPLOYER; // authorize the mint.
+        this._msgSender = authorityManager.WBTC_DEPLOYER; // authorize the mint.
     }
 
     private calculateFees(): void {
@@ -406,7 +409,7 @@ export class WrapTransaction extends InteractionTransaction {
     private giveFeesToIndexer(): Map<Address, bigint> {
         const fees: Map<Address, bigint> = new Map<Address, bigint>();
 
-        let indexerWallets: Set<Address> = new Set<Address>();
+        const indexerWallets: Set<Address> = new Set<Address>();
         for (const validators of this.pubKeys) {
             const address: Address | undefined =
                 authorityManager.getWalletFromPublicKey(validators);

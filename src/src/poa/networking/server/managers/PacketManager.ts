@@ -73,7 +73,7 @@ export class OPNetPacketManager extends ProtobufLoader {
         ),
     };
 
-    constructor() {
+    public constructor() {
         super();
     }
 

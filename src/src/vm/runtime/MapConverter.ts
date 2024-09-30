@@ -16,7 +16,7 @@ export class MapConverter {
     ): BlockchainStorageMap {
         const result = new Map<Address, PointerStorageMap>();
         for (const [key, value] of storage) {
-            const subPointerStorage = new Map();
+            const subPointerStorage: PointerStorageMap = new Map();
             for (const [k, v] of value) {
                 subPointerStorage.set(k, v);
             }

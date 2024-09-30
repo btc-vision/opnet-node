@@ -1,6 +1,6 @@
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 
-export abstract class MerkleTree<K extends unknown, V extends unknown> {
+export abstract class MerkleTree<K, V> {
     protected tree: StandardMerkleTree<[Buffer, Buffer]> | undefined;
     protected readonly values: Map<string, Map<K, V>> = new Map();
 
@@ -48,7 +48,10 @@ export abstract class MerkleTree<K extends unknown, V extends unknown> {
 
     public abstract getValue(address: string, key: K): V | undefined;
 
-    public abstract getValueWithProofs(address: string, key: K): [V, string[]] | undefined;
+    public abstract getValueWithProofs(
+        address: string,
+        key: K,
+    ): [V | Uint8Array, string[]] | undefined;
 
     public hasTree(): boolean {
         return !!this.tree;

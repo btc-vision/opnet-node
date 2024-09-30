@@ -17,7 +17,7 @@ import { PSBTTransactionVerifier } from '../psbt/PSBTTransactionVerifier.js';
 import { BitcoinRPC, FeeEstimation } from '@btc-vision/bsi-bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
-import { NetworkConverter } from '../../../config/NetworkConverter.js';
+import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { PSBTProcessorManager } from '../PSBTProcessorManager.js';
 import { Network } from 'bitcoinjs-lib';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
@@ -26,10 +26,12 @@ import { AuthorityManager } from '../../configurations/manager/AuthorityManager.
 import { xxHash } from '../../hashing/xxhash.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
-import { BlockchainInformationRepository } from '../../../db/repositories/BlockchainInformationRepository.js';
+import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
 import { Address } from '@btc-vision/bsi-binary';
 import { WBTCBalanceRequest } from '../../../threading/interfaces/thread-messages/messages/api/WBTCBalanceRequest.js';
+import { BroadcastTransactionResult } from '../../../api/json-rpc/types/interfaces/results/transactions/BroadcastTransactionResult.js';
+import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';
 
 export class Mempool extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -42,7 +44,7 @@ export class Mempool extends Logger {
 
     private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
 
-    #blockchainInformationRepository: BlockchainInformationRepository | undefined;
+    #blockchainInformationRepository: BlockchainInfoRepository | undefined;
     #mempoolRepository: MempoolRepository | undefined;
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
@@ -51,9 +53,7 @@ export class Mempool extends Logger {
         this.currentAuthority,
     );
 
-    private readonly network: Network = NetworkConverter.getNetwork(
-        Config.BLOCKCHAIN.BITCOIND_NETWORK,
-    );
+    private readonly network: Network = NetworkConverter.getNetwork();
 
     private estimatedBlockFees: bigint = 0n;
 
@@ -74,7 +74,7 @@ export class Mempool extends Logger {
         return this.#mempoolRepository;
     }
 
-    private get blockchainInformationRepository(): BlockchainInformationRepository {
+    private get blockchainInformationRepository(): BlockchainInfoRepository {
         if (!this.#blockchainInformationRepository) {
             throw new Error('BlockchainInformationRepository not created.');
         }
@@ -85,7 +85,7 @@ export class Mempool extends Logger {
     public sendMessageToThread: (
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ) => Promise<ThreadData | null> = async () => {
+    ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
 
@@ -108,13 +108,13 @@ export class Mempool extends Logger {
     public async init(): Promise<void> {
         this.log(`Starting Mempool...`);
 
-        await this.db.setup(Config.DATABASE.CONNECTION_TYPE);
+        this.db.setup();
         await Promise.all([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
 
         if (!this.db.db) throw new Error('Database connection not established.');
 
         this.#mempoolRepository = new MempoolRepository(this.db.db);
-        this.#blockchainInformationRepository = new BlockchainInformationRepository(this.db.db);
+        this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
         await Promise.all([
             this.watchBlockchain(),
@@ -125,17 +125,18 @@ export class Mempool extends Logger {
     }
 
     private async watchBlockchain(): Promise<void> {
-        if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
-            this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
-                try {
-                    OPNetConsensus.setBlockHeight(blockHeight);
-                    this.mempoolRepository.purgeOldTransactions(blockHeight);
-                } catch (e) {}
-            });
-        }
+        this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
+            try {
+                OPNetConsensus.setBlockHeight(blockHeight);
+
+                if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
+                    void this.mempoolRepository.purgeOldTransactions(blockHeight);
+                }
+            } catch {}
+        });
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
-            Config.BLOCKCHAIN.BITCOIND_NETWORK,
+            Config.BITCOIN.NETWORK,
         );
     }
 
@@ -170,7 +171,7 @@ export class Mempool extends Logger {
         }
 
         setTimeout(() => {
-            this.estimateFees();
+            void this.estimateFees();
         }, 20000);
     }
 
@@ -222,14 +223,18 @@ export class Mempool extends Logger {
                 data: raw,
                 firstSeen: new Date(),
                 blockHeight: OPNetConsensus.getBlockHeight(),
+                inputs: [],
+                outputs: [],
             };
 
             if (psbt) {
-                return this.decodePSBTAndProcess(transaction);
+                return await this.decodePSBTAndProcess(transaction);
             } else {
-                return this.decodeTransactionAndProcess(transaction);
+                return await this.decodeTransactionAndProcess(transaction);
             }
         } catch (e) {
+            console.log(`Error processing transaction: ${(e as Error).stack}`);
+
             if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.error(`Error processing transaction: ${(e as Error).stack}`);
             }
@@ -249,6 +254,7 @@ export class Mempool extends Logger {
             transaction.identifier,
             transaction.psbt,
         );
+
         if (exist) {
             return {
                 success: false,
@@ -257,17 +263,20 @@ export class Mempool extends Logger {
             };
         }
 
-        const rawHex: string = Buffer.from(transaction.data).toString('hex');
-        const broadcasted = await this.broadcastBitcoinTransaction(rawHex);
+        const buf = Buffer.from(transaction.data);
+        const rawHex: string = buf.toString('hex');
 
-        if (broadcasted && broadcasted.success && broadcasted.result) {
-            transaction.id = broadcasted.result;
+        const broadcast = await this.broadcastBitcoinTransaction(rawHex);
+        if (broadcast && broadcast.success && broadcast.result) {
+            transaction.id = broadcast.result;
+
+            parseAndStoreInputOutputs(buf, transaction);
 
             await this.mempoolRepository.storeTransaction(transaction);
         }
 
         return (
-            broadcasted || {
+            broadcast || {
                 success: false,
                 result: 'Could not broadcast transaction to the network.',
                 identifier: transaction.identifier,
@@ -316,17 +325,20 @@ export class Mempool extends Logger {
             const finalizedHex: string = finalized.toHex();
             const newIdentifier: bigint = xxHash.hash(finalized.toBuffer());
 
+            const txBuffer = finalized.toBuffer();
             const finalTransaction: IMempoolTransactionObj = {
                 id: finalized.getHash(false).toString('hex'),
                 previousPsbtId:
                     transaction.previousPsbtId || decodedPsbt.data.hash || transaction.id,
 
                 identifier: newIdentifier,
-                data: finalized.toBuffer(),
+                data: txBuffer,
 
                 psbt: false,
                 firstSeen: transaction.firstSeen,
                 blockHeight: transaction.blockHeight,
+                inputs: [],
+                outputs: [],
             };
 
             if (transaction.identifier === finalTransaction.identifier) {
@@ -344,12 +356,15 @@ export class Mempool extends Logger {
             ];
 
             const result = await Promise.all(submitData);
-            const broadcastResult = result[1] as BroadcastResponse | undefined;
+            const broadcastResult = result[1] as BroadcastTransactionResult | undefined;
             console.log('broadcastResult', broadcastResult);
 
             if (broadcastResult?.success) {
                 console.log('broadcastResult.result', broadcastResult.result, finalTransaction.id);
                 finalTransaction.id = broadcastResult.result;
+
+                parseAndStoreInputOutputs(txBuffer, transaction);
+
                 await this.mempoolRepository.storeTransaction(finalTransaction);
 
                 return {
@@ -382,6 +397,8 @@ export class Mempool extends Logger {
                 firstSeen: transaction.firstSeen,
                 id: processed.hash,
                 blockHeight: transaction.blockHeight,
+                inputs: [],
+                outputs: [],
             };
 
             await this.mempoolRepository.storeTransaction(newTransaction);
@@ -415,7 +432,7 @@ export class Mempool extends Logger {
             } as WBTCBalanceRequest,
         };
 
-        return (await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, currentBlockMsg)) as
+        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
     }
@@ -428,11 +445,13 @@ export class Mempool extends Logger {
                 type: MessageType.RPC_METHOD,
                 data: {
                     rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE,
-                    data: data,
+                    data: {
+                        rawTransaction: data,
+                    },
                 } as BroadcastRequest,
             };
 
-        return (await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, currentBlockMsg)) as
+        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
     }

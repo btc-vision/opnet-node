@@ -6,7 +6,7 @@ import { Routes } from '../../../../enums/Routes.js';
 import { BlockByHashParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByHashParams.js';
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { BlockRoute } from './BlockRoute.js';
-import { SafeMath } from '../../../safe/SafeMath.js';
+import { BlockParamsConverter } from '../../../safe/BlockParamsConverter.js';
 
 export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
     constructor() {
@@ -20,7 +20,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
 
         let data: Promise<BlockHeaderAPIDocumentWithTransactions>;
         try {
-            const blockHash = SafeMath.getParameterAsStringForBlock(params);
+            const blockHash = BlockParamsConverter.getParameterAsStringForBlock(params);
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
             if (!blockHash) {
                 throw new Error(`Could not find the block with the provided hash ${blockHash}.`);

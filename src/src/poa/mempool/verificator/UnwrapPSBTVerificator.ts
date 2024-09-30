@@ -58,11 +58,11 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
         return false;
     }
 
-    public async createRepositories(): Promise<void> {
-        await this.consensusVerificator.createRepositories();
+    public createRepositories(): void {
+        this.consensusVerificator.createRepositories();
     }
 
-    private async verifyConformity(data: Psbt, version: number): Promise<UnwrapPSBTDecodedData> {
+    private async verifyConformity(data: Psbt, version: Consensus): Promise<UnwrapPSBTDecodedData> {
         const { tx, hash: txHash, estimatedFees } = this.generatePSBTHash(data);
 
         const amountOfInputs = tx.ins.length;
