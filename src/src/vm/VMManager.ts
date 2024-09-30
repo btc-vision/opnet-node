@@ -43,6 +43,7 @@ import { UnwrapTransaction } from '../blockchain-indexer/processor/transaction/t
 import { Blockchain } from './Blockchain.js';
 import { BlockHeaderValidator } from './BlockHeaderValidator.js';
 import { Config } from '../config/Config.js';
+import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasPredictor.js';
 
 Globals.register();
 
@@ -254,6 +255,7 @@ export class VMManager extends Logger {
     public async executeTransaction(
         blockHeight: bigint,
         blockMedian: bigint,
+        baseGas: bigint,
         interactionTransaction: InteractionTransaction | WrapTransaction | UnwrapTransaction,
         unlimitedGas: boolean = false,
     ): Promise<ContractEvaluation> {
@@ -291,13 +293,7 @@ export class VMManager extends Logger {
             }
 
             // Trace the execution time
-            const maxGas: bigint = unlimitedGas
-                ? OPNetConsensus.consensus.GAS.TARGET_GAS
-                : GasTracker.convertSatToGas(
-                      burnedBitcoins,
-                      OPNetConsensus.consensus.GAS.TARGET_GAS,
-                      OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO,
-                  );
+            const maxGas: bigint = this.calculateMaxGas(unlimitedGas, burnedBitcoins, baseGas);
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
@@ -458,6 +454,23 @@ export class VMManager extends Logger {
         }
 
         this.vmEvaluators.clear();
+    }
+
+    private calculateMaxGas(
+        unlimitedGas: boolean,
+        burnedBitcoins: bigint,
+        baseGas: bigint,
+    ): bigint {
+        const gas: bigint = unlimitedGas
+            ? OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS
+            : GasTracker.convertSatToGas(
+                  burnedBitcoins,
+                  OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS,
+                  OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO,
+              );
+
+        const gasToScale = BlockGasPredictor.toBaseBigInt(gas);
+        return gasToScale / baseGas + 1n; // Round up.
     }
 
     private async callExternal(

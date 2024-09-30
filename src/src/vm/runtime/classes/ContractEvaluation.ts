@@ -37,7 +37,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public result: Uint8Array | undefined;
     public readonly gasTracker: GasTracker = new GasTracker(
-        OPNetConsensus.consensus.GAS.TARGET_GAS,
+        OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS,
     );
 
     public contractDeployDepth: number;

@@ -24,9 +24,9 @@ export class GasTracker {
 
     public set maxGas(maxGas: bigint) {
         this.#maxGas =
-            maxGas < OPNetConsensus.consensus.GAS.TARGET_GAS
+            maxGas < OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS
                 ? maxGas
-                : OPNetConsensus.consensus.GAS.TARGET_GAS;
+                : OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS;
     }
 
     public get timeSpent(): bigint {
@@ -36,15 +36,6 @@ export class GasTracker {
     public static convertSatToGas(sat: bigint, maxGas: bigint, ratio: bigint): bigint {
         const gas = sat * ratio;
         return gas < maxGas ? gas : maxGas;
-    }
-
-    // round up to 10000000
-    public static round(gasUsed: bigint) {
-        return (
-            ((gasUsed + (OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO - 1n)) /
-                OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO) *
-            OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO
-        );
     }
 
     public setGas(gas: bigint) {

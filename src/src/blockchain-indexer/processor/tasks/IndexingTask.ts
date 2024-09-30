@@ -152,10 +152,10 @@ export class IndexingTask extends Logger {
             throw e;
         }
 
-        const processEndTime = Date.now();
         if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+            const processEndTime = Date.now();
             this.info(
-                `Block ${this.tip} processed successfully. {Transaction(s): ${this.block.header.nTx} | Download: ${this.downloadEnd - this.downloadStart}ms | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms | Took: ${processEndTime - this.processedAt}ms})`,
+                `Block ${this.tip} processed successfully. (Block Used Gas: ${this.block.gasUsed} - Next Base Gas: ${this.block.baseGas} (EMA: ${this.block.ema}) {Transaction(s): ${this.block.header.nTx} | Download: ${this.downloadEnd - this.downloadStart}ms | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms | Took: ${processEndTime - this.processedAt}ms}`,
             );
         }
     }
@@ -299,7 +299,7 @@ export class IndexingTask extends Logger {
                 const error = e as Error;
                 this.prefetchResolver(error);
             } else {
-                this.error(`Error processing block ${this.tip}: ${e}`);
+                this.error(`Error processing block ${this.tip}: ${(e as Error).stack}`);
             }
         }
     }

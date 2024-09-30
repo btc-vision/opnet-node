@@ -35,6 +35,7 @@ import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../../db/interfaces/IWBT
 import assert from 'node:assert';
 import { BlockGasPredictor, CalculatedBlockGas } from '../gas/BlockGasPredictor.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { Long } from 'mongodb';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
@@ -124,6 +125,10 @@ export class Block extends Logger {
 
             this.processed = true;
         }
+    }
+
+    public get gasUsed(): bigint {
+        return this.blockUsedGas;
     }
 
     public get ema(): bigint {
@@ -251,6 +256,21 @@ export class Block extends Logger {
         return this.#_checksumProofs;
     }
 
+    private _prevEMA: bigint = 0n;
+
+    private get prevEMA(): bigint {
+        return this._prevEMA;
+    }
+
+    private _prevBaseGas: bigint = 0n;
+
+    private get prevBaseGas(): bigint {
+        return (
+            this._prevBaseGas ||
+            BigInt(OPNetConsensus.consensus.GAS.MIN_BASE_GAS) * BlockGasPredictor.scalingFactor
+        );
+    }
+
     private _blockGasPredictor: BlockGasPredictor | undefined;
 
     private get blockGasPredictor(): BlockGasPredictor {
@@ -301,6 +321,7 @@ export class Block extends Logger {
 
             ema: Number(this.ema),
             baseGas: Number(this.baseGas),
+            gasUsed: Long.fromBigInt(this.gasUsed),
         };
     }
 
@@ -380,6 +401,13 @@ export class Block extends Logger {
 
         try {
             const timeBeforeExecution = Date.now();
+
+            /** We must fetch the previous block checksum */
+            const previousBlockHeaders: BlockHeaderBlockDocument | null | undefined =
+                await vmManager.blockHeaderValidator.getBlockHeader(this.height - 1n);
+
+            // Calculate next block base gas
+            this.setGasParameters(previousBlockHeaders || null);
 
             // Execute each transaction of the block.
             await this.executeTransactions(vmManager, specialManager);
@@ -533,6 +561,7 @@ export class Block extends Logger {
             const evaluation = await vmManager.executeTransaction(
                 this.height,
                 this.median,
+                this.prevBaseGas,
                 transaction,
                 unlimitedGas,
             );
@@ -677,6 +706,7 @@ export class Block extends Logger {
     ): Promise<void> {
         for (const transaction of transactions) {
             await this.executeOPNetSingleTransaction(transaction, vmManager, specialManager);
+
             this.verifyIfBlockAborted();
         }
     }
@@ -752,26 +782,25 @@ export class Block extends Logger {
         }
     }
 
-    private calculateNextBlockBaseGas(previousBlockHeaders: BlockHeaderBlockDocument | null): void {
-        if (this._blockGasPredictor) throw new Error('Block gas predictor already found');
-
-        let prevEMA: bigint = BigInt(0);
-        let prevBaseGas: bigint = BigInt(0);
-
+    private setGasParameters(previousBlockHeaders: BlockHeaderBlockDocument | null): void {
         if (previousBlockHeaders !== null) {
-            prevEMA = BigInt(previousBlockHeaders.ema || 0);
-            prevBaseGas = BigInt(previousBlockHeaders.baseGas || 0);
+            this._prevEMA = BigInt(previousBlockHeaders.ema || 0);
+            this._prevBaseGas = BigInt(previousBlockHeaders.baseGas || 0);
         }
+    }
+
+    private calculateNextBlockBaseGas(): void {
+        if (this._blockGasPredictor) throw new Error('Duplicate block gas predictor');
 
         this._blockGasPredictor = new BlockGasPredictor(
             OPNetConsensus.consensus.GAS.MIN_BASE_GAS,
-            prevBaseGas,
+            this.prevBaseGas,
             OPNetConsensus.consensus.GAS.TARGET_GAS,
             OPNetConsensus.consensus.GAS.SMOOTH_OUT_GAS_INCREASE,
             OPNetConsensus.consensus.GAS.SMOOTHING_FACTOR,
             OPNetConsensus.consensus.GAS.ALPHA1,
             OPNetConsensus.consensus.GAS.ALPHA2,
-            OPNetConsensus.consensus.GAS.DELTA_MAX,
+            //OPNetConsensus.consensus.GAS.DELTA_MAX,
             OPNetConsensus.consensus.GAS.U_TARGET,
         );
 
@@ -779,14 +808,8 @@ export class Block extends Logger {
 
         this._predictedGas = this.blockGasPredictor.calculateNextBaseGas(
             this.blockUsedGas,
-            prevEMA,
+            this.prevEMA,
         );
-
-        if (this.baseGas !== prevBaseGas) {
-            this.log(
-                `Previous EMA: ${prevEMA}, Previous Base Gas: ${prevBaseGas}, Block Used Gas: ${this.blockUsedGas} - Next Base Gas: ${this.baseGas} (EMA: ${this.ema})`,
-            );
-        }
     }
 
     private async signBlock(vmManager: VMManager): Promise<void> {
@@ -803,12 +826,7 @@ export class Block extends Logger {
 
         this.#_previousBlockChecksum = previousChecksumHeader;
 
-        /** We must fetch the previous block checksum */
-        const previousBlockHeaders: BlockHeaderBlockDocument | null | undefined =
-            await vmManager.blockHeaderValidator.getBlockHeader(this.height - 1n);
-
-        // Calculate next block base gas
-        this.calculateNextBlockBaseGas(previousBlockHeaders || null);
+        this.calculateNextBlockBaseGas();
 
         this.#_checksumMerkle.setBlockData(
             this.header.previousBlockHash,

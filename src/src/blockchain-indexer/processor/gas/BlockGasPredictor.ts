@@ -4,9 +4,10 @@ export interface CalculatedBlockGas {
 }
 
 export class BlockGasPredictor {
-    private readonly decimalPrecision: number = 8; // precision in sat
-    private readonly scalingFactor: bigint = BigInt(10 ** this.decimalPrecision);
-    private readonly one: bigint = this.scalingFactor; // Represents 1 * 10^decimalPrecision
+    public static readonly decimalPrecision: number = 8; // precision in sat
+    public static readonly scalingFactor: bigint = BigInt(10 ** BlockGasPredictor.decimalPrecision);
+
+    private readonly one: bigint = BlockGasPredictor.scalingFactor; // Represents 1 * 10^decimalPrecision
 
     // Configuration Parameters
     private readonly gasTarget: bigint; // Target gas (scaled)
@@ -15,7 +16,7 @@ export class BlockGasPredictor {
 
     private readonly alpha1: bigint; // Adjustment factor when G_t > G_targetBlock (scaled)
     private readonly alpha2: bigint; // Adjustment factor when G_t <= G_targetBlock (scaled)
-    private readonly deltaMax: bigint; // Maximum adjustment rate per block (scaled)
+    //private readonly deltaMax: bigint; // Maximum adjustment rate per block (scaled)
     private readonly uTarget: bigint; // Target utilization ratio (scaled)
 
     private currentB: bigint; // Current base gas price (scaled)
@@ -28,17 +29,17 @@ export class BlockGasPredictor {
         smoothingFactor: number,
         alpha1: number,
         alpha2: number,
-        deltaMax: number,
+        //deltaMax: number,
         uTarget: number,
     ) {
-        this.bMin = this.toBase(bMin);
+        this.bMin = BlockGasPredictor.toBase(bMin);
         this.gasTarget = gasTarget + smoothTarget;
-        this.smoothingFactor = this.toBase(smoothingFactor);
+        this.smoothingFactor = BlockGasPredictor.toBase(smoothingFactor);
 
-        this.alpha1 = this.toBase(alpha1);
-        this.alpha2 = this.toBase(alpha2);
-        this.deltaMax = this.toBase(deltaMax);
-        this.uTarget = this.toBase(uTarget);
+        this.alpha1 = BlockGasPredictor.toBase(alpha1);
+        this.alpha2 = BlockGasPredictor.toBase(alpha2);
+        //this.deltaMax = this.toBase(deltaMax);
+        this.uTarget = BlockGasPredictor.toBase(uTarget);
 
         // Ensure currentB is scaled; if not provided, default to bMin
         this.currentB = currentB !== undefined && currentB > 0n ? currentB : this.bMin;
@@ -47,7 +48,7 @@ export class BlockGasPredictor {
     // Calculates the current utilization ratio (U_current)
     public calculateUCurrent(usedBlockGas: bigint): bigint {
         // U_current = (G_t * scalingFactor) / G_targetBlock
-        return this.divideBigInt(usedBlockGas * this.scalingFactor, this.gasTarget);
+        return this.divideBigInt(usedBlockGas * BlockGasPredictor.scalingFactor, this.gasTarget);
     }
 
     // Calculates the next base gas price
@@ -57,7 +58,7 @@ export class BlockGasPredictor {
         }
 
         // Step 1: Calculate U_current
-        const uCurrent = this.calculateUCurrent(usedBlockGas) / this.scalingFactor;
+        const uCurrent = this.calculateUCurrent(usedBlockGas) / BlockGasPredictor.scalingFactor;
         if (uCurrent === 0n) {
             return { bNext: this.currentB, ema: prevEMA };
         }
@@ -84,8 +85,12 @@ export class BlockGasPredictor {
     }
 
     // Converts a number to a scaled bigint
-    private toBase(value: number): bigint {
-        return BigInt(Math.round(value * Number(this.scalingFactor)));
+    public static toBase(value: number): bigint {
+        return BigInt(Math.round(value * Number(BlockGasPredictor.scalingFactor)));
+    }
+
+    public static toBaseBigInt(value: bigint): bigint {
+        return value * BlockGasPredictor.scalingFactor;
     }
 
     // Applies rate limiting to the adjustment factor
@@ -93,9 +98,9 @@ export class BlockGasPredictor {
     //    return this.min(this.max(adjustment, this.one - this.deltaMax), this.one + this.deltaMax);
     //}
 
-    private min(a: bigint, b: bigint): bigint {
+    /*private min(a: bigint, b: bigint): bigint {
         return a < b ? a : b;
-    }
+    }*/
 
     private max(a: bigint, b: bigint): bigint {
         return a > b ? a : b;
@@ -104,7 +109,7 @@ export class BlockGasPredictor {
     // Multiplies two scaled bigints and maintains scaling
     private multiplyBigInt(a: bigint, b: bigint): bigint {
         // (a * b) / scalingFactor to maintain scaling
-        return (a * b) / this.scalingFactor; //(a * b + this.scalingFactor / 2n) / this.scalingFactor; // Added rounding
+        return (a * b) / BlockGasPredictor.scalingFactor; //(a * b + this.scalingFactor / 2n) / this.scalingFactor; // Added rounding
     }
 
     // Divides two bigints with scaling to maintain precision
@@ -114,7 +119,7 @@ export class BlockGasPredictor {
         }
 
         // (a * scalingFactor) / b to maintain scaling
-        return (a * this.scalingFactor) / b; //(a * this.scalingFactor + b / 2n) / b; // Added rounding
+        return (a * BlockGasPredictor.scalingFactor) / b; //(a * this.scalingFactor + b / 2n) / b; // Added rounding
     }
 
     // Calculates the Adjustment factor based on EMA and alpha
@@ -123,7 +128,7 @@ export class BlockGasPredictor {
 
         // adjustment = 1 + alpha * (diff / scalingFactor) * sign
         // To maintain scaling, calculate (alpha * diff) / scalingFactor
-        const adjustmentChange = (alphaScaled * diff) / this.scalingFactor;
+        const adjustmentChange = (alphaScaled * diff) / BlockGasPredictor.scalingFactor;
 
         return sign === 1n ? this.one + adjustmentChange : this.one - adjustmentChange;
     }

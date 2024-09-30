@@ -922,6 +922,7 @@ export class VMMongoStorage extends VMStorage {
             checksumRoot: blockHeader.checksumRoot,
             ema: blockHeader.ema.toString(),
             baseGas: blockHeader.baseGas.toString(),
+            gasUsed: blockHeader.gasUsed.toString(),
         };
     }
 

@@ -33,9 +33,12 @@ export interface IOPNetConsensus<T extends Consensus> {
 
         /**
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
-         * Can overflow up to the value set to TARGET_GAS.
+         * Can overflow up to the value set to TRANSACTION_MAX_GAS.
          */
         readonly MAX_THEORETICAL_GAS: bigint;
+
+        /** Max gas per transactions */
+        readonly TRANSACTION_MAX_GAS: bigint;
 
         /** btc_call maximum gas */
         readonly EMULATION_MAX_GAS: bigint;
