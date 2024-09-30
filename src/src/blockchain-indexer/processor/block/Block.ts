@@ -767,6 +767,7 @@ export class Block extends Logger {
             OPNetConsensus.consensus.GAS.MIN_BASE_GAS,
             prevBaseGas,
             OPNetConsensus.consensus.GAS.TARGET_GAS,
+            OPNetConsensus.consensus.GAS.SMOOTH_OUT_GAS_INCREASE,
             OPNetConsensus.consensus.GAS.SMOOTHING_FACTOR,
             OPNetConsensus.consensus.GAS.ALPHA1,
             OPNetConsensus.consensus.GAS.ALPHA2,
@@ -774,12 +775,14 @@ export class Block extends Logger {
             OPNetConsensus.consensus.GAS.U_TARGET,
         );
 
+        this.blockUsedGas += OPNetConsensus.consensus.GAS.TARGET_GAS - 1_000_000n;
+
         this._predictedGas = this.blockGasPredictor.calculateNextBaseGas(
             this.blockUsedGas,
             prevEMA,
         );
 
-        if (this.blockUsedGas && this.baseGas !== prevBaseGas) {
+        if (this.baseGas !== prevBaseGas) {
             this.log(
                 `Previous EMA: ${prevEMA}, Previous Base Gas: ${prevBaseGas}, Block Used Gas: ${this.blockUsedGas} - Next Base Gas: ${this.baseGas} (EMA: ${this.ema})`,
             );

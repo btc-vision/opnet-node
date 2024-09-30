@@ -24,6 +24,7 @@ export class BlockGasPredictor {
         bMin: number,
         currentB: bigint,
         gasTarget: bigint,
+        smoothTarget: bigint,
         smoothingFactor: number,
         alpha1: number,
         alpha2: number,
@@ -31,7 +32,7 @@ export class BlockGasPredictor {
         uTarget: number,
     ) {
         this.bMin = this.toBase(bMin);
-        this.gasTarget = gasTarget;
+        this.gasTarget = gasTarget + smoothTarget;
         this.smoothingFactor = this.toBase(smoothingFactor);
 
         this.alpha1 = this.toBase(alpha1);

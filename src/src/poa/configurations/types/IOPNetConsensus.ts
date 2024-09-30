@@ -28,6 +28,9 @@ export interface IOPNetConsensus<T extends Consensus> {
         /** Target block gas limit */
         readonly TARGET_GAS: bigint;
 
+        /** Smooth out gas increase */
+        readonly SMOOTH_OUT_GAS_INCREASE: bigint;
+
         /**
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
