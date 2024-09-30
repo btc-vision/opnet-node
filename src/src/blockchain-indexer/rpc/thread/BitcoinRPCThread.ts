@@ -20,27 +20,38 @@ import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../../../threading/thread/Thread.js';
-import { VMManager } from '../../../vm/VMManager.js';
 import { BitcoinRPCThreadMessageType } from './messages/BitcoinRPCThreadMessage.js';
-import { BroadcastResponse } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import { BTC_FAKE_ADDRESS } from '../../processor/block/types/ZeroValue.js';
-import { VMStorage } from '../../../vm/storage/VMStorage.js';
+import {
+    BroadcastRequest,
+    BroadcastResponse,
+} from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
-import { DebugLevel } from '@btc-vision/logger';
+import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
+import {
+    BlockchainStorageMap,
+    EvaluatedEvents,
+    PointerStorageMap,
+} from '../../../vm/evaluated/EvaluatedResult.js';
+import { Address, NetEvent } from '@btc-vision/bsi-binary';
+import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
+import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
 
-export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
-    public readonly threadType: ThreadTypes.BITCOIN_RPC = ThreadTypes.BITCOIN_RPC;
+export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
+    public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
 
-    private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
-    private readonly vmManagers: VMManager[] = [];
-    private currentVMManagerIndex: number = 0;
+    private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC(1000, false);
+    private readonly vmStorage: VMMongoStorage = new VMMongoStorage(Config);
 
-    private readonly CONCURRENT_VMS: number = 10;
-
+    private blockHeaderValidator: BlockHeaderValidator;
     private currentBlockHeight: bigint = 0n;
+
+    private readonly rpcSubWorkerManager: RPCSubWorkerManager = new RPCSubWorkerManager();
 
     constructor() {
         super();
+
+        this.vmStorage = new VMMongoStorage(Config);
+        this.blockHeaderValidator = new BlockHeaderValidator(Config, this.vmStorage);
 
         void this.init();
     }
@@ -48,61 +59,28 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected async init(): Promise<void> {
+        await this.vmStorage.init();
+
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
         await this.setBlockHeight();
-        await this.createVMManagers();
-    }
 
-    protected async getNextVMManager(tries: number = 0): Promise<VMManager> {
-        if (tries > 10) {
-            throw new Error('Failed to get a VMManager');
-        }
-
-        return new Promise<VMManager>((resolve) => {
-            let startNumber = this.currentVMManagerIndex;
-            let vmManager: VMManager | undefined;
-
-            do {
-                vmManager = this.vmManagers[this.currentVMManagerIndex];
-                this.currentVMManagerIndex = (this.currentVMManagerIndex + 1) % this.CONCURRENT_VMS;
-
-                if (!vmManager.busy() && vmManager.initiated) {
-                    break;
-                }
-            } while (this.currentVMManagerIndex !== startNumber);
-
-            if (!vmManager) {
-                setTimeout(async () => {
-                    this.warn(
-                        `High load detected. Try to increase your RPC thread limit or do fewer requests.`,
-                    );
-
-                    const vmManager = await this.getNextVMManager(tries + 1);
-                    resolve(vmManager);
-                }, 100);
-            }
-
-            resolve(vmManager);
-        });
+        this.rpcSubWorkerManager.startWorkers();
     }
 
     protected async onLinkMessage(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<ThreadData | void> {
+    ): Promise<ThreadData | undefined> {
         if (m.type !== MessageType.RPC_METHOD) throw new Error('Invalid message type');
 
         switch (type) {
             case ThreadTypes.API: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
-            case ThreadTypes.ZERO_MQ: {
+            case ThreadTypes.INDEXER: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
-            case ThreadTypes.BITCOIN_INDEXER: {
-                return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
-            }
-            case ThreadTypes.PoA: {
+            case ThreadTypes.POA: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
             case ThreadTypes.MEMPOOL: {
@@ -129,56 +107,88 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
         setTimeout(() => {
             void this.setBlockHeight();
-        }, 5000);
+        }, 1000);
     }
 
-    private async createVMManagers(): Promise<void> {
-        let vmStorage: VMStorage | undefined = undefined;
-        for (let i = 0; i < this.CONCURRENT_VMS; i++) {
-            const vmManager: VMManager = new VMManager(Config, true, vmStorage);
-            await vmManager.init();
+    private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
+        const response = (await this.rpcSubWorkerManager.resolve(data, 'call')) as
+            | (Omit<CallRequestResponse, 'response'> & {
+                  result: string | Uint8Array;
+              })
+            | undefined;
 
-            if (!vmStorage) {
-                vmStorage = vmManager.getVMStorage();
-            }
-
-            this.vmManagers.push(vmManager);
+        if (!response) {
+            return;
         }
 
-        setInterval(() => {
-            for (let i = 0; i < this.vmManagers.length; i++) {
-                const vmManager = this.vmManagers[i];
-                vmManager.clear();
+        if (response && !('error' in response)) {
+            if (typeof response.result === 'string') {
+                response.result = Uint8Array.from(Buffer.from(response.result, 'hex'));
             }
-        }, 30000);
+
+            // @ts-expect-error - TODO: Fix this.
+            response.gasUsed = response.gasUsed ? BigInt(response.gasUsed as string) : null;
+
+            // @ts-expect-error - TODO: Fix this.
+            response.changedStorage = response.changedStorage
+                ? // @ts-expect-error - TODO: Fix this.
+                  this.convertArrayToMap(response.changedStorage as [string, [string, string][]][])
+                : null;
+
+            // @ts-expect-error - TODO: Fix this.
+            response.events = response.events
+                ? this.convertArrayEventsToEvents(
+                      // @ts-expect-error - TODO: Fix this.
+                      response.events as [string, [string, string, string][]][],
+                  )
+                : null;
+
+            // @ts-expect-error - TODO: Fix this.
+            response.deployedContracts = [];
+        }
+
+        return response as unknown as CallRequestResponse;
     }
 
-    private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | void> {
-        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.info(
-                `Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`,
-            );
+    private convertArrayEventsToEvents(
+        array: [string, [string, string, string][]][],
+    ): EvaluatedEvents {
+        const map: EvaluatedEvents = new Map<Address, NetEvent[]>();
+
+        for (const [key, value] of array) {
+            const events: NetEvent[] = [];
+
+            for (let i = 0; i < value.length; i++) {
+                const innerValue = value[i];
+                const event: NetEvent = new NetEvent(
+                    innerValue[0],
+                    BigInt(innerValue[1]),
+                    Uint8Array.from(Buffer.from(innerValue[2], 'hex')),
+                );
+
+                events.push(event);
+            }
+
+            map.set(key, events);
         }
 
-        const vmManager = await this.getNextVMManager();
+        return map;
+    }
 
-        let result: CallRequestResponse | void;
-        try {
-            result = await vmManager.execute(
-                data.to,
-                data.from || BTC_FAKE_ADDRESS,
-                data.calldata,
-                data.blockNumber,
-            );
-        } catch (e) {
-            const error = e as Error;
+    private convertArrayToMap(array: [string, [string, string][]][]): BlockchainStorageMap {
+        const map: BlockchainStorageMap = new Map<string, PointerStorageMap>();
 
-            result = {
-                error: error.message || 'Unknown error',
-            };
+        for (const [key, value] of array) {
+            const innerMap: PointerStorageMap = new Map<bigint, bigint>();
+
+            for (const [innerKey, innerValue] of value) {
+                innerMap.set(BigInt(innerKey), BigInt(innerValue));
+            }
+
+            map.set(key, innerMap);
         }
 
-        return result;
+        return map;
     }
 
     private async validateBlockHeaders(data: BlockDataAtHeightData): Promise<ValidatedBlockHeader> {
@@ -197,15 +207,13 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             checksumProofs: this.getChecksumProofs(blockHeader.checksumProofs),
         };
 
-        const vmManager = await this.getNextVMManager();
-
         try {
             const requests: [
                 Promise<boolean | null>,
-                Promise<BlockHeaderBlockDocument | undefined>,
+                Promise<BlockHeaderBlockDocument | undefined | null>,
             ] = [
-                vmManager.validateBlockChecksum(vmBlockHeader),
-                vmManager.getBlockHeader(blockNumber),
+                this.blockHeaderValidator.validateBlockChecksum(vmBlockHeader),
+                this.blockHeaderValidator.getBlockHeader(blockNumber),
             ];
 
             const [hasValidProofs, fetchedBlockHeader] = await Promise.all(requests);
@@ -213,7 +221,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
                 hasValidProofs: hasValidProofs,
                 storedBlockHeader: fetchedBlockHeader ?? null,
             };
-        } catch (e) {}
+        } catch {}
 
         return {
             hasValidProofs: false,
@@ -221,17 +229,21 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
         };
     }
 
-    //private async getWBTCBalanceOf(address: Address): Promise<WBTCBalanceResponse> {}
-
-    private async broadcastTransaction(transaction: string): Promise<BroadcastResponse> {
+    private async broadcastTransaction(
+        transactionData: BroadcastRequest,
+    ): Promise<BroadcastResponse> {
         const response: BroadcastResponse = {
             success: false,
             identifier: 0n,
         };
 
+        if (!transactionData.data.rawTransaction) {
+            throw new Error('No raw transaction data provided');
+        }
+
         const result: string | null = await this.bitcoinRPC
-            .sendRawTransaction({ hexstring: transaction })
-            .catch((e) => {
+            .sendRawTransaction({ hexstring: transactionData.data.rawTransaction })
+            .catch((e: unknown) => {
                 const error = e as Error;
                 response.error = error.message || 'Unknown error';
 
@@ -259,7 +271,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
 
     private async processAPIMessage(
         message: RPCMessage<BitcoinRPCThreadMessageType>,
-    ): Promise<ThreadData | void> {
+    ): Promise<ThreadData | undefined> {
         const rpcMethod = message.data.rpcMethod;
 
         switch (rpcMethod) {
@@ -268,8 +280,10 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             }
 
             case BitcoinRPCThreadMessageType.GET_TX: {
-                return await this.bitcoinRPC.getRawTransaction(
-                    message.data.data as BitcoinRawTransactionParams,
+                return (
+                    (await this.bitcoinRPC.getRawTransaction(
+                        message.data.data as BitcoinRawTransactionParams,
+                    )) ?? undefined
                 );
             }
 
@@ -282,12 +296,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.BITCOIN_RPC> {
             }
 
             case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE: {
-                return await this.broadcastTransaction(message.data.data as string);
+                return await this.broadcastTransaction(message.data as BroadcastRequest);
             }
-
-            /*case BitcoinRPCThreadMessageType.WBTC_BALANCE_OF: {
-                return await this.bitcoinRPC.getWBTCBalanceOf(message.data.data as string);
-            }*/
 
             default:
                 this.error(`Unknown API message received. {Type: ${message.type}}`);

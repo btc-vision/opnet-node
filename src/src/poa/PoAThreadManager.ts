@@ -10,10 +10,10 @@ import { ThreadManager } from '../threading/manager/ThreadManager.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../threading/Threader.js';
 
-export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
+export class PoAThreadManager extends ThreadManager<ThreadTypes.POA> {
     public readonly logColor: string = '#00f2fa';
 
-    protected readonly threadManager: Threader<ThreadTypes.PoA> = new Threader(ThreadTypes.PoA);
+    protected readonly threadManager: Threader<ThreadTypes.POA> = new Threader(ThreadTypes.POA);
 
     constructor() {
         super();
@@ -25,11 +25,11 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
         throw new Error('Method not implemented.');
     }
 
-    protected async sendLinkToThreadsOfType(
+    protected sendLinkToThreadsOfType(
         _threadType: ThreadTypes,
         _threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean> {
+    ): Promise<boolean> | boolean {
         const targetThreadType = message.data.targetThreadType;
 
         switch (targetThreadType) {
@@ -39,10 +39,10 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
         }
     }
 
-    protected async sendLinkMessageToThreadOfType(
+    protected sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,
-    ): Promise<boolean> {
+    ): Promise<boolean> | boolean {
         switch (threadType) {
             default: {
                 return false;
@@ -50,13 +50,19 @@ export class PoAThreadManager extends ThreadManager<ThreadTypes.PoA> {
         }
     }
 
+    protected onExitRequested(): void {
+        this.threadManager.sendToAllThreads({
+            type: MessageType.EXIT_THREAD,
+        });
+    }
+
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.BITCOIN_INDEXER);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
     }
 
     private async createAllThreads(): Promise<void> {
-        await this.init();
+        this.init();
 
         await this.threadManager.createThreads();
     }

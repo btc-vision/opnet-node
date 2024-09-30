@@ -1,5 +1,4 @@
-import { BitcoinNetwork } from '@btc-vision/bsi-common';
-import { networks, Signer } from 'bitcoinjs-lib';
+import { Network, Signer } from 'bitcoinjs-lib';
 import { ECPairInterface } from 'ecpair';
 import fs from 'fs';
 import path from 'path';
@@ -12,8 +11,11 @@ import { OPNetPathFinder } from './OPNetPathFinder.js';
 import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { EcKeyPair } from '@btc-vision/transaction';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
+import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 
 export class OPNetIdentity extends OPNetPathFinder {
+    public readonly network: Network = NetworkConverter.getNetwork();
+
     private keyPairGenerator: KeyPairGenerator;
 
     private readonly opnetAuthKeyBin: Buffer;
@@ -57,27 +59,8 @@ export class OPNetIdentity extends OPNetPathFinder {
         }
     }
 
-    public get peerNetwork(): number {
-        const network = this.config.BLOCKCHAIN.BITCOIND_NETWORK;
-
-        switch (network) {
-            case BitcoinNetwork.Mainnet:
-                return 0;
-            case BitcoinNetwork.TestNet:
-                return 1;
-            case BitcoinNetwork.Regtest:
-                return 2;
-            case BitcoinNetwork.Signet:
-                return 3;
-            case BitcoinNetwork.Unknown:
-                return 4;
-            default:
-                throw new Error('Invalid Bitcoin network');
-        }
-    }
-
     public get peerChainId(): ChainIds {
-        return this.config.OP_NET.CHAIN_ID;
+        return this.config.BITCOIN.CHAIN_ID;
     }
 
     public get trustedOPNetIdentity(): string {
@@ -129,14 +112,6 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.keyPair.identity.hash;
     }
 
-    public get identityProof(): Buffer {
-        return this.keyPair.identity.proof;
-    }
-
-    public get opnetCertificate(): string {
-        return this.convertToOPNetCertificate(this.opnetAuthKeyBin);
-    }
-
     public get authKey(): Uint8Array {
         if (!this.opnetAuthKeyBin) {
             throw new Error('OPNet Auth Key not found.');
@@ -145,17 +120,8 @@ export class OPNetIdentity extends OPNetPathFinder {
         return new Uint8Array(this.opnetAuthKeyBin);
     }
 
-    private get network(): networks.Network {
-        switch (this.config.BLOCKCHAIN.BITCOIND_NETWORK) {
-            case 'mainnet':
-                return networks.bitcoin;
-            case 'testnet':
-                return networks.testnet;
-            case 'regtest':
-                return networks.regtest;
-            default:
-                throw new Error('Invalid network');
-        }
+    public get peerNetwork(): number {
+        return NetworkConverter.peerNetwork;
     }
 
     public getSigner(): Signer {
@@ -281,14 +247,6 @@ export class OPNetIdentity extends OPNetPathFinder {
 
             throw e;
         }
-    }
-
-    private convertToOPNetCertificate(keypair: Buffer | Uint8Array): string {
-        let out = `------BEGIN OPNET KEY-----\r\n`;
-        out += Buffer.from(keypair).toString('base64') + '\r\n';
-        out += `------END OPNET KEY-----`;
-
-        return out;
     }
 
     private generateNewOPNetIdentity(): Buffer {

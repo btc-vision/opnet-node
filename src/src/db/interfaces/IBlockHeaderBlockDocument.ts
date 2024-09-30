@@ -1,5 +1,5 @@
 import { IBaseDocument } from '@btc-vision/bsi-common';
-import { Decimal128 } from 'mongodb';
+import { Decimal128, Long } from 'mongodb';
 
 export type BlockHeaderChecksumProof = Array<[number, string[]]>;
 
@@ -26,19 +26,32 @@ export interface BaseBlockDocument {
     receiptRoot: string;
 
     checksumProofs: BlockHeaderChecksumProof;
+
+    ema: bigint;
+    baseGas: bigint;
+    gasUsed: bigint;
 }
 
-export interface BlockHeaderBlockDocument extends BaseBlockDocument {
+export interface BlockHeaderBlockDocument
+    extends Omit<BaseBlockDocument, 'ema' | 'baseGas' | 'gasUsed'> {
     height: Decimal128;
     time: Date;
     medianTime: Date;
+    ema: number;
+    baseGas: number;
+    gasUsed: Long;
 }
 
-export interface BlockHeaderAPIBlockDocument extends BaseBlockDocument {
+export interface BlockHeaderAPIBlockDocument
+    extends Omit<BaseBlockDocument, 'ema' | 'baseGas' | 'gasUsed'> {
     height: string;
 
     time: number;
     medianTime: number;
+
+    ema: string;
+    baseGas: string;
+    gasUsed: string;
 }
 
 export type IBlockHeaderBlockDocument = BlockHeaderBlockDocument & IBaseDocument;

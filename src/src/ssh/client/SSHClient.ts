@@ -45,7 +45,7 @@ export class SSHClient extends Logger {
 
         this.allowedKeys = this.loadPublicKeys();
 
-        void this.init();
+        this.init();
     }
 
     private _cli: readline.Interface | undefined;
@@ -101,18 +101,17 @@ export class SSHClient extends Logger {
     private loadPublicKeys(): ssh2.ParsedKey[] {
         const pubKeys: string[] = [this.sshConfig.PUBLIC_KEY];
 
-        let publicKeys: ssh2.ParsedKey[] = [];
+        const publicKeys: ssh2.ParsedKey[] = [];
         for (const key of pubKeys) {
             if (!key) continue;
 
-            let parsedKey = ssh2.utils.parseKey(key);
-
+            const parsedKey = ssh2.utils.parseKey(key);
             if (parsedKey instanceof Error) {
                 this.error(`Error parsing public key: ${parsedKey.message}`);
                 continue;
             }
 
-            publicKeys.push(parsedKey as ssh2.ParsedKey);
+            publicKeys.push(parsedKey);
         }
 
         return publicKeys;
@@ -134,7 +133,7 @@ export class SSHClient extends Logger {
         ctx.reject(this.getUnusedAuthMethods(ctx.method as AuthMethods), false);
     }
 
-    private async onPasswordAuth(ctx: ssh2.PasswordAuthContext): Promise<void> {
+    private onPasswordAuth(ctx: ssh2.PasswordAuthContext): void {
         this.log('Client attempting password authentication');
 
         if (!this.sshConfig.PASSWORD) {
@@ -172,7 +171,7 @@ export class SSHClient extends Logger {
         return timingSafeEqual(buffer, buffer2);
     }
 
-    private async onPublicKeyAuth(ctx: ssh2.PublicKeyAuthContext): Promise<void> {
+    private onPublicKeyAuth(ctx: ssh2.PublicKeyAuthContext): void {
         this.log('Client attempting public key authentication');
 
         if (!this.allowedKeys.length || !ctx.blob || !ctx.signature) {
@@ -205,7 +204,7 @@ export class SSHClient extends Logger {
         this.authorize(ctx);
     }
 
-    private async onAuth(ctx: ssh2.AuthContext): Promise<void> {
+    private onAuth(ctx: ssh2.AuthContext): void {
         const authMethod = ctx.method;
         const username = ctx.username;
 
@@ -224,7 +223,7 @@ export class SSHClient extends Logger {
                 break;
             }
             case 'password': {
-                await this.onPasswordAuth(ctx);
+                this.onPasswordAuth(ctx);
                 break;
             }
             case 'hostbased': {
@@ -232,7 +231,7 @@ export class SSHClient extends Logger {
                 break;
             }
             case 'publickey': {
-                await this.onPublicKeyAuth(ctx);
+                this.onPublicKeyAuth(ctx);
                 break;
             }
             case 'keyboard-interactive': {
@@ -245,11 +244,11 @@ export class SSHClient extends Logger {
         }
     }
 
-    private async onReady(): Promise<void> {
+    private onReady(): void {
         this.success('Client ready');
     }
 
-    private async onSession(accept: () => ssh2.Session, reject: () => void): Promise<void> {
+    private onSession(accept: () => ssh2.Session, reject: () => void): void {
         this.log(`Client session request. Is authorized: ${this.isAuthorized}`);
         if (!this.isAuthorized) {
             reject();
@@ -309,13 +308,13 @@ export class SSHClient extends Logger {
             }
         });
 
-        this.session.on('shell', async (accept, reject) => {
+        this.session.on('shell', (accept, reject) => {
             if (this._shell && !this._shell.destroyed) {
                 this._shell.end();
             }
 
             this._shell = accept();
-            await this.onShellCreated();
+            this.onShellCreated();
         });
 
         this.session.on('error', () => {
@@ -409,7 +408,7 @@ export class SSHClient extends Logger {
         this.cli.prompt(true);
     }
 
-    private async onCommand(line: string): Promise<void> {
+    private onCommand(line: string): void {
         this.info(`Command: ${line}`);
 
         this.cli.prompt(true);
@@ -417,7 +416,7 @@ export class SSHClient extends Logger {
 
     private async onSIGTSTP(): Promise<void> {}
 
-    private async onShellCreated(): Promise<void> {
+    private onShellCreated(): void {
         this.createCommandLineInterface(this.shell.stdin, this.shell.stdout);
 
         this.sendOPNETBanner();
@@ -470,11 +469,11 @@ export class SSHClient extends Logger {
         this.shell.stdout.write(banner);
     }
 
-    private async onSessionExec(
+    private onSessionExec(
         accept: AcceptConnection<ServerChannel>,
         reject: RejectConnection,
         info: ExecInfo,
-    ): Promise<void> {
+    ): void {
         this.log(`Client request exec: ${info.command}`);
 
         const command = info.command;
@@ -490,11 +489,11 @@ export class SSHClient extends Logger {
         reject();
     }
 
-    private async onGreeting(): Promise<void> {
+    private onGreeting(): void {
         this.log('Client greeting');
     }
 
-    private async listenEvents(): Promise<void> {
+    private listenEvents(): void {
         this.client.on('greeting', this.onGreeting.bind(this));
         this.client.on('session', this.onSession.bind(this));
         this.client.on('ready', this.onReady.bind(this));
@@ -511,9 +510,9 @@ export class SSHClient extends Logger {
         });
     }
 
-    private async init(): Promise<void> {
+    private init(): void {
         this.log(`Client connected: ${this.clientInfo.ip}`);
 
-        await this.listenEvents();
+        this.listenEvents();
     }
 }

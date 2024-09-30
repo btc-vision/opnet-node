@@ -2,10 +2,6 @@ import { Document } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 
 export class WBTCUTXOAggregation extends Aggregation {
-    constructor() {
-        super();
-    }
-
     public getAggregation(): Document[] {
         return [
             {

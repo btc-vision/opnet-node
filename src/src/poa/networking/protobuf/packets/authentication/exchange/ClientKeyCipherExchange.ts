@@ -19,7 +19,7 @@ export class ClientKeyCipherExchange extends Packet<
 
     protected opcode: ServerInBound = ServerInBound.CLIENT_CIPHER_EXCHANGE;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

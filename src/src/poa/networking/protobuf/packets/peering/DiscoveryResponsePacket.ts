@@ -27,7 +27,7 @@ export class DiscoveryResponsePacket extends Packet<
 
     protected readonly opcode: ServerOutBound = ServerOutBound.DISCOVERY_RESPONSE;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

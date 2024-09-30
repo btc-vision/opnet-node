@@ -18,7 +18,7 @@ export class JSONRpc extends Route<
         super(Routes.JSON_RPC, RouteType.POST);
     }
 
-    public async getData(): Promise<JSONRpc2Result<JSONRpcMethods> | undefined> {
+    public getData(): JSONRpc2Result<JSONRpcMethods> | undefined {
         return undefined;
     }
 
@@ -26,7 +26,7 @@ export class JSONRpc extends Route<
 
     /**
      * POST /api/v1/json-rpc
-     * @tag OpNet
+     * @tag OP_NET
      * @summary This route allow you to interact with the api via JSON-RPC.
      * @description Handle internal routing via JSON-RPC v2.
      * @bodyContent {object} application/json

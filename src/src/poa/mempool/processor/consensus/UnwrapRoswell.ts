@@ -26,11 +26,11 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
     }
 
     /**
-     * Taproot!
+     * Finalizes the PSBT for the unwrap transaction.
      * @private
      * @returns {Promise<FinalizedPSBT>} - The finalized PSBT
      */
-    public async finalizePSBT(psbt: Psbt, data: UnwrapPSBTDecodedData): Promise<FinalizedPSBT> {
+    public finalizePSBT(psbt: Psbt, data: UnwrapPSBTDecodedData): FinalizedPSBT {
         // Attempt to sign all inputs.
         let modified: boolean = false;
         let finalized: boolean = false;
@@ -38,7 +38,7 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
         const minimums = this.generateMinimumOrdered(data.vaults, data.hashes);
 
         this.log(`Attempting to sign unwrap transaction.`);
-        for (let vault of data.vaults.values()) {
+        for (const vault of data.vaults.values()) {
             const canSign = vault.publicKeys.find((key) => {
                 return this.authority.publicKey.equals(key);
             });
@@ -90,7 +90,7 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
         hash: string,
         vaults: Map<string, VerificationVault>,
     ): VerificationVault {
-        for (let vault of vaults.values()) {
+        for (const vault of vaults.values()) {
             if (vault.utxoDetails.find((utxo) => utxo.hash === hash)) {
                 return vault;
             }
@@ -103,7 +103,7 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
         vaults: Map<string, VerificationVault>,
         hashes: string[],
     ): number[] {
-        let minimums: number[] = [];
+        const minimums: number[] = [];
 
         for (let i = 0; i < hashes.length; i++) {
             const vault = this.getVaultForHash(hashes[i], vaults);
@@ -121,7 +121,7 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
         vaults: Map<string, VerificationVault>,
         hashes: string[],
     ): Buffer[][] {
-        let pubKeys: Buffer[][] = [];
+        const pubKeys: Buffer[][] = [];
 
         for (let i = 0; i < hashes.length; i++) {
             const vault = this.getVaultForHash(hashes[i], vaults);
@@ -134,47 +134,4 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
 
         return pubKeys;
     }
-
-    /**
-     * If we ever need segwit support, we can use this function.
-     * @deprecated
-     */
-    /*private async finalizePSBTSegwit(
-        psbt: Psbt,
-        amount: bigint,
-        recevier: Address,
-    ): Promise<FinalizedPSBT> {
-        // Attempt to sign all inputs.
-
-        const signer: Signer = this.authority.getSigner();
-        const transactionParams: PsbtTransactionData = {
-            network: this.network,
-            signer: signer,
-            psbt: psbt,
-        };
-
-        const transaction = new PsbtTransaction(transactionParams);
-        const signed: boolean = transaction.attemptSignAllInputs();
-
-        let finalized: boolean = false;
-        if (signed) {
-            this.success('WBTC PSBT signed!');
-
-            finalized = transaction.attemptFinalizeInputs();
-            if (finalized) {
-                this.success('WBTC PSBT finalized!');
-
-                // @ts-ignore
-                const tx = transaction.transaction;
-
-                const finalized = tx.extractTransaction();
-                console.log('final tx', finalized);
-            }
-        }
-
-        return {
-            modified: signed,
-            finalized: finalized,
-        };
-    }*/
 }

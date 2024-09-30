@@ -14,7 +14,7 @@ import { BlockByHashParams } from '../../../../json-rpc/types/interfaces/params/
 import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByIdParams.js';
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { Route } from '../../../Route.js';
-import { SafeBigInt } from '../../../safe/SafeMath.js';
+import { SafeBigInt } from '../../../safe/BlockParamsConverter.js';
 import { DeploymentTxEncoder } from '../shared/DeploymentTxEncoder.js';
 import { Config } from '../../../../../config/Config.js';
 

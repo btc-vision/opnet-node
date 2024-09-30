@@ -1,15 +1,30 @@
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
-import { BitcoinAddress } from '../../../../bitcoin/types/BitcoinAddress.js';
 import { IContractDocument } from '../../../../db/documents/interfaces/IContractDocument.js';
 import { DeploymentTransaction } from '../transactions/DeploymentTransaction.js';
+import { Address } from '@btc-vision/bsi-binary';
+
+export interface ContractInformationAsString {
+    readonly blockHeight: string;
+    readonly contractAddress: string;
+    readonly virtualAddress: string;
+    readonly p2trAddress: string | null;
+    readonly bytecode: string;
+    readonly wasCompressed: boolean;
+    readonly deployedTransactionId: string;
+    readonly deployedTransactionHash: string;
+    readonly deployerPubKey: string;
+    readonly contractSeed: string;
+    readonly contractSaltHash: string;
+    readonly deployerAddress: string;
+}
 
 export class ContractInformation {
     constructor(
         public readonly blockHeight: bigint,
-        public readonly contractAddress: BitcoinAddress,
-        public readonly virtualAddress: BitcoinAddress,
-        public readonly p2trAddress: BitcoinAddress | null,
+        public readonly contractAddress: Address,
+        public readonly virtualAddress: Address,
+        public readonly p2trAddress: Address | null,
         public readonly bytecode: Buffer,
         public readonly wasCompressed: boolean,
         public readonly deployedTransactionId: string,
@@ -17,7 +32,7 @@ export class ContractInformation {
         public readonly deployerPubKey: Buffer,
         public readonly contractSeed: Buffer,
         public readonly contractSaltHash: Buffer,
-        public readonly deployerAddress: BitcoinAddress,
+        public readonly deployerAddress: Address,
     ) {}
 
     public static fromDocument(contractDocument: IContractDocument): ContractInformation {

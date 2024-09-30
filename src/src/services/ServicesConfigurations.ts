@@ -15,23 +15,18 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
         managerTarget: './src/docs/Docs.js',
     },
 
-    [ThreadTypes.BITCOIN_INDEXER]: {
+    [ThreadTypes.INDEXER]: {
         maxInstance: 1,
         managerTarget: './src/blockchain-indexer/BlockchainIndexerManager.js',
         target: './src/blockchain-indexer/BlockchainIndexerThread.js',
     },
 
-    [ThreadTypes.ZERO_MQ]: {
-        maxInstance: 1,
-        target: './src/blockchain-indexer/zeromq/thread/ZeroMQThread.js',
-    },
-
-    [ThreadTypes.BITCOIN_RPC]: {
+    [ThreadTypes.RPC]: {
         maxInstance: Config.RPC.THREADS,
         target: './src/blockchain-indexer/rpc/thread/BitcoinRPCThread.js',
     },
 
-    [ThreadTypes.PoA]: {
+    [ThreadTypes.POA]: {
         maxInstance: 1,
         target: './src/poa/PoAThread.js',
         managerTarget: './src/poa/PoAThreadManager.js',
@@ -48,13 +43,25 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
         target: './src/poa/mempool/MempoolThread.js',
         managerTarget: './src/poa/mempool/MempoolThreadManager.js',
     },
+
+    [ThreadTypes.MEMPOOL_MANAGER]: {
+        maxInstance: 1,
+        target: './src/poa/mempool/bitcoin-mempool/thread/BitcoinMempoolThread.js',
+        managerTarget: './src/poa/mempool/bitcoin-mempool/thread/BitcoinMempoolManager.js',
+    },
+
+    [ThreadTypes.SYNCHRONISATION]: {
+        maxInstance: 4,
+        managerTarget: './src/blockchain-indexer/sync/SynchronisationManager.js',
+        target: './src/blockchain-indexer/sync/SynchronisationThread.js',
+    },
 };
 
 export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
     [ThreadTypes.API]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 32,
-            maxYoungGenerationSizeMb: 1024 * 8,
+            maxOldGenerationSizeMb: 1024 * 16,
+            maxYoungGenerationSizeMb: 1024 * 4,
             stackSizeMb: 512,
         },
     },
@@ -67,15 +74,15 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
         },
     },
 
-    [ThreadTypes.BITCOIN_INDEXER]: {
+    [ThreadTypes.INDEXER]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 8,
+            maxOldGenerationSizeMb: 1024 * 12,
             maxYoungGenerationSizeMb: 1024 * 4,
             stackSizeMb: 256,
         },
     },
 
-    [ThreadTypes.ZERO_MQ]: {
+    [ThreadTypes.RPC]: {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 2,
             maxYoungGenerationSizeMb: 1024,
@@ -83,25 +90,17 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
         },
     },
 
-    [ThreadTypes.BITCOIN_RPC]: {
+    [ThreadTypes.POA]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 3,
-            maxYoungGenerationSizeMb: 1024,
-            stackSizeMb: 256,
-        },
-    },
-
-    [ThreadTypes.PoA]: {
-        resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 4,
-            maxYoungGenerationSizeMb: 1024,
+            maxOldGenerationSizeMb: 1024 * 6,
+            maxYoungGenerationSizeMb: 1024 * 2,
             stackSizeMb: 256,
         },
     },
 
     [ThreadTypes.SSH]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 2,
+            maxOldGenerationSizeMb: 1024,
             maxYoungGenerationSizeMb: 1024,
             stackSizeMb: 256,
         },
@@ -111,6 +110,22 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 2,
             maxYoungGenerationSizeMb: 1024,
+            stackSizeMb: 256,
+        },
+    },
+
+    [ThreadTypes.MEMPOOL_MANAGER]: {
+        resourceLimits: {
+            maxOldGenerationSizeMb: 1024 * 2,
+            maxYoungGenerationSizeMb: 1024,
+            stackSizeMb: 256,
+        },
+    },
+
+    [ThreadTypes.SYNCHRONISATION]: {
+        resourceLimits: {
+            maxOldGenerationSizeMb: 1024 * 4,
+            maxYoungGenerationSizeMb: 1024 * 2,
             stackSizeMb: 256,
         },
     },

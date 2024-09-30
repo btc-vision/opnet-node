@@ -1,7 +1,7 @@
 import { JSONRPCErrorCode } from '../enums/JSONRPCErrorCode.js';
 import { JSONRpcMethods } from '../enums/JSONRpcMethods.js';
 
-export interface JSONRpcErrorData<T extends JSONRpcMethods> {}
+export type JSONRpcErrorData<T extends JSONRpcMethods> = object;
 
 export interface JSONRpcResultError<T extends JSONRpcMethods> {
     readonly code: JSONRPCErrorCode;

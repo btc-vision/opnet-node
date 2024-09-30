@@ -28,6 +28,7 @@ import {
 } from '../protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
+import { ZERO_HASH } from '../../../blockchain-indexer/processor/block/types/ZeroValue.js';
 
 interface ValidWitnesses {
     validTrustedWitnesses: OPNetBlockWitness[];
@@ -57,14 +58,14 @@ export class BlockWitnessManager extends Logger {
     ) {
         super();
 
-        this.pendingBlockThreshold = BigInt(this.config.OP_NET.MAXIMUM_TRANSACTION_SESSIONS) || 10n;
+        this.pendingBlockThreshold = BigInt(this.config.OP_NET.PENDING_BLOCK_THRESHOLD) || 10n;
 
         setInterval(() => {
             this.purgeOldWitnesses();
         }, 30000);
     }
 
-    public async init(): Promise<void> {
+    public init(): void {
         if (!DBManagerInstance.db) throw new Error('Database not initialized.');
 
         this.blockWitnessRepository = new BlockWitnessRepository(DBManagerInstance.db);
@@ -145,14 +146,13 @@ export class BlockWitnessManager extends Logger {
     public sendMessageToThread: (
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ) => Promise<ThreadData | null> = async () => {
+    ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
 
-    public broadcastBlockWitness: (blockWitness: IBlockHeaderWitness) => Promise<void> =
-        async () => {
-            throw new Error('broadcastBlockWitness not implemented.');
-        };
+    public broadcastBlockWitness: (blockWitness: IBlockHeaderWitness) => Promise<void> = () => {
+        throw new Error('broadcastBlockWitness not implemented.');
+    };
 
     public async setCurrentBlock(newBlock?: bigint): Promise<void> {
         this.currentBlock = newBlock === undefined ? await this.getCurrentBlock() : newBlock;
@@ -207,7 +207,7 @@ export class BlockWitnessManager extends Logger {
     private revertKnownWitnessesReorg(toBlock: bigint): void {
         const blocks: bigint[] = Array.from(this.knownTrustedWitnesses.keys());
 
-        for (let blockNumber of blocks) {
+        for (const blockNumber of blocks) {
             if (blockNumber >= toBlock) {
                 this.knownTrustedWitnesses.delete(blockNumber);
             }
@@ -259,7 +259,7 @@ export class BlockWitnessManager extends Logger {
         return (await this.requestRPCData(message)) as ValidatedBlockHeader | undefined;
     }
 
-    private removeKnownTrustedWitnesses(
+    private filterWitnesses(
         blockNumber: bigint,
         blockWitness: IBlockHeaderWitness,
     ): IBlockHeaderWitness {
@@ -289,7 +289,7 @@ export class BlockWitnessManager extends Logger {
             return; // we do not process old witnesses.
         }
 
-        const filteredBlockWitnesses = this.removeKnownTrustedWitnesses(blockNumber, blockWitness);
+        const filteredBlockWitnesses = this.filterWitnesses(blockNumber, blockWitness);
         if (filteredBlockWitnesses.validatorWitnesses.length === 0) {
             return;
         }
@@ -307,16 +307,7 @@ export class BlockWitnessManager extends Logger {
         }
 
         const receivedBlockHeader = blockDataAtHeight.storedBlockHeader;
-        if (!receivedBlockHeader) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
-                this.fail(
-                    `Failed to get block header data at height ${blockNumber.toString()}. (DATA INTEGRITY ERROR)`,
-                );
-            }
-            return;
-        }
-
-        const checksumHash = receivedBlockHeader.checksumRoot;
+        const checksumHash = receivedBlockHeader?.checksumRoot || ZERO_HASH;
         if (checksumHash !== blockWitness.checksumHash) {
             if (this.config.DEBUG_LEVEL >= DebugLevel.ERROR) {
                 this.fail(
@@ -345,16 +336,10 @@ export class BlockWitnessManager extends Logger {
 
         const validWitnesses = this.validateBlockHeaderSignatures(blockWitness);
         if (!validWitnesses) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.fail(
-                    `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
-                );
-            }
-            return;
-        }
-
-        if (validWitnesses.opnetWitnesses.length === 0) {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (
+                this.config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
+                this.config.DEV.DISPLAY_INVALID_BLOCK_WITNESS
+            ) {
                 this.fail(
                     `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()}`,
                 );
@@ -365,7 +350,19 @@ export class BlockWitnessManager extends Logger {
         const opnetWitnesses: OPNetBlockWitness[] = validWitnesses.opnetWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = validWitnesses.validTrustedWitnesses;
 
-        if (this.config.DEBUG_LEVEL >= DebugLevel.INFO) {
+        if (opnetWitnesses.length + trustedWitnesses.length < 1) {
+            if (
+                this.config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
+                this.config.DEV.DISPLAY_INVALID_BLOCK_WITNESS
+            ) {
+                this.fail(
+                    `Received an INVALID block witness(es) for block ${blockWitness.blockNumber.toString()} (NO VALID WITNESSES)`,
+                );
+            }
+            return;
+        }
+
+        if (this.config.DEV.DISPLAY_VALID_BLOCK_WITNESS) {
             this.success(
                 `BLOCK (${blockNumber}) VALIDATION SUCCESSFUL. Received ${opnetWitnesses.length} validation witness(es) and ${trustedWitnesses.length} trusted witness(es). Data integrity is maintained.`,
             );
@@ -490,13 +487,13 @@ export class BlockWitnessManager extends Logger {
 
     private async requestRPCData(
         data: RPCMessageData<BitcoinRPCThreadMessageType>,
-    ): Promise<ThreadData | void> {
+    ): Promise<ThreadData | undefined> {
         const message: ThreadMessageBase<MessageType> = {
             type: MessageType.RPC_METHOD,
             data: data,
         };
 
-        const response = await this.sendMessageToThread(ThreadTypes.BITCOIN_RPC, message);
+        const response = await this.sendMessageToThread(ThreadTypes.RPC, message);
         if (!response) {
             throw new Error('Failed to get block data at height.');
         }
@@ -511,22 +508,21 @@ export class BlockWitnessManager extends Logger {
         const validatorWitnesses: OPNetBlockWitness[] = blockWitness.validatorWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = blockWitness.trustedWitnesses;
 
-        if (validatorWitnesses.length <= 0 || trustedWitnesses.length <= 0 || !blockChecksumHash) {
-            return;
-        }
-
-        const validOPNetWitnesses: OPNetBlockWitness[] = this.validateOPNetWitnesses(
-            blockChecksumHash,
-            validatorWitnesses,
-        );
-
-        if (!validOPNetWitnesses) {
+        if (
+            (validatorWitnesses.length <= 0 && trustedWitnesses.length <= 0) ||
+            !blockChecksumHash
+        ) {
             return;
         }
 
         const validTrustedWitnesses: OPNetBlockWitness[] = this.getValidTrustedWitnesses(
             blockChecksumHash,
             trustedWitnesses,
+        );
+
+        const validOPNetWitnesses: OPNetBlockWitness[] = this.validateOPNetWitnesses(
+            blockChecksumHash,
+            validatorWitnesses,
         );
 
         return {
@@ -543,7 +539,7 @@ export class BlockWitnessManager extends Logger {
         if (witnesses.length > this.MAXIMUM_WITNESSES_PER_MESSAGE) {
             // reduce the number of trusted witnesses to MAXIMUM_WITNESSES_PER_MESSAGE.
 
-            witnesses = witnesses.slice(0, 20);
+            witnesses = witnesses.slice(0, this.MAXIMUM_WITNESSES_PER_MESSAGE);
         }
 
         return witnesses.filter((witness) => {
@@ -562,7 +558,7 @@ export class BlockWitnessManager extends Logger {
         if (witnesses.length === 0) return [];
         if (witnesses.length > this.MAXIMUM_WITNESSES_PER_MESSAGE) {
             // reduce the number of witnesses to MAXIMUM_WITNESSES_PER_MESSAGE.
-            witnesses = witnesses.slice(0, 20);
+            witnesses = witnesses.slice(0, this.MAXIMUM_WITNESSES_PER_MESSAGE);
         }
 
         return witnesses.filter((witness) => {
@@ -617,16 +613,27 @@ export class BlockWitnessManager extends Logger {
             data: {},
         };
 
-        const resp = (await this.sendMessageToThread(
-            ThreadTypes.BITCOIN_INDEXER,
-            msg,
-        )) as CurrentIndexerBlockResponseData | null;
+        try {
+            const resp = (await this.sendMessageToThread(
+                ThreadTypes.INDEXER,
+                msg,
+            )) as CurrentIndexerBlockResponseData | null;
 
-        if (!resp) {
-            return -1n;
+            if (!resp) {
+                return -1n;
+            }
+
+            return resp.blockNumber;
+        } catch (e) {
+            this.info('Failed to get current block number. Retrying in 5 seconds.');
+            await this.sleep(5000);
+
+            return await this.getCurrentBlock();
         }
+    }
 
-        return resp.blockNumber;
+    private sleep(ms: number) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     private generateBlockHeaderChecksumHash(

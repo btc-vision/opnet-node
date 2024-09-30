@@ -7,7 +7,7 @@ import { UTXOsByAddressParams } from '../../../../json-rpc/types/interfaces/para
 import { UTXOsOutputResult } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputResult.js';
 import { UTXOsOutputTransactions } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { Route } from '../../../Route.js';
-import { SafeString } from '../../../safe/SafeMath.js';
+import { SafeString } from '../../../safe/BlockParamsConverter.js';
 
 export class UTXOsRoute extends Route<
     Routes.UTXOS,
@@ -31,8 +31,12 @@ export class UTXOsRoute extends Route<
         }
 
         const optimize: boolean = this.getOptimizeParameterAsBoolean(params);
+        const start = Date.now();
+        const resp = await this.storage.getUTXOs(address, optimize);
 
-        return await this.storage.getUTXOs(address, optimize);
+        this.info(`UTXOs for address ${address} fetched in ${Date.now() - start}ms`);
+
+        return resp;
     }
 
     public async getDataRPC(params: UTXOsByAddressParams): Promise<UTXOsOutputResult | undefined> {
@@ -99,7 +103,8 @@ export class UTXOsRoute extends Route<
                 includeTransactions = false;
             }
         } else {
-            includeTransactions = params.optimize ?? false;
+            includeTransactions =
+                (params.optimize === 'true' || params.optimized === 'true') ?? false;
         }
 
         return includeTransactions;

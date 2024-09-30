@@ -7,6 +7,7 @@ import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Thread } from '../threading/thread/Thread.js';
 
 import { Server } from './Server.js';
+import { ThreadData } from '../threading/interfaces/ThreadData.js';
 
 Globals.register();
 
@@ -23,28 +24,24 @@ class ServerThreadBase extends Thread<ThreadTypes.API> {
         void this.init();
     }
 
-    protected async onMessage(m: ThreadMessageBase<MessageType>): Promise<void> {
-        switch (m.type) {
-            default:
-                this.error(`Unknown thread message received. {Type: ${m.type}}`);
-                break;
-        }
+    protected onMessage(_m: ThreadMessageBase<MessageType>): Promise<void> {
+        throw new Error('Method not implemented.');
     }
 
     protected async init() {
         this.log(`Starting API on port ${Config.API.PORT}.`);
 
-        await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
+        DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
         await this.server.init(Config.API.PORT);
     }
 
-    protected async onLinkMessage(
-        type: ThreadTypes,
-        msg: ThreadMessageBase<MessageType>,
-    ): Promise<void> {
-        console.log('onLinkMessage', type, msg);
+    protected onLinkMessage(
+        _type: ThreadTypes,
+        _msg: ThreadMessageBase<MessageType>,
+    ): Promise<ThreadData> {
+        throw new Error('Method not implemented.');
     }
 }
 

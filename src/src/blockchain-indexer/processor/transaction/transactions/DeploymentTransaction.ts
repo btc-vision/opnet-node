@@ -66,7 +66,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     protected contractVirtualAddress: Buffer | undefined;
     protected contractSegwitAddress: string | undefined;
 
-    constructor(
+    public constructor(
         rawTransactionData: TransactionData,
         vInputIndex: number,
         blockHash: string,
@@ -231,7 +231,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
         }
 
-        this._from = address as string;
+        this._from = address;
 
         /** Decompress contract bytecode if needed */
         this.decompressBytecode();

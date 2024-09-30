@@ -8,7 +8,7 @@ import {
 import { Routes } from '../../../../enums/Routes.js';
 import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByIdParams.js';
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
-import { SafeBigInt, SafeMath } from '../../../safe/SafeMath.js';
+import { BlockParamsConverter, SafeBigInt } from '../../../safe/BlockParamsConverter.js';
 import { BlockRoute } from './BlockRoute.js';
 
 export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
@@ -23,7 +23,7 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
 
         let data: Promise<BlockHeaderAPIDocumentWithTransactions>;
         try {
-            const height: SafeBigInt = SafeMath.getParameterAsBigIntForBlock(params);
+            const height: SafeBigInt = BlockParamsConverter.getParameterAsBigIntForBlock(params);
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
 
             const cachedData = await this.getCachedData(height);

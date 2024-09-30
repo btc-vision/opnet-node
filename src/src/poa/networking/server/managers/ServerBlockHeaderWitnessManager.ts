@@ -11,7 +11,7 @@ import { OPNetProtocolV1 } from '../protocol/OPNetProtocolV1.js';
 import Long from 'long';
 
 export class ServerBlockHeaderWitnessManager extends SharedBlockHeaderManager {
-    constructor(
+    public constructor(
         protocol: OPNetProtocolV1,
         peerId: string,
         selfIdentity: OPNetIdentity | undefined,

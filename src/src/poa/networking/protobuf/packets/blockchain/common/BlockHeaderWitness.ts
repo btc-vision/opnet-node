@@ -45,7 +45,7 @@ export class BlockHeaderWitnessPacket extends Packet<
 
     protected readonly opcode: CommonPackets = CommonPackets.BLOCK_HEADER_WITNESS;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

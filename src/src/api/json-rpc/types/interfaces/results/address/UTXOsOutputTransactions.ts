@@ -7,4 +7,8 @@ export interface UTXOSOutputTransaction {
     readonly scriptPubKey: ScriptPubKey;
 }
 
-export type UTXOsOutputTransactions = UTXOSOutputTransaction[];
+export type UTXOsOutputTransactions = {
+    confirmed: UTXOSOutputTransaction[];
+    spentTransactions: UTXOSOutputTransaction[];
+    pending: UTXOSOutputTransaction[];
+};

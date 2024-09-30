@@ -17,12 +17,10 @@ export interface InputVault {
 }
 
 export class VaultInputDecoder {
-    constructor() {}
-
     public decodeInput(input: TransactionInput): VaultInput | undefined {
         if (!input.originalTransactionId) return;
 
-        const isTaproot = input.transactionInWitness.length > 4; // we need more than 5 elements for an opnet vault script
+        const isTaproot = input.transactionInWitness.length > 3; // we need more than 3 elements for an opnet vault script
         if (!isTaproot) {
             return;
         }
@@ -68,8 +66,8 @@ export class VaultInputDecoder {
     private isVaultScript(decodedScript: TapScript): InputVault | undefined {
         let wasSigAdd: boolean = false;
         let validVaultPubKeys: boolean | undefined;
-        let pubKeys: PublicAuthorityKey[] = [];
 
+        const pubKeys: PublicAuthorityKey[] = [];
         for (const opcodeOrBuffer of decodedScript) {
             if (opcodeOrBuffer === opcodes.OP_CHECKSIGADD) {
                 wasSigAdd = true;

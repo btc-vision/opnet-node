@@ -3,7 +3,8 @@ import { JSONRpcParams } from '../../JSONRpcParams.js';
 
 export interface UTXOsByAddressParamsAsObject extends JSONRpcParams<JSONRpcMethods.GET_UTXOS> {
     readonly address: string;
-    readonly optimize?: boolean;
+    readonly optimize?: boolean | string;
+    readonly optimized?: boolean | string;
 }
 
 export type UTXOsByAddressParamsAsArray = [string, boolean?];

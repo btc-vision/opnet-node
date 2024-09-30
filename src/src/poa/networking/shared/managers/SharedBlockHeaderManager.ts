@@ -22,7 +22,7 @@ import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { OPNetProtocolV1 } from '../../server/protocol/OPNetProtocolV1.js';
 
 export class SharedBlockHeaderManager extends AbstractPacketManager {
-    constructor(
+    public constructor(
         protocol: OPNetProtocolV1,
         peerId: string,
         selfIdentity: OPNetIdentity | undefined,
@@ -57,10 +57,9 @@ export class SharedBlockHeaderManager extends AbstractPacketManager {
     }
 
     private async onSyncBlockHeadersRequest(packet: OPNetPacket): Promise<void> {
-        const syncBlockHeadersRequest =
-            (await this.protocol.onIncomingPacket<ISyncBlockHeaderRequest>(
-                packet,
-            )) as SyncBlockHeadersRequest;
+        const syncBlockHeadersRequest = this.protocol.onIncomingPacket<ISyncBlockHeaderRequest>(
+            packet,
+        ) as SyncBlockHeadersRequest;
 
         if (!syncBlockHeadersRequest) {
             return;
@@ -75,10 +74,9 @@ export class SharedBlockHeaderManager extends AbstractPacketManager {
     }
 
     private async onSyncBlockHeadersResponse(packet: OPNetPacket): Promise<void> {
-        const syncBlockHeadersResponse =
-            (await this.protocol.onIncomingPacket<ISyncBlockHeaderResponse>(
-                packet,
-            )) as SyncBlockHeadersResponse;
+        const syncBlockHeadersResponse = this.protocol.onIncomingPacket<ISyncBlockHeaderResponse>(
+            packet,
+        ) as SyncBlockHeadersResponse;
 
         if (!syncBlockHeadersResponse) {
             return;
@@ -93,9 +91,9 @@ export class SharedBlockHeaderManager extends AbstractPacketManager {
     }
 
     private async onBlockWitness(packet: OPNetPacket): Promise<void> {
-        const blockWitness = (await this.protocol.onIncomingPacket<IBlockHeaderWitness>(
+        const blockWitness = this.protocol.onIncomingPacket<IBlockHeaderWitness>(
             packet,
-        )) as BlockHeaderWitnessPacket;
+        ) as BlockHeaderWitnessPacket;
 
         if (!blockWitness) {
             return;

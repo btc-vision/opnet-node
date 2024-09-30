@@ -1,7 +1,8 @@
-import { BitcoinNetwork } from '@btc-vision/bsi-common';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { TrustedCompanies } from '../TrustedCompanies.js';
 import { Address } from '@btc-vision/bsi-binary';
+
+import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 
 export type TrustedNetworkPublicKeys = {
     [key in BitcoinNetwork]: NetworkAuthorityConfiguration;

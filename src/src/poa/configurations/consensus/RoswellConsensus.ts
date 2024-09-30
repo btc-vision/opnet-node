@@ -23,21 +23,56 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     NETWORK: {
         /** Networking */
-        MAXIMUM_TRANSACTION_BROADCAST_SIZE: 800_000, // Cap to 800k bytes.
+        MAXIMUM_TRANSACTION_BROADCAST_SIZE: 440_000, // Cap to 800k bytes.
 
         PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 1_000_000, // Cap to 1M bytes.
     },
 
-    TRANSACTIONS: {
-        /** Transactions related properties */
-        MAX_GAS: 300_000_000_000n,
+    GAS: {
+        /** Target block gas limit, a transaction can not pass this limit. */
+        TARGET_GAS: 2_000_000_000_000n,
+
+        /** Smooth out gas increase when equal to gas target. */
+        SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
+
+        /**
+         * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
+         * Can overflow up to the value set to TARGET_GAS.
+         */
+        MAX_THEORETICAL_GAS: 28_000_000_000_000n,
+
+        /** Max gas per transactions */
+        TRANSACTION_MAX_GAS: 100_000_000_000n,
 
         /** btc_call maximum gas */
-        EMULATION_MAX_GAS: 50_000_000_000n,
+        EMULATION_MAX_GAS: 15_000_000_000n,
+
+        /** Panic gas cost */
+        PANIC_GAS_COST: 1_000_000n,
 
         /** Converts satoshi to BTC */
-        SAT_TO_GAS_RATIO: 1_000_000n, //10_416_666n,
+        SAT_TO_GAS_RATIO: 1_000_000n,
 
+        /** Minimum base gas, sat/gas unit */
+        MIN_BASE_GAS: 1.0,
+
+        /** Smoothing factor for EMA */
+        SMOOTHING_FACTOR: 0.4,
+
+        /** Adjustment factor when G_t > G_targetBlock */
+        ALPHA1: 0.5,
+
+        /** Adjustment factor when G_t <= G_targetBlock */
+        ALPHA2: 0.8,
+
+        /** Maximum adjustment rate per block */
+        DELTA_MAX: 0.5, // +-50%
+
+        /** Target utilization ratio */
+        U_TARGET: 1.0,
+    },
+
+    TRANSACTIONS: {
         /** The maximum size of a receipt in bytes */
         MAXIMUM_RECEIPT_LENGTH: 128,
 
@@ -58,7 +93,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     PSBT: {
-        MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: 40n,
+        MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: 5n,
     },
 
     VAULTS: {
@@ -73,7 +108,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         // User must pay for the consolidation, this help the network by having fewer UTXOs.
         VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE: 200_000n * 2n,
 
-        // Everytime an user wrap bitcoin, he prepays the fees for the consolidation at a maximum fee rate of the following determined value.
+        // Everytime a user wrap bitcoin, he prepays the fees for the consolidation at a maximum fee rate of the following determined value.
         // If the fees are lower, the user will be refunded the difference.
         // If the fees are higher, the user must pay the difference.
         UNWRAP_CONSOLIDATION_PREPAID_FEES: 250n,

@@ -23,7 +23,7 @@ type SodiumKeyPair = {
 export class KeyPairGenerator extends Logger {
     public readonly logColor: string = '#ffcc00';
 
-    constructor() {
+    public constructor() {
         super();
     }
 
@@ -95,6 +95,10 @@ export class KeyPairGenerator extends Logger {
     public sign(data: Buffer, privateKey: Buffer): Buffer {
         const signature = sodium.sodium_malloc(sodium.crypto_sign_BYTES);
         sodium.crypto_sign_detached(signature, data, privateKey);
+
+        if (!signature.byteLength) {
+            throw new Error('Invalid signature.');
+        }
 
         return signature;
     }

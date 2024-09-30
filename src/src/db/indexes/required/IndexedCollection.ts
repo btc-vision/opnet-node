@@ -3,6 +3,7 @@ import { IndexDescription } from 'mongodb';
 export enum OPNetCollections {
     Blocks = 'Blocks',
     Transactions = 'Transactions',
+    UnspentTransactions = 'UnspentTransactions',
     BlockWitnesses = 'BlockWitnesses',
     Contracts = 'Contracts',
     InternalPointers = 'InternalPointers',

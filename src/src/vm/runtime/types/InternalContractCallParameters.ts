@@ -3,8 +3,10 @@ import { ContractInformation } from '../../../blockchain-indexer/processor/trans
 
 export interface InternalContractCallParameters {
     contractAddress: Address;
+
     readonly from: Address;
-    readonly callee: Address;
+    readonly txOrigin: Address;
+    readonly msgSender?: Address;
 
     readonly maxGas: bigint;
 
@@ -31,12 +33,11 @@ export interface InternalContractCallParameters {
 
 export interface ExecutionParameters {
     readonly contractAddress: Address;
-    readonly isView: boolean;
-    readonly abi: number;
+    readonly selector: number;
     readonly calldata: Uint8Array;
 
-    readonly caller: Address;
-    readonly callee: Address;
+    readonly txOrigin: Address;
+    readonly msgSender: Address;
 
     readonly transactionId: string | null; // external call have this empty
     readonly transactionHash: string | null; // external call have this empty
@@ -55,8 +56,4 @@ export interface ExecutionParameters {
     readonly callStack: Address[];
 
     readonly storage: BlockchainStorage;
-}
-
-export interface IEvaluationParameters extends ExecutionParameters {
-    readonly canWrite: boolean;
 }

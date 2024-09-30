@@ -1,28 +1,22 @@
-import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
-import { Document } from 'bson';
-import {
-    Collection,
-    CreateIndexesOptions,
-    Db,
-    Document as IDocument,
-    IndexDescription,
-    IndexDirection,
-} from 'mongodb';
-import { Config } from '../../config/Config.js';
-import { IndexedBlockchainInformation } from './required/IndexedBlockchainInformation.js';
-import { IndexedBlocks } from './required/IndexedBlocks.js';
-import { IndexedBlockWitnesses } from './required/IndexedBlockWitnesses.js';
-import { IndexedCollection, OPNetCollections } from './required/IndexedCollection.js';
-import { IndexedContracts } from './required/IndexedContracts.js';
-import { IndexedInternalPointers } from './required/IndexedInternalPointers.js';
-import { IndexedReorgs } from './required/IndexedReorgs.js';
-import { IndexedTransactions } from './required/IndexedTransactions.js';
-import { IndexedMempool } from './required/IndexedMempool.js';
-import { IndexedWBTCUTXO } from './required/IndexedWBTCUTXO.js';
-import { IndexedVaults } from './required/IndexedVaults.js';
-import { IndexedPendingWbtcUtxo } from './required/IndexedPendingWbtcUtxo.js';
-import { IndexedUsedWbtcUtxo } from './required/IndexedUsedWbtcUtxo.js';
-import { IndexedCompromisedTransactions } from './required/IndexedCompromisedTransactions.js';
+import {ConfigurableDBManager, DebugLevel, Logger} from '@btc-vision/bsi-common';
+import {Document} from 'bson';
+import {Collection, CreateIndexesOptions, Db, IndexDescription, IndexDirection} from 'mongodb';
+import {IndexedBlockchainInformation} from './required/IndexedBlockchainInformation.js';
+import {IndexedBlocks} from './required/IndexedBlocks.js';
+import {IndexedBlockWitnesses} from './required/IndexedBlockWitnesses.js';
+import {IndexedCollection, OPNetCollections} from './required/IndexedCollection.js';
+import {IndexedContracts} from './required/IndexedContracts.js';
+import {IndexedInternalPointers} from './required/IndexedInternalPointers.js';
+import {IndexedReorgs} from './required/IndexedReorgs.js';
+import {IndexedTransactions} from './required/IndexedTransactions.js';
+import {IndexedMempool} from './required/IndexedMempool.js';
+import {IndexedWBTCUTXO} from './required/IndexedWBTCUTXO.js';
+import {IndexedVaults} from './required/IndexedVaults.js';
+import {IndexedPendingWbtcUtxo} from './required/IndexedPendingWbtcUtxo.js';
+import {IndexedUsedWbtcUtxo} from './required/IndexedUsedWbtcUtxo.js';
+import {IndexedCompromisedTransactions} from './required/IndexedCompromisedTransactions.js';
+import {IndexedUnspentTransactions} from './required/IndexedUnspentTransactions.js';
+import {Config} from '../../config/Config.js';
 
 /** This class job is to create the required indexes for the database */
 export class IndexManager extends Logger {
@@ -42,6 +36,7 @@ export class IndexManager extends Logger {
         new IndexedPendingWbtcUtxo(),
         new IndexedUsedWbtcUtxo(),
         new IndexedCompromisedTransactions(),
+        new IndexedUnspentTransactions(),
     ];
 
     constructor(private readonly opnetDB: ConfigurableDBManager) {
@@ -54,7 +49,7 @@ export class IndexManager extends Logger {
     }
 
     public async setupDB(): Promise<void> {
-        await this.opnetDB.setup(Config.DATABASE.CONNECTION_TYPE);
+        this.opnetDB.setup();
         await this.opnetDB.connect();
 
         if (!this.opnetDB.db) {
@@ -117,7 +112,7 @@ export class IndexManager extends Logger {
     private async createIndex(
         indexedCollection: IndexedCollection<OPNetCollections>,
     ): Promise<void> {
-        const collection: Collection<IDocument> = this.db.collection(indexedCollection.collection);
+        const collection: Collection = this.db.collection(indexedCollection.collection);
 
         if (!collection) {
             this.error(`Collection ${indexedCollection.collection} not found.`);
@@ -125,7 +120,7 @@ export class IndexManager extends Logger {
         }
 
         const existingIndexes: Document[] = await collection.indexes();
-        const existingIndexNames: string[] = existingIndexes.map((index) => index.name);
+        const existingIndexNames: string[] = existingIndexes.map((index) => index.name as string);
 
         for (const index of indexedCollection.getIndexes()) {
             const indexName: string = index.name || this.getIndexName(index);
@@ -151,7 +146,9 @@ export class IndexManager extends Logger {
             }
         }
 
-        this.log(`Indexes created for collection ${indexedCollection.collection}`);
+        if (Config.DEV_MODE && Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.log(`Indexes created for collection ${indexedCollection.collection}`);
+        }
     }
 
     private async createIndexes(): Promise<void> {

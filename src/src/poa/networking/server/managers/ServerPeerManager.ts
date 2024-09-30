@@ -11,7 +11,7 @@ import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { OPNetProtocolV1 } from '../protocol/OPNetProtocolV1.js';
 
 export class ServerPeerManager extends AbstractPacketManager {
-    constructor(
+    public constructor(
         protocol: OPNetProtocolV1,
         peerId: string,
         selfIdentity: OPNetIdentity | undefined,
@@ -53,9 +53,7 @@ export class ServerPeerManager extends AbstractPacketManager {
     }
 
     private async onDiscover(packet: OPNetPacket): Promise<void> {
-        const discoverPacket = (await this.protocol.onIncomingPacket<IDiscover>(
-            packet,
-        )) as DiscoverPacket;
+        const discoverPacket = this.protocol.onIncomingPacket<IDiscover>(packet) as DiscoverPacket;
 
         if (!discoverPacket) {
             return;

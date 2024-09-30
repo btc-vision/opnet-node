@@ -14,7 +14,7 @@ export enum JSONRpcMethods {
     GET_TRANSACTION_BY_HASH = 'btc_getTransactionByHash',
     BROADCAST_TRANSACTION = 'btc_sendRawTransaction',
 
-    /** Opnet */
+    /** OP_NET */
     GENERATE = 'btc_generate',
 
     /** Historical */

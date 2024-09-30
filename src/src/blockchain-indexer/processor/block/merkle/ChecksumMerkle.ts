@@ -8,8 +8,6 @@ export class ChecksumMerkle {
     protected tree: StandardMerkleTree<[number, Uint8Array]> | undefined;
     private values: [number, Uint8Array][] = [];
 
-    constructor() {}
-
     public get root(): string {
         if (!this.tree) {
             throw new Error('[Checksum] Merkle tree not generated (Get root)');

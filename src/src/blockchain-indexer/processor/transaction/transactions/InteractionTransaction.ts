@@ -69,7 +69,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
     protected interactionWitnessData: InteractionWitnessData | undefined;
 
-    constructor(
+    public constructor(
         rawTransactionData: TransactionData,
         vIndexIn: number,
         blockHash: string,
@@ -102,10 +102,16 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this._contractAddress = contractAddress;
     }
 
-    protected _callee: Address | undefined;
+    protected _txOrigin: Address | undefined;
 
-    public get callee(): Address {
-        return this._callee || this.from;
+    public get txOrigin(): Address {
+        return this._txOrigin || this.from;
+    }
+
+    protected _msgSender: Address | undefined;
+
+    public get msgSender(): Address | undefined {
+        return this._msgSender;
     }
 
     public get gasUsed(): bigint {
@@ -332,7 +338,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
         }
 
-        this._from = address as string;
+        this._from = address;
 
         this.senderPubKeyHash = this.interactionWitnessData.senderPubKeyHash160;
         this.senderPubKey = this.interactionWitnessData.senderPubKey;

@@ -11,9 +11,11 @@ import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { AuthenticationManager } from '../../server/managers/AuthenticationManager.js';
 import { OPNetProtocolV1 } from '../../server/protocol/OPNetProtocolV1.js';
 import { PeerHandlerEvents } from '../events/PeerHandlerEvents.js';
+import { Config } from '../../../../config/Config.js';
+import { DebugLevel } from '@btc-vision/bsi-common';
 
 export class ClientPeerManager extends AbstractPacketManager {
-    constructor(
+    public constructor(
         protocol: OPNetProtocolV1,
         peerId: string,
         selfIdentity: OPNetIdentity | undefined,
@@ -57,11 +59,13 @@ export class ClientPeerManager extends AbstractPacketManager {
     }
 
     private async onDiscoveryResponse(packet: OPNetPacket): Promise<void> {
-        this.info(`Peer ${this.peerId} got discovery a response.`);
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.info(`Peer ${this.peerId} got discovery a response.`);
+        }
 
-        const discoveryPacket = (await this.protocol.onIncomingPacket<IDiscoveryResponse>(
+        const discoveryPacket = this.protocol.onIncomingPacket<IDiscoveryResponse>(
             packet,
-        )) as DiscoveryResponsePacket;
+        ) as DiscoveryResponsePacket;
 
         if (!discoveryPacket) {
             return;

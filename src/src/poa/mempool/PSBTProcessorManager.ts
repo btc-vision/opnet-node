@@ -17,7 +17,7 @@ export class PSBTProcessorManager {
     public async processPSBT(data: KnownPSBTObject): Promise<PSBTProcessedResponse> {
         const processor = this.verificator.find((v) => v.type === data.type);
         if (processor) {
-            return await processor.process(data.psbt, data.data);
+            return processor.process(data.psbt, data.data);
         }
 
         throw new Error('Unknown PSBT type');

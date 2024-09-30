@@ -6,7 +6,7 @@ import { IReorgData, IReorgDocument } from '../interfaces/IReorgDocument.js';
 export class ReorgsRepository extends BaseRepository<IReorgDocument> {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 

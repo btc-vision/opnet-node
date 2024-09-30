@@ -3,10 +3,6 @@ import { Document } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 
 export class UTXOsAggregationV1 extends Aggregation {
-    constructor() {
-        super();
-    }
-
     public getAggregation(wallet: Address): Document[] {
         return [
             {

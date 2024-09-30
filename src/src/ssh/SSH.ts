@@ -10,7 +10,7 @@ import { SSHClient } from './client/SSHClient.js';
 import figlet, { Fonts } from 'figlet';
 
 import { Chalk } from 'chalk';
-import { BlockchainInformationRepository } from '../db/repositories/BlockchainInformationRepository.js';
+import { BlockchainInfoRepository } from '../db/repositories/BlockchainInfoRepository.js';
 import { Config } from '../config/Config.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
@@ -35,7 +35,7 @@ export class SSH extends Logger {
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getAuthority(P2PVersion);
 
-    #blockchainInformationRepository: BlockchainInformationRepository | undefined;
+    #blockchainInformationRepository: BlockchainInfoRepository | undefined;
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
@@ -53,7 +53,7 @@ export class SSH extends Logger {
         return this._ssh2;
     }
 
-    private get blockchainInformationRepository(): BlockchainInformationRepository {
+    private get blockchainInformationRepository(): BlockchainInfoRepository {
         if (!this.#blockchainInformationRepository) {
             throw new Error('BlockchainInformationRepository not created.');
         }
@@ -64,7 +64,7 @@ export class SSH extends Logger {
     public sendMessageToThread: (
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ) => Promise<ThreadData | null> = async () => {
+    ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
 
@@ -73,12 +73,10 @@ export class SSH extends Logger {
 
         await this.connect();
         await this.createSSHServer();
-        await this.listenEvents();
+        this.listenEvents();
     }
 
-    public async handleBitcoinIndexerMessage(
-        m: ThreadMessageBase<MessageType>,
-    ): Promise<ThreadData> {
+    public handleBitcoinIndexerMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
         switch (m.type) {
             default:
                 throw new Error(`Unknown message type: ${m.type} received in PoA.`);
@@ -86,12 +84,12 @@ export class SSH extends Logger {
     }
 
     private async connect(): Promise<void> {
-        await this.db.setup(Config.DATABASE.CONNECTION_TYPE);
+        this.db.setup();
         await Promise.all([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
 
         if (!this.db.db) throw new Error('Database connection not established.');
 
-        this.#blockchainInformationRepository = new BlockchainInformationRepository(this.db.db);
+        this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
         await Promise.all([this.watchBlockchain()]);
     }
@@ -104,18 +102,18 @@ export class SSH extends Logger {
         });
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
-            Config.BLOCKCHAIN.BITCOIND_NETWORK,
+            Config.BITCOIN.NETWORK,
         );
     }
 
     private getHostKeys(): string[] {
-        let keys = ssh2.utils.generateKeyPairSync('ed25519');
-        let keys2 = ssh2.utils.generateKeyPairSync('ecdsa', {
+        const keys = ssh2.utils.generateKeyPairSync('ed25519');
+        const keys2 = ssh2.utils.generateKeyPairSync('ecdsa', {
             bits: 256,
             comment: 'node.js rules!',
         });
 
-        let rsa = ssh2.utils.generateKeyPairSync('rsa', {
+        const rsa = ssh2.utils.generateKeyPairSync('rsa', {
             bits: 2048,
             cipher: 'aes256-cbc',
         });
@@ -244,7 +242,7 @@ export class SSH extends Logger {
         }
     }
 
-    private async listenEvents(): Promise<void> {
+    private listenEvents(): void {
         this.ssh2.on('connection', (client: ssh2.Connection, info: ssh2.ClientInfo) => {
             const ip = info.ip;
             if (this.config.SSH.ALLOWED_IPS.length && !this.config.SSH.ALLOWED_IPS.includes(ip)) {

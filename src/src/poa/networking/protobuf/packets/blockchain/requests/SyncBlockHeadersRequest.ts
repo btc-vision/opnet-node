@@ -18,7 +18,7 @@ export class SyncBlockHeadersRequest extends Packet<
 
     protected readonly opcode: ServerInBound = ServerInBound.SYNC_BLOCK_HEADERS_REQUEST;
 
-    constructor(protobufType: Type) {
+    public constructor(protobufType: Type) {
         super(protobufType);
     }
 }

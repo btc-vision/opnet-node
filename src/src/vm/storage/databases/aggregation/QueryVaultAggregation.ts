@@ -11,10 +11,6 @@ export interface VaultsByHashes {
 }
 
 export class QueryVaultAggregation extends Aggregation {
-    constructor() {
-        super();
-    }
-
     public getAggregation(hashes: string[]): Document[] {
         return [
             {

@@ -23,10 +23,6 @@ export class VMBitcoinBlock extends Logger {
 
         this.blockId = blockId;
 
-        //if (this.blockId === 0n) {
-        //    throw new Error(`Block ${this.blockId} is not valid`);
-        //}
-
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
             this.log(`Preparing block ${this.blockId}...`);
         }
@@ -41,10 +37,6 @@ export class VMBitcoinBlock extends Logger {
             throw new Error(`[REVERT] Block ${this.blockId} is not prepared`);
         }
 
-        //if (this.blockId === 0n) {
-        //    throw new Error(`Block ${this.blockId} is not valid`);
-        //}
-
         const blockId = this.blockId;
         this.error(`Reverting block ${blockId}...`);
 
@@ -58,10 +50,6 @@ export class VMBitcoinBlock extends Logger {
             throw new Error(`[TERMINATE] Block ${this.blockId} is not prepared`);
         }
 
-        //if (this.blockId === 0n) {
-        //    throw new Error(`Block ${this.blockId} is not valid`);
-        //}
-
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
             this.log(`Terminating block ${this.blockId}...`);
         }
@@ -69,9 +57,12 @@ export class VMBitcoinBlock extends Logger {
         const blockId = this.blockId;
         this.reset();
 
-        await this.vmStorage.terminateBlock(blockId);
-
-        return;
+        try {
+            await this.vmStorage.terminateBlock(blockId);
+        } catch (e) {
+            await this.vmStorage.revertChanges(blockId);
+            throw e;
+        }
     }
 
     private reset(): void {

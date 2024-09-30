@@ -27,11 +27,11 @@ export class MempoolThreadManager extends ThreadManager<ThreadTypes.MEMPOOL> {
         throw new Error('Method not implemented.');
     }
 
-    protected async sendLinkToThreadsOfType(
+    protected sendLinkToThreadsOfType(
         _threadType: ThreadTypes,
         _threadId: number,
         message: LinkThreadMessage<LinkType>,
-    ): Promise<boolean> {
+    ): boolean {
         const targetThreadType = message.data.targetThreadType;
 
         switch (targetThreadType) {
@@ -41,10 +41,10 @@ export class MempoolThreadManager extends ThreadManager<ThreadTypes.MEMPOOL> {
         }
     }
 
-    protected async sendLinkMessageToThreadOfType(
+    protected sendLinkMessageToThreadOfType(
         threadType: ThreadTypes,
         _message: LinkThreadRequestMessage,
-    ): Promise<boolean> {
+    ): boolean {
         switch (threadType) {
             default: {
                 return false;
@@ -52,15 +52,22 @@ export class MempoolThreadManager extends ThreadManager<ThreadTypes.MEMPOOL> {
         }
     }
 
+    protected onExitRequested(): void {
+        this.threadManager.sendToAllThreads({
+            type: MessageType.EXIT_THREAD,
+        });
+    }
+
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.BITCOIN_INDEXER);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.PoA);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL_MANAGER);
     }
 
     private async createMempoolThreads(): Promise<void> {
         await this.createThreads();
-        await this.init();
+        this.init();
     }
 }
 

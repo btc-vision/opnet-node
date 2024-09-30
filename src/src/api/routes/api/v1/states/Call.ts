@@ -29,8 +29,7 @@ import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 import { AddressVerificator } from '@btc-vision/transaction';
-import { NetworkConverter } from '../../../../../config/NetworkConverter.js';
-import { DebugLevel } from '@btc-vision/logger';
+import { NetworkConverter } from '../../../../../config/network/NetworkConverter.js';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private readonly network: bitcoin.networks.Network = bitcoin.networks.testnet;
@@ -40,7 +39,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     constructor() {
         super(Routes.CALL, RouteType.GET);
 
-        this.network = NetworkConverter.getNetwork(Config.BLOCKCHAIN.BITCOIND_NETWORK);
+        this.network = NetworkConverter.getNetwork();
     }
 
     public static async requestThreadExecution(
@@ -63,7 +62,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         };
 
         const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
-            ThreadTypes.BITCOIN_RPC,
+            ThreadTypes.RPC,
             currentBlockMsg,
         )) as CallRequestResponse | null;
 
@@ -99,7 +98,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         } catch (e) {
             this.decrementPendingRequests();
 
-            if (Config.DEBUG_LEVEL > DebugLevel.TRACE) {
+            if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
                 this.error(
                     `Failed to execute the given calldata at the requested contract: ${(e as Error).stack}`,
                 );
@@ -211,7 +210,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         }
 
         const result: string = Buffer.from(data.result).toString('base64');
-        const accessList: AccessList = this.getAccessList(data.changedStorage);
+        const accessList: AccessList = data.changedStorage
+            ? this.getAccessList(data.changedStorage)
+            : {};
 
         return {
             result: result,
@@ -277,9 +278,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         let blockNumber: bigint | undefined;
 
         if (Array.isArray(params)) {
-            address = params.shift() as Address | undefined;
-            calldata = params.shift() as string | undefined;
-            from = params.shift() as Address | undefined;
+            address = params.shift();
+            calldata = params.shift();
+            from = params.shift();
             blockNumber = params.shift() as bigint | undefined;
         } else {
             address = params.to;

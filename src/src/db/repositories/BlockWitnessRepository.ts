@@ -11,7 +11,7 @@ import {
 export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument> {
     public readonly logColor: string = '#afeeee';
 
-    constructor(db: Db) {
+    public constructor(db: Db) {
         super(db);
     }
 

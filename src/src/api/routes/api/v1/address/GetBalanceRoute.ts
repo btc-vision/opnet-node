@@ -6,18 +6,18 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { GetBalanceParams } from '../../../../json-rpc/types/interfaces/params/address/GetBalanceParams.js';
 import { GetBalanceResult } from '../../../../json-rpc/types/interfaces/results/address/GetBalanceResult.js';
 import { Route } from '../../../Route.js';
-import { SafeString } from '../../../safe/SafeMath.js';
+import { SafeString } from '../../../safe/BlockParamsConverter.js';
 
 export class GetBalanceRoute extends Route<
     Routes.GET_BALANCE,
     JSONRpcMethods.GET_BALANCE,
-    GetBalanceResult | undefined
+    GetBalanceResult
 > {
     constructor() {
         super(Routes.GET_BALANCE, RouteType.GET);
     }
 
-    public async getData(params: GetBalanceParams): Promise<GetBalanceResult | undefined> {
+    public async getData(params: GetBalanceParams): Promise<GetBalanceResult> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
@@ -27,11 +27,13 @@ export class GetBalanceRoute extends Route<
             throw new Error('Address not provided');
         }
 
-        const balanceOf: bigint = (await this.storage.getBalanceOf(address)) || 0n;
+        const filterOrdinals: boolean = this.getFilterOrdinals(params);
+
+        const balanceOf: bigint = (await this.storage.getBalanceOf(address, filterOrdinals)) || 0n;
         return `0x${balanceOf.toString(16)}`;
     }
 
-    public async getDataRPC(params: GetBalanceParams): Promise<GetBalanceResult | undefined> {
+    public async getDataRPC(params: GetBalanceParams): Promise<GetBalanceResult> {
         const data = await this.getData(params);
         if (!data) throw new Error(`Could not fetch balance for the given address.`);
 
@@ -46,6 +48,7 @@ export class GetBalanceRoute extends Route<
      * @summary Get the requested wallet current btc balance.
      * @description Get the current btc balance for the requested wallet.
      * @queryParam {string} [address] - The address of the wallet to fetch.
+     * @queryParam {boolean} [filterOrdinals] - Filter ordinals. If true, the ordinals will be filtered.
      * @response 200 - Returns the requested wallet balance.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
@@ -95,5 +98,18 @@ export class GetBalanceRoute extends Route<
         }
 
         return blockHash;
+    }
+
+    private getFilterOrdinals(params: GetBalanceParams): boolean {
+        const isArray = Array.isArray(params);
+
+        let filterOrdinals: boolean;
+        if (isArray) {
+            filterOrdinals = (params.shift() as boolean) ?? false;
+        } else {
+            filterOrdinals = params.filterOrdinals ?? false;
+        }
+
+        return filterOrdinals;
     }
 }

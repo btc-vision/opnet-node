@@ -32,6 +32,8 @@ export class Core extends Logger {
     constructor() {
         super();
 
+        //this.listenEvents();
+
         void this.start();
     }
 
@@ -40,24 +42,26 @@ export class Core extends Logger {
      */
     public async createThreads(): Promise<void> {
         if (Config.DOCS.ENABLED) {
-            await this.createThread(0, ThreadTypes.DOCS);
+            await this.createThread(ThreadTypes.DOCS);
         }
 
         if (Config.API.ENABLED) {
-            await this.createThread(1, ThreadTypes.API);
+            await this.createThread(ThreadTypes.API);
         }
 
         if (Config.INDEXER.ENABLED) {
-            await this.createThread(2, ThreadTypes.BITCOIN_INDEXER);
+            await this.createThread(ThreadTypes.SYNCHRONISATION);
+            await this.createThread(ThreadTypes.INDEXER);
         }
 
         if (Config.POA.ENABLED) {
-            await this.createThread(3, ThreadTypes.MEMPOOL);
-            await this.createThread(4, ThreadTypes.PoA);
+            await this.createThread(ThreadTypes.MEMPOOL_MANAGER);
+            await this.createThread(ThreadTypes.MEMPOOL);
+            await this.createThread(ThreadTypes.POA);
         }
 
         if (Config.SSH.ENABLED) {
-            await this.createThread(5, ThreadTypes.SSH);
+            await this.createThread(ThreadTypes.SSH);
         }
     }
 
@@ -78,7 +82,7 @@ export class Core extends Logger {
     }
 
     private async setupDB(): Promise<boolean> {
-        await DBManagerInstance.setup(Config.DATABASE.CONNECTION_TYPE);
+        DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
         if (!DBManagerInstance.db) {
@@ -142,45 +146,63 @@ export class Core extends Logger {
         }
     }
 
-    /*private listenEvents(): void {
+    private listenEvents(): void {
         let called = false;
-        process.on('SIGINT', async () => {
+        process.on('SIGINT', () => {
             if (!called) {
                 called = true;
-                await this.terminateAllActions();
+                void this.terminateAllActions();
             }
         });
 
-        process.on('SIGQUIT', async () => {
+        process.on('SIGQUIT', () => {
             if (!called) {
                 called = true;
-                await this.terminateAllActions();
+                void this.terminateAllActions();
             }
         });
 
-        process.on('SIGTERM', async () => {
+        process.on('SIGTERM', () => {
             if (!called) {
                 called = true;
-                await this.terminateAllActions();
+                void this.terminateAllActions();
             }
         });
     }
 
-    private async terminateAllActions(): Promise<void> {
-        this.log(`Exit requested.`);
-
-        for (let thread of this.threads) {
+    private requestExitThread(thread: Worker): Promise<void> {
+        return new Promise((resolve) => {
             try {
                 this.log(`Exiting thread.`);
-                await thread.terminate();
+
+                thread.on('exit', () => {
+                    resolve();
+                });
+
+                thread.postMessage({
+                    type: MessageType.EXIT_THREAD,
+                } as ThreadMessageBase<MessageType>);
+
                 this.log(`Exited thread.`);
             } catch (e) {}
+        });
+    }
+
+    private async terminateAllActions(): Promise<void> {
+        const promises: Promise<void>[] = [];
+
+        for (const thread of this.threads) {
+            promises.push(this.requestExitThread(thread));
         }
 
-        process.exit(0);
-    }*/
+        await Promise.all(promises);
 
-    private createThread(i: number, type: ThreadTypes): Promise<void> {
+        this.success('All threads exited successfully.');
+
+        process.exit(0);
+    }
+
+    private createThread(type: ThreadTypes): Promise<void> {
         return new Promise((resolve) => {
             const settings = ServicesConfigurations[type];
             if (!settings) {
@@ -191,22 +213,21 @@ export class Core extends Logger {
                 throw new Error(`No manager target found for thread type ${type}.`);
             }
 
-            let thread = new Worker(settings.managerTarget);
-
+            const thread = new Worker(settings.managerTarget);
             thread.on('online', () => {
                 this.masterThreads[type] = thread;
 
-                this.debug(`Thread #${i} online.`);
+                this.debug(`Thread "${type}" online.`);
 
                 resolve();
             });
 
             thread.on('exit', (e: Error) => {
-                this.error(`Thread #${i} died. {ExitCode -> ${e}}`);
+                this.error(`Thread "${type}" died. {ExitCode -> ${e}}`);
             });
 
             thread.on('error', (e: Error) => {
-                this.error(`Thread #${i} errored. {Details: ${e.stack}}`);
+                this.error(`Thread "${type}" errored. {Details: ${e.stack}}`);
             });
 
             thread.on('message', (msg: ThreadMessageBase<MessageType>) => {
