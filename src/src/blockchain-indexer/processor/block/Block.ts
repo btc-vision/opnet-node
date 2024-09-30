@@ -779,7 +779,7 @@ export class Block extends Logger {
             prevEMA,
         );
 
-        if (this.blockUsedGas) {
+        if (this.blockUsedGas && this.baseGas !== prevBaseGas) {
             this.log(
                 `Previous EMA: ${prevEMA}, Previous Base Gas: ${prevBaseGas}, Block Used Gas: ${this.blockUsedGas} - Next Base Gas: ${this.baseGas} (EMA: ${this.ema})`,
             );
