@@ -158,7 +158,7 @@ export class IndexingTask extends Logger {
             const scale = BlockGasPredictor.scalingFactor / 100_000n;
             this.info(
                 //| GasUsed: ${this.block.gasUsed}
-                `Block ${this.tip} processed (${processEndTime - this.processedAt}ms). {Transaction(s): ${this.block.header.nTx} | Base Gas: ${(Number(this.block.baseGas / scale) / 100000).toFixed(6)}x/gas/sat | Download: ${this.downloadEnd - this.downloadStart}ms | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms}`,
+                `Block ${this.tip} processed (${processEndTime - this.processedAt}ms). {Transaction(s): ${this.block.header.nTx} | Base Gas: ${(Number(this.block.baseGas / scale) / 100000).toFixed(6)}x/gas/sat (used ${this.block.gasUsed}) | Download: ${this.downloadEnd - this.downloadStart}ms | Deserialize: ${this.prefetchEnd - this.prefetchStart}ms | Finalize: ${this.finalizeEnd - this.finalizeBlockStart}ms | Execution: ${this.block.timeForTransactionExecution}ms | States: ${this.block.timeForStateUpdate}ms | Processing: ${this.block.timeForBlockProcessing}ms | Complete: ${processEndTime - this.finalizeEnd}ms}`,
             );
         }
     }
