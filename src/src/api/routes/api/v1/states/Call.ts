@@ -222,6 +222,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         };
 
         if (data.revert) {
+            console.log(data.revert);
             response.revert = data.revert instanceof Error ? data.revert.message : data.revert;
         }
 
