@@ -500,25 +500,6 @@ export class ContractEvaluator extends Logger {
         return value ? BufferHelper.uint8ArrayToValue(value) : null;
     }
 
-    /*private async canWrite(abi: Selector): Promise<boolean> {
-        if (!this.writeMethods) {
-            this.writeMethods = await this.getWriteMethodABI();
-        }
-
-        return this.writeMethods.has(abi);
-    }
-
-    private async getViewABI(): Promise<SelectorsMap> {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized [getViewABI]');
-        }
-
-        const abi = await this.contractInstance.getViewABI();
-        const abiDecoder = new BinaryReader(abi);
-
-        return abiDecoder.readViewSelectorsMap();
-    }*/
-
     private async getMethodABI(): Promise<MethodMap> {
         if (!this.contractInstance) {
             throw new Error('Contract not initialized [getMethodABI]');
@@ -529,15 +510,4 @@ export class ContractEvaluator extends Logger {
 
         return abiDecoder.readMethodSelectorsMap();
     }
-
-    /*private async getWriteMethodABI(): Promise<MethodMap> {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized [getWriteMethodABI]');
-        }
-
-        const abi = await this.contractInstance.getWriteMethods();
-        const abiDecoder = new BinaryReader(abi);
-
-        return abiDecoder.readMethodSelectorsMap();
-    }*/
 }
