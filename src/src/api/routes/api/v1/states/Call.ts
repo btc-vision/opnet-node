@@ -214,12 +214,18 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             ? this.getAccessList(data.changedStorage)
             : {};
 
-        return {
+        const response: CallResult = {
             result: result,
             events: this.convertEventToResult(data.events),
             accessList,
             estimatedGas: '0x' + (data.gasUsed || 0).toString(16),
         };
+
+        if (data.revert) {
+            response.revert = data.revert instanceof Error ? data.revert.message : data.revert;
+        }
+
+        return response;
     }
 
     private convertEventToResult(events: EvaluatedEvents | undefined): ContractEvents {
