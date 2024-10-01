@@ -163,9 +163,11 @@ export class IndexingTask extends Logger {
                 `${(Number(this.block.baseGas / scale) / 100000).toFixed(6)}x/gas/sat (${lightOrange(`used ${this.block.gasUsed}`)})`,
             );
 
+            //| Complete: ${pinkLog(`${processEndTime - this.finalizeEnd}ms`)
+
             this.info(
                 //| GasUsed: ${this.block.gasUsed}
-                `Block ${this.tip} processed (${pinkLog(`${processEndTime - this.processedAt}ms`)}). {Transaction(s): ${pinkLog(`${this.block.header.nTx}`)} | Base Gas: ${gasLog} | Download: ${pinkLog(`${this.downloadEnd - this.downloadStart}ms`)} | Deserialize: ${pinkLog(`${this.prefetchEnd - this.prefetchStart}ms`)} | Finalize: ${pinkLog(`${this.finalizeEnd - this.finalizeBlockStart}ms`)} | Execution: ${pinkLog(`${this.block.timeForTransactionExecution}ms`)} | States: ${pinkLog(`${this.block.timeForStateUpdate}ms`)} | Processing: ${pinkLog(`${this.block.timeForBlockProcessing}ms`)} | Complete: ${pinkLog(`${processEndTime - this.finalizeEnd}ms`)}}`,
+                `Block ${this.tip} processed (${pinkLog(`${processEndTime - this.processedAt}ms`)}). {Transaction(s): ${pinkLog(`${this.block.header.nTx}`)} | Base Gas: ${gasLog} | EMA: ${this.block.ema} | Download: ${pinkLog(`${this.downloadEnd - this.downloadStart}ms`)} | Deserialize: ${pinkLog(`${this.prefetchEnd - this.prefetchStart}ms`)} | Finalize: ${pinkLog(`${this.finalizeEnd - this.finalizeBlockStart}ms`)} | Execution: ${pinkLog(`${this.block.timeForTransactionExecution}ms`)} | States: ${pinkLog(`${this.block.timeForStateUpdate}ms`)} | Processing: ${pinkLog(`${this.block.timeForBlockProcessing}ms`)}}`,
             );
         }
     }
