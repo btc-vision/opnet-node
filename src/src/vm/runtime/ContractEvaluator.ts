@@ -406,9 +406,11 @@ export class ContractEvaluator extends Logger {
             error = (await e) as Error;
         }
 
+        console.log('error', error);
+
         if (error || !result) {
             if (!evaluation.revert && error) {
-                evaluation.revert = error;
+                evaluation.revert = error.message;
             }
 
             return;
