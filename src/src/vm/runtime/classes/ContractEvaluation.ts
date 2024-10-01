@@ -206,7 +206,7 @@ export class ContractEvaluation implements ExecutionParameters {
         const result = this.revert ? new Uint8Array(1) : this.result;
         const deployedContracts = this.revert ? [] : this.deployedContracts;
 
-        console.log('reverted', this.revert);
+        console.log('reverted', this.revert?.toString());
 
         return {
             changedStorage: modifiedStorage,
