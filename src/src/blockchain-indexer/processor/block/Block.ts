@@ -649,20 +649,20 @@ export class Block extends Logger {
             return;
         }
 
-        const error =
+        const error = transaction.receipt.revert;
+
+        /*const error =
             transaction.receipt.revert instanceof Error
                 ? transaction.receipt.revert
-                : new Error(transaction.receipt.revert);
+                : new Error(transaction.receipt.revert);*/
 
-        if (Config.DEV_MODE) {
+        if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             this.error(`Transaction ${transaction.txid} reverted with reason: ${error}`);
-        } else if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-            this.error(`Transaction ${transaction.txid} reverted with reason: ${error.message}`);
         } else if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.error(`Transaction ${transaction.txid} reverted.`);
         }
 
-        transaction.revert = error;
+        transaction.revert = new Error(error);
     }
 
     private defineGeneric(): void {

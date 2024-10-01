@@ -161,10 +161,6 @@ export class ContractEvaluation implements ExecutionParameters {
             throw new Error('Cannot call self');
         }
 
-        //if (!this.canWrite && extern.canWrite) {
-        //    throw new Error(`OPNET: READONLY_CALLED_WRITE`);
-        //}
-
         this.callStack = extern.callStack;
         this.checkReentrancy(extern.callStack);
 
@@ -206,16 +202,19 @@ export class ContractEvaluation implements ExecutionParameters {
         const result = this.revert ? new Uint8Array(1) : this.result;
         const deployedContracts = this.revert ? [] : this.deployedContracts;
 
-        console.log('reverted', this.revert?.toString());
-
-        return {
+        const resp: EvaluatedResult = {
             changedStorage: modifiedStorage,
             result: result,
             events: events,
             gasUsed: this.gasUsed,
-            revert: this.revert,
             deployedContracts: deployedContracts,
         };
+
+        if (this.revert) {
+            resp.revert = this.revert.toString();
+        }
+
+        return resp;
     }
 
     public addContractInformation(contract: ContractInformation): void {
