@@ -651,11 +651,6 @@ export class Block extends Logger {
 
         const error = transaction.receipt.revert;
 
-        /*const error =
-            transaction.receipt.revert instanceof Error
-                ? transaction.receipt.revert
-                : new Error(transaction.receipt.revert);*/
-
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             this.error(`Transaction ${transaction.txid} reverted with reason: ${error}`);
         } else if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
