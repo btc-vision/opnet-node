@@ -1050,7 +1050,7 @@ export class P2PManager extends Logger {
 
     // eslint-disable-next-line @typescript-eslint/require-await
     private async denyInboundConnection(_maConn: MultiaddrConnection): Promise<boolean> {
-        console.log('denyInboundConnection');
+        console.log('denyInboundConnection', _maConn);
         return false;
     }
 
