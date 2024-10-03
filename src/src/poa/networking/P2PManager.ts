@@ -94,7 +94,7 @@ export class P2PManager extends Logger {
     private startedIndexer: boolean = false;
 
     private knownMempoolIdentifiers: Set<bigint> = new Set();
-    private broadcastedIdentifiers: Set<bigint> = new Set();
+    private broadcastIdentifiers: Set<bigint> = new Set();
 
     private readonly blockWitnessManager: BlockWitnessManager;
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
@@ -113,7 +113,7 @@ export class P2PManager extends Logger {
 
         setInterval(() => {
             this.knownMempoolIdentifiers.clear();
-            this.broadcastedIdentifiers.clear();
+            this.broadcastIdentifiers.clear();
 
             this.purgeOldBlacklistedPeers();
         }, 10_000);
@@ -178,7 +178,7 @@ export class P2PManager extends Logger {
     }
 
     public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
-        if (this.broadcastedIdentifiers.has(data.identifier) && data.identifier) {
+        if (this.broadcastIdentifiers.has(data.identifier) && data.identifier) {
             this.warn(`Transaction already broadcasted.`);
 
             return {
@@ -186,7 +186,7 @@ export class P2PManager extends Logger {
             };
         }
 
-        if (data.identifier) this.broadcastedIdentifiers.add(data.identifier);
+        if (data.identifier) this.broadcastIdentifiers.add(data.identifier);
 
         return {
             peers: await this.broadcastMempoolTransaction({
@@ -332,6 +332,8 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
+        console.log('identified', evt);
+
         if (!this.node) throw new Error('Node not initialized');
 
         const peerInfo: IdentifyResult = evt.detail;
@@ -350,12 +352,16 @@ export class P2PManager extends Logger {
     }
 
     private onPeerDiscovery(evt: CustomEvent<PeerInfo>): void {
+        console.log('discovered', evt);
+
         const peerId = evt.detail.id.toString();
 
         this.info(`Discovered peer: ${peerId}`);
     }
 
     private async onPeerDisconnect(evt: CustomEvent<PeerId>): Promise<void> {
+        console.log('disconnected', evt);
+
         const peerId = evt.detail.toString();
 
         const peer = this.peers.get(peerId);
@@ -807,6 +813,8 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
+        console.log('connected', evt);
+
         const peerIdStr: string = evt.detail.toString();
         const peer = this.peers.get(peerIdStr);
         const peerId = peerIdFromString(peerIdStr);
@@ -1042,6 +1050,7 @@ export class P2PManager extends Logger {
 
     // eslint-disable-next-line @typescript-eslint/require-await
     private async denyInboundConnection(_maConn: MultiaddrConnection): Promise<boolean> {
+        console.log('denyInboundConnection');
         return false;
     }
 
@@ -1050,6 +1059,8 @@ export class P2PManager extends Logger {
         peerId: PeerId,
         _maConn: MultiaddrConnection,
     ): Promise<boolean> {
+        console.log('denyInboundUpgradedConnection');
+
         const id: string = peerId.toString();
 
         if (this.isBlackListedPeerId(peerId.toString())) {
