@@ -339,8 +339,6 @@ export class P2PManager extends Logger {
             multiaddrs: peerInfo.listenAddrs,
         };
 
-        console.log('Identify event', peerInfo);
-
         await this.node.peerStore.merge(peerInfo.peerId, peerData);
         this.info(`Identified peer: ${peerInfo.peerId.toString()}`);
     }
