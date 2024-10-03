@@ -51,6 +51,12 @@ export class P2PConfigurations extends OPNetPathFinder {
             outboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
 
             maxConnections: this.config.P2P.MAXIMUM_PEERS,
+            socketCloseTimeout: 2000,
+            backlog: 100,
+            closeServerOnMaxConnections: {
+                closeAbove: this.config.P2P.MAXIMUM_PEERS,
+                listenBelow: this.config.P2P.MINIMUM_PEERS,
+            },
         };
     }
 
@@ -120,11 +126,15 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get connectionManagerConfiguration(): ConnectionManagerInit {
         return {
+            autoDialDiscoveredPeersDebounce: 100,
+
+            maxParallelDials: 100,
+
             /**
              * A remote peer may attempt to open up to this many connections per second,
              * any more than that will be automatically rejected
              */
-            inboundConnectionThreshold: 20,
+            inboundConnectionThreshold: 10,
 
             /**
              * The total number of connections allowed to be open at one time
