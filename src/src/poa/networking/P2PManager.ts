@@ -1,5 +1,4 @@
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap, BootstrapComponents } from '@libp2p/bootstrap';
 import { Identify, identify } from '@libp2p/identify';
@@ -62,6 +61,7 @@ import { xxHash } from '../hashing/xxhash.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { Components } from 'libp2p/components.js';
 import { Config } from '../../config/Config.js';
+import { noise } from '@chainsafe/libp2p-noise';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -332,8 +332,6 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
-        console.log('identified', evt);
-
         if (!this.node) throw new Error('Node not initialized');
 
         const peerInfo: IdentifyResult = evt.detail;
@@ -352,16 +350,12 @@ export class P2PManager extends Logger {
     }
 
     private onPeerDiscovery(evt: CustomEvent<PeerInfo>): void {
-        console.log('discovered', evt);
-
         const peerId = evt.detail.id.toString();
 
         this.info(`Discovered peer: ${peerId}`);
     }
 
     private async onPeerDisconnect(evt: CustomEvent<PeerId>): Promise<void> {
-        console.log('disconnected', evt);
-
         const peerId = evt.detail.toString();
 
         const peer = this.peers.get(peerId);
@@ -522,7 +516,7 @@ export class P2PManager extends Logger {
 
                 peersToTry.push(peerData);
             } catch (e) {
-                console.log(`Error while adding peer to try:`, e);
+                this.error(`Error while adding peer to try: ${(e as Error).message}`);
             }
         }
 
@@ -536,9 +530,6 @@ export class P2PManager extends Logger {
             const promises: Promise<Peer>[] = [];
 
             for (const peerData of batch) {
-                //const has = await this.node.peerStore.has(peerData.id);
-                //if (has) continue;
-
                 const addedPeer = this.node.peerStore.merge(peerData.id, {
                     multiaddrs: peerData.multiaddrs,
                     tags: {
@@ -548,8 +539,6 @@ export class P2PManager extends Logger {
                         },
                     },
                 });
-
-                //this.log(`Added peer ${peerData.id.toString()} to peer store.`);
 
                 promises.push(addedPeer);
             }
@@ -789,11 +778,15 @@ export class P2PManager extends Logger {
         this.peers.delete(peerStr);
 
         await this.node.hangUp(peerId).catch((e: unknown) => {
-            console.log('Error while hanging up peer:', e);
+            this.warn(`Error while hanging up peer: ${(e as Error).message}`);
         });
     }
 
     private blacklistPeerIps(peer: Peer, reason: DisconnectionCode): void {
+        if (!this.config.P2P.ENABLE_IP_BANNING) {
+            return;
+        }
+
         const address = peer.addresses;
 
         if (address.length === 0) {
@@ -813,8 +806,6 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
-        console.log('connected', evt);
-
         const peerIdStr: string = evt.detail.toString();
         const peer = this.peers.get(peerIdStr);
         const peerId = peerIdFromString(peerIdStr);
@@ -1025,7 +1016,6 @@ export class P2PManager extends Logger {
         peerId: PeerId,
         _maConn: MultiaddrConnection,
     ): Promise<boolean> {
-        console.log('denyOutboundConnection', _maConn.remoteAddr);
         const id: string = peerId.toString();
 
         if (this.isBlackListedPeerId(peerId.toString())) {
@@ -1051,7 +1041,6 @@ export class P2PManager extends Logger {
 
     // eslint-disable-next-line @typescript-eslint/require-await
     private async denyInboundConnection(_maConn: MultiaddrConnection): Promise<boolean> {
-        console.log('denyInboundConnection', _maConn.remoteAddr);
         return false;
     }
 
@@ -1060,8 +1049,6 @@ export class P2PManager extends Logger {
         peerId: PeerId,
         _maConn: MultiaddrConnection,
     ): Promise<boolean> {
-        console.log('denyInboundUpgradedConnection');
-
         const id: string = peerId.toString();
 
         if (this.isBlackListedPeerId(peerId.toString())) {
@@ -1119,10 +1106,7 @@ export class P2PManager extends Logger {
         return await createLibp2p({
             datastore: datastore,
             peerId: peerId,
-            transports: [
-                tcp(this.p2pConfigurations.tcpConfiguration),
-                //webSockets(this.p2pConfigurations.websocketConfiguration),
-            ],
+            transports: [tcp(this.p2pConfigurations.tcpConfiguration)],
             connectionEncryption: [noise()],
             connectionGater: this.getConnectionGater(),
             streamMuxers: [yamux(this.p2pConfigurations.yamuxConfiguration)],

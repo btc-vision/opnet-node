@@ -51,6 +51,7 @@ export interface P2P {
     readonly CLIENT_MODE: boolean;
 
     readonly MDNS: boolean;
+    readonly ENABLE_IP_BANNING: boolean;
 
     readonly ENABLE_IPV6: boolean;
     readonly P2P_HOST_V6: string;

@@ -112,7 +112,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get multicastDnsConfiguration(): MulticastDNSInit {
         return {
-            interval: 20000,
+            interval: 1000,
         };
     }
 
@@ -155,7 +155,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get transportManagerConfiguration(): TransportManagerInit {
         return {
-            faultTolerance: FaultTolerance.NO_FATAL,
+            faultTolerance: FaultTolerance.FATAL_ALL,
         };
     }
 
@@ -170,7 +170,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get dhtConfiguration(): KadDHTInit {
         return {
             kBucketSize: 30,
-            pingTimeout: 10000,
+            pingTimeout: 4000,
             clientMode: this.config.P2P.CLIENT_MODE,
             protocol: this.protocol,
         };
@@ -180,9 +180,9 @@ export class P2PConfigurations extends OPNetPathFinder {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
             agentVersion: P2PMajorVersion,
-            timeout: 8000,
-            maxInboundStreams: 4,
-            maxOutboundStreams: 4,
+            timeout: 3000,
+            maxInboundStreams: 3,
+            maxOutboundStreams: 3,
             runOnConnectionOpen: false,
         };
     }

@@ -73,6 +73,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             CLIENT_MODE: false,
             ENABLE_IPV6: false,
 
+            ENABLE_IP_BANNING: false,
             MDNS: false,
 
             P2P_HOST_V6: '::',
@@ -419,6 +420,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             if (parsedConfig.P2P.MDNS !== undefined && typeof parsedConfig.P2P.MDNS !== 'boolean') {
                 throw new Error(`Oops the property P2P.MDNS is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.P2P.ENABLE_IP_BANNING !== undefined &&
+                typeof parsedConfig.P2P.ENABLE_IP_BANNING !== 'boolean'
+            ) {
+                throw new Error(`Oops the property P2P.ENABLE_IP_BANNING is not a boolean.`);
             }
 
             if (
