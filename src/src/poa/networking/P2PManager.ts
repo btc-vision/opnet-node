@@ -1025,7 +1025,7 @@ export class P2PManager extends Logger {
         peerId: PeerId,
         _maConn: MultiaddrConnection,
     ): Promise<boolean> {
-        console.log('denyOutboundConnection', _maConn.remoteAddr, _maConn.source);
+        console.log('denyOutboundConnection', _maConn.remoteAddr);
         const id: string = peerId.toString();
 
         if (this.isBlackListedPeerId(peerId.toString())) {
