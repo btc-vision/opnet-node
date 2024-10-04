@@ -5,8 +5,8 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { Network } from 'bitcoinjs-lib';
 import { Config } from '../../../config/Config.js';
 import {
-    BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
+    BlockHeaderDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import {
     ITransactionDocumentBasic,
@@ -292,7 +292,7 @@ export class Block extends Logger {
         this.createTransactions();
     }
 
-    public getBlockHeaderDocument(): BlockHeaderBlockDocument {
+    public getBlockHeaderDocument(): BlockHeaderDocument {
         return {
             checksumRoot: this.checksumRoot,
             checksumProofs: this.checksumProofs,
@@ -403,7 +403,7 @@ export class Block extends Logger {
             const timeBeforeExecution = Date.now();
 
             /** We must fetch the previous block checksum */
-            const previousBlockHeaders: BlockHeaderBlockDocument | null | undefined =
+            const previousBlockHeaders: BlockHeaderDocument | null | undefined =
                 await vmManager.blockHeaderValidator.getBlockHeader(this.height - 1n);
 
             // Calculate next block base gas
@@ -777,7 +777,7 @@ export class Block extends Logger {
         }
     }
 
-    private setGasParameters(previousBlockHeaders: BlockHeaderBlockDocument | null): void {
+    private setGasParameters(previousBlockHeaders: BlockHeaderDocument | null): void {
         if (previousBlockHeaders !== null) {
             this._prevEMA = BigInt(previousBlockHeaders.ema || 0);
             this._prevBaseGas = BigInt(previousBlockHeaders.baseGas || 0);

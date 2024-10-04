@@ -10,7 +10,7 @@ import { BlockWithTransactions } from '../../../db/documents/interfaces/BlockHea
 import { BlockRootStates } from '../../../db/interfaces/BlockRootStates.js';
 import {
     BlockHeaderAPIBlockDocument,
-    BlockHeaderBlockDocument,
+    BlockHeaderDocument,
     IBlockHeaderBlockDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../../db/interfaces/IReorgDocument.js';
@@ -619,7 +619,7 @@ export class VMMongoStorage extends VMStorage {
         );
     }
 
-    public async saveBlockHeader(blockHeader: BlockHeaderBlockDocument): Promise<void> {
+    public async saveBlockHeader(blockHeader: BlockHeaderDocument): Promise<void> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
         }
@@ -645,7 +645,7 @@ export class VMMongoStorage extends VMStorage {
         return await this.contractRepository.hasContract(contractAddress);
     }
 
-    public async getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined> {
+    public async getBlockHeader(height: bigint): Promise<BlockHeaderDocument | undefined> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
         }
@@ -816,6 +816,34 @@ export class VMMongoStorage extends VMStorage {
         await Promise.all(promises);
     }
 
+    public convertBlockHeaderToBlockHeaderDocument(
+        blockHeader: BlockHeaderDocument,
+    ): BlockHeaderAPIBlockDocument {
+        return {
+            hash: blockHeader.hash,
+            height: blockHeader.height.toString(),
+            time: blockHeader.time.getTime(),
+            version: blockHeader.version,
+            bits: blockHeader.bits,
+            nonce: blockHeader.nonce,
+            previousBlockHash: blockHeader.previousBlockHash,
+            merkleRoot: blockHeader.merkleRoot,
+            txCount: blockHeader.txCount,
+            size: blockHeader.size,
+            weight: blockHeader.weight,
+            strippedSize: blockHeader.strippedSize,
+            storageRoot: blockHeader.storageRoot,
+            receiptRoot: blockHeader.receiptRoot,
+            checksumProofs: blockHeader.checksumProofs,
+            medianTime: blockHeader.medianTime.getTime(),
+            previousBlockChecksum: blockHeader.previousBlockChecksum,
+            checksumRoot: blockHeader.checksumRoot,
+            ema: blockHeader.ema.toString(),
+            baseGas: blockHeader.baseGas.toString(),
+            gasUsed: blockHeader.gasUsed.toString(),
+        };
+    }
+
     private async waitForAllSessionsCommitted(pollInterval: number = 100): Promise<void> {
         return new Promise<void>(async (resolve, reject) => {
             const checkWrites = async (): Promise<boolean> => {
@@ -895,34 +923,6 @@ export class VMMongoStorage extends VMStorage {
     private getTransactionOptions(): TransactionOptions {
         return {
             maxCommitTimeMS: 29 * 60000,
-        };
-    }
-
-    private convertBlockHeaderToBlockHeaderDocument(
-        blockHeader: BlockHeaderBlockDocument,
-    ): BlockHeaderAPIBlockDocument {
-        return {
-            hash: blockHeader.hash,
-            height: blockHeader.height.toString(),
-            time: blockHeader.time.getTime(),
-            version: blockHeader.version,
-            bits: blockHeader.bits,
-            nonce: blockHeader.nonce,
-            previousBlockHash: blockHeader.previousBlockHash,
-            merkleRoot: blockHeader.merkleRoot,
-            txCount: blockHeader.txCount,
-            size: blockHeader.size,
-            weight: blockHeader.weight,
-            strippedSize: blockHeader.strippedSize,
-            storageRoot: blockHeader.storageRoot,
-            receiptRoot: blockHeader.receiptRoot,
-            checksumProofs: blockHeader.checksumProofs,
-            medianTime: blockHeader.medianTime.getTime(),
-            previousBlockChecksum: blockHeader.previousBlockChecksum,
-            checksumRoot: blockHeader.checksumRoot,
-            ema: blockHeader.ema.toString(),
-            baseGas: blockHeader.baseGas.toString(),
-            gasUsed: blockHeader.gasUsed.toString(),
         };
     }
 

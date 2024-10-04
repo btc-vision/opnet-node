@@ -17,7 +17,7 @@ import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transacti
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
-import { BlockHeaderBlockDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
+import { BlockHeaderDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../db/interfaces/ITransactionDocument.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
@@ -1110,7 +1110,7 @@ export class VMManager extends Logger {
         }
 
         /** We must get the block root states */
-        const blockHeaders: BlockHeaderBlockDocument | null | undefined =
+        const blockHeaders: BlockHeaderDocument | null | undefined =
             await this._blockHeaderValidator.getBlockHeader(blockHeight);
 
         if (blockHeaders === null) {
@@ -1141,7 +1141,7 @@ export class VMManager extends Logger {
 
     private async verifyBlockAtHeight(
         blockHeight: bigint,
-        blockHeaders: BlockHeaderBlockDocument,
+        blockHeaders: BlockHeaderDocument,
     ): Promise<boolean> {
         const verifiedHeight: Promise<boolean> =
             this.verifiedBlockHeights.get(blockHeight) ||
@@ -1155,7 +1155,7 @@ export class VMManager extends Logger {
     /** We verify that the block did not get altered at the given height. */
     private async _verifyBlockAtHeight(
         height: bigint,
-        blockHeaders: BlockHeaderBlockDocument,
+        blockHeaders: BlockHeaderDocument,
     ): Promise<boolean> {
         if (height !== DataConverter.fromDecimal128(blockHeaders.height)) {
             throw new Error('Block height mismatch');

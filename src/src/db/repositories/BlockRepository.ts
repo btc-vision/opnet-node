@@ -3,7 +3,7 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { ClientSession, Collection, Db, Filter } from 'mongodb';
 import { BlockRootStates } from '../interfaces/BlockRootStates.js';
 import {
-    BlockHeaderBlockDocument,
+    BlockHeaderDocument,
     IBlockHeaderBlockDocument,
 } from '../interfaces/IBlockHeaderBlockDocument.js';
 
@@ -50,7 +50,7 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         hash: string,
         currentSession?: ClientSession,
     ): Promise<IBlockHeaderBlockDocument | undefined> {
-        const criteria: Partial<BlockHeaderBlockDocument> = {
+        const criteria: Partial<BlockHeaderDocument> = {
             hash: hash,
         };
 
@@ -104,7 +104,7 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
 
     /** Save block headers */
     public async saveBlockHeader(
-        blockHeader: BlockHeaderBlockDocument,
+        blockHeader: BlockHeaderDocument,
         currentSession?: ClientSession,
     ): Promise<void> {
         const criteria: Partial<Filter<IBlockHeaderBlockDocument>> = {

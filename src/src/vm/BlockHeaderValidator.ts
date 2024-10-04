@@ -1,6 +1,6 @@
 import {
-    BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
+    BlockHeaderDocument,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
@@ -13,7 +13,7 @@ import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue
 export class BlockHeaderValidator extends Logger {
     public readonly logColor: string = '#00ff66';
 
-    private cachedBlockHeader: Map<bigint, BlockHeaderBlockDocument> = new Map();
+    private cachedBlockHeader: Map<bigint, BlockHeaderDocument> = new Map();
 
     public constructor(
         private readonly config: IBtcIndexerConfig,
@@ -22,7 +22,7 @@ export class BlockHeaderValidator extends Logger {
         super();
     }
 
-    public setLastBlockHeader(blockHeader: BlockHeaderBlockDocument): void {
+    public setLastBlockHeader(blockHeader: BlockHeaderDocument): void {
         this.cachedBlockHeader.set(DataConverter.fromDecimal128(blockHeader.height), blockHeader);
     }
 
@@ -34,14 +34,12 @@ export class BlockHeaderValidator extends Logger {
      * Returns null if the block is before the enabled block.
      * @param height
      */
-    public async getBlockHeader(
-        height: bigint,
-    ): Promise<BlockHeaderBlockDocument | null | undefined> {
+    public async getBlockHeader(height: bigint): Promise<BlockHeaderDocument | null | undefined> {
         if (this.cachedBlockHeader.has(height)) {
             return this.cachedBlockHeader.get(height);
         }
 
-        const blockHeader: BlockHeaderBlockDocument | undefined =
+        const blockHeader: BlockHeaderDocument | undefined =
             await this.vmStorage.getBlockHeader(height);
 
         if (blockHeader) {
@@ -57,7 +55,7 @@ export class BlockHeaderValidator extends Logger {
             return ZERO_HASH;
         }
 
-        const blockRootStates: BlockHeaderBlockDocument | undefined | null =
+        const blockRootStates: BlockHeaderDocument | undefined | null =
             await this.getBlockHeader(newHeight);
 
         if (!blockRootStates || !blockRootStates.checksumRoot) {
@@ -69,7 +67,7 @@ export class BlockHeaderValidator extends Logger {
 
     /** TODO: Move this method to an other class and use this method when synchronizing block headers once PoA is implemented. */
     public async validateBlockChecksum(
-        blockHeader: Partial<BlockHeaderBlockDocument>,
+        blockHeader: Partial<BlockHeaderDocument>,
     ): Promise<boolean> {
         if (!blockHeader.checksumRoot || blockHeader.height === undefined) {
             throw new Error('Block checksum not found');

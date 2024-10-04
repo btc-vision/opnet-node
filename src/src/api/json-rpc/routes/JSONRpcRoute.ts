@@ -10,9 +10,10 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     /** Blocks */
     [JSONRpcMethods.GET_BLOCK_BY_HASH]: Routes.BLOCK_BY_HASH,
     [JSONRpcMethods.GET_BLOCK_BY_NUMBER]: Routes.BLOCK_BY_ID,
+    [JSONRpcMethods.BLOCK_WITNESS]: Routes.BLOCK_WITNESS,
+    [JSONRpcMethods.GAS]: Routes.GAS,
 
     /** OPNet */
-    [JSONRpcMethods.BLOCK_WITNESS]: Routes.BLOCK_WITNESS,
     [JSONRpcMethods.GENERATE]: Routes.GENERATE,
 
     /** Chain */
@@ -32,4 +33,5 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     [JSONRpcMethods.GET_STORAGE_AT]: Routes.GET_STORAGE_AT,
     [JSONRpcMethods.GET_BALANCE]: Routes.GET_BALANCE,
     [JSONRpcMethods.CALL]: Routes.CALL,
+    [JSONRpcMethods.SIMULATE]: Routes.SIMULATE,
 };

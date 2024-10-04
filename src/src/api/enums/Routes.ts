@@ -1,12 +1,12 @@
 export enum Routes {
     /** Block */
     LATEST_BLOCK = 'block/latest',
-
     BLOCK_BY_HASH = 'block/by-hash',
     BLOCK_BY_ID = 'block/by-id',
+    BLOCK_WITNESS = 'block/block-witness',
+    GAS = 'block/gas',
 
     /** OPNet */
-    BLOCK_WITNESS = 'block/block-witness',
     GENERATE = 'opnet/generate',
 
     /** Chain */
@@ -26,6 +26,7 @@ export enum Routes {
     GET_CODE = 'states/get-code',
     GET_STORAGE_AT = 'states/get-storage-at',
     CALL = 'states/call',
+    SIMULATE = 'states/simulate',
 
     /** Other */
     PROTOBUF_SCHEMA = 'protobuf/schema',

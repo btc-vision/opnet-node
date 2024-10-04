@@ -3,7 +3,7 @@ import Long from 'long';
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { BtcIndexerConfig } from '../../../config/BtcIndexerConfig.js';
 import { DBManagerInstance } from '../../../db/DBManager.js';
-import { BlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { BlockHeaderDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { BlockWitnessRepository } from '../../../db/repositories/BlockWitnessRepository.js';
@@ -81,7 +81,7 @@ export class BlockWitnessManager extends Logger {
         const validatorsWitnesses = packet.validatorWitnesses;
         const blockNumber: bigint = BigInt(packet.blockNumber.toString());
 
-        const blockHeader: BlockHeaderBlockDocument | undefined =
+        const blockHeader: BlockHeaderDocument | undefined =
             await this.blockHeaderRepository.getBlockHeader(blockNumber);
 
         if (!blockHeader) {
