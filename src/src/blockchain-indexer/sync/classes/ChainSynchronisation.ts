@@ -100,6 +100,7 @@ export class ChainSynchronisation extends Logger {
     private async onReorg(reorg: IChainReorg): Promise<ThreadData> {
         this.panic(`CHAIN_REORG message received. Cancelling all tasks.`);
 
+        this.blockFetcher.onReorg();
         this.abortAllControllers();
         this.purgeUTXOs(reorg.fromHeight);
 

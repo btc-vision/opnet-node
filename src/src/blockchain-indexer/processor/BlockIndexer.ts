@@ -195,13 +195,11 @@ export class BlockIndexer extends Logger {
         this.reorgWatchdog.onBlockChange(header);
         this.chainObserver.onBlockChange(header);
 
-        if (this.taskInProgress) {
+        if (this.taskInProgress && this.indexingTasks.length !== 0) {
             return;
         }
 
-        if (this.indexingTasks.length === 0) {
-            this.startTasks();
-        }
+        this.startTasks();
     }
 
     private async notifyThreadReorg(
@@ -237,6 +235,9 @@ export class BlockIndexer extends Logger {
     ): Promise<void> {
         // Lock tasks.
         this.chainReorged = true;
+
+        // Clean up cached data.
+        this.blockFetcher.onReorg();
 
         // Stop all tasks.
         await this.stopAllTasks(reorged);
