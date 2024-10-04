@@ -60,11 +60,11 @@ export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInfo
     protected initialize(): void {}
 
     /**
-     * GET /api/v1/block/latest
+     * GET /api/v1/block/gas
      * @tag Block
-     * @summary Get the current heap block of OpNet
-     * @description Get the current heap block of OpNet (the block that is currently being processed)
-     * @response 200 - Return the current heap block of the Bitcoin blockchain.
+     * @summary Get the next block gas information
+     * @description This endpoint returns the information needed to calculate the gas price accurately for a transaction.
+     * @response 200 - Returns the gas information for the next block
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
      * @responseContent {string} 200.application/json
