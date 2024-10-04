@@ -216,7 +216,10 @@ export class MempoolManager extends Logger {
                 `Found ${txsList.length} tx - ${unknownTxs.length} new tx - ${alreadyKnownTxs.length} already known. (verified db under ${end - start}ms - precomputed under ${end - startedAt}ms)`,
             );
 
+            const stored = Date.now();
             await this.mempoolRepository.storeTransactions(fetchedTxs);
+
+            this.log(`Stored ${fetchedTxs.length} transactions in ${Date.now() - stored}ms`);
         } catch (e) {
             this.error(`Failed to fetch mempool transactions: ${(e as Error).message}`);
         }
