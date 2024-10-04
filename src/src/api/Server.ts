@@ -151,11 +151,11 @@ export class Server extends Logger {
             throw new Error(`Block header not found at height ${height}.`);
         }
 
-        if (BigInt(header.height) < height) {
+        /*if (height < BigInt(header.height)) {
             throw new Error(
                 `Block header height (${header.height}) does not match block height (${height}).`,
             );
-        }
+        }*/
 
         for (const route of Object.values(DefinedRoutes)) {
             route.onBlockChange(height, header);
