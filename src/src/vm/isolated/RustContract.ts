@@ -110,7 +110,11 @@ export class RustContract {
         this.contractManager.destroyContract(this._id);
 
         if (deadlock) {
-            throw deadlock;
+            const strErr = (deadlock as Error).message;
+
+            if (strErr.includes('mutex')) {
+                throw new Error('OPNET: REENTRANCY DETECTED');
+            }
         }
     }
 
