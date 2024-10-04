@@ -67,6 +67,7 @@ export class Server extends Logger {
 
     public async createServer(): Promise<void> {
         await this.storage.init();
+        await this.setupConsensus();
 
         // ERROR HANDLING
         this.app.set_error_handler(this.globalErrorHandler.bind(this));
@@ -105,7 +106,6 @@ export class Server extends Logger {
             this.serverPort = port;
         }
 
-        await this.setupConsensus();
         await this.createServer();
     }
 
