@@ -103,23 +103,14 @@ export class ContractEvaluator extends Logger {
     }
 
     public delete(): void {
-        if (!this._contractInstance?.disposed && this._contractInstance?.instantiated) {
-            this.contractInstance.dispose();
-        }
+        const oldInstance = this._contractInstance;
 
         delete this._contractInstance;
-    }
 
-    /*public async isViewMethod(selector: Selector): Promise<boolean> {
-        if (!this.viewAbi) {
-            const viewAbi = await this.getViewABI();
-            this.viewAbi = Array.from(viewAbi.values());
-
-            console.log(this.viewAbi);
+        if (!oldInstance?.disposed && oldInstance?.instantiated) {
+            this.contractInstance.dispose();
         }
-
-        return this.viewAbi.includes(selector);
-    }*/
+    }
 
     public async execute(params: ExecutionParameters): Promise<ContractEvaluation> {
         if (this.isProcessing) {
@@ -155,7 +146,9 @@ export class ContractEvaluator extends Logger {
 
             return evaluation;
         } catch (e) {
-            this.delete();
+            try {
+                this.delete();
+            } catch {}
 
             this.isProcessing = false;
             throw e;
@@ -447,7 +440,9 @@ export class ContractEvaluator extends Logger {
         }
 
         if (evaluation.revert) {
-            this.delete();
+            try {
+                this.delete();
+            } catch {}
         }
     }
 

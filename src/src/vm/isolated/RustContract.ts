@@ -92,9 +92,12 @@ export class RustContract {
 
         if (this.enableDebug || this.enableDisposeLog) console.log('Disposing contract', this._id);
 
+        let deadlock: unknown;
         try {
             this.gasUsed = this.getUsedGas();
-        } catch {}
+        } catch (e) {
+            deadlock = e;
+        }
 
         delete this._params;
 
@@ -105,6 +108,10 @@ export class RustContract {
 
         Blockchain.removeBinding(this._id);
         this.contractManager.destroyContract(this._id);
+
+        if (deadlock) {
+            throw deadlock;
+        }
     }
 
     public async defineSelectors(): Promise<void> {
@@ -128,16 +135,13 @@ export class RustContract {
             const pointer = await this.__lowerTypedArray(13, 0, buffer);
             const data = await this.__retain(pointer);
 
-            let finalResult;
-            try {
-                const resp = await this.contractManager.call(this.id, 'readMethod', [method, data]);
-                this.gasCallback(resp.gasUsed, 'readMethod');
+            const resp = await this.contractManager.call(this.id, 'readMethod', [method, data]);
+            this.gasCallback(resp.gasUsed, 'readMethod');
 
-                const result = resp.result.filter((n) => n !== undefined);
-                finalResult = this.__liftTypedArray(result[0] >>> 0);
-            } finally {
-                await this.__release(data);
-            }
+            const result = resp.result.filter((n) => n !== undefined);
+            const finalResult = this.__liftTypedArray(result[0] >>> 0);
+
+            await this.__release(data);
 
             return finalResult;
         } catch (e) {
@@ -161,26 +165,6 @@ export class RustContract {
             finalResult = this.__liftTypedArray(result[0] >>> 0);
         } catch (e) {
             if (this.enableDebug) console.log('Error in readView', e);
-
-            const error = e as Error;
-            throw this.getError(error);
-        }
-
-        return finalResult;
-    }
-
-    public async getViewABI(): Promise<Uint8Array> {
-        if (this.enableDebug) console.log('Getting view ABI');
-
-        let finalResult: Uint8Array;
-        try {
-            const resp = await this.contractManager.call(this.id, 'getViewABI', []);
-            this.gasCallback(resp.gasUsed, 'getViewABI');
-
-            const result = resp.result.filter((n) => n !== undefined);
-            finalResult = this.__liftTypedArray(result[0] >>> 0);
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in getViewABI', e);
 
             const error = e as Error;
             throw this.getError(error);
@@ -223,26 +207,6 @@ export class RustContract {
             finalResult = this.__liftTypedArray(result[0] >>> 0);
         } catch (e) {
             if (this.enableDebug) console.log('Error in getMethodABI', e);
-
-            const error = e as Error;
-            throw this.getError(error);
-        }
-
-        return finalResult;
-    }
-
-    public async getWriteMethods(): Promise<Uint8Array> {
-        if (this.enableDebug) console.log('Getting write methods');
-
-        let finalResult: Uint8Array;
-        try {
-            const resp = await this.contractManager.call(this.id, 'getWriteMethods', []);
-            this.gasCallback(resp.gasUsed, 'getWriteMethods');
-
-            const result = resp.result.filter((n) => n !== undefined);
-            finalResult = this.__liftTypedArray(result[0] >>> 0);
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in getWriteMethods', e);
 
             const error = e as Error;
             throw this.getError(error);
