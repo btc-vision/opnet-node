@@ -139,6 +139,10 @@ export class IndexingTask extends Logger {
 
             this.finalizeEnd = Date.now();
 
+            if (this.aborted) {
+                return;
+            }
+
             // Verify finalization
             if (!resp[1]) {
                 throw new Error('Block finalization failed');
