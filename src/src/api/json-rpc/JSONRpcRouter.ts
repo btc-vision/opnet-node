@@ -34,9 +34,12 @@ export class JSONRpcRouter {
         }
 
         try {
+            const startTime = Date.now();
             const result = await route.getDataRPC(params);
-
-            console.log(`Requesting response for method ${method} with params`, params);
+            console.log(
+                `Requesting response for method ${method} with params. Took ${Date.now() - startTime}`,
+                params,
+            );
 
             return {
                 result: result ?? null,
