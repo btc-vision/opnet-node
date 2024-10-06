@@ -101,8 +101,6 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
         this.changeStream.on(
             'change',
             (change: ChangeStreamUpdateDocument<IBlockchainInformationDocument>) => {
-                console.log('Change stream update:', change);
-                
                 const updatedFields = change.updateDescription?.updatedFields;
 
                 if (!updatedFields) {

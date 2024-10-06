@@ -180,8 +180,6 @@ export class MempoolManager extends Logger {
 
     private async generateMempoolPopulation(): Promise<void> {
         try {
-            console.log('starting to fetch mempool transactions');
-
             const startedAt = Date.now();
             const txsList: string[] | null = await this.bitcoinRPC.getRawMempool(
                 BitcoinVerbosity.RAW,
