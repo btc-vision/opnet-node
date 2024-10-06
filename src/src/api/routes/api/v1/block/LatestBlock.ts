@@ -19,11 +19,8 @@ export class LatestBlock extends Route<
     }
 
     public async getData(): Promise<BlockByNumberResult> {
-        const start = Date.now();
         const resp = await this.getBlockHeader();
         if (!resp) throw new Error(`Block not found at given height.`);
-
-        console.log(`Latest block fetched in ${Date.now() - start}ms`);
 
         return resp;
     }
@@ -78,8 +75,6 @@ export class LatestBlock extends Route<
     }
 
     private async getBlockHeader(): Promise<string | undefined> {
-        console.log('Getting block header', this.cachedBlock);
-
         if (this.cachedBlock) {
             return this.cachedBlock;
         }

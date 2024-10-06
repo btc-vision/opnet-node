@@ -1,10 +1,7 @@
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import {
-    BlockHeaderAPIDocumentWithTransactions,
-    BlockWithTransactions,
-} from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
+import { BlockHeaderAPIDocumentWithTransactions } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { Routes } from '../../../../enums/Routes.js';
 import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByIdParams.js';
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
@@ -26,38 +23,7 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
             const height: SafeBigInt = BlockParamsConverter.getParameterAsBigIntForBlock(params);
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
 
-            const cachedData = await this.getCachedData(height);
-            if (cachedData) {
-                if (!includeTransactions && cachedData.transactions.length !== 0) {
-                    this.decrementPendingRequests();
-                    return {
-                        ...cachedData,
-                        transactions: [],
-                    };
-                } else if (includeTransactions && cachedData.transactions.length === 0) {
-                } else {
-                    this.decrementPendingRequests();
-                    return cachedData;
-                }
-            }
-
-            if (!this.storage) {
-                throw new Error('Storage not initialized');
-            }
-
-            const transactions: BlockWithTransactions | undefined =
-                await this.storage.getBlockTransactions(height, undefined, includeTransactions);
-
-            if (!transactions) {
-                throw new Error(`No transactions found for block ${height}`);
-            }
-
-            data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
-            if (height !== -1) {
-                this.setToCache(height, data);
-            } else {
-                this.currentBlockData = data;
-            }
+            data = this.getCachedBlockData(includeTransactions, height);
         } catch (e) {
             this.decrementPendingRequests();
 
