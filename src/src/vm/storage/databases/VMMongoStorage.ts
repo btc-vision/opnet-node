@@ -846,6 +846,8 @@ export class VMMongoStorage extends VMStorage {
 
     private async waitForAllSessionsCommitted(pollInterval: number = 100): Promise<void> {
         return new Promise<void>(async (resolve, reject) => {
+            console.log('Waiting for all sessions to be committed...');
+
             const checkWrites = async (): Promise<boolean> => {
                 if (!this.databaseManager.db) {
                     throw new Error('Database not connected');
@@ -880,8 +882,15 @@ export class VMMongoStorage extends VMStorage {
 
             // Polling function
             const poll = async () => {
+                const t = Date.now();
                 const writesFinished = await checkWrites();
+                const elapsed = Date.now() - t;
+
+                console.log(`Polling took ${elapsed}ms`);
+
                 if (writesFinished) {
+                    console.log('All writes finished');
+
                     resolve();
                 } else {
                     setTimeout(poll, pollInterval);
