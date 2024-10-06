@@ -45,6 +45,8 @@ export class RPCBlockFetcher extends BlockFetcher {
             }
 
             if (this.syncBlockHash !== blockHeader.hash) {
+                console.log(`New block: ${blockHeader.hash}`);
+                
                 this.syncBlockHash = blockHeader.hash;
                 this.notifyBlockChangesSubscribers(blockHeader);
             }
