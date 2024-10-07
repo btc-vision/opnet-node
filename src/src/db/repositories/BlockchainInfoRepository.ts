@@ -44,8 +44,6 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
         network: string,
         blockInProgress: number,
     ): Promise<void> {
-        console.log('Updating current block in progress', blockInProgress);
-
         const criteria: Partial<Filter<IBlockchainInformationDocument>> = {
             network: network,
         };
