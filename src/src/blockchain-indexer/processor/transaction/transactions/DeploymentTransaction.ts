@@ -14,6 +14,10 @@ import {
     EcKeyPair,
     TapscriptVerificator,
 } from '@btc-vision/transaction';
+import { DataConverter } from '@btc-vision/bsi-db';
+import { Binary } from 'mongodb';
+import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
+import { Address } from '@btc-vision/bsi-binary';
 
 interface DeploymentWitnessData {
     deployerPubKey: Buffer;
@@ -76,6 +80,19 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         super(rawTransactionData, vInputIndex, blockHash, blockHeight, network);
     }
 
+    protected _calldata: Buffer | undefined;
+
+    public get calldata(): Buffer {
+        if (!this._calldata) {
+            throw new Error(`No calldata found for transaction ${this.txid}`);
+        }
+
+        const newCalldata = Buffer.alloc(this._calldata.byteLength);
+        this._calldata?.copy(newCalldata);
+
+        return newCalldata;
+    }
+
     public get virtualAddress(): string {
         if (!this.contractVirtualAddress) {
             throw new Error('Contract virtual address not found');
@@ -90,6 +107,10 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         }
 
         return this.contractSegwitAddress;
+    }
+
+    public get contractAddress(): Address {
+        return this.segwitAddress;
     }
 
     public static is(data: TransactionData): TransactionInformation | undefined {
@@ -111,12 +132,28 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public toDocument(): DeploymentTransactionDocument {
         if (!this.p2trAddress) throw new Error('Contract address not found');
 
+        const receiptData: EvaluatedResult | undefined = this.receipt;
+        const events: EvaluatedEvents | undefined = receiptData?.events;
+        const receipt: Uint8Array | undefined = receiptData?.result;
+        const receiptProofs: string[] = this.receiptProofs || [];
+
+        if (receipt && receiptProofs.length === 0) {
+            throw new Error(`No receipt proofs found for transaction ${this.txid}`);
+        }
+
         return {
             ...super.toDocument(),
             from: this.from,
             contractAddress: this.segwitAddress,
             p2trAddress: this.p2trAddress,
             virtualAddress: this.virtualAddress,
+
+            receiptProofs: receiptProofs,
+
+            gasUsed: DataConverter.toDecimal128(this.gasUsed),
+
+            receipt: receipt ? new Binary(receipt) : undefined,
+            events: this.convertEvents(events),
         };
     }
 

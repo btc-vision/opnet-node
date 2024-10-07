@@ -533,11 +533,11 @@ export class Block extends Logger {
         vmManager: VMManager,
         specialManager: SpecialManager,
     ): Promise<void> {
-        const promises: Promise<void>[] = [
-            this.executeOPNetTransactions(this.opnetTransactions, vmManager, specialManager),
-        ];
+        //const promises: Promise<void>[] = [
+        await this.executeOPNetTransactions(this.opnetTransactions, vmManager, specialManager);
+        //];
 
-        await Promise.all(promises);
+        //await Promise.all(promises);
     }
 
     /** We execute interaction transactions with this method */
@@ -548,14 +548,7 @@ export class Block extends Logger {
     ): Promise<void> {
         const start = Date.now();
         try {
-            if (!this.isOPNetEnabled()) {
-                throw new Error('OPNet is not enabled');
-            }
-
-            // Verify if the block is out of gas, this can overflow. This is an expected behavior.
-            if (OPNetConsensus.consensus.GAS.MAX_THEORETICAL_GAS < this.blockUsedGas) {
-                throw new Error(`Block out of gas`);
-            }
+            this.checkConstraintsBlock();
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.executeTransaction(
@@ -565,6 +558,7 @@ export class Block extends Logger {
                 transaction,
                 unlimitedGas,
             );
+            this.blockUsedGas += evaluation.gasUsed;
 
             transaction.receipt = evaluation.getEvaluationResult();
 
@@ -584,36 +578,11 @@ export class Block extends Logger {
                     Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
                 );
             }
-
-            this.blockUsedGas += transaction.gasUsed;
         } catch (e) {
-            this.blockUsedGas += OPNetConsensus.consensus.GAS.PANIC_GAS_COST;
-
-            const error: Error = e as Error;
-            if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-                this.error(
-                    `Failed to execute transaction ${transaction.txid} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.gasUsed})`,
-                );
-            }
-
-            transaction.revert = error;
-
-            vmManager.updateBlockValuesFromResult(
-                null,
-                transaction.contractAddress,
-                transaction.txid,
-                true,
-            );
+            this.processTransactionFailure(transaction, e as Error, start, vmManager);
         }
 
-        assert(
-            !(
-                transaction.receipt &&
-                transaction.receipt.revert &&
-                transaction.receipt.deployedContracts.length
-            ),
-            'Transaction reverted and some contracts were deployed',
-        );
+        this.verifyTransaction(transaction);
     }
 
     /** We execute deployment transactions with this method */
@@ -621,7 +590,44 @@ export class Block extends Logger {
         transaction: DeploymentTransaction,
         vmManager: VMManager,
     ): Promise<void> {
+        const start = Date.now();
         try {
+            this.checkConstraintsBlock();
+
+            /** We must create a transaction receipt. */
+            const evaluation = await vmManager.deployContract(
+                this.height,
+                this.median,
+                this.prevBaseGas,
+                transaction,
+            );
+            this.blockUsedGas += evaluation.gasUsed;
+
+            transaction.receipt = evaluation.getEvaluationResult();
+
+            this.processRevertedTx(transaction);
+
+            if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
+                this.debug(
+                    `Executed transaction (deployment) ${transaction.txid} for contract ${transaction.segwitAddress}. (Too ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                );
+            }
+
+            if (evaluation.transactionId) {
+                vmManager.updateBlockValuesFromResult(
+                    evaluation,
+                    evaluation.contractAddress,
+                    evaluation.transactionId,
+                    Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+                );
+            }
+        } catch (e) {
+            this.processTransactionFailure(transaction, e as Error, start, vmManager);
+        }
+
+        this.verifyTransaction(transaction);
+
+        /*try {
             if (!this.isOPNetEnabled()) {
                 throw new Error('OPNet is not enabled');
             }
@@ -641,6 +647,52 @@ export class Block extends Logger {
                 transaction.txid,
                 true,
             );
+        }*/
+    }
+
+    private verifyTransaction(transaction: Transaction<OPNetTransactionTypes>): void {
+        assert(
+            !(
+                transaction.receipt &&
+                transaction.receipt.revert &&
+                transaction.receipt.deployedContracts.length
+            ),
+            'Transaction reverted and some contracts were deployed',
+        );
+    }
+
+    private processTransactionFailure(
+        transaction: InteractionTransaction | DeploymentTransaction,
+        error: Error,
+        start: number,
+        vmManager: VMManager,
+    ): void {
+        this.blockUsedGas += OPNetConsensus.consensus.GAS.PANIC_GAS_COST;
+
+        if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
+            this.error(
+                `Failed to execute transaction ${transaction.txid} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.gasUsed})`,
+            );
+        }
+
+        transaction.revert = error;
+
+        vmManager.updateBlockValuesFromResult(
+            null,
+            transaction.contractAddress,
+            transaction.txid,
+            true,
+        );
+    }
+
+    private checkConstraintsBlock(): void {
+        if (!this.isOPNetEnabled()) {
+            throw new Error('OPNet is not enabled');
+        }
+
+        // Verify if the block is out of gas, this can overflow. This is an expected behavior.
+        if (OPNetConsensus.consensus.GAS.MAX_THEORETICAL_GAS < this.blockUsedGas) {
+            throw new Error(`Block out of gas`);
         }
     }
 
@@ -764,9 +816,11 @@ export class Block extends Logger {
                 continue;
             }
 
-            const interactionTransaction = transaction as InteractionTransaction;
-            const contractProofs = this.#_receiptProofs.get(interactionTransaction.contractAddress);
+            const interactionTransaction = transaction as
+                | InteractionTransaction
+                | DeploymentTransaction;
 
+            const contractProofs = this.#_receiptProofs.get(interactionTransaction.contractAddress);
             if (!contractProofs) {
                 // Transaction reverted.
                 continue;

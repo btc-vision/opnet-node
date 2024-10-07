@@ -107,10 +107,52 @@ export class ContractEvaluator extends Logger {
 
         delete this._contractInstance;
 
-        if (!oldInstance?.disposed && oldInstance?.instantiated) {
-            this.contractInstance.dispose();
+        if (oldInstance && !oldInstance.disposed && oldInstance.instantiated) {
+            oldInstance.dispose();
         }
     }
+
+    /*public async callConstructor(params: ExecutionParameters): Promise<ContractEvaluation> {
+        if (this.isProcessing) {
+            throw new Error('Contract is already processing');
+        }
+
+        this.isProcessing = true;
+
+        try {
+            this.delete();
+
+            const evaluation = new ContractEvaluation(params);
+            try {
+                this.loadContractFromBytecode(evaluation);
+
+                await this.defineSelectorAndSetupEnvironment(evaluation);
+
+                await this.processResult(new Uint8Array(1).fill(1), undefined, evaluation);
+            } catch (e) {
+                evaluation.revert = e as Error;
+            }
+
+            this.delete();
+
+            if (this.enableTracing) {
+                console.log(
+                    `EXECUTION GAS USED (callConstructor): ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
+                );
+            }
+
+            this.isProcessing = false;
+
+            return evaluation;
+        } catch (e) {
+            try {
+                this.delete();
+            } catch {}
+
+            this.isProcessing = false;
+            throw e;
+        }
+    }*/
 
     public async execute(params: ExecutionParameters): Promise<ContractEvaluation> {
         if (this.isProcessing) {
@@ -138,7 +180,7 @@ export class ContractEvaluator extends Logger {
 
             if (this.enableTracing) {
                 console.log(
-                    `EXECUTION GAS USED: ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
+                    `EXECUTION GAS USED (execute): ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
                 );
             }
 
@@ -377,10 +419,6 @@ export class ContractEvaluator extends Logger {
     }
 
     private async evaluate(evaluation: ContractEvaluation): Promise<void> {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
         if (!this.methodAbi) {
             this.methodAbi = await this.getMethodABI();
         }
@@ -407,6 +445,14 @@ export class ContractEvaluator extends Logger {
             return;
         }
 
+        await this.processResult(result, error, evaluation);
+    }
+
+    private async processResult(
+        result: Uint8Array,
+        error: Error | undefined,
+        evaluation: ContractEvaluation,
+    ): Promise<void> {
         if (result.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
             evaluation.revert = new Error('Result is too long');
 
@@ -447,10 +493,6 @@ export class ContractEvaluator extends Logger {
     }
 
     private async getEvents(): Promise<NetEvent[]> {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized');
-        }
-
         const abiBuffer = await this.contractInstance.getEvents();
         const abiDecoder = new BinaryReader(abiBuffer);
 
@@ -463,7 +505,7 @@ export class ContractEvaluator extends Logger {
         blockNumber: bigint,
         blockMedian: bigint,
     ): Promise<void> {
-        if (!this.contractInstance || !this.contractOwner || !this.contractAddress) {
+        if (!this.contractOwner || !this.contractAddress) {
             throw new Error('Contract not initialized');
         }
 
@@ -496,10 +538,6 @@ export class ContractEvaluator extends Logger {
     }
 
     private async getMethodABI(): Promise<MethodMap> {
-        if (!this.contractInstance) {
-            throw new Error('Contract not initialized [getMethodABI]');
-        }
-
         const abi = await this.contractInstance.getMethodABI();
         const abiDecoder = new BinaryReader(abi);
 

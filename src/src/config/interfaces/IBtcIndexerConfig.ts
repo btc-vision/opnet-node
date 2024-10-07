@@ -123,6 +123,7 @@ export interface DevConfig {
     readonly SAVE_TIMEOUTS_TO_FILE: boolean;
     readonly SIMULATE_HIGH_GAS_USAGE: boolean;
     readonly DEBUG_VALID_TRANSACTIONS: boolean;
+    readonly DEBUG_API_ERRORS: boolean;
 }
 
 export interface Bech32Config {

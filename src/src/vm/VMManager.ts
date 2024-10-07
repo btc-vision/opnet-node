@@ -260,8 +260,10 @@ export class VMManager extends Logger {
         unlimitedGas: boolean = false,
     ): Promise<ContractEvaluation> {
         if (this.isProcessing) {
-            throw new Error('VM is already processing');
+            throw new Error('Concurrency detected. (executeTransaction)');
         }
+
+        this.isProcessing = true;
 
         try {
             if (this.vmBitcoinBlock.height !== blockHeight) {
@@ -329,6 +331,90 @@ export class VMManager extends Logger {
         }
     }
 
+    public async deployContract(
+        blockHeight: bigint,
+        median: bigint,
+        baseGas: bigint,
+        contractDeploymentTransaction: DeploymentTransaction,
+    ): Promise<ContractEvaluation> {
+        if (this.vmBitcoinBlock.height !== blockHeight) {
+            throw new Error('Block height mismatch');
+        }
+
+        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && Config.DEV_MODE) {
+            this.debugBright(
+                `Attempting to deploy contract ${contractDeploymentTransaction.p2trAddress}`,
+            );
+        }
+
+        const contractInformation: ContractInformation = ContractInformation.fromTransaction(
+            blockHeight,
+            contractDeploymentTransaction,
+        );
+
+        if (this.isProcessing) {
+            throw new Error('Concurrency detected. (deployContract)');
+        }
+
+        // We must save the contract information
+        //await this.setContractAt(contractInformation);
+
+        try {
+            this.isProcessing = true;
+
+            const vmEvaluator = await this.getVMEvaluatorFromParams(
+                contractDeploymentTransaction.segwitAddress,
+                contractDeploymentTransaction.blockHeight,
+                contractInformation,
+            );
+
+            if (!vmEvaluator) {
+                throw new Error('VM evaluator not found');
+            }
+
+            const burnedBitcoins: bigint = contractDeploymentTransaction.burnedFee;
+            if (!burnedBitcoins) {
+                throw new Error('execution reverted (out of gas)');
+            }
+
+            // Trace the execution time
+            const maxGas: bigint = this.calculateMaxGas(false, burnedBitcoins, baseGas);
+            this.info(`Max gas: ${maxGas}`);
+
+            const params: ExecutionParameters = {
+                contractAddress: contractDeploymentTransaction.contractAddress,
+                txOrigin: contractDeploymentTransaction.from,
+                msgSender: contractDeploymentTransaction.from,
+
+                selector: 0,
+                callStack: [],
+                maxGas: maxGas,
+                calldata: contractDeploymentTransaction.calldata,
+                blockNumber: blockHeight,
+                blockMedian: median,
+                transactionId: contractDeploymentTransaction.transactionId,
+                transactionHash: contractDeploymentTransaction.hash,
+                storage: new DeterministicMap((a: string, b: string) => {
+                    return BinaryReader.stringCompare(a, b);
+                }),
+                externalCall: false,
+                gasUsed: 0n,
+                callDepth: 0,
+                contractDeployDepth: 1,
+                deployedContracts: [contractInformation],
+            };
+
+            const execution = await vmEvaluator.execute(params);
+            this.isProcessing = false;
+
+            return execution;
+        } catch (e) {
+            this.isProcessing = false;
+
+            throw e;
+        }
+    }
+
     public updateBlockValuesFromResult(
         evaluation: ContractEvaluation | undefined | null,
         contractAddress: Address,
@@ -376,29 +462,6 @@ export class VMManager extends Logger {
         if (!disableStorageCheck) {
             this.blockState.generateTree();
         }
-    }
-
-    public async deployContract(
-        blockHeight: bigint,
-        contractDeploymentTransaction: DeploymentTransaction,
-    ): Promise<void> {
-        if (this.vmBitcoinBlock.height !== blockHeight) {
-            throw new Error('Block height mismatch');
-        }
-
-        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && Config.DEV_MODE) {
-            this.debugBright(
-                `Attempting to deploy contract ${contractDeploymentTransaction.p2trAddress}`,
-            );
-        }
-
-        const contractInformation: ContractInformation = ContractInformation.fromTransaction(
-            blockHeight,
-            contractDeploymentTransaction,
-        );
-
-        // We must save the contract information
-        await this.setContractAt(contractInformation);
     }
 
     public async updateEvaluatedStates(): Promise<EvaluatedStates> {

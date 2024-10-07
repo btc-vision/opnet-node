@@ -782,15 +782,6 @@ export class VMMongoStorage extends VMStorage {
 
         try {
             await this.waitForAllSessionsCommitted();
-
-            //await this.databaseManager.db.command({
-            //    killAllSessions: [
-            //{
-            //    user: 'admin', //Config.DATABASE.AUTH.USERNAME
-            //    db: Config.DATABASE.DATABASE_NAME,
-            //},
-            //    ],
-            //});
         } catch (e) {
             this.error(`Error killing all pending writes: ${e}`);
         }

@@ -56,4 +56,5 @@ export interface ExecutionParameters {
     readonly callStack: Address[];
 
     readonly storage: BlockchainStorage;
+    readonly deployedContracts?: ContractInformation[];
 }

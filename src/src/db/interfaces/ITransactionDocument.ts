@@ -54,8 +54,17 @@ export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocum
     readonly contractAddress: string;
 };
 
+interface InteractionBase {
+    readonly events: NetEventDocument[];
+    readonly receipt?: Binary;
+    readonly receiptProofs?: string[];
+
+    readonly gasUsed: Decimal128;
+}
+
 export interface DeploymentTransactionDocument
-    extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment> {
+    extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment>,
+        InteractionBase {
     readonly virtualAddress: string;
     readonly p2trAddress: string;
 }
@@ -68,19 +77,14 @@ export interface NetEventDocument {
 }
 
 export interface InteractionTransactionDocument
-    extends ExtendedBaseInfo<InteractionTransactionType> {
+    extends ExtendedBaseInfo<InteractionTransactionType>,
+        InteractionBase {
     readonly calldata: Binary;
     readonly senderPubKeyHash: Binary;
     readonly contractSecret: Binary;
     readonly interactionPubKey: Binary;
 
     readonly wasCompressed: boolean;
-
-    readonly events: NetEventDocument[];
-    readonly receipt?: Binary;
-    readonly receiptProofs?: string[];
-
-    readonly gasUsed: Decimal128;
 }
 
 export interface IWrapInteractionTransactionDocument extends InteractionTransactionDocument {

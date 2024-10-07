@@ -116,7 +116,9 @@ export class JSONRpc2Manager extends Logger {
 
             res.end();
         } catch (err) {
-            console.log('error', err);
+            if (Config.DEV.DEBUG_API_ERRORS) {
+                this.error(`API Error: ${(err as Error).message}`);
+            }
 
             // Ensure this never throws
             try {
@@ -218,19 +220,16 @@ export class JSONRpc2Manager extends Logger {
         const result = await this.router.requestResponse(method, params);
 
         if (typeof result === 'undefined') {
-            console.log('undefined result');
             this.sendInternalError(res);
             return;
         }
 
         if ('error' in result) {
-            console.log('error', result.error);
             this.sendErrorResponse(result.error, res, requestData.id);
             return;
         }
 
         if (!result.result) {
-            console.log('no result');
             this.sendInternalError(res);
             return;
         }
@@ -280,8 +279,6 @@ export class JSONRpc2Manager extends Logger {
 
     private sendInternalError(res: Response): void {
         if (res.closed) return;
-
-        console.log('internal error');
 
         const errorData: JSONRpcResultError<JSONRpcMethods> = {
             code: JSONRPCErrorCode.INTERNAL_ERROR,

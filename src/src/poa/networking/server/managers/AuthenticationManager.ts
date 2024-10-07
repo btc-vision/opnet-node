@@ -393,13 +393,6 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
             return false;
         }
 
-        console.log(
-            'Requested version checksum:',
-            requestedVersionChecksum,
-            'Trusted checksum:',
-            trustedChecksum,
-        );
-
         return requestedVersionChecksum !== trustedChecksum;
     }
 

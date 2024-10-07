@@ -36,9 +36,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public events: EvaluatedEvents = new Map();
 
     public result: Uint8Array | undefined;
-    public readonly gasTracker: GasTracker = new GasTracker(
-        OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS,
-    );
+    public readonly gasTracker: GasTracker;
 
     public contractDeployDepth: number;
     public callDepth: number;
@@ -47,7 +45,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly transactionHash: string | null;
 
     public readonly storage: BlockchainStorage;
-    public readonly deployedContracts: ContractInformation[] = [];
+    public readonly deployedContracts: ContractInformation[];
 
     public callStack: Address[];
 
@@ -62,11 +60,12 @@ export class ContractEvaluation implements ExecutionParameters {
         this.blockMedian = params.blockMedian;
         this.callDepth = params.callDepth;
         this.contractDeployDepth = params.contractDeployDepth;
+        this.deployedContracts = params.deployedContracts || [];
 
         this.transactionId = params.transactionId;
         this.transactionHash = params.transactionHash;
 
-        this.gasTracker.maxGas = params.maxGas;
+        this.gasTracker = new GasTracker(params.maxGas);
         this.gasTracker.gasUsed = params.gasUsed;
 
         this.callStack = params.callStack || [];
