@@ -17,6 +17,9 @@ import {
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
 
+import json from 'big-json';
+import { Readable } from 'node:stream';
+
 export class JSONRpc2Manager extends Logger {
     public static readonly RPC_VERSION = '2.0' as const;
 
@@ -100,8 +103,19 @@ export class JSONRpc2Manager extends Logger {
                 response = resp;
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-assignment
+            const stream = json.createStringifyStream({
+                body: response,
+            });
+
             res.status(200);
-            res.json(response);
+
+            if (stream instanceof Readable) {
+                await res.stream(stream);
+            } else {
+                throw new Error('stream is not a Readable');
+            }
+
             res.end();
         } catch (err) {
             console.log('error', err);
