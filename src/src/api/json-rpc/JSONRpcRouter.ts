@@ -34,20 +34,18 @@ export class JSONRpcRouter {
         }
 
         try {
-            const startTime = Date.now();
-            const paramsString = JSON.stringify(params);
+            //const startTime = Date.now();
+            // const paramsString = JSON.stringify(params);
             const result = await route.getDataRPC(params);
-            console.log(
-                `Requesting response for method ${method} with params. Took ${Date.now() - startTime}`,
-                paramsString,
-            );
+            //console.log(
+            //     `Requesting response for method ${method} with params. Took ${Date.now() - startTime}`,
+            //    paramsString,
+            //);
 
             return {
                 result: result ?? null,
             };
         } catch (err) {
-            console.log(err);
-
             const error = err as Error;
             const errorResult: JSONRpcResultError<T> = {
                 code: JSONRPCErrorCode.APPLICATION_ERROR,

@@ -204,21 +204,22 @@ export class JSONRpc2Manager extends Logger {
         const result = await this.router.requestResponse(method, params);
 
         if (typeof result === 'undefined') {
+            console.log('undefined result');
             this.sendInternalError(res);
             return;
         }
 
         if ('error' in result) {
+            console.log('error', result.error);
             this.sendErrorResponse(result.error, res, requestData.id);
             return;
         }
 
         if (!result.result) {
+            console.log('no result');
             this.sendInternalError(res);
             return;
         }
-
-        this.log(`Responding to ${requestData.method}`);
 
         return {
             jsonrpc: JSONRpc2Manager.RPC_VERSION,
