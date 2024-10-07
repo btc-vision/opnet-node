@@ -71,8 +71,6 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         const documentKey = `${heightOrHash}${includeTransactions}`;
         const cachedData = await this.getCachedData(documentKey);
         if (cachedData) {
-            console.log('From cache.');
-
             return cachedData;
         }
 

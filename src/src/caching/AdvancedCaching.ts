@@ -12,8 +12,6 @@ export class AdvancedCaching<K, V extends WeakKey> {
 
     public constructor() {
         this.registry = new FinalizationRegistry((key: K) => {
-            console.log(`Removing cache entry for key:`, key);
-
             this.cache.delete(key);
         });
     }
@@ -28,7 +26,7 @@ export class AdvancedCaching<K, V extends WeakKey> {
         // Register the value with the FinalizationRegistry.
         this.registry.register(value, key);
     }
-    
+
     /**
      * Returns the number of entries in the cache.
      * @returns The number of entries in the cache.

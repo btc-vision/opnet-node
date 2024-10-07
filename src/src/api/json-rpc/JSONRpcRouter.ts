@@ -46,6 +46,8 @@ export class JSONRpcRouter {
                 result: result ?? null,
             };
         } catch (err) {
+            console.log(err);
+
             const error = err as Error;
             const errorResult: JSONRpcResultError<T> = {
                 code: JSONRPCErrorCode.APPLICATION_ERROR,
