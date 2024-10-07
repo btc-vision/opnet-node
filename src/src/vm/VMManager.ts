@@ -402,6 +402,7 @@ export class VMManager extends Logger {
                 callDepth: 0,
                 contractDeployDepth: 1,
                 deployedContracts: [contractInformation],
+                isConstructor: true,
             };
 
             const execution = await vmEvaluator.execute(params);
@@ -645,29 +646,11 @@ export class VMManager extends Logger {
             transactionHash: params.transactionHash,
             storage: params.storage,
             callStack: params.callStack || [],
+            isConstructor: false,
         };
 
         // Execute the function
         const evaluation: ContractEvaluation | null = await vmEvaluator.execute(executionParams);
-        /*.catch(async (e) => {
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                const error = (await e) as Error;
-
-                this.panic(`Evaluation failed: ${error}`);
-            }
-
-            return null;
-        });*/
-
-        // Executors can not save block state changes.
-        /*if (!params.externalCall && params.transactionId) {
-            this.updateBlockValuesFromResult(
-                evaluation,
-                params.contractAddress,
-                params.transactionId,
-                this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
-            );
-        }*/
 
         /** Delete the contract to prevent damage on states. */
         if (!evaluation) {

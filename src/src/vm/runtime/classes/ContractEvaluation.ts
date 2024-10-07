@@ -49,6 +49,8 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public callStack: Address[];
 
+    public isConstructor: boolean = false;
+
     constructor(params: ExecutionParameters) {
         this.contractAddress = params.contractAddress;
         this.selector = params.selector;
@@ -61,6 +63,7 @@ export class ContractEvaluation implements ExecutionParameters {
         this.callDepth = params.callDepth;
         this.contractDeployDepth = params.contractDeployDepth;
         this.deployedContracts = params.deployedContracts || [];
+        this.isConstructor = params.isConstructor || false;
 
         this.transactionId = params.transactionId;
         this.transactionHash = params.transactionHash;

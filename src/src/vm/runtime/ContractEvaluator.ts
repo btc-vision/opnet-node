@@ -112,48 +112,6 @@ export class ContractEvaluator extends Logger {
         }
     }
 
-    /*public async callConstructor(params: ExecutionParameters): Promise<ContractEvaluation> {
-        if (this.isProcessing) {
-            throw new Error('Contract is already processing');
-        }
-
-        this.isProcessing = true;
-
-        try {
-            this.delete();
-
-            const evaluation = new ContractEvaluation(params);
-            try {
-                this.loadContractFromBytecode(evaluation);
-
-                await this.defineSelectorAndSetupEnvironment(evaluation);
-
-                await this.processResult(new Uint8Array(1).fill(1), undefined, evaluation);
-            } catch (e) {
-                evaluation.revert = e as Error;
-            }
-
-            this.delete();
-
-            if (this.enableTracing) {
-                console.log(
-                    `EXECUTION GAS USED (callConstructor): ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
-                );
-            }
-
-            this.isProcessing = false;
-
-            return evaluation;
-        } catch (e) {
-            try {
-                this.delete();
-            } catch {}
-
-            this.isProcessing = false;
-            throw e;
-        }
-    }*/
-
     public async execute(params: ExecutionParameters): Promise<ContractEvaluation> {
         if (this.isProcessing) {
             throw new Error('Contract is already processing');
@@ -171,7 +129,11 @@ export class ContractEvaluator extends Logger {
                 await this.defineSelectorAndSetupEnvironment(evaluation);
 
                 // We execute the method.
-                await this.evaluate(evaluation);
+                if (params.isConstructor) {
+                    await this.evaluate(evaluation);
+                } else {
+                    await this.evaluate(evaluation);
+                }
             } catch (e) {
                 evaluation.revert = e as Error;
             }

@@ -63,7 +63,6 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
         }
 
         if (!raw) {
-            console.log(_raw);
             throw new Error(`Unable to decrypt incoming message.`);
         }
 

@@ -285,7 +285,7 @@ export class SSHClient extends Logger {
         });
 
         this.session.on('subsystem', (accept, reject, info) => {
-            console.log('subsystem', info);
+            //console.log('subsystem', info);
 
             reject();
         });

@@ -57,4 +57,6 @@ export interface ExecutionParameters {
 
     readonly storage: BlockchainStorage;
     readonly deployedContracts?: ContractInformation[];
+
+    readonly isConstructor: boolean;
 }
