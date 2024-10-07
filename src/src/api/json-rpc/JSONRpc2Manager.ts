@@ -104,6 +104,8 @@ export class JSONRpc2Manager extends Logger {
             res.json(response);
             res.end();
         } catch (err) {
+            console.log('error', err);
+
             // Ensure this never throws
             try {
                 const error = err as Error;
@@ -266,6 +268,8 @@ export class JSONRpc2Manager extends Logger {
 
     private sendInternalError(res: Response): void {
         if (res.closed) return;
+
+        console.log('internal error');
 
         const errorData: JSONRpcResultError<JSONRpcMethods> = {
             code: JSONRPCErrorCode.INTERNAL_ERROR,
