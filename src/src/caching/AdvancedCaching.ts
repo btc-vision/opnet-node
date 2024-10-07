@@ -1,3 +1,7 @@
+/**
+ * Automatically cleans up cache entries when their values are garbage collected.
+ * Great for caching promises that might be repetitive and require a lot of computation.
+ */
 export class AdvancedCaching<K, V extends WeakKey> {
     /**
      * Map to store cache entries with their keys.
