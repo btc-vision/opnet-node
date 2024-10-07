@@ -218,6 +218,8 @@ export class JSONRpc2Manager extends Logger {
             return;
         }
 
+        this.log(`Responding to ${requestData.method}`);
+
         return {
             jsonrpc: JSONRpc2Manager.RPC_VERSION,
             id: requestData.id ?? null,
