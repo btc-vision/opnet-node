@@ -5,7 +5,6 @@ import {
     BinaryWriter,
     BufferHelper,
     MemorySlotPointer,
-    MethodMap,
     NetEvent,
 } from '@btc-vision/bsi-binary';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
@@ -29,11 +28,6 @@ export class ContractEvaluator extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private isProcessing: boolean = false;
-
-    //private viewAbi: number[] | undefined;
-
-    private methodAbi: MethodMap | undefined;
-    //private writeMethods: MethodMap | undefined;
 
     private contractOwner: Address | undefined;
     private contractAddress: Address | undefined;
@@ -126,7 +120,7 @@ export class ContractEvaluator extends Logger {
             try {
                 this.loadContractFromBytecode(evaluation);
 
-                await this.defineSelectorAndSetupEnvironment(evaluation);
+                await this.setEnvironment(evaluation);
 
                 // We execute the method.
                 if (params.isConstructor) {
@@ -157,17 +151,6 @@ export class ContractEvaluator extends Logger {
             this.isProcessing = false;
             throw e;
         }
-    }
-
-    private async defineSelectorAndSetupEnvironment(params: ExecutionParameters): Promise<void> {
-        await this.setEnvironment(
-            params.msgSender,
-            params.txOrigin,
-            params.blockNumber,
-            params.blockMedian,
-        );
-
-        await this.contractInstance.defineSelectors();
     }
 
     /** Load a pointer */
@@ -233,8 +216,10 @@ export class ContractEvaluator extends Logger {
             gasUsed: gasUsed,
 
             externalCall: true,
+
             blockHeight: evaluation.blockNumber,
             blockMedian: evaluation.blockMedian,
+            safeU64: evaluation.safeU64,
 
             // data
             calldata: Buffer.from(calldata),
@@ -311,6 +296,23 @@ export class ContractEvaluator extends Logger {
         }
     }
 
+    private onEvent(data: Buffer, evaluation: ContractEvaluation): void {
+        const reader = new BinaryReader(data);
+        const eventName = reader.readStringWithLength();
+        const eventData = reader.readBytesWithLength();
+
+        const event = new NetEvent(eventName, 0n, eventData);
+        evaluation.emitEvent(event);
+    }
+
+    private onInputsRequested(): Promise<Buffer> {
+        return Promise.resolve(Buffer.alloc(1));
+    }
+
+    private onOutputsRequested(): Promise<Buffer> {
+        return Promise.resolve(Buffer.alloc(1));
+    }
+
     private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {
         if (!this.bytecode) {
             throw new Error('Bytecode is required');
@@ -348,6 +350,12 @@ export class ContractEvaluator extends Logger {
             log: (buffer: Buffer) => {
                 this.onDebug(buffer);
             },
+
+            emit: (buffer: Buffer) => {
+                this.onEvent(buffer, evaluation);
+            },
+            inputs: this.onInputsRequested.bind(this),
+            outputs: this.onOutputsRequested.bind(this),
         };
     }
 
@@ -381,20 +389,12 @@ export class ContractEvaluator extends Logger {
     }
 
     private async evaluate(evaluation: ContractEvaluation): Promise<void> {
-        if (!this.methodAbi) {
-            this.methodAbi = await this.getMethodABI();
-        }
-
-        const hasSelectorInMethods = this.methodAbi.has(evaluation.selector) ?? false;
-
         let result: Uint8Array | undefined | null;
         let error: Error | undefined;
 
         // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
         try {
-            result = hasSelectorInMethods
-                ? await this.contractInstance.readMethod(evaluation.selector, evaluation.calldata)
-                : await this.contractInstance.readView(evaluation.selector);
+            result = await this.contractInstance.execute(evaluation.calldata);
         } catch (e) {
             error = (await e) as Error;
         }
@@ -442,8 +442,6 @@ export class ContractEvaluator extends Logger {
                 await Promise.all(deploymentPromises);
             }
 
-            const events: NetEvent[] = await this.getEvents();
-            evaluation.setEvent(evaluation.contractAddress, events);
             evaluation.setResult(result);
         }
 
@@ -454,33 +452,25 @@ export class ContractEvaluator extends Logger {
         }
     }
 
-    private async getEvents(): Promise<NetEvent[]> {
-        const abiBuffer = await this.contractInstance.getEvents();
-        const abiDecoder = new BinaryReader(abiBuffer);
-
-        return abiDecoder.readEvents();
-    }
-
-    private async setEnvironment(
-        msgSender: Address,
-        txOrigin: Address,
-        blockNumber: bigint,
-        blockMedian: bigint,
-    ): Promise<void> {
+    private async setEnvironment(evaluation: ContractEvaluation): Promise<void> {
         if (!this.contractOwner || !this.contractAddress) {
             throw new Error('Contract not initialized');
         }
 
-        const binaryWriter: BinaryWriter = new BinaryWriter();
-        binaryWriter.writeAddress(msgSender);
-        binaryWriter.writeAddress(txOrigin);
-        binaryWriter.writeU256(blockNumber);
+        const writer = new BinaryWriter();
 
-        binaryWriter.writeAddress(this.contractOwner);
-        binaryWriter.writeAddress(this.contractAddress);
-        binaryWriter.writeU256(blockMedian);
+        writer.writeAddress(evaluation.msgSender);
+        writer.writeAddress(evaluation.txOrigin); // "leftmost thing in the call chain"
+        writer.writeBytes(evaluation.transactionIdAsBuffer); // "transaction id"
 
-        await this.contractInstance.setEnvironment(binaryWriter.getBuffer());
+        writer.writeU256(evaluation.blockNumber);
+        writer.writeAddress(this.contractOwner);
+        writer.writeAddress(this.contractAddress);
+
+        writer.writeU64(evaluation.blockMedian);
+        writer.writeU64(evaluation.safeU64);
+
+        await this.contractInstance.setEnvironment(writer.getBuffer());
     }
 
     private async getStorageState(
@@ -497,12 +487,5 @@ export class ContractEvaluator extends Logger {
         );
 
         return value ? BufferHelper.uint8ArrayToValue(value) : null;
-    }
-
-    private async getMethodABI(): Promise<MethodMap> {
-        const abi = await this.contractInstance.getMethodABI();
-        const abiDecoder = new BinaryReader(abi);
-
-        return abiDecoder.readMethodSelectorsMap();
     }
 }

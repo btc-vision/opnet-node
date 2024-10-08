@@ -166,6 +166,10 @@ export class Block extends Logger {
         return BigInt(this.header.medianTime.getTime());
     }
 
+    public get safeU64(): bigint {
+        return this.header.safeU64;
+    }
+
     public get timestamp(): number {
         return this.header.time.getTime();
     }
@@ -533,11 +537,7 @@ export class Block extends Logger {
         vmManager: VMManager,
         specialManager: SpecialManager,
     ): Promise<void> {
-        //const promises: Promise<void>[] = [
         await this.executeOPNetTransactions(this.opnetTransactions, vmManager, specialManager);
-        //];
-
-        //await Promise.all(promises);
     }
 
     /** We execute interaction transactions with this method */
@@ -555,6 +555,7 @@ export class Block extends Logger {
                 this.height,
                 this.median,
                 this.prevBaseGas,
+                this.safeU64,
                 transaction,
                 unlimitedGas,
             );
@@ -598,6 +599,7 @@ export class Block extends Logger {
             const evaluation = await vmManager.deployContract(
                 this.height,
                 this.median,
+                this.safeU64,
                 this.prevBaseGas,
                 transaction,
             );

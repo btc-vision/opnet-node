@@ -17,10 +17,10 @@ import { GasTracker } from '../GasTracker.js';
 import { MemorySlotData, MemorySlotPointer } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
+import {ZERO_HASH} from "../../../blockchain-indexer/processor/block/types/ZeroValue.js";
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
-    public readonly selector: number;
 
     public readonly calldata: Uint8Array;
     public readonly msgSender: Address;
@@ -28,6 +28,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public readonly blockNumber: bigint;
     public readonly blockMedian: bigint;
+    public readonly safeU64: bigint;
 
     public readonly externalCall: boolean;
 
@@ -41,7 +42,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public contractDeployDepth: number;
     public callDepth: number;
 
-    public readonly transactionId: string | null;
+    public readonly transactionId: string;
     public readonly transactionHash: string | null;
 
     public readonly storage: BlockchainStorage;
@@ -51,9 +52,10 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public isConstructor: boolean = false;
 
+    public readonly transactionIdAsBuffer: Buffer;
+
     constructor(params: ExecutionParameters) {
         this.contractAddress = params.contractAddress;
-        this.selector = params.selector;
         this.calldata = params.calldata;
         this.msgSender = params.msgSender;
         this.txOrigin = params.txOrigin;
@@ -64,9 +66,12 @@ export class ContractEvaluation implements ExecutionParameters {
         this.contractDeployDepth = params.contractDeployDepth;
         this.deployedContracts = params.deployedContracts || [];
         this.isConstructor = params.isConstructor || false;
+        this.safeU64 = params.safeU64;
 
-        this.transactionId = params.transactionId;
+        this.transactionId = params.transactionId || ZERO_HASH.replace('0x', '');
         this.transactionHash = params.transactionHash;
+
+        this.transactionIdAsBuffer = Buffer.from(this.transactionId, 'hex');
 
         this.gasTracker = new GasTracker(params.maxGas);
         this.gasTracker.gasUsed = params.gasUsed;
@@ -138,6 +143,15 @@ export class ContractEvaluation implements ExecutionParameters {
     public onGasUsed: (gas: bigint, method: string) => void = (gas: bigint, _method: string) => {
         this.gasTracker.setGas(gas);
     };
+
+    public emitEvent(event: NetEvent): void {
+        if (!this.events) throw new Error('Events not set');
+
+        const current = this.events.get(this.contractAddress) || [];
+        current.push(event);
+
+        this.events.set(this.contractAddress, current);
+    }
 
     public setEvent(contract: Address, events: NetEvent[]) {
         if (!this.events) throw new Error('Events not set');

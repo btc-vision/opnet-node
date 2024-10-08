@@ -4,7 +4,6 @@ import {
     BufferHelper,
     DeterministicMap,
     MemorySlotData,
-    Selector,
 } from '@btc-vision/bsi-binary';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -120,11 +119,6 @@ export class VMManager extends Logger {
         this.initiated = true;
     }
 
-    public async closeDatabase(): Promise<void> {
-        await this.vmStorage.close();
-        await this.clear();
-    }
-
     public purgeAllContractInstances(): void {
         try {
             Blockchain.purge();
@@ -226,11 +220,14 @@ export class VMManager extends Logger {
                 txOrigin: from,
                 maxGas: OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
                 calldata: Buffer.from(calldataString, 'hex'),
+
                 blockHeight: currentHeight,
+                blockMedian: BigInt(Date.now()), // add support for this
+                safeU64: currentHeight >> 1n,
+
                 storage: new DeterministicMap((a: string, b: string) => {
                     return BinaryReader.stringCompare(a, b);
                 }),
-                blockMedian: BigInt(Date.now()), // add support for this
                 allowCached: true,
                 externalCall: false,
                 gasUsed: 0n,
@@ -255,6 +252,7 @@ export class VMManager extends Logger {
     public async executeTransaction(
         blockHeight: bigint,
         blockMedian: bigint,
+        safeU64: bigint,
         baseGas: bigint,
         interactionTransaction: InteractionTransaction | WrapTransaction | UnwrapTransaction,
         unlimitedGas: boolean = false,
@@ -307,8 +305,11 @@ export class VMManager extends Logger {
 
                 maxGas: maxGas,
                 calldata: interactionTransaction.calldata,
+
                 blockHeight: blockHeight,
                 blockMedian: blockMedian,
+                safeU64: safeU64,
+
                 transactionId: interactionTransaction.transactionId,
                 transactionHash: interactionTransaction.hash,
                 storage: new DeterministicMap((a: string, b: string) => {
@@ -334,6 +335,7 @@ export class VMManager extends Logger {
     public async deployContract(
         blockHeight: bigint,
         median: bigint,
+        safeU64: bigint,
         baseGas: bigint,
         contractDeploymentTransaction: DeploymentTransaction,
     ): Promise<ContractEvaluation> {
@@ -379,19 +381,20 @@ export class VMManager extends Logger {
 
             // Trace the execution time
             const maxGas: bigint = this.calculateMaxGas(false, burnedBitcoins, baseGas);
-            this.info(`Max gas: ${maxGas}`);
 
             const params: ExecutionParameters = {
                 contractAddress: contractDeploymentTransaction.contractAddress,
                 txOrigin: contractDeploymentTransaction.from,
                 msgSender: contractDeploymentTransaction.from,
 
-                selector: 0,
                 callStack: [],
                 maxGas: maxGas,
                 calldata: contractDeploymentTransaction.calldata,
+
                 blockNumber: blockHeight,
                 blockMedian: median,
+                safeU64: safeU64,
+
                 transactionId: contractDeploymentTransaction.transactionId,
                 transactionHash: contractDeploymentTransaction.hash,
                 storage: new DeterministicMap((a: string, b: string) => {
@@ -614,25 +617,11 @@ export class VMManager extends Logger {
             );
         }
 
-        const finalBuffer: Buffer = Buffer.alloc(calldata.byteLength - 4);
-        calldata.copy(finalBuffer, 0, 4, calldata.byteLength);
-
-        const selector: Selector = calldata.readUInt32BE(0);
-
-        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.debugBright(
-                `Executing function selector ${selector} (Contract ${params.contractAddress} at block ${params.blockHeight || 'latest'} with calldata ${calldata.toString(
-                    'hex',
-                )}`,
-            );
-        }
-
         // we define the caller here.
         const caller: Address = params.msgSender || params.from;
         const executionParams: ExecutionParameters = {
             contractAddress: params.contractAddress,
-            selector: selector,
-            calldata: finalBuffer,
+            calldata: params.calldata,
             msgSender: caller,
             txOrigin: params.txOrigin,
             maxGas: params.maxGas,
@@ -647,6 +636,7 @@ export class VMManager extends Logger {
             storage: params.storage,
             callStack: params.callStack || [],
             isConstructor: false,
+            safeU64: params.safeU64,
         };
 
         // Execute the function
