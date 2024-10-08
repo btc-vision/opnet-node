@@ -359,7 +359,7 @@ export class VMManager extends Logger {
         }
 
         // We must save the contract information
-        //await this.setContractAt(contractInformation);
+        await this.setContractAt(contractInformation);
 
         try {
             this.isProcessing = true;
@@ -404,7 +404,7 @@ export class VMManager extends Logger {
                 gasUsed: 0n,
                 callDepth: 0,
                 contractDeployDepth: 1,
-                deployedContracts: [contractInformation],
+                //deployedContracts: [contractInformation], TODO: Understand what is going on when using this. (cause db conflicts)
                 isConstructor: true,
             };
 

@@ -83,12 +83,10 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     protected _calldata: Buffer | undefined;
 
     public get calldata(): Buffer {
-        if (!this._calldata) {
-            throw new Error(`No calldata found for transaction ${this.txid}`);
+        const newCalldata = Buffer.alloc(this._calldata?.byteLength || 0);
+        if (this._calldata) {
+            this._calldata.copy(newCalldata);
         }
-
-        const newCalldata = Buffer.alloc(this._calldata.byteLength);
-        this._calldata?.copy(newCalldata);
 
         return newCalldata;
     }
