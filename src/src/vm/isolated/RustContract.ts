@@ -109,6 +109,7 @@ export class RustContract {
         if (this.disposed) return;
         this._disposed = true;
 
+        console.log('removing binding', this._id);
         Blockchain.removeBinding(this._id);
         this.contractManager.destroyContract(this._id);
 
