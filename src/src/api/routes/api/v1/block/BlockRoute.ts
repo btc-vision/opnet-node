@@ -60,7 +60,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         hash?: string,
     ): Promise<BlockHeaderAPIDocumentWithTransactions> {
         const heightOrHash = height || hash;
-        if (!heightOrHash) {
+        if (heightOrHash === undefined || heightOrHash === null || heightOrHash === '') {
             throw new Error('No height or hash provided');
         }
 
@@ -90,7 +90,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         hash?: string,
     ): Promise<BlockHeaderAPIDocumentWithTransactions> {
         const heightOrHash = height || hash;
-        if (!heightOrHash) {
+        if (heightOrHash === undefined || heightOrHash === null || heightOrHash === '') {
             throw new Error('No height or hash provided');
         }
 
