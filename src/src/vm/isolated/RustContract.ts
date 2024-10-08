@@ -89,11 +89,12 @@ export class RustContract {
     public dispose(): void {
         if (!this.instantiated) return;
 
-        if (this._id == null) {
+        const id = this._id;
+        if (id == null) {
             throw new Error('Contract is not instantiated');
         }
 
-        if (this.enableDebug || this.enableDisposeLog) console.log('Disposing contract', this._id);
+        if (this.enableDebug || this.enableDisposeLog) console.log('Disposing contract', id);
 
         let deadlock: unknown;
         try {
@@ -109,9 +110,10 @@ export class RustContract {
         if (this.disposed) return;
         this._disposed = true;
 
-        console.trace('removing binding', this._id);
-        Blockchain.removeBinding(this._id);
-        this.contractManager.destroyContract(this._id);
+        this.contractManager.destroyContract(id);
+        setTimeout(() => {
+            Blockchain.removeBinding(id);
+        }, 100); // 100ms delay to give the time to unix based system to release the mutex
 
         if (deadlock) {
             const strErr = (deadlock as Error).message;
