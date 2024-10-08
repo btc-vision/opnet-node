@@ -124,7 +124,7 @@ export class ContractEvaluator extends Logger {
 
                 // We execute the method.
                 if (params.isConstructor) {
-                    await this.evaluate(evaluation);
+                    await this.onDeploy(evaluation);
                 } else {
                     await this.evaluate(evaluation);
                 }
@@ -395,6 +395,28 @@ export class ContractEvaluator extends Logger {
         // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
         try {
             result = await this.contractInstance.execute(evaluation.calldata);
+        } catch (e) {
+            error = (await e) as Error;
+        }
+
+        if (error || !result) {
+            if (!evaluation.revert && error) {
+                evaluation.revert = error.message;
+            }
+
+            return;
+        }
+
+        await this.processResult(result, error, evaluation);
+    }
+
+    private async onDeploy(evaluation: ContractEvaluation): Promise<void> {
+        let result: Uint8Array | undefined | null;
+        let error: Error | undefined;
+
+        // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
+        try {
+            await this.contractInstance.onDeploy(evaluation.calldata);
         } catch (e) {
             error = (await e) as Error;
         }
