@@ -411,7 +411,6 @@ export class ContractEvaluator extends Logger {
     }
 
     private async onDeploy(evaluation: ContractEvaluation): Promise<void> {
-        let result: Uint8Array | undefined | null;
         let error: Error | undefined;
 
         // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
@@ -421,15 +420,15 @@ export class ContractEvaluator extends Logger {
             error = (await e) as Error;
         }
 
-        if (error || !result) {
-            if (!evaluation.revert && error) {
+        if (error) {
+            if (!evaluation.revert) {
                 evaluation.revert = error.message;
             }
 
             return;
         }
 
-        await this.processResult(result, error, evaluation);
+        await this.processResult(new Uint8Array(1).fill(1), error, evaluation);
     }
 
     private async processResult(
