@@ -64,8 +64,6 @@ class BlockchainBase {
         const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-        console.log(this.bindings, value.contractId);
-
         if (!c) {
             throw new Error('Binding not found (emit)');
         }
