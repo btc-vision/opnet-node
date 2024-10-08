@@ -59,9 +59,10 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         height?: SafeBigInt,
         hash?: string,
     ): Promise<BlockHeaderAPIDocumentWithTransactions> {
-        const heightOrHash = height || hash;
+        const heightOrHash =
+            typeof height === 'bigint' || typeof height === 'number' ? height : hash;
         if (heightOrHash === undefined || heightOrHash === null || heightOrHash === '') {
-            throw new Error('No height or hash provided');
+            throw new Error(`No height or hash provided`);
         }
 
         if (heightOrHash === -1 && this.currentBlockData && !includeTransactions) {
@@ -89,9 +90,10 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         height?: SafeBigInt,
         hash?: string,
     ): Promise<BlockHeaderAPIDocumentWithTransactions> {
-        const heightOrHash = height || hash;
+        const heightOrHash =
+            typeof height === 'bigint' || typeof height === 'number' ? height : hash;
         if (heightOrHash === undefined || heightOrHash === null || heightOrHash === '') {
-            throw new Error('No height or hash provided');
+            throw new Error(`No height or hash provided`);
         }
 
         if (!this.storage) {
