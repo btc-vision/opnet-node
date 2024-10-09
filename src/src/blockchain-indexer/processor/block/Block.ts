@@ -599,8 +599,8 @@ export class Block extends Logger {
             const evaluation = await vmManager.deployContract(
                 this.height,
                 this.median,
-                this.safeU64,
                 this.prevBaseGas,
+                this.safeU64,
                 transaction,
             );
             this.blockUsedGas += evaluation.gasUsed;

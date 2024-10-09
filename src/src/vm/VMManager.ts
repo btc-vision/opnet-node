@@ -252,8 +252,8 @@ export class VMManager extends Logger {
     public async executeTransaction(
         blockHeight: bigint,
         blockMedian: bigint,
-        safeU64: bigint,
         baseGas: bigint,
+        safeU64: bigint,
         interactionTransaction: InteractionTransaction | WrapTransaction | UnwrapTransaction,
         unlimitedGas: boolean = false,
     ): Promise<ContractEvaluation> {
@@ -335,8 +335,8 @@ export class VMManager extends Logger {
     public async deployContract(
         blockHeight: bigint,
         median: bigint,
-        safeU64: bigint,
         baseGas: bigint,
+        safeU64: bigint,
         contractDeploymentTransaction: DeploymentTransaction,
     ): Promise<ContractEvaluation> {
         if (this.vmBitcoinBlock.height !== blockHeight) {
