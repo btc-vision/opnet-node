@@ -42,7 +42,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MAX_THEORETICAL_GAS: 28_000_000_000_000n,
 
         /** Max gas per transactions */
-        TRANSACTION_MAX_GAS: 100_000_000_000n,
+        TRANSACTION_MAX_GAS: 350_000_000_000n,
 
         /** btc_call maximum gas */
         EMULATION_MAX_GAS: 15_000_000_000n,
