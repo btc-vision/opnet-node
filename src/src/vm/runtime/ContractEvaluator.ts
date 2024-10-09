@@ -399,11 +399,22 @@ export class ContractEvaluator extends Logger {
             error = (await e) as Error;
         }
 
-        if (error || !result) {
-            if (!evaluation.revert && error) {
+        if (error) {
+            if (error.message.includes('constructor out of gas')) {
+                evaluation.constructorOutOfGas();
+            } else if (error.message.includes('out of gas')) {
+                evaluation.outOfGas();
+            }
+
+            if (!evaluation.revert) {
                 evaluation.revert = error.message;
             }
 
+            return;
+        }
+
+        if (!result) {
+            evaluation.revert = new Error('No result returned');
             return;
         }
 
@@ -421,6 +432,12 @@ export class ContractEvaluator extends Logger {
         }
 
         if (error) {
+            if (error.message.includes('constructor out of gas')) {
+                evaluation.constructorOutOfGas();
+            } else if (error.message.includes('out of gas')) {
+                evaluation.outOfGas();
+            }
+
             if (!evaluation.revert) {
                 evaluation.revert = error.message;
             }
