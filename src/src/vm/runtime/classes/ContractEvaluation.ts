@@ -96,16 +96,12 @@ export class ContractEvaluation implements ExecutionParameters {
         this._revert = error;
     }
 
-    public outOfGas(): void {
-        this.gasTracker.gasUsed = this.gasTracker.maxGas;
-    }
-
-    public constructorOutOfGas(): void {
-        this.gasTracker.gasUsed = 100_000_000n; // TODO: Put this in consensus rules
-    }
-
     public get gasUsed(): bigint {
         return this.gasTracker.gasUsed;
+    }
+
+    public setGas(gas: bigint): void {
+        this.gasTracker.setGas(gas);
     }
 
     public incrementContractDeployDepth(): void {

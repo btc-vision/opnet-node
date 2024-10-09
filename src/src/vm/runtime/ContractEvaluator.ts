@@ -400,11 +400,9 @@ export class ContractEvaluator extends Logger {
         }
 
         if (error) {
-            if (error.message.includes('constructor out of gas')) {
-                evaluation.constructorOutOfGas();
-            } else if (error.message.includes('out of gas')) {
-                evaluation.outOfGas();
-            }
+            try {
+                evaluation.setGas(this.contractInstance.getUsedGas());
+            } catch {}
 
             if (!evaluation.revert) {
                 evaluation.revert = error.message;
@@ -432,11 +430,9 @@ export class ContractEvaluator extends Logger {
         }
 
         if (error) {
-            if (error.message.includes('constructor out of gas')) {
-                evaluation.constructorOutOfGas();
-            } else if (error.message.includes('out of gas')) {
-                evaluation.outOfGas();
-            }
+            try {
+                evaluation.setGas(this.contractInstance.getUsedGas());
+            } catch {}
 
             if (!evaluation.revert) {
                 evaluation.revert = error.message;

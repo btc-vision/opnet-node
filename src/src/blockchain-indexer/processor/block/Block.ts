@@ -563,7 +563,6 @@ export class Block extends Logger {
             this.blockUsedGas += evaluation.gasUsed;
 
             transaction.receipt = evaluation.getEvaluationResult();
-            console.log(evaluation, transaction.receipt);
 
             this.processRevertedTx(transaction);
 
