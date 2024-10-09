@@ -63,7 +63,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         ALPHA1: 0.5,
 
         /** Adjustment factor when G_t <= G_targetBlock */
-        ALPHA2: 0.8,
+        ALPHA2: 1.0,
 
         /** Target utilization ratio */
         U_TARGET: 1.0,
