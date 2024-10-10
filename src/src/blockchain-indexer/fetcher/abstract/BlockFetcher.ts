@@ -10,6 +10,7 @@ export abstract class BlockFetcher extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     protected blockChangesSubscribers: ((newHeight: BlockHeaderInfo) => void)[] = [];
+
     private lastBlockHash: string | null = null;
 
     protected constructor(protected readonly config: BlockFetcherConfiguration) {
@@ -59,6 +60,10 @@ export abstract class BlockFetcher extends Logger {
 
             throw e;
         }
+    }
+
+    public onReorg(): void {
+        this.lastBlockHash = null;
     }
 
     protected notifyBlockChangesSubscribers(blockHeight: BlockHeaderInfo): void {

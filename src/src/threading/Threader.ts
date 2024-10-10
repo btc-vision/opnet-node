@@ -364,7 +364,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
 
     private onThreadMessage(thread: Worker, m: ThreadMessageBase<MessageType>): void {
         if (m.type === MessageType.LINK_THREAD) {
-            console.log('[THREAD] Link thread message received: ', m);
+            //console.log('[THREAD] Link thread message received: ', m);
 
             return;
         }

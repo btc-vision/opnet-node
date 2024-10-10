@@ -12,27 +12,25 @@ export class LatestBlock extends Route<
     JSONRpcMethods.BLOCK_BY_NUMBER,
     BlockByNumberResult
 > {
-    private cachedBlock: Promise<BlockHeaderAPIBlockDocument | undefined> | undefined;
+    private cachedBlock: Promise<string | undefined> | string | undefined;
 
     constructor() {
         super(Routes.LATEST_BLOCK, RouteType.GET);
-
-        setInterval(() => {
-            this.cachedBlock = undefined;
-        }, 1000);
     }
 
     public async getData(): Promise<BlockByNumberResult> {
-        const latestBlock = await this.getBlockHeight();
+        const resp = await this.getBlockHeader();
+        if (!resp) throw new Error(`Block not found at given height.`);
 
-        return `0x${BigInt(latestBlock?.height || '0').toString(16)}`;
+        return resp;
     }
 
     public async getDataRPC(): Promise<BlockByNumberResult> {
-        const data = await this.getData();
-        if (!data) throw new Error(`Block not found at given height.`);
+        return await this.getData();
+    }
 
-        return data;
+    public onBlockChange(_blockNumber: bigint, blockHeader: BlockHeaderAPIBlockDocument): void {
+        this.cachedBlock = `0x${BigInt(blockHeader.height || '0').toString(16)}`;
     }
 
     protected initialize(): void {}
@@ -63,14 +61,25 @@ export class LatestBlock extends Route<
         }
     }
 
-    private async getBlockHeight(): Promise<BlockHeaderAPIBlockDocument | undefined> {
+    private async getBlockNumber(): Promise<string | undefined> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
 
-        if (!this.cachedBlock) {
-            this.cachedBlock = this.storage.getLatestBlock();
+        const block = await this.storage.getLatestBlock();
+        if (!block) {
+            throw new Error('Block header not found at height ${height}.');
         }
+
+        return `0x${BigInt(block.height || '0').toString(16)}`;
+    }
+
+    private async getBlockHeader(): Promise<string | undefined> {
+        if (this.cachedBlock) {
+            return this.cachedBlock;
+        }
+
+        this.cachedBlock = this.getBlockNumber();
 
         return await this.cachedBlock;
     }

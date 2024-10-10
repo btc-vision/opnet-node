@@ -18,6 +18,7 @@ export interface InternalContractCallParameters {
 
     readonly blockHeight: bigint;
     readonly blockMedian: bigint;
+    readonly safeU64: bigint;
 
     readonly contractDeployDepth: number;
     readonly callDepth: number;
@@ -33,7 +34,6 @@ export interface InternalContractCallParameters {
 
 export interface ExecutionParameters {
     readonly contractAddress: Address;
-    readonly selector: number;
     readonly calldata: Uint8Array;
 
     readonly txOrigin: Address;
@@ -44,6 +44,7 @@ export interface ExecutionParameters {
 
     readonly blockNumber: bigint;
     readonly blockMedian: bigint;
+    readonly safeU64: bigint;
 
     readonly maxGas: bigint;
     readonly gasUsed: bigint;
@@ -56,4 +57,7 @@ export interface ExecutionParameters {
     readonly callStack: Address[];
 
     readonly storage: BlockchainStorage;
+    readonly deployedContracts?: ContractInformation[];
+
+    readonly isConstructor: boolean;
 }

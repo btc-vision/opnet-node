@@ -14,6 +14,8 @@ import { DBManagerInstance } from '../db/DBManager.js';
 import { BlockchainInfoRepository } from '../db/repositories/BlockchainInfoRepository.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
+import { BlockHeaderAPIBlockDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
+import { P2PMajorVersion, P2PVersion } from '../poa/configurations/P2PVersion.js';
 
 Globals.register();
 
@@ -42,7 +44,7 @@ export class Server extends Logger {
 
     private serverPort: number = 0;
     private app: HyperExpress.Server = new HyperExpress.Server({
-        max_body_length: 1024 * 1024 * 4, // 1mb.
+        max_body_length: 1024 * 1024 * 4, // 4mb.
         fast_abort: true,
         max_body_buffer: 1024 * 32, // 32kb.
     });
@@ -65,6 +67,7 @@ export class Server extends Logger {
 
     public async createServer(): Promise<void> {
         await this.storage.init();
+        await this.setupConsensus();
 
         // ERROR HANDLING
         this.app.set_error_handler(this.globalErrorHandler.bind(this));
@@ -103,7 +106,6 @@ export class Server extends Logger {
             this.serverPort = port;
         }
 
-        await this.setupConsensus();
         await this.createServer();
     }
 
@@ -114,11 +116,27 @@ export class Server extends Logger {
 
         this.#blockchainInformationRepository = new BlockchainInfoRepository(DBManagerInstance.db);
 
-        this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
+        await this.listenToBlockChanges();
+    }
+
+    private globalErrorHandler(_request: Request, response: Response, _error: Error): void {
+        response.status(500);
+
+        this.error(`API Error: ${_error.stack}`);
+
+        response.json({
+            error: 'Something went wrong.',
+        });
+    }
+
+    private async listenToBlockChanges(): Promise<void> {
+        this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
             try {
                 OPNetConsensus.setBlockHeight(blockHeight);
+
+                await this.notifyAllRoutesOfBlockChange(blockHeight);
             } catch (e) {
-                this.error(`Error setting block height.`);
+                this.error(`Error setting block height. ${(e as Error).message}`);
             }
         });
 
@@ -127,15 +145,30 @@ export class Server extends Logger {
         );
     }
 
-    private globalErrorHandler(_request: Request, response: Response, _error: Error): void {
-        response.status(500);
+    private async notifyAllRoutesOfBlockChange(height: bigint): Promise<void> {
+        const header: BlockHeaderAPIBlockDocument | undefined = await this.storage.getLatestBlock();
+        if (!header) {
+            throw new Error(`Block header not found at height ${height}.`);
+        }
 
-        console.log(_error);
-        this.error(`API Error: ${_error.stack}`);
+        /*if (height < BigInt(header.height)) {
+            throw new Error(
+                `Block header height (${header.height}) does not match block height (${height}).`,
+            );
+        }*/
 
-        response.json({
-            error: 'Something went wrong.',
-        });
+        for (const route of Object.values(DefinedRoutes)) {
+            route.onBlockChange(height, header);
+        }
+
+        this.notifyWebsocketsOfBlockChange(height, header);
+    }
+
+    private notifyWebsocketsOfBlockChange(
+        blockHeight: bigint,
+        blockHeader: BlockHeaderAPIBlockDocument,
+    ): void {
+        // TODO: Implement websocket notifications.
     }
 
     private loadRoutes(): void {
@@ -172,7 +205,7 @@ export class Server extends Logger {
 
         newClient.init();*/
 
-        websocket.close();
+        websocket.close(1000, 'Not implemented');
     }
 
     private handleAny(_req: Request, res: Response, next: MiddlewareNext): void {
@@ -182,8 +215,8 @@ export class Server extends Logger {
             res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
         }
 
-        res.setHeader('Protocol', 'OpNet Official');
-        res.setHeader('Version', '1');
+        res.setHeader('Protocol', `OP_NET ${P2PMajorVersion}`);
+        res.setHeader('Version', P2PVersion);
 
         res.removeHeader('uWebSockets');
 

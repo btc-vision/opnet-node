@@ -31,13 +31,17 @@ import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/B
 import { AddressVerificator } from '@btc-vision/transaction';
 import { NetworkConverter } from '../../../../../config/network/NetworkConverter.js';
 
-export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
+export class Simulation extends Route<
+    Routes.SIMULATE,
+    JSONRpcMethods.SIMULATE,
+    CallResult | undefined
+> {
     private readonly network: bitcoin.networks.Network = bitcoin.networks.testnet;
 
     private pendingRequests: number = 0;
 
-    constructor() {
-        super(Routes.CALL, RouteType.GET);
+    public constructor() {
+        super(Routes.SIMULATE, RouteType.GET);
 
         this.network = NetworkConverter.getNetwork();
     }
@@ -82,7 +86,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             }
 
             const [to, calldata, from, blockNumber] = this.getDecodedParams(_params);
-            const res: CallRequestResponse = await Call.requestThreadExecution(
+            const res: CallRequestResponse = await Simulation.requestThreadExecution(
                 to,
                 calldata,
                 from,
@@ -135,14 +139,12 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     protected initialize(): void {}
 
     /**
-     * GET /api/v1/states/call
+     * POST /api/v1/states/simulate
      * @tag States
-     * @summary Call a contract function with a given calldata.
-     * @description Call a contract function with the given address, data, and value.
-     * @queryParam {string} to - The address of the contract.
-     * @queryParam {string} data - The calldata of the contract function.
-     * @queryParam {string} [from] - The address of the sender.
-     * @response 200 - Return the result of the contract function call.
+     * @summary Simulate multiple contract calls one after the other.
+     * @description Allows to simulate multiple contract calls one after the other. If one of the calls fails, the simulation stops and returns the error.
+     * @bodyContent {CallParams[]} application/json
+     * @response 200 - Return the result of the simulation.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
      * @responseContent {object} 200.application/json

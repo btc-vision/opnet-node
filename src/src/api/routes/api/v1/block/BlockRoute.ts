@@ -17,18 +17,22 @@ import { Route } from '../../../Route.js';
 import { SafeBigInt } from '../../../safe/BlockParamsConverter.js';
 import { DeploymentTxEncoder } from '../shared/DeploymentTxEncoder.js';
 import { Config } from '../../../../../config/Config.js';
+import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { AdvancedCaching } from '../../../../../caching/AdvancedCaching.js';
 
 export abstract class BlockRoute<T extends Routes> extends Route<
     T,
     JSONRpcMethods.GET_BLOCK_BY_NUMBER | JSONRpcMethods.GET_BLOCK_BY_HASH,
     BlockHeaderAPIDocumentWithTransactions | undefined
 > {
-    protected cachedBlocks: Map<bigint | string, Promise<BlockHeaderAPIDocumentWithTransactions>> =
-        new Map();
+    protected cachedBlocks: AdvancedCaching<
+        SafeBigInt | string,
+        Promise<BlockHeaderAPIDocumentWithTransactions>
+    > = new AdvancedCaching();
+    protected currentBlockData: BlockHeaderAPIDocumentWithTransactions | undefined;
 
-    protected maxCacheSize: number = 20;
-    protected currentBlockData: Promise<BlockHeaderAPIDocumentWithTransactions> | undefined;
     protected readonly deploymentTxEncoder: DeploymentTxEncoder = new DeploymentTxEncoder();
+
     private pendingRequests: number = 0;
 
     protected constructor(route: T) {
@@ -42,6 +46,70 @@ export abstract class BlockRoute<T extends Routes> extends Route<
     public abstract getDataRPC(
         params: BlockByIdParams | BlockByHashParams,
     ): Promise<BlockByIdResult | undefined>;
+
+    public onBlockChange(_blockNumber: bigint, blockHeader: BlockHeaderAPIBlockDocument): void {
+        this.currentBlockData = {
+            ...blockHeader,
+            transactions: [],
+        };
+    }
+
+    protected async getCachedBlockData(
+        includeTransactions: boolean,
+        height?: SafeBigInt,
+        hash?: string,
+    ): Promise<BlockHeaderAPIDocumentWithTransactions> {
+        const heightOrHash =
+            typeof height === 'bigint' || typeof height === 'number' ? height : hash;
+        if (heightOrHash === undefined || heightOrHash === null || heightOrHash === '') {
+            throw new Error(`No height or hash provided`);
+        }
+
+        if (heightOrHash === -1 && this.currentBlockData && !includeTransactions) {
+            return this.currentBlockData;
+        }
+
+        const documentKey = `${heightOrHash}${includeTransactions}`;
+        const cachedData = await this.getCachedData(documentKey);
+        if (cachedData) {
+            return cachedData;
+        }
+
+        this.setToCache(documentKey, this.getBlockData(includeTransactions, height, hash));
+
+        const cachedKey = this.getCachedData(documentKey);
+        if (!cachedKey) {
+            throw new Error('No cached key found');
+        }
+
+        return cachedKey;
+    }
+
+    protected async getBlockData(
+        includeTransactions: boolean,
+        height?: SafeBigInt,
+        hash?: string,
+    ): Promise<BlockHeaderAPIDocumentWithTransactions> {
+        const heightOrHash =
+            typeof height === 'bigint' || typeof height === 'number' ? height : hash;
+        if (heightOrHash === undefined || heightOrHash === null || heightOrHash === '') {
+            throw new Error(`No height or hash provided`);
+        }
+
+        if (!this.storage) {
+            throw new Error('Storage not initialized');
+        }
+
+        const transactions: BlockWithTransactions | undefined = hash
+            ? await this.storage.getBlockTransactions(undefined, hash, includeTransactions)
+            : await this.storage.getBlockTransactions(height, undefined, includeTransactions);
+
+        if (!transactions) {
+            throw new Error(`No transactions found for block ${heightOrHash}`);
+        }
+
+        return this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
+    }
 
     protected checkRateLimit(): boolean {
         return this.pendingRequests + 1 <= Config.API.MAXIMUM_PARALLEL_BLOCK_QUERY;
@@ -59,15 +127,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         this.pendingRequests--;
     }
 
-    protected initialize(): void {
-        setInterval(() => {
-            this.purgeCache();
-        }, 30000);
-
-        setInterval(() => {
-            this.currentBlockData = undefined;
-        }, 2000);
-    }
+    protected initialize(): void {}
 
     protected abstract onRequest(
         _req: Request,
@@ -76,23 +136,15 @@ export abstract class BlockRoute<T extends Routes> extends Route<
     ): Promise<void>;
 
     protected getCachedData(
-        height: SafeBigInt | string,
+        height: string,
     ): Promise<BlockHeaderAPIDocumentWithTransactions> | undefined {
-        if (height === -1) {
-            return this.currentBlockData;
-        }
-
         return this.cachedBlocks.get(height);
     }
 
     protected setToCache(
-        height: bigint | string,
+        height: SafeBigInt | string,
         data: Promise<BlockHeaderAPIDocumentWithTransactions>,
     ) {
-        if (this.cachedBlocks.size >= this.maxCacheSize) {
-            this.purgeCache();
-        }
-
         this.cachedBlocks.set(height, data);
     }
 
@@ -104,13 +156,15 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         }
 
         const transactions: TransactionDocumentForAPI<OPNetTransactionTypes>[] = [];
+        const blockId = BigInt(data.block.height);
+
         if (data.transactions) {
             for (const transaction of data.transactions) {
                 let newTx = TransactionConverterForAPI.convertTransactionToAPI(transaction);
 
                 newTx = await this.deploymentTxEncoder.addDeploymentData(
                     newTx,
-                    BigInt(data.block.height),
+                    blockId,
                     this.storage,
                 );
 

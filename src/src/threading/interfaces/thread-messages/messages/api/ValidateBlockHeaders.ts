@@ -1,5 +1,5 @@
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { BlockHeaderBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { BlockHeaderDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IBlockHeaderWitness } from '../../../../../poa/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { RPCMessageData } from './RPCMessage.js';
 
@@ -10,7 +10,7 @@ export interface BlockDataAtHeightData {
 
 export interface ValidatedBlockHeader {
     readonly hasValidProofs: boolean | null;
-    readonly storedBlockHeader: BlockHeaderBlockDocument | null;
+    readonly storedBlockHeader: BlockHeaderDocument | null;
 }
 
 export interface ValidateBlockHeaders

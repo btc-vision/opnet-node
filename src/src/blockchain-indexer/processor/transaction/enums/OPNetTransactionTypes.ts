@@ -15,4 +15,5 @@ export const OPNetInteractionTypeValues: OPNetTransactionTypes[] = [
     OPNetTransactionTypes.Interaction,
     OPNetTransactionTypes.WrapInteraction,
     OPNetTransactionTypes.UnwrapInteraction,
+    OPNetTransactionTypes.Deployment
 ];

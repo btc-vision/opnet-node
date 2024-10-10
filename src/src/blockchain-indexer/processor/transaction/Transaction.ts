@@ -6,9 +6,10 @@ import { Binary } from 'mongodb';
 import * as zlib from 'zlib';
 import {
     ITransactionDocumentBasic,
+    NetEventDocument,
     TransactionDocument,
 } from '../../../db/interfaces/ITransactionDocument.js';
-import { EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
+import { EvaluatedEvents, EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
 import { TransactionOutput } from './inputs/TransactionOutput.js';
@@ -50,7 +51,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     protected readonly transactionHash: string;
     protected readonly vInputIndex: number;
+
     protected readonly _authorizedVaultUsage: boolean = false;
+    protected receiptProofs: string[] | undefined;
 
     private readonly vaultDecoder: VaultInputDecoder = new VaultInputDecoder();
 
@@ -187,6 +190,15 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public get bufferHash(): Buffer {
         return this.transactionHashBuffer;
+    }
+
+    public get gasUsed(): bigint {
+        if (!this.receipt) {
+            return 0n;
+        }
+
+        const receiptData: EvaluatedResult | undefined = this.receipt;
+        return receiptData?.gasUsed || 0n;
     }
 
     public static verifyChecksum(scriptData: (number | Buffer)[], typeChecksum: Buffer): boolean {
@@ -367,6 +379,35 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.parseOutputs(vOuts);
 
         this.decodeVaults();
+    }
+
+    public setReceiptProofs(proofs: string[] | undefined): void {
+        this.receiptProofs = proofs;
+    }
+
+    /**
+     * Convert the events to the document format.
+     * @param events NetEvent[]
+     * @protected
+     */
+    protected convertEvents(events: EvaluatedEvents | undefined): NetEventDocument[] {
+        if (!events) {
+            return [];
+        }
+
+        const netEvents: NetEventDocument[] = [];
+        for (const [contractAddress, contractEvents] of events) {
+            for (const event of contractEvents) {
+                netEvents.push({
+                    contractAddress,
+                    eventData: new Binary(event.eventData),
+                    eventDataSelector: DataConverter.toDecimal128(event.eventDataSelector),
+                    eventType: event.eventType,
+                });
+            }
+        }
+
+        return netEvents;
     }
 
     /** We must verify every single transaction and decode any vault inputs */

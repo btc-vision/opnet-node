@@ -5,8 +5,8 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { Network } from 'bitcoinjs-lib';
 import { Config } from '../../../config/Config.js';
 import {
-    BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
+    BlockHeaderDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import {
     ITransactionDocumentBasic,
@@ -166,6 +166,10 @@ export class Block extends Logger {
         return BigInt(this.header.medianTime.getTime());
     }
 
+    public get safeU64(): bigint {
+        return this.header.safeU64;
+    }
+
     public get timestamp(): number {
         return this.header.time.getTime();
     }
@@ -292,7 +296,7 @@ export class Block extends Logger {
         this.createTransactions();
     }
 
-    public getBlockHeaderDocument(): BlockHeaderBlockDocument {
+    public getBlockHeaderDocument(): BlockHeaderDocument {
         return {
             checksumRoot: this.checksumRoot,
             checksumProofs: this.checksumProofs,
@@ -403,7 +407,7 @@ export class Block extends Logger {
             const timeBeforeExecution = Date.now();
 
             /** We must fetch the previous block checksum */
-            const previousBlockHeaders: BlockHeaderBlockDocument | null | undefined =
+            const previousBlockHeaders: BlockHeaderDocument | null | undefined =
                 await vmManager.blockHeaderValidator.getBlockHeader(this.height - 1n);
 
             // Calculate next block base gas
@@ -533,11 +537,7 @@ export class Block extends Logger {
         vmManager: VMManager,
         specialManager: SpecialManager,
     ): Promise<void> {
-        const promises: Promise<void>[] = [
-            this.executeOPNetTransactions(this.opnetTransactions, vmManager, specialManager),
-        ];
-
-        await Promise.all(promises);
+        await this.executeOPNetTransactions(this.opnetTransactions, vmManager, specialManager);
     }
 
     /** We execute interaction transactions with this method */
@@ -548,23 +548,19 @@ export class Block extends Logger {
     ): Promise<void> {
         const start = Date.now();
         try {
-            if (!this.isOPNetEnabled()) {
-                throw new Error('OPNet is not enabled');
-            }
-
-            // Verify if the block is out of gas, this can overflow. This is an expected behavior.
-            if (OPNetConsensus.consensus.GAS.MAX_THEORETICAL_GAS < this.blockUsedGas) {
-                throw new Error(`Block out of gas`);
-            }
+            this.checkConstraintsBlock();
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.executeTransaction(
                 this.height,
                 this.median,
                 this.prevBaseGas,
+                this.safeU64,
                 transaction,
                 unlimitedGas,
             );
+
+            this.blockUsedGas += evaluation.gasUsed;
 
             transaction.receipt = evaluation.getEvaluationResult();
 
@@ -572,7 +568,7 @@ export class Block extends Logger {
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
                 this.debug(
-                    `Executed transaction ${transaction.txid} for contract ${transaction.contractAddress}. (Too ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                    `Executed transaction ${transaction.txid} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
                 );
             }
 
@@ -584,36 +580,11 @@ export class Block extends Logger {
                     Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
                 );
             }
-
-            this.blockUsedGas += transaction.gasUsed;
         } catch (e) {
-            this.blockUsedGas += OPNetConsensus.consensus.GAS.PANIC_GAS_COST;
-
-            const error: Error = e as Error;
-            if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-                this.error(
-                    `Failed to execute transaction ${transaction.txid} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.gasUsed})`,
-                );
-            }
-
-            transaction.revert = error;
-
-            vmManager.updateBlockValuesFromResult(
-                null,
-                transaction.contractAddress,
-                transaction.txid,
-                true,
-            );
+            this.processTransactionFailure(transaction, e as Error, start, vmManager);
         }
 
-        assert(
-            !(
-                transaction.receipt &&
-                transaction.receipt.revert &&
-                transaction.receipt.deployedContracts.length
-            ),
-            'Transaction reverted and some contracts were deployed',
-        );
+        this.verifyTransaction(transaction);
     }
 
     /** We execute deployment transactions with this method */
@@ -621,7 +592,45 @@ export class Block extends Logger {
         transaction: DeploymentTransaction,
         vmManager: VMManager,
     ): Promise<void> {
+        const start = Date.now();
         try {
+            this.checkConstraintsBlock();
+
+            /** We must create a transaction receipt. */
+            const evaluation = await vmManager.deployContract(
+                this.height,
+                this.median,
+                this.prevBaseGas,
+                this.safeU64,
+                transaction,
+            );
+            this.blockUsedGas += evaluation.gasUsed;
+
+            transaction.receipt = evaluation.getEvaluationResult();
+
+            this.processRevertedTx(transaction);
+
+            if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
+                this.debug(
+                    `Executed transaction (deployment) ${transaction.txid} for contract ${transaction.segwitAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                );
+            }
+
+            if (evaluation.transactionId) {
+                vmManager.updateBlockValuesFromResult(
+                    evaluation,
+                    evaluation.contractAddress,
+                    evaluation.transactionId,
+                    Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+                );
+            }
+        } catch (e) {
+            this.processTransactionFailure(transaction, e as Error, start, vmManager);
+        }
+
+        this.verifyTransaction(transaction);
+
+        /*try {
             if (!this.isOPNetEnabled()) {
                 throw new Error('OPNet is not enabled');
             }
@@ -641,6 +650,52 @@ export class Block extends Logger {
                 transaction.txid,
                 true,
             );
+        }*/
+    }
+
+    private verifyTransaction(transaction: Transaction<OPNetTransactionTypes>): void {
+        assert(
+            !(
+                transaction.receipt &&
+                transaction.receipt.revert &&
+                transaction.receipt.deployedContracts.length
+            ),
+            'Transaction reverted and some contracts were deployed',
+        );
+    }
+
+    private processTransactionFailure(
+        transaction: InteractionTransaction | DeploymentTransaction,
+        error: Error,
+        start: number,
+        vmManager: VMManager,
+    ): void {
+        this.blockUsedGas += OPNetConsensus.consensus.GAS.PANIC_GAS_COST;
+
+        if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
+            this.error(
+                `Failed to execute transaction ${transaction.txid} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.gasUsed})`,
+            );
+        }
+
+        transaction.revert = error;
+
+        vmManager.updateBlockValuesFromResult(
+            null,
+            transaction.contractAddress,
+            transaction.txid,
+            true,
+        );
+    }
+
+    private checkConstraintsBlock(): void {
+        if (!this.isOPNetEnabled()) {
+            throw new Error('OPNet is not enabled');
+        }
+
+        // Verify if the block is out of gas, this can overflow. This is an expected behavior.
+        if (OPNetConsensus.consensus.GAS.MAX_THEORETICAL_GAS < this.blockUsedGas) {
+            throw new Error(`Block out of gas`);
         }
     }
 
@@ -649,20 +704,15 @@ export class Block extends Logger {
             return;
         }
 
-        const error =
-            transaction.receipt.revert instanceof Error
-                ? transaction.receipt.revert
-                : new Error(transaction.receipt.revert);
+        const error = transaction.receipt.revert;
 
-        if (Config.DEV_MODE) {
+        if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             this.error(`Transaction ${transaction.txid} reverted with reason: ${error}`);
-        } else if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-            this.error(`Transaction ${transaction.txid} reverted with reason: ${error.message}`);
         } else if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.error(`Transaction ${transaction.txid} reverted.`);
         }
 
-        transaction.revert = error;
+        transaction.revert = new Error(error);
     }
 
     private defineGeneric(): void {
@@ -769,9 +819,11 @@ export class Block extends Logger {
                 continue;
             }
 
-            const interactionTransaction = transaction as InteractionTransaction;
-            const contractProofs = this.#_receiptProofs.get(interactionTransaction.contractAddress);
+            const interactionTransaction = transaction as
+                | InteractionTransaction
+                | DeploymentTransaction;
 
+            const contractProofs = this.#_receiptProofs.get(interactionTransaction.contractAddress);
             if (!contractProofs) {
                 // Transaction reverted.
                 continue;
@@ -782,7 +834,7 @@ export class Block extends Logger {
         }
     }
 
-    private setGasParameters(previousBlockHeaders: BlockHeaderBlockDocument | null): void {
+    private setGasParameters(previousBlockHeaders: BlockHeaderDocument | null): void {
         if (previousBlockHeaders !== null) {
             this._prevEMA = BigInt(previousBlockHeaders.ema || 0);
             this._prevBaseGas = BigInt(previousBlockHeaders.baseGas || 0);

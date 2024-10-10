@@ -30,7 +30,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     GAS: {
         /** Target block gas limit, a transaction can not pass this limit. */
-        TARGET_GAS: 2_000_000_000_000n,
+        TARGET_GAS: 3_000_000_000_000n,
 
         /** Smooth out gas increase when equal to gas target. */
         SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
@@ -42,7 +42,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MAX_THEORETICAL_GAS: 28_000_000_000_000n,
 
         /** Max gas per transactions */
-        TRANSACTION_MAX_GAS: 100_000_000_000n,
+        TRANSACTION_MAX_GAS: 350_000_000_000n,
 
         /** btc_call maximum gas */
         EMULATION_MAX_GAS: 15_000_000_000n,
@@ -63,7 +63,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         ALPHA1: 0.5,
 
         /** Adjustment factor when G_t <= G_targetBlock */
-        ALPHA2: 0.8,
+        ALPHA2: 1.0,
 
         /** Target utilization ratio */
         U_TARGET: 1.0,

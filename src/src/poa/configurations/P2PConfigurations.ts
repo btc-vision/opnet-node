@@ -34,7 +34,9 @@ interface BackedUpPeer {
 export class P2PConfigurations extends OPNetPathFinder {
     public static readonly protocolName: string = 'opnet';
     public static readonly protocolVersion: string = '1.0.0';
+
     private static readonly maxMessageSize: number = 8 * 1024 * 1024; // 8 MiB
+
     private readonly defaultBootstrapNodes: string[];
 
     constructor(private readonly config: BtcIndexerConfig) {
@@ -49,6 +51,12 @@ export class P2PConfigurations extends OPNetPathFinder {
             outboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
 
             maxConnections: this.config.P2P.MAXIMUM_PEERS,
+            socketCloseTimeout: 2000,
+            backlog: 100,
+            closeServerOnMaxConnections: {
+                closeAbove: this.config.P2P.MAXIMUM_PEERS,
+                listenBelow: this.config.P2P.MINIMUM_PEERS,
+            },
         };
     }
 
@@ -103,25 +111,30 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get bootstrapConfiguration(): BootstrapInit {
         return {
-            timeout: 5000,
-            tagValue: 60,
+            timeout: 1000,
+            tagValue: 50,
+            tagTTL: 120000,
             list: this.getBootstrapPeers(),
         };
     }
 
     public get multicastDnsConfiguration(): MulticastDNSInit {
         return {
-            interval: 20000,
+            interval: 1000,
         };
     }
 
     public get connectionManagerConfiguration(): ConnectionManagerInit {
         return {
+            autoDialDiscoveredPeersDebounce: 100,
+
+            maxParallelDials: 100,
+
             /**
              * A remote peer may attempt to open up to this many connections per second,
              * any more than that will be automatically rejected
              */
-            inboundConnectionThreshold: 20,
+            inboundConnectionThreshold: 10,
 
             /**
              * The total number of connections allowed to be open at one time
@@ -154,7 +167,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get transportManagerConfiguration(): TransportManagerInit {
         return {
-            faultTolerance: FaultTolerance.NO_FATAL,
+            faultTolerance: FaultTolerance.FATAL_ALL,
         };
     }
 
@@ -169,7 +182,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get dhtConfiguration(): KadDHTInit {
         return {
             kBucketSize: 30,
-            pingTimeout: 10000,
+            pingTimeout: 4000,
             clientMode: this.config.P2P.CLIENT_MODE,
             protocol: this.protocol,
         };
@@ -179,9 +192,9 @@ export class P2PConfigurations extends OPNetPathFinder {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
             agentVersion: P2PMajorVersion,
-            timeout: 8000,
-            maxInboundStreams: 4,
-            maxOutboundStreams: 4,
+            timeout: 3000,
+            maxInboundStreams: 3,
+            maxOutboundStreams: 3,
             runOnConnectionOpen: false,
         };
     }

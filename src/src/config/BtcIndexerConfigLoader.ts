@@ -62,6 +62,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             SAVE_TIMEOUTS_TO_FILE: false,
             SIMULATE_HIGH_GAS_USAGE: false,
             DEBUG_VALID_TRANSACTIONS: false,
+            DEBUG_API_ERRORS: false,
         },
 
         BASE58: {},
@@ -73,6 +74,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             CLIENT_MODE: false,
             ENABLE_IPV6: false,
 
+            ENABLE_IP_BANNING: false,
             MDNS: false,
 
             P2P_HOST_V6: '::',
@@ -422,6 +424,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
+                parsedConfig.P2P.ENABLE_IP_BANNING !== undefined &&
+                typeof parsedConfig.P2P.ENABLE_IP_BANNING !== 'boolean'
+            ) {
+                throw new Error(`Oops the property P2P.ENABLE_IP_BANNING is not a boolean.`);
+            }
+
+            if (
                 parsedConfig.P2P.IS_BOOTSTRAP_NODE !== undefined &&
                 typeof parsedConfig.P2P.IS_BOOTSTRAP_NODE !== 'boolean'
             ) {
@@ -739,6 +748,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.DEV.DEBUG_VALID_TRANSACTIONS !== 'boolean'
             ) {
                 throw new Error(`Oops the property DEV.DEBUG_VALID_TRANSACTIONS is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.DEV.DEBUG_API_ERRORS !== undefined &&
+                typeof parsedConfig.DEV.DEBUG_API_ERRORS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.DEBUG_API_ERRORS is not a boolean.`);
             }
         }
 

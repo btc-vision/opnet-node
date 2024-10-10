@@ -2,8 +2,8 @@ import { BitcoinRawTransactionParams, BitcoinRPC } from '@btc-vision/bsi-bitcoin
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Config } from '../../../config/Config.js';
 import {
-    BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
+    BlockHeaderDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ChecksumProof } from '../../../poa/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
@@ -195,7 +195,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         const blockNumber = BigInt(data.blockNumber);
         const blockHeader = data.blockHeader;
 
-        const vmBlockHeader: Partial<BlockHeaderBlockDocument> = {
+        const vmBlockHeader: Partial<BlockHeaderDocument> = {
             previousBlockHash: blockHeader.previousBlockHash,
             height: DataConverter.toDecimal128(blockNumber),
             receiptRoot: blockHeader.receiptRoot,
@@ -210,7 +210,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         try {
             const requests: [
                 Promise<boolean | null>,
-                Promise<BlockHeaderBlockDocument | undefined | null>,
+                Promise<BlockHeaderDocument | undefined | null>,
             ] = [
                 this.blockHeaderValidator.validateBlockChecksum(vmBlockHeader),
                 this.blockHeaderValidator.getBlockHeader(blockNumber),

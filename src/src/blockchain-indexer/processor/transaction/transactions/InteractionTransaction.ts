@@ -2,10 +2,7 @@ import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
 import bitcoin, { address, initEccLib, opcodes, payments } from 'bitcoinjs-lib';
 import { Binary } from 'mongodb';
-import {
-    InteractionTransactionDocument,
-    NetEventDocument,
-} from '../../../../db/interfaces/ITransactionDocument.js';
+import { InteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
 import {
     InteractionTransactionType,
@@ -65,8 +62,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     protected contractSecret: Buffer | undefined;
     protected interactionPubKey: Buffer | undefined;
 
-    protected receiptProofs: string[] | undefined;
-
     protected interactionWitnessData: InteractionWitnessData | undefined;
 
     public constructor(
@@ -112,15 +107,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
     public get msgSender(): Address | undefined {
         return this._msgSender;
-    }
-
-    public get gasUsed(): bigint {
-        if (!this.receipt) {
-            return 0n;
-        }
-
-        const receiptData: EvaluatedResult | undefined = this.receipt;
-        return receiptData?.gasUsed || 0n;
     }
 
     public static is(data: TransactionData): TransactionInformation | undefined {
@@ -269,10 +255,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         };
     }
 
-    public setReceiptProofs(proofs: string[] | undefined): void {
-        this.receiptProofs = proofs;
-    }
-
     public parseTransaction(
         vIn: VIn[],
         vOuts: VOut[],
@@ -383,31 +365,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this.decompressCalldata();
 
         this.verifyUnallowed();
-    }
-
-    /**
-     * Convert the events to the document format.
-     * @param events NetEvent[]
-     * @protected
-     */
-    protected convertEvents(events: EvaluatedEvents | undefined): NetEventDocument[] {
-        if (!events) {
-            return [];
-        }
-
-        const netEvents: NetEventDocument[] = [];
-        for (const [contractAddress, contractEvents] of events) {
-            for (const event of contractEvents) {
-                netEvents.push({
-                    contractAddress,
-                    eventData: new Binary(event.eventData),
-                    eventDataSelector: DataConverter.toDecimal128(event.eventDataSelector),
-                    eventType: event.eventType,
-                });
-            }
-        }
-
-        return netEvents;
     }
 
     /** We must verify that the transaction is not bypassing another transaction type. */

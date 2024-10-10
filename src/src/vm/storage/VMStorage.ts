@@ -5,7 +5,7 @@ import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transa
 import { BlockWithTransactions } from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import {
     BlockHeaderAPIBlockDocument,
-    BlockHeaderBlockDocument,
+    BlockHeaderDocument,
 } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
 import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
@@ -79,9 +79,9 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         transaction: ITransactionDocumentBasic<OPNetTransactionTypes>[],
     ): Promise<void>;*/
 
-    public abstract saveBlockHeader(blockHeader: BlockHeaderBlockDocument): Promise<void>;
+    public abstract saveBlockHeader(blockHeader: BlockHeaderDocument): Promise<void>;
 
-    public abstract getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined>;
+    public abstract getBlockHeader(height: bigint): Promise<BlockHeaderDocument | undefined>;
 
     public abstract getContractAtVirtualAddress(
         virtualAddress: string,

@@ -121,7 +121,7 @@ export class MempoolManager extends Logger {
 
         setTimeout(() => {
             void this.startFetchingMempool();
-        }, 5000);
+        }, 30000);
     }
 
     private async fetchAllUnknownTransactions(txs: string[]): Promise<IMempoolTransactionObj[]> {
@@ -184,6 +184,7 @@ export class MempoolManager extends Logger {
             const txsList: string[] | null = await this.bitcoinRPC.getRawMempool(
                 BitcoinVerbosity.RAW,
             );
+
             if (!txsList) {
                 this.error('Failed to fetch mempool transactions');
                 return;
@@ -215,7 +216,10 @@ export class MempoolManager extends Logger {
                 `Found ${txsList.length} tx - ${unknownTxs.length} new tx - ${alreadyKnownTxs.length} already known. (verified db under ${end - start}ms - precomputed under ${end - startedAt}ms)`,
             );
 
+            const stored = Date.now();
             await this.mempoolRepository.storeTransactions(fetchedTxs);
+
+            this.log(`Stored ${fetchedTxs.length} transactions in ${Date.now() - stored}ms`);
         } catch (e) {
             this.error(`Failed to fetch mempool transactions: ${(e as Error).message}`);
         }

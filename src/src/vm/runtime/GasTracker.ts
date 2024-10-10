@@ -2,12 +2,12 @@ import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 
 export class GasTracker {
     #gasUsed: bigint = 0n;
-    #maxGas: bigint;
+    #maxGas: bigint = 0n;
 
     #startedAt: number = Date.now();
 
     constructor(private readonly MAX_GAS: bigint) {
-        this.#maxGas = MAX_GAS;
+        this.maxGas = MAX_GAS;
     }
 
     public get gasUsed(): bigint {

@@ -4,14 +4,14 @@ import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { VMManager } from '../../../vm/VMManager.js';
 import { Logger } from '@btc-vision/bsi-common';
 import { IndexingTask } from '../tasks/IndexingTask.js';
-import { BlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { BlockHeaderDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 
 interface LastBlock {
     hash?: string;
     checksum?: string;
     blockNumber?: bigint;
 
-    opnetBlock?: BlockHeaderBlockDocument;
+    opnetBlock?: BlockHeaderDocument;
 }
 
 interface HeaderInfo {
@@ -152,10 +152,7 @@ export class ReorgWatchdog extends Logger {
                 return 0n;
             }
 
-            const promises: [
-                Promise<string | null>,
-                Promise<BlockHeaderBlockDocument | undefined>,
-            ] = [
+            const promises: [Promise<string | null>, Promise<BlockHeaderDocument | undefined>] = [
                 this.rpcClient.getBlockHash(Number(previousBlock)),
                 this.vmStorage.getBlockHeader(previousBlock),
             ];
@@ -167,7 +164,7 @@ export class ReorgWatchdog extends Logger {
                 throw new Error(`Error fetching block hash.`);
             }
 
-            const savedBlockHeader: BlockHeaderBlockDocument | undefined = results[1];
+            const savedBlockHeader: BlockHeaderDocument | undefined = results[1];
             if (!savedBlockHeader) {
                 throw new Error(`Error fetching block header.`);
             }

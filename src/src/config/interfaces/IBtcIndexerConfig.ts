@@ -51,6 +51,7 @@ export interface P2P {
     readonly CLIENT_MODE: boolean;
 
     readonly MDNS: boolean;
+    readonly ENABLE_IP_BANNING: boolean;
 
     readonly ENABLE_IPV6: boolean;
     readonly P2P_HOST_V6: string;
@@ -122,6 +123,7 @@ export interface DevConfig {
     readonly SAVE_TIMEOUTS_TO_FILE: boolean;
     readonly SIMULATE_HIGH_GAS_USAGE: boolean;
     readonly DEBUG_VALID_TRANSACTIONS: boolean;
+    readonly DEBUG_API_ERRORS: boolean;
 }
 
 export interface Bech32Config {
