@@ -21,6 +21,14 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         IS_READY_FOR_NEXT_CONSENSUS: false,
     },
 
+    CONTRACTS: {
+        /** The maximum size of a calldata in bytes. */
+        MAXIMUM_CONTRACT_SIZE_DECOMPRESSED: 128 * 1024,
+
+        /** The maximum size of calldata in bytes. */
+        MAXIMUM_CALLDATA_SIZE_DECOMPRESSED: 1024 * 1024,
+    },
+
     NETWORK: {
         /** Networking */
         MAXIMUM_TRANSACTION_BROADCAST_SIZE: 440_000, // Cap to 800k bytes.

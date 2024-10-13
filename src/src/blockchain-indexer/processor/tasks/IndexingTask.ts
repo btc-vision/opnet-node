@@ -210,7 +210,10 @@ export class IndexingTask extends Logger {
 
     private async processBlock(): Promise<void> {
         // Define consensus block height
-        this.consensusTracker.setConsensusBlockHeight(this.tip);
+        const cannotProceed = this.consensusTracker.setConsensusBlockHeight(this.tip);
+        if (cannotProceed) {
+            throw new Error('Consensus block height not set');
+        }
 
         try {
             await this.vmManager.prepareBlock(this.tip);

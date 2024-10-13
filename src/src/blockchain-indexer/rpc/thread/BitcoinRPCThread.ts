@@ -25,7 +25,6 @@ import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
 import {
     BlockchainStorageMap,
@@ -39,11 +38,10 @@ import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js'
 export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
 
-    private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC(1000, false);
+    private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC(1500, false);
     private readonly vmStorage: VMMongoStorage = new VMMongoStorage(Config);
 
     private blockHeaderValidator: BlockHeaderValidator;
-    private currentBlockHeight: bigint = 0n;
 
     private readonly rpcSubWorkerManager: RPCSubWorkerManager = new RPCSubWorkerManager();
 
@@ -60,9 +58,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     protected async init(): Promise<void> {
         await this.vmStorage.init();
-
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
-        await this.setBlockHeight();
 
         this.rpcSubWorkerManager.startWorkers();
     }
@@ -90,24 +86,6 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 this.log(`Unknown thread message received. {Type: ${m.type}}`);
                 break;
         }
-    }
-
-    private async setBlockHeight(): Promise<void> {
-        try {
-            const blockHeight = await this.bitcoinRPC.getBlockHeight();
-            if (!blockHeight) {
-                throw new Error('Failed to get block height');
-            }
-
-            this.currentBlockHeight = BigInt(blockHeight.blockHeight + 1);
-            OPNetConsensus.setBlockHeight(this.currentBlockHeight);
-        } catch (e) {
-            this.error(`Failed to get block height. ${e}`);
-        }
-
-        setTimeout(() => {
-            void this.setBlockHeight();
-        }, 1000);
     }
 
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {

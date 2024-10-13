@@ -23,6 +23,15 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly IS_READY_FOR_NEXT_CONSENSUS: boolean;
     };
 
+    /** Contracts related rules */
+    readonly CONTRACTS: {
+        /** The maximum size of a calldata in bytes. */
+        readonly MAXIMUM_CONTRACT_SIZE_DECOMPRESSED: number;
+
+        /** The maximum size of calldata in bytes. */
+        readonly MAXIMUM_CALLDATA_SIZE_DECOMPRESSED: number;
+    };
+
     /** Transactions related properties */
     readonly GAS: {
         /** Target block gas limit */

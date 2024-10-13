@@ -4,7 +4,8 @@ import path from 'path';
 
 export class RPCSubWorkerManager extends Logger {
     public readonly workers: ChildProcess[] = [];
-    private readonly numConcurrent: number = 10;
+    private readonly numConcurrent: number = 2;
+
     private readonly tasks: Map<
         string,
         {

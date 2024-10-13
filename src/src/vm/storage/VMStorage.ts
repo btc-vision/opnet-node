@@ -18,6 +18,7 @@ import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../db/interfaces/IWBTCUT
 import { IVaultDocument } from '../../db/interfaces/IVaultDocument.js';
 import { SelectedUTXOs } from '../../db/repositories/WBTCUTXORepository.js';
 import { ICompromisedTransactionDocument } from '../../db/interfaces/CompromisedTransactionDocument.js';
+import { BlockchainInfoRepository } from '../../db/repositories/BlockchainInfoRepository.js';
 
 export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public readonly logColor: string = '#ff00ff';
@@ -27,6 +28,8 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     }
 
     public abstract revertDataUntilBlock(height: bigint): Promise<void>;
+
+    public abstract get blockchainRepository(): BlockchainInfoRepository;
 
     public abstract getWitnesses(
         height: bigint | -1,

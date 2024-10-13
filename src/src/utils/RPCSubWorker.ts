@@ -2,7 +2,6 @@ import { VMStorage } from '../vm/storage/VMStorage.js';
 import { VMManager } from '../vm/VMManager.js';
 import { Config } from '../config/Config.js';
 import { Logger } from '@btc-vision/bsi-common';
-import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import {
     CallRequestData,
@@ -16,6 +15,8 @@ import {
     ContractInformationAsString,
 } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { Blockchain } from '../vm/Blockchain.js';
+import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
+import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 
 class RPCManager extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -28,10 +29,20 @@ class RPCManager extends Logger {
 
     private currentBlockHeight: bigint = 0n;
 
-    constructor() {
-        super();
+    private readonly vmStorage: VMStorage = new VMMongoStorage(Config);
 
-        void this.init();
+    public constructor() {
+        super();
+    }
+
+    public async init(): Promise<void> {
+        this.listenToEvents();
+
+        await this.bitcoinRPC.init(Config.BLOCKCHAIN);
+        await this.vmStorage.init();
+
+        await this.setBlockHeight();
+        await this.createVMManagers();
     }
 
     protected async onMessage(message: string): Promise<void> {
@@ -67,14 +78,6 @@ class RPCManager extends Logger {
 
     protected listenToEvents(): void {
         process.on('message', this.onMessage.bind(this));
-    }
-
-    protected async init(): Promise<void> {
-        this.listenToEvents();
-
-        await this.bitcoinRPC.init(Config.BLOCKCHAIN);
-        await this.setBlockHeight();
-        await this.createVMManagers();
     }
 
     protected async getNextVMManager(tries: number = 0): Promise<VMManager> {
@@ -177,33 +180,30 @@ class RPCManager extends Logger {
         process.send(data);
     }
 
-    private async setBlockHeight(): Promise<void> {
-        try {
-            const blockHeight = await this.bitcoinRPC.getBlockHeight();
-            if (!blockHeight) {
-                throw new Error('Failed to get block height');
-            }
-
-            this.currentBlockHeight = BigInt(blockHeight.blockHeight + 1);
-            OPNetConsensus.setBlockHeight(this.currentBlockHeight);
-        } catch (e) {
-            this.error(`Failed to get block height. ${e}`);
+    private onBlockChange(blockHeight: bigint): void {
+        if (this.currentBlockHeight === blockHeight) {
+            return;
         }
 
-        setTimeout(() => {
-            void this.setBlockHeight();
-        }, 5000);
+        this.currentBlockHeight = blockHeight;
+        OPNetConsensus.setBlockHeight(this.currentBlockHeight);
+    }
+
+    private async setBlockHeight(): Promise<void> {
+        this.vmStorage.blockchainRepository.watchBlockChanges(this.onBlockChange.bind(this));
+
+        try {
+            const currentBlock = await this.bitcoinRPC.getBlockHeight();
+            this.onBlockChange(BigInt(currentBlock?.blockHeight || 0) + 1n);
+        } catch (e) {
+            this.error(`Failed to get current block height. ${e}`);
+        }
     }
 
     private async createVMManagers(): Promise<void> {
-        let vmStorage: VMStorage | undefined = undefined;
         for (let i = 0; i < this.CONCURRENT_VMS; i++) {
-            const vmManager: VMManager = new VMManager(Config, true, vmStorage);
+            const vmManager: VMManager = new VMManager(Config, true, this.vmStorage);
             await vmManager.init();
-
-            if (!vmStorage) {
-                vmStorage = vmManager.getVMStorage();
-            }
 
             this.vmManagers.push(vmManager);
         }
@@ -215,7 +215,7 @@ class RPCManager extends Logger {
             }
 
             Blockchain.purgeCached();
-        }, 30000);
+        }, 20000);
     }
 
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
@@ -247,4 +247,4 @@ class RPCManager extends Logger {
     }
 }
 
-new RPCManager();
+await new RPCManager().init();

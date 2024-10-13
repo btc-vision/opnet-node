@@ -41,6 +41,8 @@ export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
     abortController: AbortController;
     network: Network;
+
+    readonly processEverythingAsGeneric?: boolean;
 }
 
 export interface DeserializedBlock extends Omit<RawBlockParam, 'abortController' | 'network'> {
@@ -101,6 +103,7 @@ export class Block extends Logger {
     private _predictedGas: CalculatedBlockGas | undefined;
 
     private blockUsedGas: bigint = 0n;
+    private processEverythingAsGeneric: boolean = false;
 
     constructor(params: RawBlockParam | DeserializedBlock) {
         super();
@@ -119,9 +122,11 @@ export class Block extends Logger {
         this.signal = this.abortController.signal;
         this.header = new BlockHeader(params.header);
 
+        this.processEverythingAsGeneric = params.processEverythingAsGeneric || false;
+
         if ('rawTransactionData' in params) {
             this.setRawTransactionData(params.rawTransactionData);
-            this.deserialize(params.transactionOrder);
+            this.deserialize(true, params.transactionOrder);
 
             this.processed = true;
         }
@@ -330,10 +335,10 @@ export class Block extends Logger {
     }
 
     /** Block Processing */
-    public deserialize(transactionOrder?: string[]): void {
+    public deserialize(orderTransactions: boolean, transactionOrder?: string[]): void {
         this.ensureNotProcessed();
 
-        if (
+        /*if (
             Config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
             this.erroredTransactions.size > 0 &&
             Config.DEV_MODE
@@ -341,17 +346,19 @@ export class Block extends Logger {
             this.error(
                 `Block ${this.height} contains ${this.erroredTransactions.size} errored transactions.`,
             );
-        }
+        }*/
 
-        if (transactionOrder) {
-            // If the transaction order is provided, we can sort the transactions by their order
-            this.transactions = this.transactionSorter.sortTransactionsByOrder(
-                transactionOrder,
-                this.transactions,
-            );
-        } else {
-            // Then, we can sort the transactions by their priority
-            this.transactions = this.transactionSorter.sortTransactions(this.transactions);
+        if (orderTransactions) {
+            if (transactionOrder) {
+                // If the transaction order is provided, we can sort the transactions by their order
+                this.transactions = this.transactionSorter.sortTransactionsByOrder(
+                    transactionOrder,
+                    this.transactions,
+                );
+            } else {
+                // Then, we can sort the transactions by their priority
+                this.transactions = this.transactionSorter.sortTransactions(this.transactions);
+            }
         }
 
         this.defineGeneric();
@@ -1043,6 +1050,12 @@ export class Block extends Logger {
         for (let i = 0; i < this.rawTransactionData.length; i++) {
             const rawTransactionData = this.rawTransactionData[i];
 
+            if (this.processEverythingAsGeneric) {
+                this.treatAsGenericTransaction(rawTransactionData, i);
+
+                continue;
+            }
+
             try {
                 const transaction = this.transactionFactory.parseTransaction(
                     rawTransactionData,
@@ -1063,14 +1076,20 @@ export class Block extends Logger {
                     );
                 }
 
-                this.treatAsGenericTransaction(rawTransactionData);
+                this.treatAsGenericTransaction(rawTransactionData, i);
 
                 this.erroredTransactions.add(rawTransactionData);
             }
         }
     }
 
-    private treatAsGenericTransaction(rawTransactionData: TransactionData): boolean {
+    /**
+     * Treats a transaction as a generic transaction.
+     * @param {TransactionData} rawTransactionData Raw transaction data
+     * @param {number} i Index of the original transaction in the block
+     * @private
+     */
+    private treatAsGenericTransaction(rawTransactionData: TransactionData, i: number): boolean {
         try {
             const genericTransaction = new GenericTransaction(
                 rawTransactionData,
@@ -1080,6 +1099,7 @@ export class Block extends Logger {
                 this.network,
             );
 
+            genericTransaction.originalIndex = i;
             genericTransaction.parseTransaction(rawTransactionData.vin, rawTransactionData.vout);
 
             this.transactions.push(genericTransaction);

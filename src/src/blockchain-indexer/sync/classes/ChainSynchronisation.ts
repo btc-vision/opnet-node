@@ -177,7 +177,7 @@ export class ChainSynchronisation extends Logger {
 
     private queryUTXOs(block: Block, txs: TransactionData[]): void {
         block.setRawTransactionData(txs);
-        block.deserialize();
+        block.deserialize(false);
 
         // Save UTXOs
         const utxos = block.getUTXOs();
@@ -231,13 +231,11 @@ export class ChainSynchronisation extends Logger {
             network: this.network,
             abortController: abortController,
             header: blockData,
+            processEverythingAsGeneric: true,
         });
 
-        this.queryUTXOs(block, blockData.tx);
-
         // Deserialize the block
-        //block.setRawTransactionData(blockData.tx);
-        //block.deserialize();
+        this.queryUTXOs(block, blockData.tx);
 
         this.abortControllers.delete(blockNumber);
 

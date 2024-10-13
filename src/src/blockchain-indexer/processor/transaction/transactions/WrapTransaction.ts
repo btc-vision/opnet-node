@@ -18,6 +18,7 @@ import {
 } from '../../../../poa/wbtc/WBTCRules.js';
 import { P2TR_MS } from '@btc-vision/transaction';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
+import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
 export interface WrapWitnessData extends InteractionWitnessData {
     readonly pubKeys: Buffer;
@@ -214,6 +215,13 @@ export class WrapTransaction extends InteractionTransaction {
         const calldata: Buffer | undefined = WrapTransaction.getDataFromWitness(scriptData);
         if (!calldata) {
             throw new Error(`No contract bytecode found in wrap transaction.`);
+        }
+
+        if (
+            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_DECOMPRESSED <
+            calldata.byteLength
+        ) {
+            throw new Error(`OP_NET: Calldata length exceeds maximum allowed size.`);
         }
 
         return {

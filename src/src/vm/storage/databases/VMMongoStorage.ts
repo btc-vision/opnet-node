@@ -40,6 +40,7 @@ import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js
 import { UnspentTransactionRepository } from '../../../db/repositories/UnspentTransactionRepository.js';
 import { Config } from '../../../config/Config.js';
 import { CurrentOpOutput, OperationDetails } from '../interfaces/StorageInterfaces.js';
+import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -64,6 +65,8 @@ export class VMMongoStorage extends VMStorage {
     private wbtcUTXORepository: WBTCUTXORepository | undefined;
     private compromisedTransactionRepository: CompromisedTransactionRepository | undefined;
     private usedUTXOsRepository: UsedWbtcUxtoRepository | undefined;
+    private blockchainInfoRepository: BlockchainInfoRepository | undefined;
+    private initialized: boolean = false;
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -72,6 +75,14 @@ export class VMMongoStorage extends VMStorage {
         super();
 
         this.databaseManager = databaseManager || new ConfigurableDBManager(this.config);
+    }
+
+    public get blockchainRepository(): BlockchainInfoRepository {
+        if (!this.blockchainInfoRepository) {
+            throw new Error('Blockchain info repository not initialized');
+        }
+
+        return this.blockchainInfoRepository;
     }
 
     public async revertDataUntilBlock(blockId: bigint): Promise<void> {
@@ -223,6 +234,9 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async init(): Promise<void> {
+        if (this.initialized) return;
+        this.initialized = true;
+
         await this.connectDatabase();
 
         if (!this.databaseManager.db) {
@@ -232,6 +246,7 @@ export class VMMongoStorage extends VMStorage {
         this.pointerRepository = new ContractPointerValueRepository(this.databaseManager.db);
         this.contractRepository = new ContractRepository(this.databaseManager.db);
         this.blockRepository = new BlockRepository(this.databaseManager.db);
+        this.blockchainInfoRepository = new BlockchainInfoRepository(this.databaseManager.db);
         this.transactionRepository = new TransactionRepository(this.databaseManager.db);
         this.unspentTransactionRepository = new UnspentTransactionRepository(
             this.databaseManager.db,

@@ -18,6 +18,7 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
 import { Address } from '@btc-vision/bsi-binary';
+import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
 interface DeploymentWitnessData {
     deployerPubKey: Buffer;
@@ -26,7 +27,8 @@ interface DeploymentWitnessData {
     contractSaltPubKey: Buffer;
     contractSaltHash: Buffer;
 
-    bytecode: Buffer;
+    readonly bytecode: Buffer;
+    readonly calldata?: Buffer;
 }
 
 export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Deployment> {
@@ -45,6 +47,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         opcodes.OP_NUMEQUAL,
         opcodes.OP_IF,
 
+        //opcodes.OP_0, // calldata flag
         opcodes.OP_1NEGATE,
 
         opcodes.OP_ELSE,
@@ -83,12 +86,13 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     protected _calldata: Buffer | undefined;
 
     public get calldata(): Buffer {
-        const newCalldata = Buffer.alloc(this._calldata?.byteLength || 0);
+        const calldata = Buffer.alloc(this._calldata?.length || 0);
+
         if (this._calldata) {
-            this._calldata.copy(newCalldata);
+            this._calldata.copy(calldata);
         }
 
-        return newCalldata;
+        return calldata;
     }
 
     public get virtualAddress(): string {
@@ -185,6 +189,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         }
 
         this.bytecode = deploymentWitnessData.bytecode;
+        this._calldata = deploymentWitnessData.calldata;
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
         const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
@@ -262,14 +267,15 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             internalPubkey: deployerPubKey,
             network: this.network,
         });
+
         if (!address) {
-            throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
+            throw new Error(`OP_NET: Invalid sender address.`);
         }
 
         this._from = address;
 
         /** Decompress contract bytecode if needed */
-        this.decompressBytecode();
+        this.decompress();
     }
 
     private getOriginalContractAddress(): string {
@@ -295,8 +301,11 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     }
 
     /** We must check if the bytecode was compressed using GZIP. If so, we must decompress it. */
-    private decompressBytecode(): void {
+    private decompress(): void {
+        if (!this.bytecode) throw new Error('Bytecode not found');
         this.bytecode = this.decompressData(this.bytecode);
+
+        if (this._calldata) this._calldata = this.decompressData(this._calldata);
     }
 
     private getDeploymentWitnessData(
@@ -367,6 +376,24 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             return;
         }
 
+        // Calldata flag
+        /*if (scriptData.shift() !== opcodes.OP_0) {
+            return;
+        }
+
+        const calldata: Buffer | undefined = DeploymentTransaction.getDataFromWitness(
+            scriptData,
+            opcodes.OP_1NEGATE, // next opcode
+        );
+
+        if (
+            calldata &&
+            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_DECOMPRESSED <
+                calldata.byteLength
+        ) {
+            throw new Error(`OP_NET: Calldata length exceeds maximum allowed size.`);
+        }*/
+
         // ... Future implementation before this opcode
         if (scriptData.shift() !== opcodes.OP_1NEGATE) {
             return;
@@ -378,12 +405,20 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             throw new Error(`No contract bytecode found in deployment transaction.`);
         }
 
+        if (
+            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CONTRACT_SIZE_DECOMPRESSED <
+            contractBytecode.byteLength
+        ) {
+            throw new Error(`OP_NET: Contract length exceeds maximum allowed size.`);
+        }
+
         return {
             deployerPubKey,
             contractSaltPubKey,
             deployerPubKeyHash,
             contractSaltHash,
             bytecode: contractBytecode,
+            calldata: undefined,
         };
     }
 

@@ -15,6 +15,7 @@ import {
     UsedUTXOToDelete,
 } from '../../../../db/interfaces/IWBTCUTXODocument.js';
 import { Binary } from 'mongodb';
+import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
 const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 
@@ -111,6 +112,13 @@ export class UnwrapTransaction extends InteractionTransaction {
         const calldata: Buffer | undefined = UnwrapTransaction.getDataFromWitness(scriptData);
         if (!calldata) {
             throw new Error(`No contract bytecode found in wrap transaction.`);
+        }
+
+        if (
+            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_DECOMPRESSED <
+            calldata.byteLength
+        ) {
+            throw new Error(`OP_NET: Calldata length exceeds maximum allowed size.`);
         }
 
         return {

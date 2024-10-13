@@ -17,6 +17,7 @@ import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
 import { Address, BinaryReader } from '@btc-vision/bsi-binary';
 import { WBTC_UNWRAP_SELECTOR, WBTC_WRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
 import * as ecc from 'tiny-secp256k1';
+import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
 export interface InteractionWitnessData {
     senderPubKey: Buffer;
@@ -82,7 +83,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         const newCalldata = Buffer.alloc(this._calldata.byteLength);
-        this._calldata?.copy(newCalldata);
+        if (this._calldata) this._calldata.copy(newCalldata);
 
         return newCalldata;
     }
@@ -207,6 +208,13 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         const calldata: Buffer | undefined = this.getDataFromWitness(scriptData);
         if (!calldata) {
             throw new Error(`No contract bytecode found in deployment transaction.`);
+        }
+
+        if (
+            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_DECOMPRESSED <
+            calldata.byteLength
+        ) {
+            throw new Error(`OP_NET: Calldata length exceeds maximum allowed size.`);
         }
 
         return {
@@ -406,6 +414,8 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
     /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */
     private decompressCalldata(): void {
+        if (!this._calldata) throw new Error(`Calldata not specified in transaction.`);
+
         this._calldata = this.decompressData(this._calldata);
     }
 

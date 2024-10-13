@@ -229,10 +229,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
         const zlibHeader = buffer.subarray(0, 2);
         if (zlibHeader.equals(GZIP_HEADER)) {
-            buffer = zlib.unzipSync(buffer, {
-                finishFlush: zlib.constants.Z_SYNC_FLUSH,
-                maxOutputLength: 1024 * 1024 * 16, // limit to 16mb no matter what.
-            });
+            try {
+                buffer = zlib.unzipSync(buffer, {
+                    finishFlush: zlib.constants.Z_SYNC_FLUSH,
+                    maxOutputLength: 1024 * 1024, // limit to 1mb no matter what.
+                });
+            } catch {
+                throw new Error('OP_NET: Invalid compressed data.');
+            }
 
             return { out: buffer, compressed: true };
         }
@@ -310,6 +314,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return Buffer.from(checksum);
     }
 
+    public setReceiptProofs(proofs: string[] | undefined): void {
+        this.receiptProofs = proofs;
+    }
+
     public getCompromisedDocument(): ICompromisedTransactionDocument {
         return {
             id: this.transactionId,
@@ -381,10 +389,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.decodeVaults();
     }
 
-    public setReceiptProofs(proofs: string[] | undefined): void {
-        this.receiptProofs = proofs;
-    }
-
     /**
      * Convert the events to the document format.
      * @param events NetEvent[]
@@ -422,11 +426,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
     }
 
-    protected decompressData(buffer: Buffer | undefined): Buffer {
-        if (!buffer) {
-            throw new Error('Buffer is undefined. Can not decompress.');
-        }
-
+    protected decompressData(buffer: Buffer): Buffer {
         const decompressed = Transaction.decompressBuffer(buffer);
         if (decompressed.compressed) {
             this.wasCompressed = true;

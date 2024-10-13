@@ -152,6 +152,8 @@ export class BlockIndexer extends Logger {
         // Purge.
         const originalHeight = this.chainObserver.pendingBlockHeight;
         await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
+        await this.chainObserver.setNewHeight(purgeFromBlock);
+
         await this.reorgWatchdog.init(originalHeight);
 
         // If we detect db corruption, we try to restore from the last known good block.
