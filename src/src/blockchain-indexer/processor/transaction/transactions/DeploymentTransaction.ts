@@ -47,7 +47,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         opcodes.OP_NUMEQUAL,
         opcodes.OP_IF,
 
-        //opcodes.OP_0, // calldata flag
+        opcodes.OP_0, // calldata flag
         opcodes.OP_1NEGATE,
 
         opcodes.OP_ELSE,
@@ -377,7 +377,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         }
 
         // Calldata flag
-        /*if (scriptData.shift() !== opcodes.OP_0) {
+        if (scriptData.shift() !== opcodes.OP_0) {
             return;
         }
 
@@ -392,7 +392,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
                 calldata.byteLength
         ) {
             throw new Error(`OP_NET: Calldata length exceeds maximum allowed size.`);
-        }*/
+        }
 
         // ... Future implementation before this opcode
         if (scriptData.shift() !== opcodes.OP_1NEGATE) {
