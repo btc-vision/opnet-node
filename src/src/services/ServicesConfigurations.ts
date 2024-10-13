@@ -22,7 +22,7 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
     },
 
     [ThreadTypes.RPC]: {
-        maxInstance: Math.ceil(Config.RPC.THREADS / 2),
+        maxInstance: Math.ceil(Config.RPC.THREADS / 3), // This creates 3 threads per instance
         target: './src/blockchain-indexer/rpc/thread/BitcoinRPCThread.js',
     },
 
