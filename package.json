@@ -48,7 +48,7 @@
     "@btc-vision/bsi-db": "^1.0.4",
     "@btc-vision/logger": "^1.0.6",
     "@btc-vision/op-vm": "^0.1.10",
-    "@btc-vision/transaction": "^1.0.108",
+    "@btc-vision/transaction": "file:../transaction",
     "@chainsafe/libp2p-noise": "^15.0.0",
     "@chainsafe/libp2p-yamux": "^6.0.2",
     "@eslint/js": "^9.10.0",

@@ -289,6 +289,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             contractSaltPubKey: this.contractSigner.publicKey,
             originalSalt: this.contractSeed,
             bytecode: this.bytecode,
+            calldata: this._calldata,
             network: this.network,
         };
 
