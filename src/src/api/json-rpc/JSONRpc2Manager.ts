@@ -17,8 +17,7 @@ import {
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
 
-import json from 'big-json';
-import { Readable } from 'node:stream';
+//import json from 'big-json';
 
 export class JSONRpc2Manager extends Logger {
     public static readonly RPC_VERSION = '2.0' as const;
@@ -103,17 +102,18 @@ export class JSONRpc2Manager extends Logger {
                 response = resp;
             }
 
-            const stream = json.createStringifyStream({
-                body: response,
-            });
+            //const stream = json.createStringifyStream({
+            //    body: response,
+            //});
 
             res.status(200);
             res.header('Content-Type', 'application/json');
 
-            if (stream instanceof Readable) {
-                await res.stream(stream);
-            }
+            //if (stream instanceof Readable) {
+            //    await res.stream(stream);
+            //}
 
+            res.json(response);
             res.end();
         } catch (err) {
             if (Config.DEV.DEBUG_API_ERRORS) {
