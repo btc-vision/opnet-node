@@ -450,7 +450,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     protected setBurnedFee(witnessOutput: TransactionOutput): void {
         const scriptPubKey: ScriptPubKey = witnessOutput.scriptPubKey;
 
-        if (
+        /*if (
             !(
                 scriptPubKey.type === 'witness_v1_taproot' ||
                 scriptPubKey.type === 'witness_v0_keyhash'
@@ -459,7 +459,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             throw new Error(
                 `Invalid scriptPubKey type for contract witness output. Was ${scriptPubKey.type}`,
             );
-        }
+        }*/
 
         if (!scriptPubKey.address) {
             throw new Error('No address found for contract witness output');

@@ -30,6 +30,8 @@ const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 /* TODO: Potentially allow multiple contract interaction per transaction since BTC supports that? Maybe, in the future, for now let's stick with one. */
 export class WrapTransaction extends InteractionTransaction {
     public static override LEGACY_INTERACTION: Buffer = Buffer.from([
+        opcodes.OP_TOALTSTACK,
+
         opcodes.OP_CHECKSIGVERIFY,
         opcodes.OP_CHECKSIGVERIFY,
 
@@ -225,6 +227,7 @@ export class WrapTransaction extends InteractionTransaction {
         }
 
         return {
+            firstByte: header.firstByte,
             pubKeys,
             minimumSignatures: minimumSignatures,
             senderPubKey: header.senderPubKey,

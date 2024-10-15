@@ -21,6 +21,8 @@ import { Address } from '@btc-vision/bsi-binary';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
 interface DeploymentWitnessData {
+    readonly rawPubKey: Buffer;
+
     deployerPubKey: Buffer;
     deployerPubKeyHash: Buffer;
 
@@ -33,6 +35,8 @@ interface DeploymentWitnessData {
 
 export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Deployment> {
     public static LEGACY_DEPLOYMENT_SCRIPT: Buffer = Buffer.from([
+        opcodes.OP_TOALTSTACK,
+
         opcodes.OP_CHECKSIGVERIFY,
         opcodes.OP_CHECKSIGVERIFY,
 
@@ -66,6 +70,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public contractSeed: Buffer | undefined;
 
     public deployerPubKey: Buffer | undefined;
+    public rawPubKey: Buffer | undefined;
     public deployerPubKeyHash: Buffer | undefined;
 
     public contractSigner: ECPairInterface | undefined;
@@ -196,6 +201,13 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         const originalSalt = Buffer.from(witnesses[0], 'hex');
         const deployerPubKey = Buffer.from(witnesses[1], 'hex');
 
+        // Regenerate raw public key
+        const rawPubKey = Buffer.alloc(deployerPubKey.length + 1);
+        rawPubKey.writeUInt8(deploymentWitnessData.rawPubKey.readUInt8(0), 0);
+
+        // copy data of deployerPubKey to rawPubKey
+        deployerPubKey.copy(rawPubKey, 1);
+
         /** Verify witness data */
         const hashDeployerPubKey = bitcoin.crypto.hash160(deployerPubKey);
         if (!hashDeployerPubKey.equals(deploymentWitnessData.deployerPubKeyHash)) {
@@ -216,6 +228,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
         this.deployerPubKeyHash = hashDeployerPubKey;
         this.deployerPubKey = deployerPubKey;
+        this.rawPubKey = rawPubKey;
         this.contractSeed = originalSalt;
 
         /** Verify contract salt */
@@ -280,12 +293,13 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
     private getOriginalContractAddress(): string {
         if (!this.deployerPubKey) throw new Error('Deployer public key not found');
+        if (!this.rawPubKey) throw new Error('Raw public key not found');
         if (!this.contractSigner) throw new Error('Contract signer not found');
         if (!this.contractSeed) throw new Error('Contract seed not found');
         if (!this.bytecode) throw new Error('Compressed bytecode not found');
 
         const params: ContractAddressVerificationParams = {
-            deployerPubKeyXOnly: this.deployerPubKey,
+            deployerPubKey: this.rawPubKey,
             contractSaltPubKey: this.contractSigner.publicKey,
             originalSalt: this.contractSeed,
             bytecode: this.bytecode,
@@ -312,6 +326,15 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     private getDeploymentWitnessData(
         scriptData: Array<number | Buffer>,
     ): DeploymentWitnessData | undefined {
+        const rawPubKey = scriptData.shift();
+        if (!Buffer.isBuffer(rawPubKey)) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
+            return;
+        }
+
         const deployerPubKey = scriptData.shift();
         if (!Buffer.isBuffer(deployerPubKey)) {
             return;
@@ -414,6 +437,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         }
 
         return {
+            rawPubKey,
             deployerPubKey,
             contractSaltPubKey,
             deployerPubKeyHash,

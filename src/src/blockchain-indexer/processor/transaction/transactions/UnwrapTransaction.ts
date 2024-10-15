@@ -21,6 +21,8 @@ const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 
 export class UnwrapTransaction extends InteractionTransaction {
     public static override LEGACY_INTERACTION: Buffer = Buffer.from([
+        opcodes.OP_TOALTSTACK,
+
         // This signature only match unwrap transactions. Otherwise, it's considered invalid.
         opcodes.OP_CHECKSIGVERIFY,
         opcodes.OP_CHECKSIGVERIFY,
@@ -122,6 +124,7 @@ export class UnwrapTransaction extends InteractionTransaction {
         }
 
         return {
+            firstByte: header.firstByte,
             senderPubKey: header.senderPubKey,
             interactionSaltPubKey: header.interactionSaltPubKey,
             senderPubKeyHash160: header.senderPubKeyHash160,

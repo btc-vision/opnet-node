@@ -25,6 +25,8 @@ export interface InteractionWitnessData {
     senderPubKeyHash160: Buffer;
     contractSecretHash160: Buffer;
     calldata: Buffer;
+
+    readonly firstByte: Buffer;
 }
 
 initEccLib(ecc);
@@ -34,6 +36,8 @@ const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 /* TODO: Potentially allow multiple contract interaction per transaction since BTC supports that? Maybe, in the future, for now let's stick with one. */
 export class InteractionTransaction extends Transaction<InteractionTransactionType> {
     public static LEGACY_INTERACTION: Buffer = Buffer.from([
+        opcodes.OP_TOALTSTACK,
+
         opcodes.OP_CHECKSIGVERIFY,
         opcodes.OP_CHECKSIGVERIFY,
 
@@ -126,6 +130,15 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     public static getInteractionWitnessDataHeader(
         scriptData: Array<number | Buffer>,
     ): Omit<InteractionWitnessData, 'calldata'> | undefined {
+        const firstByte = scriptData.shift();
+        if (!Buffer.isBuffer(firstByte)) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
+            return;
+        }
+
         const senderPubKey: Buffer = scriptData.shift() as Buffer;
         if (!Buffer.isBuffer(senderPubKey)) {
             return;
@@ -185,6 +198,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         return {
+            firstByte,
             senderPubKey,
             interactionSaltPubKey,
             senderPubKeyHash160,
@@ -218,6 +232,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         return {
+            firstByte: header.firstByte,
             senderPubKey: header.senderPubKey,
             interactionSaltPubKey: header.interactionSaltPubKey,
             senderPubKeyHash160: header.senderPubKeyHash160,
