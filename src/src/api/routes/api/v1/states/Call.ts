@@ -295,14 +295,23 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             blockNumber = params.blockNumber ? BigInt(params.blockNumber) : undefined;
         }
 
+        if (!address) {
+            throw new Error('Receiver address not provided.');
+        }
+
+        const is0x = !address.startsWith('0x');
         if (
-            !address ||
+            is0x &&
             !(
                 AddressVerificator.validatePKHAddress(address, this.network) ||
                 AddressVerificator.isValidP2TRAddress(address, this.network)
             )
         ) {
-            throw new Error(`Invalid address specified. Address must be P2TR (taproot).`);
+            throw new Error('Invalid receiver address.');
+        }
+
+        if (is0x && address.length !== 66) {
+            throw new Error('Invalid receiver address.');
         }
 
         if (!calldata || calldata.length < 1) throw new Error(`Invalid calldata specified.`);
