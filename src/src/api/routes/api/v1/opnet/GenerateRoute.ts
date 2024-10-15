@@ -188,8 +188,8 @@ export class GenerateRoute extends Route<
             throw new Error('Receiver address not provided.');
         }
 
-        const is0x = !receiver.startsWith('0x');
-        if (is0x && !AddressVerificator.isValidP2TRAddress(receiver, this.network)) {
+        const is0x = receiver.startsWith('0x');
+        if (!is0x && !AddressVerificator.isValidP2TRAddress(receiver, this.network)) {
             throw new Error('Invalid receiver address.');
         }
 

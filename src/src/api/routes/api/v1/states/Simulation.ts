@@ -301,9 +301,9 @@ export class Simulation extends Route<
             throw new Error('Receiver address not provided.');
         }
 
-        const is0x = !address.startsWith('0x');
+        const is0x = address.startsWith('0x');
         if (
-            is0x &&
+            !is0x &&
             !(
                 AddressVerificator.validatePKHAddress(address, this.network) ||
                 AddressVerificator.isValidP2TRAddress(address, this.network)
