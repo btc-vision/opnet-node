@@ -5,8 +5,8 @@ import {
     OPNetTransactionTypes,
 } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
-    TransactionInput,
-    TransactionInputBase,
+    APIDocumentInput,
+    ITransactionInput,
 } from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import {
     APIDocumentOutput,
@@ -23,7 +23,7 @@ export interface TransactionDocumentBasic<T extends OPNetTransactionTypes> {
     readonly index: number; // Mark the order of the transaction in the block
     readonly blockHeight: Decimal128 | string | undefined;
 
-    readonly inputs: TransactionInput[] | TransactionInputBase[];
+    readonly inputs: ITransactionInput[] | APIDocumentInput[];
     readonly outputs: ITransactionOutput[] | APIDocumentOutput[];
 
     readonly OPNetType: T;

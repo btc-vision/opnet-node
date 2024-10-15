@@ -366,14 +366,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                 this.receipt && this.receipt.gasUsed ? this.receipt.gasUsed : 0n,
             ),
 
-            inputs: this.inputs.map((input) => {
-                return {
-                    originalTransactionId: input.originalTransactionId,
-                    outputTransactionIndex: input.outputTransactionIndex,
-                    sequenceId: input.sequenceId,
-                    transactionInWitness: input.transactionInWitness,
-                };
+            inputs: this.inputs.map((input: TransactionInput) => {
+                return input.toDocument();
             }),
+
             outputs: outputDocuments,
 
             OPNetType: this.transactionType,

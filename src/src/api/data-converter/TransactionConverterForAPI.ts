@@ -19,10 +19,20 @@ export class TransactionConverterForAPI {
 
         const newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
+            inputs: transaction.inputs?.map((input) => {
+                return {
+                    ...input,
+                    pubKey: input.pubKey?.toString('base64'),
+                    pubKeyHash: input.pubKeyHash?.toString('base64'),
+                };
+            }),
             outputs: transaction.outputs?.map((output) => {
                 return {
                     ...output,
                     value: output.value.toString(),
+                    pubKeys: output.pubKeys?.map((key) => key.toString('base64')),
+                    pubKeyHash: output.pubKeyHash?.toString('base64'),
+                    schnorrPubKey: output.schnorrPubKey?.toString('base64'),
                 };
             }),
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access

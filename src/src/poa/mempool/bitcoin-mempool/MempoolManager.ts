@@ -127,6 +127,7 @@ export class MempoolManager extends Logger {
     private async fetchAllUnknownTransactions(txs: string[]): Promise<IMempoolTransactionObj[]> {
         const batchSize = 50;
         const txsData = [];
+
         for (let i = 0; i < txs.length; i += batchSize) {
             const batch = txs.slice(i, i + batchSize);
 
