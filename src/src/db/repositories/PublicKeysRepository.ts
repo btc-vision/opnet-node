@@ -183,7 +183,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 p2wpkh: p2wpkh,
             });
         } catch {
-            console.log('error in tx:', publicKey.toString('hex'), txId);
+            this.error('error in tx:', publicKey.toString('hex'), txId);
         }
     }
 
