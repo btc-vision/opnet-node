@@ -155,32 +155,34 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         const str = publicKey.toString('hex');
         if (this.cache.has(str)) return;
 
-        const tweakedPublicKey = this.tweakPublicKey(publicKey);
-        const tweakedPublicKeyStr = tweakedPublicKey.toString('hex').slice(2);
-        if (this.cache.has(tweakedPublicKeyStr)) {
-            return;
-        }
+        try {
+            const tweakedPublicKey = this.tweakPublicKey(publicKey);
+            const tweakedPublicKeyStr = tweakedPublicKey.toString('hex').slice(2);
+            if (this.cache.has(tweakedPublicKeyStr)) {
+                return;
+            }
 
-        const p2tr = this.tweakedPubKeyToAddress(tweakedPublicKey, this.network);
-        const ecKeyPair = EcKeyPair.fromPublicKey(publicKey, this.network);
+            const p2tr = this.tweakedPubKeyToAddress(tweakedPublicKey, this.network);
+            const ecKeyPair = EcKeyPair.fromPublicKey(publicKey, this.network);
 
-        const p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
-        const p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(ecKeyPair, this.network);
+            const p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
+            const p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(ecKeyPair, this.network);
 
-        const p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
+            const p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
 
-        this.cache.add(str);
-        this.cache.add(tweakedPublicKeyStr);
+            this.cache.add(str);
+            this.cache.add(tweakedPublicKeyStr);
 
-        publicKeys.push({
-            publicKey: new Binary(publicKey),
-            tweakedPublicKey: new Binary(toXOnly(tweakedPublicKey)),
-            lowByte: tweakedPublicKey[0],
-            p2tr: p2tr,
-            p2pkh: p2pkh,
-            p2shp2wpkh: p2shp2wpkh,
-            p2wpkh: p2wpkh,
-        });
+            publicKeys.push({
+                publicKey: new Binary(publicKey),
+                tweakedPublicKey: new Binary(toXOnly(tweakedPublicKey)),
+                lowByte: tweakedPublicKey[0],
+                p2tr: p2tr,
+                p2pkh: p2pkh,
+                p2shp2wpkh: p2shp2wpkh,
+                p2wpkh: p2wpkh,
+            });
+        } catch {}
     }
 
     private decodeOutput(
