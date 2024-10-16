@@ -154,6 +154,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Buffer): void {
         const str = publicKey.toString('hex');
         if (this.cache.has(str)) return;
+        console.log('Adding public key:', str);
 
         const tweakedPublicKey = this.tweakPublicKey(publicKey);
         const tweakedPublicKeyStr = tweakedPublicKey.toString('hex').slice(2);
