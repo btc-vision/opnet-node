@@ -40,7 +40,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
                 for (const input of inputs) {
                     if (input.decodedPubKey) {
-                        this.addPubKey(publicKeys, input.decodedPubKey);
+                        this.addPubKey(publicKeys, input.decodedPubKey, tx.id);
                     }
                 }
 
@@ -151,7 +151,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         });
     }
 
-    private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Buffer): void {
+    private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Buffer, txId: string): void {
         const str = publicKey.toString('hex');
         if (this.cache.has(str)) return;
 
@@ -182,7 +182,9 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 p2shp2wpkh: p2shp2wpkh,
                 p2wpkh: p2wpkh,
             });
-        } catch {}
+        } catch {
+            console.log('error in tx:', publicKey.toString('hex'), txId);
+        }
     }
 
     private decodeOutput(
@@ -194,7 +196,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         switch (type) {
             case 'pubkey': {
                 if (output.decodedPublicKeys && output.decodedPublicKeys.length) {
-                    this.addPubKey(publicKeys, output.decodedPublicKeys[0]);
+                    this.addPubKey(publicKeys, output.decodedPublicKeys[0], txId);
                 }
                 break;
             }
