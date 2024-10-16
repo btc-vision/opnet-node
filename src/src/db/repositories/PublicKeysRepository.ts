@@ -11,6 +11,7 @@ import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { EcKeyPair } from '@btc-vision/transaction';
 import fs from 'fs';
+import { TransactionInput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 
 export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocument> {
     public readonly logColor: string = '#afeeee';
@@ -34,15 +35,15 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             this.clearCache();
         }
 
-        fs.writeFileSync(
-            `transactions-${Math.random()}.json`,
-            JSON.stringify(transactions, null, 4),
-        );
-
+        let inputs2: TransactionInput[] = [];
+        let outputs2: TransactionOutput[] = [];
         for (const transaction of transactions) {
             for (const tx of transaction.transactions) {
                 const inputs = tx.inputs;
                 const outputs = tx.outputs;
+
+                inputs2 = inputs2.concat(inputs);
+                outputs2 = outputs2.concat(outputs);
 
                 for (const input of inputs) {
                     if (input.decodedPubKey) {
@@ -60,6 +61,18 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 }
             }
         }
+
+        fs.writeFileSync(
+            `transactions-${Math.random()}.json`,
+            JSON.stringify(
+                {
+                    inputs: inputs2,
+                    outputs: outputs2,
+                },
+                null,
+                4,
+            ),
+        );
 
         if (publicKeys.length) {
             await this.addPubKeys(publicKeys);
