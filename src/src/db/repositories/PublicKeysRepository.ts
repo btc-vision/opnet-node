@@ -10,6 +10,7 @@ import { Network, payments } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { EcKeyPair } from '@btc-vision/transaction';
+import fs from 'fs';
 
 export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocument> {
     public readonly logColor: string = '#afeeee';
@@ -32,6 +33,11 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         if (this.cache.size > this.MAX_CACHE_SIZE) {
             this.clearCache();
         }
+
+        fs.writeFileSync(
+            `transactions-${Math.random()}.json`,
+            JSON.stringify(transactions, null, 4),
+        );
 
         for (const transaction of transactions) {
             for (const tx of transaction.transactions) {
@@ -154,7 +160,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Buffer): void {
         const str = publicKey.toString('hex');
         if (this.cache.has(str)) return;
-        console.log('Adding public key:', str);
 
         const tweakedPublicKey = this.tweakPublicKey(publicKey);
         const tweakedPublicKeyStr = tweakedPublicKey.toString('hex').slice(2);
