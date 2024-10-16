@@ -50,7 +50,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                         continue;
                     }
 
-                    this.decodeOutput(publicKeys, output, type);
+                    this.decodeOutput(publicKeys, output, type, tx.id);
                 }
             }
         }
@@ -187,12 +187,17 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         publicKeys: PublicKeyDocument[],
         output: TransactionOutput,
         type: string,
+        txId: string,
     ): void {
         switch (type) {
             case 'pubkey': {
                 if (output.decodedPublicKeys && output.decodedPublicKeys.length) {
                     this.addPubKey(publicKeys, output.decodedPublicKeys[0]);
                 }
+                break;
+            }
+            case 'pubkeyhash': {
+                console.log(output, txId);
                 break;
             }
             case 'multisig': {
