@@ -197,7 +197,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 break;
             }
             case 'pubkeyhash': {
-                console.log(output, txId);
                 break;
             }
             case 'multisig': {

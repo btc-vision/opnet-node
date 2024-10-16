@@ -71,7 +71,7 @@ export class TransactionInput implements TransactionInputBase {
     // decode public key for P2PK and SegWit (P2WPKH)
     private decodePubKey(): Buffer | null {
         // Decode from SegWit witness (P2WPKH)
-        if (this.transactionInWitness.length === 2) {
+        if (this.transactionInWitness.length === 2 && this.transactionInWitness[1].length === 66) {
             return Buffer.from(this.transactionInWitness[1], 'hex'); // Return the public key in hex format
         }
 
@@ -86,8 +86,14 @@ export class TransactionInput implements TransactionInputBase {
         return null; // No public key found
     }
 
-    // for P2PKH
+    // for P2PKH and P2WPKH
     private decodePubKeyHash(): Buffer | null {
+        // Check for P2WPKH in witness data
+        if (this.transactionInWitness.length === 2 && this.transactionInWitness[0].length === 40) {
+            return Buffer.from(this.transactionInWitness[0], 'hex'); // Return the public key hash in hex format
+        }
+
+        // Check for P2PKH in scriptSig
         if (this.scriptSignature && this.scriptSignature.asm) {
             const parts = this.scriptSignature.asm.split(' ');
             if (parts.length === 2 && parts[1].length === 40) {
