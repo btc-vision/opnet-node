@@ -144,6 +144,16 @@ export class TransactionOutput {
             return pubKeys.length > 0 ? pubKeys : null;
         }
 
+        // Check for P2PK (pay-to-pubkey) output: <33-byte pubKey> OP_CHECKSIG
+        if (
+            this.script.length === 2 &&
+            Buffer.isBuffer(this.script[0]) &&
+            this.script[0].length === 33 && // Compressed public key
+            this.script[1] === opcodes.OP_CHECKSIG
+        ) {
+            return [this.script[0]]; // Return the public key in hex
+        }
+
         return null; // No public keys found
     }
 

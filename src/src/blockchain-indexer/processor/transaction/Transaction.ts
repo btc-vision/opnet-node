@@ -328,8 +328,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     public toBitcoinDocument(): ITransactionDocumentBasic<T> {
-        //const outputDocuments = this.outputs.map((output) => output.toDocument());
-
         return {
             id: this.transactionId,
             hash: this.hash,
@@ -337,14 +335,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             index: this.index,
 
-            inputs: this.inputs.map((input) => {
-                return {
-                    originalTransactionId: input.originalTransactionId,
-                    outputTransactionIndex: input.outputTransactionIndex,
-                    sequenceId: input.sequenceId,
-                    transactionInWitness: input.transactionInWitness,
-                };
-            }),
+            inputs: this.inputs,
             outputs: this.outputs,
 
             OPNetType: this.transactionType,
@@ -353,6 +344,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public toDocument(): TransactionDocument<T> {
         const revertData: Uint8Array | undefined = this.revertBuffer;
+        const inputDocuments = this.inputs.map((input: TransactionInput) => {
+            return input.toDocument();
+        });
         const outputDocuments = this.outputs.map((output) => output.toDocument());
 
         return {
@@ -366,9 +360,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                 this.receipt && this.receipt.gasUsed ? this.receipt.gasUsed : 0n,
             ),
 
-            inputs: this.inputs.map((input: TransactionInput) => {
-                return input.toDocument();
-            }),
+            inputs: inputDocuments,
 
             outputs: outputDocuments,
             OPNetType: this.transactionType,
