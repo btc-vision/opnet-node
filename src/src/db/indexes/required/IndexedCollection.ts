@@ -15,6 +15,7 @@ export enum OPNetCollections {
     USED_WBTC_UTXO = 'USED_WBTC_UTXO',
     Vaults = 'Vaults',
     CompromisedTransactions = 'CompromisedTransactions',
+    PublicKeys = 'PublicKeys',
 }
 
 export abstract class IndexedCollection<T extends OPNetCollections> {

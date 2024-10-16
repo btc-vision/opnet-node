@@ -4,13 +4,10 @@ import {
     InteractionTransactionType,
     OPNetTransactionTypes,
 } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { ITransactionInput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import {
-    APIDocumentInput,
-    ITransactionInput,
-} from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
-import {
-    APIDocumentOutput,
     ITransactionOutput,
+    TransactionOutput,
 } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { Address } from '@btc-vision/bsi-binary';
 import { TrustedCompanies } from '../../poa/configurations/TrustedCompanies.js';
@@ -23,8 +20,8 @@ export interface TransactionDocumentBasic<T extends OPNetTransactionTypes> {
     readonly index: number; // Mark the order of the transaction in the block
     readonly blockHeight: Decimal128 | string | undefined;
 
-    readonly inputs: ITransactionInput[] | APIDocumentInput[];
-    readonly outputs: ITransactionOutput[] | APIDocumentOutput[];
+    readonly inputs: ITransactionInput[];
+    readonly outputs: TransactionOutput[];
 
     readonly OPNetType: T;
 }
@@ -41,10 +38,13 @@ export interface TransactionDocumentBase<T extends OPNetTransactionTypes>
 }
 
 export interface TransactionDocument<T extends OPNetTransactionTypes>
-    extends TransactionDocumentBase<T> {
+    extends Omit<TransactionDocumentBase<T>, 'inputs' | 'outputs'> {
     readonly blockHeight: Decimal128;
     readonly burnedBitcoin: Decimal128;
     readonly gasUsed: Decimal128;
+
+    readonly inputs: ITransactionInput[];
+    readonly outputs: ITransactionOutput[];
 
     readonly revert: Binary | undefined;
 }

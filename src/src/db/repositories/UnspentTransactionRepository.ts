@@ -1,15 +1,8 @@
-import {
-    BaseRepository,
-    DataAccessError,
-    DataAccessErrorType,
-    DebugLevel,
-} from '@btc-vision/bsi-common';
+import { DebugLevel } from '@btc-vision/bsi-common';
 import {
     AggregateOptions,
     AnyBulkWriteOperation,
     Binary,
-    BulkWriteOptions,
-    BulkWriteResult,
     ClientSession,
     Collection,
     Db,
@@ -17,7 +10,6 @@ import {
     Document,
     Filter,
     Long,
-    UpdateOptions,
 } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js';
@@ -33,10 +25,7 @@ import {
     UTXOSOutputTransactionFromDBV2,
 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
-import {
-    CurrentOpOutput,
-    OperationDetails,
-} from '../../vm/storage/interfaces/StorageInterfaces.js';
+import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 
 export interface ProcessUnspentTransaction {
     transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[];
@@ -45,7 +34,7 @@ export interface ProcessUnspentTransaction {
 
 export type ProcessUnspentTransactionList = ProcessUnspentTransaction[];
 
-export class UnspentTransactionRepository extends BaseRepository<IUnspentTransaction> {
+export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspentTransaction> {
     public readonly logColor: string = '#afeeee';
 
     private readonly uxtosAggregation: UTXOsAggregationV2 = new UTXOsAggregationV2();
@@ -53,14 +42,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
     public constructor(db: Db) {
         super(db);
-    }
-
-    public bigIntToLong(bigInt: bigint): Long {
-        return Long.fromBigInt(bigInt);
-    }
-
-    public decimal128ToLong(decimal128: Decimal128 | string): Long {
-        return Long.fromString(decimal128.toString());
     }
 
     public async deleteTransactionsFromBlockHeight(
@@ -78,38 +59,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         };
 
         await this.updateMany(criteriaSpent, { deletedAtBlock: undefined }, currentSession);
-    }
-
-    public async updateMany(
-        criteria: Partial<Filter<IUnspentTransaction>>,
-        document: Partial<IUnspentTransaction>,
-        currentSession?: ClientSession,
-    ): Promise<void> {
-        try {
-            const collection = this.getCollection();
-            const options: UpdateOptions = {
-                ...this.getOptions(currentSession),
-                upsert: false,
-            };
-
-            const updateResult = await collection.updateMany(criteria, { $set: document }, options);
-
-            if (!updateResult.acknowledged) {
-                throw new DataAccessError(
-                    'Concurrency error while updating.',
-                    DataAccessErrorType.Concurency,
-                    '',
-                );
-            }
-        } catch (error) {
-            if (error instanceof Error) {
-                const errorDescription: string = error.stack || error.message;
-
-                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
-            } else {
-                throw error;
-            }
-        }
     }
 
     public async insertTransactions(transactions: ProcessUnspentTransactionList): Promise<void> {
@@ -185,10 +134,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         );
 
         if (bulkWriteOperations.length) {
-            //const writeStart = Date.now();
             const chunks = this.chunkArray(bulkWriteOperations, 500);
-
-            //this.important(`[UTXO]: Conversion took ${Date.now() - start}ms. Awaiting writes...`);
             await this.waitForAllSessionsCommitted();
 
             let promises = [];
@@ -198,61 +144,20 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
 
             await Promise.all(promises);
 
-            //this.important(`[UTXO]: Bulk write (step 1) took ${Date.now() - writeStart}ms`);
-
             promises = [];
 
-            //const deleteStart = Date.now();
             const deleteChunks = this.chunkArray(bulkDeleteOperations, 500);
             for (const chunk of deleteChunks) {
                 promises.push(this.bulkWrite(chunk));
             }
 
             await Promise.all(promises);
-
-            /*this.important(
-                `[UTXO]: Bulk write (step 2) took ${Date.now() - deleteStart}ms - Range: ${lowestBlockHeight} - ${blockHeight}`,
-            );*/
         }
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE && Config.DEV_MODE) {
             this.log(
                 `Saved ${convertedUnspentTransactions.length} UTXOs, deleted ${convertedSpentTransactions.length} spent UTXOs in ${Date.now() - start}ms`,
             );
-        }
-    }
-
-    public async bulkWrite(
-        operations: AnyBulkWriteOperation<IUnspentTransaction>[],
-        currentSession?: ClientSession,
-    ): Promise<void> {
-        try {
-            const collection = this.getCollection();
-            const options: BulkWriteOptions = this.getOptions(currentSession);
-            options.ordered = false;
-            options.writeConcern = { w: 1 };
-
-            const result: BulkWriteResult = await collection.bulkWrite(operations, options);
-
-            if (result.hasWriteErrors()) {
-                result.getWriteErrors().forEach((error) => {
-                    this.error(`Bulk write error: ${error}`);
-                });
-
-                throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
-            }
-
-            if (!result.isOk()) {
-                throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
-            }
-        } catch (error) {
-            if (error instanceof Error) {
-                const errorDescription: string = error.stack || error.message;
-
-                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
-            } else {
-                throw error;
-            }
         }
     }
 
@@ -339,65 +244,6 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
         return this._db.collection(OPNetCollections.UnspentTransactions);
     }
 
-    private async waitForAllSessionsCommitted(pollInterval: number = 100): Promise<void> {
-        return new Promise<void>(async (resolve, reject) => {
-            const checkWrites = async (): Promise<boolean> => {
-                if (!this._db) {
-                    throw new Error('Database not connected');
-                }
-
-                try {
-                    // Fetch the current operations using currentOp command
-                    const result = (await this._db.admin().command({
-                        currentOp: true,
-                    })) as CurrentOpOutput;
-
-                    // Filter write operations (insert, update, delete, findAndModify)
-                    const writeOps = result.inprog.filter((op: OperationDetails) => {
-                        if (
-                            (op.active && op.transaction) ||
-                            op.op === 'insert' ||
-                            op.op === 'update' ||
-                            op.op === 'remove'
-                        ) {
-                            return true;
-                        }
-                    });
-
-                    // If no write operations are active, resolve true
-                    return writeOps.length === 0;
-                } catch (error) {
-                    console.error('Error checking write operations:', error);
-                    reject(error as Error);
-                    return false;
-                }
-            };
-
-            // Polling function
-            const poll = async () => {
-                const writesFinished = await checkWrites();
-                if (writesFinished) {
-                    resolve();
-                } else {
-                    setTimeout(poll, pollInterval);
-                }
-            };
-
-            // Start polling
-            await poll();
-        });
-    }
-
-    private chunkArray<T>(array: T[], size: number): T[][] {
-        return array.reduce<T[][]>((acc, _, i) => {
-            if (i % size === 0) {
-                acc.push(array.slice(i, i + size));
-            }
-
-            return acc;
-        }, []);
-    }
-
     // Transactions to delete
     private convertSpentTransactions(
         transactions: ProcessUnspentTransactionList,
@@ -446,7 +292,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                     if (output.value.toString() !== '0' && output.scriptPubKey.address) {
                         if (spent) {
                             spent.blockHeight = this.decimal128ToLong(transaction.blockHeight);
-                            spent.value = this.decimal128ToLong(output.value);
+                            spent.value = new Long(output.value); //this.decimal128ToLong(output.value);
                             spent.scriptPubKey = {
                                 hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                 address: output.scriptPubKey.address ?? null,
@@ -456,7 +302,7 @@ export class UnspentTransactionRepository extends BaseRepository<IUnspentTransac
                                 blockHeight: this.decimal128ToLong(transaction.blockHeight),
                                 transactionId: transaction.id,
                                 outputIndex: output.index,
-                                value: this.decimal128ToLong(output.value),
+                                value: new Long(output.value), //this.decimal128ToLong(document.value),
                                 scriptPubKey: {
                                     hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                     address: output.scriptPubKey.address ?? null,

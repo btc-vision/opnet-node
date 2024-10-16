@@ -17,6 +17,7 @@ import {IndexedUsedWbtcUtxo} from './required/IndexedUsedWbtcUtxo.js';
 import {IndexedCompromisedTransactions} from './required/IndexedCompromisedTransactions.js';
 import {IndexedUnspentTransactions} from './required/IndexedUnspentTransactions.js';
 import {Config} from '../../config/Config.js';
+import {IndexedPublicKeys} from './required/IndexedPublicKeys.js';
 
 /** This class job is to create the required indexes for the database */
 export class IndexManager extends Logger {
@@ -37,6 +38,7 @@ export class IndexManager extends Logger {
         new IndexedUsedWbtcUtxo(),
         new IndexedCompromisedTransactions(),
         new IndexedUnspentTransactions(),
+        new IndexedPublicKeys(),
     ];
 
     constructor(private readonly opnetDB: ConfigurableDBManager) {

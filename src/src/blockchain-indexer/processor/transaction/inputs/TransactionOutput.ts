@@ -1,7 +1,7 @@
 import { ScriptPubKey, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import BigNumber from 'bignumber.js';
 import { opcodes, script } from 'bitcoinjs-lib';
-import { Binary, Decimal128 } from 'mongodb';
+import { Decimal128 } from 'mongodb';
 
 export interface ITransactionOutputBase {
     readonly value: Decimal128 | string;
@@ -16,16 +16,16 @@ export interface ITransactionOutputBase {
 export interface ITransactionOutput extends ITransactionOutputBase {
     readonly value: Decimal128;
 
-    pubKeyHash?: Binary;
-    pubKeys?: Binary[];
-    schnorrPubKey?: Binary;
+    //pubKeyHash?: Binary;
+    //pubKeys?: Binary[];
+    //schnorrPubKey?: Binary;
 }
 
 export interface APIDocumentOutput extends ITransactionOutputBase {
     readonly value: string;
-    readonly pubKeyHash?: string;
-    readonly pubKeys?: string[];
-    readonly schnorrPubKey?: string;
+    //readonly pubKeyHash?: string;
+    //readonly pubKeys?: string[];
+    //readonly schnorrPubKey?: string;
 }
 
 export class TransactionOutput {
@@ -64,7 +64,7 @@ export class TransactionOutput {
             },
         };
 
-        if (this.decodedPubKeyHash) {
+        /*if (this.decodedPubKeyHash) {
             returnType.pubKeyHash = new Binary(this.decodedPubKeyHash);
         }
 
@@ -74,7 +74,7 @@ export class TransactionOutput {
 
         if (this.decodedSchnorrPublicKey) {
             returnType.schnorrPubKey = new Binary(this.decodedSchnorrPublicKey);
-        }
+        }*/
 
         return returnType;
     }

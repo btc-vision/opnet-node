@@ -17,6 +17,7 @@ import {
 } from '../../../db/repositories/UnspentTransactionRepository.js';
 import { DBManagerInstance } from '../../../db/DBManager.js';
 import { IChainReorg } from '../../../threading/interfaces/thread-messages/messages/indexer/IChainReorg.js';
+import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -42,6 +43,16 @@ export class ChainSynchronisation extends Logger {
         }
 
         return this._unspentTransactionRepository;
+    }
+
+    private _publicKeysRepository: PublicKeysRepository | undefined;
+
+    private get publicKeysRepository(): PublicKeysRepository {
+        if (!this._publicKeysRepository) {
+            throw new Error('PublicKeysRepository not initialized');
+        }
+
+        return this._publicKeysRepository;
     }
 
     private _blockFetcher: BlockFetcher | undefined;
@@ -72,6 +83,7 @@ export class ChainSynchronisation extends Logger {
         });
 
         this._unspentTransactionRepository = new UnspentTransactionRepository(DBManagerInstance.db);
+        this._publicKeysRepository = new PublicKeysRepository(DBManagerInstance.db);
 
         await this.startSaveLoop();
     }
@@ -147,6 +159,7 @@ export class ChainSynchronisation extends Logger {
         this.purgeUTXOs();
 
         try {
+            await this.publicKeysRepository.processPublicKeys(utxos);
             await this.unspentTransactionRepository.insertTransactions(utxos);
 
             this.success(`Saved ${utxos.length} block UTXOs to database.`);

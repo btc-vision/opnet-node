@@ -1,5 +1,4 @@
 import { ScriptSig, VIn } from '@btc-vision/bsi-bitcoin-rpc';
-import { Binary } from 'mongodb';
 
 export interface TransactionInputBase {
     readonly originalTransactionId: string | undefined;
@@ -12,13 +11,13 @@ export interface TransactionInputBase {
 }
 
 export interface ITransactionInput extends TransactionInputBase {
-    pubKey?: Binary;
-    pubKeyHash?: Binary;
+    //pubKey?: Binary;
+    //pubKeyHash?: Binary;
 }
 
 export interface APIDocumentInput extends TransactionInputBase {
-    pubKey?: string;
-    pubKeyHash?: string;
+    //pubKey?: string;
+    //pubKeyHash?: string;
 }
 
 export class TransactionInput implements TransactionInputBase {
@@ -58,13 +57,13 @@ export class TransactionInput implements TransactionInputBase {
             transactionInWitness: this.transactionInWitness,
         };
 
-        if (this.decodedPubKey) {
+        /*if (this.decodedPubKey) {
             returnType.pubKey = new Binary(this.decodedPubKey);
         }
 
         if (this.decodedPubKeyHash) {
             returnType.pubKeyHash = new Binary(this.decodedPubKeyHash);
-        }
+        }*/
 
         return returnType;
     }

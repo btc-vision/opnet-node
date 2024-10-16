@@ -328,7 +328,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     public toBitcoinDocument(): ITransactionDocumentBasic<T> {
-        const outputDocuments = this.outputs.map((output) => output.toDocument());
+        //const outputDocuments = this.outputs.map((output) => output.toDocument());
 
         return {
             id: this.transactionId,
@@ -345,7 +345,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                     transactionInWitness: input.transactionInWitness,
                 };
             }),
-            outputs: outputDocuments,
+            outputs: this.outputs,
 
             OPNetType: this.transactionType,
         };
@@ -371,7 +371,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             }),
 
             outputs: outputDocuments,
-
             OPNetType: this.transactionType,
 
             revert: revertData ? new Binary(revertData) : undefined,

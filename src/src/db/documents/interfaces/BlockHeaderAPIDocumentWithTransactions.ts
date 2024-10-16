@@ -5,6 +5,8 @@ import {
     TransactionDocumentBase,
 } from '../../interfaces/ITransactionDocument.js';
 import { PartialWBTCUTXODocumentForAPI } from '../../interfaces/IWBTCUTXODocument.js';
+import { APIDocumentOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import { APIDocumentInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 
 export interface EventReceiptDataForAPI {
     readonly contractAddress: string;
@@ -14,12 +16,15 @@ export interface EventReceiptDataForAPI {
 }
 
 export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
-    extends TransactionDocumentBase<T> {
+    extends Omit<TransactionDocumentBase<T>, 'outputs' | 'inputs'> {
     readonly burnedBitcoin: string;
     readonly revert: string | undefined;
 
     readonly events: EventReceiptDataForAPI[];
     readonly gasUsed: string;
+
+    readonly outputs: APIDocumentOutput[];
+    readonly inputs: APIDocumentInput[];
 
     blockHeight: undefined;
     deployedTransactionHash: undefined;
