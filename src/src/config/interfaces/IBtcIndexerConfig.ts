@@ -83,6 +83,7 @@ export interface MempoolConfig {
 
     readonly EXPIRATION_BLOCKS: number;
     readonly ENABLE_BLOCK_PURGE: boolean;
+    readonly BATCH_SIZE: number;
 }
 
 export interface SSHConfig {

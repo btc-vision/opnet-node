@@ -125,11 +125,10 @@ export class MempoolManager extends Logger {
     }
 
     private async fetchAllUnknownTransactions(txs: string[]): Promise<IMempoolTransactionObj[]> {
-        const batchSize = 25;
         const txsData = [];
 
-        for (let i = 0; i < txs.length; i += batchSize) {
-            const batch = txs.slice(i, i + batchSize);
+        for (let i = 0; i < txs.length; i += Config.MEMPOOL.BATCH_SIZE) {
+            const batch = txs.slice(i, i + Config.MEMPOOL.BATCH_SIZE);
 
             const promises = batch.map(async (tx) => {
                 const params: BitcoinRawTransactionParams = {
