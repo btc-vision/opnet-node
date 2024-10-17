@@ -40,6 +40,11 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
                 for (const input of inputs) {
                     if (input.decodedPubKey) {
+                        if (this.isTaprootControlBlock(input.decodedPubKey)) {
+                            // Filter out taproot control blocks
+                            continue;
+                        }
+
                         this.addPubKey(publicKeys, input.decodedPubKey, tx.id);
                     }
                 }
@@ -122,7 +127,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         this.log(`Saving ${documents.length} public keys`);
 
         const chunks = this.chunkArray(bulkWriteOperations, 500);
-        await this.waitForAllSessionsCommitted();
 
         const promises = [];
         for (const chunk of chunks) {
@@ -149,6 +153,12 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
             p2tr: this.tweakedPubKeyToAddress(publicKey, this.network),
         });
+    }
+
+    private isTaprootControlBlock(data: Buffer): boolean {
+        const controlByte = data[0];
+
+        return controlByte === 0xc0 || controlByte === 0xc1;
     }
 
     private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Buffer, txId: string): void {

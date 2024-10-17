@@ -48,8 +48,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ALLOW_PURGE: true,
             BLOCK_QUERY_INTERVAL: 5000,
             READONLY_MODE: false,
+
+            /** UTXOs */
             DISABLE_UTXO_INDEXING: false,
             PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
+            UTXO_SAVE_INTERVAL: 5000,
         },
 
         DEV: {
@@ -280,6 +283,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(
                     `Oops the property INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS is not a number.`,
                 );
+            }
+
+            if (
+                parsedConfig.INDEXER.UTXO_SAVE_INTERVAL !== undefined &&
+                typeof parsedConfig.INDEXER.UTXO_SAVE_INTERVAL !== 'number'
+            ) {
+                throw new Error(`Oops the property INDEXER.UTXO_SAVE_INTERVAL is not a number.`);
             }
 
             if (

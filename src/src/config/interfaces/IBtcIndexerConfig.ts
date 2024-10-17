@@ -20,6 +20,7 @@ export interface IndexerConfig {
 
     readonly DISABLE_UTXO_INDEXING: boolean;
     readonly PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: number;
+    readonly UTXO_SAVE_INTERVAL: number;
 }
 
 export interface RPCConfig {

@@ -130,7 +130,7 @@ export class ChainSynchronisation extends Logger {
 
         setTimeout(() => {
             void this.startSaveLoop();
-        }, 2500);
+        }, Config.INDEXER.UTXO_SAVE_INTERVAL);
     }
 
     private purgeUTXOs(fromBlock?: bigint): void {
