@@ -307,11 +307,11 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 AddressVerificator.isValidP2TRAddress(address, this.network)
             )
         ) {
-            throw new Error('Invalid receiver address.');
+            throw new Error('Invalid receiver address. (P2TR or P2PKH)');
         }
 
         if (is0x && address.length !== 66) {
-            throw new Error('Invalid receiver address.');
+            throw new Error('Invalid pubkey.');
         }
 
         if (!calldata || calldata.length < 1) throw new Error(`Invalid calldata specified.`);
