@@ -9,10 +9,11 @@ import {
     VerificationVault,
 } from '../../verificator/consensus/UnwrapConsensusVerificator.js';
 import { MultiSignTransaction } from '@btc-vision/transaction';
+import { ECPairInterface } from 'ecpair';
 
 export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
     public readonly consensus: Consensus.Roswell = Consensus.Roswell;
-    private readonly signer: Signer;
+    private readonly signer: Signer | ECPairInterface;
 
     constructor(
         authority: OPNetIdentity,

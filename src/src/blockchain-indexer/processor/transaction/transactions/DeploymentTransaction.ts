@@ -300,7 +300,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
         const params: ContractAddressVerificationParams = {
             deployerPubKey: this.rawPubKey,
-            contractSaltPubKey: this.contractSigner.publicKey,
+            contractSaltPubKey: Buffer.from(this.contractSigner.publicKey),
             originalSalt: this.contractSeed,
             bytecode: this.bytecode,
             calldata: this._calldata,

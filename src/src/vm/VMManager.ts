@@ -776,7 +776,7 @@ export class VMManager extends Logger {
             false,
             evaluation.transactionId || '',
             evaluation.transactionHash || '',
-            deployerKeyPair.publicKey,
+            Buffer.from(deployerKeyPair.publicKey),
             salt,
             contractSaltHash,
             evaluation.contractAddress,
