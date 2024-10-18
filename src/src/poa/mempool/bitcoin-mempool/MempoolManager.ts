@@ -195,27 +195,35 @@ export class MempoolManager extends Logger {
     }
 
     private async generateMempoolBackup(): Promise<void> {
-        const start = Date.now();
-        await this.jsonProcessor.stringifyToFile(
-            Array.from(this.mempoolTransactionCache),
-            `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
-        );
+        try {
+            const start = Date.now();
+            await this.jsonProcessor.stringifyToFile(
+                Array.from(this.mempoolTransactionCache),
+                `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
+            );
 
-        this.info(`Generated mempool backup in ${Date.now() - start}ms`);
+            this.info(`Generated mempool backup in ${Date.now() - start}ms`);
+        } catch (e) {
+            this.error(`Failed to generate mempool backup: ${(e as Error).message}`);
+        }
     }
 
     private async restoreMempoolBackup(): Promise<void> {
-        const start = Date.now();
-        const txs = await this.jsonProcessor.parseFromFile(
-            `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
-        );
+        try {
+            const start = Date.now();
+            const txs = await this.jsonProcessor.parseFromFile(
+                `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
+            );
 
-        if (!txs) {
-            return;
+            if (!txs) {
+                return;
+            }
+
+            this.mempoolTransactionCache = new Set(txs);
+            this.info(`Restored mempool backup in ${Date.now() - start}ms`);
+        } catch (e) {
+            this.error(`Failed to restore mempool backup: ${(e as Error).message}`);
         }
-
-        this.mempoolTransactionCache = new Set(txs);
-        this.info(`Restored mempool backup in ${Date.now() - start}ms`);
     }
 
     private async generateMempoolPopulation(): Promise<void> {
