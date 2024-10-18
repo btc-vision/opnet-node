@@ -105,7 +105,7 @@ export class MempoolManager extends Logger {
                 }
 
                 const blockDiff = BigInt(currentBlockHeight.blockHeight) - blockHeight;
-                if (blockDiff >= 10n) {
+                if (blockDiff >= 2n) {
                     return;
                 }
 
