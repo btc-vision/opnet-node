@@ -255,8 +255,6 @@ export class MempoolManager extends Logger {
             const unknownTxs = txsList.filter((tx) => !this.mempoolTransactionCache.has(tx));
             this.mempoolTransactionCache = new Set(txsList);
 
-            await this.generateMempoolBackup(txsList);
-
             if (!unknownTxs.length) {
                 return;
             }
@@ -269,6 +267,8 @@ export class MempoolManager extends Logger {
             if (!newTxs.length) {
                 return;
             }
+
+            await this.generateMempoolBackup(txsList);
 
             const fetchedTxs = await this.fetchAllUnknownTransactions(newTxs);
             if (!fetchedTxs.length) {
