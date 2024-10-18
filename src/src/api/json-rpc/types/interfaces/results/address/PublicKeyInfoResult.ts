@@ -19,7 +19,7 @@ export interface IPubKeyNotFoundError {
 }
 
 export interface IPublicKeyInfoResult {
-    [key: string]: (PublicKeyInfo | IPubKeyNotFoundError)[];
+    [key: string]: PublicKeyInfo | IPubKeyNotFoundError;
 }
 
 export type PublicKeyInfoResult = JSONRpc2ResultData<JSONRpcMethods.PUBLIC_KEY_INFO> &

@@ -10,7 +10,11 @@ import { Network, payments } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { EcKeyPair } from '@btc-vision/transaction';
-import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
+import {
+    IPubKeyNotFoundError,
+    IPublicKeyInfoResult,
+    PublicKeyInfo,
+} from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 
 export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocument> {
     public readonly logColor: string = '#afeeee';
@@ -27,10 +31,29 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         this.cache.clear();
     }
 
-    public getAddressOrPublicKeysInformation(
+    public async getAddressOrPublicKeysInformation(
         addressOrPublicKeys: string[],
     ): Promise<IPublicKeyInfoResult> {
-        throw new Error('Method not implemented.');
+        const promises: Promise<PublicKeyDocument | IPubKeyNotFoundError>[] = [];
+        for (let i = 0; i < addressOrPublicKeys.length; i++) {
+            promises.push(this.getKeyInfo(addressOrPublicKeys[i]));
+        }
+
+        const results = await Promise.all(promises);
+        const pubKeyData: IPublicKeyInfoResult = {};
+
+        for (let i = 0; i < addressOrPublicKeys.length; i++) {
+            const key = addressOrPublicKeys[i];
+            const result: PublicKeyDocument | IPubKeyNotFoundError = results[i];
+
+            if ('error' in result) {
+                pubKeyData[key] = result;
+            } else {
+                pubKeyData[key] = this.convertToPublicKeysInfo(result);
+            }
+        }
+
+        return pubKeyData;
     }
 
     public async processPublicKeys(transactions: ProcessUnspentTransactionList): Promise<void> {
@@ -145,6 +168,49 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
     protected override getCollection(): Collection<PublicKeyDocument> {
         return this._db.collection(OPNetCollections.PublicKeys);
+    }
+
+    private convertToPublicKeysInfo(publicKey: PublicKeyDocument): PublicKeyInfo {
+        return {
+            lowByte: publicKey.lowByte,
+            originalPubKey: publicKey.publicKey?.toString('hex'),
+            tweakedPubkey: publicKey.tweakedPublicKey.toString('hex'),
+            p2pkh: publicKey.p2pkh,
+            p2shp2wpkh: publicKey.p2shp2wpkh,
+            p2tr: publicKey.p2tr,
+            p2wpkh: publicKey.p2wpkh,
+        };
+    }
+
+    private async getKeyInfo(key: string): Promise<PublicKeyDocument | IPubKeyNotFoundError> {
+        try {
+            const filter: Filter<PublicKeyDocument> = {
+                $or: [
+                    { p2tr: key },
+                    { p2pkh: key },
+                    { p2shp2wpkh: key },
+                    { p2wpkh: key },
+                    { tweakedPublicKey: new Binary(Buffer.from(key, 'hex')) },
+                    { publicKey: new Binary(Buffer.from(key, 'hex')) },
+                ],
+            };
+
+            return await this.getOne(filter);
+        } catch {
+            return {
+                error: 'Public key not found',
+            };
+        }
+    }
+
+    private async getOne(filter: Filter<PublicKeyDocument>): Promise<PublicKeyDocument> {
+        const resp = await this.getCollection().findOne(filter);
+
+        if (!resp) {
+            throw new Error('Public key not found');
+        }
+
+        return resp;
     }
 
     private addSchnorrPublicKey(publicKeys: PublicKeyDocument[], publicKey: Buffer): void {
