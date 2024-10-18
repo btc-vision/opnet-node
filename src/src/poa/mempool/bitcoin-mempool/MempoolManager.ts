@@ -204,8 +204,7 @@ export class MempoolManager extends Logger {
                 return;
             }
 
-            const start = Date.now();
-            if (txsList.length > 3_000_000) {
+            if (txsList.length > 10_000_000) {
                 await this.jsonProcessor.stringifyToFile(
                     txsList,
                     `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
@@ -216,8 +215,6 @@ export class MempoolManager extends Logger {
                     JSON.stringify(txsList),
                 );
             }
-
-            this.warn(`Generated mempool backup in ${Date.now() - start}ms`);
         } catch (e) {
             this.error(`Failed to generate mempool backup: ${(e as Error).message}`);
         }
