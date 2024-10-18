@@ -21,7 +21,7 @@ export class LargeJSONProcessor<T> {
             writableObjectMode: true,
             transform(chunk, _encoding, callback) {
                 try {
-                    const jsonString = JSON.stringify(chunk, null, 2);
+                    const jsonString = JSON.stringify(chunk);
                     callback(null, jsonString);
                 } catch (err) {
                     callback(err as Error);

@@ -194,6 +194,10 @@ export class MempoolManager extends Logger {
         }
     }
 
+    private doesBackupFileExist(): boolean {
+        return fs.existsSync(`${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`);
+    }
+
     private async generateMempoolBackup(txsList: Array<string>): Promise<void> {
         try {
             this.debugBright(`Generating mempool backup...`);
@@ -212,6 +216,10 @@ export class MempoolManager extends Logger {
 
     private async restoreMempoolBackup(): Promise<void> {
         try {
+            if (!this.doesBackupFileExist()) {
+                return;
+            }
+
             const start = Date.now();
             const txs = await this.jsonProcessor.parseFromFile(
                 `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
