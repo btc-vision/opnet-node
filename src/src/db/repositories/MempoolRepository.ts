@@ -129,21 +129,27 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     }
 
     public async getAllTransactionIncluded(txList: string[]): Promise<string[]> {
-        const aggregation = this.unspentTransactionMempoolAggregation.getAggregation(txList);
+        try {
+            const aggregation = this.unspentTransactionMempoolAggregation.getAggregation(txList);
 
-        const collection = this.getCollection();
-        const options: AggregateOptions = this.getOptions() as AggregateOptions;
-        options.allowDiskUse = true;
+            const collection = this.getCollection();
+            const options: AggregateOptions = this.getOptions() as AggregateOptions;
+            options.allowDiskUse = true;
 
-        const aggregatedDocument = collection.aggregate<MempoolTransactionAggregationOutput>(
-            aggregation,
-            options,
-        );
+            const aggregatedDocument = collection.aggregate<MempoolTransactionAggregationOutput>(
+                aggregation,
+                options,
+            );
 
-        const results: MempoolTransactionAggregationOutput[] = await aggregatedDocument.toArray();
-        const result = results[0];
+            const results: MempoolTransactionAggregationOutput[] =
+                await aggregatedDocument.toArray();
 
-        return result ? result.ids : [];
+            const result = results[0];
+
+            return result ? result.ids : [];
+        } catch {
+            return []; // will store all transactions
+        }
     }
 
     public async storeTransaction(transaction: IMempoolTransactionObj): Promise<boolean> {
