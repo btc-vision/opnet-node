@@ -19,6 +19,7 @@ import { IVaultDocument } from '../../db/interfaces/IVaultDocument.js';
 import { SelectedUTXOs } from '../../db/repositories/WBTCUTXORepository.js';
 import { ICompromisedTransactionDocument } from '../../db/interfaces/CompromisedTransactionDocument.js';
 import { BlockchainInfoRepository } from '../../db/repositories/BlockchainInfoRepository.js';
+import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 
 export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public readonly logColor: string = '#ff00ff';
@@ -27,9 +28,13 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         super();
     }
 
+    public abstract get blockchainRepository(): BlockchainInfoRepository;
+
     public abstract revertDataUntilBlock(height: bigint): Promise<void>;
 
-    public abstract get blockchainRepository(): BlockchainInfoRepository;
+    public abstract getAddressOrPublicKeysInformation(
+        publicKeys: string[],
+    ): Promise<IPublicKeyInfoResult>;
 
     public abstract getWitnesses(
         height: bigint | -1,

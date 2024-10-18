@@ -16,6 +16,7 @@ export enum Routes {
     /** Address */
     UTXOS = 'address/utxos',
     GET_BALANCE = 'address/get-balance',
+    PUBLIC_KEY_INFO = 'address/public-key-info',
 
     /** Transaction */
     TRANSACTION_BY_HASH = 'transaction/by-hash',

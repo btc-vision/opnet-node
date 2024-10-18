@@ -41,6 +41,8 @@ import { UnspentTransactionRepository } from '../../../db/repositories/UnspentTr
 import { Config } from '../../../config/Config.js';
 import { CurrentOpOutput, OperationDetails } from '../interfaces/StorageInterfaces.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
+import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
+import { IPublicKeyInfoResult } from '../../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -66,6 +68,7 @@ export class VMMongoStorage extends VMStorage {
     private compromisedTransactionRepository: CompromisedTransactionRepository | undefined;
     private usedUTXOsRepository: UsedWbtcUxtoRepository | undefined;
     private blockchainInfoRepository: BlockchainInfoRepository | undefined;
+    private publicKeysRepository: PublicKeysRepository | undefined;
     private initialized: boolean = false;
 
     constructor(
@@ -215,6 +218,18 @@ export class VMMongoStorage extends VMStorage {
         await this.usedUTXOsRepository.setUsedUtxo(usedUtxo, this.currentSession);
     }
 
+    public async getAddressOrPublicKeysInformation(
+        addressOrPublicKeys: string[],
+    ): Promise<IPublicKeyInfoResult> {
+        if (!this.publicKeysRepository) {
+            throw new Error('Public key repository not initialized');
+        }
+
+        return await this.publicKeysRepository.getAddressOrPublicKeysInformation(
+            addressOrPublicKeys,
+        );
+    }
+
     public async getWitnesses(
         height: bigint | -1,
         trusted?: boolean,
@@ -263,6 +278,7 @@ export class VMMongoStorage extends VMStorage {
         this.mempoolRepository = new MempoolRepository(this.databaseManager.db);
 
         this.usedUTXOsRepository = new UsedWbtcUxtoRepository(this.databaseManager.db);
+        this.publicKeysRepository = new PublicKeysRepository(this.databaseManager.db);
     }
 
     public async purgePointers(block: bigint): Promise<void> {

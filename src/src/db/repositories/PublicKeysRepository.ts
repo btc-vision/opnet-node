@@ -10,6 +10,7 @@ import { Network, payments } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { EcKeyPair } from '@btc-vision/transaction';
+import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 
 export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocument> {
     public readonly logColor: string = '#afeeee';
@@ -24,6 +25,12 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
     public clearCache(): void {
         this.cache.clear();
+    }
+
+    public getAddressOrPublicKeysInformation(
+        addressOrPublicKeys: string[],
+    ): Promise<IPublicKeyInfoResult> {
+        throw new Error('Method not implemented.');
     }
 
     public async processPublicKeys(transactions: ProcessUnspentTransactionList): Promise<void> {

@@ -1,5 +1,4 @@
 import { Address, BufferHelper } from '@btc-vision/bsi-binary';
-import bitcoin from 'bitcoinjs-lib';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -29,17 +28,12 @@ import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 import { AddressVerificator } from '@btc-vision/transaction';
-import { NetworkConverter } from '../../../../../config/network/NetworkConverter.js';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
-    private readonly network: bitcoin.networks.Network = bitcoin.networks.testnet;
-
     private pendingRequests: number = 0;
 
     constructor() {
         super(Routes.CALL, RouteType.GET);
-
-        this.network = NetworkConverter.getNetwork();
     }
 
     public static async requestThreadExecution(
@@ -299,19 +293,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             throw new Error('Receiver address not provided.');
         }
 
-        const is0x = address.startsWith('0x');
-        if (
-            !is0x &&
-            !(
-                AddressVerificator.validatePKHAddress(address, this.network) ||
-                AddressVerificator.isValidP2TRAddress(address, this.network)
-            )
-        ) {
-            throw new Error('Invalid receiver address. (P2TR or P2PKH)');
-        }
-
-        if (is0x && address.length !== 66) {
-            throw new Error('Invalid pubkey.');
+        if (!AddressVerificator.validateBitcoinAddress(address, this.network)) {
+            throw new Error(`Address ${address} is not a valid Bitcoin address.`);
         }
 
         if (!calldata || calldata.length < 1) throw new Error(`Invalid calldata specified.`);

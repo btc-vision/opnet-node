@@ -17,8 +17,6 @@ import {
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
 
-//import json from 'big-json';
-
 export class JSONRpc2Manager extends Logger {
     public static readonly RPC_VERSION = '2.0' as const;
 

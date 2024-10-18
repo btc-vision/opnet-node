@@ -21,6 +21,7 @@ import { BroadcastTransaction } from './api/v1/transaction/BroadcastTransaction.
 import { GenerateRoute } from './api/v1/opnet/GenerateRoute.js';
 import { GasRoute } from './api/v1/block/GasRoute.js';
 import { Simulation } from './api/v1/states/Simulation.js';
+import { PublicKeyInfoRoute } from './api/v1/address/PublicKeyInfoRoute.js';
 
 export const DefinedRoutes: {
     [key in Routes]: Route<key, JSONRpcMethods, object | string | undefined>;
@@ -38,6 +39,7 @@ export const DefinedRoutes: {
     /** Address */
     [Routes.UTXOS]: new UTXOsRoute(),
     [Routes.GET_BALANCE]: new GetBalanceRoute(),
+    [Routes.PUBLIC_KEY_INFO]: new PublicKeyInfoRoute(),
 
     /** States */
     [Routes.GET_STORAGE_AT]: new GetStorageAt(),

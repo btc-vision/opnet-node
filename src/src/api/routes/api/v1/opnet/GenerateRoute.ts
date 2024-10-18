@@ -22,8 +22,6 @@ import {
 import { UnwrapGenerator } from '../../../../../blockchain-indexer/processor/transaction/generator/UnwrapGenerator.js';
 import { ABICoder, Address, BinaryReader, BinaryWriter } from '@btc-vision/bsi-binary';
 import { AddressVerificator } from '@btc-vision/transaction';
-import { NetworkConverter } from '../../../../../config/network/NetworkConverter.js';
-import { Network } from 'bitcoinjs-lib';
 import { TrustedAuthority } from '../../../../../poa/configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../../../../poa/configurations/manager/AuthorityManager.js';
 import { Call } from '../states/Call.js';
@@ -39,8 +37,6 @@ export class GenerateRoute extends Route<
     private static WITHDRAWABLE_BALANCE_OF: number = Number(
         '0x' + abiCoder.encodeSelector('withdrawableBalanceOf'),
     );
-
-    private readonly network: Network = NetworkConverter.getNetwork();
 
     private readonly wrapTransactionGenerator: WrapTransactionGenerator =
         new WrapTransactionGenerator(this.network);
@@ -188,13 +184,8 @@ export class GenerateRoute extends Route<
             throw new Error('Receiver address not provided.');
         }
 
-        const is0x = receiver.startsWith('0x');
-        if (!is0x && !AddressVerificator.isValidP2TRAddress(receiver, this.network)) {
-            throw new Error('Invalid receiver address.');
-        }
-
-        if (is0x && receiver.length !== 66) {
-            throw new Error('Invalid receiver address.');
+        if (!AddressVerificator.validateBitcoinAddress(receiver, this.network)) {
+            throw new Error(`Address ${receiver} is not a valid Bitcoin address.`);
         }
 
         if (amount < this.MINIMUM_AMOUNT) {
