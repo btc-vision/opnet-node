@@ -194,11 +194,11 @@ export class MempoolManager extends Logger {
         }
     }
 
-    private async generateMempoolBackup(): Promise<void> {
+    private async generateMempoolBackup(txsList: Array<string>): Promise<void> {
         try {
             const start = Date.now();
             await this.jsonProcessor.stringifyToFile(
-                Array.from(this.mempoolTransactionCache),
+                txsList,
                 `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
             );
 
@@ -241,7 +241,7 @@ export class MempoolManager extends Logger {
             const unknownTxs = txsList.filter((tx) => !this.mempoolTransactionCache.has(tx));
             this.mempoolTransactionCache = new Set(txsList);
 
-            await this.generateMempoolBackup();
+            await this.generateMempoolBackup(txsList);
 
             if (!unknownTxs.length) {
                 return;
