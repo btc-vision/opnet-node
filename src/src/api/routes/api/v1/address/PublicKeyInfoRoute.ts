@@ -57,6 +57,9 @@ export class PublicKeyInfoRoute extends Route<
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            req.body = await req.json();
+
             const body = req.body as PublicKeyInfoParams;
             if (!body) {
                 throw new Error('Invalid params.');
