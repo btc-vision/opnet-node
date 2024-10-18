@@ -22,6 +22,7 @@ export class LargeJSONProcessor<T> {
             transform(chunk, _encoding, callback) {
                 try {
                     const jsonString = JSON.stringify(chunk);
+                    console.log('chunk', jsonString);
                     callback(null, jsonString);
                 } catch (err) {
                     callback(err as Error);
