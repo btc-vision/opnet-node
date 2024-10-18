@@ -196,6 +196,8 @@ export class MempoolManager extends Logger {
 
     private async generateMempoolBackup(txsList: Array<string>): Promise<void> {
         try {
+            this.debugBright(`Generating mempool backup...`);
+
             const start = Date.now();
             await this.jsonProcessor.stringifyToFile(
                 txsList,
