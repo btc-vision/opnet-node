@@ -12,6 +12,8 @@ import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransacti
 import { xxHash } from '../../hashing/xxhash.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';
+import fs from 'fs';
+import { LargeJSONProcessor } from '../../../utils/LargeJSONProcessor.js';
 
 export class MempoolManager extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -25,6 +27,11 @@ export class MempoolManager extends Logger {
     private mempoolTransactionCache: Set<string> = new Set();
     private currentBlockHeight: bigint = 0n;
     private startedMainLoop: boolean = false;
+
+    private readonly BACKUP_FOLDER: string = './mempool-backup';
+    private readonly BACKUP_FILE: string = 'mempool-backup.json';
+
+    private readonly jsonProcessor: LargeJSONProcessor<string[]> = new LargeJSONProcessor();
 
     public constructor() {
         super();
@@ -106,6 +113,9 @@ export class MempoolManager extends Logger {
                     this.info(`Starting to track mempool transactions...`);
 
                     this.startedMainLoop = true;
+                    this.createMempoolFolderIfNotExists();
+                    await this.restoreMempoolBackup();
+
                     void this.startFetchingMempool();
                 }
             }
@@ -121,7 +131,7 @@ export class MempoolManager extends Logger {
 
         setTimeout(() => {
             void this.startFetchingMempool();
-        }, 30000);
+        }, Config.MEMPOOL.FETCH_INTERVAL);
     }
 
     private async fetchAllUnknownTransactions(txs: string[]): Promise<IMempoolTransactionObj[]> {
@@ -178,6 +188,36 @@ export class MempoolManager extends Logger {
         return resp;
     }
 
+    private createMempoolFolderIfNotExists(): void {
+        if (!fs.existsSync(this.BACKUP_FOLDER)) {
+            fs.mkdirSync(this.BACKUP_FOLDER);
+        }
+    }
+
+    private async generateMempoolBackup(): Promise<void> {
+        const start = Date.now();
+        await this.jsonProcessor.stringifyToFile(
+            Array.from(this.mempoolTransactionCache),
+            `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
+        );
+
+        this.info(`Generated mempool backup in ${Date.now() - start}ms`);
+    }
+
+    private async restoreMempoolBackup(): Promise<void> {
+        const start = Date.now();
+        const txs = await this.jsonProcessor.parseFromFile(
+            `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
+        );
+
+        if (!txs) {
+            return;
+        }
+
+        this.mempoolTransactionCache = new Set(txs);
+        this.info(`Restored mempool backup in ${Date.now() - start}ms`);
+    }
+
     private async generateMempoolPopulation(): Promise<void> {
         try {
             const startedAt = Date.now();
@@ -192,6 +232,8 @@ export class MempoolManager extends Logger {
 
             const unknownTxs = txsList.filter((tx) => !this.mempoolTransactionCache.has(tx));
             this.mempoolTransactionCache = new Set(txsList);
+
+            await this.generateMempoolBackup();
 
             if (!unknownTxs.length) {
                 return;

@@ -127,6 +127,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             EXPIRATION_BLOCKS: 20,
             ENABLE_BLOCK_PURGE: true,
             BATCH_SIZE: 25,
+            FETCH_INTERVAL: 30000,
         },
 
         RPC: {
@@ -582,6 +583,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.MEMPOOL.BATCH_SIZE !== 'number'
             ) {
                 throw new Error(`Oops the property MEMPOOL.BATCH_SIZE is not a number.`);
+            }
+
+            if (
+                parsedConfig.MEMPOOL.FETCH_INTERVAL !== undefined &&
+                typeof parsedConfig.MEMPOOL.FETCH_INTERVAL !== 'number'
+            ) {
+                throw new Error(`Oops the property MEMPOOL.FETCH_INTERVAL is not a number.`);
             }
         }
 
