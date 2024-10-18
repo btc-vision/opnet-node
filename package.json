@@ -79,7 +79,7 @@
     "chalk": "^5.3.0",
     "cors": "^2.8.5",
     "datastore-level": "^10.1.8",
-    "ecpair": "github:btc-vision/ecpair",
+    "ecpair": "^2.1.0",
     "eslint-plugin-openapi": "^0.0.4",
     "figlet": "^1.7.0",
     "hyper-express": "^6.16.4",
