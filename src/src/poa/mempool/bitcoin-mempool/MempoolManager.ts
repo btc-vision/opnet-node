@@ -110,7 +110,7 @@ export class MempoolManager extends Logger {
                 }
 
                 if (!this.startedMainLoop) {
-                    this.info(`Starting to track mempool transactions...`);
+                    this.warn(`Starting to track mempool transactions...`);
 
                     this.startedMainLoop = true;
                     this.createMempoolFolderIfNotExists();
@@ -204,7 +204,7 @@ export class MempoolManager extends Logger {
                 return;
             }
 
-            this.panic(`Generating mempool backup...`);
+            this.warn(`Generating mempool backup...`);
 
             const start = Date.now();
             await this.jsonProcessor.stringifyToFile(
@@ -212,7 +212,7 @@ export class MempoolManager extends Logger {
                 `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
             );
 
-            this.info(`Generated mempool backup in ${Date.now() - start}ms`);
+            this.warn(`Generated mempool backup in ${Date.now() - start}ms`);
         } catch (e) {
             this.error(`Failed to generate mempool backup: ${(e as Error).message}`);
         }
@@ -234,7 +234,7 @@ export class MempoolManager extends Logger {
             }
 
             this.mempoolTransactionCache = new Set(txs);
-            this.info(`Restored mempool backup in ${Date.now() - start}ms`);
+            this.warn(`Restored mempool backup in ${Date.now() - start}ms`);
         } catch (e) {
             this.error(`Failed to restore mempool backup: ${(e as Error).message}`);
         }
