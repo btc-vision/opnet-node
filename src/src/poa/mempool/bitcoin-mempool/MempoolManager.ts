@@ -204,13 +204,18 @@ export class MempoolManager extends Logger {
                 return;
             }
 
-            this.warn(`Generating mempool backup...`);
-
             const start = Date.now();
-            await this.jsonProcessor.stringifyToFile(
-                txsList,
-                `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
-            );
+            if (txsList.length > 3_000_000) {
+                await this.jsonProcessor.stringifyToFile(
+                    txsList,
+                    `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
+                );
+            } else {
+                fs.writeFileSync(
+                    `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
+                    JSON.stringify(txsList),
+                );
+            }
 
             this.warn(`Generated mempool backup in ${Date.now() - start}ms`);
         } catch (e) {

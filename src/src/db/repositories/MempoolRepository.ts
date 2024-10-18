@@ -131,7 +131,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     public async getAllTransactionIncluded(txList: string[]): Promise<string[]> {
         const aggregation = this.unspentTransactionMempoolAggregation.getAggregation(txList);
 
-        this.panic(`Attempting to find ${txList.length} transactions in the mempool`);
+        this.warn(`Attempting to find ${txList.length} transactions in the mempool`);
 
         const collection = this.getCollection();
         const options: AggregateOptions = this.getOptions() as AggregateOptions;
