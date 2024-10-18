@@ -226,7 +226,6 @@ export class MempoolManager extends Logger {
                 return;
             }
 
-            const start = Date.now();
             const txs = await this.jsonProcessor.parseFromFile(
                 `${this.BACKUP_FOLDER}/${this.BACKUP_FILE}`,
             );
@@ -236,7 +235,6 @@ export class MempoolManager extends Logger {
             }
 
             this.mempoolTransactionCache = new Set(txs);
-            this.warn(`Restored mempool backup in ${Date.now() - start}ms`);
         } catch (e) {
             this.error(`Failed to restore mempool backup: ${(e as Error).message}`);
         }
