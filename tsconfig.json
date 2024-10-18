@@ -1,47 +1,48 @@
 {
-	"compilerOptions": {
-		"module": "ESNext",
-		"target": "ESNext",
-		"declaration": true,
-		"noImplicitAny": true,
-		"removeComments": false,
-		"suppressImplicitAnyIndexErrors": false,
-		"preserveConstEnums": true,
-		"resolveJsonModule": true,
-		"skipLibCheck": true,
-		"sourceMap": false,
-		"moduleDetection": "force",
-		"allowImportingTsExtensions": false,
-		"experimentalDecorators": true,
-		"lib": [
-			"es6",
-			"es2020",
-			"es2021",
-			"es2022",
-			"esnext",
-			"dom"
-		],
-		"strict": true,
-		"strictNullChecks": true,
-		"strictFunctionTypes": true,
-		"strictBindCallApply": true,
-		"strictPropertyInitialization": true,
-		"alwaysStrict": true,
-		"moduleResolution": "node",
-		"allowJs": true,
-		"incremental": true,
-		"allowSyntheticDefaultImports": true,
-		"outDir": "build",
-		"typeRoots": [
-			"node_modules/@types"
-		]
-	},
-	"include": [
-		"src/**/*.ts",
-		"src/*",
-		"src/**/*.js",
-		"src/*.ts",
-		"src/*.js",
-		"src/*.cjs"
-	]
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ESNext",
+    "declaration": true,
+    "noImplicitAny": true,
+    "removeComments": false,
+    "suppressImplicitAnyIndexErrors": false,
+    "preserveConstEnums": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": false,
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": false,
+    "experimentalDecorators": true,
+    "lib": [
+      "es6",
+      "es2020",
+      "es2021",
+      "es2022",
+      "esnext",
+      "dom"
+    ],
+    "strict": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "alwaysStrict": true,
+    "moduleResolution": "node",
+    "esModuleInterop": false,
+    "allowJs": true,
+    "incremental": true,
+    "allowSyntheticDefaultImports": true,
+    "outDir": "build",
+    "typeRoots": [
+      "node_modules/@types"
+    ]
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/*",
+    "src/**/*.js",
+    "src/*.ts",
+    "src/*.js",
+    "src/*.cjs"
+  ]
 }
