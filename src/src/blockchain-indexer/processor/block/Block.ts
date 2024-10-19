@@ -1,4 +1,4 @@
-import { Address, MemorySlotPointer } from '@btc-vision/bsi-binary';
+import { Address, MemorySlotPointer } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';

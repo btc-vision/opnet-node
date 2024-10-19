@@ -1,4 +1,4 @@
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { Decimal128, Document } from 'mongodb';
 import { UTXOsAggregation } from './UTXOsAggregation.js';
 

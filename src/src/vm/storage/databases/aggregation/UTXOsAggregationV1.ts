@@ -1,4 +1,4 @@
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { Document } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 

@@ -4,7 +4,7 @@ import {
     BufferHelper,
     DeterministicMap,
     MemorySlotData,
-} from '@btc-vision/bsi-binary';
+} from '@btc-vision/transaction';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';

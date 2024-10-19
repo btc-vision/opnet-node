@@ -1,4 +1,4 @@
-import { Address, BlockchainStorage, DeterministicMap } from '@btc-vision/bsi-binary';
+import { Address, BlockchainStorage, DeterministicMap } from '@btc-vision/transaction';
 import { BlockchainStorageMap, PointerStorageMap } from '../evaluated/EvaluatedResult.js';
 
 export class MapConverter {

@@ -1,5 +1,5 @@
 import { Binary, Decimal128, Long } from 'mongodb';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 
 export interface IMempoolTransaction {
     readonly identifier: Binary;

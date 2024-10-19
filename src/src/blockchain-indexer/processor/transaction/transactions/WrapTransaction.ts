@@ -7,7 +7,7 @@ import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { InteractionTransaction, InteractionWitnessData } from './InteractionTransaction.js';
 import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
-import { Address, BinaryReader, BinaryWriter } from '@btc-vision/bsi-binary';
+import { Address, BinaryReader, BinaryWriter } from '@btc-vision/transaction';
 import {
     WBTC_WRAP_SELECTOR,
     WRAPPING_FEE_STACKING,

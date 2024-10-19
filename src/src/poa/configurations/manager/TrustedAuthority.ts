@@ -13,7 +13,7 @@ import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { KeyPairGenerator } from '../../networking/encryptem/KeyPairGenerator.js';
 import { TrustedVersion } from '../version/TrustedVersion.js';
 import { Config } from '../../../config/Config.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { OPNET_FEE_WALLET } from '../../wbtc/WBTCRules.js';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
 

@@ -1,5 +1,5 @@
 import { Binary, Long } from 'mongodb';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 
 export interface ShortScriptPubKey {
     readonly hex: Binary;

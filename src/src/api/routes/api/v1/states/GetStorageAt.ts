@@ -1,4 +1,4 @@
-import { Address, BufferHelper } from '@btc-vision/bsi-binary';
+import { Address, BufferHelper } from '@btc-vision/transaction';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';

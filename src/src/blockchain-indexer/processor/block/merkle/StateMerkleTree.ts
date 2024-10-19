@@ -1,4 +1,4 @@
-import { Address, BufferHelper, MemorySlotData, MemorySlotPointer } from '@btc-vision/bsi-binary';
+import { Address, BufferHelper, MemorySlotData, MemorySlotPointer } from '@btc-vision/transaction';
 import crypto from 'crypto';
 import { MerkleTree } from './MerkleTree.js';
 

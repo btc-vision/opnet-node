@@ -1,4 +1,4 @@
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { Binary, Decimal128 } from 'mongodb';
 
 export interface IVaultDocument {

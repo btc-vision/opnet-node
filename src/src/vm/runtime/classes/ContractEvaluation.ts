@@ -5,7 +5,7 @@ import {
     BlockchainStorage,
     DeterministicMap,
     NetEvent,
-} from '@btc-vision/bsi-binary';
+} from '@btc-vision/transaction';
 import {
     BlockchainStorageMap,
     EvaluatedEvents,
@@ -17,7 +17,7 @@ import { GasTracker } from '../GasTracker.js';
 import { MemorySlotData, MemorySlotPointer } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import {ZERO_HASH} from "../../../blockchain-indexer/processor/block/types/ZeroValue.js";
+import { ZERO_HASH } from '../../../blockchain-indexer/processor/block/types/ZeroValue.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;

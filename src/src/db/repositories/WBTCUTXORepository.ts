@@ -17,7 +17,7 @@ import { IWBTCUTXODocument, UsedUTXOToDelete } from '../interfaces/IWBTCUTXODocu
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { WBTCUTXOAggregation } from '../../vm/storage/databases/aggregation/WBTCUTXOSAggregation.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { IVaultDocument } from '../interfaces/IVaultDocument.js';
 import {
     QueryVaultAggregation,

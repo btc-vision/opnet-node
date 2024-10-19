@@ -3,7 +3,7 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { ClientSession, Collection, Db, Document, Filter, FindOptions, Sort } from 'mongodb';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 
 export class ContractRepository extends BaseRepository<IContractDocument> {
     public readonly logColor: string = '#afeeee';

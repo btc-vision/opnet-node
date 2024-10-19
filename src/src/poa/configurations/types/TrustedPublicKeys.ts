@@ -1,6 +1,6 @@
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { TrustedCompanies } from '../TrustedCompanies.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 

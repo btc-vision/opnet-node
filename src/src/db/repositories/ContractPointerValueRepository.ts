@@ -1,4 +1,4 @@
-import { Address, ADDRESS_BYTE_LENGTH, BufferHelper } from '@btc-vision/bsi-binary';
+import { Address, ADDRESS_BYTE_LENGTH, BufferHelper } from '@btc-vision/transaction';
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import {

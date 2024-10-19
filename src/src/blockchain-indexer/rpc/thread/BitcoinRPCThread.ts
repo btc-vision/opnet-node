@@ -31,7 +31,7 @@ import {
     EvaluatedEvents,
     PointerStorageMap,
 } from '../../../vm/evaluated/EvaluatedResult.js';
-import { Address, NetEvent } from '@btc-vision/bsi-binary';
+import { Address, NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
 import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
 

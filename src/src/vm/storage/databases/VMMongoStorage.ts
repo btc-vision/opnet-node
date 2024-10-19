@@ -1,4 +1,4 @@
-import { Address, BufferHelper } from '@btc-vision/bsi-binary';
+import { Address, BufferHelper } from '@btc-vision/transaction';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession, TransactionOptions } from 'mongodb';
 import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';

@@ -12,7 +12,7 @@ import {
     ITransactionOutput,
     TransactionOutput,
 } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { TrustedCompanies } from '../../poa/configurations/TrustedCompanies.js';
 import { PartialWBTCUTXODocument, UsedUTXOToDelete } from './IWBTCUTXODocument.js';
 

@@ -5,7 +5,7 @@ import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { InteractionTransaction, InteractionWitnessData } from './InteractionTransaction.js';
 import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
-import { BinaryReader } from '@btc-vision/bsi-binary';
+import { BinaryReader } from '@btc-vision/transaction';
 import { WBTC_UNWRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
 import { TrustedCompanies } from '../../../../poa/configurations/TrustedCompanies.js';
 import { DataConverter } from '@btc-vision/bsi-db';

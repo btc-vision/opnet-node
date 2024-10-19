@@ -1,4 +1,4 @@
-import { ABICoder, Selector } from '@btc-vision/bsi-binary';
+import { ABICoder, Selector } from '@btc-vision/transaction';
 import { ChainIds } from '../../config/enums/ChainIds.js';
 
 import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';

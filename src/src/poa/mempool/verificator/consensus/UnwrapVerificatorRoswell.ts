@@ -9,7 +9,7 @@ import {
 import { Psbt, PsbtTxInput } from 'bitcoinjs-lib';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { WBTCUTXORepository } from '../../../../db/repositories/WBTCUTXORepository.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { UnwrapTargetConsolidation } from '../../../equoitions/UnwrapTargetConsolidation.js';
 import { OPNetConsensus } from '../../../configurations/OPNetConsensus.js';
 

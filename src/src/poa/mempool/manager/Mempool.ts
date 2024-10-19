@@ -28,7 +28,7 @@ import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransacti
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { WBTCBalanceRequest } from '../../../threading/interfaces/thread-messages/messages/api/WBTCBalanceRequest.js';
 import { BroadcastTransactionResult } from '../../../api/json-rpc/types/interfaces/results/transactions/BroadcastTransactionResult.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';

@@ -20,7 +20,7 @@ import {
     WrapTransactionParameters,
 } from '../../../../../blockchain-indexer/processor/transaction/generator/WrapTransactionGenerator.js';
 import { UnwrapGenerator } from '../../../../../blockchain-indexer/processor/transaction/generator/UnwrapGenerator.js';
-import { ABICoder, Address, BinaryReader, BinaryWriter } from '@btc-vision/bsi-binary';
+import { ABICoder, Address, BinaryReader, BinaryWriter } from '@btc-vision/transaction';
 import { AddressVerificator } from '@btc-vision/transaction';
 import { TrustedAuthority } from '../../../../../poa/configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../../../../poa/configurations/manager/AuthorityManager.js';

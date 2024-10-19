@@ -1,7 +1,7 @@
 import { Consensus } from '../../../configurations/consensus/Consensus.js';
 import { Psbt } from 'bitcoinjs-lib';
 import { PSBTDecodedData } from '../../psbt/PSBTTransactionVerifier.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TrustedAuthority } from '../../../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../../configurations/manager/AuthorityManager.js';

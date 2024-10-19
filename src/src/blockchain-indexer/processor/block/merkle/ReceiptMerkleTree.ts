@@ -1,4 +1,4 @@
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { MerkleTree } from './MerkleTree.js';
 import { MAX_HASH, MAX_MINUS_ONE } from '../types/ZeroValue.js';
 

@@ -2,7 +2,7 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { IContractDocument } from '../../../../db/documents/interfaces/IContractDocument.js';
 import { DeploymentTransaction } from '../transactions/DeploymentTransaction.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 
 export interface ContractInformationAsString {
     readonly blockHeight: string;

@@ -1,5 +1,5 @@
 import { BitcoinNetworkRequest, CallResponse, ContractManager } from '@btc-vision/op-vm';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { RustContractBinding } from './RustContractBindings.js';
 import { Blockchain } from '../Blockchain.js';
 

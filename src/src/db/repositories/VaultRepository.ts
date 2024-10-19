@@ -2,7 +2,7 @@ import { BaseRepository } from '@btc-vision/bsi-common';
 import { ClientSession, Collection, Db, Filter } from 'mongodb';
 import { IVaultDocument } from '../interfaces/IVaultDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { DataConverter } from '@btc-vision/bsi-db';
 
 export class VaultRepository extends BaseRepository<IVaultDocument> {

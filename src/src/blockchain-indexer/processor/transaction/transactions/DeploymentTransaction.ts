@@ -17,7 +17,7 @@ import {
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
 interface DeploymentWitnessData {

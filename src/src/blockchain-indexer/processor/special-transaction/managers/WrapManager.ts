@@ -2,7 +2,7 @@ import { AbstractSpecialManager } from './AbstractSpecialManager.js';
 import { VMStorage } from '../../../../vm/storage/VMStorage.js';
 import { OPNetTransactionTypes } from '../../transaction/enums/OPNetTransactionTypes.js';
 import { WrapTransaction } from '../../transaction/transactions/WrapTransaction.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { IVaultDocument } from '../../../../db/interfaces/IVaultDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { IWBTCUTXODocument } from '../../../../db/interfaces/IWBTCUTXODocument.js';

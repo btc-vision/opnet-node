@@ -1,6 +1,6 @@
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpcParams } from '../../JSONRpcParams.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 
 export enum GenerateTarget {
     WRAP = 0,

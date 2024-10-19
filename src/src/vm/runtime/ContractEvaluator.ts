@@ -6,7 +6,7 @@ import {
     BufferHelper,
     MemorySlotPointer,
     NetEvent,
-} from '@btc-vision/bsi-binary';
+} from '@btc-vision/transaction';
 import { MemoryValue } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { Logger } from '@btc-vision/bsi-common';

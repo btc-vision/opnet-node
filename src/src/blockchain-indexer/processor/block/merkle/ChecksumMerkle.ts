@@ -1,4 +1,4 @@
-import { BufferHelper } from '@btc-vision/bsi-binary';
+import { BufferHelper } from '@btc-vision/transaction';
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 import { BlockHeaderChecksumProof } from '../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ZERO_HASH } from '../types/ZeroValue.js';

@@ -14,7 +14,7 @@ import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
 import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
-import { Address, BinaryReader } from '@btc-vision/bsi-binary';
+import { Address, BinaryReader } from '@btc-vision/transaction';
 import { WBTC_UNWRAP_SELECTOR, WBTC_WRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
 import * as ecc from 'tiny-secp256k1';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';

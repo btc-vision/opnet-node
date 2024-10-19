@@ -1,8 +1,8 @@
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 import { Decimal128, Document, Long } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 import { ShortScriptPubKey } from '../../../../db/interfaces/IUnspentTransaction.js';
-import {Config} from "../../../../config/Config.js";
+import { Config } from '../../../../config/Config.js';
 
 export interface UTXOSOutputTransactionFromDBV2 {
     readonly transactionId: string;

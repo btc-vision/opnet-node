@@ -1,6 +1,6 @@
 import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 
 export interface IVMStorageMethod {
     getStorage(
