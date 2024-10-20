@@ -20,6 +20,7 @@ export interface IContractAPIDocument extends Omit<IContractDocumentBase, 'deplo
     readonly contractSaltHash: string;
     _id: undefined;
     blockHeight: undefined;
+    deployerAddress: undefined;
 }
 
 export interface IContractDocument extends IContractDocumentBase {

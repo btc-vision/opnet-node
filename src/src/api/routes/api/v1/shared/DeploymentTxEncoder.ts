@@ -70,9 +70,11 @@ export class DeploymentTxEncoder {
             contractSeed: data.contractSeed.toString('base64'),
             contractSaltHash: data.contractSaltHash.toString('hex'),
             blockHeight: undefined,
+            deployerAddress: undefined,
             _id: undefined,
         };
 
+        delete document.deployerAddress;
         delete document.blockHeight;
         delete document._id;
 
