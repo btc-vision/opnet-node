@@ -225,7 +225,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         dummyMap.set(2n, 2n);
 
         // Add dummy values for the contract
-        dummyValues.set(this.DUMMY_ADDRESS_NON_EXISTENT, dummyMap);
+        dummyValues.set(MerkleTree.DUMMY_ADDRESS_NON_EXISTENT, dummyMap);
 
         return dummyValues;
     }

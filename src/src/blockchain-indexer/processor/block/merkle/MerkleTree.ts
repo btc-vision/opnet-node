@@ -1,14 +1,11 @@
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
 
 export abstract class MerkleTree<K, V> {
+    public static readonly DUMMY_ADDRESS_NON_EXISTENT = 'bc1dead';
     protected tree: StandardMerkleTree<[Buffer, Buffer]> | undefined;
     protected readonly values: Map<string, Map<K, V>> = new Map();
-
     protected valueChanged: boolean = false;
     protected frozen: boolean = false;
-
-    protected readonly DUMMY_ADDRESS_NON_EXISTENT = 'bc1dead';
-
     private readonly MINIMUM_VALUES = 2; // To generate a tree, we need at least 2 values
 
     protected constructor(protected readonly treeType: [string, string]) {}

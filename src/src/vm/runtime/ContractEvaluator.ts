@@ -88,7 +88,7 @@ export class ContractEvaluator extends Logger {
     public setContractInformation(contractInformation: ContractInformation): void {
         // We use pub the pub key as the deployer address.
         const contractDeployer = contractInformation.deployerAddress;
-        if (!contractDeployer || contractDeployer.length > ADDRESS_BYTE_LENGTH) {
+        if (!contractDeployer || contractDeployer.byteLength > ADDRESS_BYTE_LENGTH) {
             throw new Error(`Invalid contract deployer "${contractDeployer}"`);
         }
 

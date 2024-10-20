@@ -115,6 +115,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             { tweakedPublicKey: tweakedPublicKey },
             currentSession,
         );
+
         if (!contract) {
             return;
         }

@@ -262,8 +262,11 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         }
 
         /** We regenerate the contract address and verify it */
-        const originalContractAddress: string = this.getOriginalContractAddress();
-        const outputWitness: TransactionOutput = this.getWitnessOutput(originalContractAddress);
+        const input0: TransactionInput = this.inputs[0];
+        const controlBlock = input0.transactionInWitness[input0.transactionInWitness.length - 1];
+        this.getOriginalContractAddress(Buffer.from(controlBlock, 'hex'));
+
+        const outputWitness: TransactionOutput = this.getWitnessOutput(this.contractAddress);
 
         this.setBurnedFee(outputWitness);
 
@@ -282,7 +285,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         this.decompress();
     }
 
-    private getOriginalContractAddress(): string {
+    private getOriginalContractAddress(controlBlock: Buffer): void {
         if (!this.deployerPubKey) throw new Error('Deployer public key not found');
         if (!this.rawPubKey) throw new Error('Raw public key not found');
         if (!this.contractSigner) throw new Error('Contract signer not found');
@@ -298,12 +301,18 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             network: this.network,
         };
 
-        const tapContractAddress: string | undefined =
-            TapscriptVerificator.getContractAddress(params);
+        try {
+            const tapContractAddress: boolean = TapscriptVerificator.verifyControlBlock(
+                params,
+                controlBlock,
+            );
 
-        if (!tapContractAddress) throw new Error(`Unable to verify original contract address`);
-
-        return tapContractAddress;
+            if (!tapContractAddress) {
+                throw new Error(`OP_NET: Invalid contract address.`);
+            }
+        } catch (e) {
+            throw new Error(`OP_NET: Invalid contract address. ${e}`);
+        }
     }
 
     /** We must check if the bytecode was compressed using GZIP. If so, we must decompress it. */

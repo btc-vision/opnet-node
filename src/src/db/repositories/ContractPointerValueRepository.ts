@@ -1,4 +1,4 @@
-import { Address, ADDRESS_BYTE_LENGTH, BufferHelper } from '@btc-vision/transaction';
+import { BufferHelper } from '@btc-vision/transaction';
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import {
@@ -13,7 +13,7 @@ import {
 import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
-import { NetworkConverter } from '../../config/network/NetworkConverter.js';
+import { MerkleTree } from '../../blockchain-indexer/processor/block/merkle/MerkleTree.js';
 
 export interface IContractPointerValue {
     pointer: StoragePointer;
@@ -21,8 +21,6 @@ export interface IContractPointerValue {
     proofs: string[];
     lastSeenAt: bigint;
 }
-
-const DEAD_ADDRESS: string = Address.dead().p2tr(NetworkConverter.getNetwork());
 
 export class ContractPointerValueRepository extends BaseRepository<IContractPointerValueDocument> {
     public readonly logColor: string = '#afeeee';
@@ -99,10 +97,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
                 const pointerToBinary = new Binary(pointer);
                 const valueToBinary = new Binary(value);
 
-                if (
-                    contractAddress === DEAD_ADDRESS ||
-                    contractAddress.length > ADDRESS_BYTE_LENGTH
-                ) {
+                if (contractAddress === MerkleTree.DUMMY_ADDRESS_NON_EXISTENT) {
                     continue;
                 }
 
