@@ -68,7 +68,7 @@ interface InteractionBase {
 export interface DeploymentTransactionDocument
     extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment>,
         InteractionBase {
-    readonly tweakedPublicKey: string;
+    readonly tweakedPublicKey: Address;
 }
 
 export interface NetEventDocument {

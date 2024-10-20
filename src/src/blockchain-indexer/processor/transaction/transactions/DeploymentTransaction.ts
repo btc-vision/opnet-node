@@ -67,7 +67,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public contractSeed: Buffer | undefined;
 
     public deployerPubKey: Buffer | undefined;
-    public rawPubKey: Buffer | undefined;
     public deployerPubKeyHash: Buffer | undefined;
 
     public contractSigner: ECPairInterface | undefined;
@@ -142,11 +141,15 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             throw new Error(`No receipt proofs found for transaction ${this.txid}`);
         }
 
+        if (!this._contractAddress) {
+            throw new Error(`No contract address found for transaction`);
+        }
+
         return {
             ...super.toDocument(),
             from: this.from,
             contractAddress: this.contractAddress,
-            tweakedPublicKey: this.tweakedPublicKey,
+            tweakedPublicKey: this._contractAddress,
 
             receiptProofs: receiptProofs,
 
@@ -220,8 +223,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         }
 
         this.deployerPubKeyHash = hashDeployerPubKey;
-        this.deployerPubKey = deployerPubKey;
-        this.rawPubKey = rawPubKey;
+        this.deployerPubKey = rawPubKey;
         this.contractSeed = originalSalt;
 
         /** Verify contract salt */
@@ -275,7 +277,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             throw new Error(`OP_NET: Invalid sender address.`);
         }
 
-        this._from = new Address(deployerPubKey);
+        this._from = new Address(this.deployerPubKey);
 
         if (!this._from.isValid(this.network)) {
             throw new Error(`OP_NET: Invalid sender address.`);
@@ -287,13 +289,12 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
     private getOriginalContractAddress(controlBlock: Buffer): void {
         if (!this.deployerPubKey) throw new Error('Deployer public key not found');
-        if (!this.rawPubKey) throw new Error('Raw public key not found');
         if (!this.contractSigner) throw new Error('Contract signer not found');
         if (!this.contractSeed) throw new Error('Contract seed not found');
         if (!this.bytecode) throw new Error('Compressed bytecode not found');
 
         const params: ContractAddressVerificationParams = {
-            deployerPubKey: this.rawPubKey,
+            deployerPubKey: this.deployerPubKey,
             contractSaltPubKey: Buffer.from(this.contractSigner.publicKey),
             originalSalt: this.contractSeed,
             bytecode: this.bytecode,

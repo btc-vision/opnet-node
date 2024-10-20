@@ -1,6 +1,15 @@
 import { BaseRepository, DataAccessError, DataAccessErrorType } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { ClientSession, Collection, Db, Document, Filter, FindOptions, Sort } from 'mongodb';
+import {
+    Binary,
+    ClientSession,
+    Collection,
+    Db,
+    Document,
+    Filter,
+    FindOptions,
+    Sort,
+} from 'mongodb';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
 import { Address } from '@btc-vision/transaction';
@@ -23,38 +32,16 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         await this.delete(criteria, currentSession);
     }
 
-    public async hasContract(
-        contractAddress: string,
-        currentSession?: ClientSession,
-    ): Promise<boolean> {
-        const collection = this.getCollection();
-        const options: FindOptions = this.getOptions(currentSession);
-
-        const criteria: Filter<Document> = {
-            $or: [
-                { contractAddress: contractAddress },
-                { tweakedPublicKey: contractAddress },
-                //{ p2trAddress: contractAddress }, disabled.
-            ],
-        };
-
-        const hasContract: number = await collection.countDocuments(criteria, options);
-        return hasContract > 0;
-    }
-
     public async getContract(
         contractAddress: string,
         height?: bigint,
         currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
-        const criteria: Filter<Document> = {
-            $or: [
-                { contractAddress: contractAddress },
-                { tweakedPublicKey: contractAddress },
-                //{ p2trAddress: contractAddress }, disabled.
-            ],
-        };
+        if (contractAddress.startsWith('0x')) {
+            return await this.getContractFromTweakedPubKey(contractAddress, height, currentSession);
+        }
 
+        const criteria: Filter<Document> = { contractAddress: contractAddress };
         if (height !== undefined) {
             criteria.blockHeight = { $lte: DataConverter.toDecimal128(height) };
         }
@@ -72,15 +59,19 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         height?: bigint,
         currentSession?: ClientSession,
     ): Promise<Address | undefined> {
+        if (contractAddress.startsWith('0x')) {
+            return Address.fromString(contractAddress);
+        }
+
         const criteria: Filter<Document> = {
-            $or: [{ contractAddress: contractAddress }, { tweakedPublicKey: contractAddress }],
+            contractAddress: contractAddress,
         };
 
         if (height !== undefined) {
             criteria.blockHeight = { $lt: DataConverter.toDecimal128(height) };
         }
 
-        const contract: { tweakedPublicKey: string } | null = await this.queryOneAndProject(
+        const contract: { tweakedPublicKey: Binary } | null = await this.queryOneAndProject(
             criteria,
             {
                 tweakedPublicKey: 1,
@@ -92,7 +83,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             return;
         }
 
-        return Address.fromString(contract.tweakedPublicKey);
+        return new Address(contract.tweakedPublicKey.buffer);
     }
 
     // TODO: Add verification to make sure the contract it tries to deploy does not already exist.
@@ -109,13 +100,18 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
 
     public async getContractFromTweakedPubKey(
         tweakedPublicKey: string,
+        height?: bigint,
         currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
-        const contract = await this.queryOne(
-            { tweakedPublicKey: tweakedPublicKey },
-            currentSession,
-        );
+        const criteria: Filter<Document> = {
+            tweakedPublicKey: Binary.createFromHexString(tweakedPublicKey.replace('0x', '')),
+        };
 
+        if (height !== undefined) {
+            criteria.blockHeight = { $lte: DataConverter.toDecimal128(height) };
+        }
+
+        const contract = await this.queryOne(criteria, currentSession);
         if (!contract) {
             return;
         }

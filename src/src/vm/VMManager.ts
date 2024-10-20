@@ -226,7 +226,6 @@ export class VMManager extends Logger {
 
             // Execute the function
             const evaluation = await this.executeCallInternal(params);
-            console.log(evaluation);
             const result = evaluation.getEvaluationResult();
             this.isProcessing = false;
 
@@ -313,7 +312,6 @@ export class VMManager extends Logger {
             };
 
             const result: ContractEvaluation = await this.executeCallInternal(params);
-            console.log(result);
             this.isProcessing = false;
 
             return result;
@@ -401,7 +399,6 @@ export class VMManager extends Logger {
             };
 
             const execution = await vmEvaluator.execute(params);
-            console.log(execution);
             this.isProcessing = false;
 
             return execution;

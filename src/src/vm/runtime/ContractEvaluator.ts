@@ -1,6 +1,5 @@
 import {
     Address,
-    ADDRESS_BYTE_LENGTH,
     BinaryReader,
     BinaryWriter,
     BufferHelper,
@@ -87,12 +86,7 @@ export class ContractEvaluator extends Logger {
 
     public setContractInformation(contractInformation: ContractInformation): void {
         // We use pub the pub key as the deployer address.
-        const contractDeployer = contractInformation.deployerAddress;
-        if (!contractDeployer || contractDeployer.byteLength > ADDRESS_BYTE_LENGTH) {
-            throw new Error(`Invalid contract deployer "${contractDeployer}"`);
-        }
-
-        this.contractOwner = contractDeployer;
+        this.contractOwner = contractInformation.deployerAddress;
         this.contractAddress = contractInformation.tweakedPublicKey;
         this.contractAddressStr = contractInformation.contractAddress;
         this.bytecode = contractInformation.bytecode;

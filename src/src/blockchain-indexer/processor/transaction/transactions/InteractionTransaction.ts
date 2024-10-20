@@ -342,7 +342,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             );
         }
 
-        this._from = new Address(senderPubKey);
+        this._from = new Address([this.interactionWitnessData.firstByte[0], ...senderPubKey]);
 
         if (!this._from.isValid(this.network)) {
             throw new Error(`OP_NET: Invalid sender address.`);
