@@ -263,12 +263,6 @@ export class VMManager extends Logger {
                 throw new Error('Contract not found');
             }
 
-            // If the interaction is using the p2tr address, we must change it to the segwit address.
-            // TODO: Remove this.
-            if (interactionTransaction.contractAddress !== contractAddress.p2tr(this.network)) {
-                this.warn(`Interaction contract address mismatch: ${contractAddress}`);
-            }
-
             if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.debugBright(
                     `Attempting to execute transaction for contract ${contractAddress}`,
