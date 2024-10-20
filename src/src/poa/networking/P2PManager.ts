@@ -560,7 +560,7 @@ export class P2PManager extends Logger {
                 'OPNet',
                 'Doh',
                 `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
-                `\nThis node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
+                `\nThis node bitcoin address is ${this.identity.pubKey} or ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
                 `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n`,
                 `Looking for peers...\n\n`,
@@ -680,7 +680,7 @@ export class P2PManager extends Logger {
                 'Big Money-sw',
                 `\n\n\nThis node is a,\n\n\n\n\n`,
                 `\n\nThis node is running in bootstrap mode. This means it will not connect to other peers automatically. It will only accept incoming connections.\n`,
-                `This node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
+                `This node bitcoin address is ${this.identity.pubKey} or ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
                 `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n\n`,
             );

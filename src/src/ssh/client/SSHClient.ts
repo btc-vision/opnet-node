@@ -433,7 +433,7 @@ export class SSHClient extends Logger {
         );
 
         const opnetAddress = this.chalk.hex('#68d6f8')(
-            `This node bitcoin address is ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.tapAddress)} (taproot) or ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.segwitAddress)} (segwit).`,
+            `This node bitcoin address is ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.pubKey)} or ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.tapAddress)} (taproot) or ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.segwitAddress)} (segwit).`,
         );
         const opnetIdentifier = this.chalk.hex('#68d6f8')(
             `Your OPNet identity is ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.opnetAddress)}.`,

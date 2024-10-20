@@ -1,6 +1,5 @@
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpcParams } from '../../JSONRpcParams.js';
-import { Address } from '@btc-vision/transaction';
 
 export enum GenerateTarget {
     WRAP = 0,
@@ -10,9 +9,9 @@ export enum GenerateTarget {
 export interface GenerateParamsAsObject extends JSONRpcParams<JSONRpcMethods.BLOCK_WITNESS> {
     readonly target: GenerateTarget | string;
     readonly amount: bigint | string;
-    readonly receiver?: Address;
+    readonly receiver?: string;
 }
 
-export type GenerateParamsAsArray = [GenerateTarget | string, bigint | string, Address?];
+export type GenerateParamsAsArray = [GenerateTarget | string, bigint | string, string?];
 
 export type GenerateParams = GenerateParamsAsObject | GenerateParamsAsArray;

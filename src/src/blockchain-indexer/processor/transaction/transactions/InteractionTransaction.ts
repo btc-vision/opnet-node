@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin, { address, initEccLib, opcodes, payments } from 'bitcoinjs-lib';
+import bitcoin, { address, initEccLib, opcodes } from 'bitcoinjs-lib';
 import { Binary } from 'mongodb';
 import { InteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
@@ -92,13 +92,17 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return newCalldata;
     }
 
-    protected _contractAddress: Address | undefined;
+    protected _contractAddress: string | undefined;
 
-    public get contractAddress(): Address {
-        return this._contractAddress as string;
+    public get contractAddress(): string {
+        if (!this._contractAddress) {
+            throw new Error(`Contract address not set for transaction ${this.txid}`);
+        }
+
+        return this._contractAddress;
     }
 
-    public set contractAddress(contractAddress: Address) {
+    public set contractAddress(contractAddress: string) {
         this._contractAddress = contractAddress;
     }
 
@@ -338,12 +342,11 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             );
         }
 
-        const { address } = payments.p2tr({ internalPubkey: senderPubKey, network: this.network });
-        if (!address) {
-            throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
-        }
+        this._from = new Address(senderPubKey);
 
-        this._from = address;
+        if (!this._from.isValid(this.network)) {
+            throw new Error(`OP_NET: Invalid sender address.`);
+        }
 
         this.senderPubKeyHash = this.interactionWitnessData.senderPubKeyHash160;
         this.senderPubKey = this.interactionWitnessData.senderPubKey;

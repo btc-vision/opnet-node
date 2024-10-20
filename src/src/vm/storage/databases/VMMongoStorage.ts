@@ -460,7 +460,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getStorage(
-        address: Address,
+        address: string,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = false,
@@ -478,7 +478,6 @@ export class VMMongoStorage extends VMStorage {
             address,
             pointer,
             height,
-            //this.currentSession,
         );
 
         if (Buffer.isBuffer(value)) {
@@ -504,27 +503,8 @@ export class VMMongoStorage extends VMStorage {
         };
     }
 
-    /*public async insertUTXOs(
-        blockHeight: bigint,
-        transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
-    ): Promise<void> {
-        if (!this.unspentTransactionRepository) {
-            throw new Error('Transaction repository not initialized');
-        }
-
-        if (!this.currentSession) {
-            throw new Error('Session not started');
-        }
-
-        await this.unspentTransactionRepository.insertTransactions(
-            blockHeight,
-            transactions,
-            this.utxoSession,
-        );
-    }*/
-
     public async setStorage(
-        address: Address,
+        address: string,
         pointer: StoragePointer,
         value: MemoryValue,
         proofs: string[],
@@ -548,22 +528,8 @@ export class VMMongoStorage extends VMStorage {
         );
     }
 
-    /*public async saveTransaction(
-        transaction: ITransactionDocument<OPNetTransactionTypes>,
-    ): Promise<void> {
-        if (!this.transactionRepository) {
-            throw new Error('Transaction repository not initialized');
-        }
-
-        if (!this.transactionSession) {
-            throw new Error('Session not started');
-        }
-
-        await this.transactionRepository.saveTransaction(transaction, this.transactionSession);
-    }*/
-
     public async setStoragePointers(
-        storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: Map<string, Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
     ): Promise<void> {
         if (!this.pointerRepository) {
@@ -576,29 +542,6 @@ export class VMMongoStorage extends VMStorage {
 
         await this.pointerRepository.setStoragePointers(storage, lastSeenAt, this.currentSession);
     }
-
-    /*public saveTransactions(
-        blockHeight: bigint,
-        transactions: ITransactionDocument<OPNetTransactionTypes>[],
-    ): void {
-        if (!this.transactionRepository || !this.unspentTransactionRepository) {
-            throw new Error('Transaction repository not initialized');
-        }
-
-        if (!this.transactionSession || !this.currentSession) {
-            throw new Error('Session not started');
-        }
-
-        const promise = this.transactionRepository.saveTransactions(
-            transactions,
-            this.transactionSession,
-        );
-
-        const data = this.writeTransactions.get(blockHeight) || [];
-        data.push(promise);
-
-        this.writeTransactions.set(blockHeight, data);
-    }*/
 
     public async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
         if (!this.blockRepository) {
@@ -621,7 +564,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getContractAt(
-        contractAddress: Address,
+        contractAddress: string,
         height?: bigint,
     ): Promise<ContractInformation | undefined> {
         if (!this.contractRepository) {
@@ -636,7 +579,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getContractAddressAt(
-        contractAddress: Address,
+        contractAddress: string,
         height?: bigint,
     ): Promise<Address | undefined> {
         if (!this.contractRepository) {
@@ -658,22 +601,14 @@ export class VMMongoStorage extends VMStorage {
         await this.blockRepository.saveBlockHeader(blockHeader, this.currentSession);
     }
 
-    public async getContractAtVirtualAddress(
-        virtualAddress: string,
+    public async getContractFromTweakedPubKey(
+        tweakedPublicKey: string,
     ): Promise<ContractInformation | undefined> {
         if (!this.contractRepository) {
             throw new Error('Repository not initialized');
         }
 
-        return await this.contractRepository.getContractAtVirtualAddress(virtualAddress);
-    }
-
-    public async hasContractAt(contractAddress: Address): Promise<boolean> {
-        if (!this.contractRepository) {
-            throw new Error('Repository not initialized');
-        }
-
-        return await this.contractRepository.hasContract(contractAddress);
+        return await this.contractRepository.getContractFromTweakedPubKey(tweakedPublicKey);
     }
 
     public async getBlockHeader(height: bigint): Promise<BlockHeaderDocument | undefined> {
@@ -685,7 +620,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getUTXOs(
-        address: Address,
+        address: string,
         optimize: boolean = false,
     ): Promise<UTXOsOutputTransactions> {
         if (!this.unspentTransactionRepository || !this.mempoolRepository) {
@@ -787,7 +722,7 @@ export class VMMongoStorage extends VMStorage {
         await this.wbtcUTXORepository.deleteOldUTXOs(height, this.currentSession);
     }
 
-    public async getVault(vault: Address): Promise<IVaultDocument | undefined> {
+    public async getVault(vault: string): Promise<IVaultDocument | undefined> {
         if (!this.vaultRepository) {
             throw new Error('Vault repository not initialized');
         }
@@ -796,7 +731,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getBalanceOf(
-        address: Address,
+        address: string,
         filterOrdinals: boolean,
     ): Promise<bigint | undefined> {
         if (!this.unspentTransactionRepository) {

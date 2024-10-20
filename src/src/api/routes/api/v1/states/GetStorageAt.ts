@@ -1,4 +1,4 @@
-import { Address, BufferHelper } from '@btc-vision/transaction';
+import { BufferHelper } from '@btc-vision/transaction';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -129,8 +129,8 @@ export class GetStorageAt extends Route<
 
     private getDecodedParams(
         params: GetStorageAtParams,
-    ): [Address, Binary, boolean, bigint | undefined] {
-        let address: Address | undefined;
+    ): [string, Binary, boolean, bigint | undefined] {
+        let address: string | undefined;
         let pointer: string | undefined;
         let sendProofs: boolean | undefined;
         let height: bigint | undefined;

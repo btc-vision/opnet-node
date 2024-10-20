@@ -1,4 +1,4 @@
-import { Address, MemorySlotPointer } from '@btc-vision/transaction';
+import { MemorySlotPointer } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -92,9 +92,9 @@ export class Block extends Logger {
     #compromised: boolean = false;
 
     #_storageRoot: string | undefined;
-    #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
+    #_storageProofs: Map<string, Map<MemorySlotPointer, string[]>> | undefined;
     #_receiptRoot: string | undefined;
-    #_receiptProofs: Map<Address, Map<string, string[]>> | undefined;
+    #_receiptProofs: Map<string, Map<string, string[]>> | undefined;
     #_checksumMerkle: ChecksumMerkle = new ChecksumMerkle();
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
@@ -199,7 +199,7 @@ export class Block extends Logger {
         return this.#_receiptRoot;
     }
 
-    public get receiptProofs(): Map<Address, Map<string, string[]>> {
+    public get receiptProofs(): Map<string, Map<string, string[]>> {
         if (!this.#_receiptProofs) {
             throw new Error('Storage proofs not found');
         }
@@ -215,7 +215,7 @@ export class Block extends Logger {
         return this.#_storageRoot;
     }
 
-    public get storageProofs(): Map<Address, Map<MemorySlotPointer, string[]>> {
+    public get storageProofs(): Map<string, Map<MemorySlotPointer, string[]>> {
         if (!this.#_storageProofs) {
             throw new Error('Storage proofs not found');
         }
@@ -582,7 +582,7 @@ export class Block extends Logger {
             if (evaluation.transactionId) {
                 vmManager.updateBlockValuesFromResult(
                     evaluation,
-                    evaluation.contractAddress,
+                    evaluation.contractAddressStr,
                     evaluation.transactionId,
                     Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
                 );
@@ -619,14 +619,14 @@ export class Block extends Logger {
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
                 this.debug(
-                    `Executed transaction (deployment) ${transaction.txid} for contract ${transaction.segwitAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                    `Executed transaction (deployment) ${transaction.txid} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
                 );
             }
 
             if (evaluation.transactionId) {
                 vmManager.updateBlockValuesFromResult(
                     evaluation,
-                    evaluation.contractAddress,
+                    evaluation.contractAddressStr,
                     evaluation.transactionId,
                     Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
                 );
@@ -636,28 +636,6 @@ export class Block extends Logger {
         }
 
         this.verifyTransaction(transaction);
-
-        /*try {
-            if (!this.isOPNetEnabled()) {
-                throw new Error('OPNet is not enabled');
-            }
-
-            await vmManager.deployContract(this.height, transaction);
-        } catch (e) {
-            const error: Error = e as Error;
-            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.error(`Failed to deploy contract ${transaction.txid}: ${error.message}`);
-            }
-
-            transaction.revert = error;
-
-            vmManager.updateBlockValuesFromResult(
-                null,
-                transaction.p2trAddress || 'bc1dead',
-                transaction.txid,
-                true,
-            );
-        }*/
     }
 
     private verifyTransaction(transaction: Transaction<OPNetTransactionTypes>): void {

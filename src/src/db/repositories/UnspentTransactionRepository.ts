@@ -16,7 +16,6 @@ import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
-import { Address } from '@btc-vision/transaction';
 import { BalanceOfOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/BalanceOfAggregation.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { UTXOSOutputTransaction } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
@@ -173,7 +172,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
     }
 
     public async getBalanceOf(
-        wallet: Address,
+        wallet: string,
         filterOrdinals: boolean,
         currentSession?: ClientSession,
     ): Promise<bigint> {
@@ -198,7 +197,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
     }
 
     public async getWalletUnspentUTXOS(
-        wallet: Address,
+        wallet: string,
         optimize: boolean = false,
         currentSession?: ClientSession,
     ): Promise<UTXOSOutputTransaction[]> {

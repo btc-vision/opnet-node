@@ -17,6 +17,7 @@ import {
 import { Blockchain } from '../vm/Blockchain.js';
 import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
+import { Address } from '@btc-vision/transaction';
 
 class RPCManager extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -53,6 +54,7 @@ class RPCManager extends Logger {
                 let result: CallRequestResponse | undefined = await this.onCallRequest(
                     data.data as CallRequestData,
                 );
+
                 if (result && !('error' in result)) {
                     result = Object.assign(result, {
                         result: result.result ? Buffer.from(result.result).toString('hex') : '',
@@ -122,8 +124,7 @@ class RPCManager extends Logger {
             const contractAsString: ContractInformationAsString = {
                 blockHeight: contract.blockHeight.toString(),
                 contractAddress: contract.contractAddress.toString(),
-                virtualAddress: contract.virtualAddress.toString(),
-                p2trAddress: contract.p2trAddress ? contract.p2trAddress.toString() : null,
+                tweakedPublicKey: contract.tweakedPublicKey.toString(),
                 bytecode: contract.bytecode.toString('hex'),
                 wasCompressed: contract.wasCompressed,
                 deployedTransactionId: contract.deployedTransactionId,
@@ -131,7 +132,7 @@ class RPCManager extends Logger {
                 deployerPubKey: contract.deployerPubKey.toString('hex'),
                 contractSeed: contract.contractSeed.toString('hex'),
                 contractSaltHash: contract.contractSaltHash.toString('hex'),
-                deployerAddress: contract.deployerAddress.toString(),
+                deployerAddress: contract.deployerAddress.toHex(),
             };
 
             array.push(contractAsString);
@@ -140,17 +141,13 @@ class RPCManager extends Logger {
         return array;
     }
 
-    private convertEventsToArray(events: EvaluatedEvents): [string, [string, string, string][]][] {
-        const array: [string, [string, string, string][]][] = [];
+    private convertEventsToArray(events: EvaluatedEvents): [string, [string, string][]][] {
+        const array: [string, [string, string][]][] = [];
 
         for (const [key, value] of events) {
-            const innerArray: [string, string, string][] = [];
+            const innerArray: [string, string][] = [];
             for (const event of value) {
-                innerArray.push([
-                    event.eventType,
-                    event.eventDataSelector.toString(),
-                    Buffer.from(event.eventData).toString('hex'),
-                ]);
+                innerArray.push([event.eventType, Buffer.from(event.eventData).toString('hex')]);
             }
 
             array.push([key.toString(), innerArray]);
@@ -231,7 +228,7 @@ class RPCManager extends Logger {
         try {
             return await vmManager.execute(
                 data.to,
-                data.from || BTC_FAKE_ADDRESS,
+                data.from ? Address.fromString(data.from) : BTC_FAKE_ADDRESS,
                 data.calldata,
                 data.blockNumber,
             );

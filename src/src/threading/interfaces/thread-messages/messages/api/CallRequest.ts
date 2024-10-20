@@ -1,4 +1,3 @@
-import { Address } from '@btc-vision/transaction';
 import { CallRequestError } from '../../../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { EvaluatedResult } from '../../../../../vm/evaluated/EvaluatedResult.js';
@@ -6,9 +5,9 @@ import { ThreadData } from '../../../ThreadData.js';
 import { RPCMessageData } from './RPCMessage.js';
 
 export interface CallRequestData {
-    readonly to: Address;
+    readonly to: string;
     readonly calldata: string;
-    readonly from?: Address;
+    readonly from?: string;
     readonly blockNumber?: bigint;
 }
 

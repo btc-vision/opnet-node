@@ -4,6 +4,7 @@ import {
     BinaryReader,
     BinaryWriter,
     BufferHelper,
+    MemorySlotData,
     MemorySlotPointer,
     NetEvent,
 } from '@btc-vision/transaction';
@@ -17,7 +18,6 @@ import {
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import { MemorySlotData } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
 import { Network, networks } from 'bitcoinjs-lib';
 import { BitcoinNetworkRequest } from '@btc-vision/op-vm';
 import assert from 'node:assert';
@@ -31,6 +31,7 @@ export class ContractEvaluator extends Logger {
 
     private contractOwner: Address | undefined;
     private contractAddress: Address | undefined;
+    private contractAddressStr: string | undefined;
 
     private bytecode: Buffer | undefined;
     private readonly enableTracing: boolean = false;
@@ -52,7 +53,7 @@ export class ContractEvaluator extends Logger {
     }
 
     public getStorage(
-        _address: Address,
+        _address: string,
         _pointer: StoragePointer,
         _defaultValue: MemoryValue | null,
         _setIfNotExit: boolean,
@@ -61,7 +62,7 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [getStorage]');
     }
 
-    public setStorage(_address: Address, _pointer: bigint, _value: bigint): void {
+    public setStorage(_address: string, _pointer: bigint, _value: bigint): void {
         throw new Error('Method not implemented. [setStorage]');
     }
 
@@ -76,7 +77,7 @@ export class ContractEvaluator extends Logger {
     ): Promise<
         | {
               contractAddress: Address;
-              virtualAddress: Buffer;
+              tweakedPublicKey: Buffer;
               bytecodeLength: bigint;
           }
         | undefined
@@ -86,13 +87,14 @@ export class ContractEvaluator extends Logger {
 
     public setContractInformation(contractInformation: ContractInformation): void {
         // We use pub the pub key as the deployer address.
-        const contractDeployer: string = contractInformation.deployerAddress;
+        const contractDeployer = contractInformation.deployerAddress;
         if (!contractDeployer || contractDeployer.length > ADDRESS_BYTE_LENGTH) {
             throw new Error(`Invalid contract deployer "${contractDeployer}"`);
         }
 
         this.contractOwner = contractDeployer;
-        this.contractAddress = contractInformation.contractAddress;
+        this.contractAddress = contractInformation.tweakedPublicKey;
+        this.contractAddressStr = contractInformation.contractAddress;
         this.bytecode = contractInformation.bytecode;
     }
 
@@ -196,7 +198,7 @@ export class ContractEvaluator extends Logger {
         const reader = new BinaryReader(data);
         const contractAddress: Address = reader.readAddress();
 
-        if (evaluation.contractAddress === contractAddress) {
+        if (evaluation.contractAddress.equals(contractAddress)) {
             throw new Error('Cannot call itself');
         }
 
@@ -206,6 +208,7 @@ export class ContractEvaluator extends Logger {
         const gasUsed: bigint = evaluation.gasTracker.gasUsed;
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
+            contractAddressStr: contractAddress.p2tr(this.network),
 
             from: evaluation.msgSender,
 
@@ -269,7 +272,7 @@ export class ContractEvaluator extends Logger {
         }
 
         const response = new BinaryWriter();
-        response.writeBytes(deployResult.virtualAddress);
+        response.writeBytes(deployResult.tweakedPublicKey);
         response.writeAddress(deployResult.contractAddress);
         response.writeU64(deployResult.bytecodeLength);
 
@@ -301,7 +304,7 @@ export class ContractEvaluator extends Logger {
         const eventName = reader.readStringWithLength();
         const eventData = reader.readBytesWithLength();
 
-        const event = new NetEvent(eventName, 0n, eventData);
+        const event = new NetEvent(eventName, eventData);
         evaluation.emitEvent(event);
     }
 
@@ -325,7 +328,7 @@ export class ContractEvaluator extends Logger {
 
         return {
             contractManager: Blockchain.contractManager,
-            address: evaluation.contractAddress,
+            address: evaluation.contractAddressStr,
             bytecode: this.bytecode,
             network: this.getNetwork(),
             gasLimit: difference, //OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
@@ -373,7 +376,7 @@ export class ContractEvaluator extends Logger {
     }
 
     private async internalGetStorage(
-        address: Address,
+        address: string,
         pointer: StoragePointer,
         defaultValueBuffer: MemoryValue | null,
         setIfNotExit: boolean = false,
@@ -383,7 +386,7 @@ export class ContractEvaluator extends Logger {
             throw new Error('Default value buffer is required');
         }
 
-        const canInitialize: boolean = address === this.contractAddress ? setIfNotExit : false;
+        const canInitialize: boolean = address === this.contractAddressStr ? setIfNotExit : false;
 
         return this.getStorage(address, pointer, defaultValueBuffer, canInitialize, blockNumber);
     }
@@ -513,7 +516,7 @@ export class ContractEvaluator extends Logger {
     ): Promise<bigint | null> {
         const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
         const value: MemoryValue | null = await this.internalGetStorage(
-            evaluation.contractAddress,
+            evaluation.contractAddressStr,
             rawData,
             null,
             false,

@@ -33,7 +33,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         const criteria: Filter<Document> = {
             $or: [
                 { contractAddress: contractAddress },
-                { virtualAddress: contractAddress },
+                { tweakedPublicKey: contractAddress },
                 //{ p2trAddress: contractAddress }, disabled.
             ],
         };
@@ -50,7 +50,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         const criteria: Filter<Document> = {
             $or: [
                 { contractAddress: contractAddress },
-                { virtualAddress: contractAddress },
+                { tweakedPublicKey: contractAddress },
                 //{ p2trAddress: contractAddress }, disabled.
             ],
         };
@@ -73,21 +73,17 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         currentSession?: ClientSession,
     ): Promise<Address | undefined> {
         const criteria: Filter<Document> = {
-            $or: [
-                { contractAddress: contractAddress },
-                { virtualAddress: contractAddress },
-                //{ p2trAddress: contractAddress }, disabled
-            ],
+            $or: [{ contractAddress: contractAddress }, { tweakedPublicKey: contractAddress }],
         };
 
         if (height !== undefined) {
             criteria.blockHeight = { $lt: DataConverter.toDecimal128(height) };
         }
 
-        const contract: { contractAddress: string } | null = await this.queryOneAndProject(
+        const contract: { tweakedPublicKey: string } | null = await this.queryOneAndProject(
             criteria,
             {
-                contractAddress: 1,
+                tweakedPublicKey: 1,
             },
             currentSession,
         );
@@ -96,7 +92,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             return;
         }
 
-        return contract.contractAddress;
+        return Address.fromString(contract.tweakedPublicKey);
     }
 
     // TODO: Add verification to make sure the contract it tries to deploy does not already exist.
@@ -111,11 +107,14 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         await this.updatePartial(criteria, contract.toDocument(), currentSession);
     }
 
-    public async getContractAtVirtualAddress(
-        virtualAddress: string,
+    public async getContractFromTweakedPubKey(
+        tweakedPublicKey: string,
         currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
-        const contract = await this.queryOne({ virtualAddress }, currentSession);
+        const contract = await this.queryOne(
+            { tweakedPublicKey: tweakedPublicKey },
+            currentSession,
+        );
         if (!contract) {
             return;
         }

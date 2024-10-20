@@ -1,9 +1,11 @@
 import {
     Address,
+    AddressMap,
     BinaryReader,
     BufferHelper,
     DeterministicMap,
     MemorySlotData,
+    TapscriptVerificator,
 } from '@btc-vision/transaction';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -35,7 +37,6 @@ import {
 import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
 import { GasTracker } from './runtime/GasTracker.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
-import { AddressGenerator, EcKeyPair, TapscriptVerificator } from '@btc-vision/transaction';
 import bitcoin from 'bitcoinjs-lib';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { UnwrapTransaction } from '../blockchain-indexer/processor/transaction/transactions/UnwrapTransaction.js';
@@ -56,10 +57,10 @@ export class VMManager extends Logger {
     private receiptState: ReceiptMerkleTree | undefined;
 
     private verifiedBlockHeights: Map<bigint, Promise<boolean>> = new Map();
-    private contractCache: Map<string, ContractInformation> = new Map();
+    private contractCache: AddressMap<ContractInformation> = new AddressMap();
 
-    private vmEvaluators: Map<Address, Promise<ContractEvaluator | null>> = new Map();
-    private contractAddressCache: Map<Address, Address> = new Map();
+    private vmEvaluators: AddressMap<Promise<ContractEvaluator | null>> = new AddressMap();
+    private contractAddressCache: Map<string, Address> = new Map();
     private cachedLastBlockHeight: Promise<bigint> | undefined;
     private isProcessing: boolean = false;
 
@@ -68,13 +69,14 @@ export class VMManager extends Logger {
     private readonly network: bitcoin.Network;
     private currentRequest:
         | {
-              to: Address;
+              to: string;
               from: Address;
               calldataString: string;
               height?: bigint;
           }
         | undefined;
-    private pointerCache: Map<Address, Map<MemorySlotData<bigint>, [Uint8Array, string[]] | null>> =
+
+    private pointerCache: Map<string, Map<MemorySlotData<bigint>, [Uint8Array, string[]] | null>> =
         new Map();
 
     constructor(
@@ -88,7 +90,6 @@ export class VMManager extends Logger {
 
         this.vmStorage = vmStorage || this.getVMStorage();
         this.vmBitcoinBlock = new VMBitcoinBlock(this.vmStorage);
-        this.contractCache = new Map();
         this._blockHeaderValidator = new BlockHeaderValidator(config, this.vmStorage);
     }
 
@@ -172,27 +173,11 @@ export class VMManager extends Logger {
 
     /** This method is allowed to read only. It can not modify any states. */
     public async execute(
-        to: Address,
+        to: string,
         from: Address,
         calldataString: string,
         height?: bigint,
     ): Promise<EvaluatedResult> {
-        const toCheck = to.replace(/[^a-zA-Z0-9]/g, '');
-        const fromCheck = from.replace(/[^a-zA-Z0-9]/g, '');
-        const calldataCheck = calldataString.replace(/[^a-zA-Z0-9]/g, '');
-
-        if (toCheck !== to) {
-            throw new Error(`Invalid input data to ${toCheck} !== ${to}`);
-        }
-
-        if (fromCheck !== from) {
-            throw new Error(`Invalid input data from ${fromCheck} !== ${from}`);
-        }
-
-        if (calldataCheck !== calldataCheck) {
-            throw new Error(`Invalid input data calldata ${calldataCheck} !== ${calldataString}`);
-        }
-
         if (this.isProcessing) {
             throw new Error(`VM is already processing: ${JSON.stringify(this.currentRequest)}`);
         }
@@ -215,6 +200,7 @@ export class VMManager extends Logger {
 
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
+                contractAddressStr: contractAddress.p2tr(this.network),
                 contractAddress: contractAddress,
                 from: from,
                 txOrigin: from,
@@ -228,6 +214,7 @@ export class VMManager extends Logger {
                 storage: new DeterministicMap((a: string, b: string) => {
                     return BinaryReader.stringCompare(a, b);
                 }),
+
                 allowCached: true,
                 externalCall: false,
                 gasUsed: 0n,
@@ -277,8 +264,9 @@ export class VMManager extends Logger {
             }
 
             // If the interaction is using the p2tr address, we must change it to the segwit address.
-            if (interactionTransaction.contractAddress !== contractAddress) {
-                interactionTransaction.contractAddress = contractAddress;
+            // TODO: Remove this.
+            if (interactionTransaction.contractAddress !== contractAddress.p2tr(this.network)) {
+                this.warn(`Interaction contract address mismatch: ${contractAddress}`);
             }
 
             if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
@@ -297,6 +285,7 @@ export class VMManager extends Logger {
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
+                contractAddressStr: interactionTransaction.contractAddress,
                 contractAddress: contractAddress,
 
                 from: interactionTransaction.from,
@@ -345,7 +334,7 @@ export class VMManager extends Logger {
 
         if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && Config.DEV_MODE) {
             this.debugBright(
-                `Attempting to deploy contract ${contractDeploymentTransaction.p2trAddress}`,
+                `Attempting to deploy contract ${contractDeploymentTransaction.contractAddress}`,
             );
         }
 
@@ -365,7 +354,7 @@ export class VMManager extends Logger {
             this.isProcessing = true;
 
             const vmEvaluator = await this.getVMEvaluatorFromParams(
-                contractDeploymentTransaction.segwitAddress,
+                contractDeploymentTransaction.address,
                 contractDeploymentTransaction.blockHeight,
                 contractInformation,
             );
@@ -383,7 +372,8 @@ export class VMManager extends Logger {
             const maxGas: bigint = this.calculateMaxGas(false, burnedBitcoins, baseGas);
 
             const params: ExecutionParameters = {
-                contractAddress: contractDeploymentTransaction.contractAddress,
+                contractAddressStr: contractDeploymentTransaction.contractAddress,
+                contractAddress: contractDeploymentTransaction.address,
                 txOrigin: contractDeploymentTransaction.from,
                 msgSender: contractDeploymentTransaction.from,
 
@@ -421,7 +411,7 @@ export class VMManager extends Logger {
 
     public updateBlockValuesFromResult(
         evaluation: ContractEvaluation | undefined | null,
-        contractAddress: Address,
+        contractAddress: string,
         transactionId: string,
         disableStorageCheck: boolean = this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
     ): void {
@@ -571,18 +561,9 @@ export class VMManager extends Logger {
     ): Promise<ContractEvaluation> {
         let vmEvaluator: ContractEvaluator | null = null;
 
-        // We have to convert virtual address to segwit address.
-        if (params.contractAddress && params.contractAddress.startsWith('0x')) {
-            const buffer = Buffer.from(params.contractAddress.slice(2), 'hex');
-            params.contractAddress = AddressGenerator.generatePKSH(buffer, this.network);
-        }
-
         if (params.deployedContracts) {
             for (const contract of params.deployedContracts) {
-                if (
-                    contract.contractAddress === params.contractAddress ||
-                    contract.virtualAddress === params.contractAddress
-                ) {
+                if (contract.tweakedPublicKey.equals(params.contractAddress)) {
                     vmEvaluator = await this.getVMEvaluatorFromParams(
                         params.contractAddress,
                         params.blockHeight,
@@ -621,6 +602,7 @@ export class VMManager extends Logger {
         const caller: Address = params.msgSender || params.from;
         const executionParams: ExecutionParameters = {
             contractAddress: params.contractAddress,
+            contractAddressStr: params.contractAddressStr,
             calldata: params.calldata,
             msgSender: caller,
             txOrigin: params.txOrigin,
@@ -652,7 +634,7 @@ export class VMManager extends Logger {
     }
 
     private async getContractAddress(
-        potentialContractAddress: Address,
+        potentialContractAddress: string,
     ): Promise<Address | undefined> {
         let address: Address | undefined = this.contractAddressCache.get(potentialContractAddress);
         if (!address) {
@@ -691,21 +673,21 @@ export class VMManager extends Logger {
         bytecode: Buffer,
     ): {
         contractAddress: Address;
-        virtualAddress: Buffer;
+        tweakedPublicKey: Buffer;
     } {
-        const contractVirtualAddress = TapscriptVerificator.getContractSeed(
-            bitcoin.crypto.hash256(Buffer.from(deployer, 'utf-8')),
+        const contracttweakedPublicKey = TapscriptVerificator.getContractSeed(
+            bitcoin.crypto.hash256(Buffer.from(deployer)),
             bytecode, // TODO: Maybe precompute that on deployment?
             salt,
         );
 
         /** Generate contract segwit address */
-        const contractSegwitAddress = AddressGenerator.generatePKSH(
-            contractVirtualAddress,
-            this.network,
-        );
+        const address = new Address(contracttweakedPublicKey);
 
-        return { contractAddress: contractSegwitAddress, virtualAddress: contractVirtualAddress };
+        return {
+            contractAddress: address,
+            tweakedPublicKey: contracttweakedPublicKey,
+        };
     }
 
     private async deployContractAtAddress(
@@ -715,7 +697,7 @@ export class VMManager extends Logger {
     ): Promise<
         | {
               contractAddress: Address;
-              virtualAddress: Buffer;
+              tweakedPublicKey: Buffer;
               bytecodeLength: bigint;
           }
         | undefined
@@ -746,21 +728,19 @@ export class VMManager extends Logger {
         }
 
         const exists = await this.vmStorage.getContractAt(
-            deployResult.contractAddress,
+            deployResult.contractAddress.toHex(),
             evaluation.blockNumber + 1n,
         );
 
         if (exists) {
             throw new Error(
-                `Contract already deployed (${deployResult.contractAddress} as ${deployResult.virtualAddress.toString('hex')}). (db)`,
+                `Contract already deployed (${deployResult.contractAddress} as ${deployResult.tweakedPublicKey.toString('hex')}). (db)`,
             );
         }
 
-        const deployerKeyPair = EcKeyPair.fromSeedKeyPair(
-            Buffer.from(contractInfo.virtualAddress.replace('0x', ''), 'hex'),
-        );
-
+        const deployerKeyPair = contractInfo.tweakedPublicKey;
         const bytecodeLength: bigint = BigInt(contractInfo.bytecode.byteLength);
+
         // TODO: ADD GAS COST
         /*evaluation.gasTracker.addGas(
             bytecodeLength * OPNetConsensus.consensus.TRANSACTIONS.STORAGE_COST_PER_BYTE,
@@ -769,14 +749,13 @@ export class VMManager extends Logger {
         const contractSaltHash = bitcoin.crypto.hash256(salt);
         const contractInformation: ContractInformation = new ContractInformation(
             evaluation.blockNumber,
+            deployResult.contractAddress.p2tr(this.network),
             deployResult.contractAddress,
-            `0x${deployResult.virtualAddress.toString('hex')}`,
-            null,
             contractInfo.bytecode,
             false,
             evaluation.transactionId || '',
             evaluation.transactionHash || '',
-            Buffer.from(deployerKeyPair.publicKey),
+            Buffer.from(deployerKeyPair),
             salt,
             contractSaltHash,
             evaluation.contractAddress,
@@ -891,7 +870,7 @@ export class VMManager extends Logger {
         }
 
         const contractInformation: ContractInformation | undefined =
-            await this.vmStorage.getContractAt(contractAddress, height);
+            await this.vmStorage.getContractAt(contractAddress.toHex(), height);
 
         if (contractInformation) {
             this.contractCache.set(contractAddress, contractInformation);
@@ -901,7 +880,7 @@ export class VMManager extends Logger {
     }
 
     private async setContractAt(contractData: ContractInformation): Promise<void> {
-        this.contractCache.set(contractData.contractAddress, contractData);
+        this.contractCache.set(contractData.tweakedPublicKey, contractData);
 
         await this.vmStorage.setContractAt(contractData);
     }
@@ -926,7 +905,7 @@ export class VMManager extends Logger {
         if (!stateChanges) return;
 
         const storageToUpdate: Map<
-            Address,
+            string,
             Map<StoragePointer, [MemoryValue, string[]]>
         > = new Map();
 
@@ -959,7 +938,7 @@ export class VMManager extends Logger {
     }
 
     /** We must ENSURE that NOTHING get modified EVEN during the execution of the block. This is performance costly but required. */
-    private setStorage(address: Address, pointer: bigint, value: bigint): void {
+    private setStorage(address: string, pointer: bigint, value: bigint): void {
         if (this.isExecutor) {
             return;
         }
@@ -973,7 +952,7 @@ export class VMManager extends Logger {
     }
 
     private async getStorageFromDB(
-        address: Address,
+        address: string,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,
@@ -1007,7 +986,7 @@ export class VMManager extends Logger {
     }
 
     private getPointerFromCache(
-        address: Address,
+        address: string,
         pointer: MemorySlotData<bigint>,
     ): [Uint8Array, string[]] | undefined | null {
         const addressCache = this.pointerCache.get(address);
@@ -1017,7 +996,7 @@ export class VMManager extends Logger {
     }
 
     private storePointerInCache(
-        address: Address,
+        address: string,
         pointer: bigint,
         value: [Uint8Array, string[]] | null,
     ): void {
@@ -1032,7 +1011,7 @@ export class VMManager extends Logger {
 
     /** We must verify that the storage is correct */
     private async getStorage(
-        address: Address,
+        address: string,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,

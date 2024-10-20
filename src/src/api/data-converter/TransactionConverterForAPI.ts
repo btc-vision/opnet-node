@@ -40,7 +40,6 @@ export class TransactionConverterForAPI {
                 return {
                     contractAddress: event.contractAddress,
                     eventType: event.eventType,
-                    eventDataSelector: event.eventDataSelector.toString(),
                     eventData: (event.eventData instanceof Uint8Array
                         ? new Binary(event.eventData)
                         : event.eventData

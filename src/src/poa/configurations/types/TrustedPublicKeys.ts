@@ -1,8 +1,8 @@
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { TrustedCompanies } from '../TrustedCompanies.js';
-import { Address } from '@btc-vision/transaction';
 
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
+import { Address } from '@btc-vision/transaction';
 
 export type TrustedNetworkPublicKeys = {
     [key in BitcoinNetwork]: NetworkAuthorityConfiguration;
@@ -16,7 +16,7 @@ export interface AuthorityKey {
     readonly opnet: string;
     readonly publicKey: string;
     readonly signature: string;
-    readonly wallet: Address;
+    readonly walletPubKey: string;
 }
 
 export interface AuthorityBufferKey {

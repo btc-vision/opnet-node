@@ -1,4 +1,3 @@
-import { Address } from '@btc-vision/transaction';
 import { MerkleTree } from './MerkleTree.js';
 import { MAX_HASH, MAX_MINUS_ONE } from '../types/ZeroValue.js';
 
@@ -9,14 +8,14 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         super(ReceiptMerkleTree.TREE_TYPE);
     }
 
-    public getProofs(): Map<Address, Map<string, string[]>> {
+    public getProofs(): Map<string, Map<string, string[]>> {
         if (!this.tree) {
             throw new Error('Merkle tree not generated');
         }
 
         this.validate();
 
-        const proofs = new Map<Address, Map<string, string[]>>();
+        const proofs = new Map<string, Map<string, string[]>>();
         for (const [address, val] of this.values.entries()) {
             for (const [key, value] of val.entries()) {
                 const transactionBuf = Buffer.from(key, 'hex');
@@ -41,7 +40,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
     }
 
     /** We have to replace the value of the given address and key with the new value */
-    public updateValues(address: Address, val: Map<string, Buffer>): void {
+    public updateValues(address: string, val: Map<string, Buffer>): void {
         this.ensureAddress(address);
 
         const map = this.values.get(address);
@@ -194,7 +193,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         return dummyValues;
     }
 
-    private ensureAddress(address: Address): void {
+    private ensureAddress(address: string): void {
         if (!this.values.has(address)) {
             this.values.set(address, new Map());
         }

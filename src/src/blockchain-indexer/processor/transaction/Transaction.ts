@@ -15,6 +15,7 @@ import { TransactionInput } from './inputs/TransactionInput.js';
 import { TransactionOutput } from './inputs/TransactionOutput.js';
 import { VaultInput, VaultInputDecoder } from '../vault/VaultInputDecoder.js';
 import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
+import { Address } from '@btc-vision/transaction';
 
 const OPNet_MAGIC: Buffer = Buffer.from('bsi', 'utf-8');
 const textEncoder = new TextEncoder();
@@ -142,9 +143,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this.#vaultInputs;
     }
 
-    protected _from: string | undefined;
+    protected _from: Address | undefined;
 
-    public get from(): string {
+    public get from(): Address {
         if (!this._from) {
             throw new Error(`No sender address found for transaction ${this.txid}`);
         }
@@ -390,9 +391,8 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         for (const [contractAddress, contractEvents] of events) {
             for (const event of contractEvents) {
                 netEvents.push({
-                    contractAddress,
+                    contractAddress: contractAddress,
                     eventData: new Binary(event.eventData),
-                    eventDataSelector: DataConverter.toDecimal128(event.eventDataSelector),
                     eventType: event.eventType,
                 });
             }

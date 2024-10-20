@@ -1,4 +1,4 @@
-import { Address, BlockchainStorage, DeterministicMap } from '@btc-vision/transaction';
+import { BlockchainStorage, DeterministicMap } from '@btc-vision/transaction';
 import { BlockchainStorageMap, PointerStorageMap } from '../evaluated/EvaluatedResult.js';
 
 export class MapConverter {
@@ -14,7 +14,7 @@ export class MapConverter {
     public static convertDeterministicBlockchainStorageMapToBlockchainStorage(
         storage: BlockchainStorage,
     ): BlockchainStorageMap {
-        const result = new Map<Address, PointerStorageMap>();
+        const result = new Map<string, PointerStorageMap>();
         for (const [key, value] of storage) {
             const subPointerStorage: PointerStorageMap = new Map();
             for (const [k, v] of value) {

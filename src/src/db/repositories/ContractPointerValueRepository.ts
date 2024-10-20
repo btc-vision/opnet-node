@@ -13,6 +13,7 @@ import {
 import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
+import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 
 export interface IContractPointerValue {
     pointer: StoragePointer;
@@ -20,6 +21,8 @@ export interface IContractPointerValue {
     proofs: string[];
     lastSeenAt: bigint;
 }
+
+const DEAD_ADDRESS: string = Address.dead().p2tr(NetworkConverter.getNetwork());
 
 export class ContractPointerValueRepository extends BaseRepository<IContractPointerValueDocument> {
     public readonly logColor: string = '#afeeee';
@@ -40,7 +43,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     }
 
     public async getByContractAndPointer(
-        contractAddress: Address,
+        contractAddress: string,
         pointer: StoragePointer,
         height?: bigint,
         currentSession?: ClientSession,
@@ -81,7 +84,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     }
 
     public async setStoragePointers(
-        storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: Map<string, Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
         currentSession?: ClientSession,
     ): Promise<void> {
@@ -96,7 +99,10 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
                 const pointerToBinary = new Binary(pointer);
                 const valueToBinary = new Binary(value);
 
-                if (contractAddress === 'bc1dead' || contractAddress.length > ADDRESS_BYTE_LENGTH) {
+                if (
+                    contractAddress === DEAD_ADDRESS ||
+                    contractAddress.length > ADDRESS_BYTE_LENGTH
+                ) {
                     continue;
                 }
 
@@ -144,7 +150,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     }
 
     public async setByContractAndPointer(
-        contractAddress: Address,
+        contractAddress: string,
         bufPointer: StoragePointer,
         bufValue: MemoryValue,
         proofs: string[],

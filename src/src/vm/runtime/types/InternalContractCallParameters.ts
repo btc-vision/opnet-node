@@ -4,6 +4,8 @@ import { ContractInformation } from '../../../blockchain-indexer/processor/trans
 export interface InternalContractCallParameters {
     contractAddress: Address;
 
+    readonly contractAddressStr: string;
+
     readonly from: Address;
     readonly txOrigin: Address;
     readonly msgSender?: Address;
@@ -34,6 +36,8 @@ export interface InternalContractCallParameters {
 
 export interface ExecutionParameters {
     readonly contractAddress: Address;
+    readonly contractAddressStr: string;
+
     readonly calldata: Uint8Array;
 
     readonly txOrigin: Address;

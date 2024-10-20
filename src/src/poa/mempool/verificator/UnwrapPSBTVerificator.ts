@@ -1,10 +1,10 @@
 import { PSBTVerificator } from './PSBTVerificator.js';
-import bitcoin, { initEccLib, Network, networks, payments, Psbt, script } from 'bitcoinjs-lib';
+import bitcoin, { initEccLib, Network, networks, Psbt, script } from 'bitcoinjs-lib';
 import * as ecc from 'tiny-secp256k1';
 import { PSBTTypes } from '../psbt/PSBTTypes.js';
 import { InteractionWitnessData } from '../../../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { Input } from 'bitcoinjs-lib/src/transaction.js';
-import { ABICoder, Address, BinaryReader } from '@btc-vision/transaction';
+import { ABICoder, Address, BinaryReader, Consensus } from '@btc-vision/transaction';
 import { KnownPSBTObject } from '../psbt/PSBTTransactionVerifier.js';
 import { Transaction } from '../../../blockchain-indexer/processor/transaction/Transaction.js';
 import {
@@ -13,7 +13,6 @@ import {
 } from './consensus/UnwrapConsensusVerificator.js';
 import { UnwrapVerificatorRoswell } from './consensus/UnwrapVerificatorRoswell.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
-import { Consensus } from '@btc-vision/transaction';
 import { UnwrapTransaction } from '../../../blockchain-indexer/processor/transaction/transactions/UnwrapTransaction.js';
 
 initEccLib(ecc);
@@ -129,7 +128,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
 
         const amountToUnwrap: bigint = this.decodeCalldata(decoded.calldata);
         return {
-            receiver: decoded.sender,
+            receiver: decoded.sender.p2tr(this.network),
             amount: amountToUnwrap,
             version: version,
             hash: txHash,
@@ -178,11 +177,6 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
             );
         }
 
-        const { address } = payments.p2tr({ internalPubkey: senderPubKey, network: this.network });
-        if (!address) {
-            throw new Error(`Failed to generate sender address for transaction`);
-        }
-
         /** Verify contract salt */
         const hashContractSalt = bitcoin.crypto.hash160(contractSecret);
         if (!hashContractSalt.equals(interactionWitnessData.contractSecretHash160)) {
@@ -202,7 +196,7 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
         }
 
         return {
-            sender: address,
+            sender: new Address(senderPubKey),
             senderPubKey: senderPubKey,
             contractSecret: contractSecret,
             calldata: decompressedCalldata.out,

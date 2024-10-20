@@ -4,6 +4,8 @@ import {
     BinaryReader,
     BlockchainStorage,
     DeterministicMap,
+    MemorySlotData,
+    MemorySlotPointer,
     NetEvent,
 } from '@btc-vision/transaction';
 import {
@@ -14,13 +16,13 @@ import {
 } from '../../evaluated/EvaluatedResult.js';
 import { MapConverter } from '../MapConverter.js';
 import { GasTracker } from '../GasTracker.js';
-import { MemorySlotData, MemorySlotPointer } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { ZERO_HASH } from '../../../blockchain-indexer/processor/block/types/ZeroValue.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
+    public readonly contractAddressStr: string;
 
     public readonly calldata: Uint8Array;
     public readonly msgSender: Address;
@@ -56,6 +58,8 @@ export class ContractEvaluation implements ExecutionParameters {
 
     constructor(params: ExecutionParameters) {
         this.contractAddress = params.contractAddress;
+        this.contractAddressStr = params.contractAddressStr;
+
         this.calldata = params.calldata;
         this.msgSender = params.msgSender;
         this.txOrigin = params.txOrigin;
@@ -125,18 +129,18 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
         const current =
-            this.storage.get(this.contractAddress) ||
+            this.storage.get(this.contractAddressStr) ||
             new DeterministicMap((a: bigint, b: bigint) => {
                 return BinaryReader.bigintCompare(a, b);
             });
 
         current.set(pointer, value);
 
-        this.storage.set(this.contractAddress, current);
+        this.storage.set(this.contractAddressStr, current);
     }
 
     public getStorage(pointer: MemorySlotPointer): MemorySlotData<bigint> | undefined {
-        const current = this.storage.get(this.contractAddress);
+        const current = this.storage.get(this.contractAddressStr);
         if (!current) {
             return;
         }
@@ -151,13 +155,13 @@ export class ContractEvaluation implements ExecutionParameters {
     public emitEvent(event: NetEvent): void {
         if (!this.events) throw new Error('Events not set');
 
-        const current = this.events.get(this.contractAddress) || [];
+        const current = this.events.get(this.contractAddressStr) || [];
         current.push(event);
 
-        this.events.set(this.contractAddress, current);
+        this.events.set(this.contractAddressStr, current);
     }
 
-    public setEvent(contract: Address, events: NetEvent[]) {
+    public setEvent(contract: string, events: NetEvent[]) {
         if (!this.events) throw new Error('Events not set');
 
         this.events.set(contract, events);
@@ -177,7 +181,7 @@ export class ContractEvaluation implements ExecutionParameters {
             throw new Error('execution reverted (merge)');
         }
 
-        if (extern.contractAddress === this.contractAddress) {
+        if (extern.contractAddress.equals(this.contractAddress)) {
             throw new Error('Cannot call self');
         }
 

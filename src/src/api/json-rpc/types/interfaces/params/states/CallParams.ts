@@ -1,15 +1,14 @@
-import { Address } from '@btc-vision/transaction';
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpcParams } from '../../JSONRpcParams.js';
 
 export interface CallParamsAsObject extends JSONRpcParams<JSONRpcMethods.CALL> {
-    readonly to: Address;
+    readonly to: string;
     readonly calldata: string;
 
-    readonly from?: Address;
+    readonly from?: string;
     readonly blockNumber?: string;
 }
 
-export type CallParamsAsArray = [Address, Address, string?, string?];
+export type CallParamsAsArray = [string, string, string?, string?];
 
 export type CallParams = CallParamsAsObject | CallParamsAsArray;

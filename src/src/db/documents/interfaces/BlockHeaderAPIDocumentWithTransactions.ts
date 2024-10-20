@@ -11,7 +11,6 @@ import { APIDocumentInput } from '../../../blockchain-indexer/processor/transact
 export interface EventReceiptDataForAPI {
     readonly contractAddress: string;
     readonly eventType: string;
-    readonly eventDataSelector: string;
     readonly eventData: string;
 }
 

@@ -13,13 +13,13 @@ import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocume
 import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
-import { Address } from '@btc-vision/transaction';
 import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../db/interfaces/IWBTCUTXODocument.js';
 import { IVaultDocument } from '../../db/interfaces/IVaultDocument.js';
 import { SelectedUTXOs } from '../../db/repositories/WBTCUTXORepository.js';
 import { ICompromisedTransactionDocument } from '../../db/interfaces/CompromisedTransactionDocument.js';
 import { BlockchainInfoRepository } from '../../db/repositories/BlockchainInfoRepository.js';
 import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
+import { Address } from '@btc-vision/transaction';
 
 export abstract class VMStorage extends Logger implements IVMStorageMethod {
     public readonly logColor: string = '#ff00ff';
@@ -44,7 +44,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<IParsedBlockWitnessDocument[]>;
 
     public abstract getStorage(
-        address: Address,
+        address: string,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null,
         setIfNotExit: boolean,
@@ -52,7 +52,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<ProvenMemoryValue | null>;
 
     public abstract setStorage(
-        address: Address,
+        address: string,
         pointer: StoragePointer,
         value: MemoryValue,
         proofs: string[],
@@ -60,17 +60,17 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<void>;
 
     public abstract setStoragePointers(
-        storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: Map<string, Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
     ): Promise<void>;
 
     public abstract getContractAt(
-        address: Address,
+        address: string,
         height?: bigint,
     ): Promise<ContractInformation | undefined>;
 
     public abstract getContractAddressAt(
-        address: Address,
+        address: string,
         height?: bigint,
     ): Promise<Address | undefined>;
 
@@ -91,8 +91,8 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
 
     public abstract getBlockHeader(height: bigint): Promise<BlockHeaderDocument | undefined>;
 
-    public abstract getContractAtVirtualAddress(
-        virtualAddress: string,
+    public abstract getContractFromTweakedPubKey(
+        tweakedPublicKey: string,
     ): Promise<ContractInformation | undefined>;
 
     public abstract setContractAt(contractData: ContractInformation): Promise<void>;

@@ -1,4 +1,4 @@
-import { Address, BufferHelper } from '@btc-vision/transaction';
+import { AddressVerificator, BufferHelper } from '@btc-vision/transaction';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -27,7 +27,6 @@ import {
 import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
-import { AddressVerificator } from '@btc-vision/transaction';
 
 export class Simulation extends Route<
     Routes.SIMULATE,
@@ -41,9 +40,9 @@ export class Simulation extends Route<
     }
 
     public static async requestThreadExecution(
-        to: Address,
+        to: string,
         calldata: string,
-        from?: Address,
+        from?: string,
         blockNumber?: bigint,
     ): Promise<CallRequestResponse> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
@@ -235,7 +234,6 @@ export class Simulation extends Route<
                     const eventResult: EventReceiptDataForAPI = {
                         contractAddress: contract,
                         eventType: event.eventType,
-                        eventDataSelector: event.eventDataSelector.toString(),
                         eventData: Buffer.from(event.eventData).toString('base64'),
                     };
 
@@ -273,10 +271,10 @@ export class Simulation extends Route<
 
     private getDecodedParams(
         params: CallParams,
-    ): [Address, string, Address | undefined, bigint | undefined] {
-        let address: Address | undefined;
+    ): [string, string, string | undefined, bigint | undefined] {
+        let address: string | undefined;
         let calldata: string | undefined;
-        let from: Address | undefined;
+        let from: string | undefined;
         let blockNumber: bigint | undefined;
 
         if (Array.isArray(params)) {

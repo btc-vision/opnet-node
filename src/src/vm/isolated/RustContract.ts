@@ -1,10 +1,10 @@
 import { BitcoinNetworkRequest, CallResponse, ContractManager } from '@btc-vision/op-vm';
-import { Address } from '@btc-vision/transaction';
-import { RustContractBinding } from './RustContractBindings.js';
 import { Blockchain } from '../Blockchain.js';
+import { RustContractBinding } from './RustContractBindings.js';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
-    readonly address: Address;
+    readonly address: string;
+
     readonly bytecode: Buffer;
     readonly gasLimit: bigint;
     readonly network: BitcoinNetworkRequest;
@@ -89,12 +89,11 @@ export class RustContract {
     public dispose(): void {
         if (!this.instantiated) return;
 
-        const id = this._id;
-        if (id == null) {
+        if (this._id == null) {
             throw new Error('Contract is not instantiated');
         }
 
-        if (this.enableDebug || this.enableDisposeLog) console.log('Disposing contract', id);
+        if (this.enableDebug || this.enableDisposeLog) console.log('Disposing contract', this._id);
 
         let deadlock: unknown;
         try {
@@ -110,10 +109,8 @@ export class RustContract {
         if (this.disposed) return;
         this._disposed = true;
 
-        this.contractManager.destroyContract(id);
-        setTimeout(() => {
-            Blockchain.removeBinding(id);
-        }, 100); // 100ms delay to give the time to unix based system to release the mutex
+        Blockchain.removeBinding(this._id);
+        this.contractManager.destroyContract(this._id);
 
         if (deadlock) {
             const strErr = (deadlock as Error).message;
@@ -276,7 +273,7 @@ export class RustContract {
         const length = new Uint32Array(lengthBuffer.buffer)[0];
 
         const end = (pointer + length) >>> 1;
-        const stringParts = [];
+        const stringParts: Array<string> = [];
         let start = pointer >>> 1;
 
         while (end - start > 1024) {

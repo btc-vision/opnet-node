@@ -124,7 +124,6 @@ export class TransactionReceipt extends Route<
             return {
                 contractAddress: event.contractAddress,
                 eventType: event.eventType,
-                eventDataSelector: DataConverter.fromDecimal128(event.eventDataSelector).toString(),
                 eventData: event.eventData.toString('base64'),
             };
         });

@@ -20,8 +20,13 @@ import {
     WrapTransactionParameters,
 } from '../../../../../blockchain-indexer/processor/transaction/generator/WrapTransactionGenerator.js';
 import { UnwrapGenerator } from '../../../../../blockchain-indexer/processor/transaction/generator/UnwrapGenerator.js';
-import { ABICoder, Address, BinaryReader, BinaryWriter } from '@btc-vision/transaction';
-import { AddressVerificator } from '@btc-vision/transaction';
+import {
+    ABICoder,
+    Address,
+    AddressVerificator,
+    BinaryReader,
+    BinaryWriter,
+} from '@btc-vision/transaction';
 import { TrustedAuthority } from '../../../../../poa/configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../../../../poa/configurations/manager/AuthorityManager.js';
 import { Call } from '../states/Call.js';
@@ -144,7 +149,7 @@ export class GenerateRoute extends Route<
 
         const amount: string | bigint | undefined = body.amount;
         const target: GenerateTarget | string | undefined = body.target;
-        const receiver: Address | undefined = body.receiver;
+        const receiver: string | undefined = body.receiver;
 
         if (!req.body || !amount) {
             res.status(400);
@@ -174,7 +179,7 @@ export class GenerateRoute extends Route<
 
     private async generateUnwrapParameters(
         amount: bigint,
-        receiver: Address | undefined,
+        receiver: string | undefined,
     ): Promise<UnwrappedGenerationResult | undefined> {
         if (!this.unwrapGenerator) {
             throw new Error('Unwrap generator not initialized');
@@ -184,15 +189,18 @@ export class GenerateRoute extends Route<
             throw new Error('Receiver address not provided.');
         }
 
-        if (!AddressVerificator.validateBitcoinAddress(receiver, this.network)) {
-            throw new Error(`Address ${receiver} is not a valid Bitcoin address.`);
+        if (!AddressVerificator.isValidPublicKey(receiver, this.network)) {
+            throw new Error(`Address ${receiver} is not a valid tweaked public key.`);
         }
 
         if (amount < this.MINIMUM_AMOUNT) {
             throw new Error(`Amount must be at least ${this.MINIMUM_AMOUNT} sat.`);
         }
 
-        const balanceOfCalldata: string = this.generateGetBalanceCalldata(receiver);
+        const balanceOfCalldata: string = this.generateGetBalanceCalldata(
+            Address.fromString(receiver),
+        );
+
         const balanceOfResult: CallRequestResponse = await Call.requestThreadExecution(
             this.currentAuthority.WBTC_SEGWIT_CONTRACT_ADDRESS,
             balanceOfCalldata,
@@ -236,7 +244,7 @@ export class GenerateRoute extends Route<
     private getDecodedParams(params: GenerateParams): GenerateParamsAsArray {
         let amount: bigint | string;
         let target: GenerateTarget;
-        let receiver: Address | undefined;
+        let receiver: string | undefined;
 
         if (Array.isArray(params)) {
             target = parseInt(params[0] as string) as GenerateTarget;

@@ -1,17 +1,16 @@
 import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
-import { Address } from '@btc-vision/transaction';
 
 export interface IVMStorageMethod {
     getStorage(
-        address: Address,
+        address: string,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null,
         setIfNotExit: boolean,
     ): Promise<ProvenMemoryValue | null>;
 
     setStorage(
-        address: Address,
+        address: string,
         pointer: StoragePointer,
         value: MemoryValue,
         proofs: string[],

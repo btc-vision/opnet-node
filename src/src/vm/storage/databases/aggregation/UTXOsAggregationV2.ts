@@ -1,4 +1,3 @@
-import { Address } from '@btc-vision/transaction';
 import { Decimal128, Document, Long } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 import { ShortScriptPubKey } from '../../../../db/interfaces/IUnspentTransaction.js';
@@ -13,7 +12,7 @@ export interface UTXOSOutputTransactionFromDBV2 {
 
 export class UTXOsAggregationV2 extends Aggregation {
     public getAggregation(
-        wallet: Address,
+        wallet: string,
         limit: boolean = true,
         optimize: boolean = false,
     ): Document[] {

@@ -1,11 +1,9 @@
 import { Binary, Decimal128 } from 'mongodb';
-import { Address } from '@btc-vision/transaction';
 
 export interface IContractDocumentBase {
     readonly blockHeight: Decimal128 | string | undefined;
-    readonly contractAddress: Address;
-    readonly virtualAddress: Address;
-    readonly p2trAddress: Address | null;
+    readonly contractAddress: string;
+    readonly tweakedPublicKey: string;
     readonly bytecode: Binary | string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: string;
@@ -13,10 +11,9 @@ export interface IContractDocumentBase {
     readonly deployerPubKey: Binary | string;
     readonly contractSeed: Binary | string;
     readonly contractSaltHash: Binary | string;
-    readonly deployerAddress: Address;
 }
 
-export interface IContractAPIDocument extends IContractDocumentBase {
+export interface IContractAPIDocument extends Omit<IContractDocumentBase, 'deployerAddress'> {
     readonly bytecode: string;
     readonly deployerPubKey: string;
     readonly contractSeed: string;

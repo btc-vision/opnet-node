@@ -1,10 +1,9 @@
 import { Document } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
-import { Address } from '@btc-vision/transaction';
 import { MinimumUtxoInformation } from '../../../../poa/mempool/verificator/consensus/UnwrapConsensusVerificator.js';
 
 export interface VaultsByHashes {
-    readonly vault: Address;
+    readonly vault: string;
     readonly publicKeys: Buffer[];
     readonly minimum: number;
     readonly utxoDetails: MinimumUtxoInformation[];

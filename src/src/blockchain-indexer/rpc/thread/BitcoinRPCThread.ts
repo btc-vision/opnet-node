@@ -31,7 +31,7 @@ import {
     EvaluatedEvents,
     PointerStorageMap,
 } from '../../../vm/evaluated/EvaluatedResult.js';
-import { Address, NetEvent } from '@btc-vision/transaction';
+import { NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
 import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
 
@@ -131,7 +131,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     private convertArrayEventsToEvents(
         array: [string, [string, string, string][]][],
     ): EvaluatedEvents {
-        const map: EvaluatedEvents = new Map<Address, NetEvent[]>();
+        const map: EvaluatedEvents = new Map<string, NetEvent[]>();
 
         for (const [key, value] of array) {
             const events: NetEvent[] = [];
@@ -140,8 +140,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 const innerValue = value[i];
                 const event: NetEvent = new NetEvent(
                     innerValue[0],
-                    BigInt(innerValue[1]),
-                    Uint8Array.from(Buffer.from(innerValue[2], 'hex')),
+                    Uint8Array.from(Buffer.from(innerValue[1], 'hex')),
                 );
 
                 events.push(event);

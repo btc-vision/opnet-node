@@ -1,7 +1,6 @@
 import { Consensus } from '../../../configurations/consensus/Consensus.js';
 import { Psbt } from 'bitcoinjs-lib';
 import { PSBTDecodedData } from '../../psbt/PSBTTransactionVerifier.js';
-import { Address } from '@btc-vision/transaction';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TrustedAuthority } from '../../../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../../configurations/manager/AuthorityManager.js';
@@ -12,17 +11,17 @@ export interface MinimumUtxoInformation {
 }
 
 export interface VerificationVault {
-    readonly vault: Address;
+    readonly vault: string;
     readonly publicKeys: Buffer[];
     readonly minimum: number;
     readonly utxoDetails: MinimumUtxoInformation[];
 }
 
 export interface UnwrapPSBTDecodedData extends PSBTDecodedData {
-    readonly receiver: Address;
+    readonly receiver: string;
     readonly amount: bigint;
     readonly version: number;
-    readonly vaults: Map<Address, VerificationVault>;
+    readonly vaults: Map<string, VerificationVault>;
     readonly hashes: string[];
 }
 

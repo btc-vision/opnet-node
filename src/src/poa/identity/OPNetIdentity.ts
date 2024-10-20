@@ -108,6 +108,10 @@ export class OPNetIdentity extends OPNetPathFinder {
         return EcKeyPair.getP2WPKHAddress(this.opnetWallet, this.network);
     }
 
+    public get pubKey(): string {
+        return '0x' + this.opnetWallet.publicKey.toString('hex');
+    }
+
     public get opnetAddress(): string {
         return '0x' + this.keyPair.identity.hash.toString('hex');
     }

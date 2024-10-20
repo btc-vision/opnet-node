@@ -169,7 +169,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         }
     }
 
-    public async getPendingTransactions(address: Address): Promise<UTXOSOutputTransaction[]> {
+    public async getPendingTransactions(address: string): Promise<UTXOSOutputTransaction[]> {
         const criteria: Filter<IMempoolTransaction> = {
             'outputs.address': address,
             id: {

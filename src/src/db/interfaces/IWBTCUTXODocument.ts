@@ -1,8 +1,7 @@
 import { Binary, Decimal128 } from 'mongodb';
-import { Address } from '@btc-vision/transaction';
 
 export interface IWBTCUTXODocument {
-    readonly vault: Address;
+    readonly vault: string;
     readonly blockId: Decimal128;
 
     readonly hash: string;
@@ -16,7 +15,7 @@ export interface IWBTCUTXODocument {
 }
 
 export interface PartialWBTCUTXODocument {
-    readonly vault: Address;
+    readonly vault: string;
 
     readonly hash: string;
     readonly value: Decimal128;
@@ -32,7 +31,7 @@ export interface PartialWBTCUTXODocumentForAPI
 }
 
 export interface IUsedWBTCUTXODocument {
-    readonly vault: Address;
+    readonly vault: string;
     readonly height: Decimal128;
     readonly hash: string;
     readonly outputIndex: number;

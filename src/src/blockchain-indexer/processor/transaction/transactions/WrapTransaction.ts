@@ -7,7 +7,14 @@ import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { InteractionTransaction, InteractionWitnessData } from './InteractionTransaction.js';
 import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
-import { Address, BinaryReader, BinaryWriter } from '@btc-vision/transaction';
+import {
+    Address,
+    AddressMap,
+    AddressSet,
+    BinaryReader,
+    BinaryWriter,
+    P2TR_MS,
+} from '@btc-vision/transaction';
 import {
     WBTC_WRAP_SELECTOR,
     WRAPPING_FEE_STACKING,
@@ -16,7 +23,6 @@ import {
     WRAPPING_INDEXER_PERCENTAGE_FEE_BASE,
     WRAPPING_INVALID_AMOUNT_PENALTY,
 } from '../../../../poa/wbtc/WBTCRules.js';
-import { P2TR_MS } from '@btc-vision/transaction';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
@@ -67,7 +73,7 @@ export class WrapTransaction extends InteractionTransaction {
     #wrapOutput: ScriptPubKey | undefined;
     #depositTotal: bigint = 0n;
     #depositAmount: bigint = 0n;
-    #depositAddress: string = '';
+    #depositAddress: Address | undefined;
 
     #wrappingFees: bigint = 0n;
 
@@ -118,7 +124,7 @@ export class WrapTransaction extends InteractionTransaction {
         return this.#minimumSignatures;
     }
 
-    public get depositAddress(): string {
+    public get depositAddress(): Address {
         if (!this.#depositAddress) {
             throw new Error(`Deposit address is not set.`);
         }
@@ -342,7 +348,7 @@ export class WrapTransaction extends InteractionTransaction {
             throw new Error(`Invalid address found in wrap transaction.`);
         }
 
-        this.#depositAddress = to.toString();
+        this.#depositAddress = to;
 
         const amount: bigint = reader.readU256();
         if (amount < 0n) {
@@ -417,13 +423,12 @@ export class WrapTransaction extends InteractionTransaction {
         this.opnetFee += dust;
     }
 
-    private giveFeesToIndexer(): Map<Address, bigint> {
-        const fees: Map<Address, bigint> = new Map<Address, bigint>();
+    private giveFeesToIndexer(): AddressMap<bigint> {
+        const fees: AddressMap<bigint> = new AddressMap<bigint>();
 
-        const indexerWallets: Set<Address> = new Set<Address>();
-        for (const validators of this.pubKeys) {
-            const address: Address | undefined =
-                authorityManager.getWalletFromPublicKey(validators);
+        const indexerWallets: AddressSet = new AddressSet();
+        for (const validator of this.pubKeys) {
+            const address: Address | undefined = authorityManager.getWalletFromPublicKey(validator);
 
             if (!address) throw new Error(`Invalid fee recipient found in wrap transaction.`);
             if (!indexerWallets.has(address)) indexerWallets.add(address);

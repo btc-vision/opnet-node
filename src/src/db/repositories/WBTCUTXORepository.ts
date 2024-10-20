@@ -17,7 +17,6 @@ import { IWBTCUTXODocument, UsedUTXOToDelete } from '../interfaces/IWBTCUTXODocu
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { WBTCUTXOAggregation } from '../../vm/storage/databases/aggregation/WBTCUTXOSAggregation.js';
-import { Address } from '@btc-vision/transaction';
 import { IVaultDocument } from '../interfaces/IVaultDocument.js';
 import {
     QueryVaultAggregation,
@@ -28,13 +27,13 @@ import { UnwrapTargetConsolidation } from '../../poa/equoitions/UnwrapTargetCons
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 
 export interface VaultUTXOs {
-    readonly vault: Address;
-    readonly publicKeys: Address[];
+    readonly vault: string;
+    readonly publicKeys: string[];
     readonly minimum: number;
     readonly utxos: IWBTCUTXODocument[];
 }
 
-export type SelectedUTXOs = Map<Address, VaultUTXOs>;
+export type SelectedUTXOs = Map<string, VaultUTXOs>;
 
 export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
     private static readonly DELETE_OLDER_THAN_BLOCKS: bigint = 256n;
@@ -251,7 +250,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
     }
 
     public async queryVaults(
-        vaults: Address[],
+        vaults: string[],
         currentSession?: ClientSession,
     ): Promise<IVaultDocument[]> {
         const criteria = {
@@ -390,7 +389,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
     }
 
     private async fetchVault(
-        vault: Address,
+        vault: string,
         currentSession?: ClientSession,
     ): Promise<IVaultDocument | null> {
         const criteria = {
@@ -407,7 +406,7 @@ export class WBTCUTXORepository extends BaseRepository<IWBTCUTXODocument> {
         utxos: IWBTCUTXODocument[],
     ): Promise<SelectedUTXOs | undefined> {
         const selectedUTXOs: SelectedUTXOs = new Map();
-        const vaultCache: Map<Address, IVaultDocument> = new Map();
+        const vaultCache: Map<string, IVaultDocument> = new Map();
         const hashes: string[] = [];
 
         for (const utxo of utxos) {

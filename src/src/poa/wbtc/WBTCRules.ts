@@ -1,4 +1,4 @@
-import { ABICoder, Selector } from '@btc-vision/transaction';
+import {ABICoder, Address, Selector} from '@btc-vision/transaction';
 import { ChainIds } from '../../config/enums/ChainIds.js';
 
 import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';
@@ -17,35 +17,35 @@ export const WRAPPING_INDEXER_FEES: bigint = 100n - WRAPPING_FEE_STACKING - OPNE
 
 export const OPNET_FEE_WALLET: {
     [key in ChainIds]: Partial<{
-        [key in BitcoinNetwork]: { address: string };
+        [key in BitcoinNetwork]: { address: Address };
     }>;
 } = {
     [ChainIds.Bitcoin]: {
         [BitcoinNetwork.mainnet]: {
-            address: 'bc1pjune3rz4zcm8scdv9hnu5cld8vh4eqrwagph9wsez0rutjxkvwls6mhr3l',
+            address: Address.dead(),
         },
         [BitcoinNetwork.testnet]: {
-            address: 'tb1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw53gszlcezf',
+            address: Address.dead(),
         },
         [BitcoinNetwork.regtest]: {
-            address: 'bcrt1pe0slk2klsxckhf90hvu8g0688rxt9qts6thuxk3u4ymxeejw52gs0xjlhn',
+            address: Address.dead(),
         },
         [BitcoinNetwork.signet]: {
-            address: 'bc1pjune3rz4zcm8scdv9hnu5cld8vh4eqrwagph9wsez0rutjxkvwls6mhr3l',
+            address: Address.dead(),
         },
     },
     [ChainIds.Fractal]: {
         [BitcoinNetwork.mainnet]: {
-            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+            address: Address.dead(),
         },
         [BitcoinNetwork.testnet]: {
-            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+            address: Address.dead(),
         },
         [BitcoinNetwork.regtest]: {
-            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+            address: Address.dead(),
         },
         [BitcoinNetwork.signet]: {
-            address: 'bc1p823gdnqvk8a90f8cu30w8ywvk29uh8txtqqnsmk6f5ktd7hlyl0qxsjd0h',
+            address: Address.dead(),
         },
     },
 };

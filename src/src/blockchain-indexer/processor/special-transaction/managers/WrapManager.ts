@@ -2,7 +2,6 @@ import { AbstractSpecialManager } from './AbstractSpecialManager.js';
 import { VMStorage } from '../../../../vm/storage/VMStorage.js';
 import { OPNetTransactionTypes } from '../../transaction/enums/OPNetTransactionTypes.js';
 import { WrapTransaction } from '../../transaction/transactions/WrapTransaction.js';
-import { Address } from '@btc-vision/transaction';
 import { IVaultDocument } from '../../../../db/interfaces/IVaultDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { IWBTCUTXODocument } from '../../../../db/interfaces/IWBTCUTXODocument.js';
@@ -13,7 +12,7 @@ export class WrapManager extends AbstractSpecialManager<OPNetTransactionTypes.Wr
         OPNetTransactionTypes.WrapInteraction;
 
     public readonly logColor: string = '#afeeee';
-    private readonly cachedVaults: Set<Address> = new Set();
+    private readonly cachedVaults: Set<string> = new Set();
 
     public constructor(vmStorage: VMStorage) {
         super(vmStorage);
@@ -34,7 +33,7 @@ export class WrapManager extends AbstractSpecialManager<OPNetTransactionTypes.Wr
         this.cachedVaults.clear();
     }
 
-    private hasVault(vault: Address): boolean {
+    private hasVault(vault: string): boolean {
         return this.cachedVaults.has(vault);
     }
 

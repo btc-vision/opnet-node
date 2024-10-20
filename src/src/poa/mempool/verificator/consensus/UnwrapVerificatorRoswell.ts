@@ -9,7 +9,6 @@ import {
 import { Psbt, PsbtTxInput } from 'bitcoinjs-lib';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { WBTCUTXORepository } from '../../../../db/repositories/WBTCUTXORepository.js';
-import { Address } from '@btc-vision/transaction';
 import { UnwrapTargetConsolidation } from '../../../equoitions/UnwrapTargetConsolidation.js';
 import { OPNetConsensus } from '../../../configurations/OPNetConsensus.js';
 
@@ -53,12 +52,12 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         };
     }
 
-    private orderVaultsByAddress(vaults: Map<Address, VerificationVault>): VerificationVault[] {
+    private orderVaultsByAddress(vaults: Map<string, VerificationVault>): VerificationVault[] {
         return Array.from(vaults.values()).sort((a, b) => a.vault.localeCompare(b.vault));
     }
 
     private findVaultWithMostPublicKeys(
-        vaultsMap: Map<Address, VerificationVault>,
+        vaultsMap: Map<string, VerificationVault>,
     ): VerificationVault {
         const vaults = this.orderVaultsByAddress(vaultsMap);
         let mostPublicKeys: number = 0;
@@ -82,7 +81,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
 
     private checkInputOrder(
         psbt: Psbt,
-        vaults: Map<Address, VerificationVault>,
+        vaults: Map<string, VerificationVault>,
     ): MinimumUtxoInformation[] {
         const inputs: { [key: string]: { value: bigint } } = {};
         for (const vault of vaults.values()) {
@@ -194,8 +193,8 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
     // TODO: Make sure this is 100% correct and vuln proof.
     private analyzeOutputs(
         psbt: Psbt,
-        usedVaults: Map<Address, VerificationVault>,
-        receiver: Address,
+        usedVaults: Map<string, VerificationVault>,
+        receiver: string,
         amount: bigint,
     ): void {
         const numberOfInputs: number = psbt.txInputs.length - 1;
@@ -338,7 +337,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
         // All good!
     }
 
-    private calculateVaultTotalHoldings(vaults: Map<Address, VerificationVault>): bigint {
+    private calculateVaultTotalHoldings(vaults: Map<string, VerificationVault>): bigint {
         let totalHoldings: bigint = 0n;
 
         for (const vault of vaults.values()) {
@@ -351,7 +350,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
     }
 
     private getMaximumFeeRefund(
-        usedVaults: Map<Address, VerificationVault>,
+        usedVaults: Map<string, VerificationVault>,
         amount: bigint,
     ): bigint {
         let refund: bigint = -OPNetConsensus.consensus.VAULTS.UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT;
@@ -406,10 +405,10 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
     }
 
     private async getUsedVaultsFromTx(tx: Psbt): Promise<{
-        vaults: Map<Address, VerificationVault>;
+        vaults: Map<string, VerificationVault>;
         hashes: string[];
     }> {
-        const vaults: Map<Address, VerificationVault> = new Map();
+        const vaults: Map<string, VerificationVault> = new Map();
 
         const hashUTXOs: string[] = this.getAllInputHashesFromTx(tx);
         if (!hashUTXOs.length) {

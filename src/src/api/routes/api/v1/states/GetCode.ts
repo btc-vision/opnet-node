@@ -1,4 +1,3 @@
-import { Address } from '@btc-vision/transaction';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -27,7 +26,7 @@ export class GetCode extends Route<
 
         let contract: ContractInformation | undefined;
         if (isVirtual) {
-            contract = await this.storage.getContractAtVirtualAddress(address);
+            contract = await this.storage.getContractFromTweakedPubKey(address);
         } else {
             contract = await this.storage.getContractAt(address);
         }
@@ -43,9 +42,8 @@ export class GetCode extends Route<
             const document = contract.toDocument();
 
             result = {
-                contractAddress: document.contractAddress.toString(),
-                virtualAddress: document.virtualAddress.toString(),
-                p2trAddress: (document.p2trAddress ?? '').toString(),
+                contractAddress: document.contractAddress,
+                tweakedPublicKey: document.tweakedPublicKey,
 
                 contractSeed: document.contractSeed.toString('base64'),
                 contractSaltHash: document.contractSaltHash.toString('hex'),
@@ -53,7 +51,6 @@ export class GetCode extends Route<
                 deployedTransactionId: document.deployedTransactionId,
                 deployedTransactionHash: document.deployedTransactionHash,
                 deployerPubKey: document.deployerPubKey.toString('base64'),
-                deployerAddress: document.deployerAddress,
 
                 bytecode: contract.bytecode.toString('base64'),
 
@@ -126,12 +123,12 @@ export class GetCode extends Route<
         };
     }
 
-    private getDecodedParams(params: GetCodeParams): [Address, boolean, boolean] {
-        let address: Address | undefined;
+    private getDecodedParams(params: GetCodeParams): [string, boolean, boolean] {
+        let address: string | undefined;
         let onlyBytecode: boolean;
 
         if (Array.isArray(params)) {
-            address = params.shift() as Address | undefined;
+            address = params.shift() as string | undefined;
 
             onlyBytecode = (params.shift() as boolean | undefined) ?? false;
         } else {

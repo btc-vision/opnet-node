@@ -1,5 +1,4 @@
 import { Binary, Decimal128, Long } from 'mongodb';
-import { Address } from '@btc-vision/transaction';
 
 export interface IMempoolTransaction {
     readonly identifier: Binary;
@@ -20,7 +19,7 @@ export interface IMempoolTransaction {
 
     readonly outputs: {
         readonly data: Binary;
-        readonly address: Address | null;
+        readonly address: string | null;
         readonly outputIndex: number;
         value: Long | number;
     }[];
@@ -42,7 +41,7 @@ export interface IMempoolTransactionObj
 
     readonly outputs: {
         readonly data: Buffer | Uint8Array;
-        readonly address: Address | null;
+        readonly address: string | null;
         readonly outputIndex: number;
         value: Long;
     }[];
