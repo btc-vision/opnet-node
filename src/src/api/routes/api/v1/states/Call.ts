@@ -1,4 +1,4 @@
-import { Address, AddressVerificator, BufferHelper } from '@btc-vision/transaction';
+import { AddressVerificator, BufferHelper } from '@btc-vision/transaction';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -90,12 +90,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             return this.convertDataToResult(res);
         } catch (e) {
             this.decrementPendingRequests();
-
-            if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-                this.error(
-                    `Failed to execute the given calldata at the requested contract: ${(e as Error).stack}`,
-                );
-            }
 
             throw `Something went wrong while simulating call.`;
         }

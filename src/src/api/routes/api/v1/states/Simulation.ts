@@ -95,12 +95,6 @@ export class Simulation extends Route<
         } catch (e) {
             this.decrementPendingRequests();
 
-            if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-                this.error(
-                    `Failed to execute the given calldata at the requested contract: ${(e as Error).stack}`,
-                );
-            }
-
             throw `Something went wrong while simulating call.`;
         }
     }
