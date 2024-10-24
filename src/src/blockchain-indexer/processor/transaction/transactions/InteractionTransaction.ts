@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin, { address, initEccLib, opcodes } from 'bitcoinjs-lib';
+import bitcoin, { initEccLib, opcodes } from 'bitcoinjs-lib';
 import { Binary } from 'mongodb';
 import { InteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
@@ -14,10 +14,11 @@ import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
 import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
-import { Address, BinaryReader } from '@btc-vision/transaction';
+import { Address, AddressVerificator, BinaryReader } from '@btc-vision/transaction';
 import { WBTC_UNWRAP_SELECTOR, WBTC_WRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
 import * as ecc from 'tiny-secp256k1';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
+import crypto from 'crypto';
 
 export interface InteractionWitnessData {
     senderPubKey: Buffer;
@@ -371,25 +372,27 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this.contractSecret = contractSecret;
 
         /** We must verify that the contract secret match with at least one output. */
-        const outputWitness: TransactionOutput | undefined =
-            this.getOutputWitnessFromSecret(contractSecret);
-
+        const outputWitness: TransactionOutput | undefined = this.outputs[0];
         if (!outputWitness) {
-            throw new Error(
-                `No output transaction found for contract secret for transaction ${this.txid}. Secret: ${contractSecret.toString(
-                    'hex',
-                )}`,
-            );
+            throw new Error(`OP_NET: Interaction miss configured.`);
         }
 
-        console.log(outputWitness);
+        const contractSecretRegenerated: Buffer =
+            outputWitness.decodedSchnorrPublicKey ||
+            outputWitness.decodedPubKeyHash ||
+            (outputWitness.decodedPublicKeys || [])[0];
 
-        const outputAddress = outputWitness.scriptPubKey.address;
-        if (!outputAddress) {
-            throw new Error(`No address found for contract witness output`);
+        if (!contractSecretRegenerated || !outputWitness.scriptPubKey.type) {
+            throw new Error(`OP_NET: Interaction miss configured.`);
         }
 
-        this._contractAddress = Address.dead();
+        this._contractAddress = this.regenerateContractAddress(contractSecret);
+
+        this.verifyContractAddress(
+            outputWitness.scriptPubKey.type,
+            contractSecretRegenerated,
+            this._contractAddress,
+        );
 
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
@@ -400,41 +403,65 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this.verifyUnallowed();
     }
 
+    protected verifyContractAddress(type: string, pubKey: Buffer, contractAddress: Address): void {
+        if (!type || !pubKey) {
+            throw new Error(`OP_NET: Invalid contract address specified.`);
+        }
+
+        switch (type) {
+            case 'witness_v1_taproot': {
+                break;
+            }
+            case 'pubkey': {
+                break;
+            }
+            default: {
+                throw new Error(
+                    `OP_NET: Only P2TR, legacy and pubkey interactions are supported at this time. Got ${type}`,
+                );
+            }
+        }
+
+        if (!crypto.timingSafeEqual(pubKey, contractAddress)) {
+            throw new Error(`OP_NET: Malformed UTXO output.`);
+        }
+    }
+
+    protected regenerateContractAddress(contractSecret: Buffer): Address {
+        const isValid =
+            contractSecret.length === 32 ||
+            contractSecret.length === 33 ||
+            contractSecret.length === 65;
+
+        if (!isValid) {
+            throw new Error(`OP_NET: Invalid contract address length specified.`);
+        }
+
+        if (contractSecret.length === 33) {
+            if (contractSecret[0] !== 0x02 && contractSecret[0] !== 0x03) {
+                throw new Error(`OP_NET: Invalid contract address prefix specified.`);
+            }
+        }
+
+        if (contractSecret.length === 65) {
+            if (contractSecret[0] !== 0x04) {
+                throw new Error(`OP_NET: Invalid contract uncompressed address specified.`);
+            }
+        }
+
+        if (!AddressVerificator.isValidPublicKey(contractSecret.toString('hex'), this.network)) {
+            throw new Error(`OP_NET: Invalid contract pubkey specified.`);
+        }
+
+        return new Address(contractSecret);
+    }
+
     /** We must verify that the transaction is not bypassing another transaction type. */
     protected verifyUnallowed(): void {
         // We handle wbtc checks here.
         if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
             this.verifyWBTC();
         }
-    }
-
-    /**
-     * Get the output witness from the secret. Note: If there is multiple interaction in the same transaction, there should be only one output that match the secret.
-     * @param secret Buffer
-     * @private
-     */
-    private getOutputWitnessFromSecret(secret: Buffer): TransactionOutput | undefined {
-        for (let i = 0; i < this.outputs.length; i++) {
-            const output = this.outputs[i];
-
-            const scriptPubKey = output.scriptPubKey;
-            const outAddress = scriptPubKey.address;
-
-            if (!outAddress) {
-                continue;
-            }
-
-            const bech32Address = address.fromBech32(outAddress);
-            if (!bech32Address) {
-                continue;
-            }
-
-            if (secret.equals(bech32Address.data)) {
-                return output;
-            }
-        }
-
-        return undefined;
     }
 
     /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */
