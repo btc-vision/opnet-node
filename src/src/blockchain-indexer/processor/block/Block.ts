@@ -1,4 +1,4 @@
-import { MemorySlotPointer } from '@btc-vision/transaction';
+import { AddressMap, MemorySlotPointer } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -92,9 +92,9 @@ export class Block extends Logger {
     #compromised: boolean = false;
 
     #_storageRoot: string | undefined;
-    #_storageProofs: Map<string, Map<MemorySlotPointer, string[]>> | undefined;
+    #_storageProofs: AddressMap<Map<MemorySlotPointer, string[]>> | undefined;
     #_receiptRoot: string | undefined;
-    #_receiptProofs: Map<string, Map<string, string[]>> | undefined;
+    #_receiptProofs: AddressMap<Map<string, string[]>> | undefined;
     #_checksumMerkle: ChecksumMerkle = new ChecksumMerkle();
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
@@ -103,7 +103,7 @@ export class Block extends Logger {
     private _predictedGas: CalculatedBlockGas | undefined;
 
     private blockUsedGas: bigint = 0n;
-    private processEverythingAsGeneric: boolean = false;
+    private readonly processEverythingAsGeneric: boolean = false;
 
     constructor(params: RawBlockParam | DeserializedBlock) {
         super();
@@ -199,7 +199,7 @@ export class Block extends Logger {
         return this.#_receiptRoot;
     }
 
-    public get receiptProofs(): Map<string, Map<string, string[]>> {
+    public get receiptProofs(): AddressMap<Map<string, string[]>> {
         if (!this.#_receiptProofs) {
             throw new Error('Storage proofs not found');
         }
@@ -215,7 +215,7 @@ export class Block extends Logger {
         return this.#_storageRoot;
     }
 
-    public get storageProofs(): Map<string, Map<MemorySlotPointer, string[]>> {
+    public get storageProofs(): AddressMap<Map<MemorySlotPointer, string[]>> {
         if (!this.#_storageProofs) {
             throw new Error('Storage proofs not found');
         }
@@ -498,10 +498,10 @@ export class Block extends Logger {
 
     protected async onEmptyBlock(vmManager: VMManager): Promise<void> {
         this.#_storageRoot = ZERO_HASH;
-        this.#_storageProofs = new Map();
+        this.#_storageProofs = new AddressMap();
 
         this.#_receiptRoot = ZERO_HASH;
-        this.#_receiptProofs = new Map();
+        this.#_receiptProofs = new AddressMap();
 
         await this.signBlock(vmManager);
     }
@@ -527,7 +527,7 @@ export class Block extends Logger {
             this.#_storageProofs = proofs;
         } else {
             this.#_storageRoot = ZERO_HASH;
-            this.#_storageProofs = new Map();
+            this.#_storageProofs = new AddressMap();
         }
 
         this.verifyIfBlockAborted();
@@ -582,7 +582,7 @@ export class Block extends Logger {
             if (evaluation.transactionId) {
                 vmManager.updateBlockValuesFromResult(
                     evaluation,
-                    evaluation.contractAddressStr,
+                    evaluation.contractAddress,
                     evaluation.transactionId,
                     Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
                 );
@@ -626,7 +626,7 @@ export class Block extends Logger {
             if (evaluation.transactionId) {
                 vmManager.updateBlockValuesFromResult(
                     evaluation,
-                    evaluation.contractAddressStr,
+                    evaluation.contractAddress,
                     evaluation.transactionId,
                     Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
                 );
@@ -665,12 +665,7 @@ export class Block extends Logger {
 
         transaction.revert = error;
 
-        vmManager.updateBlockValuesFromResult(
-            null,
-            transaction.contractAddress,
-            transaction.txid,
-            true,
-        );
+        vmManager.updateBlockValuesFromResult(null, transaction.address, transaction.txid, true);
     }
 
     private checkConstraintsBlock(): void {
@@ -808,7 +803,7 @@ export class Block extends Logger {
                 | InteractionTransaction
                 | DeploymentTransaction;
 
-            const contractProofs = this.#_receiptProofs.get(interactionTransaction.contractAddress);
+            const contractProofs = this.#_receiptProofs.get(interactionTransaction.address);
             if (!contractProofs) {
                 // Transaction reverted.
                 continue;

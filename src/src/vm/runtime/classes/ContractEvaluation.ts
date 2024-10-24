@@ -1,12 +1,13 @@
 import { ExecutionParameters } from '../types/InternalContractCallParameters.js';
 import {
     Address,
+    AddressMap,
     BinaryReader,
-    BlockchainStorage,
     DeterministicMap,
     MemorySlotData,
     MemorySlotPointer,
     NetEvent,
+    PointerStorage,
 } from '@btc-vision/transaction';
 import {
     BlockchainStorageMap,
@@ -36,7 +37,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public modifiedStorage: BlockchainStorageMap | undefined;
 
-    public events: EvaluatedEvents = new Map();
+    public events: EvaluatedEvents = new AddressMap();
 
     public result: Uint8Array | undefined;
     public readonly gasTracker: GasTracker;
@@ -47,7 +48,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly transactionId: string;
     public readonly transactionHash: string | null;
 
-    public readonly storage: BlockchainStorage;
+    public readonly storage: AddressMap<PointerStorage>;
     public readonly deployedContracts: ContractInformation[];
 
     public callStack: Address[];
@@ -128,19 +129,19 @@ export class ContractEvaluation implements ExecutionParameters {
     }
 
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
-        const current =
-            this.storage.get(this.contractAddressStr) ||
+        const current: PointerStorage =
+            this.storage.get(this.contractAddress) ||
             new DeterministicMap((a: bigint, b: bigint) => {
                 return BinaryReader.bigintCompare(a, b);
             });
 
         current.set(pointer, value);
 
-        this.storage.set(this.contractAddressStr, current);
+        this.storage.set(this.contractAddress, current);
     }
 
     public getStorage(pointer: MemorySlotPointer): MemorySlotData<bigint> | undefined {
-        const current = this.storage.get(this.contractAddressStr);
+        const current = this.storage.get(this.contractAddress);
         if (!current) {
             return;
         }
@@ -155,13 +156,13 @@ export class ContractEvaluation implements ExecutionParameters {
     public emitEvent(event: NetEvent): void {
         if (!this.events) throw new Error('Events not set');
 
-        const current = this.events.get(this.contractAddressStr) || [];
+        const current = this.events.get(this.contractAddress) || [];
         current.push(event);
 
-        this.events.set(this.contractAddressStr, current);
+        this.events.set(this.contractAddress, current);
     }
 
-    public setEvent(contract: string, events: NetEvent[]) {
+    public setEvent(contract: Address, events: NetEvent[]) {
         if (!this.events) throw new Error('Events not set');
 
         this.events.set(contract, events);
@@ -219,10 +220,10 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public getEvaluationResult(): EvaluatedResult {
         const modifiedStorage: BlockchainStorageMap | undefined = this.revert
-            ? new Map()
+            ? new AddressMap()
             : this.modifiedStorage;
 
-        const events = this.revert ? new Map() : this.events;
+        const events: AddressMap<NetEvent[]> = this.revert ? new AddressMap() : this.events;
         const result = this.revert ? new Uint8Array(1) : this.result;
         const deployedContracts = this.revert ? [] : this.deployedContracts;
 
@@ -260,7 +261,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     private mergeEvents(events: EvaluatedEvents): void {
         if (!this.events) {
-            this.events = new Map();
+            this.events = new AddressMap();
         }
 
         for (const [key, value] of events) {
@@ -275,7 +276,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     private mergeStorage(storage: BlockchainStorageMap): void {
         if (!this.modifiedStorage) {
-            this.modifiedStorage = new Map();
+            this.modifiedStorage = new AddressMap();
         }
 
         for (const [key, value] of storage) {

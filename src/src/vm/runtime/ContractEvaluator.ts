@@ -52,7 +52,7 @@ export class ContractEvaluator extends Logger {
     }
 
     public getStorage(
-        _address: string,
+        _address: Address,
         _pointer: StoragePointer,
         _defaultValue: MemoryValue | null,
         _setIfNotExit: boolean,
@@ -61,7 +61,7 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [getStorage]');
     }
 
-    public setStorage(_address: string, _pointer: bigint, _value: bigint): void {
+    public setStorage(_address: Address, _pointer: bigint, _value: bigint): void {
         throw new Error('Method not implemented. [setStorage]');
     }
 
@@ -370,17 +370,21 @@ export class ContractEvaluator extends Logger {
     }
 
     private async internalGetStorage(
-        address: string,
+        address: Address,
         pointer: StoragePointer,
         defaultValueBuffer: MemoryValue | null,
         setIfNotExit: boolean = false,
         blockNumber: bigint,
     ): Promise<MemoryValue | null> {
+        if (!this.contractAddress) {
+            throw new Error('Contract not initialized');
+        }
+
         if (setIfNotExit && defaultValueBuffer === null) {
             throw new Error('Default value buffer is required');
         }
 
-        const canInitialize: boolean = address === this.contractAddressStr ? setIfNotExit : false;
+        const canInitialize: boolean = address.equals(this.contractAddress) ? setIfNotExit : false;
 
         return this.getStorage(address, pointer, defaultValueBuffer, canInitialize, blockNumber);
     }
@@ -510,7 +514,7 @@ export class ContractEvaluator extends Logger {
     ): Promise<bigint | null> {
         const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
         const value: MemoryValue | null = await this.internalGetStorage(
-            evaluation.contractAddressStr,
+            evaluation.contractAddress,
             rawData,
             null,
             false,

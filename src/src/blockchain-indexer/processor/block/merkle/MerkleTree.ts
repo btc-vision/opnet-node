@@ -1,16 +1,20 @@
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
+import { Address, AddressMap } from '@btc-vision/transaction';
+import { BTC_FAKE_ADDRESS } from '../types/ZeroValue.js';
 
 export abstract class MerkleTree<K, V> {
-    public static readonly DUMMY_ADDRESS_NON_EXISTENT = 'bc1dead';
+    public static readonly DUMMY_ADDRESS_NON_EXISTENT: Address = BTC_FAKE_ADDRESS;
+
     protected tree: StandardMerkleTree<[Buffer, Buffer]> | undefined;
-    protected readonly values: Map<string, Map<K, V>> = new Map();
+    protected readonly values: AddressMap<Map<K, V>> = new AddressMap();
+
     protected valueChanged: boolean = false;
     protected frozen: boolean = false;
     private readonly MINIMUM_VALUES = 2; // To generate a tree, we need at least 2 values
 
     protected constructor(protected readonly treeType: [string, string]) {}
 
-    get root(): string {
+    public get root(): string {
         if (!this.tree) {
             throw new Error('Merkle tree not generated');
         }
@@ -43,10 +47,10 @@ export abstract class MerkleTree<K, V> {
         this.tree.validate();
     }
 
-    public abstract getValue(address: string, key: K): V | undefined;
+    public abstract getValue(address: Address, key: K): V | undefined;
 
     public abstract getValueWithProofs(
-        address: string,
+        address: Address,
         key: K,
     ): [V | Uint8Array, string[]] | undefined;
 
@@ -75,9 +79,9 @@ export abstract class MerkleTree<K, V> {
         this.valueChanged = false;
     }
 
-    public abstract getValuesWithProofs(address: string): Map<K, [V, string[]]>;
+    public abstract getValuesWithProofs(address: Address): Map<K, [V, string[]]>;
 
-    public abstract getEverythingWithProofs(): Map<string, Map<K, [V, string[]]>> | undefined;
+    public abstract getEverythingWithProofs(): AddressMap<Map<K, [V, string[]]>> | undefined;
 
     public freeze(): void {
         if (this.countValues() < this.MINIMUM_VALUES) {
@@ -107,19 +111,15 @@ export abstract class MerkleTree<K, V> {
         this.frozen = true;
     }
 
-    public getData(): Map<string, Map<K, V>> {
-        return this.values;
-    }
+    public abstract getProofs(): AddressMap<Map<K, string[]>>;
 
-    public abstract getProofs(): Map<string, Map<K, string[]>>;
+    public abstract updateValue(address: Address, key: K, val: V): void;
 
-    public abstract updateValue(address: string, key: K, val: V): void;
-
-    public abstract updateValues(address: string, val: Map<K, V>): void;
+    public abstract updateValues(address: Address, val: Map<K, V>): void;
 
     public abstract getValues(): [Buffer, Buffer][];
 
-    protected abstract getDummyValues(): Map<string, Map<K, V>>;
+    protected abstract getDummyValues(): AddressMap<Map<K, V>>;
 
     private countValues(): number {
         let count = 0;

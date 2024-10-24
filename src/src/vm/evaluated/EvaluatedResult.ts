@@ -1,9 +1,9 @@
-import { MemorySlotData, MemorySlotPointer, NetEvent } from '@btc-vision/transaction';
+import { AddressMap, MemorySlotData, MemorySlotPointer, NetEvent } from '@btc-vision/transaction';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 
 export type PointerStorageMap = Map<MemorySlotPointer, MemorySlotData<bigint>>;
-export type BlockchainStorageMap = Map<string, PointerStorageMap>;
-export type EvaluatedEvents = Map<string, NetEvent[]>;
+export type BlockchainStorageMap = AddressMap<PointerStorageMap>;
+export type EvaluatedEvents = AddressMap<NetEvent[]>;
 
 export interface EvaluatedResult {
     readonly changedStorage: BlockchainStorageMap | undefined;

@@ -10,7 +10,6 @@ import {
 import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
 import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocument.js';
-import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
 import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../db/interfaces/IWBTCUTXODocument.js';
@@ -19,9 +18,9 @@ import { SelectedUTXOs } from '../../db/repositories/WBTCUTXORepository.js';
 import { ICompromisedTransactionDocument } from '../../db/interfaces/CompromisedTransactionDocument.js';
 import { BlockchainInfoRepository } from '../../db/repositories/BlockchainInfoRepository.js';
 import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
-import { Address } from '@btc-vision/transaction';
+import { Address, AddressMap } from '@btc-vision/transaction';
 
-export abstract class VMStorage extends Logger implements IVMStorageMethod {
+export abstract class VMStorage extends Logger {
     public readonly logColor: string = '#ff00ff';
 
     protected constructor() {
@@ -44,7 +43,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<IParsedBlockWitnessDocument[]>;
 
     public abstract getStorage(
-        address: string,
+        address: Address,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null,
         setIfNotExit: boolean,
@@ -52,7 +51,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<ProvenMemoryValue | null>;
 
     public abstract setStorage(
-        address: string,
+        address: Address,
         pointer: StoragePointer,
         value: MemoryValue,
         proofs: string[],
@@ -60,7 +59,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<void>;
 
     public abstract setStoragePointers(
-        storage: Map<string, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: AddressMap<Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
     ): Promise<void>;
 

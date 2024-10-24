@@ -92,18 +92,23 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return newCalldata;
     }
 
-    protected _contractAddress: string | undefined;
+    protected _contractAddress: Address | undefined;
 
     public get contractAddress(): string {
         if (!this._contractAddress) {
             throw new Error(`Contract address not set for transaction ${this.txid}`);
         }
 
-        return this._contractAddress;
+        return this._contractAddress.p2tr(this.network);
     }
 
-    public set contractAddress(contractAddress: string) {
+    public set contractAddress(contractAddress: Address) {
         this._contractAddress = contractAddress;
+    }
+
+    public get address(): Address {
+        if (!this._contractAddress) throw new Error('Contract address not found');
+        return this._contractAddress;
     }
 
     protected _txOrigin: Address | undefined;
@@ -377,12 +382,14 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             );
         }
 
+        console.log(outputWitness);
+
         const outputAddress = outputWitness.scriptPubKey.address;
         if (!outputAddress) {
             throw new Error(`No address found for contract witness output`);
         }
 
-        this._contractAddress = outputAddress;
+        this._contractAddress = Address.dead();
 
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);

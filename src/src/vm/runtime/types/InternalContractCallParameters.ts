@@ -1,4 +1,4 @@
-import { Address, BlockchainStorage } from '@btc-vision/transaction';
+import { Address, AddressMap, PointerStorage } from '@btc-vision/transaction';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 
 export interface InternalContractCallParameters {
@@ -28,7 +28,7 @@ export interface InternalContractCallParameters {
     readonly gasUsed: bigint;
     allowCached?: boolean;
 
-    readonly storage: BlockchainStorage;
+    readonly storage: AddressMap<PointerStorage>;
 
     readonly deployedContracts?: ContractInformation[];
     readonly callStack?: Address[];
@@ -60,7 +60,7 @@ export interface ExecutionParameters {
     readonly externalCall: boolean;
     readonly callStack: Address[];
 
-    readonly storage: BlockchainStorage;
+    readonly storage: AddressMap<PointerStorage>;
     readonly deployedContracts?: ContractInformation[];
 
     readonly isConstructor: boolean;

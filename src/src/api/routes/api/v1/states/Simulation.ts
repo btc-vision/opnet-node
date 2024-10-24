@@ -223,10 +223,11 @@ export class Simulation extends Route<
         if (events) {
             for (const [contract, contractEventsList] of events) {
                 const contractEventsListResult: EventReceiptDataForAPI[] = [];
+                const contractStr = contract.toHex();
 
                 for (const event of contractEventsList) {
                     const eventResult: EventReceiptDataForAPI = {
-                        contractAddress: contract,
+                        contractAddress: contractStr,
                         eventType: event.eventType,
                         eventData: Buffer.from(event.eventData).toString('base64'),
                     };
@@ -234,7 +235,7 @@ export class Simulation extends Route<
                     contractEventsListResult.push(eventResult);
                 }
 
-                contractEvents[contract] = contractEventsListResult;
+                contractEvents[contractStr] = contractEventsListResult;
             }
         }
 
@@ -246,6 +247,7 @@ export class Simulation extends Route<
 
         for (const [contract, pointerStorage] of changedStorage) {
             const accessListItem: AccessListItem = {};
+            const contractStr = contract.toHex();
 
             for (const [key, value] of pointerStorage) {
                 const keyStr: string = Buffer.from(BufferHelper.pointerToUint8Array(key)).toString(
@@ -257,7 +259,7 @@ export class Simulation extends Route<
                 ).toString('base64');
             }
 
-            accessList[contract] = accessListItem;
+            accessList[contractStr] = accessListItem;
         }
 
         return accessList;

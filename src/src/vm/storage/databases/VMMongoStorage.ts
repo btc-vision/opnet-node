@@ -1,4 +1,4 @@
-import { Address, BufferHelper } from '@btc-vision/transaction';
+import { Address, AddressMap, BufferHelper } from '@btc-vision/transaction';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession, TransactionOptions } from 'mongodb';
 import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
@@ -460,7 +460,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getStorage(
-        address: string,
+        address: Address,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = false,
@@ -504,7 +504,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async setStorage(
-        address: string,
+        address: Address,
         pointer: StoragePointer,
         value: MemoryValue,
         proofs: string[],
@@ -529,7 +529,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async setStoragePointers(
-        storage: Map<string, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: AddressMap<Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
     ): Promise<void> {
         if (!this.pointerRepository) {

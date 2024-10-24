@@ -1,9 +1,7 @@
 import {
     Address,
     AddressMap,
-    BinaryReader,
     BufferHelper,
-    DeterministicMap,
     MemorySlotData,
     TapscriptVerificator,
 } from '@btc-vision/transaction';
@@ -12,7 +10,11 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
-import { MAX_HASH, MAX_MINUS_ONE } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import {
+    BTC_FAKE_ADDRESS,
+    MAX_HASH,
+    MAX_MINUS_ONE,
+} from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
@@ -76,8 +78,8 @@ export class VMManager extends Logger {
           }
         | undefined;
 
-    private pointerCache: Map<string, Map<MemorySlotData<bigint>, [Uint8Array, string[]] | null>> =
-        new Map();
+    private pointerCache: AddressMap<Map<MemorySlotData<bigint>, [Uint8Array, string[]] | null>> =
+        new AddressMap();
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -211,9 +213,7 @@ export class VMManager extends Logger {
                 blockMedian: BigInt(Date.now()), // add support for this
                 safeU64: currentHeight >> 1n,
 
-                storage: new DeterministicMap((a: string, b: string) => {
-                    return BinaryReader.stringCompare(a, b);
-                }),
+                storage: new AddressMap(),
 
                 allowCached: true,
                 externalCall: false,
@@ -295,9 +295,8 @@ export class VMManager extends Logger {
 
                 transactionId: interactionTransaction.transactionId,
                 transactionHash: interactionTransaction.hash,
-                storage: new DeterministicMap((a: string, b: string) => {
-                    return BinaryReader.stringCompare(a, b);
-                }),
+                storage: new AddressMap(),
+
                 allowCached: true,
                 externalCall: false,
                 gasUsed: 0n,
@@ -381,9 +380,8 @@ export class VMManager extends Logger {
 
                 transactionId: contractDeploymentTransaction.transactionId,
                 transactionHash: contractDeploymentTransaction.hash,
-                storage: new DeterministicMap((a: string, b: string) => {
-                    return BinaryReader.stringCompare(a, b);
-                }),
+                storage: new AddressMap(),
+
                 externalCall: false,
                 gasUsed: 0n,
                 callDepth: 0,
@@ -405,7 +403,7 @@ export class VMManager extends Logger {
 
     public updateBlockValuesFromResult(
         evaluation: ContractEvaluation | undefined | null,
-        contractAddress: string,
+        contractAddress: Address,
         transactionId: string,
         disableStorageCheck: boolean = this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
     ): void {
@@ -846,12 +844,16 @@ export class VMManager extends Logger {
             );
 
         if (lastChecksum) {
-            this.receiptState.updateValue(MAX_HASH, MAX_HASH, Buffer.from(lastChecksum, 'hex'));
+            this.receiptState.updateValue(
+                BTC_FAKE_ADDRESS,
+                MAX_HASH,
+                Buffer.from(lastChecksum, 'hex'),
+            );
         } else {
-            this.receiptState.updateValue(MAX_HASH, MAX_HASH, Buffer.alloc(0));
+            this.receiptState.updateValue(BTC_FAKE_ADDRESS, MAX_HASH, Buffer.alloc(0));
         }
 
-        this.receiptState.updateValue(MAX_MINUS_ONE, MAX_MINUS_ONE, Buffer.from([1])); // version
+        this.receiptState.updateValue(BTC_FAKE_ADDRESS, MAX_MINUS_ONE, Buffer.from([1])); // version
         this.receiptState.freeze();
     }
 
@@ -898,12 +900,10 @@ export class VMManager extends Logger {
         /** Nothing to save. */
         if (!stateChanges) return;
 
-        const storageToUpdate: Map<
-            string,
-            Map<StoragePointer, [MemoryValue, string[]]>
-        > = new Map();
+        const storageToUpdate: AddressMap<Map<StoragePointer, [MemoryValue, string[]]>> =
+            new AddressMap();
 
-        for (const [address, val] of stateChanges.entries()) {
+        for (const [address, val] of stateChanges) {
             for (const [key, value] of val.entries()) {
                 if (value[0] === undefined || value[0] === null) {
                     throw new Error(
@@ -932,7 +932,7 @@ export class VMManager extends Logger {
     }
 
     /** We must ENSURE that NOTHING get modified EVEN during the execution of the block. This is performance costly but required. */
-    private setStorage(address: string, pointer: bigint, value: bigint): void {
+    private setStorage(address: Address, pointer: bigint, value: bigint): void {
         if (this.isExecutor) {
             return;
         }
@@ -946,7 +946,7 @@ export class VMManager extends Logger {
     }
 
     private async getStorageFromDB(
-        address: string,
+        address: Address,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,
@@ -980,7 +980,7 @@ export class VMManager extends Logger {
     }
 
     private getPointerFromCache(
-        address: string,
+        address: Address,
         pointer: MemorySlotData<bigint>,
     ): [Uint8Array, string[]] | undefined | null {
         const addressCache = this.pointerCache.get(address);
@@ -990,7 +990,7 @@ export class VMManager extends Logger {
     }
 
     private storePointerInCache(
-        address: string,
+        address: Address,
         pointer: bigint,
         value: [Uint8Array, string[]] | null,
     ): void {
@@ -1005,7 +1005,7 @@ export class VMManager extends Logger {
 
     /** We must verify that the storage is correct */
     private async getStorage(
-        address: string,
+        address: Address,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = true,
@@ -1056,8 +1056,6 @@ export class VMManager extends Logger {
         }
 
         if (memoryValue.proofs.length === 0) {
-            this.error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
-
             throw new Error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
         }
 

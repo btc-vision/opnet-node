@@ -165,7 +165,7 @@ class RPCManager extends Logger {
                 innerArray.push([innerKey.toString(), innerValue.toString()]);
             }
 
-            array.push([key, innerArray]);
+            array.push([key.toHex(), innerArray]);
         }
 
         return array;

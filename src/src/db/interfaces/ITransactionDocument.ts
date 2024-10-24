@@ -73,8 +73,8 @@ export interface DeploymentTransactionDocument
 
 export interface NetEventDocument {
     readonly eventType: string;
-    readonly eventData: Binary;
-    readonly contractAddress: string;
+    readonly eventData: Binary | Uint8Array;
+    readonly contractAddress: Address;
 }
 
 export interface InteractionTransactionDocument

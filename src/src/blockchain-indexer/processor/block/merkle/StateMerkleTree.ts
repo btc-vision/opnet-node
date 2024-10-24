@@ -1,4 +1,10 @@
-import { BufferHelper, MemorySlotData, MemorySlotPointer } from '@btc-vision/transaction';
+import {
+    Address,
+    AddressMap,
+    BufferHelper,
+    MemorySlotData,
+    MemorySlotPointer,
+} from '@btc-vision/transaction';
 import crypto from 'crypto';
 import { MerkleTree } from './MerkleTree.js';
 
@@ -9,7 +15,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         super(StateMerkleTree.TREE_TYPE);
     }
 
-    public static encodePointerBuffer(contract: string, pointer: Uint8Array | Buffer): Buffer {
+    public static encodePointerBuffer(contract: Address, pointer: Uint8Array | Buffer): Buffer {
         const hash = crypto.createHash('sha256');
         hash.update(contract);
         hash.update(pointer);
@@ -17,15 +23,15 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         return hash.digest();
     }
 
-    public getProofs(): Map<string, Map<MemorySlotPointer, string[]>> {
+    public getProofs(): AddressMap<Map<MemorySlotPointer, string[]>> {
         if (!this.tree) {
             throw new Error('Merkle tree not generated');
         }
 
         this.validate();
 
-        const proofs = new Map<string, Map<MemorySlotPointer, string[]>>();
-        for (const [address, val] of this.values.entries()) {
+        const proofs = new AddressMap<Map<MemorySlotPointer, string[]>>();
+        for (const [address, val] of this.values) {
             for (const [key, value] of val.entries()) {
                 const pointer = this.encodePointer(address, key);
                 const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
@@ -51,7 +57,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
 
     /** We have to replace the value of the given address and key with the new value */
     public updateValues(
-        address: string,
+        address: Address,
         val: Map<MemorySlotPointer, MemorySlotData<bigint>>,
     ): void {
         this.ensureAddress(address);
@@ -75,7 +81,11 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         this.valueChanged = valueChanged;
     }
 
-    public updateValue(address: string, key: MemorySlotPointer, val: MemorySlotData<bigint>): void {
+    public updateValue(
+        address: Address,
+        key: MemorySlotPointer,
+        val: MemorySlotData<bigint>,
+    ): void {
         if (this.frozen) {
             throw new Error('Merkle tree is frozen, cannot update value');
         }
@@ -96,7 +106,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         this.valueChanged = true;
     }
 
-    public getValue(address: string, key: MemorySlotPointer): MemorySlotData<bigint> | undefined {
+    public getValue(address: Address, key: MemorySlotPointer): MemorySlotData<bigint> | undefined {
         if (!this.values.has(address)) {
             return;
         }
@@ -110,7 +120,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
     }
 
     public getValueWithProofs(
-        address: string,
+        address: Address,
         key: MemorySlotPointer,
     ): [Uint8Array, string[]] | undefined {
         const value = this.getValue(address, key);
@@ -137,7 +147,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
     }
 
     public getValuesWithProofs(
-        address: string,
+        address: Address,
     ): Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]> {
         if (!this.tree) {
             throw new Error('Merkle tree not generated');
@@ -172,7 +182,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
     }
 
     public getEverythingWithProofs():
-        | Map<string, Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>>
+        | AddressMap<Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>>
         | undefined {
         if (!this.tree) {
             return;
@@ -180,12 +190,8 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
 
         this.validate();
 
-        const proofs = new Map<
-            string,
-            Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>
-        >();
-
-        for (const [address] of this.values.entries()) {
+        const proofs = new AddressMap<Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>>();
+        for (const address of this.values.keys()) {
             const map = this.getValuesWithProofs(address);
 
             proofs.set(address, map);
@@ -194,7 +200,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         return proofs;
     }
 
-    public encodePointer(contract: string, pointer: bigint): Buffer {
+    public encodePointer(contract: Address, pointer: bigint): Buffer {
         return StateMerkleTree.encodePointerBuffer(
             contract,
             BufferHelper.pointerToUint8Array(pointer),
@@ -204,7 +210,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
     public getValues(): [Buffer, Buffer][] {
         const entries: [Buffer, Buffer][] = [];
 
-        for (const [address, map] of this.values.entries()) {
+        for (const [address, map] of this.values) {
             for (const [key, value] of map.entries()) {
                 const pointer = this.encodePointer(address, key);
                 const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
@@ -216,8 +222,8 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         return entries;
     }
 
-    protected getDummyValues(): Map<string, Map<MemorySlotPointer, MemorySlotData<bigint>>> {
-        const dummyValues = new Map<string, Map<MemorySlotPointer, MemorySlotData<bigint>>>();
+    protected getDummyValues(): AddressMap<Map<MemorySlotPointer, MemorySlotData<bigint>>> {
+        const dummyValues = new AddressMap<Map<MemorySlotPointer, MemorySlotData<bigint>>>();
         const dummyMap = new Map<MemorySlotPointer, MemorySlotData<bigint>>();
 
         // Ensure minimum tree requirements
@@ -230,7 +236,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         return dummyValues;
     }
 
-    private ensureAddress(address: string): void {
+    private ensureAddress(address: Address): void {
         if (!this.values.has(address)) {
             this.values.set(address, new Map());
         }

@@ -1,4 +1,4 @@
-import { BufferHelper } from '@btc-vision/transaction';
+import { Address, AddressMap, BufferHelper } from '@btc-vision/transaction';
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import {
@@ -41,7 +41,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     }
 
     public async getByContractAndPointer(
-        contractAddress: string,
+        contractAddress: Address,
         pointer: StoragePointer,
         height?: bigint,
         currentSession?: ClientSession,
@@ -82,7 +82,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     }
 
     public async setStoragePointers(
-        storage: Map<string, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: AddressMap<Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
         currentSession?: ClientSession,
     ): Promise<void> {
@@ -145,7 +145,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     }
 
     public async setByContractAndPointer(
-        contractAddress: string,
+        contractAddress: Address,
         bufPointer: StoragePointer,
         bufValue: MemoryValue,
         proofs: string[],

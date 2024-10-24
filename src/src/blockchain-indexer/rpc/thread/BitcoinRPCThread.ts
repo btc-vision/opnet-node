@@ -31,7 +31,7 @@ import {
     EvaluatedEvents,
     PointerStorageMap,
 } from '../../../vm/evaluated/EvaluatedResult.js';
-import { NetEvent } from '@btc-vision/transaction';
+import { Address, AddressMap, NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
 import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
 
@@ -131,7 +131,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     private convertArrayEventsToEvents(
         array: [string, [string, string, string][]][],
     ): EvaluatedEvents {
-        const map: EvaluatedEvents = new Map<string, NetEvent[]>();
+        const map: EvaluatedEvents = new AddressMap<NetEvent[]>();
 
         for (const [key, value] of array) {
             const events: NetEvent[] = [];
@@ -146,14 +146,14 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 events.push(event);
             }
 
-            map.set(key, events);
+            map.set(Address.fromString(key), events);
         }
 
         return map;
     }
 
     private convertArrayToMap(array: [string, [string, string][]][]): BlockchainStorageMap {
-        const map: BlockchainStorageMap = new Map<string, PointerStorageMap>();
+        const map: BlockchainStorageMap = new AddressMap<PointerStorageMap>();
 
         for (const [key, value] of array) {
             const innerMap: PointerStorageMap = new Map<bigint, bigint>();
@@ -162,7 +162,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 innerMap.set(BigInt(innerKey), BigInt(innerValue));
             }
 
-            map.set(key, innerMap);
+            map.set(Address.fromString(key), innerMap);
         }
 
         return map;

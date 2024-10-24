@@ -1,5 +1,6 @@
 import { MerkleTree } from './MerkleTree.js';
-import { MAX_HASH, MAX_MINUS_ONE } from '../types/ZeroValue.js';
+import { BTC_FAKE_ADDRESS, MAX_HASH, MAX_MINUS_ONE } from '../types/ZeroValue.js';
+import { Address, AddressMap } from '@btc-vision/transaction';
 
 export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
     public static TREE_TYPE: [string, string] = ['bytes', 'bytes'];
@@ -8,15 +9,15 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         super(ReceiptMerkleTree.TREE_TYPE);
     }
 
-    public getProofs(): Map<string, Map<string, string[]>> {
+    public getProofs(): AddressMap<Map<string, string[]>> {
         if (!this.tree) {
             throw new Error('Merkle tree not generated');
         }
 
         this.validate();
 
-        const proofs = new Map<string, Map<string, string[]>>();
-        for (const [address, val] of this.values.entries()) {
+        const proofs = new AddressMap<Map<string, string[]>>();
+        for (const [address, val] of this.values) {
             for (const [key, value] of val.entries()) {
                 const transactionBuf = Buffer.from(key, 'hex');
                 const proof: string[] = this.tree.getProof([transactionBuf, value]);
@@ -40,7 +41,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
     }
 
     /** We have to replace the value of the given address and key with the new value */
-    public updateValues(address: string, val: Map<string, Buffer>): void {
+    public updateValues(address: Address, val: Map<string, Buffer>): void {
         this.ensureAddress(address);
 
         const map = this.values.get(address);
@@ -62,7 +63,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         this.valueChanged = valueChanged;
     }
 
-    public updateValue(contractAddress: string, transactionId: string, result: Uint8Array): void {
+    public updateValue(contractAddress: Address, transactionId: string, result: Uint8Array): void {
         if (this.frozen) {
             throw new Error('Merkle tree is frozen, cannot update value');
         }
@@ -83,7 +84,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         this.valueChanged = true;
     }
 
-    public getValue(address: string, key: string): Buffer | undefined {
+    public getValue(address: Address, key: string): Buffer | undefined {
         if (!this.values.has(address)) {
             return;
         }
@@ -96,7 +97,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         return map.get(key);
     }
 
-    public getValueWithProofs(address: string, key: string): [Buffer, string[]] | undefined {
+    public getValueWithProofs(address: Address, key: string): [Buffer, string[]] | undefined {
         if (!this.tree) {
             return;
         }
@@ -117,7 +118,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         return [value, proof];
     }
 
-    public getValuesWithProofs(address: string): Map<string, [Buffer, string[]]> {
+    public getValuesWithProofs(address: Address): Map<string, [Buffer, string[]]> {
         if (!this.tree) {
             throw new Error('Merkle tree not generated');
         }
@@ -148,15 +149,15 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         return proofs;
     }
 
-    public getEverythingWithProofs(): Map<string, Map<string, [Buffer, string[]]>> | undefined {
+    public getEverythingWithProofs(): AddressMap<Map<string, [Buffer, string[]]>> | undefined {
         if (!this.tree) {
             return;
         }
 
         this.validate();
 
-        const proofs = new Map<string, Map<string, [Buffer, string[]]>>();
-        for (const [address] of this.values.entries()) {
+        const proofs = new AddressMap<Map<string, [Buffer, string[]]>>();
+        for (const address of this.values.keys()) {
             const map = this.getValuesWithProofs(address);
 
             proofs.set(address, map);
@@ -168,7 +169,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
     public getValues(): [Buffer, Buffer][] {
         const entries: [Buffer, Buffer][] = [];
 
-        for (const [_address, map] of this.values.entries()) {
+        for (const map of this.values.values()) {
             for (const [key, value] of map.entries()) {
                 const keyBuf = Buffer.from(key, 'hex');
 
@@ -179,8 +180,8 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         return entries;
     }
 
-    protected getDummyValues(): Map<string, Map<string, Buffer>> {
-        const dummyValues = new Map<string, Map<string, Buffer>>();
+    protected getDummyValues(): AddressMap<Map<string, Buffer>> {
+        const dummyValues = new AddressMap<Map<string, Buffer>>();
         const dummyMap = new Map<string, Buffer>();
 
         // Ensure minimum tree requirements
@@ -188,12 +189,12 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         dummyMap.set(MAX_MINUS_ONE, Buffer.from([1]));
 
         // Add dummy values for the contract
-        dummyValues.set(MAX_MINUS_ONE, dummyMap);
+        dummyValues.set(BTC_FAKE_ADDRESS, dummyMap);
 
         return dummyValues;
     }
 
-    private ensureAddress(address: string): void {
+    private ensureAddress(address: Address): void {
         if (!this.values.has(address)) {
             this.values.set(address, new Map());
         }
