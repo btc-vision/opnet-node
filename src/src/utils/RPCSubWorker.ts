@@ -124,7 +124,7 @@ class RPCManager extends Logger {
             const contractAsString: ContractInformationAsString = {
                 blockHeight: contract.blockHeight.toString(),
                 contractAddress: contract.contractAddress.toString(),
-                tweakedPublicKey: contract.tweakedPublicKey.toString(),
+                contractTweakedPublicKey: contract.contractTweakedPublicKey.toString(),
                 bytecode: contract.bytecode.toString('hex'),
                 wasCompressed: contract.wasCompressed,
                 deployedTransactionId: contract.deployedTransactionId,
@@ -234,6 +234,7 @@ class RPCManager extends Logger {
             );
         } catch (e) {
             const error = e as Error;
+            console.log(e);
 
             result = {
                 error: error.message || 'Unknown error',

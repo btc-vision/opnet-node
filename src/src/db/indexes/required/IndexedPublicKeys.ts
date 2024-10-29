@@ -9,7 +9,7 @@ export class IndexedPublicKeys extends IndexedCollection<OPNetCollections.Public
     public getIndexes(): IndexDescription[] {
         return [
             { key: { publicKey: 1 }, name: 'publicKey_1' },
-            { key: { tweakedPublicKey: 1 }, name: 'tweakedPublicKey_1', unique: true },
+            { key: { contractTweakedPublicKey: 1 }, name: 'tweakedPublicKey_1', unique: true },
 
             { key: { p2tr: 1 }, name: 'p2tr_1', unique: true },
             { key: { p2pkh: 1 }, name: 'p2pkh_1' },

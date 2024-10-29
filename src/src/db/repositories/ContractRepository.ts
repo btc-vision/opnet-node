@@ -71,10 +71,12 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             criteria.blockHeight = { $lt: DataConverter.toDecimal128(height) };
         }
 
-        const contract: { tweakedPublicKey: Binary } | null = await this.queryOneAndProject(
+        const contract: {
+            contractTweakedPublicKey: Binary;
+        } | null = await this.queryOneAndProject(
             criteria,
             {
-                tweakedPublicKey: 1,
+                contractTweakedPublicKey: 1,
             },
             currentSession,
         );
@@ -83,7 +85,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             return;
         }
 
-        return new Address(contract.tweakedPublicKey.buffer);
+        return new Address(contract.contractTweakedPublicKey.buffer);
     }
 
     // TODO: Add verification to make sure the contract it tries to deploy does not already exist.
@@ -99,12 +101,14 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
     }
 
     public async getContractFromTweakedPubKey(
-        tweakedPublicKey: string,
+        contractTweakedPublicKey: string,
         height?: bigint,
         currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
         const criteria: Filter<Document> = {
-            tweakedPublicKey: Binary.createFromHexString(tweakedPublicKey.replace('0x', '')),
+            contractTweakedPublicKey: Binary.createFromHexString(
+                contractTweakedPublicKey.replace('0x', ''),
+            ),
         };
 
         if (height !== undefined) {

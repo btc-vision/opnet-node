@@ -67,7 +67,9 @@ export class DeploymentTxEncoder {
     private convertToBlockHeaderAPIDocument(data: ContractInformation): IContractAPIDocument {
         const document: IContractAPIDocument = {
             ...data,
-            contractTweakedPublicKey: Buffer.from(data.tweakedPublicKey.buffer).toString('base64'),
+            contractTweakedPublicKey: Buffer.from(data.contractTweakedPublicKey.buffer).toString(
+                'base64',
+            ),
             bytecode: data.bytecode.toString('base64'),
             deployerPubKey: data.deployerPubKey.toString('base64'),
             contractSeed: data.contractSeed.toString('base64'),

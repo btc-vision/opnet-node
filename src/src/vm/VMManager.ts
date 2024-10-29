@@ -555,7 +555,7 @@ export class VMManager extends Logger {
 
         if (params.deployedContracts) {
             for (const contract of params.deployedContracts) {
-                if (contract.tweakedPublicKey.equals(params.contractAddress)) {
+                if (contract.contractTweakedPublicKey.equals(params.contractAddress)) {
                     vmEvaluator = await this.getVMEvaluatorFromParams(
                         params.contractAddress,
                         params.blockHeight,
@@ -730,7 +730,7 @@ export class VMManager extends Logger {
             );
         }
 
-        const deployerKeyPair = contractInfo.tweakedPublicKey;
+        const deployerKeyPair = contractInfo.contractTweakedPublicKey;
         const bytecodeLength: bigint = BigInt(contractInfo.bytecode.byteLength);
 
         // TODO: ADD GAS COST
@@ -876,7 +876,7 @@ export class VMManager extends Logger {
     }
 
     private async setContractAt(contractData: ContractInformation): Promise<void> {
-        this.contractCache.set(contractData.tweakedPublicKey, contractData);
+        this.contractCache.set(contractData.contractTweakedPublicKey, contractData);
 
         await this.vmStorage.setContractAt(contractData);
     }

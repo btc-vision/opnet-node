@@ -87,7 +87,7 @@ export class ContractEvaluator extends Logger {
     public setContractInformation(contractInformation: ContractInformation): void {
         // We use pub the pub key as the deployer address.
         this.contractOwner = contractInformation.deployerAddress;
-        this.contractAddress = contractInformation.tweakedPublicKey;
+        this.contractAddress = contractInformation.contractTweakedPublicKey;
         this.contractAddressStr = contractInformation.contractAddress;
         this.bytecode = contractInformation.bytecode;
     }

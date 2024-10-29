@@ -7,7 +7,7 @@ import { Address } from '@btc-vision/transaction';
 export interface ContractInformationAsString {
     readonly blockHeight: string;
     readonly contractAddress: string;
-    readonly tweakedPublicKey: string;
+    readonly contractTweakedPublicKey: string;
     readonly bytecode: string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: string;
@@ -22,7 +22,7 @@ export class ContractInformation {
     constructor(
         public readonly blockHeight: bigint,
         public readonly contractAddress: string,
-        public readonly tweakedPublicKey: Address,
+        public readonly contractTweakedPublicKey: Address,
         public readonly bytecode: Buffer,
         public readonly wasCompressed: boolean,
         public readonly deployedTransactionId: string,
@@ -118,7 +118,7 @@ export class ContractInformation {
         return {
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
             contractAddress: this.contractAddress,
-            contractTweakedPublicKey: new Binary(this.tweakedPublicKey),
+            contractTweakedPublicKey: new Binary(this.contractTweakedPublicKey),
             bytecode: new Binary(this.bytecode),
             wasCompressed: this.wasCompressed,
             deployedTransactionId: this.deployedTransactionId,
