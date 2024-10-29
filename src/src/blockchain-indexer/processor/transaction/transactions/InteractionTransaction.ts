@@ -270,8 +270,9 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
         return {
             ...super.toDocument(),
-            from: this.from,
+            from: new Binary(this.from),
             contractAddress: this.contractAddress,
+            contractTweakedPublicKey: new Binary(this.address),
 
             calldata: new Binary(this.calldata),
             senderPubKeyHash: new Binary(this.senderPubKeyHash),

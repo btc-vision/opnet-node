@@ -6,16 +6,17 @@ import {
     TransactionDocumentForAPI,
 } from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import {
+    ExtendedBaseInfo,
     InteractionTransactionDocument,
+    ITransactionDocument,
     IUnwrapInteractionTransactionDocument,
     IWrapInteractionTransactionDocument,
     NetEventDocument,
-    TransactionDocument,
 } from '../../db/interfaces/ITransactionDocument.js';
 
 export class TransactionConverterForAPI {
     public static convertTransactionToAPI(
-        transaction: TransactionDocument<OPNetTransactionTypes>,
+        transaction: ITransactionDocument<OPNetTransactionTypes>,
     ): TransactionDocumentForAPI<OPNetTransactionTypes> {
         const revert = transaction.revert
             ? Binary.createFromHexString(transaction.revert.toString('hex'))
@@ -27,10 +28,10 @@ export class TransactionConverterForAPI {
                       (event: NetEventDocument) => {
                           return {
                               contractAddress: event.contractAddress.toHex(),
-                              eventType: event.eventType,
-                              eventData: (event.eventData instanceof Uint8Array
-                                  ? new Binary(event.eventData)
-                                  : event.eventData
+                              type: event.type,
+                              data: (event.data instanceof Uint8Array
+                                  ? new Binary(event.data)
+                                  : event.data
                               ).toString('base64'),
                           };
                       },
@@ -56,6 +57,16 @@ export class TransactionConverterForAPI {
             deployedTransactionHash: undefined,
             deployedTransactionId: undefined,
         };
+
+        if ('contractTweakedPublicKey' in transaction) {
+            const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
+            newTx.contractTweakedPublicKey = tx.contractTweakedPublicKey.toString('base64');
+        }
+
+        if ('from' in transaction) {
+            const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
+            newTx.from = tx.from ? tx.from.toString('base64') : undefined;
+        }
 
         if ('wrappingFees' in transaction) {
             const tx = transaction as IWrapInteractionTransactionDocument;

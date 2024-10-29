@@ -10,14 +10,18 @@ import { APIDocumentInput } from '../../../blockchain-indexer/processor/transact
 
 export interface EventReceiptDataForAPI {
     readonly contractAddress: string;
-    readonly eventType: string;
-    readonly eventData: string;
+    readonly type: string;
+    readonly data: string;
 }
 
 export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     extends Omit<TransactionDocumentBase<T>, 'outputs' | 'inputs'> {
     readonly burnedBitcoin: string;
     readonly revert: string | undefined;
+
+    readonly contractAddress?: string;
+    from?: string;
+    contractTweakedPublicKey?: string;
 
     readonly events: EventReceiptDataForAPI[];
     readonly gasUsed: string;
@@ -39,10 +43,10 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
 }
 
 export interface BlockHeaderAPIDocumentWithTransactions extends BlockHeaderAPIBlockDocument {
-    transactions: TransactionDocumentForAPI<OPNetTransactionTypes>[];
+    readonly transactions: TransactionDocumentForAPI<OPNetTransactionTypes>[];
 }
 
 export interface BlockWithTransactions {
-    transactions: ITransactionDocument<OPNetTransactionTypes>[];
-    block: BlockHeaderAPIBlockDocument;
+    readonly transactions: ITransactionDocument<OPNetTransactionTypes>[];
+    readonly block: BlockHeaderAPIBlockDocument;
 }

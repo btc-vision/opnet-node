@@ -123,8 +123,8 @@ export class TransactionReceipt extends Route<
         return events.map((event: NetEventDocument): EventReceiptDataForAPI => {
             return {
                 contractAddress: event.contractAddress.toHex(),
-                eventType: event.eventType,
-                eventData: event.eventData.toString('base64'),
+                type: event.type,
+                data: event.data.toString('base64'),
             };
         });
     }

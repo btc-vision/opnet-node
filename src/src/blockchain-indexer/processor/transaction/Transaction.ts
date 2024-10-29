@@ -392,8 +392,8 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             for (const event of contractEvents) {
                 netEvents.push({
                     contractAddress: contractAddress,
-                    eventData: new Binary(event.eventData),
-                    eventType: event.eventType,
+                    data: new Binary(event.data),
+                    type: event.type,
                 });
             }
         }

@@ -228,8 +228,8 @@ export class Simulation extends Route<
                 for (const event of contractEventsList) {
                     const eventResult: EventReceiptDataForAPI = {
                         contractAddress: contractStr,
-                        eventType: event.eventType,
-                        eventData: Buffer.from(event.eventData).toString('base64'),
+                        type: event.type,
+                        data: Buffer.from(event.data).toString('base64'),
                     };
 
                     contractEventsListResult.push(eventResult);
@@ -289,7 +289,7 @@ export class Simulation extends Route<
             throw new Error('Receiver address not provided.');
         }
 
-        if (!AddressVerificator.validateBitcoinAddress(address, this.network)) {
+        if (!AddressVerificator.detectAddressType(address, this.network)) {
             throw new Error(`Address ${address} is not a valid Bitcoin address.`);
         }
 

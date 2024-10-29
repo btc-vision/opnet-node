@@ -65,9 +65,9 @@ export class ContractInformation {
         return new ContractInformation(
             DataConverter.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
-            typeof contractDocument.tweakedPublicKey === 'string'
-                ? new Address(Buffer.from(contractDocument.tweakedPublicKey, 'base64'))
-                : new Address(contractDocument.tweakedPublicKey.buffer),
+            typeof contractDocument.contractTweakedPublicKey === 'string'
+                ? new Address(Buffer.from(contractDocument.contractTweakedPublicKey, 'base64'))
+                : new Address(contractDocument.contractTweakedPublicKey.buffer),
             bytecodeBuffer,
             contractDocument.wasCompressed,
             contractDocument.deployedTransactionId,
@@ -118,7 +118,7 @@ export class ContractInformation {
         return {
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
             contractAddress: this.contractAddress,
-            tweakedPublicKey: new Binary(this.tweakedPublicKey),
+            contractTweakedPublicKey: new Binary(this.tweakedPublicKey),
             bytecode: new Binary(this.bytecode),
             wasCompressed: this.wasCompressed,
             deployedTransactionId: this.deployedTransactionId,

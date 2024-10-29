@@ -107,14 +107,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         return calldata;
     }
 
-    public get tweakedPublicKey(): string {
-        if (!this.contractTweakedPublicKey) {
-            throw new Error('Contract virtual address not found');
-        }
-
-        return '0x' + this.contractTweakedPublicKey.toString('hex');
-    }
-
     public static is(data: TransactionData): TransactionInformation | undefined {
         const vIndex = this._is(data, this.LEGACY_DEPLOYMENT_SCRIPT);
         if (vIndex === -1) {
@@ -147,9 +139,9 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
         return {
             ...super.toDocument(),
-            from: this.from,
+            from: new Binary(this.from),
             contractAddress: this.contractAddress,
-            tweakedPublicKey: this._contractAddress,
+            contractTweakedPublicKey: new Binary(this.address),
 
             receiptProofs: receiptProofs,
 

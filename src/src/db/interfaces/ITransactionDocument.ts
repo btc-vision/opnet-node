@@ -53,8 +53,9 @@ export interface TransactionDocument<T extends OPNetTransactionTypes>
 }
 
 export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocument<T> & {
-    readonly from: Address;
+    readonly from: Binary;
     readonly contractAddress: string;
+    readonly contractTweakedPublicKey: Binary;
 };
 
 interface InteractionBase {
@@ -67,13 +68,11 @@ interface InteractionBase {
 
 export interface DeploymentTransactionDocument
     extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment>,
-        InteractionBase {
-    readonly tweakedPublicKey: Address;
-}
+        InteractionBase {}
 
 export interface NetEventDocument {
-    readonly eventType: string;
-    readonly eventData: Binary | Uint8Array;
+    readonly type: string;
+    readonly data: Binary | Uint8Array;
     readonly contractAddress: Address;
 }
 

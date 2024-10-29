@@ -91,7 +91,7 @@ export class PublicKeyInfoRoute extends Route<
     }
 
     private verifyAddressConformity(address: string): void {
-        if (!AddressVerificator.validateBitcoinAddress(address, this.network)) {
+        if (!AddressVerificator.detectAddressType(address, this.network)) {
             throw new Error(`Address ${address} is not a valid Bitcoin address.`);
         }
     }

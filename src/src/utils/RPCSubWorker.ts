@@ -147,7 +147,7 @@ class RPCManager extends Logger {
         for (const [key, value] of events) {
             const innerArray: [string, string][] = [];
             for (const event of value) {
-                innerArray.push([event.eventType, Buffer.from(event.eventData).toString('hex')]);
+                innerArray.push([event.type, Buffer.from(event.data).toString('hex')]);
             }
 
             array.push([key.toString(), innerArray]);
