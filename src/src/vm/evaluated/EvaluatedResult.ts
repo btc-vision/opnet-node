@@ -13,3 +13,8 @@ export interface EvaluatedResult {
     revert?: string;
     readonly deployedContracts: ContractInformation[];
 }
+
+export type SafeEvaluatedResult = Omit<EvaluatedResult, 'changedStorage' | 'events'> & {
+    readonly changedStorage: Map<string, PointerStorageMap> | undefined;
+    readonly events: Map<string, NetEvent[]> | undefined;
+};

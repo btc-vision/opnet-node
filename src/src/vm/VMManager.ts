@@ -694,12 +694,6 @@ export class VMManager extends Logger {
           }
         | undefined
     > {
-        /*if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            this.log(
-                `This contract (${evaluation.contractAddress}) wants to redeploy ${address}. Salt: ${salt.toString('hex')}`,
-            );
-        }*/
-
         if (address === evaluation.contractAddress) {
             throw new Error('Can not deploy itself.');
         }

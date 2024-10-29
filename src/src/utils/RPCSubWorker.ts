@@ -9,7 +9,11 @@ import {
 } from '../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { DebugLevel } from '@btc-vision/logger';
 import { BTC_FAKE_ADDRESS } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
-import { BlockchainStorageMap, EvaluatedEvents } from '../vm/evaluated/EvaluatedResult.js';
+import {
+    BlockchainStorageMap,
+    EvaluatedEvents,
+    EvaluatedResult,
+} from '../vm/evaluated/EvaluatedResult.js';
 import {
     ContractInformation,
     ContractInformationAsString,
@@ -18,6 +22,7 @@ import { Blockchain } from '../vm/Blockchain.js';
 import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { Address } from '@btc-vision/transaction';
+import { CallRequestError } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 
 class RPCManager extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -51,9 +56,8 @@ class RPCManager extends Logger {
             const data = JSON.parse(message) as { taskId: string; data: object; type: string };
 
             if (data.type === 'call') {
-                let result: CallRequestResponse | undefined = await this.onCallRequest(
-                    data.data as CallRequestData,
-                );
+                let result: EvaluatedResult | CallRequestError | undefined =
+                    await this.onCallRequest(data.data as CallRequestData);
 
                 if (result && !('error' in result)) {
                     result = Object.assign(result, {
@@ -215,7 +219,9 @@ class RPCManager extends Logger {
         }, 20000);
     }
 
-    private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
+    private async onCallRequest(
+        data: CallRequestData,
+    ): Promise<EvaluatedResult | CallRequestError | undefined> {
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.info(
                 `Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`,

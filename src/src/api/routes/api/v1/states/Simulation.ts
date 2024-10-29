@@ -1,4 +1,4 @@
-import { AddressVerificator, BufferHelper } from '@btc-vision/transaction';
+import { AddressVerificator, BufferHelper, NetEvent } from '@btc-vision/transaction';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -11,10 +11,7 @@ import {
 } from '../../../../../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
-import {
-    BlockchainStorageMap,
-    EvaluatedEvents,
-} from '../../../../../vm/evaluated/EvaluatedResult.js';
+import { PointerStorageMap } from '../../../../../vm/evaluated/EvaluatedResult.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { CallParams } from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
@@ -217,38 +214,40 @@ export class Simulation extends Route<
         return response;
     }
 
-    private convertEventToResult(events: EvaluatedEvents | undefined): ContractEvents {
+    private convertEventToResult(events: Map<string, NetEvent[]> | undefined): ContractEvents {
         const contractEvents: ContractEvents = {};
 
-        if (events) {
-            for (const [contract, contractEventsList] of events) {
-                const contractEventsListResult: EventReceiptDataForAPI[] = [];
-                const contractStr = contract.toHex();
+        if (!events) {
+            return contractEvents;
+        }
 
-                for (const event of contractEventsList) {
-                    const eventResult: EventReceiptDataForAPI = {
-                        contractAddress: contractStr,
-                        type: event.type,
-                        data: Buffer.from(event.data).toString('base64'),
-                    };
+        for (const [contract, contractEventsList] of events) {
+            const contractEventsListResult: EventReceiptDataForAPI[] = [];
 
-                    contractEventsListResult.push(eventResult);
-                }
+            for (const event of contractEventsList) {
+                const eventResult: EventReceiptDataForAPI = {
+                    contractAddress: contract,
+                    type: event.type,
+                    data: Buffer.from(event.data).toString('base64'),
+                };
 
-                contractEvents[contractStr] = contractEventsListResult;
+                contractEventsListResult.push(eventResult);
             }
+
+            contractEvents[contract] = contractEventsListResult;
         }
 
         return contractEvents;
     }
 
-    private getAccessList(changedStorage: BlockchainStorageMap): AccessList {
+    private getAccessList(changedStorage: Map<string, PointerStorageMap> | undefined): AccessList {
         const accessList: AccessList = {};
+        if (!changedStorage) {
+            return accessList;
+        }
 
         for (const [contract, pointerStorage] of changedStorage) {
             const accessListItem: AccessListItem = {};
-            const contractStr = contract.toHex();
-
             for (const [key, value] of pointerStorage) {
                 const keyStr: string = Buffer.from(BufferHelper.pointerToUint8Array(key)).toString(
                     'base64',
@@ -259,7 +258,7 @@ export class Simulation extends Route<
                 ).toString('base64');
             }
 
-            accessList[contractStr] = accessListItem;
+            accessList[contract] = accessListItem;
         }
 
         return accessList;

@@ -26,12 +26,8 @@ import {
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
-import {
-    BlockchainStorageMap,
-    EvaluatedEvents,
-    PointerStorageMap,
-} from '../../../vm/evaluated/EvaluatedResult.js';
-import { Address, AddressMap, NetEvent } from '@btc-vision/transaction';
+import { PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
+import { NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
 import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
 
@@ -90,48 +86,48 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
         const response = (await this.rpcSubWorkerManager.resolve(data, 'call')) as
-            | (Omit<CallRequestResponse, 'response'> & {
+            | {
                   result: string | Uint8Array;
-              })
+                  changedStorage: [string, [string, string][]][] | null;
+                  gasUsed: string | null;
+                  events: [string, [string, string][]][];
+              }
+            | {
+                  error: string;
+              }
             | undefined;
 
         if (!response) {
             return;
         }
 
-        if (response && !('error' in response)) {
-            if (typeof response.result === 'string') {
-                response.result = Uint8Array.from(Buffer.from(response.result, 'hex'));
-            }
-
-            // @ts-expect-error - TODO: Fix this.
-            response.gasUsed = response.gasUsed ? BigInt(response.gasUsed as string) : null;
-
-            // @ts-expect-error - TODO: Fix this.
-            response.changedStorage = response.changedStorage
-                ? // @ts-expect-error - TODO: Fix this.
-                  this.convertArrayToMap(response.changedStorage as [string, [string, string][]][])
-                : null;
-
-            // @ts-expect-error - TODO: Fix this.
-            response.events = response.events
-                ? this.convertArrayEventsToEvents(
-                      // @ts-expect-error - TODO: Fix this.
-                      response.events as [string, [string, string, string][]][],
-                  )
-                : null;
-
-            // @ts-expect-error - TODO: Fix this.
-            response.deployedContracts = [];
+        if (!('error' in response)) {
+            return {
+                ...response,
+                changedStorage: response.changedStorage
+                    ? this.convertArrayToMap(response.changedStorage)
+                    : undefined,
+                gasUsed: response.gasUsed ? BigInt(response.gasUsed) : 0n,
+                events: response.events
+                    ? this.convertArrayEventsToEvents(response.events)
+                    : undefined,
+                result:
+                    typeof response.result === 'string'
+                        ? Uint8Array.from(Buffer.from(response.result, 'hex'))
+                        : response.result,
+                deployedContracts: [],
+            };
+        } else {
+            return {
+                error: response.error,
+            };
         }
-
-        return response as unknown as CallRequestResponse;
     }
 
     private convertArrayEventsToEvents(
-        array: [string, [string, string, string][]][],
-    ): EvaluatedEvents {
-        const map: EvaluatedEvents = new AddressMap<NetEvent[]>();
+        array: [string, [string, string][]][],
+    ): Map<string, NetEvent[]> {
+        const map: Map<string, NetEvent[]> = new Map<string, NetEvent[]>();
 
         for (const [key, value] of array) {
             const events: NetEvent[] = [];
@@ -146,14 +142,16 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 events.push(event);
             }
 
-            map.set(Address.fromString(key), events);
+            map.set(key, events);
         }
 
         return map;
     }
 
-    private convertArrayToMap(array: [string, [string, string][]][]): BlockchainStorageMap {
-        const map: BlockchainStorageMap = new AddressMap<PointerStorageMap>();
+    private convertArrayToMap(
+        array: [string, [string, string][]][],
+    ): Map<string, PointerStorageMap> {
+        const map: Map<string, PointerStorageMap> = new Map<string, PointerStorageMap>();
 
         for (const [key, value] of array) {
             const innerMap: PointerStorageMap = new Map<bigint, bigint>();
@@ -162,7 +160,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 innerMap.set(BigInt(innerKey), BigInt(innerValue));
             }
 
-            map.set(Address.fromString(key), innerMap);
+            map.set(key, innerMap);
         }
 
         return map;
