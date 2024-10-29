@@ -57,31 +57,17 @@ export class BlockGasPredictor {
         return this.divideBigInt(usedBlockGas * BlockGasPredictor.scalingFactor, this.gasTarget);
     }
 
-    // Calculates the next base gas price
     public calculateNextBaseGas(usedBlockGas: bigint, prevEMA: bigint): CalculatedBlockGas {
         if (prevEMA === 0n) {
             prevEMA = this.uTarget;
         }
 
-        // Step 1: Calculate U_current
         const uCurrent = this.calculateUCurrent(usedBlockGas) / BlockGasPredictor.scalingFactor;
-        if (uCurrent === 0n) {
-            return { bNext: this.currentB, ema: prevEMA };
-        }
-
-        // Step 2: Update EMA
         const emaScaled = this.calculateEMA(uCurrent, prevEMA);
-
-        // Step 3: Determine condition
         const alpha = usedBlockGas > this.gasTarget ? this.alpha1 : this.alpha2;
-
-        // Determine the sign based on whether ema is above or below the target
         const sign = emaScaled > this.uTarget ? 1n : -1n;
-
-        // Step 4: Calculate Adjustment
         const adjustment = this.calculateAdjustment(emaScaled, alpha, sign);
 
-        // Step 5: Calculate bNext
         this.currentB = this.calculateBNext(adjustment);
 
         return { bNext: this.currentB, ema: emaScaled };
