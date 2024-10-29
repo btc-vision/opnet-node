@@ -234,7 +234,9 @@ class RPCManager extends Logger {
             );
         } catch (e) {
             const error = e as Error;
-            console.log(e);
+            if (Config.DEV_MODE) {
+                this.error(`Failed to execute call request (subworker). ${error.stack}`);
+            }
 
             result = {
                 error: error.message || 'Unknown error',
