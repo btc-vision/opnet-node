@@ -460,6 +460,11 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._burnedFee = witnessOutput.value;
     }
 
+    /**
+     * Verify if the magic is present in the witness and return the witness with the magic.
+     * @param vIndex
+     * @protected
+     */
     protected getWitnessWithMagic(
         vIndex: number = this.vInputIndex,
     ): Array<Buffer | number> | undefined {

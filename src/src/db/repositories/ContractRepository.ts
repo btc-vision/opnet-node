@@ -8,6 +8,8 @@ import {
     Document,
     Filter,
     FindOptions,
+    InsertOneOptions,
+    OptionalUnlessRequiredId,
     Sort,
 } from 'mongodb';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
@@ -88,16 +90,21 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         return new Address(contract.contractTweakedPublicKey.buffer);
     }
 
-    // TODO: Add verification to make sure the contract it tries to deploy does not already exist.
     public async setContract(
         contract: ContractInformation,
         currentSession?: ClientSession,
     ): Promise<void> {
-        const criteria: Partial<Filter<IContractDocument>> = {
-            contractAddress: contract.contractAddress,
-        };
+        const contractExists = await this.getContractAddressAt(
+            contract.contractAddress,
+            undefined,
+            currentSession,
+        );
 
-        await this.updatePartial(criteria, contract.toDocument(), currentSession);
+        if (contractExists) {
+            throw new Error('OP_NET: Contract already exists');
+        }
+
+        await this.insert(contract.toDocument(), currentSession);
     }
 
     public async getContractFromTweakedPubKey(
@@ -125,6 +132,25 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
 
     protected override getCollection(): Collection<IContractDocument> {
         return this._db.collection('Contracts');
+    }
+
+    private async insert(
+        criteria: OptionalUnlessRequiredId<IContractDocument>,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        try {
+            const collection = this.getCollection();
+            const options: InsertOneOptions = {
+                ...this.getOptions(currentSession),
+            };
+
+            const insertedResult = await collection.insertOne(criteria, options);
+            if (!insertedResult.acknowledged || !insertedResult.insertedId) {
+                throw new Error('OP_NET: Unable to insert contract.');
+            }
+        } catch {
+            throw new Error('OP_NET: Unable to insert contract.');
+        }
     }
 
     private async queryOneAndProject<TDocument>(

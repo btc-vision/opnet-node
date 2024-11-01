@@ -86,12 +86,12 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     protected _contractAddress: Address | undefined;
 
     public get contractAddress(): string {
-        if (!this._contractAddress) throw new Error('Contract address not found');
+        if (!this._contractAddress) throw new Error('OP_NET: Contract address not found');
         return this._contractAddress.p2tr(this.network);
     }
 
     public get address(): Address {
-        if (!this._contractAddress) throw new Error('Contract address not found');
+        if (!this._contractAddress) throw new Error('OP_NET: Contract address not found');
         return this._contractAddress;
     }
 
@@ -130,11 +130,11 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         const receiptProofs: string[] = this.receiptProofs || [];
 
         if (receipt && receiptProofs.length === 0) {
-            throw new Error(`No receipt proofs found for transaction ${this.txid}`);
+            throw new Error(`OP_NET: No receipt proofs.`);
         }
 
         if (!this._contractAddress) {
-            throw new Error(`No contract address found for transaction`);
+            throw new Error(`OP_NET: No contract address found.`);
         }
 
         return {
@@ -157,32 +157,29 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
         const inputOPNetWitnessTransactions = this.getInputWitnessTransactions();
         if (inputOPNetWitnessTransactions.length === 0) {
-            throw new Error(
-                `No input witness transactions found for deployment transaction ${this.txid}`,
-            );
+            throw new Error(`OP_NET: No input witness transactions.`);
         }
 
         if (inputOPNetWitnessTransactions.length > 1) {
-            throw new Error(
-                `Can not deploy multiple contracts at the same time. Transaction ${this.txid} has ${inputOPNetWitnessTransactions.length} input witness transactions.`,
-            );
+            throw new Error(`OP_NET: Cannot deploy multiple contracts at the same time.`);
         }
 
         /** Contract should ALWAYS have ONLY ONE input witness transaction */
         const scriptData = this.getWitnessWithMagic();
         if (!scriptData) {
-            throw new Error(`No script data found for deployment transaction ${this.txid}`);
+            throw new Error(`OP_nET: No script data.`);
         }
 
         const deploymentWitnessData = this.getDeploymentWitnessData(scriptData);
         if (!deploymentWitnessData) {
-            throw new Error(
-                `No deployment witness data found for deployment transaction ${this.txid}`,
-            );
+            throw new Error(`OP_NET: No deployment witness data.`);
         }
 
-        this.bytecode = deploymentWitnessData.bytecode;
-        this._calldata = deploymentWitnessData.calldata;
+        /** We must verify the contract address */
+        const inputTxId = this.inputs[this.vInputIndex].originalTransactionId;
+        if (!inputTxId) {
+            throw new Error(`OP_NET: No input transaction id.`);
+        }
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
         const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
@@ -193,42 +190,54 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         const rawPubKey = Buffer.alloc(deployerPubKey.length + 1);
         rawPubKey.writeUInt8(deploymentWitnessData.rawPubKey.readUInt8(0), 0);
 
-        // copy data of deployerPubKey to rawPubKey
+        // Copy data of deployerPubKey to rawPubKey
         deployerPubKey.copy(rawPubKey, 1);
+
+        this.deployerPubKey = rawPubKey;
 
         /** Verify witness data */
         const hashDeployerPubKey = bitcoin.crypto.hash160(deployerPubKey);
         if (!hashDeployerPubKey.equals(deploymentWitnessData.deployerPubKeyHash)) {
             throw new Error(
-                `Invalid deployer public key hash found in deployment transaction. Expected ${deploymentWitnessData.deployerPubKeyHash.toString(
-                    'hex',
-                )} but got ${hashDeployerPubKey.toString('hex')}`,
-            );
-        }
-
-        if (!deployerPubKey.equals(deploymentWitnessData.deployerPubKey)) {
-            throw new Error(
-                `Invalid deployer public key found in deployment transaction. Expected ${deploymentWitnessData.deployerPubKey.toString(
-                    'hex',
-                )} but got ${deployerPubKey.toString('hex')}`,
+                `OP_NET: Invalid deployer public key hash found in deployment transaction.`,
             );
         }
 
         this.deployerPubKeyHash = hashDeployerPubKey;
-        this.deployerPubKey = rawPubKey;
+
+        if (!deployerPubKey.equals(deploymentWitnessData.deployerPubKey)) {
+            throw new Error(`OP_NET: Invalid deployer public key found in deployment transaction.`);
+        }
+
+        // Regenerate sender address
+        if (!deployerPubKey) {
+            throw new Error(`OP_NET: Invalid sender address.`);
+        }
+
+        this._from = new Address(this.deployerPubKey);
+
+        if (!this._from.isValid(this.network)) {
+            throw new Error(`OP_NET: Invalid sender address.`);
+        }
+
+        // Verify salt validity.
+        if (originalSalt.byteLength < 32 || originalSalt.byteLength > 128) {
+            throw new Error(`OP_NET: Salt should be between 32 and 128 bytes.`);
+        }
+
         this.contractSeed = originalSalt;
 
         /** Verify contract salt */
         const hashOriginalSalt: Buffer = bitcoin.crypto.hash256(originalSalt);
         if (!hashOriginalSalt.equals(deploymentWitnessData.contractSaltHash)) {
-            throw new Error(
-                `Invalid contract salt hash found in deployment transaction. Expected ${deploymentWitnessData.contractSaltHash.toString(
-                    'hex',
-                )} but got ${hashOriginalSalt.toString('hex')}`,
-            );
+            throw new Error(`OP_NET: Invalid contract salt hash found in deployment transaction.`);
         }
 
         this.contractSaltHash = hashOriginalSalt;
+
+        // Set bytecode and calldata
+        this.bytecode = deploymentWitnessData.bytecode;
+        this._calldata = deploymentWitnessData.calldata;
 
         /** Restore contract seed/address */
         this.contractTweakedPublicKey = TapscriptVerificator.getContractSeed(
@@ -247,14 +256,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
         /** TODO: Verify signatures, OPTIONAL, bitcoin-core job is supposed to handle that already. */
 
-        /** We must verify the contract address */
-        const inputTxId = this.inputs[this.vInputIndex].originalTransactionId;
-        if (!inputTxId) {
-            throw new Error(
-                `No input transaction id found for deployment transaction ${this.txid}`,
-            );
-        }
-
         /** We regenerate the contract address and verify it */
         const input0: TransactionInput = this.inputs[0];
         const controlBlock = input0.transactionInWitness[input0.transactionInWitness.length - 1];
@@ -263,17 +264,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         const outputWitness: TransactionOutput = this.getWitnessOutput(this.contractAddress);
 
         this.setBurnedFee(outputWitness);
-
-        // We get the sender address
-        if (!deployerPubKey) {
-            throw new Error(`OP_NET: Invalid sender address.`);
-        }
-
-        this._from = new Address(this.deployerPubKey);
-
-        if (!this._from.isValid(this.network)) {
-            throw new Error(`OP_NET: Invalid sender address.`);
-        }
 
         /** Decompress contract bytecode if needed */
         this.decompress();
@@ -294,17 +284,15 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             network: this.network,
         };
 
+        let tapContractAddress: boolean;
         try {
-            const tapContractAddress: boolean = TapscriptVerificator.verifyControlBlock(
-                params,
-                controlBlock,
-            );
-
-            if (!tapContractAddress) {
-                throw new Error(`OP_NET: Invalid contract address.`);
-            }
+            tapContractAddress = TapscriptVerificator.verifyControlBlock(params, controlBlock);
         } catch (e) {
             throw new Error(`OP_NET: Invalid contract address. ${e}`);
+        }
+
+        if (!tapContractAddress) {
+            throw new Error(`OP_NET: Invalid contract address.`);
         }
     }
 
@@ -419,7 +407,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         const contractBytecode: Buffer | undefined =
             DeploymentTransaction.getDataFromWitness(scriptData);
         if (!contractBytecode) {
-            throw new Error(`No contract bytecode found in deployment transaction.`);
+            throw new Error(`OP_NET: No contract bytecode.`);
         }
 
         if (

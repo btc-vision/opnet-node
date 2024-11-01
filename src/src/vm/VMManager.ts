@@ -386,7 +386,7 @@ export class VMManager extends Logger {
                 gasUsed: 0n,
                 callDepth: 0,
                 contractDeployDepth: 1,
-                //deployedContracts: [contractInformation], TODO: Understand what is going on when using this. (cause db conflicts)
+                //deployedContracts: [contractInformation], // TODO: Understand what is going on when using this. (cause db conflicts)
                 isConstructor: true,
             };
 
