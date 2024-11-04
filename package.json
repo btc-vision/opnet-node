@@ -89,7 +89,7 @@
     "long": "^5.2.3",
     "mongodb": "^6.9.0",
     "openapi-comment-parser": "^1.0.0",
-    "protobufjs": "github:btc-vision/protobuf.js",
+    "protobufjs": "^7.4.0",
     "sodium-native": "^4.1.1",
     "ssh2": "^1.15.0",
     "swagger-ui-express": "^5.0.0",
