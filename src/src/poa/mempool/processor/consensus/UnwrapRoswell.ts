@@ -1,4 +1,4 @@
-import { Network, Psbt, Signer } from 'bitcoinjs-lib';
+import { Network, Psbt, Signer } from '@btc-vision/bitcoin';
 import { FinalizedPSBT, UnwrapConsensus } from './UnwrapConsensus.js';
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
 import { WBTCUTXORepository } from '../../../../db/repositories/WBTCUTXORepository.js';

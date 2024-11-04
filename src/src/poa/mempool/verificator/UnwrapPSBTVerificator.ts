@@ -1,9 +1,9 @@
 import { PSBTVerificator } from './PSBTVerificator.js';
-import bitcoin, { initEccLib, Network, networks, Psbt, script } from 'bitcoinjs-lib';
+import bitcoin, { initEccLib, Network, networks, Psbt, script } from '@btc-vision/bitcoin';
 import * as ecc from 'tiny-secp256k1';
 import { PSBTTypes } from '../psbt/PSBTTypes.js';
 import { InteractionWitnessData } from '../../../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
-import { Input } from 'bitcoinjs-lib/src/transaction.js';
+import { Input } from '@btc-vision/bitcoin/src/transaction.js';
 import { ABICoder, Address, BinaryReader, Consensus } from '@btc-vision/transaction';
 import { KnownPSBTObject } from '../psbt/PSBTTransactionVerifier.js';
 import { Transaction } from '../../../blockchain-indexer/processor/transaction/Transaction.js';

@@ -1,6 +1,6 @@
 import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { Network, opcodes } from 'bitcoinjs-lib';
+import { Network, opcodes } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
 import { IWrapInteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';

@@ -4,10 +4,10 @@ import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
 import { CURVE, Point, utils } from '@noble/secp256k1';
-import { taggedHash } from 'bitcoinjs-lib/src/crypto.js';
+import { taggedHash } from '@btc-vision/bitcoin/src/crypto.js';
 import { TransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
-import { Network, payments } from 'bitcoinjs-lib';
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
+import { Network, payments } from '@btc-vision/bitcoin';
+import { toXOnly } from '@btc-vision/bitcoin/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { EcKeyPair } from '@btc-vision/transaction';
 import {

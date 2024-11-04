@@ -1,7 +1,7 @@
 import { ChainIds } from '../../config/enums/ChainIds.js';
 import { BitcoinNetwork } from '../../config/network/BitcoinNetwork.js';
 import { Address, WBTC_ADDRESS_REGTEST } from '@btc-vision/transaction';
-import { networks } from 'bitcoinjs-lib';
+import { networks } from '@btc-vision/bitcoin';
 
 export const WBTC_CONTRACT_ADDRESS: {
     [key in ChainIds]: Partial<{

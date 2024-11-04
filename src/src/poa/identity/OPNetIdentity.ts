@@ -1,4 +1,4 @@
-import { Network, Signer } from 'bitcoinjs-lib';
+import { Network, Signer } from '@btc-vision/bitcoin';
 import { ECPairInterface } from 'ecpair';
 import fs from 'fs';
 import path from 'path';
@@ -10,7 +10,7 @@ import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/com
 import { OPNetPathFinder } from './OPNetPathFinder.js';
 import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { EcKeyPair } from '@btc-vision/transaction';
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
+import { toXOnly } from '@btc-vision/bitcoin/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 
 export class OPNetIdentity extends OPNetPathFinder {

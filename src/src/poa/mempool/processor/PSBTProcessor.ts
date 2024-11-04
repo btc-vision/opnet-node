@@ -1,6 +1,6 @@
 import { PSBTTypes } from '../psbt/PSBTTypes.js';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
-import { Network, Psbt } from 'bitcoinjs-lib';
+import { Network, Psbt } from '@btc-vision/bitcoin';
 import { PSBTDecodedData } from '../psbt/PSBTTransactionVerifier.js';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';

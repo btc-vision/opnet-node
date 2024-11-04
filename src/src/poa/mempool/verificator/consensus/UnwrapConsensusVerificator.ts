@@ -1,5 +1,5 @@
 import { Consensus } from '../../../configurations/consensus/Consensus.js';
-import { Psbt } from 'bitcoinjs-lib';
+import { Psbt } from '@btc-vision/bitcoin';
 import { PSBTDecodedData } from '../../psbt/PSBTTransactionVerifier.js';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TrustedAuthority } from '../../../configurations/manager/TrustedAuthority.js';

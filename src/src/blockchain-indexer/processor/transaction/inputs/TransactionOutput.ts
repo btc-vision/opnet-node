@@ -1,6 +1,6 @@
 import { ScriptPubKey, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import BigNumber from 'bignumber.js';
-import { opcodes, script } from 'bitcoinjs-lib';
+import { opcodes, script } from '@btc-vision/bitcoin';
 import { Decimal128 } from 'mongodb';
 
 export interface ITransactionOutputBase {

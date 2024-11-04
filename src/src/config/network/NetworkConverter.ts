@@ -1,4 +1,4 @@
-import bitcoin, { Network } from 'bitcoinjs-lib';
+import bitcoin, { Network } from '@btc-vision/bitcoin';
 import { Config } from '../Config.js';
 import { BitcoinNetwork } from './BitcoinNetwork.js';
 

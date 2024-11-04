@@ -2,7 +2,7 @@ import { AddressMap, MemorySlotPointer } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { Config } from '../../../config/Config.js';
 import {
     BlockHeaderChecksumProof,

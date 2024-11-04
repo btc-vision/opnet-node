@@ -1,5 +1,5 @@
 import { IMempoolTransactionObj } from '../db/interfaces/IMempoolTransaction.js';
-import bitcoin from 'bitcoinjs-lib';
+import bitcoin from '@btc-vision/bitcoin';
 import { Long } from 'mongodb';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 

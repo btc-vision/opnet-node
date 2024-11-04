@@ -13,8 +13,8 @@ import { JSONRpc2ResultData } from '../json-rpc/types/interfaces/JSONRpc2ResultD
 import { JSONRpcParams } from '../json-rpc/types/interfaces/JSONRpcParams.js';
 import { Config } from '../../config/Config.js';
 import { BlockHeaderAPIBlockDocument } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
-import {networks} from "bitcoinjs-lib";
-import {NetworkConverter} from "../../config/network/NetworkConverter.js";
+import { networks } from '@btc-vision/bitcoin';
+import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 
 export abstract class Route<
     T extends Routes,

@@ -8,7 +8,7 @@ import { MessageType } from '../../../threading/enum/MessageType.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { Config } from '../../../config/Config.js';
 import { Block, DeserializedBlock } from '../block/Block.js';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { VMManager } from '../../../vm/VMManager.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { BlockGasPredictor } from '../gas/BlockGasPredictor.js';

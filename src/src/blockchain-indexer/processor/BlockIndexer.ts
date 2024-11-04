@@ -19,7 +19,7 @@ import {
     BlockProcessedMessage,
 } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { ReorgWatchdog } from './reorg/ReorgWatchdog.js';
 import { IReorgData } from '../../db/interfaces/IReorgDocument.js';
 import { VMManager } from '../../vm/VMManager.js';

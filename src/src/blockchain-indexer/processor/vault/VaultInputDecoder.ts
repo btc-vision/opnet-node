@@ -1,5 +1,5 @@
 import { TransactionInput } from '../transaction/inputs/TransactionInput.js';
-import bitcoin, { opcodes } from 'bitcoinjs-lib';
+import bitcoin, { opcodes } from '@btc-vision/bitcoin';
 import { AuthorityManager } from '../../../poa/configurations/manager/AuthorityManager.js';
 import { PublicAuthorityKey } from '../../../poa/configurations/manager/TrustedAuthority.js';
 

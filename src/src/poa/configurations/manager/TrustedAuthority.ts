@@ -14,7 +14,7 @@ import { KeyPairGenerator } from '../../networking/encryptem/KeyPairGenerator.js
 import { TrustedVersion } from '../version/TrustedVersion.js';
 import { Config } from '../../../config/Config.js';
 import { OPNET_FEE_WALLET } from '../../wbtc/WBTCRules.js';
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
+import { toXOnly } from '@btc-vision/bitcoin/src/psbt/bip371.js';
 
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 import { WBTC_CONTRACT_ADDRESS } from '../WBTCContracts.js';

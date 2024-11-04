@@ -3,7 +3,7 @@ import { PSBTTypes } from './psbt/PSBTTypes.js';
 import { PSBTProcessedResponse, PSBTProcessor } from './processor/PSBTProcessor.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { UnwrapProcessor } from './processor/UnwrapProcessor.js';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 

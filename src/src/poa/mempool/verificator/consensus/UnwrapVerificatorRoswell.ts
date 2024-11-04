@@ -6,7 +6,7 @@ import {
     UnwrapPSBTDecodedData,
     VerificationVault,
 } from './UnwrapConsensusVerificator.js';
-import { Psbt, PsbtTxInput } from 'bitcoinjs-lib';
+import { Psbt, PsbtTxInput } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { WBTCUTXORepository } from '../../../../db/repositories/WBTCUTXORepository.js';
 import { UnwrapTargetConsolidation } from '../../../equoitions/UnwrapTargetConsolidation.js';

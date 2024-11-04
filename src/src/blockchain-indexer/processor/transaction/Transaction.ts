@@ -1,6 +1,6 @@
 import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { Network, opcodes, script } from 'bitcoinjs-lib';
+import { Network, opcodes, script } from '@btc-vision/bitcoin';
 import crypto from 'crypto';
 import { Binary } from 'mongodb';
 import * as zlib from 'zlib';

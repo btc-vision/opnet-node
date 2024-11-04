@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin, { initEccLib, opcodes } from 'bitcoinjs-lib';
+import bitcoin, { initEccLib, opcodes } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
 import { InteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';

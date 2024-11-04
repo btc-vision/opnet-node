@@ -17,7 +17,7 @@ import {
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import { Network, networks } from 'bitcoinjs-lib';
+import { Network, networks } from '@btc-vision/bitcoin';
 import { BitcoinNetworkRequest } from '@btc-vision/op-vm';
 import assert from 'node:assert';
 import { ContractParameters, RustContract } from '../isolated/RustContract.js';

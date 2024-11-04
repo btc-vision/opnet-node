@@ -5,7 +5,7 @@ import {
     TrustedPublicKeysWithConstraints,
 } from '../../../../poa/configurations/manager/TrustedAuthority.js';
 import { WrappedGenerationResult } from '../../../../api/json-rpc/types/interfaces/results/opnet/GenerateResult.js';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
 import { KeyPairGenerator } from '../../../../poa/networking/encryptem/KeyPairGenerator.js';
 import { P2TR_MS } from '@btc-vision/transaction';

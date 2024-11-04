@@ -55,20 +55,43 @@ class BlockchainBase {
         this.bindings.clear();
     }
 
-    private emitJSFunction: (_: never, result: ThreadSafeJsImportResponse) => void = (
+    private logJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
+        _: never,
+        _value: ThreadSafeJsImportResponse,
+    ): Promise<void> => {
+        return new Promise((resolve) => {
+            /*const u = new Uint8Array(value.buffer);
+            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+
+            const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+            if (!c) {
+                throw new Error('Binding not found');
+            }
+
+            c.log(buf);*/
+
+            resolve();
+        });
+    };
+
+    private emitJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
         _: never,
         value: ThreadSafeJsImportResponse,
-    ): void => {
-        // temporary
-        const u = new Uint8Array(value.buffer);
-        const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+    ): Promise<void> => {
+        return new Promise<void>((resolve) => {
+            const u = new Uint8Array(value.buffer);
+            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-        if (!c) {
-            throw new Error('Binding not found (emit)');
-        }
+            const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
 
-        return c.emit(buf);
+            if (!c) {
+                throw new Error('Binding not found');
+            }
+
+            c.emit(buf);
+
+            resolve();
+        });
     };
 
     private inputsJSFunction: (
@@ -194,25 +217,6 @@ class BlockchainBase {
         }
 
         return c.deployContractAtAddress(buf);
-    };
-
-    private logJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
-        _: never,
-        _value: ThreadSafeJsImportResponse,
-    ): Promise<void> => {
-        return new Promise<void>(() => {
-            // temporary
-            /*const u = new Uint8Array(value.buffer);
-            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-
-            const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
-            if (!c) {
-                throw new Error('Binding not found (log)');
-            }
-
-            return c.log(buf);*/
-        });
     };
 }
 

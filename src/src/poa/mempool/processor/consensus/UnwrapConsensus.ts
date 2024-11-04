@@ -1,5 +1,5 @@
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
-import { Network, Psbt } from 'bitcoinjs-lib';
+import { Network, Psbt } from '@btc-vision/bitcoin';
 import { Logger } from '@btc-vision/bsi-common';
 import { WBTCUTXORepository } from '../../../../db/repositories/WBTCUTXORepository.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
@@ -29,5 +29,8 @@ export abstract class UnwrapConsensus<T extends Consensus> extends Logger {
         super();
     }
 
-    public abstract finalizePSBT(psbt: Psbt, data: UnwrapPSBTDecodedData): Promise<FinalizedPSBT> | FinalizedPSBT;
+    public abstract finalizePSBT(
+        psbt: Psbt,
+        data: UnwrapPSBTDecodedData,
+    ): Promise<FinalizedPSBT> | FinalizedPSBT;
 }

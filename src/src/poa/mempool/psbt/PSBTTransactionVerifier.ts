@@ -1,5 +1,5 @@
 import { PSBTTypes } from './PSBTTypes.js';
-import { Network, networks, Psbt } from 'bitcoinjs-lib';
+import { Network, networks, Psbt } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { PSBTVerificator } from '../verificator/PSBTVerificator.js';
 import { UnwrapPSBTVerificator } from '../verificator/UnwrapPSBTVerificator.js';
