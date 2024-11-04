@@ -17,6 +17,7 @@ import {
     TransactionReceiptResultAPI,
 } from '../../../../json-rpc/types/interfaces/results/transactions/TransactionReceiptResult.js';
 import { Route } from '../../../Route.js';
+import { Address } from '@btc-vision/transaction';
 
 export class TransactionReceipt extends Route<
     Routes.TRANSACTION_RECEIPT,
@@ -121,8 +122,13 @@ export class TransactionReceipt extends Route<
 
     private restoreEvents(events: NetEventDocument[]): EventReceiptDataForAPI[] {
         return events.map((event: NetEventDocument): EventReceiptDataForAPI => {
+            const contractAddress: Address =
+                'p2tr' in event.contractAddress
+                    ? event.contractAddress
+                    : new Address(event.contractAddress.buffer);
+
             return {
-                contractAddress: event.contractAddress.toHex(),
+                contractAddress: contractAddress.p2tr(this.network),
                 type: event.type,
                 data: event.data.toString('base64'),
             };

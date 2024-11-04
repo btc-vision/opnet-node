@@ -13,6 +13,10 @@ import {
     IWrapInteractionTransactionDocument,
     NetEventDocument,
 } from '../../db/interfaces/ITransactionDocument.js';
+import { Address } from '@btc-vision/transaction';
+import { NetworkConverter } from '../../config/network/NetworkConverter.js';
+
+const network = NetworkConverter.getNetwork();
 
 export class TransactionConverterForAPI {
     public static convertTransactionToAPI(
@@ -26,8 +30,13 @@ export class TransactionConverterForAPI {
             'events' in transaction
                 ? ((transaction as InteractionTransactionDocument).events.map(
                       (event: NetEventDocument) => {
+                          const contractAddress: Address =
+                              'p2tr' in event.contractAddress
+                                  ? event.contractAddress
+                                  : new Address(event.contractAddress.buffer);
+
                           return {
-                              contractAddress: event.contractAddress.toHex(),
+                              contractAddress: contractAddress.p2tr(network),
                               type: event.type,
                               data: (event.data instanceof Uint8Array
                                   ? new Binary(event.data)
@@ -37,7 +46,7 @@ export class TransactionConverterForAPI {
                       },
                   ) satisfies EventReceiptDataForAPI[])
                 : [];
-
+        
         const newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
             inputs: transaction.inputs,
