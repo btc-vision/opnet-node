@@ -92,7 +92,7 @@ check_system_requirements
 echo -e "${CYAN}Please select an option:${NC}"
 echo -e "${GREEN}1.${NC} ${PURPLE}Install & Configure all the necessary dependencies (default)${NC}"
 echo -e "${GREEN}2.${NC} ${PURPLE}Install & Configure MongoDB${NC}"
-echo -e "${GREEN}3.${NC} ${PURPLE}Install Node.js 21${NC}"
+echo -e "${GREEN}3.${NC} ${PURPLE}Install Node.js 22${NC}"
 echo -e "${GREEN}4.${NC} ${PURPLE}Install Cargo (Rust)${NC}"
 echo -e "${GREEN}5.${NC} ${PURPLE}Setup OPNet Indexer${NC}"
 echo -e "${GREEN}6.${NC} ${PURPLE}Update OPNet Indexer${NC}"
@@ -655,9 +655,9 @@ install_nodejs() {
     # Install optional dependencies
     sudo apt-get install -y build-essential gcc g++ make python3.6 git manpages-dev libcairo2-dev libatk1.0-0 libatk-bridge2.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates fonts-liberation libnss3 lsb-release xdg-utils libtool autoconf software-properties-common gcc-12 g++-12 gcc-13 g++-13 cmake
 
-    # Install Node.js 21
-    echo -e "${BLUE}Installing Node.js 21...${NC}"
-    curl -fsSL https://deb.nodesource.com/setup_21.x -o nodesource_setup.sh
+    # Install Node.js 22
+    echo -e "${BLUE}Installing Node.js 22...${NC}"
+    curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
     sudo -E bash nodesource_setup.sh
     sudo apt-get install -y nodejs
 
