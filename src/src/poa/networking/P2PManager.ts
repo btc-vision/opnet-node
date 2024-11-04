@@ -88,13 +88,13 @@ export class P2PManager extends Logger {
     private blackListedPeerIds: Map<string, BlacklistedPeerInfo> = new Map();
     private blackListedPeerIps: Map<string, BlacklistedPeerInfo> = new Map();
 
+    private knownMempoolIdentifiers: Set<bigint> = new Set();
+    private broadcastIdentifiers: Set<bigint> = new Set();
+
     private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 30_000;
 
     private readonly identity: OPNetIdentity;
     private startedIndexer: boolean = false;
-
-    private knownMempoolIdentifiers: Set<bigint> = new Set();
-    private broadcastIdentifiers: Set<bigint> = new Set();
 
     private readonly blockWitnessManager: BlockWitnessManager;
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
