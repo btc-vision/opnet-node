@@ -17,7 +17,7 @@ import { IncomingStreamData } from '@libp2p/interface/src/stream-handler/index.j
 import { KadDHT, kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
 import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';
-import { peerIdFromBytes, peerIdFromString } from '@libp2p/peer-id';
+import { peerIdFromCID, peerIdFromString } from '@libp2p/peer-id';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { tcp } from '@libp2p/tcp';
 import { uPnPNAT } from '@libp2p/upnp-nat';
@@ -62,6 +62,8 @@ import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { Components } from 'libp2p/components.js';
 import { Config } from '../../config/Config.js';
 import { noise } from '@chainsafe/libp2p-noise';
+import { CID } from 'multiformats/cid';
+import { PrivateKey } from '@libp2p/interface';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -82,6 +84,8 @@ export class P2PManager extends Logger {
 
     private readonly p2pConfigurations: P2PConfigurations;
     private node: Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }> | undefined;
+
+    private privateKey: PrivateKey | undefined;
 
     private peers: Map<string, OPNetPeer> = new Map();
 
@@ -475,7 +479,7 @@ export class P2PManager extends Logger {
             const peerInfo: OPNetPeerInfo = peers[peer];
 
             try {
-                const peerId = peerIdFromBytes(peerInfo.peer);
+                const peerId = peerIdFromCID(CID.decode(peerInfo.peer));
                 if (!peerId.toString()) continue;
 
                 const peerIdStr = peerId.toString();
@@ -695,7 +699,11 @@ export class P2PManager extends Logger {
             }
         }
 
-        this.p2pConfigurations.savePeer(this.node.peerId);
+        if (!this.privateKey) {
+            throw new Error('Private key not set');
+        }
+
+        this.p2pConfigurations.savePeer(this.node.peerId, this.privateKey);
 
         return this.refreshRouting();
     }
@@ -1084,7 +1092,7 @@ export class P2PManager extends Logger {
     private async createNode(): Promise<
         Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }>
     > {
-        const peerId = await this.p2pConfigurations.peerIdConfigurations();
+        this.privateKey = await this.p2pConfigurations.privateKeyConfigurations();
 
         const peerDiscovery: Partial<
             [(components: MulticastDNSComponents) => PeerDiscovery, BootstrapDiscoveryMethod]
@@ -1102,12 +1110,11 @@ export class P2PManager extends Logger {
         }
 
         const datastore = await this.getDatastore();
-
         return await createLibp2p({
             datastore: datastore,
-            peerId: peerId,
+            privateKey: this.privateKey,
             transports: [tcp(this.p2pConfigurations.tcpConfiguration)],
-            connectionEncryption: [noise()],
+            connectionEncrypters: [noise()],
             connectionGater: this.getConnectionGater(),
             streamMuxers: [yamux(this.p2pConfigurations.yamuxConfiguration)],
             addresses: this.p2pConfigurations.listeningConfiguration,

@@ -2,11 +2,10 @@ import { YamuxMuxerInit } from '@chainsafe/libp2p-yamux';
 import { BootstrapInit } from '@libp2p/bootstrap';
 import { IdentifyInit } from '@libp2p/identify';
 
-import { NodeInfo, PeerId } from '@libp2p/interface';
+import { NodeInfo, PeerId, PrivateKey } from '@libp2p/interface';
 import { FaultTolerance } from '@libp2p/interface-transport';
 import { KadDHTInit } from '@libp2p/kad-dht';
 import { MulticastDNSInit } from '@libp2p/mdns/dist/src/mdns.js';
-import { createFromJSON } from '@libp2p/peer-id-factory';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { TCPOptions } from '@libp2p/tcp';
 import { UPnPNATInit } from '@libp2p/upnp-nat';
@@ -24,10 +23,11 @@ import { PeerToPeerMethod } from '../../config/interfaces/PeerToPeerMethod.js';
 import { OPNetPathFinder } from '../identity/OPNetPathFinder.js';
 import { BootstrapNodes } from './BootstrapNodes.js';
 import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
+import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 
 interface BackedUpPeer {
     id: string;
-    privKey?: string;
+    privKey?: Buffer;
     pubKey?: string;
 }
 
@@ -126,9 +126,14 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get connectionManagerConfiguration(): ConnectionManagerInit {
         return {
-            autoDialDiscoveredPeersDebounce: 100,
+            reconnectRetries: 3,
+            reconnectRetryInterval: 5000,
 
             maxParallelDials: 100,
+
+            protocolNegotiationTimeout: 10000,
+            dialTimeout: 10000,
+            maxParallelReconnects: 10,
 
             /**
              * A remote peer may attempt to open up to this many connections per second,
@@ -140,12 +145,6 @@ export class P2PConfigurations extends OPNetPathFinder {
              * The total number of connections allowed to be open at one time
              */
             maxConnections: this.config.P2P.MAXIMUM_PEERS,
-
-            /**
-             * If the number of open connections goes below this number, the node
-             * will try to connect to randomly selected peers from the peer store
-             */
-            minConnections: this.config.P2P.MINIMUM_PEERS,
 
             /**
              * How many connections can be open but not yet upgraded
@@ -182,7 +181,6 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get dhtConfiguration(): KadDHTInit {
         return {
             kBucketSize: 30,
-            pingTimeout: 4000,
             clientMode: this.config.P2P.CLIENT_MODE,
             protocol: this.protocol,
         };
@@ -203,29 +201,28 @@ export class P2PConfigurations extends OPNetPathFinder {
         return `${P2PConfigurations.protocolName}/op/${P2PMajorVersion}`;
     }
 
-    public async peerIdConfigurations(): Promise<PeerId | undefined> {
+    public async privateKeyConfigurations(): Promise<PrivateKey> {
         const thisPeer = this.loadPeer();
-
-        if (!thisPeer) {
-            return;
+        if (!thisPeer || !thisPeer.privKey) {
+            return generateKeyPair('Ed25519');
         }
 
-        return await createFromJSON(thisPeer);
+        return privateKeyFromRaw(thisPeer.privKey);
     }
 
-    public savePeer(peer: PeerId): void {
-        if (!peer.privateKey) {
-            throw new Error('Peer does not have a private key.');
-        }
-
+    public savePeer(peer: PeerId, privKey: PrivateKey): void {
         if (!peer.publicKey) {
             throw new Error('Peer does not have a public key.');
         }
 
-        const peerIdentity: BackedUpPeer = {
+        const peerIdentity: {
+            id: string;
+            privKey: string | Buffer;
+            pubKey: string;
+        } = {
             id: peer.toString(),
-            privKey: this.uint8ArrayToString(peer.privateKey),
-            pubKey: this.uint8ArrayToString(peer.publicKey),
+            privKey: this.uint8ArrayToString(privKey.raw),
+            pubKey: this.uint8ArrayToString(peer.publicKey.toCID().bytes),
         };
 
         const encrypted = this.encrypt(JSON.stringify(peerIdentity));
@@ -237,7 +234,6 @@ export class P2PConfigurations extends OPNetPathFinder {
         this.createDirIfNotExists(levelDbStore);
 
         const dataStore = new LevelDatastore(levelDbStore);
-
         try {
             await dataStore.open();
         } catch (e) {
@@ -277,7 +273,15 @@ export class P2PConfigurations extends OPNetPathFinder {
             const lastPeerIdentity = fs.readFileSync(this.peerFilePath());
             const decrypted = this.decryptToString(new Uint8Array(lastPeerIdentity));
 
-            return JSON.parse(decrypted) as BackedUpPeer;
+            const decoded = JSON.parse(decrypted) as {
+                id: string;
+                privKey: string | Buffer;
+                pubKey: string;
+            };
+
+            decoded.privKey = Buffer.from(decoded.privKey as string, 'base64');
+
+            return decoded as BackedUpPeer;
         } catch (e) {
             const error = e as Error;
             if (error.message.includes('no such file or directory')) {

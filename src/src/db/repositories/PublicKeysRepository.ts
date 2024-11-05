@@ -3,7 +3,7 @@ import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
-import { CURVE, Point, utils } from '@noble/secp256k1';
+import { CURVE, ProjectivePoint as Point } from '@noble/secp256k1';
 import { taggedHash } from '@btc-vision/bitcoin/src/crypto.js';
 import { TransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { Network, payments } from '@btc-vision/bitcoin';
@@ -15,6 +15,11 @@ import {
     IPublicKeyInfoResult,
     PublicKeyInfo,
 } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
+
+const mod = (a: bigint, b: bigint): bigint => {
+    const result = a % b;
+    return result >= 0n ? result : result + b;
+};
 
 export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocument> {
     public readonly logColor: string = '#afeeee';
@@ -114,7 +119,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         let P = Point.fromHex(compressedPubKeyHex.toString('hex'));
 
         // Ensure the point has an even y-coordinate
-        if (!P.hasEvenY()) {
+        if ((P.y & 1n) !== 0n) {
             // Negate the point to get an even y-coordinate
             P = P.negate();
         }
@@ -124,10 +129,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
         // Compute the tweak t = H_tapTweak(x)
         const tHash = taggedHash('TapTweak', Buffer.from(x));
-        const t = utils.mod(BigInt('0x' + Buffer.from(tHash).toString('hex')), CURVE.n);
+        const t = mod(BigInt('0x' + Buffer.from(tHash).toString('hex')), CURVE.n);
 
         // Compute Q = P + t*G (where G is the generator point)
-        const Q = P.add(Point.BASE.multiply(t));
+        const Q = P.add(Point.BASE.mul(t));
 
         // Return the tweaked public key in compressed form (hex string)
         return Buffer.from(Q.toHex(true), 'hex');
