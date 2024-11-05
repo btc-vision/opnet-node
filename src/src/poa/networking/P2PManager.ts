@@ -9,6 +9,7 @@ import {
     PeerId,
     PeerInfo,
     PeerUpdate,
+    PrivateKey,
 } from '@libp2p/interface';
 import { IdentifyResult } from '@libp2p/interface/src';
 import type { Connection, MultiaddrConnection } from '@libp2p/interface/src/connection/index.js';
@@ -63,7 +64,6 @@ import { Components } from 'libp2p/components.js';
 import { Config } from '../../config/Config.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { CID } from 'multiformats/cid';
-import { PrivateKey } from '@libp2p/interface';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
