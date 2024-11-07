@@ -6,6 +6,11 @@ import { MessageType } from '../../../threading/enum/MessageType.js';
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { OPNetPeerInfo } from '../../../poa/networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
+import { peerIdFromCID } from '@libp2p/peer-id';
+import { CID } from 'multiformats/cid';
+import { multiaddr, Multiaddr } from '@multiformats/multiaddr';
+import { OPNetIndexerMode } from '../../../config/interfaces/OPNetIndexerMode.js';
+import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 
 export class PeerInfoCommand extends Command<Commands.PEER_INFO> {
     public readonly command: Commands.PEER_INFO = Commands.PEER_INFO;
@@ -23,7 +28,7 @@ export class PeerInfoCommand extends Command<Commands.PEER_INFO> {
 
     private createPeerInfoMessage(peers: OPNetPeerInfo[]): string {
         if (peers.length === 0) {
-            return this.chalk.hex('#FFDD57').bold('⚠️ No peers found.');
+            return this.chalk.hex('#FFDD57').bold('⚠️ No peers found.\r\n');
         }
 
         // Header
@@ -33,29 +38,78 @@ export class PeerInfoCommand extends Command<Commands.PEER_INFO> {
         // Peer details
         const peerDetails = peers
             .map((peer, index) => {
-                return [
-                    this.chalk.hex('#00CFFD').bold(`Peer ${index + 1}:`),
-                    this.chalk.hex('#FF6F61')(`  - OPNet Version: `) +
-                        this.chalk.hex('#FAD02E').bold(peer.opnetVersion),
-                    this.chalk.hex('#FF6F61')(`  - Identity: `) +
-                        this.chalk.hex('#B39CD0').bold(peer.identity),
-                    this.chalk.hex('#FF6F61')(`  - Type: `) +
-                        this.chalk.hex('#FF9F29').bold(peer.type.toString()),
-                    this.chalk.hex('#FF6F61')(`  - Network: `) +
-                        this.chalk.hex('#29FFB1').bold(peer.network.toString()),
-                    this.chalk.hex('#FF6F61')(`  - Chain ID: `) +
-                        this.chalk.hex('#A1C6E7').bold(ChainIds[peer.chainId] ?? 'Unknown'),
-                    this.chalk.hex('#FF6F61')(`  - Peer: `) +
-                        this.chalk.hex('#D0A6F9').bold(peer.peer.toString()),
-                    this.chalk.hex('#FF6F61')(`  - Addresses: `) +
-                        peer.addresses
-                            .map((address) => this.chalk.hex('#FA8072')(address.toString()))
-                            .join(this.chalk.hex('#FF69B4')(', ')),
-                ].join('\n');
-            })
-            .join('\n\n');
+                // Convert peer Uint8Array to peer ID
+                const peerId = peerIdFromCID(CID.decode(peer.peer));
 
-        return [header, totalPeers, ' ', peerDetails].join('\n\n');
+                // Process and filter addresses
+                const addresses: Multiaddr[] = [];
+                for (const address of peer.addresses) {
+                    const addr = multiaddr(address);
+
+                    if (addr) {
+                        addresses.push(addr);
+                    }
+                }
+
+                /*const addressesDisplay =
+                    addresses.length > 0
+                        ? addresses
+                              .map((addr) => this.chalk.hex('#FA8072')(addr.toString()))
+                              .join(this.chalk.hex('#FF69B4')(', '))
+                        : this.chalk.hex('#FF6F61')('No valid addresses');*/
+
+                const addressesDisplay =
+                    addresses.length > 0
+                        ? addresses
+                              .map((addr) =>
+                                  this.chalk.hex('#FA8072')(`      - ${addr.toString()}\r\n`),
+                              )
+                              .join('')
+                        : this.chalk.hex('#FF6F61')('      - No valid addresses\r\n');
+
+                const indexerMode = this.getIndexerMode(peer.type);
+                const peerNetwork = NetworkConverter.numberToBitcoinNetwork(peer.network);
+
+                return [
+                    this.chalk.hex('#00CFFD').bold(`Peer ${peerId.toString()} (${index + 1}):\r\n`),
+                    this.chalk.hex('#FF6F61')(`  - OPNet Version: `) +
+                        this.chalk.hex('#FAD02E').bold(peer.opnetVersion) +
+                        '\r\n',
+                    this.chalk.hex('#FF6F61')(`  - Identity: `) +
+                        this.chalk.hex('#B39CD0').bold(peer.identity) +
+                        '\r\n',
+                    this.chalk.hex('#FF6F61')(`  - Mode: `) +
+                        this.chalk.hex('#FF9F29').bold(indexerMode) +
+                        '\r\n',
+                    this.chalk.hex('#FF6F61')(`  - Network: `) +
+                        this.chalk.hex('#29FFB1').bold(peerNetwork) +
+                        '\r\n',
+                    this.chalk.hex('#FF6F61')(`  - Chain: `) +
+                        this.chalk.hex('#A1C6E7').bold(ChainIds[peer.chainId] ?? 'Unknown') +
+                        '\r\n',
+                    this.chalk.hex('#FF6F61')(`  - Addresses:\r\n`) + addressesDisplay,
+                ].join('');
+            })
+            .join('\r\n\r\n');
+
+        return [header, totalPeers, '\r\n', peerDetails].join('\r\n');
+    }
+
+    private getIndexerMode(type: number): OPNetIndexerMode | 'Unknown' {
+        switch (type) {
+            case 0: {
+                return OPNetIndexerMode.ARCHIVE;
+            }
+            case 1: {
+                return OPNetIndexerMode.FULL;
+            }
+            case 2: {
+                return OPNetIndexerMode.LIGHT;
+            }
+            default: {
+                return 'Unknown';
+            }
+        }
     }
 
     private buildMsgToP2PManager(): ThreadMessageBase<MessageType.GET_PEERS> {

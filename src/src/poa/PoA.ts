@@ -54,7 +54,7 @@ export class PoA extends Logger {
     }
 
     private async handleGetPeerMessage(): Promise<ThreadData> {
-        const peers = await this.p2p.getPeers();
+        const peers = await this.p2p.getOPNetPeers();
 
         return { peers };
     }

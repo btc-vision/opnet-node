@@ -173,10 +173,6 @@ export class P2PManager extends Logger {
         await this.onStarted();
     }
 
-    public async getPeers(): Promise<OPNetPeerInfo[]> {
-        return await this.getOPNetPeers();
-    }
-
     public override info(...args: string[]): void {
         if (this.config.DEBUG_LEVEL < DebugLevel.INFO) {
             return;
