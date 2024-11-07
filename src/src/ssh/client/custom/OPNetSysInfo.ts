@@ -22,7 +22,9 @@ export class OPNetSysInfo extends CustomOperationCommand {
             try {
                 this.runCommand();
             } catch {
-                this.channel.close();
+                if (!this.channel.closed) {
+                    this.channel.close();
+                }
                 clearInterval(this.interval as NodeJS.Timeout);
             }
         }, 1000);
