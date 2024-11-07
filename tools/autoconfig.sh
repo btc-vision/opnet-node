@@ -757,7 +757,7 @@ clone_and_build_indexer() {
     echo -e "${BLUE}Cloning the OPNet Indexer repository...${NC}"
     git clone git@github.com:btc-vision/opnet-node.git "$indexer_dir"
     cd "$indexer_dir" || exit 1
-    git checkout features/recode-sync-task
+    git checkout main
 
     # Install npm dependencies
     echo -e "${BLUE}Installing npm dependencies...${NC}"
