@@ -5,23 +5,23 @@ import {
     UnwrapConsensusVerificator,
     UnwrapPSBTDecodedData,
     VerificationVault,
-} from './UnwrapConsensusVerificator.js';
+} from './UnwrapConsensusVerificator.ts.disabled';
 import { Psbt, PsbtTxInput } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
-import { WBTCUTXORepository } from '../../../../db/repositories/WBTCUTXORepository.js';
+import { WBTCUTXORepositoryTs } from '../../../../db/repositories/WBTCUTXORepositoryTs.js';
 import { UnwrapTargetConsolidation } from '../../../equoitions/UnwrapTargetConsolidation.js';
 import { OPNetConsensus } from '../../../configurations/OPNetConsensus.js';
 
 export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consensus.Roswell> {
     public readonly consensus: Consensus.Roswell = Consensus.Roswell;
 
-    #utxoRepository: WBTCUTXORepository | undefined;
+    #utxoRepository: WBTCUTXORepositoryTs | undefined;
 
     public constructor(db: ConfigurableDBManager) {
         super(db);
     }
 
-    protected get utxoRepository(): WBTCUTXORepository {
+    protected get utxoRepository(): WBTCUTXORepositoryTs {
         if (!this.#utxoRepository) throw new Error('UTXO repository not created.');
 
         return this.#utxoRepository;
@@ -30,7 +30,7 @@ export class UnwrapVerificatorRoswell extends UnwrapConsensusVerificator<Consens
     public createRepositories(): void {
         if (!this.db.db) throw new Error('Database connection not established.');
 
-        this.#utxoRepository = new WBTCUTXORepository(this.db.db);
+        this.#utxoRepository = new WBTCUTXORepositoryTs(this.db.db);
     }
 
     public async verify(

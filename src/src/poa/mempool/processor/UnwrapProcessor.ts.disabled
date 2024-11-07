@@ -3,12 +3,12 @@ import { PSBTTypes } from '../psbt/PSBTTypes.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { Network, Psbt } from '@btc-vision/bitcoin';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
-import { WBTCUTXORepository } from '../../../db/repositories/WBTCUTXORepository.js';
+import { WBTCUTXORepositoryTs } from '../../../db/repositories/WBTCUTXORepositoryTs.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
-import { FinalizedPSBT } from './consensus/UnwrapConsensus.js';
+import { FinalizedPSBT } from './consensus/UnwrapConsensus.ts.disabled';
 import { Consensus } from '../../configurations/consensus/Consensus.js';
-import { UnwrapRoswell } from './consensus/UnwrapRoswell.js';
-import { UnwrapPSBTDecodedData } from '../verificator/consensus/UnwrapConsensusVerificator.js';
+import { UnwrapRoswell } from './consensus/UnwrapRoswell.ts.disabled';
+import { UnwrapPSBTDecodedData } from '../verificator/consensus/UnwrapConsensusVerificatorTs.js';
 
 export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
     public readonly logColor: string = '#00ffe1';
@@ -17,13 +17,13 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
 
     #roswell: UnwrapRoswell | undefined;
     #rpc: BitcoinRPC | undefined;
-    #utxoRepository: WBTCUTXORepository | undefined;
+    #utxoRepository: WBTCUTXORepositoryTs | undefined;
 
     public constructor(authority: OPNetIdentity, db: ConfigurableDBManager, network: Network) {
         super(authority, db, network);
     }
 
-    private get utxoRepository(): WBTCUTXORepository {
+    private get utxoRepository(): WBTCUTXORepositoryTs {
         if (!this.#utxoRepository) throw new Error('UTXO repository not created.');
 
         return this.#utxoRepository;
@@ -44,7 +44,7 @@ export class UnwrapProcessor extends PSBTProcessor<PSBTTypes.UNWRAP> {
     public createRepositories(rpc: BitcoinRPC): void {
         if (!this.db.db) throw new Error('Database connection not established.');
 
-        this.#utxoRepository = new WBTCUTXORepository(this.db.db);
+        this.#utxoRepository = new WBTCUTXORepositoryTs(this.db.db);
         this.#rpc = rpc;
 
         this.#roswell = new UnwrapRoswell(

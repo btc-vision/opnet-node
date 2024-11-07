@@ -1,7 +1,7 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { VMStorage } from '../../../../vm/storage/VMStorage.js';
 import { UnwrappedGenerationResult } from '../../../../api/json-rpc/types/interfaces/results/opnet/GenerateResult.js';
-import { VaultUTXOs } from '../../../../db/repositories/WBTCUTXORepository.js';
+import { VaultUTXOs } from '../../../../db/repositories/WBTCUTXORepositoryTs.js';
 import { VaultUTXOs as AdaptedVaultUTXOs } from '@btc-vision/transaction';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';

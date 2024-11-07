@@ -101,8 +101,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: 5n,
     },
 
-    VAULTS: {
-        /** Vaults related properties */
+    /*VAULTS: {
         VAULT_MINIMAL_FEE_ADDITION_VB_PER_SAT: 10n,
 
         // Defines the minimum amount that can be consolidated in a single transaction.
@@ -123,5 +122,5 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         // The maximum number of UTXOs that can be consolidated in a single transaction.
         MAXIMUM_CONSOLIDATION_UTXOS: 4,
-    },
+    },*/
 };

@@ -1,6 +1,6 @@
 import { Document } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
-import { MinimumUtxoInformation } from '../../../../poa/mempool/verificator/consensus/UnwrapConsensusVerificator.js';
+import { MinimumUtxoInformation } from '../../../../poa/mempool/verificator/consensus/UnwrapConsensusVerificator.ts.disabled';
 
 export interface VaultsByHashes {
     readonly vault: string;

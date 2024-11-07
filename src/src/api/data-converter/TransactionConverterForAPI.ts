@@ -9,8 +9,6 @@ import {
     ExtendedBaseInfo,
     InteractionTransactionDocument,
     ITransactionDocument,
-    IUnwrapInteractionTransactionDocument,
-    IWrapInteractionTransactionDocument,
     NetEventDocument,
 } from '../../db/interfaces/ITransactionDocument.js';
 import { Address } from '@btc-vision/transaction';
@@ -46,7 +44,7 @@ export class TransactionConverterForAPI {
                       },
                   ) satisfies EventReceiptDataForAPI[])
                 : [];
-        
+
         const newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
             inputs: transaction.inputs,
@@ -77,7 +75,7 @@ export class TransactionConverterForAPI {
             newTx.from = tx.from ? tx.from.toString('base64') : undefined;
         }
 
-        if ('wrappingFees' in transaction) {
+        /*if ('wrappingFees' in transaction) {
             const tx = transaction as IWrapInteractionTransactionDocument;
 
             newTx.wrappingFees = '0x' + DataConverter.fromDecimal128(tx.wrappingFees).toString(16);
@@ -103,7 +101,7 @@ export class TransactionConverterForAPI {
                     output: tx.consolidatedVault.output.toString('base64'),
                 };
             }
-        }
+        }*/
 
         delete newTx._id;
         delete newTx.blockHeight;

@@ -28,8 +28,6 @@ import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransacti
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
-import { Address } from '@btc-vision/transaction';
-import { WBTCBalanceRequest } from '../../../threading/interfaces/thread-messages/messages/api/WBTCBalanceRequest.js';
 import { BroadcastTransactionResult } from '../../../api/json-rpc/types/interfaces/results/transactions/BroadcastTransactionResult.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';
 
@@ -299,7 +297,7 @@ export class Mempool extends Logger {
         if (
             decodedPsbt.data.estimatedFees <
             this.estimatedBlockFees +
-                OPNetConsensus.consensus.VAULTS.VAULT_MINIMAL_FEE_ADDITION_VB_PER_SAT
+                OPNetConsensus.consensus.PSBT.MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT
         ) {
             return {
                 success: false,
@@ -357,7 +355,6 @@ export class Mempool extends Logger {
 
             const result = await Promise.all(submitData);
             const broadcastResult = result[1] as BroadcastTransactionResult | undefined;
-            console.log('broadcastResult', broadcastResult);
 
             if (broadcastResult?.success) {
                 console.log('broadcastResult.result', broadcastResult.result, finalTransaction.id);
@@ -420,7 +417,7 @@ export class Mempool extends Logger {
         }
     }
 
-    private async requestWBTCBalanceOf(requester: Address): Promise<BroadcastResponse | undefined> {
+    /*private async requestWBTCBalanceOf(requester: Address): Promise<BroadcastResponse | undefined> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.WBTC_BALANCE_OF> = {
             type: MessageType.RPC_METHOD,
             data: {
@@ -435,7 +432,7 @@ export class Mempool extends Logger {
         return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
-    }
+    }*/
 
     private async broadcastBitcoinTransaction(
         data: string,

@@ -13,7 +13,7 @@ import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import {
     PartialWBTCUTXODocument,
     UsedUTXOToDelete,
-} from '../../../../db/interfaces/IWBTCUTXODocument.js';
+} from '../../../../db/interfaces/IWBTCUTXODocumentTs.js';
 import { Binary } from 'mongodb';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 

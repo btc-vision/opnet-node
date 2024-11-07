@@ -1,7 +1,7 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { ClientSession, Collection, Db, Filter } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { IUsedWBTCUTXODocument, UsedUTXOToDelete } from '../interfaces/IWBTCUTXODocument.js';
+import { IUsedWBTCUTXODocument, UsedUTXOToDelete } from '../interfaces/IWBTCUTXODocument.ts.disabled';
 
 export class UsedWbtcUxtoRepository extends BaseRepository<IUsedWBTCUTXODocument> {
     private static readonly OLD_UTXO_BLOCK_HEIGHT: bigint = 4n;

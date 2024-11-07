@@ -13,8 +13,6 @@ import {
     TransactionOutput,
 } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { Address } from '@btc-vision/transaction';
-import { TrustedEntities } from '../../poa/configurations/TrustedEntities.js';
-import { PartialWBTCUTXODocument, UsedUTXOToDelete } from './IWBTCUTXODocument.js';
 
 export interface TransactionDocumentBasic<T extends OPNetTransactionTypes> {
     readonly id: string;
@@ -87,7 +85,7 @@ export interface InteractionTransactionDocument
     readonly wasCompressed: boolean;
 }
 
-export interface IWrapInteractionTransactionDocument extends InteractionTransactionDocument {
+/*export interface IWrapInteractionTransactionDocument extends InteractionTransactionDocument {
     readonly pubKeys: Binary[];
     readonly vault: string;
     readonly depositAmount: Decimal128;
@@ -105,7 +103,7 @@ export interface IUnwrapInteractionTransactionDocument extends InteractionTransa
     readonly consolidatedVault: PartialWBTCUTXODocument | undefined;
     readonly unwrapAmount: Decimal128;
     readonly requestedAmount: Decimal128;
-}
+}*/
 
 export type ITransactionDocument<T extends OPNetTransactionTypes> = TransactionDocument<T> &
     IBaseDocument;

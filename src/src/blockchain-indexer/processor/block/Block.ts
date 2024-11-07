@@ -28,8 +28,6 @@ import { ChecksumMerkle } from './merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from './types/ZeroValue.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { GenericTransaction } from '../transaction/transactions/GenericTransaction.js';
-import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
-import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../../db/interfaces/IWBTCUTXODocument.js';
 import assert from 'node:assert';
 import { BlockGasPredictor, CalculatedBlockGas } from '../gas/BlockGasPredictor.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
@@ -891,12 +889,12 @@ export class Block extends Logger {
             return;
         }
 
-        const vmStorage = vmManager.getVMStorage();
+        //const vmStorage = vmManager.getVMStorage();
 
-        const usedUTXOs: UsedUTXOToDelete[] = [];
-        const consolidatedUTXOs: IWBTCUTXODocument[] = [];
+        //const usedUTXOs: UsedUTXOToDelete[] = [];
+        //const consolidatedUTXOs: IWBTCUTXODocument[] = [];
 
-        const compromisedTransactions: ICompromisedTransactionDocument[] = [];
+        //const compromisedTransactions: ICompromisedTransactionDocument[] = [];
         const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
 
         //const blockHeightDecimal = DataConverter.toDecimal128(this.height);
@@ -924,7 +922,7 @@ export class Block extends Logger {
         }
 
         const promises: Promise<void>[] = [];
-        if (usedUTXOs.length) {
+        /*if (usedUTXOs.length) {
             promises.push(vmStorage.setSpentWBTCUTXOs(usedUTXOs, this.height));
         }
 
@@ -943,7 +941,7 @@ export class Block extends Logger {
             this.#compromised = true;
 
             promises.push(vmStorage.saveCompromisedTransactions(compromisedTransactions));
-        }
+        }*/
 
         promises.push(vmManager.saveTransactions(transactionData));
 

@@ -10,8 +10,8 @@ import { Transaction } from '../../../blockchain-indexer/processor/transaction/T
 import {
     PartialUnwrapPSBTDecodedData,
     UnwrapPSBTDecodedData,
-} from './consensus/UnwrapConsensusVerificator.js';
-import { UnwrapVerificatorRoswell } from './consensus/UnwrapVerificatorRoswell.js';
+} from './consensus/UnwrapConsensusVerificatorTs.js';
+import { UnwrapVerificatorRoswellTs } from './consensus/UnwrapVerificatorRoswellTs.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { UnwrapTransaction } from '../../../blockchain-indexer/processor/transaction/transactions/UnwrapTransaction.ts.disabled';
 
@@ -32,12 +32,12 @@ export class UnwrapPSBTVerificator extends PSBTVerificator<PSBTTypes.UNWRAP> {
 
     public readonly type: PSBTTypes.UNWRAP = PSBTTypes.UNWRAP;
 
-    private readonly consensusVerificator: UnwrapVerificatorRoswell;
+    private readonly consensusVerificator: UnwrapVerificatorRoswellTs;
 
     constructor(db: ConfigurableDBManager, network: Network = networks.bitcoin) {
         super(db, network);
 
-        this.consensusVerificator = new UnwrapVerificatorRoswell(this.db);
+        this.consensusVerificator = new UnwrapVerificatorRoswellTs(this.db);
     }
 
     public async verify(data: Psbt, version: number): Promise<KnownPSBTObject | false> {

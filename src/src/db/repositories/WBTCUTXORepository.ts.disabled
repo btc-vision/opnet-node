@@ -13,7 +13,7 @@ import {
     Decimal128,
     UpdateOptions,
 } from 'mongodb';
-import { IWBTCUTXODocument, UsedUTXOToDelete } from '../interfaces/IWBTCUTXODocument.js';
+import { IWBTCUTXODocument, UsedUTXOToDelete } from '../interfaces/IWBTCUTXODocument.ts.disabled';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { WBTCUTXOAggregation } from '../../vm/storage/databases/aggregation/WBTCUTXOSAggregation.js';
@@ -21,7 +21,7 @@ import { IVaultDocument } from '../interfaces/IVaultDocument.js';
 import {
     QueryVaultAggregation,
     VaultsByHashes,
-} from '../../vm/storage/databases/aggregation/QueryVaultAggregation.js';
+} from '../../vm/storage/databases/aggregation/QueryVaultAggregation.ts.disabled';
 import { Config } from '../../config/Config.js';
 import { UnwrapTargetConsolidation } from '../../poa/equoitions/UnwrapTargetConsolidation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';

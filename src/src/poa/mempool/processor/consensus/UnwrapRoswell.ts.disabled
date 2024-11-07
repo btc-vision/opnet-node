@@ -1,13 +1,13 @@
 import { Network, Psbt, Signer } from '@btc-vision/bitcoin';
-import { FinalizedPSBT, UnwrapConsensus } from './UnwrapConsensus.js';
+import { FinalizedPSBT, UnwrapConsensus } from './UnwrapConsensus.ts.disabled';
 import { OPNetIdentity } from '../../../identity/OPNetIdentity.js';
-import { WBTCUTXORepository } from '../../../../db/repositories/WBTCUTXORepository.js';
+import { WBTCUTXORepositoryTs } from '../../../../db/repositories/WBTCUTXORepositoryTs.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import { Consensus } from '../../../configurations/consensus/Consensus.js';
 import {
     UnwrapPSBTDecodedData,
     VerificationVault,
-} from '../../verificator/consensus/UnwrapConsensusVerificator.js';
+} from '../../verificator/consensus/UnwrapConsensusVerificatorTs.js';
 import { MultiSignTransaction } from '@btc-vision/transaction';
 import { ECPairInterface } from 'ecpair';
 
@@ -17,7 +17,7 @@ export class UnwrapRoswell extends UnwrapConsensus<Consensus.Roswell> {
 
     constructor(
         authority: OPNetIdentity,
-        utxoRepository: WBTCUTXORepository,
+        utxoRepository: WBTCUTXORepositoryTs,
         rpc: BitcoinRPC,
         network: Network,
     ) {

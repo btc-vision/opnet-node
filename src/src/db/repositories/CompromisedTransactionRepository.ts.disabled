@@ -4,7 +4,7 @@ import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
 import {
     CompromisedTransactionDocument,
     ICompromisedTransactionDocument,
-} from '../interfaces/CompromisedTransactionDocument.js';
+} from '../interfaces/CompromisedTransactionDocument.ts.disabled';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 
 export class CompromisedTransactionRepository extends BaseRepository<CompromisedTransactionDocument> {

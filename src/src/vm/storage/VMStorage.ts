@@ -12,10 +12,6 @@ import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.j
 import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocument.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
-import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../db/interfaces/IWBTCUTXODocument.js';
-import { IVaultDocument } from '../../db/interfaces/IVaultDocument.js';
-import { SelectedUTXOs } from '../../db/repositories/WBTCUTXORepository.js';
-import { ICompromisedTransactionDocument } from '../../db/interfaces/CompromisedTransactionDocument.js';
 import { BlockchainInfoRepository } from '../../db/repositories/BlockchainInfoRepository.js';
 import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 import { Address, AddressMap } from '@btc-vision/transaction';
@@ -81,11 +77,6 @@ export abstract class VMStorage extends Logger {
         transaction: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void>;
 
-    /*public abstract insertUTXOs(
-        blockHeight: bigint,
-        transaction: ITransactionDocumentBasic<OPNetTransactionTypes>[],
-    ): Promise<void>;*/
-
     public abstract saveBlockHeader(blockHeader: BlockHeaderDocument): Promise<void>;
 
     public abstract getBlockHeader(height: bigint): Promise<BlockHeaderDocument | undefined>;
@@ -133,7 +124,7 @@ export abstract class VMStorage extends Logger {
 
     public abstract killAllPendingWrites(): Promise<void>;
 
-    public abstract setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void>;
+    /*public abstract setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void>;
 
     public abstract setVault(vault: IVaultDocument): Promise<void>;
 
@@ -150,11 +141,11 @@ export abstract class VMStorage extends Logger {
 
     public abstract deleteOldUTXOs(height: bigint): Promise<void>;
 
-    public abstract deleteOldUsedUtxos(height: bigint): Promise<void>;
-
-    public abstract setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void>;
+    public abstract setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void>;*/
 
     public abstract deleteTransactionsById(transactions: string[]): Promise<void>;
+
+    //public abstract deleteOldUsedUtxos(height: bigint): Promise<void>;
 
     public abstract purgePointers(block: bigint): Promise<void>;
 }

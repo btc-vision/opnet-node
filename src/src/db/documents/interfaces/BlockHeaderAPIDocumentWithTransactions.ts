@@ -4,7 +4,6 @@ import {
     ITransactionDocument,
     TransactionDocumentBase,
 } from '../../interfaces/ITransactionDocument.js';
-import { PartialWBTCUTXODocumentForAPI } from '../../interfaces/IWBTCUTXODocument.js';
 import { APIDocumentOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { APIDocumentInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 
@@ -37,7 +36,7 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     requestedAmount?: string;
     wrappingFees?: string;
     depositAmount?: string;
-    consolidatedVault?: PartialWBTCUTXODocumentForAPI;
+    //consolidatedVault?: PartialWBTCUTXODocumentForAPI;
 
     _id: undefined;
 }

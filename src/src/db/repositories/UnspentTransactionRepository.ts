@@ -16,7 +16,6 @@ import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
-import { BalanceOfOutputTransactionFromDB } from '../../vm/storage/databases/aggregation/BalanceOfAggregation.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { UTXOSOutputTransaction } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import {
@@ -32,6 +31,10 @@ export interface ProcessUnspentTransaction {
 }
 
 export type ProcessUnspentTransactionList = ProcessUnspentTransaction[];
+
+export interface BalanceOfOutputTransactionFromDB {
+    readonly balance: Decimal128;
+}
 
 export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspentTransaction> {
     public readonly logColor: string = '#afeeee';

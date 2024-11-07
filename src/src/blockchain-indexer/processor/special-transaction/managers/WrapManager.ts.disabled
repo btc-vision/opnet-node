@@ -4,7 +4,7 @@ import { OPNetTransactionTypes } from '../../transaction/enums/OPNetTransactionT
 import { WrapTransactionTs } from '../../transaction/transactions/WrapTransactionTs.js';
 import { IVaultDocument } from '../../../../db/interfaces/IVaultDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { IWBTCUTXODocument } from '../../../../db/interfaces/IWBTCUTXODocument.js';
+import { IWBTCUTXODocumentTs } from '../../../../db/interfaces/IWBTCUTXODocumentTs.js';
 import { Binary } from 'mongodb';
 
 export class WrapManagerDisabled extends AbstractSpecialManager<OPNetTransactionTypes.WrapInteraction> {
@@ -45,7 +45,7 @@ export class WrapManagerDisabled extends AbstractSpecialManager<OPNetTransaction
             );
         }
 
-        const utxoData: IWBTCUTXODocument = {
+        const utxoData: IWBTCUTXODocumentTs = {
             vault: transaction.vault,
             blockId: DataConverter.toDecimal128(transaction.blockHeight),
             value: DataConverter.toDecimal128(transaction.depositTotal),
