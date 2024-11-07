@@ -1,10 +1,10 @@
 import { Binary, Decimal128 } from 'mongodb';
-import { TrustedCompanies } from '../../poa/configurations/TrustedCompanies.js';
-import { VaultInput } from '../../blockchain-indexer/processor/vault/VaultInputDecoder.js';
+import { TrustedEntities } from '../../poa/configurations/TrustedEntities.js';
+import { VaultInput } from '../../blockchain-indexer/processor/vault/VaultInputDecoder.ts.disabled';
 
 export interface PublicAuthorityKeyDocument {
     key: Binary;
-    authority: TrustedCompanies;
+    authority: TrustedEntities;
 }
 
 export interface VaultInputDocument {

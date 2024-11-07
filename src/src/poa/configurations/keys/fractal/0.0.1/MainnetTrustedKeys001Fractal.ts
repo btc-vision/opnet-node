@@ -1,5 +1,5 @@
 import { NetworkAuthorityConfiguration } from '../../../types/TrustedPublicKeys.js';
-import { TrustedCompanies } from '../../../TrustedCompanies.js';
+import { TrustedEntities } from '../../../TrustedEntities.js';
 
 export const MainnetTrustedKeys001Fractal: NetworkAuthorityConfiguration = {
     /** Minimum different trusted validators */
@@ -15,7 +15,7 @@ export const MainnetTrustedKeys001Fractal: NetworkAuthorityConfiguration = {
     maximumValidatorPerTrustedEntities: 3,
 
     trusted: {
-        [TrustedCompanies.OPNet]: {
+        [TrustedEntities.OPNet]: {
             keys: [
                 {
                     opnet: 'sipzeI6gxmed7flaZe8/S0ud1AbolTRTgXPJqdLDsXQ=',

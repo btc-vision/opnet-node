@@ -13,7 +13,7 @@ import {
 } from './consensus/UnwrapConsensusVerificator.js';
 import { UnwrapVerificatorRoswell } from './consensus/UnwrapVerificatorRoswell.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
-import { UnwrapTransaction } from '../../../blockchain-indexer/processor/transaction/transactions/UnwrapTransaction.js';
+import { UnwrapTransaction } from '../../../blockchain-indexer/processor/transaction/transactions/UnwrapTransaction.ts.disabled';
 
 initEccLib(ecc);
 

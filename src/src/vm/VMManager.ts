@@ -31,7 +31,6 @@ import { MemoryValue, ProvenMemoryValue } from './storage/types/MemoryValue.js';
 import { StoragePointer } from './storage/types/StoragePointer.js';
 import { VMStorage } from './storage/VMStorage.js';
 import { VMBitcoinBlock } from './VMBitcoinBlock.js';
-import { WrapTransaction } from '../blockchain-indexer/processor/transaction/transactions/WrapTransaction.js';
 import {
     ExecutionParameters,
     InternalContractCallParameters,
@@ -41,7 +40,6 @@ import { GasTracker } from './runtime/GasTracker.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import bitcoin from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
-import { UnwrapTransaction } from '../blockchain-indexer/processor/transaction/transactions/UnwrapTransaction.js';
 import { Blockchain } from './Blockchain.js';
 import { BlockHeaderValidator } from './BlockHeaderValidator.js';
 import { Config } from '../config/Config.js';
@@ -241,7 +239,7 @@ export class VMManager extends Logger {
         blockMedian: bigint,
         baseGas: bigint,
         safeU64: bigint,
-        interactionTransaction: InteractionTransaction | WrapTransaction | UnwrapTransaction,
+        interactionTransaction: InteractionTransaction,
         unlimitedGas: boolean = false,
     ): Promise<ContractEvaluation> {
         if (this.isProcessing) {

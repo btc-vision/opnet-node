@@ -16,10 +16,10 @@ import {
     WrappedGenerationResult,
 } from '../../../../json-rpc/types/interfaces/results/opnet/GenerateResult.js';
 import {
-    WrapTransactionGenerator,
+    WrapTransactionGeneratorTs,
     WrapTransactionParameters,
-} from '../../../../../blockchain-indexer/processor/transaction/generator/WrapTransactionGenerator.js';
-import { UnwrapGenerator } from '../../../../../blockchain-indexer/processor/transaction/generator/UnwrapGenerator.js';
+} from '../../../../../blockchain-indexer/processor/transaction/generator/WrapTransactionGeneratorTs.js';
+import { UnwrapGeneratorTs } from '../../../../../blockchain-indexer/processor/transaction/generator/UnwrapGeneratorTs.js';
 import {
     ABICoder,
     Address,
@@ -43,12 +43,12 @@ export class GenerateRoute extends Route<
         '0x' + abiCoder.encodeSelector('withdrawableBalanceOf'),
     );
 
-    private readonly wrapTransactionGenerator: WrapTransactionGenerator =
-        new WrapTransactionGenerator(this.network);
+    private readonly wrapTransactionGenerator: WrapTransactionGeneratorTs =
+        new WrapTransactionGeneratorTs(this.network);
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
 
-    private unwrapGenerator: UnwrapGenerator | undefined;
+    private unwrapGenerator: UnwrapGeneratorTs | undefined;
     private readonly MINIMUM_AMOUNT: bigint = 330n;
 
     constructor() {
@@ -102,7 +102,7 @@ export class GenerateRoute extends Route<
             throw new Error('Storage not initialized');
         }
 
-        this.unwrapGenerator = new UnwrapGenerator(this.storage);
+        this.unwrapGenerator = new UnwrapGeneratorTs(this.storage);
     }
 
     /**

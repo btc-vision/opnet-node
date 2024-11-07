@@ -13,8 +13,6 @@ import { EvaluatedEvents, EvaluatedResult } from '../../../vm/evaluated/Evaluate
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { TransactionInput } from './inputs/TransactionInput.js';
 import { TransactionOutput } from './inputs/TransactionOutput.js';
-import { VaultInput, VaultInputDecoder } from '../vault/VaultInputDecoder.js';
-import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
 import { Address } from '@btc-vision/transaction';
 
 const OPNet_MAGIC: Buffer = Buffer.from('bsi', 'utf-8');
@@ -53,12 +51,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     protected readonly transactionHash: string;
     protected readonly vInputIndex: number;
 
-    protected readonly _authorizedVaultUsage: boolean = false;
     protected receiptProofs: string[] | undefined;
 
-    private readonly vaultDecoder: VaultInputDecoder = new VaultInputDecoder();
+    //protected readonly _authorizedVaultUsage: boolean = false;
 
-    readonly #vaultInputs: VaultInput[] = [];
+    //private readonly vaultDecoder: VaultInputDecoder = new VaultInputDecoder();
+
+    //readonly #vaultInputs: VaultInput[] = [];
 
     protected constructor(
         rawTransactionData: TransactionData,
@@ -112,9 +111,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._revert = error;
     }
 
-    public get authorizedVaultUsage(): boolean {
-        return this._authorizedVaultUsage;
-    }
+    //public get authorizedVaultUsage(): boolean {
+    //    return this._authorizedVaultUsage;
+    //}
 
     public get revertBuffer(): Uint8Array | undefined {
         if (!this._revert) {
@@ -139,9 +138,9 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._receipt = receipt;
     }
 
-    public get vaultInputs(): VaultInput[] {
-        return this.#vaultInputs;
-    }
+    //public get vaultInputs(): VaultInput[] {
+    //    return this.#vaultInputs;
+    //}
 
     protected _from: Address | undefined;
 
@@ -319,14 +318,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.receiptProofs = proofs;
     }
 
-    public getCompromisedDocument(): ICompromisedTransactionDocument {
+    /*public getCompromisedDocument(): ICompromisedTransactionDocument {
         return {
             id: this.transactionId,
             height: this.blockHeight,
 
             compromisedAuthorities: this.vaultInputs,
         };
-    }
+    }*/
 
     public toBitcoinDocument(): ITransactionDocumentBasic<T> {
         return {
@@ -374,7 +373,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.parseInputs(vIn);
         this.parseOutputs(vOuts);
 
-        this.decodeVaults();
+        //this.decodeVaults();
     }
 
     /**
@@ -402,7 +401,8 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     /** We must verify every single transaction and decode any vault inputs */
-    protected decodeVaults(): void {
+
+    /*protected decodeVaults(): void {
         for (const input of this.inputs) {
             const vault = this.vaultDecoder.decodeInput(input);
             if (!vault) {
@@ -411,7 +411,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             this.#vaultInputs.push(vault);
         }
-    }
+    }*/
 
     protected decompressData(buffer: Buffer): Buffer {
         const decompressed = Transaction.decompressBuffer(buffer);

@@ -12,10 +12,7 @@ import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
-import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
-import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
-import { Address, AddressVerificator, BinaryReader } from '@btc-vision/transaction';
-import { WBTC_UNWRAP_SELECTOR, WBTC_WRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
+import { Address, AddressVerificator } from '@btc-vision/transaction';
 import * as ecc from 'tiny-secp256k1';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import crypto from 'crypto';
@@ -32,7 +29,7 @@ export interface InteractionWitnessData {
 
 initEccLib(ecc);
 
-const authorityManager = AuthorityManager.getAuthority(P2PVersion);
+//const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 
 /* TODO: Potentially allow multiple contract interaction per transaction since BTC supports that? Maybe, in the future, for now let's stick with one. */
 export class InteractionTransaction extends Transaction<InteractionTransactionType> {
@@ -103,9 +100,9 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return this._contractAddress.p2tr(this.network);
     }
 
-    public set contractAddress(contractAddress: Address) {
-        this._contractAddress = contractAddress;
-    }
+    //public set contractAddress(contractAddress: Address) {
+    //    this._contractAddress = contractAddress;
+    //}
 
     public get address(): Address {
         if (!this._contractAddress) throw new Error('Contract address not found');
@@ -460,9 +457,9 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     /** We must verify that the transaction is not bypassing another transaction type. */
     protected verifyUnallowed(): void {
         // We handle wbtc checks here.
-        if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
-            this.verifyWBTC();
-        }
+        //if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
+        //    this.verifyWBTC();
+        //}
     }
 
     /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */
@@ -480,7 +477,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     /**
      * Verify that the WBTC transaction is valid.
      */
-    private verifyWBTC(): void {
+    /*private verifyWBTC(): void {
         const selectorBytes = this.calldata.subarray(0, 4);
         const reader = new BinaryReader(selectorBytes);
 
@@ -488,5 +485,5 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         if (selector === WBTC_WRAP_SELECTOR || selector === WBTC_UNWRAP_SELECTOR) {
             throw new Error(`Invalid WBTC mint/burn transaction.`);
         }
-    }
+    }*/
 }

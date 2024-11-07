@@ -14,7 +14,7 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     [JSONRpcMethods.GAS]: Routes.GAS,
 
     /** OPNet */
-    [JSONRpcMethods.GENERATE]: Routes.GENERATE,
+    //[JSONRpcMethods.GENERATE]: Routes.GENERATE,
 
     /** Addresses */
     [JSONRpcMethods.PUBLIC_KEY_INFO]: Routes.PUBLIC_KEY_INFO,

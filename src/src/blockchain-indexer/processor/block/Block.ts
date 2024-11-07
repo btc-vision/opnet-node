@@ -26,11 +26,9 @@ import { InteractionTransaction } from '../transaction/transactions/InteractionT
 import { BlockDataWithoutTransactionData, BlockHeader } from './classes/BlockHeader.js';
 import { ChecksumMerkle } from './merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from './types/ZeroValue.js';
-import { WrapTransaction } from '../transaction/transactions/WrapTransaction.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { GenericTransaction } from '../transaction/transactions/GenericTransaction.js';
 import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
-import { UnwrapTransaction } from '../transaction/transactions/UnwrapTransaction.js';
 import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../../db/interfaces/IWBTCUTXODocument.js';
 import assert from 'node:assert';
 import { BlockGasPredictor, CalculatedBlockGas } from '../gas/BlockGasPredictor.js';
@@ -173,10 +171,6 @@ export class Block extends Logger {
 
     public get safeU64(): bigint {
         return this.header.safeU64;
-    }
-
-    public get timestamp(): number {
-        return this.header.time.getTime();
     }
 
     public get previousBlockChecksum(): string {
@@ -549,7 +543,7 @@ export class Block extends Logger {
 
     /** We execute interaction transactions with this method */
     protected async executeInteractionTransaction(
-        transaction: InteractionTransaction | WrapTransaction,
+        transaction: InteractionTransaction,
         vmManager: VMManager,
         unlimitedGas: boolean = false,
     ): Promise<void> {
@@ -753,7 +747,7 @@ export class Block extends Logger {
                 await this.executeInteractionTransaction(interactionTransaction, vmManager);
                 break;
             }
-            case OPNetTransactionTypes.WrapInteraction: {
+            /*case OPNetTransactionTypes.WrapInteraction: {
                 const interactionTransaction = transaction as WrapTransaction;
 
                 await this.executeInteractionTransaction(interactionTransaction, vmManager, true);
@@ -764,7 +758,7 @@ export class Block extends Logger {
 
                 await this.executeInteractionTransaction(interactionTransaction, vmManager, true);
                 break;
-            }
+            }*/
             case OPNetTransactionTypes.Deployment: {
                 const deploymentTransaction = transaction as DeploymentTransaction;
 
@@ -905,15 +899,15 @@ export class Block extends Logger {
         const compromisedTransactions: ICompromisedTransactionDocument[] = [];
         const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
 
-        const blockHeightDecimal = DataConverter.toDecimal128(this.height);
+        //const blockHeightDecimal = DataConverter.toDecimal128(this.height);
         for (const transaction of this.opnetTransactions) {
-            if (!transaction.authorizedVaultUsage && transaction.vaultInputs.length) {
-                compromisedTransactions.push(transaction.getCompromisedDocument());
-            }
+            //if (!transaction.authorizedVaultUsage && transaction.vaultInputs.length) {
+            //    compromisedTransactions.push(transaction.getCompromisedDocument());
+            //}
 
             transactionData.push(transaction.toDocument());
 
-            if (transaction.transactionType === OPNetTransactionTypes.UnwrapInteraction) {
+            /*if (transaction.transactionType === OPNetTransactionTypes.UnwrapInteraction) {
                 const unwrapTransaction = transaction as UnwrapTransaction;
 
                 usedUTXOs.push(...unwrapTransaction.usedUTXOs);
@@ -926,7 +920,7 @@ export class Block extends Logger {
                         spentAt: null,
                     });
                 }
-            }
+            }*/
         }
 
         const promises: Promise<void>[] = [];

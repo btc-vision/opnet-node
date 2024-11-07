@@ -6,8 +6,8 @@ export enum Routes {
     BLOCK_WITNESS = 'block/block-witness',
     GAS = 'block/gas',
 
-    /** OPNet */
-    GENERATE = 'opnet/generate',
+    /** Disabled 2024-11-07 */
+    //GENERATE = 'opnet/generate',
 
     /** Chain */
     CHAIN_ID = 'chain/id',

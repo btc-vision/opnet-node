@@ -1,9 +1,9 @@
 import { NetworkAuthorityConfiguration } from '../../../types/TrustedPublicKeys.js';
-import { TrustedCompanies } from '../../../TrustedCompanies.js';
+import { TrustedEntities } from '../../../TrustedEntities.js';
 
 export const RegTestTrustedKeys001: NetworkAuthorityConfiguration = {
     /** Minimum different trusted validators */
-    minimum: 2,
+    minimum: 1,
 
     /** Minimum different trusted validator in a new generated transaction */
     transactionMinimum: 2,
@@ -16,7 +16,7 @@ export const RegTestTrustedKeys001: NetworkAuthorityConfiguration = {
 
     /** Trusted entities */
     trusted: {
-        [TrustedCompanies.OPNet]: {
+        [TrustedEntities.OPNet]: {
             keys: [
                 {
                     opnet: 'GNwrQoTHZv7fxM4P3nsSdrHDtnLYdP0n7YJqWBc4NVI=',
@@ -34,10 +34,6 @@ export const RegTestTrustedKeys001: NetworkAuthorityConfiguration = {
                     walletPubKey:
                         '0x027fdcb918fa0f4a7693f3df5ed6f2510ea91f33f16e081d208cf3dd93f466c8ab',
                 },
-            ],
-        },
-        [TrustedCompanies.SatoshiNakamoto]: {
-            keys: [
                 {
                     opnet: 'mnJZPF0NlBXQsdZKioaJjbtJxLiWh5HWZ84oNQIu4V8=',
                     publicKey: 'A4JEwTBwTx5QaLCFORTow27UQvkLQWZguhz6N+d8FczI',

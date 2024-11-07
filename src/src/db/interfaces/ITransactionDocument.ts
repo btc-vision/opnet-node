@@ -13,7 +13,7 @@ import {
     TransactionOutput,
 } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { Address } from '@btc-vision/transaction';
-import { TrustedCompanies } from '../../poa/configurations/TrustedCompanies.js';
+import { TrustedEntities } from '../../poa/configurations/TrustedEntities.js';
 import { PartialWBTCUTXODocument, UsedUTXOToDelete } from './IWBTCUTXODocument.js';
 
 export interface TransactionDocumentBasic<T extends OPNetTransactionTypes> {
@@ -100,7 +100,7 @@ export interface IWrapInteractionTransactionDocument extends InteractionTransact
 }
 
 export interface IUnwrapInteractionTransactionDocument extends InteractionTransactionDocument {
-    readonly authorizedBy: TrustedCompanies[];
+    readonly authorizedBy: TrustedEntities[];
     readonly usedUTXOs: UsedUTXOToDelete[];
     readonly consolidatedVault: PartialWBTCUTXODocument | undefined;
     readonly unwrapAmount: Decimal128;

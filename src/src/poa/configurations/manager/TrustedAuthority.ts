@@ -1,4 +1,4 @@
-import { DebugLevel, Logger } from '@btc-vision/bsi-common';
+import { Logger } from '@btc-vision/bsi-common';
 import {
     AuthorityBufferKey,
     AuthorityKey,
@@ -7,27 +7,23 @@ import {
     ProvenAuthorityKeysAsBytes,
     TrustedNetworkPublicKeys,
 } from '../types/TrustedPublicKeys.js';
-import { TrustedCompanies } from '../TrustedCompanies.js';
+import { TrustedEntities } from '../TrustedEntities.js';
 import { P2PVersion, TRUSTED_PUBLIC_KEYS } from '../P2PVersion.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { KeyPairGenerator } from '../../networking/encryptem/KeyPairGenerator.js';
 import { TrustedVersion } from '../version/TrustedVersion.js';
-import { Config } from '../../../config/Config.js';
-import { OPNET_FEE_WALLET } from '../../wbtc/WBTCRules.js';
-import { toXOnly } from '@btc-vision/bitcoin/src/psbt/bip371.js';
 
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
-import { WBTC_CONTRACT_ADDRESS } from '../WBTCContracts.js';
 import { Address } from '@btc-vision/transaction';
 import crypto from 'crypto';
 
-export type TrustedPublicKeys = {
-    [key in TrustedCompanies]: Buffer[];
+/*export type TrustedPublicKeys = {
+    [key in TrustedEntities]: Buffer[];
 };
 
 export interface TrustedPublicKeysWithConstraints {
     readonly keys: Buffer[];
-    readonly entities: TrustedCompanies[];
+    readonly entities: TrustedEntities[];
 
     readonly constraints: {
         readonly minimum: number;
@@ -37,8 +33,8 @@ export interface TrustedPublicKeysWithConstraints {
 
 export interface PublicAuthorityKey {
     key: Buffer;
-    authority: TrustedCompanies;
-}
+    authority: TrustedEntities;
+}*/
 
 export function shuffleArray<T>(array: T[]): T[] {
     const shuffledArray = array.slice();
@@ -62,12 +58,12 @@ export class TrustedAuthority extends Logger {
     private precomputedTrustedPublicKeys: Partial<PrecomputedAuthorityKeys> = {};
 
     private readonly authorityConfig: NetworkAuthorityConfiguration;
-    private readonly publicKeys: TrustedPublicKeys;
+    //private readonly publicKeys: TrustedPublicKeys;
 
     private keypairGenerator: KeyPairGenerator = new KeyPairGenerator();
 
-    private readonly wbtcContractAddresses: string[];
-    private readonly wbtcDeployer: Address;
+    //private readonly wbtcContractAddresses: string[];
+    //private readonly wbtcDeployer: Address;
 
     constructor(
         public readonly version: TrustedVersion,
@@ -77,16 +73,16 @@ export class TrustedAuthority extends Logger {
         super();
 
         this.authorityConfig = this.getAuthorityConfig();
-        const deploymentInfo = this.getWBTCDeploymentInfo();
+        //const deploymentInfo = this.getWBTCDeploymentInfo();
 
-        this.wbtcContractAddresses = deploymentInfo.addresses;
-        this.wbtcDeployer = deploymentInfo.deployer;
+        //this.wbtcContractAddresses = deploymentInfo.addresses;
+        //this.wbtcDeployer = deploymentInfo.deployer;
 
         this.loadTrustedPublicKeys();
-        this.publicKeys = this.getTrustedPublicKeys();
+        //this.publicKeys = this.getTrustedPublicKeys();
     }
 
-    public get WBTC_CONTRACT_ADDRESSES(): string[] {
+    /*public get WBTC_CONTRACT_ADDRESSES(): string[] {
         return this.wbtcContractAddresses;
     }
 
@@ -104,13 +100,13 @@ export class TrustedAuthority extends Logger {
         return this.wbtcDeployer;
     }
 
-    public get trustedCompanies(): TrustedCompanies[] {
-        return Object.keys(this.trustedKeys) as TrustedCompanies[];
+    public get trustedCompanies(): TrustedEntities[] {
+        return Object.keys(this.trustedKeys) as TrustedEntities[];
     }
 
     public get trustedPublicKeys(): TrustedPublicKeys {
         return this.publicKeys;
-    }
+    }*/
 
     public get minimum(): number {
         return this.authorityConfig.minimum;
@@ -120,7 +116,7 @@ export class TrustedAuthority extends Logger {
         return this.authorityConfig.transactionMinimum;
     }
 
-    public get minimumValidatorTransactionGeneration(): number {
+    /*public get minimumValidatorTransactionGeneration(): number {
         return this.authorityConfig.minimumValidatorTransactionGeneration;
     }
 
@@ -136,7 +132,7 @@ export class TrustedAuthority extends Logger {
         let totalEntitiesUsed: number = 0;
         for (const trustedCompany in this.trustedKeys) {
             const trustedPublicKeysForCompany =
-                this.trustedKeys[trustedCompany as TrustedCompanies];
+                this.trustedKeys[trustedCompany as TrustedEntities];
             if (!trustedPublicKeysForCompany) continue;
 
             const keys: Buffer[] = trustedPublicKeysForCompany.keys.map(
@@ -161,7 +157,7 @@ export class TrustedAuthority extends Logger {
                 totalKeys += shuffledPublicKeys.length;
                 totalEntitiesUsed++;
 
-                trustedPublicKeys[trustedCompany as TrustedCompanies] = shuffledPublicKeys;
+                trustedPublicKeys[trustedCompany as TrustedEntities] = shuffledPublicKeys;
             }
         }
 
@@ -187,7 +183,7 @@ export class TrustedAuthority extends Logger {
         }
 
         const keys: Buffer[] = allKeys.flat();
-        const companies: TrustedCompanies[] = Object.keys(trustedPublicKeys) as TrustedCompanies[];
+        const companies: TrustedEntities[] = Object.keys(trustedPublicKeys) as TrustedEntities[];
 
         return {
             keys,
@@ -201,12 +197,12 @@ export class TrustedAuthority extends Logger {
 
     public isOrWasTrustedPublicKey(publicKey: Buffer): PublicAuthorityKey | false {
         for (const trustedCompany in this.trustedKeys) {
-            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedCompanies];
+            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedEntities];
             if (!trustedPublicKeys) continue;
 
             for (const key of trustedPublicKeys.keys) {
                 if (toXOnly(key.publicKey).equals(publicKey)) {
-                    return { key: key.publicKey, authority: trustedCompany as TrustedCompanies };
+                    return { key: key.publicKey, authority: trustedCompany as TrustedEntities };
                 }
             }
         }
@@ -226,7 +222,7 @@ export class TrustedAuthority extends Logger {
 
     public getWalletFromPublicKey(publicKey: Buffer): Address | undefined {
         for (const trustedCompany in this.trustedKeys) {
-            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedCompanies];
+            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedEntities];
             if (!trustedPublicKeys) continue;
 
             for (const key of trustedPublicKeys.keys) {
@@ -246,7 +242,7 @@ export class TrustedAuthority extends Logger {
 
         for (const trustedCompany in this.trustedKeys) {
             const trustedPublicKeysForCompany =
-                this.trustedKeys[trustedCompany as TrustedCompanies];
+                this.trustedKeys[trustedCompany as TrustedEntities];
             if (!trustedPublicKeysForCompany) continue;
 
             const keys: Buffer[] = trustedPublicKeysForCompany.keys.map(
@@ -296,17 +292,17 @@ export class TrustedAuthority extends Logger {
         }
 
         return totalEntitiesUsed >= this.minimumValidatorTransactionGeneration;
-    }
+    }*/
 
     public verifyTrustedSignature(
         data: Buffer,
         signature: Buffer,
     ): { validity: boolean; identity: string } {
         for (const trustedPublicKeyCompany in this.trustedKeys) {
-            const trustedPublicKeys = this.trustedKeys[trustedPublicKeyCompany as TrustedCompanies];
+            const trustedPublicKeys = this.trustedKeys[trustedPublicKeyCompany as TrustedEntities];
 
             const precomputedTrustedPublicKeysForCompany =
-                this.precomputedTrustedPublicKeys[trustedPublicKeyCompany as TrustedCompanies];
+                this.precomputedTrustedPublicKeys[trustedPublicKeyCompany as TrustedEntities];
 
             if (!trustedPublicKeys || !precomputedTrustedPublicKeysForCompany) continue;
 
@@ -339,7 +335,7 @@ export class TrustedAuthority extends Logger {
         };
     }
 
-    private getWBTCDeploymentInfo(): { addresses: string[]; deployer: Address } {
+    /*private getWBTCDeploymentInfo(): { addresses: string[]; deployer: Address } {
         const wbtcChainId = WBTC_CONTRACT_ADDRESS[this.chainId];
         if (!wbtcChainId) {
             throw new Error('WBTC contract address not found');
@@ -351,7 +347,7 @@ export class TrustedAuthority extends Logger {
         }
 
         return wbtcAddress;
-    }
+    }*/
 
     private getAuthorityConfig(): NetworkAuthorityConfiguration {
         const currentVersion = TRUSTED_PUBLIC_KEYS[P2PVersion];
@@ -376,14 +372,14 @@ export class TrustedAuthority extends Logger {
         return currentNetworkVersion;
     }
 
-    private getTrustedPublicKeys(): TrustedPublicKeys {
+    /*private getTrustedPublicKeys(): TrustedPublicKeys {
         const publicKeys: Partial<TrustedPublicKeys> = {};
 
         for (const trustedCompany in this.trustedKeys) {
-            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedCompanies];
+            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedEntities];
             if (!trustedPublicKeys) continue;
 
-            publicKeys[trustedCompany as TrustedCompanies] = trustedPublicKeys.keys.map(
+            publicKeys[trustedCompany as TrustedEntities] = trustedPublicKeys.keys.map(
                 (key: AuthorityBufferKey) => {
                     return key.publicKey;
                 },
@@ -391,11 +387,11 @@ export class TrustedAuthority extends Logger {
         }
 
         return publicKeys as TrustedPublicKeys;
-    }
+    }*/
 
     private computeTrustedPublicKeys(): void {
         for (const trustedPublicKey in this.trustedKeys) {
-            const trustedPublicKeys = this.trustedKeys[trustedPublicKey as TrustedCompanies];
+            const trustedPublicKeys = this.trustedKeys[trustedPublicKey as TrustedEntities];
 
             if (!trustedPublicKeys) continue;
 
@@ -405,7 +401,7 @@ export class TrustedAuthority extends Logger {
                 },
             );
 
-            this.precomputedTrustedPublicKeys[trustedPublicKey as TrustedCompanies] = {
+            this.precomputedTrustedPublicKeys[trustedPublicKey as TrustedEntities] = {
                 keys: precomputedTrustedPublicKeys,
             };
         }
@@ -413,7 +409,7 @@ export class TrustedAuthority extends Logger {
 
     private loadTrustedPublicKeys(): void {
         for (const trustedCompany in this.authorityConfig.trusted) {
-            const trustedKeys = this.authorityConfig.trusted[trustedCompany as TrustedCompanies];
+            const trustedKeys = this.authorityConfig.trusted[trustedCompany as TrustedEntities];
             if (!trustedKeys) continue;
 
             const keys: AuthorityBufferKey[] = trustedKeys.keys
@@ -439,7 +435,7 @@ export class TrustedAuthority extends Logger {
 
             if (keys.length === 0) continue;
 
-            this.trustedKeys[trustedCompany as TrustedCompanies] = {
+            this.trustedKeys[trustedCompany as TrustedEntities] = {
                 keys: keys,
             };
 
@@ -449,7 +445,7 @@ export class TrustedAuthority extends Logger {
         // We must verify that there is no duplicate key between the different trusted companies and themself
         const allKeys: string[] = [];
         for (const trustedCompany in this.trustedKeys) {
-            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedCompanies];
+            const trustedPublicKeys = this.trustedKeys[trustedCompany as TrustedEntities];
             if (!trustedPublicKeys) continue;
 
             for (let i = 0; i < trustedPublicKeys.keys.length; i++) {

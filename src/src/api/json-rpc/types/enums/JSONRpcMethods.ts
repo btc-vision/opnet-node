@@ -16,7 +16,7 @@ export enum JSONRpcMethods {
     BROADCAST_TRANSACTION = 'btc_sendRawTransaction',
 
     /** OP_NET */
-    GENERATE = 'btc_generate',
+    //GENERATE = 'btc_generate',
 
     /** Addresses */
     PUBLIC_KEY_INFO = 'btc_publicKeyInfo',

@@ -100,8 +100,8 @@ export class TransactionReceipt extends Route<
         data: ITransactionDocument<OPNetTransactionTypes>,
     ): TransactionReceiptResult {
         if (
-            data.OPNetType !== OPNetTransactionTypes.Interaction &&
-            data.OPNetType !== OPNetTransactionTypes.WrapInteraction
+            data.OPNetType !== OPNetTransactionTypes.Interaction //&&
+            //data.OPNetType !== OPNetTransactionTypes.WrapInteraction
         ) {
             return this.buildEmptyReceipt();
         }

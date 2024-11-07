@@ -18,7 +18,6 @@ import { TransactionByHash } from './api/v1/transaction/TransactionByHash.js';
 import { TransactionReceipt } from './api/v1/transaction/TransactionReceipt.js';
 import { Route } from './Route.js';
 import { BroadcastTransaction } from './api/v1/transaction/BroadcastTransaction.js';
-import { GenerateRoute } from './api/v1/opnet/GenerateRoute.js';
 import { GasRoute } from './api/v1/block/GasRoute.js';
 import { Simulation } from './api/v1/states/Simulation.js';
 import { PublicKeyInfoRoute } from './api/v1/address/PublicKeyInfoRoute.js';
@@ -34,7 +33,7 @@ export const DefinedRoutes: {
     [Routes.GAS]: new GasRoute(),
 
     /** OPNet */
-    [Routes.GENERATE]: new GenerateRoute(),
+    //[Routes.GENERATE]: new GenerateRoute(),
 
     /** Address */
     [Routes.UTXOS]: new UTXOsRoute(),

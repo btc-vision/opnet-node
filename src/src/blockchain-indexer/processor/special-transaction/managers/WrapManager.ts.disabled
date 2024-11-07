@@ -1,13 +1,13 @@
 import { AbstractSpecialManager } from './AbstractSpecialManager.js';
 import { VMStorage } from '../../../../vm/storage/VMStorage.js';
 import { OPNetTransactionTypes } from '../../transaction/enums/OPNetTransactionTypes.js';
-import { WrapTransaction } from '../../transaction/transactions/WrapTransaction.js';
+import { WrapTransactionTs } from '../../transaction/transactions/WrapTransactionTs.js';
 import { IVaultDocument } from '../../../../db/interfaces/IVaultDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { IWBTCUTXODocument } from '../../../../db/interfaces/IWBTCUTXODocument.js';
 import { Binary } from 'mongodb';
 
-export class WrapManager extends AbstractSpecialManager<OPNetTransactionTypes.WrapInteraction> {
+export class WrapManagerDisabled extends AbstractSpecialManager<OPNetTransactionTypes.WrapInteraction> {
     public managerType: OPNetTransactionTypes.WrapInteraction =
         OPNetTransactionTypes.WrapInteraction;
 
@@ -18,7 +18,7 @@ export class WrapManager extends AbstractSpecialManager<OPNetTransactionTypes.Wr
         super(vmStorage);
     }
 
-    public async execute(transaction: WrapTransaction): Promise<void> {
+    public async execute(transaction: WrapTransactionTs): Promise<void> {
         const promises: Promise<void>[] = [];
         if (!this.hasVault(transaction.vault)) {
             promises.push(this.addVault(transaction));
@@ -37,7 +37,7 @@ export class WrapManager extends AbstractSpecialManager<OPNetTransactionTypes.Wr
         return this.cachedVaults.has(vault);
     }
 
-    private async addUTXO(transaction: WrapTransaction): Promise<void> {
+    private async addUTXO(transaction: WrapTransactionTs): Promise<void> {
         const output = transaction.wrapOutput;
         if (output.address !== transaction.vault) {
             this.panic(
@@ -59,7 +59,7 @@ export class WrapManager extends AbstractSpecialManager<OPNetTransactionTypes.Wr
         await this.vmStorage.setWBTCUTXO(utxoData);
     }
 
-    private async addVault(transaction: WrapTransaction): Promise<void> {
+    private async addVault(transaction: WrapTransactionTs): Promise<void> {
         const vaultData: IVaultDocument = {
             vault: transaction.vault,
             firstSeen: DataConverter.toDecimal128(transaction.blockHeight),
