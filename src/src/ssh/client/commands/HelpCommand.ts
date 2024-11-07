@@ -51,7 +51,7 @@ export class HelpCommand extends Command<Commands.HELP> {
             });
         }
 
-        cli.write(message.join('\n'));
+        cli.write(message.join('\n\r'));
     }
 
     private writeHelpMessageWithAllAvailableCommands(cli: Channel): void {
@@ -75,6 +75,8 @@ export class HelpCommand extends Command<Commands.HELP> {
             }
         }
 
-        cli.write(message.join('\n'));
+        console.log(message);
+
+        cli.write(message.join('\n\r') + '\n\r');
     }
 }
