@@ -21,6 +21,8 @@ import { Commands, CommandsAliases, PossibleCommands } from './types/PossibleCom
 import { HelpCommand } from './commands/HelpCommand.js';
 import { Command } from './commands/Command.js';
 import { Config } from '../../config/Config.js';
+import { PeerInfoCommand } from './commands/PeerInfoCommand.js';
+import { SendMessageToThreadFunction } from '../../threading/thread/Thread.js';
 
 export class SSHClient extends Logger {
     public readonly logColor: string = '#c33ce8';
@@ -34,12 +36,10 @@ export class SSHClient extends Logger {
     private readonly allowedUsername: string = 'opnet';
     private isAuthorized: boolean = false;
 
-    private ptyInfo: ssh2.PseudoTtyOptions | undefined;
-    private windowSize: ssh2.WindowChangeInfo | undefined;
+    //private ptyInfo: ssh2.PseudoTtyOptions | undefined;
+    //private windowSize: ssh2.WindowChangeInfo | undefined;
 
-    private commands: PossibleCommands = {
-        [Commands.HELP]: new HelpCommand(this.chalk),
-    };
+    private readonly commands: PossibleCommands;
 
     private customCommands: CustomOperationCommand[] = [new OPNetSysInfo()];
 
@@ -48,10 +48,16 @@ export class SSHClient extends Logger {
         private readonly clientInfo: ssh2.ClientInfo,
         private readonly sshConfig: SSHConfig,
         private readonly identity: OPNetIdentity,
+        private readonly sendMessageToThread: SendMessageToThreadFunction,
     ) {
         super();
 
         this.allowedKeys = this.loadPublicKeys();
+
+        this.commands = {
+            [Commands.HELP]: new HelpCommand(this.chalk, this.sendMessageToThread),
+            [Commands.PEER_INFO]: new PeerInfoCommand(this.chalk, this.sendMessageToThread),
+        };
 
         this.init();
     }
@@ -99,10 +105,6 @@ export class SSHClient extends Logger {
     }
 
     public onDisconnect(): void {
-        throw new Error('Method not implemented.');
-    }
-
-    public onAuthFailure(): void {
         throw new Error('Method not implemented.');
     }
 
@@ -283,24 +285,24 @@ export class SSHClient extends Logger {
             this._session = undefined;
         });
 
-        this.session.on('pty', (accept, reject, info) => {
-            this.ptyInfo = info;
+        this.session.on('pty', (accept, _reject, _info) => {
+            //this.ptyInfo = info;
             this.setWindowSize();
 
             accept();
         });
 
-        this.session.on('subsystem', (accept, reject, info) => {
+        this.session.on('subsystem', (_accept, reject, _info) => {
             reject();
         });
 
-        this.session.on('x11', (accept, reject, info) => {
+        this.session.on('x11', (accept, _reject, _info) => {
             accept();
         });
 
-        this.session.on('window-change', (accept, reject, info) => {
+        this.session.on('window-change', (accept, reject, _info) => {
             if (this._shell) {
-                this.windowSize = info;
+                //this.windowSize = info;
                 this.setWindowSize();
 
                 if (typeof accept === 'function') {
@@ -311,7 +313,7 @@ export class SSHClient extends Logger {
             }
         });
 
-        this.session.on('shell', (accept, reject) => {
+        this.session.on('shell', (accept, _reject) => {
             if (this._shell && !this._shell.destroyed) {
                 this._shell.end();
             }
@@ -453,7 +455,7 @@ export class SSHClient extends Logger {
     }
 
     private findCommand<T extends Commands>(command: T): Command<T> | undefined {
-        if (this.commands[command as Commands]) {
+        if (this.commands[command]) {
             return this.commands[command];
         }
 
@@ -470,6 +472,8 @@ export class SSHClient extends Logger {
     }
 
     private async executeCommand(command: Commands, args: string[]): Promise<void> {
+        command = command.toLowerCase() as Commands;
+
         const cmd = this.findCommand(command);
         if (!cmd) {
             this.warnCommandNotFound();

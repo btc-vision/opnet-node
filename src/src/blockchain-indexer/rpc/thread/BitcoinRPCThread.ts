@@ -72,7 +72,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             case ThreadTypes.INDEXER: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
-            case ThreadTypes.POA: {
+            case ThreadTypes.P2P: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
             case ThreadTypes.MEMPOOL: {
@@ -271,7 +271,17 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             }
 
             case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE: {
-                return await this.broadcastTransaction(message.data as BroadcastRequest);
+                try {
+                    return await this.broadcastTransaction(message.data as BroadcastRequest);
+                } catch (e) {
+                    this.error(`Error broadcasting transaction: ${e}`);
+
+                    return {
+                        success: false,
+                        error: 'Error broadcasting transaction',
+                        identifier: 0n,
+                    };
+                }
             }
 
             default:

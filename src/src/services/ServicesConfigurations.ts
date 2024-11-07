@@ -26,7 +26,7 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
         target: './src/blockchain-indexer/rpc/thread/BitcoinRPCThread.js',
     },
 
-    [ThreadTypes.POA]: {
+    [ThreadTypes.P2P]: {
         maxInstance: 1,
         target: './src/poa/PoAThread.js',
         managerTarget: './src/poa/PoAThreadManager.js',
@@ -90,7 +90,7 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
         },
     },
 
-    [ThreadTypes.POA]: {
+    [ThreadTypes.P2P]: {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 6,
             maxYoungGenerationSizeMb: 1024 * 2,

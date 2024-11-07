@@ -17,6 +17,11 @@ export class HelpCommand extends Command<Commands.HELP> {
             aliases: CommandsAliases[Commands.HELP],
             examples: [],
         },
+        [Commands.PEER_INFO]: {
+            description: 'Display connected peers info',
+            aliases: CommandsAliases[Commands.PEER_INFO],
+            examples: [],
+        },
     };
 
     public execute(cli: Channel, args: string[]): void {

@@ -45,9 +45,18 @@ export class PoA extends Logger {
             case MessageType.RPC_METHOD: {
                 return await this.handleRPCMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
+            case MessageType.GET_PEERS: {
+                return await this.handleGetPeerMessage();
+            }
             default:
                 throw new Error(`Unknown message type: ${m.type} received in PoA.`);
         }
+    }
+
+    private async handleGetPeerMessage(): Promise<ThreadData> {
+        const peers = await this.p2p.getPeers();
+
+        return { peers };
     }
 
     private async handleRPCMessage(

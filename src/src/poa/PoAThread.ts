@@ -1,13 +1,13 @@
-import { Config } from '../config/Config.js';
-import { MessageType } from '../threading/enum/MessageType.js';
-import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
-import { ThreadData } from '../threading/interfaces/ThreadData.js';
-import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
-import { Thread } from '../threading/thread/Thread.js';
-import { PoA } from './PoA.js';
+import {Config} from '../config/Config.js';
+import {MessageType} from '../threading/enum/MessageType.js';
+import {ThreadMessageBase} from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import {ThreadData} from '../threading/interfaces/ThreadData.js';
+import {ThreadTypes} from '../threading/thread/enums/ThreadTypes.js';
+import {Thread} from '../threading/thread/Thread.js';
+import {PoA} from './PoA.js';
 
-export class PoAThread extends Thread<ThreadTypes.POA> {
-    public readonly threadType: ThreadTypes.POA = ThreadTypes.POA;
+export class PoAThread extends Thread<ThreadTypes.P2P> {
+    public readonly threadType: ThreadTypes.P2P = ThreadTypes.P2P;
 
     private poa: PoA = new PoA(Config);
 
@@ -42,6 +42,9 @@ export class PoAThread extends Thread<ThreadTypes.POA> {
                 return await this.handleBitcoinIndexerMessage(m);
             }
             case ThreadTypes.MEMPOOL: {
+                return await this.handleBitcoinIndexerMessage(m);
+            }
+            case ThreadTypes.SSH: {
                 return await this.handleBitcoinIndexerMessage(m);
             }
             default: {

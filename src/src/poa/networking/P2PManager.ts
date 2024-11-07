@@ -56,7 +56,7 @@ import {
 import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
+import { shuffleArray, TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../configurations/manager/AuthorityManager.js';
 import { xxHash } from '../hashing/xxhash.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
@@ -173,6 +173,10 @@ export class P2PManager extends Logger {
         await this.onStarted();
     }
 
+    public async getPeers(): Promise<OPNetPeerInfo[]> {
+        return await this.getOPNetPeers();
+    }
+
     public override info(...args: string[]): void {
         if (this.config.DEBUG_LEVEL < DebugLevel.INFO) {
             return;
@@ -183,7 +187,7 @@ export class P2PManager extends Logger {
 
     public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
         if (this.broadcastIdentifiers.has(data.identifier) && data.identifier) {
-            this.warn(`Transaction already broadcasted.`);
+            this.warn(`Transaction already broadcast.`);
 
             return {
                 peers: 0,
@@ -199,6 +203,47 @@ export class P2PManager extends Logger {
                 identifier: data.identifier,
             }),
         };
+    }
+
+    public async getOPNetPeers(): Promise<OPNetPeerInfo[]> {
+        if (!this.node) throw new Error('Node not initialized');
+
+        const peers: OPNetPeerInfo[] = [];
+        const peersData: Peer[] = await this.node.peerStore.all();
+
+        for (const peerData of peersData) {
+            const peer = this.peers.get(peerData.id.toString());
+            if (!peer) continue;
+
+            if (!peer.hasAuthenticated) continue;
+            if (peer.clientVersion === undefined) continue;
+            if (peer.clientChecksum === undefined) continue;
+            if (peer.clientIdentity === undefined) continue;
+            if (peer.clientIndexerMode === undefined) continue;
+            if (peer.clientChainId === undefined) continue;
+            if (peer.clientNetwork === undefined) continue;
+
+            const peerInfo: OPNetPeerInfo = {
+                opnetVersion: peer.clientVersion,
+                identity: peer.clientIdentity,
+                type: peer.clientIndexerMode,
+                network: peer.clientNetwork,
+                chainId: peer.clientChainId,
+                peer: peerData.id.toCID().bytes,
+                addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
+            };
+
+            if (!peerInfo.addresses.length) {
+                continue;
+            }
+
+            peers.push(peerInfo);
+        }
+
+        // Apply shuffle to the peers list, way to not be "predictable" and re-identified by the same peers.
+        shuffleArray(peers);
+
+        return peers;
     }
 
     private purgeOldBlacklistedPeers(): void {
@@ -592,61 +637,7 @@ export class P2PManager extends Logger {
             } else {
                 this.fail(`Failed to start indexer.`);
             }
-        }, 5000);
-    }
-
-    private async getOPNetPeers(): Promise<OPNetPeerInfo[]> {
-        if (!this.node) throw new Error('Node not initialized');
-
-        const peers: OPNetPeerInfo[] = [];
-        const peersData: Peer[] = await this.node.peerStore.all();
-
-        for (const peerData of peersData) {
-            const peer = this.peers.get(peerData.id.toString());
-            if (!peer) continue;
-
-            if (!peer.hasAuthenticated) continue;
-            if (peer.clientVersion === undefined) continue;
-            if (peer.clientChecksum === undefined) continue;
-            if (peer.clientIdentity === undefined) continue;
-            if (peer.clientIndexerMode === undefined) continue;
-            if (peer.clientChainId === undefined) continue;
-            if (peer.clientNetwork === undefined) continue;
-
-            const peerInfo: OPNetPeerInfo = {
-                opnetVersion: peer.clientVersion,
-                identity: peer.clientIdentity,
-                type: peer.clientIndexerMode,
-                network: peer.clientNetwork,
-                chainId: peer.clientChainId,
-                peer: peerData.id.toCID().bytes,
-                addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
-            };
-
-            if (!peerInfo.addresses.length) {
-                continue;
-            }
-
-            peers.push(peerInfo);
-        }
-
-        this.shuffleArray(peers);
-
-        return peers;
-    }
-
-    private shuffleArray<T>(array: T[]): void {
-        let currentIndex = array.length;
-
-        // While there remain elements to shuffle...
-        while (currentIndex != 0) {
-            // Pick a remaining element...
-            const randomIndex = Math.floor(Math.random() * currentIndex);
-            currentIndex--;
-
-            // And swap it with the current element.
-            [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
-        }
+        }, 3000);
     }
 
     private async blackListPeerId(peerId: PeerId, reason: DisconnectionCode): Promise<void> {

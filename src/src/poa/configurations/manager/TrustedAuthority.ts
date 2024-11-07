@@ -19,6 +19,7 @@ import { toXOnly } from '@btc-vision/bitcoin/src/psbt/bip371.js';
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 import { WBTC_CONTRACT_ADDRESS } from '../WBTCContracts.js';
 import { Address } from '@btc-vision/transaction';
+import crypto from 'crypto';
 
 export type TrustedPublicKeys = {
     [key in TrustedCompanies]: Buffer[];
@@ -37,6 +38,21 @@ export interface TrustedPublicKeysWithConstraints {
 export interface PublicAuthorityKey {
     key: Buffer;
     authority: TrustedCompanies;
+}
+
+export function shuffleArray<T>(array: T[]): T[] {
+    const shuffledArray = array.slice();
+
+    // Use Fisher-Yates (Knuth) shuffle algorithm
+    for (let i = shuffledArray.length - 1; i > 0; i--) {
+        const j = Math.floor(
+            (crypto.getRandomValues(new Uint32Array(1))[0] / (0xffffffff + 1)) * (i + 1),
+        );
+
+        [shuffledArray[i], shuffledArray[j]] = [shuffledArray[j], shuffledArray[i]];
+    }
+
+    return shuffledArray;
 }
 
 export class TrustedAuthority extends Logger {
@@ -130,7 +146,7 @@ export class TrustedAuthority extends Logger {
             );
 
             if (keys.length === 0) continue;
-            const shuffledPublicKeys: Buffer[] = this.shuffleArray(keys);
+            const shuffledPublicKeys: Buffer[] = shuffleArray(keys);
 
             // Now we need to remove keys so that the number of keys is less than or equal to the maximumValidatorPerTrustedEntities
             const shuffledPublicKeysLength = shuffledPublicKeys.length;
@@ -335,18 +351,6 @@ export class TrustedAuthority extends Logger {
         }
 
         return wbtcAddress;
-    }
-
-    private shuffleArray(array: Buffer[]): Buffer[] {
-        const shuffledArray = [...array];
-
-        for (let i = shuffledArray.length - 1; i > 0; i--) {
-            const rnd = this.keypairGenerator.secureRandomBytes(1);
-            const j = Math.floor((rnd[0] / 255) * (i + 1));
-            [shuffledArray[i], shuffledArray[j]] = [shuffledArray[j], shuffledArray[i]];
-        }
-
-        return shuffledArray;
     }
 
     private getAuthorityConfig(): NetworkAuthorityConfiguration {

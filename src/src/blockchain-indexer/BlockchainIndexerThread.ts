@@ -30,7 +30,7 @@ export class BlockchainIndexerThread extends Thread<ThreadTypes.INDEXER> {
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData | undefined> {
         switch (type) {
-            case ThreadTypes.POA: {
+            case ThreadTypes.P2P: {
                 return this.onPoAMessage(m);
             }
 

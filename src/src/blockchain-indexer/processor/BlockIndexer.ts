@@ -324,7 +324,7 @@ export class BlockIndexer extends Logger {
             data: blockHeader,
         };
 
-        await this.sendMessageToThread(ThreadTypes.POA, msg);
+        await this.sendMessageToThread(ThreadTypes.P2P, msg);
     }
 
     private getVMStorage(): VMStorage {

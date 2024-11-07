@@ -10,10 +10,10 @@ import { ThreadManager } from '../threading/manager/ThreadManager.js';
 import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { Threader } from '../threading/Threader.js';
 
-export class PoAThreadManager extends ThreadManager<ThreadTypes.POA> {
+export class PoAThreadManager extends ThreadManager<ThreadTypes.P2P> {
     public readonly logColor: string = '#00f2fa';
 
-    protected readonly threadManager: Threader<ThreadTypes.POA> = new Threader(ThreadTypes.POA);
+    protected readonly threadManager: Threader<ThreadTypes.P2P> = new Threader(ThreadTypes.P2P);
 
     constructor() {
         super();
