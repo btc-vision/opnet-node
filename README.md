@@ -112,8 +112,7 @@ curl -fsSL https://autosetup.opnet.org/autoconfig.sh -o autoconfig.sh && sudo -E
 
 ### Prerequisites
 
-- **Node.js** version 20.x or higher (we recommend using Node.js 21.x). Do not use Node.js 22.x as it is unstable and
-  causes crashes.
+- **Node.js** version 21.x or higher (we recommend using Node.js 22.x).
 - **npm** (Node Package Manager)
 - **Bitcoin Node** (Latest version)
 - **MongoDB** (Latest version)
