@@ -32,17 +32,15 @@ export class PeerInfoCommand extends Command<Commands.PEER_INFO> {
         }
 
         // Header
-        const header = this.chalk.hex('#00D1B2').bold.underline('📡 Peer Information');
-        const totalPeers = this.chalk.hex('#FF69B4').bold(`Total Peers: ${peers.length}`);
+        const header = this.chalk.hex('#00D1B2').bold.underline('📡 Peers Information');
+        const totalPeers = this.chalk.hex('#FF69B4').bold(`Total Connected Peers: ${peers.length}`);
 
         // Peer details
         const peerDetails = peers
             .map((peer, index) => {
-                // Convert peer Uint8Array to peer ID
                 const peerId = peerIdFromCID(CID.decode(peer.peer));
                 const peerStr = peerId.toString();
 
-                // Process and filter addresses
                 const addresses: Multiaddr[] = [];
                 for (const address of peer.addresses) {
                     const addr = multiaddr(address);
