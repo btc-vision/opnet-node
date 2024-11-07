@@ -241,10 +241,6 @@ export class P2PManager extends Logger {
                 addresses: addresses,
             };
 
-            if (!peerInfo.addresses.length) {
-                continue;
-            }
-
             peers.push(peerInfo);
         }
 
