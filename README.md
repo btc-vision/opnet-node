@@ -129,7 +129,7 @@ curl -fsSL https://autosetup.opnet.org/autoconfig.sh -o autoconfig.sh && sudo -E
 2. **Navigate to the repository directory**:
 
    ```bash
-   cd bsi-indexer
+   cd opnet-node
    ```
 
 3. **Install Rust**:
