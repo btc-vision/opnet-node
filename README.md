@@ -123,7 +123,7 @@ curl -fsSL https://autosetup.opnet.org/autoconfig.sh -o autoconfig.sh && sudo -E
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/btc-vision/bsi-indexer.git
+   git clone https://github.com/btc-vision/opnet-node.git
    ```
 
 2. **Navigate to the repository directory**:
