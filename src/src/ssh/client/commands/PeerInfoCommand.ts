@@ -81,7 +81,7 @@ export class PeerInfoCommand extends Command<Commands.PEER_INFO> {
                     this.chalk.hex('#FF6F61')(`  - Identity: `) +
                         this.chalk.hex('#B39CD0').bold(peer.identity) +
                         '\r\n',
-                    this.chalk.hex('#FF6F61')(`  - Addresses:\r\n`) + addressesDisplay,
+                    this.chalk.hex('#FF6F61')(`  - Address(es):\r\n`) + addressesDisplay,
                 ].join('');
             })
             .join('\r\n\r\n');
