@@ -265,7 +265,7 @@ export class P2PManager extends Logger {
                 );
 
                 this.panic(
-                    `PoA has been disabled. This node will not connect to any peers. And any processing will be halted.`,
+                    `PoC has been disabled. This node will not connect to any peers. And any processing will be halted.`,
                 );
 
                 this.notifyArt(
@@ -273,7 +273,7 @@ export class P2PManager extends Logger {
                     `FATAL.`,
                     'Doh',
                     `\n\n\n!!!!!!!!!! -------------------- UPGRADE FAILED. --------------------  !!!!!!!!!!\n\n\n\n\n`,
-                    `\n\nPoA has been disabled. This node will not connect to any peers. And any processing will be halted.\n`,
+                    `\n\nPoC has been disabled. This node will not connect to any peers. And any processing will be halted.\n`,
                     `This node is not ready to apply ${consensusName}.\n`,
                     `UPGRADE IMMEDIATELY.\n\n`,
                 );
@@ -604,7 +604,7 @@ export class P2PManager extends Logger {
                 'info',
                 'OPNet',
                 'Doh',
-                `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
+                `\n\n\nPoC enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
                 `\nThis node bitcoin address is ${this.identity.pubKey} or ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
                 `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n`,

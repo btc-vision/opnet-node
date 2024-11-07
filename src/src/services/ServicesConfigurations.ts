@@ -28,8 +28,8 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
 
     [ThreadTypes.P2P]: {
         maxInstance: 1,
-        target: './src/poa/PoAThread.js',
-        managerTarget: './src/poa/PoAThreadManager.js',
+        target: './src/poa/PoCThread.js',
+        managerTarget: './src/poa/PoCThreadManager.js',
     },
 
     [ThreadTypes.SSH]: {

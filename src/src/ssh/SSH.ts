@@ -78,7 +78,7 @@ export class SSH extends Logger {
     public handleBitcoinIndexerMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
         switch (m.type) {
             default:
-                throw new Error(`Unknown message type: ${m.type} received in PoA.`);
+                throw new Error(`Unknown message type: ${m.type} received in PoC.`);
         }
     }
 

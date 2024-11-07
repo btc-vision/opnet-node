@@ -43,7 +43,7 @@ export interface OPNetConfig {
     readonly MODE: OPNetIndexerMode;
 }
 
-export interface PoA {
+export interface PoC {
     readonly ENABLED: boolean;
 }
 
@@ -184,7 +184,7 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
 
     DOCS: DocsConfig;
 
-    POA: PoA;
+    POC: PoC;
     P2P: P2P;
     MEMPOOL: MempoolConfig;
 

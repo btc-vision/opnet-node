@@ -9,7 +9,7 @@ import { PoC } from './PoC.js';
 export class PoCThread extends Thread<ThreadTypes.P2P> {
     public readonly threadType: ThreadTypes.P2P = ThreadTypes.P2P;
 
-    private poa: PoC = new PoC(Config);
+    private poc: PoC = new PoC(Config);
 
     constructor() {
         super();
@@ -20,10 +20,10 @@ export class PoCThread extends Thread<ThreadTypes.P2P> {
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected init(): void {
-        this.poa.sendMessageToThread = this.sendMessageToThread.bind(this);
+        this.poc.sendMessageToThread = this.sendMessageToThread.bind(this);
 
         /**
-         * Make sure that other threads are setup before starting PoA.
+         * Make sure that other threads are setup before starting PoC.
          */
         setTimeout(() => {
             void this.onThreadLinkSetup();
@@ -54,13 +54,13 @@ export class PoCThread extends Thread<ThreadTypes.P2P> {
     }
 
     protected async onThreadLinkSetup(): Promise<void> {
-        await this.poa.init();
+        await this.poc.init();
     }
 
     private async handleBitcoinIndexerMessage(
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData> {
-        return await this.poa.handleBitcoinIndexerMessage(m);
+        return await this.poc.handleBitcoinIndexerMessage(m);
     }
 }
 
