@@ -40,23 +40,17 @@ export class PeerInfoCommand extends Command<Commands.PEER_INFO> {
             .map((peer, index) => {
                 // Convert peer Uint8Array to peer ID
                 const peerId = peerIdFromCID(CID.decode(peer.peer));
+                const peerStr = peerId.toString();
 
                 // Process and filter addresses
                 const addresses: Multiaddr[] = [];
                 for (const address of peer.addresses) {
                     const addr = multiaddr(address);
 
-                    if (addr) {
+                    if (addr && addr.toString().includes(peerStr)) {
                         addresses.push(addr);
                     }
                 }
-
-                /*const addressesDisplay =
-                    addresses.length > 0
-                        ? addresses
-                              .map((addr) => this.chalk.hex('#FA8072')(addr.toString()))
-                              .join(this.chalk.hex('#FF69B4')(', '))
-                        : this.chalk.hex('#FF6F61')('No valid addresses');*/
 
                 const addressesDisplay =
                     addresses.length > 0
@@ -71,21 +65,21 @@ export class PeerInfoCommand extends Command<Commands.PEER_INFO> {
                 const peerNetwork = NetworkConverter.numberToBitcoinNetwork(peer.network);
 
                 return [
-                    this.chalk.hex('#00CFFD').bold(`Peer ${peerId.toString()} (${index + 1}):\r\n`),
+                    this.chalk.hex('#00CFFD').bold(`Peer ${peerStr} (${index + 1}):\r\n`),
                     this.chalk.hex('#FF6F61')(`  - OPNet Version: `) +
                         this.chalk.hex('#FAD02E').bold(peer.opnetVersion) +
                         '\r\n',
-                    this.chalk.hex('#FF6F61')(`  - Identity: `) +
-                        this.chalk.hex('#B39CD0').bold(peer.identity) +
-                        '\r\n',
-                    this.chalk.hex('#FF6F61')(`  - Mode: `) +
-                        this.chalk.hex('#FF9F29').bold(indexerMode) +
+                    this.chalk.hex('#FF6F61')(`  - Chain: `) +
+                        this.chalk.hex('#A1C6E7').bold(ChainIds[peer.chainId] ?? 'Unknown') +
                         '\r\n',
                     this.chalk.hex('#FF6F61')(`  - Network: `) +
                         this.chalk.hex('#29FFB1').bold(peerNetwork) +
                         '\r\n',
-                    this.chalk.hex('#FF6F61')(`  - Chain: `) +
-                        this.chalk.hex('#A1C6E7').bold(ChainIds[peer.chainId] ?? 'Unknown') +
+                    this.chalk.hex('#FF6F61')(`  - Mode: `) +
+                        this.chalk.hex('#FF9F29').bold(indexerMode) +
+                        '\r\n',
+                    this.chalk.hex('#FF6F61')(`  - Identity: `) +
+                        this.chalk.hex('#B39CD0').bold(peer.identity) +
                         '\r\n',
                     this.chalk.hex('#FF6F61')(`  - Addresses:\r\n`) + addressesDisplay,
                 ].join('');
