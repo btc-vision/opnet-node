@@ -7,8 +7,6 @@ import {
     MemorySlotPointer,
 } from '@btc-vision/transaction';
 import { arrayify as toBytes } from '@ethersproject/bytes';
-
-import crypto from 'crypto';
 import { MerkleProof, MerkleTree as MerkleTreeRust } from '@btc-vision/rust-merkle-tree';
 import { defaultAbiCoder } from '@ethersproject/abi';
 
@@ -17,14 +15,6 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
 
     constructor() {
         super(StateMerkleTree.TREE_TYPE);
-    }
-
-    public static encodePointerBuffer(contract: Address, pointer: Uint8Array | Buffer): Buffer {
-        const hash = crypto.createHash('sha256');
-        hash.update(contract);
-        hash.update(pointer);
-
-        return hash.digest();
     }
 
     public static verify(root: string, values: Buffer[] | Uint8Array[], proof: string[]): boolean {

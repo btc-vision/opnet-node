@@ -1053,11 +1053,9 @@ export class VMManager extends Logger {
 
         this.storePointerInCache(address, pointerBigInt, [memoryValue.value, memoryValue.proofs]);
 
-        const encodedPointer = StateMerkleTree.encodePointerBuffer(address, pointer);
-
         // We must verify the proofs.
         const isValid: boolean = await this.verifyProofs(
-            encodedPointer,
+            pointer,
             memoryValue.value,
             memoryValue.proofs,
             memoryValue.lastSeenAt,
@@ -1078,7 +1076,7 @@ export class VMManager extends Logger {
     }
 
     private async verifyProofs(
-        encodedPointer: Buffer,
+        encodedPointer: Uint8Array,
         value: MemoryValue,
         proofs: string[],
         blockHeight: bigint,
