@@ -396,7 +396,7 @@ export class BlockIndexer extends Logger {
         // Update height.
         await this.chainObserver.setNewHeight(task.tip);
 
-        // Notify PoA
+        // Notify PoC
         void this.notifyBlockProcessed({
             blockNumber: processedBlock.height,
             blockHash: processedBlock.hash,

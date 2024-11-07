@@ -23,7 +23,7 @@ export class PoC extends Logger {
     }
 
     public async init(): Promise<void> {
-        this.log(`Starting PoA...`);
+        this.log(`Starting PoC...`);
 
         await this.p2p.init();
     }
@@ -49,7 +49,7 @@ export class PoC extends Logger {
                 return await this.handleGetPeerMessage();
             }
             default:
-                throw new Error(`Unknown message type: ${m.type} received in PoA.`);
+                throw new Error(`Unknown message type: ${m.type} received in PoC.`);
         }
     }
 
@@ -67,7 +67,7 @@ export class PoC extends Logger {
                 return await this.p2p.broadcastTransaction(m.data.data as OPNetBroadcastData);
             }
             default: {
-                throw new Error(`Unknown RPC method: ${m.data.rpcMethod} received in PoA.`);
+                throw new Error(`Unknown RPC method: ${m.data.rpcMethod} received in PoC.`);
             }
         }
     }

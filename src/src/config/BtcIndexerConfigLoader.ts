@@ -118,7 +118,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             UTXO_LIMIT: 500,
         },
 
-        POA: {
+        POC: {
             ENABLED: false,
         },
 
@@ -424,10 +424,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
         }
 
-        if (parsedConfig.POA) {
+        if (parsedConfig.POC) {
             if (
-                parsedConfig.POA.ENABLED !== undefined &&
-                typeof parsedConfig.POA.ENABLED !== 'boolean'
+                parsedConfig.POC.ENABLED !== undefined &&
+                typeof parsedConfig.POC.ENABLED !== 'boolean'
             ) {
                 throw new Error(`Oops the property POA.ENABLED is not a boolean.`);
             }
@@ -906,9 +906,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             defaultConfigs.P2P,
         );
 
-        this.config.POA = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['POA']>(
-            parsedConfig.POA,
-            defaultConfigs.POA,
+        this.config.POC = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['POC']>(
+            parsedConfig.POC,
+            defaultConfigs.POC,
         );
 
         this.config.MEMPOOL = this.getConfigModified<

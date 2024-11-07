@@ -65,7 +65,7 @@ export class BlockHeaderValidator extends Logger {
         return blockRootStates.checksumRoot;
     }
 
-    /** TODO: Move this method to an other class and use this method when synchronizing block headers once PoA is implemented. */
+    /** TODO: Move this method to an other class and use this method when synchronizing block headers once PoC is implemented. */
     public async validateBlockChecksum(
         blockHeader: Partial<BlockHeaderDocument>,
     ): Promise<boolean> {

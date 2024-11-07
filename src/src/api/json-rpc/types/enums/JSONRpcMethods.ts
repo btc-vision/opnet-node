@@ -23,7 +23,7 @@ export enum JSONRpcMethods {
     GET_UTXOS = 'btc_getUTXOs',
     GET_BALANCE = 'btc_getBalance',
 
-    /** PoA */
+    /** PoC */
     BLOCK_WITNESS = 'btc_blockWitness',
 
     /** State Methods */

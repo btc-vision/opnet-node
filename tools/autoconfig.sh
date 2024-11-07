@@ -969,8 +969,8 @@ HRP = "$HRP" # hrp for Bitcoin, leave empty for auto-detection available hrps ar
 [RPC]
 THREADS = 4 # Number of threads to process calls such as rpc calls, smart contract calls, etc.
 
-[POA]
-ENABLED = true # Enable Proof of Authority consensus
+[POC]
+ENABLED = true # Enable Proof of Computational Acknowledgment Consensus
 
 [MEMPOOL]
 THREADS = 2 # Number of threads to process the mempool

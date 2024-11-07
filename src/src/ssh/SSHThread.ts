@@ -23,7 +23,7 @@ export class SSHThread extends Thread<ThreadTypes.SSH> {
 
     protected init(): void {
         /**
-         * Make sure that other threads are setup before starting PoA.
+         * Make sure that other threads are setup before starting PoC.
          */
         setTimeout(() => {
             void this.onThreadLinkSetup();
