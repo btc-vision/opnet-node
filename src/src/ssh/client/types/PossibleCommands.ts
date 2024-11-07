@@ -9,7 +9,7 @@ export const CommandsAliases: {
     [key in Commands]: string[];
 } = {
     [Commands.HELP]: [],
-    [Commands.PEER_INFO]: [],
+    [Commands.PEER_INFO]: ['peers', 'p'],
 };
 
 export type PossibleCommands = {

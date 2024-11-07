@@ -1,6 +1,7 @@
 import { CustomOperationCommand } from './CustomOperationCommand.js';
 import { P2PVersion } from '../../../poa/configurations/P2PVersion.js';
 import * as os from 'node:os';
+import { clearInterval } from 'node:timers';
 
 const startedAt: number = Date.now();
 
@@ -10,7 +11,7 @@ export class OPNetSysInfo extends CustomOperationCommand {
     public readonly command: string =
         "while true; do sleep 1;head -v -n 8 /proc/meminfo; head -v -n 2 /proc/stat /proc/version /proc/uptime /proc/loadavg /proc/sys/fs/file-nr /proc/sys/kernel/hostname; tail -v -n 16 /proc/net/dev;echo '==> /proc/df <==';df -l;echo '==> /proc/who <==';who;echo '==> /proc/end <==';echo '##Moba##'; done";
 
-    private interval: NodeJS.Timeout | null = null;
+    private interval: string | number | NodeJS.Timeout | null = null;
 
     public constructor() {
         super();
@@ -18,7 +19,12 @@ export class OPNetSysInfo extends CustomOperationCommand {
 
     protected onExecute(): void {
         this.interval = setInterval(() => {
-            this.runCommand();
+            try {
+                this.runCommand();
+            } catch {
+                this.channel.close();
+                clearInterval(this.interval as NodeJS.Timeout);
+            }
         }, 1000);
 
         this.channel.on('close', () => {
