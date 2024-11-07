@@ -507,7 +507,7 @@ export class SSHClient extends Logger {
             this.chalk.hex('#68d6f8')('This node Bitcoin addresses are:'),
             `  - ${this.chalk.hex('#afe9fc').underline.bold(this.identity.pubKey)} (Public Key)`,
             `  - ${this.chalk.hex('#afe9fc').underline.bold(this.identity.tapAddress)} (Taproot)`,
-            `  - ${this.chalk.hex('#afe9fc').underline.bold(this.identity.segwitAddress)} (Segwit)`,
+            `  - ${this.chalk.hex('#afe9fc').underline.bold(this.identity.segwitAddress)} (Segwit)\r\n`,
         ].join('\r\n');
 
         const opnetIdentifier = this.chalk.hex('#68d6f8')(
