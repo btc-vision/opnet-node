@@ -13,6 +13,15 @@
 
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 
+## ⚠️ Important Notice ⚠️
+
+This repository is currently under development and is not yet ready for production use. We are actively working on
+implementing the features and functionalities outlined in this document. Please check back regularly for updates and
+progress reports.
+
+**Mainnet usage is prohibited until the official release of OP_NET. All actions taken on any
+main network will be discarded on release.**
+
 ## Introduction
 
 Welcome to the official **OP_NET Node** GitHub repository. This repository contains the source code and documentation

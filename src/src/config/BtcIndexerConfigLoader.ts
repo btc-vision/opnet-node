@@ -382,6 +382,16 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(`Oops the property OP_NET.CHAIN_ID is not a number.`);
             }
 
+            // Prohibit the use of the main chain id.
+            if (
+                parsedConfig.BITCOIN.NETWORK === BitcoinNetwork.mainnet &&
+                parsedConfig.BITCOIN.CHAIN_ID === ChainIds.Bitcoin
+            ) {
+                throw new Error(
+                    `Mainnet configuration is not allowed. Please use the testnet configuration.`,
+                );
+            }
+
             if (
                 parsedConfig.BITCOIN.NETWORK_MAGIC !== undefined &&
                 !Array.isArray(parsedConfig.BITCOIN.NETWORK_MAGIC)
