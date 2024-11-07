@@ -503,12 +503,17 @@ export class SSHClient extends Logger {
             `OPNet block height: ${this.chalk.underline.bold.hex('#ddadfc')(OPNetConsensus.getBlockHeight())}`,
         );
 
-        const opnetAddress = this.chalk.hex('#68d6f8')(
-            `This node bitcoin address is ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.pubKey)} or ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.tapAddress)} (taproot) or ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.segwitAddress)} (segwit).`,
-        );
+        const opnetAddress = [
+            this.chalk.hex('#68d6f8')('This node Bitcoin addresses are:'),
+            `  - ${this.chalk.hex('#afe9fc').underline.bold(this.identity.pubKey)} (Public Key)`,
+            `  - ${this.chalk.hex('#afe9fc').underline.bold(this.identity.tapAddress)} (Taproot)`,
+            `  - ${this.chalk.hex('#afe9fc').underline.bold(this.identity.segwitAddress)} (Segwit)`,
+        ].join('\r\n');
+
         const opnetIdentifier = this.chalk.hex('#68d6f8')(
             `Your OPNet identity is ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.opnetAddress)}.`,
         );
+
         const opnetTrustedCertificate = this.chalk.hex('#68d6f8')(
             `Your OPNet trusted certificate is\r\n\r\n${this.chalk.underline.bold.hex('#afe9fc')(this.identity.trustedPublicKey)}.`,
         );
