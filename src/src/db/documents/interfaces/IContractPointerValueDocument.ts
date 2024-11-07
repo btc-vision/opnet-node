@@ -1,11 +1,11 @@
 import { IBaseDocument } from '@btc-vision/bsi-common';
-import { Binary, Decimal128 } from 'mongodb';
+import {Binary, Decimal128, Long} from 'mongodb';
 
 export interface IContractPointerValueDocument extends IBaseDocument {
-    readonly contractAddress: string;
+    readonly contractAddress: Uint8Array;
     readonly pointer: Binary;
     readonly value: Binary;
 
     readonly proofs: string[];
-    lastSeenAt: Decimal128;
+    lastSeenAt: bigint | Long;
 }

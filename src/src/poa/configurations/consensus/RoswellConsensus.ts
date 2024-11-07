@@ -21,6 +21,14 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         IS_READY_FOR_NEXT_CONSENSUS: false,
     },
 
+    CONTRACTS: {
+        /** The maximum size of a calldata in bytes. */
+        MAXIMUM_CONTRACT_SIZE_DECOMPRESSED: 128 * 1024,
+
+        /** The maximum size of calldata in bytes. */
+        MAXIMUM_CALLDATA_SIZE_DECOMPRESSED: 1024 * 1024,
+    },
+
     NETWORK: {
         /** Networking */
         MAXIMUM_TRANSACTION_BROADCAST_SIZE: 440_000, // Cap to 800k bytes.
@@ -93,8 +101,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: 5n,
     },
 
-    VAULTS: {
-        /** Vaults related properties */
+    /*VAULTS: {
         VAULT_MINIMAL_FEE_ADDITION_VB_PER_SAT: 10n,
 
         // Defines the minimum amount that can be consolidated in a single transaction.
@@ -115,5 +122,5 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         // The maximum number of UTXOs that can be consolidated in a single transaction.
         MAXIMUM_CONSOLIDATION_UTXOS: 4,
-    },
+    },*/
 };

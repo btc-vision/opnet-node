@@ -18,7 +18,7 @@ import {
     MempoolTransactionAggregationOutput,
 } from '../../vm/storage/databases/aggregation/MempoolTransactionAggregation.js';
 import { UTXOSOutputTransaction } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 
 export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     public readonly logColor: string = '#afeeee';
@@ -129,21 +129,27 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     }
 
     public async getAllTransactionIncluded(txList: string[]): Promise<string[]> {
-        const aggregation = this.unspentTransactionMempoolAggregation.getAggregation(txList);
+        try {
+            const aggregation = this.unspentTransactionMempoolAggregation.getAggregation(txList);
 
-        const collection = this.getCollection();
-        const options: AggregateOptions = this.getOptions() as AggregateOptions;
-        options.allowDiskUse = true;
+            const collection = this.getCollection();
+            const options: AggregateOptions = this.getOptions() as AggregateOptions;
+            options.allowDiskUse = true;
 
-        const aggregatedDocument = collection.aggregate<MempoolTransactionAggregationOutput>(
-            aggregation,
-            options,
-        );
+            const aggregatedDocument = collection.aggregate<MempoolTransactionAggregationOutput>(
+                aggregation,
+                options,
+            );
 
-        const results: MempoolTransactionAggregationOutput[] = await aggregatedDocument.toArray();
-        const result = results[0];
+            const results: MempoolTransactionAggregationOutput[] =
+                await aggregatedDocument.toArray();
 
-        return result ? result.ids : [];
+            const result = results[0];
+
+            return result ? result.ids : [];
+        } catch {
+            return []; // will store all transactions
+        }
     }
 
     public async storeTransaction(transaction: IMempoolTransactionObj): Promise<boolean> {
@@ -163,7 +169,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         }
     }
 
-    public async getPendingTransactions(address: Address): Promise<UTXOSOutputTransaction[]> {
+    public async getPendingTransactions(address: string): Promise<UTXOSOutputTransaction[]> {
         const criteria: Filter<IMempoolTransaction> = {
             'outputs.address': address,
             id: {

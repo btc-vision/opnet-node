@@ -1,8 +1,8 @@
-import { Address, MemorySlotPointer } from '@btc-vision/bsi-binary';
+import { AddressMap, MemorySlotPointer } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { Config } from '../../../config/Config.js';
 import {
     BlockHeaderChecksumProof,
@@ -26,12 +26,8 @@ import { InteractionTransaction } from '../transaction/transactions/InteractionT
 import { BlockDataWithoutTransactionData, BlockHeader } from './classes/BlockHeader.js';
 import { ChecksumMerkle } from './merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from './types/ZeroValue.js';
-import { WrapTransaction } from '../transaction/transactions/WrapTransaction.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { GenericTransaction } from '../transaction/transactions/GenericTransaction.js';
-import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
-import { UnwrapTransaction } from '../transaction/transactions/UnwrapTransaction.js';
-import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../../db/interfaces/IWBTCUTXODocument.js';
 import assert from 'node:assert';
 import { BlockGasPredictor, CalculatedBlockGas } from '../gas/BlockGasPredictor.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
@@ -41,6 +37,8 @@ export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
     abortController: AbortController;
     network: Network;
+
+    readonly processEverythingAsGeneric?: boolean;
 }
 
 export interface DeserializedBlock extends Omit<RawBlockParam, 'abortController' | 'network'> {
@@ -90,9 +88,9 @@ export class Block extends Logger {
     #compromised: boolean = false;
 
     #_storageRoot: string | undefined;
-    #_storageProofs: Map<Address, Map<MemorySlotPointer, string[]>> | undefined;
+    #_storageProofs: AddressMap<Map<MemorySlotPointer, string[]>> | undefined;
     #_receiptRoot: string | undefined;
-    #_receiptProofs: Map<Address, Map<string, string[]>> | undefined;
+    #_receiptProofs: AddressMap<Map<string, string[]>> | undefined;
     #_checksumMerkle: ChecksumMerkle = new ChecksumMerkle();
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
@@ -101,6 +99,7 @@ export class Block extends Logger {
     private _predictedGas: CalculatedBlockGas | undefined;
 
     private blockUsedGas: bigint = 0n;
+    private readonly processEverythingAsGeneric: boolean = false;
 
     constructor(params: RawBlockParam | DeserializedBlock) {
         super();
@@ -119,9 +118,11 @@ export class Block extends Logger {
         this.signal = this.abortController.signal;
         this.header = new BlockHeader(params.header);
 
+        this.processEverythingAsGeneric = params.processEverythingAsGeneric || false;
+
         if ('rawTransactionData' in params) {
             this.setRawTransactionData(params.rawTransactionData);
-            this.deserialize(params.transactionOrder);
+            this.deserialize(true, params.transactionOrder);
 
             this.processed = true;
         }
@@ -170,10 +171,6 @@ export class Block extends Logger {
         return this.header.safeU64;
     }
 
-    public get timestamp(): number {
-        return this.header.time.getTime();
-    }
-
     public get previousBlockChecksum(): string {
         if (!this.#_previousBlockChecksum) {
             throw new Error('Previous block checksum not found');
@@ -194,7 +191,7 @@ export class Block extends Logger {
         return this.#_receiptRoot;
     }
 
-    public get receiptProofs(): Map<Address, Map<string, string[]>> {
+    public get receiptProofs(): AddressMap<Map<string, string[]>> {
         if (!this.#_receiptProofs) {
             throw new Error('Storage proofs not found');
         }
@@ -210,7 +207,7 @@ export class Block extends Logger {
         return this.#_storageRoot;
     }
 
-    public get storageProofs(): Map<Address, Map<MemorySlotPointer, string[]>> {
+    public get storageProofs(): AddressMap<Map<MemorySlotPointer, string[]>> {
         if (!this.#_storageProofs) {
             throw new Error('Storage proofs not found');
         }
@@ -330,10 +327,10 @@ export class Block extends Logger {
     }
 
     /** Block Processing */
-    public deserialize(transactionOrder?: string[]): void {
+    public deserialize(orderTransactions: boolean, transactionOrder?: string[]): void {
         this.ensureNotProcessed();
 
-        if (
+        /*if (
             Config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
             this.erroredTransactions.size > 0 &&
             Config.DEV_MODE
@@ -341,17 +338,19 @@ export class Block extends Logger {
             this.error(
                 `Block ${this.height} contains ${this.erroredTransactions.size} errored transactions.`,
             );
-        }
+        }*/
 
-        if (transactionOrder) {
-            // If the transaction order is provided, we can sort the transactions by their order
-            this.transactions = this.transactionSorter.sortTransactionsByOrder(
-                transactionOrder,
-                this.transactions,
-            );
-        } else {
-            // Then, we can sort the transactions by their priority
-            this.transactions = this.transactionSorter.sortTransactions(this.transactions);
+        if (orderTransactions) {
+            if (transactionOrder) {
+                // If the transaction order is provided, we can sort the transactions by their order
+                this.transactions = this.transactionSorter.sortTransactionsByOrder(
+                    transactionOrder,
+                    this.transactions,
+                );
+            } else {
+                // Then, we can sort the transactions by their priority
+                this.transactions = this.transactionSorter.sortTransactions(this.transactions);
+            }
         }
 
         this.defineGeneric();
@@ -491,10 +490,10 @@ export class Block extends Logger {
 
     protected async onEmptyBlock(vmManager: VMManager): Promise<void> {
         this.#_storageRoot = ZERO_HASH;
-        this.#_storageProofs = new Map();
+        this.#_storageProofs = new AddressMap();
 
         this.#_receiptRoot = ZERO_HASH;
-        this.#_receiptProofs = new Map();
+        this.#_receiptProofs = new AddressMap();
 
         await this.signBlock(vmManager);
     }
@@ -520,7 +519,7 @@ export class Block extends Logger {
             this.#_storageProofs = proofs;
         } else {
             this.#_storageRoot = ZERO_HASH;
-            this.#_storageProofs = new Map();
+            this.#_storageProofs = new AddressMap();
         }
 
         this.verifyIfBlockAborted();
@@ -542,7 +541,7 @@ export class Block extends Logger {
 
     /** We execute interaction transactions with this method */
     protected async executeInteractionTransaction(
-        transaction: InteractionTransaction | WrapTransaction,
+        transaction: InteractionTransaction,
         vmManager: VMManager,
         unlimitedGas: boolean = false,
     ): Promise<void> {
@@ -612,7 +611,7 @@ export class Block extends Logger {
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
                 this.debug(
-                    `Executed transaction (deployment) ${transaction.txid} for contract ${transaction.segwitAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                    `Executed transaction (deployment) ${transaction.txid} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
                 );
             }
 
@@ -629,28 +628,6 @@ export class Block extends Logger {
         }
 
         this.verifyTransaction(transaction);
-
-        /*try {
-            if (!this.isOPNetEnabled()) {
-                throw new Error('OPNet is not enabled');
-            }
-
-            await vmManager.deployContract(this.height, transaction);
-        } catch (e) {
-            const error: Error = e as Error;
-            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.error(`Failed to deploy contract ${transaction.txid}: ${error.message}`);
-            }
-
-            transaction.revert = error;
-
-            vmManager.updateBlockValuesFromResult(
-                null,
-                transaction.p2trAddress || 'bc1dead',
-                transaction.txid,
-                true,
-            );
-        }*/
     }
 
     private verifyTransaction(transaction: Transaction<OPNetTransactionTypes>): void {
@@ -680,12 +657,7 @@ export class Block extends Logger {
 
         transaction.revert = error;
 
-        vmManager.updateBlockValuesFromResult(
-            null,
-            transaction.contractAddress,
-            transaction.txid,
-            true,
-        );
+        vmManager.updateBlockValuesFromResult(null, transaction.address, transaction.txid, true);
     }
 
     private checkConstraintsBlock(): void {
@@ -773,7 +745,7 @@ export class Block extends Logger {
                 await this.executeInteractionTransaction(interactionTransaction, vmManager);
                 break;
             }
-            case OPNetTransactionTypes.WrapInteraction: {
+            /*case OPNetTransactionTypes.WrapInteraction: {
                 const interactionTransaction = transaction as WrapTransaction;
 
                 await this.executeInteractionTransaction(interactionTransaction, vmManager, true);
@@ -784,7 +756,7 @@ export class Block extends Logger {
 
                 await this.executeInteractionTransaction(interactionTransaction, vmManager, true);
                 break;
-            }
+            }*/
             case OPNetTransactionTypes.Deployment: {
                 const deploymentTransaction = transaction as DeploymentTransaction;
 
@@ -823,7 +795,7 @@ export class Block extends Logger {
                 | InteractionTransaction
                 | DeploymentTransaction;
 
-            const contractProofs = this.#_receiptProofs.get(interactionTransaction.contractAddress);
+            const contractProofs = this.#_receiptProofs.get(interactionTransaction.address);
             if (!contractProofs) {
                 // Transaction reverted.
                 continue;
@@ -917,23 +889,23 @@ export class Block extends Logger {
             return;
         }
 
-        const vmStorage = vmManager.getVMStorage();
+        //const vmStorage = vmManager.getVMStorage();
 
-        const usedUTXOs: UsedUTXOToDelete[] = [];
-        const consolidatedUTXOs: IWBTCUTXODocument[] = [];
+        //const usedUTXOs: UsedUTXOToDelete[] = [];
+        //const consolidatedUTXOs: IWBTCUTXODocument[] = [];
 
-        const compromisedTransactions: ICompromisedTransactionDocument[] = [];
+        //const compromisedTransactions: ICompromisedTransactionDocument[] = [];
         const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
 
-        const blockHeightDecimal = DataConverter.toDecimal128(this.height);
+        //const blockHeightDecimal = DataConverter.toDecimal128(this.height);
         for (const transaction of this.opnetTransactions) {
-            if (!transaction.authorizedVaultUsage && transaction.vaultInputs.length) {
-                compromisedTransactions.push(transaction.getCompromisedDocument());
-            }
+            //if (!transaction.authorizedVaultUsage && transaction.vaultInputs.length) {
+            //    compromisedTransactions.push(transaction.getCompromisedDocument());
+            //}
 
             transactionData.push(transaction.toDocument());
 
-            if (transaction.transactionType === OPNetTransactionTypes.UnwrapInteraction) {
+            /*if (transaction.transactionType === OPNetTransactionTypes.UnwrapInteraction) {
                 const unwrapTransaction = transaction as UnwrapTransaction;
 
                 usedUTXOs.push(...unwrapTransaction.usedUTXOs);
@@ -946,11 +918,11 @@ export class Block extends Logger {
                         spentAt: null,
                     });
                 }
-            }
+            }*/
         }
 
         const promises: Promise<void>[] = [];
-        if (usedUTXOs.length) {
+        /*if (usedUTXOs.length) {
             promises.push(vmStorage.setSpentWBTCUTXOs(usedUTXOs, this.height));
         }
 
@@ -969,7 +941,7 @@ export class Block extends Logger {
             this.#compromised = true;
 
             promises.push(vmStorage.saveCompromisedTransactions(compromisedTransactions));
-        }
+        }*/
 
         promises.push(vmManager.saveTransactions(transactionData));
 
@@ -1043,6 +1015,12 @@ export class Block extends Logger {
         for (let i = 0; i < this.rawTransactionData.length; i++) {
             const rawTransactionData = this.rawTransactionData[i];
 
+            if (this.processEverythingAsGeneric) {
+                this.treatAsGenericTransaction(rawTransactionData, i);
+
+                continue;
+            }
+
             try {
                 const transaction = this.transactionFactory.parseTransaction(
                     rawTransactionData,
@@ -1063,14 +1041,20 @@ export class Block extends Logger {
                     );
                 }
 
-                this.treatAsGenericTransaction(rawTransactionData);
+                this.treatAsGenericTransaction(rawTransactionData, i);
 
                 this.erroredTransactions.add(rawTransactionData);
             }
         }
     }
 
-    private treatAsGenericTransaction(rawTransactionData: TransactionData): boolean {
+    /**
+     * Treats a transaction as a generic transaction.
+     * @param {TransactionData} rawTransactionData Raw transaction data
+     * @param {number} i Index of the original transaction in the block
+     * @private
+     */
+    private treatAsGenericTransaction(rawTransactionData: TransactionData, i: number): boolean {
         try {
             const genericTransaction = new GenericTransaction(
                 rawTransactionData,
@@ -1080,6 +1064,7 @@ export class Block extends Logger {
                 this.network,
             );
 
+            genericTransaction.originalIndex = i;
             genericTransaction.parseTransaction(rawTransactionData.vin, rawTransactionData.vout);
 
             this.transactions.push(genericTransaction);

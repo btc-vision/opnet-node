@@ -12,4 +12,6 @@ export enum MessageType {
 
     DESERIALIZE_BLOCK,
     CHAIN_REORG,
+
+    GET_PEERS,
 }

@@ -1,6 +1,6 @@
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { EcKeyPair } from '@btc-vision/transaction';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { createHash, Hash, randomBytes } from 'crypto';
 import { OPNetTransactionTypes } from '../../src/src/blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../../src/src/blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';

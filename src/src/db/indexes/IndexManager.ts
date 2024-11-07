@@ -10,13 +10,9 @@ import {IndexedInternalPointers} from './required/IndexedInternalPointers.js';
 import {IndexedReorgs} from './required/IndexedReorgs.js';
 import {IndexedTransactions} from './required/IndexedTransactions.js';
 import {IndexedMempool} from './required/IndexedMempool.js';
-import {IndexedWBTCUTXO} from './required/IndexedWBTCUTXO.js';
-import {IndexedVaults} from './required/IndexedVaults.js';
-import {IndexedPendingWbtcUtxo} from './required/IndexedPendingWbtcUtxo.js';
-import {IndexedUsedWbtcUtxo} from './required/IndexedUsedWbtcUtxo.js';
-import {IndexedCompromisedTransactions} from './required/IndexedCompromisedTransactions.js';
 import {IndexedUnspentTransactions} from './required/IndexedUnspentTransactions.js';
 import {Config} from '../../config/Config.js';
+import {IndexedPublicKeys} from './required/IndexedPublicKeys.js';
 
 /** This class job is to create the required indexes for the database */
 export class IndexManager extends Logger {
@@ -31,12 +27,13 @@ export class IndexManager extends Logger {
         new IndexedInternalPointers(),
         new IndexedReorgs(),
         new IndexedMempool(),
-        new IndexedWBTCUTXO(),
-        new IndexedVaults(),
-        new IndexedPendingWbtcUtxo(),
-        new IndexedUsedWbtcUtxo(),
-        new IndexedCompromisedTransactions(),
+        //new IndexedWBTCUTXO(),
+        //new IndexedVaults(),
+        //new IndexedPendingWbtcUtxo(),
+        //new IndexedUsedWbtcUtxo(),
+        //new IndexedCompromisedTransactions(),
         new IndexedUnspentTransactions(),
+        new IndexedPublicKeys(),
     ];
 
     constructor(private readonly opnetDB: ConfigurableDBManager) {

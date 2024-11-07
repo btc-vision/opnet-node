@@ -35,6 +35,9 @@ export class DeploymentTxEncoder {
             tx = {
                 ...tx,
                 ...contractData,
+                contractTweakedPublicKey: contractData.contractTweakedPublicKey
+                    ? contractData.contractTweakedPublicKey.toString('base64')
+                    : '',
                 deployedTransactionHash: undefined,
                 deployedTransactionId: undefined,
             };
@@ -64,14 +67,19 @@ export class DeploymentTxEncoder {
     private convertToBlockHeaderAPIDocument(data: ContractInformation): IContractAPIDocument {
         const document: IContractAPIDocument = {
             ...data,
+            contractTweakedPublicKey: Buffer.from(data.contractTweakedPublicKey.buffer).toString(
+                'base64',
+            ),
             bytecode: data.bytecode.toString('base64'),
             deployerPubKey: data.deployerPubKey.toString('base64'),
             contractSeed: data.contractSeed.toString('base64'),
             contractSaltHash: data.contractSaltHash.toString('hex'),
             blockHeight: undefined,
+            deployerAddress: undefined,
             _id: undefined,
         };
 
+        delete document.deployerAddress;
         delete document.blockHeight;
         delete document._id;
 

@@ -10,23 +10,26 @@ import {
 import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
 import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocument.js';
-import { IVMStorageMethod } from './interfaces/IVMStorageMethod.js';
 import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
-import { Address } from '@btc-vision/bsi-binary';
-import { IWBTCUTXODocument, UsedUTXOToDelete } from '../../db/interfaces/IWBTCUTXODocument.js';
-import { IVaultDocument } from '../../db/interfaces/IVaultDocument.js';
-import { SelectedUTXOs } from '../../db/repositories/WBTCUTXORepository.js';
-import { ICompromisedTransactionDocument } from '../../db/interfaces/CompromisedTransactionDocument.js';
+import { BlockchainInfoRepository } from '../../db/repositories/BlockchainInfoRepository.js';
+import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
+import { Address, AddressMap } from '@btc-vision/transaction';
 
-export abstract class VMStorage extends Logger implements IVMStorageMethod {
+export abstract class VMStorage extends Logger {
     public readonly logColor: string = '#ff00ff';
 
     protected constructor() {
         super();
     }
 
+    public abstract get blockchainRepository(): BlockchainInfoRepository;
+
     public abstract revertDataUntilBlock(height: bigint): Promise<void>;
+
+    public abstract getAddressOrPublicKeysInformation(
+        publicKeys: string[],
+    ): Promise<IPublicKeyInfoResult>;
 
     public abstract getWitnesses(
         height: bigint | -1,
@@ -52,17 +55,17 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
     ): Promise<void>;
 
     public abstract setStoragePointers(
-        storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: AddressMap<Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
     ): Promise<void>;
 
     public abstract getContractAt(
-        address: Address,
+        address: string,
         height?: bigint,
     ): Promise<ContractInformation | undefined>;
 
     public abstract getContractAddressAt(
-        address: Address,
+        address: string,
         height?: bigint,
     ): Promise<Address | undefined>;
 
@@ -74,17 +77,12 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
         transaction: ITransactionDocument<OPNetTransactionTypes>[],
     ): Promise<void>;
 
-    /*public abstract insertUTXOs(
-        blockHeight: bigint,
-        transaction: ITransactionDocumentBasic<OPNetTransactionTypes>[],
-    ): Promise<void>;*/
-
     public abstract saveBlockHeader(blockHeader: BlockHeaderDocument): Promise<void>;
 
     public abstract getBlockHeader(height: bigint): Promise<BlockHeaderDocument | undefined>;
 
-    public abstract getContractAtVirtualAddress(
-        virtualAddress: string,
+    public abstract getContractFromTweakedPubKey(
+        tweakedPublicKey: string,
     ): Promise<ContractInformation | undefined>;
 
     public abstract setContractAt(contractData: ContractInformation): Promise<void>;
@@ -126,7 +124,7 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
 
     public abstract killAllPendingWrites(): Promise<void>;
 
-    public abstract setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void>;
+    /*public abstract setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void>;
 
     public abstract setVault(vault: IVaultDocument): Promise<void>;
 
@@ -143,11 +141,11 @@ export abstract class VMStorage extends Logger implements IVMStorageMethod {
 
     public abstract deleteOldUTXOs(height: bigint): Promise<void>;
 
-    public abstract deleteOldUsedUtxos(height: bigint): Promise<void>;
-
-    public abstract setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void>;
+    public abstract setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void>;*/
 
     public abstract deleteTransactionsById(transactions: string[]): Promise<void>;
+
+    //public abstract deleteOldUsedUtxos(height: bigint): Promise<void>;
 
     public abstract purgePointers(block: bigint): Promise<void>;
 }

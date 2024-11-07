@@ -1,13 +1,20 @@
 import { DataConverter } from '@btc-vision/bsi-db';
-import { Binary, Decimal128 } from 'mongodb';
+import { Binary } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { TransactionDocumentForAPI } from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import {
+    EventReceiptDataForAPI,
+    TransactionDocumentForAPI,
+} from '../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
+import {
+    ExtendedBaseInfo,
+    InteractionTransactionDocument,
     ITransactionDocument,
     NetEventDocument,
 } from '../../db/interfaces/ITransactionDocument.js';
+import { Address } from '@btc-vision/transaction';
+import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 
-// TODO: Fix typings.
+const network = NetworkConverter.getNetwork();
 
 export class TransactionConverterForAPI {
     public static convertTransactionToAPI(
@@ -17,26 +24,37 @@ export class TransactionConverterForAPI {
             ? Binary.createFromHexString(transaction.revert.toString('hex'))
             : undefined;
 
+        const events: EventReceiptDataForAPI[] =
+            'events' in transaction
+                ? ((transaction as InteractionTransactionDocument).events.map(
+                      (event: NetEventDocument) => {
+                          const contractAddress: Address =
+                              'p2tr' in event.contractAddress
+                                  ? event.contractAddress
+                                  : new Address(event.contractAddress.buffer);
+
+                          return {
+                              contractAddress: contractAddress.p2tr(network),
+                              type: event.type,
+                              data: (event.data instanceof Uint8Array
+                                  ? new Binary(event.data)
+                                  : event.data
+                              ).toString('base64'),
+                          };
+                      },
+                  ) satisfies EventReceiptDataForAPI[])
+                : [];
+
         const newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
+            inputs: transaction.inputs,
             outputs: transaction.outputs?.map((output) => {
                 return {
                     ...output,
                     value: output.value.toString(),
                 };
             }),
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-            events: transaction.events?.map((event: NetEventDocument) => {
-                return {
-                    contractAddress: event.contractAddress,
-                    eventType: event.eventType,
-                    eventDataSelector: event.eventDataSelector.toString(),
-                    eventData: (event.eventData instanceof Uint8Array
-                        ? new Binary(event.eventData)
-                        : event.eventData
-                    ).toString('base64'),
-                };
-            }),
+            events: events,
             revert: revert?.toString('base64'),
             burnedBitcoin:
                 '0x' + DataConverter.fromDecimal128(transaction.burnedBitcoin || 0n).toString(16),
@@ -47,58 +65,43 @@ export class TransactionConverterForAPI {
             deployedTransactionId: undefined,
         };
 
-        if (transaction.wrappingFees !== undefined && transaction.wrappingFees !== null) {
-            if (transaction.wrappingFees instanceof Decimal128) {
-                newTx.wrappingFees =
-                    '0x' + DataConverter.fromDecimal128(transaction.wrappingFees).toString(16);
-            } else {
-                throw new Error('Wrapping fees must be a Decimal128');
-            }
+        if ('contractTweakedPublicKey' in transaction) {
+            const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
+            newTx.contractTweakedPublicKey = tx.contractTweakedPublicKey.toString('base64');
         }
 
-        if (transaction.unwrapAmount !== undefined && transaction.unwrapAmount !== null) {
-            if (transaction.unwrapAmount instanceof Decimal128) {
-                newTx.unwrapAmount =
-                    '0x' + DataConverter.fromDecimal128(transaction.unwrapAmount).toString(16);
-            } else {
-                throw new Error('Unwrap amount must be a Decimal128');
-            }
+        if ('from' in transaction) {
+            const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
+            newTx.from = tx.from ? tx.from.toString('base64') : undefined;
         }
 
-        if (transaction.requestedAmount !== undefined && transaction.requestedAmount !== null) {
-            if (transaction.requestedAmount instanceof Decimal128) {
-                newTx.requestedAmount =
-                    '0x' + DataConverter.fromDecimal128(transaction.requestedAmount).toString(16);
-            } else {
-                throw new Error('Requested amount must be a Decimal128');
-            }
+        /*if ('wrappingFees' in transaction) {
+            const tx = transaction as IWrapInteractionTransactionDocument;
+
+            newTx.wrappingFees = '0x' + DataConverter.fromDecimal128(tx.wrappingFees).toString(16);
+            newTx.depositAmount =
+                '0x' + DataConverter.fromDecimal128(tx.depositAmount).toString(16);
         }
 
-        if (transaction.depositAmount !== undefined && transaction.depositAmount !== null) {
-            if (transaction.depositAmount instanceof Decimal128) {
-                newTx.depositAmount =
-                    '0x' + DataConverter.fromDecimal128(transaction.depositAmount).toString(16);
-            } else {
-                throw new Error('Deposit amount must be a Decimal128');
-            }
-        }
+        if ('unwrapAmount' in transaction) {
+            const tx = transaction as IUnwrapInteractionTransactionDocument;
 
-        if (transaction.consolidatedVault !== undefined && transaction.consolidatedVault !== null) {
-            newTx.consolidatedVault = {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access
-                vault: transaction.consolidatedVault.vault,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access
-                hash: transaction.consolidatedVault.hash,
-                value:
-                    '0x' +
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
-                    DataConverter.fromDecimal128(transaction.consolidatedVault.value).toString(16),
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access
-                outputIndex: transaction.consolidatedVault.outputIndex,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-assignment
-                output: transaction.consolidatedVault.output.toString('base64'),
-            };
-        }
+            newTx.unwrapAmount = '0x' + DataConverter.fromDecimal128(tx.unwrapAmount).toString(16);
+            newTx.requestedAmount =
+                '0x' + DataConverter.fromDecimal128(tx.requestedAmount).toString(16);
+
+            if (tx.consolidatedVault) {
+                newTx.consolidatedVault = {
+                    vault: tx.consolidatedVault.vault,
+                    hash: tx.consolidatedVault.hash,
+                    value:
+                        '0x' +
+                        DataConverter.fromDecimal128(tx.consolidatedVault.value).toString(16),
+                    outputIndex: tx.consolidatedVault.outputIndex,
+                    output: tx.consolidatedVault.output.toString('base64'),
+                };
+            }
+        }*/
 
         delete newTx._id;
         delete newTx.blockHeight;

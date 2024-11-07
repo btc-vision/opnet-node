@@ -3,7 +3,7 @@ import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { BlockFetcher } from '../../fetcher/abstract/BlockFetcher.js';
 import { Config } from '../../../config/Config.js';
@@ -17,6 +17,7 @@ import {
 } from '../../../db/repositories/UnspentTransactionRepository.js';
 import { DBManagerInstance } from '../../../db/DBManager.js';
 import { IChainReorg } from '../../../threading/interfaces/thread-messages/messages/indexer/IChainReorg.js';
+import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -42,6 +43,16 @@ export class ChainSynchronisation extends Logger {
         }
 
         return this._unspentTransactionRepository;
+    }
+
+    private _publicKeysRepository: PublicKeysRepository | undefined;
+
+    private get publicKeysRepository(): PublicKeysRepository {
+        if (!this._publicKeysRepository) {
+            throw new Error('PublicKeysRepository not initialized');
+        }
+
+        return this._publicKeysRepository;
     }
 
     private _blockFetcher: BlockFetcher | undefined;
@@ -72,6 +83,7 @@ export class ChainSynchronisation extends Logger {
         });
 
         this._unspentTransactionRepository = new UnspentTransactionRepository(DBManagerInstance.db);
+        this._publicKeysRepository = new PublicKeysRepository(DBManagerInstance.db);
 
         await this.startSaveLoop();
     }
@@ -118,7 +130,7 @@ export class ChainSynchronisation extends Logger {
 
         setTimeout(() => {
             void this.startSaveLoop();
-        }, 2500);
+        }, Config.INDEXER.UTXO_SAVE_INTERVAL);
     }
 
     private purgeUTXOs(fromBlock?: bigint): void {
@@ -147,6 +159,7 @@ export class ChainSynchronisation extends Logger {
         this.purgeUTXOs();
 
         try {
+            await this.publicKeysRepository.processPublicKeys(utxos);
             await this.unspentTransactionRepository.insertTransactions(utxos);
 
             this.success(`Saved ${utxos.length} block UTXOs to database.`);
@@ -177,7 +190,7 @@ export class ChainSynchronisation extends Logger {
 
     private queryUTXOs(block: Block, txs: TransactionData[]): void {
         block.setRawTransactionData(txs);
-        block.deserialize();
+        block.deserialize(false);
 
         // Save UTXOs
         const utxos = block.getUTXOs();
@@ -231,13 +244,11 @@ export class ChainSynchronisation extends Logger {
             network: this.network,
             abortController: abortController,
             header: blockData,
+            processEverythingAsGeneric: true,
         });
 
-        this.queryUTXOs(block, blockData.tx);
-
         // Deserialize the block
-        //block.setRawTransactionData(blockData.tx);
-        //block.deserialize();
+        this.queryUTXOs(block, blockData.tx);
 
         this.abortControllers.delete(blockNumber);
 

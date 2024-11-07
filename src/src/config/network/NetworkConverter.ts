@@ -1,4 +1,4 @@
-import bitcoin, { Network } from 'bitcoinjs-lib';
+import bitcoin, { Network } from '@btc-vision/bitcoin';
 import { Config } from '../Config.js';
 import { BitcoinNetwork } from './BitcoinNetwork.js';
 
@@ -39,6 +39,23 @@ export class NetworkConverter {
             Config.BITCOIN.NETWORK_MAGIC !== undefined &&
             (Config.BITCOIN.NETWORK_MAGIC ?? []).length === 4
         );
+    }
+
+    public static numberToBitcoinNetwork(network: number): BitcoinNetwork {
+        switch (network) {
+            case 0:
+                return BitcoinNetwork.mainnet;
+            case 1:
+                return BitcoinNetwork.testnet;
+            case 2:
+                return BitcoinNetwork.regtest;
+            case 3:
+                return BitcoinNetwork.signet;
+            case 4:
+                return BitcoinNetwork.custom;
+            default:
+                throw new Error(`Invalid bitcoin network: ${network}`);
+        }
     }
 
     public static getNetwork(): Network {

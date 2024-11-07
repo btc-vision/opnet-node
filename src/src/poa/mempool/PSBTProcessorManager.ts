@@ -2,16 +2,20 @@ import { KnownPSBTObject } from './psbt/PSBTTransactionVerifier.js';
 import { PSBTTypes } from './psbt/PSBTTypes.js';
 import { PSBTProcessedResponse, PSBTProcessor } from './processor/PSBTProcessor.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
-import { UnwrapProcessor } from './processor/UnwrapProcessor.js';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 
 export class PSBTProcessorManager {
     private readonly verificator: PSBTProcessor<PSBTTypes>[] = [];
 
-    constructor(authority: OPNetIdentity, db: ConfigurableDBManager, network: Network) {
-        this.verificator.push(new UnwrapProcessor(authority, db, network));
+    public constructor(
+        private readonly authority: OPNetIdentity,
+        private readonly db: ConfigurableDBManager,
+        private readonly network: Network,
+    ) {
+        // DISABLED WBTC 2024-11-07.
+        //this.verificator.push(new UnwrapProcessor(authority, db, network));
     }
 
     public async processPSBT(data: KnownPSBTObject): Promise<PSBTProcessedResponse> {

@@ -19,7 +19,7 @@ import {
     BlockProcessedMessage,
 } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { ReorgWatchdog } from './reorg/ReorgWatchdog.js';
 import { IReorgData } from '../../db/interfaces/IReorgDocument.js';
 import { VMManager } from '../../vm/VMManager.js';
@@ -152,6 +152,8 @@ export class BlockIndexer extends Logger {
         // Purge.
         const originalHeight = this.chainObserver.pendingBlockHeight;
         await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
+        await this.chainObserver.setNewHeight(purgeFromBlock);
+
         await this.reorgWatchdog.init(originalHeight);
 
         // If we detect db corruption, we try to restore from the last known good block.
@@ -322,7 +324,7 @@ export class BlockIndexer extends Logger {
             data: blockHeader,
         };
 
-        await this.sendMessageToThread(ThreadTypes.POA, msg);
+        await this.sendMessageToThread(ThreadTypes.P2P, msg);
     }
 
     private getVMStorage(): VMStorage {

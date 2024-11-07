@@ -23,6 +23,15 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly IS_READY_FOR_NEXT_CONSENSUS: boolean;
     };
 
+    /** Contracts related rules */
+    readonly CONTRACTS: {
+        /** The maximum size of a calldata in bytes. */
+        readonly MAXIMUM_CONTRACT_SIZE_DECOMPRESSED: number;
+
+        /** The maximum size of calldata in bytes. */
+        readonly MAXIMUM_CALLDATA_SIZE_DECOMPRESSED: number;
+    };
+
     /** Transactions related properties */
     readonly GAS: {
         /** Target block gas limit */
@@ -99,8 +108,8 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: bigint;
     };
 
-    readonly VAULTS: {
-        /** Vaults related properties */
+    // DISABLED 2024-11-07
+    /*readonly VAULTS: {
         readonly VAULT_MINIMAL_FEE_ADDITION_VB_PER_SAT: bigint;
 
         // Defines the minimum amount that can be consolidated in a single transaction.
@@ -121,7 +130,7 @@ export interface IOPNetConsensus<T extends Consensus> {
 
         // The maximum number of UTXOs that can be consolidated in a single transaction.
         readonly MAXIMUM_CONSOLIDATION_UTXOS: number;
-    };
+    };*/
 }
 
 export type IOPNetConsensusObj = {

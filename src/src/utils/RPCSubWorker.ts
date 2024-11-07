@@ -2,7 +2,6 @@ import { VMStorage } from '../vm/storage/VMStorage.js';
 import { VMManager } from '../vm/VMManager.js';
 import { Config } from '../config/Config.js';
 import { Logger } from '@btc-vision/bsi-common';
-import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
 import {
     CallRequestData,
@@ -10,12 +9,20 @@ import {
 } from '../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { DebugLevel } from '@btc-vision/logger';
 import { BTC_FAKE_ADDRESS } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
-import { BlockchainStorageMap, EvaluatedEvents } from '../vm/evaluated/EvaluatedResult.js';
+import {
+    BlockchainStorageMap,
+    EvaluatedEvents,
+    EvaluatedResult,
+} from '../vm/evaluated/EvaluatedResult.js';
 import {
     ContractInformation,
     ContractInformationAsString,
 } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { Blockchain } from '../vm/Blockchain.js';
+import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
+import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
+import { Address } from '@btc-vision/transaction';
+import { CallRequestError } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 
 class RPCManager extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -28,10 +35,20 @@ class RPCManager extends Logger {
 
     private currentBlockHeight: bigint = 0n;
 
-    constructor() {
-        super();
+    private readonly vmStorage: VMStorage = new VMMongoStorage(Config);
 
-        void this.init();
+    public constructor() {
+        super();
+    }
+
+    public async init(): Promise<void> {
+        this.listenToEvents();
+
+        await this.bitcoinRPC.init(Config.BLOCKCHAIN);
+        await this.vmStorage.init();
+
+        await this.setBlockHeight();
+        await this.createVMManagers();
     }
 
     protected async onMessage(message: string): Promise<void> {
@@ -39,9 +56,9 @@ class RPCManager extends Logger {
             const data = JSON.parse(message) as { taskId: string; data: object; type: string };
 
             if (data.type === 'call') {
-                let result: CallRequestResponse | undefined = await this.onCallRequest(
-                    data.data as CallRequestData,
-                );
+                let result: EvaluatedResult | CallRequestError | undefined =
+                    await this.onCallRequest(data.data as CallRequestData);
+
                 if (result && !('error' in result)) {
                     result = Object.assign(result, {
                         result: result.result ? Buffer.from(result.result).toString('hex') : '',
@@ -67,14 +84,6 @@ class RPCManager extends Logger {
 
     protected listenToEvents(): void {
         process.on('message', this.onMessage.bind(this));
-    }
-
-    protected async init(): Promise<void> {
-        this.listenToEvents();
-
-        await this.bitcoinRPC.init(Config.BLOCKCHAIN);
-        await this.setBlockHeight();
-        await this.createVMManagers();
     }
 
     protected async getNextVMManager(tries: number = 0): Promise<VMManager> {
@@ -119,8 +128,7 @@ class RPCManager extends Logger {
             const contractAsString: ContractInformationAsString = {
                 blockHeight: contract.blockHeight.toString(),
                 contractAddress: contract.contractAddress.toString(),
-                virtualAddress: contract.virtualAddress.toString(),
-                p2trAddress: contract.p2trAddress ? contract.p2trAddress.toString() : null,
+                contractTweakedPublicKey: contract.contractTweakedPublicKey.toString(),
                 bytecode: contract.bytecode.toString('hex'),
                 wasCompressed: contract.wasCompressed,
                 deployedTransactionId: contract.deployedTransactionId,
@@ -128,7 +136,7 @@ class RPCManager extends Logger {
                 deployerPubKey: contract.deployerPubKey.toString('hex'),
                 contractSeed: contract.contractSeed.toString('hex'),
                 contractSaltHash: contract.contractSaltHash.toString('hex'),
-                deployerAddress: contract.deployerAddress.toString(),
+                deployerAddress: contract.deployerAddress.toHex(),
             };
 
             array.push(contractAsString);
@@ -137,17 +145,13 @@ class RPCManager extends Logger {
         return array;
     }
 
-    private convertEventsToArray(events: EvaluatedEvents): [string, [string, string, string][]][] {
-        const array: [string, [string, string, string][]][] = [];
+    private convertEventsToArray(events: EvaluatedEvents): [string, [string, string][]][] {
+        const array: [string, [string, string][]][] = [];
 
         for (const [key, value] of events) {
-            const innerArray: [string, string, string][] = [];
+            const innerArray: [string, string][] = [];
             for (const event of value) {
-                innerArray.push([
-                    event.eventType,
-                    event.eventDataSelector.toString(),
-                    Buffer.from(event.eventData).toString('hex'),
-                ]);
+                innerArray.push([event.type, Buffer.from(event.data).toString('hex')]);
             }
 
             array.push([key.toString(), innerArray]);
@@ -165,7 +169,7 @@ class RPCManager extends Logger {
                 innerArray.push([innerKey.toString(), innerValue.toString()]);
             }
 
-            array.push([key, innerArray]);
+            array.push([key.toHex(), innerArray]);
         }
 
         return array;
@@ -177,33 +181,30 @@ class RPCManager extends Logger {
         process.send(data);
     }
 
-    private async setBlockHeight(): Promise<void> {
-        try {
-            const blockHeight = await this.bitcoinRPC.getBlockHeight();
-            if (!blockHeight) {
-                throw new Error('Failed to get block height');
-            }
-
-            this.currentBlockHeight = BigInt(blockHeight.blockHeight + 1);
-            OPNetConsensus.setBlockHeight(this.currentBlockHeight);
-        } catch (e) {
-            this.error(`Failed to get block height. ${e}`);
+    private onBlockChange(blockHeight: bigint): void {
+        if (this.currentBlockHeight === blockHeight) {
+            return;
         }
 
-        setTimeout(() => {
-            void this.setBlockHeight();
-        }, 5000);
+        this.currentBlockHeight = blockHeight;
+        OPNetConsensus.setBlockHeight(this.currentBlockHeight);
+    }
+
+    private async setBlockHeight(): Promise<void> {
+        this.vmStorage.blockchainRepository.watchBlockChanges(this.onBlockChange.bind(this));
+
+        try {
+            const currentBlock = await this.bitcoinRPC.getBlockHeight();
+            this.onBlockChange(BigInt(currentBlock?.blockHeight || 0) + 1n);
+        } catch (e) {
+            this.error(`Failed to get current block height. ${e}`);
+        }
     }
 
     private async createVMManagers(): Promise<void> {
-        let vmStorage: VMStorage | undefined = undefined;
         for (let i = 0; i < this.CONCURRENT_VMS; i++) {
-            const vmManager: VMManager = new VMManager(Config, true, vmStorage);
+            const vmManager: VMManager = new VMManager(Config, true, this.vmStorage);
             await vmManager.init();
-
-            if (!vmStorage) {
-                vmStorage = vmManager.getVMStorage();
-            }
 
             this.vmManagers.push(vmManager);
         }
@@ -215,10 +216,12 @@ class RPCManager extends Logger {
             }
 
             Blockchain.purgeCached();
-        }, 30000);
+        }, 20000);
     }
 
-    private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
+    private async onCallRequest(
+        data: CallRequestData,
+    ): Promise<EvaluatedResult | CallRequestError | undefined> {
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.info(
                 `Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`,
@@ -231,12 +234,15 @@ class RPCManager extends Logger {
         try {
             return await vmManager.execute(
                 data.to,
-                data.from || BTC_FAKE_ADDRESS,
+                data.from ? Address.fromString(data.from) : BTC_FAKE_ADDRESS,
                 data.calldata,
                 data.blockNumber,
             );
         } catch (e) {
             const error = e as Error;
+            if (Config.DEV_MODE) {
+                this.error(`Failed to execute call request (subworker). ${error.stack}`);
+            }
 
             result = {
                 error: error.message || 'Unknown error',
@@ -247,4 +253,4 @@ class RPCManager extends Logger {
     }
 }
 
-new RPCManager();
+await new RPCManager().init();

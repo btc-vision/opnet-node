@@ -1,4 +1,4 @@
-import { Network, Signer } from 'bitcoinjs-lib';
+import { Network, Signer } from '@btc-vision/bitcoin';
 import { ECPairInterface } from 'ecpair';
 import fs from 'fs';
 import path from 'path';
@@ -10,7 +10,7 @@ import { OPNetBlockWitness } from '../networking/protobuf/packets/blockchain/com
 import { OPNetPathFinder } from './OPNetPathFinder.js';
 import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { EcKeyPair } from '@btc-vision/transaction';
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371.js';
+import { toXOnly } from '@btc-vision/bitcoin/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 
 export class OPNetIdentity extends OPNetPathFinder {
@@ -26,6 +26,8 @@ export class OPNetIdentity extends OPNetPathFinder {
 
     readonly #xPubKey: Buffer;
 
+    private readonly opnetWalletPubKeyBuffer: Buffer;
+
     public constructor(
         private readonly config: BtcIndexerConfig,
         private readonly currentAuthority: TrustedAuthority,
@@ -37,11 +39,13 @@ export class OPNetIdentity extends OPNetPathFinder {
         this.opnetWallet = this.loadOPNetWallet();
         this.deriveKey(this.opnetWallet.privateKey);
 
+        this.opnetWalletPubKeyBuffer = Buffer.from(this.opnetWallet.publicKey);
+
         this.opnetAuthKeyBin = this.loadOPNetAuthKeys();
         this.keyPair = this.restoreKeyPair(this.opnetAuthKeyBin);
 
         this.trustedIdentity = this.keyPairGenerator.opnetHash(this.keyPair.trusted.publicKey);
-        this.#xPubKey = toXOnly(this.opnetWallet.publicKey);
+        this.#xPubKey = toXOnly(Buffer.from(this.opnetWallet.publicKey));
     }
 
     public get peerType(): number {
@@ -72,7 +76,7 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public get pubKeyBase64(): string {
-        return this.opnetWallet.publicKey.toString('base64');
+        return this.publicKey.toString('base64');
     }
 
     public get xPubKey(): Buffer {
@@ -80,12 +84,12 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public get publicKey(): Buffer {
-        return this.opnetWallet.publicKey;
+        return this.opnetWalletPubKeyBuffer;
     }
 
     public get signedTrustedWalletConfirmation(): string {
         const signature: Buffer = this.keyPairGenerator.sign(
-            this.opnetWallet.publicKey,
+            this.opnetWalletPubKeyBuffer,
             this.keyPair.trusted.privateKey,
         );
 
@@ -102,6 +106,10 @@ export class OPNetIdentity extends OPNetPathFinder {
 
     public get segwitAddress(): string {
         return EcKeyPair.getP2WPKHAddress(this.opnetWallet, this.network);
+    }
+
+    public get pubKey(): string {
+        return '0x' + this.opnetWallet.publicKey.toString('hex');
     }
 
     public get opnetAddress(): string {
@@ -124,7 +132,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         return NetworkConverter.peerNetwork;
     }
 
-    public getSigner(): Signer {
+    public getSigner(): Signer | ECPairInterface {
         return this.opnetWallet;
     }
 
@@ -144,6 +152,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.keyPairGenerator.verifyChallenge(challenge, signature, pubKey);
     }
 
+    // PoC: Proof of Computational Acknowledgment
     public verifyAcknowledgment(data: Buffer, witness: OPNetBlockWitness): boolean {
         if (!data) return false;
         if (!witness.opnetPubKey) return false;
@@ -158,6 +167,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         );
     }
 
+    // PoV: Proof of Validation
     public verifyTrustedAcknowledgment(
         data: Buffer,
         witness: OPNetBlockWitness,

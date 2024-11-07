@@ -1,6 +1,6 @@
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { PSBTTypes } from '../psbt/PSBTTypes.js';
-import bitcoin, { Network, networks, Psbt } from 'bitcoinjs-lib';
+import bitcoin, { Network, networks, Psbt } from '@btc-vision/bitcoin';
 import { KnownPSBTObject } from '../psbt/PSBTTransactionVerifier.js';
 import { PsbtInput } from 'bip174/src/lib/interfaces.js';
 import { TransactionBuilder, TweakedTransaction } from '@btc-vision/transaction';

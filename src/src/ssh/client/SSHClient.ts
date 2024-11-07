@@ -2,6 +2,7 @@ import { Logger } from '@btc-vision/bsi-common';
 import ssh2, {
     AcceptConnection,
     AuthenticationType,
+    ClientErrorExtensions,
     ExecInfo,
     RejectConnection,
     ServerChannel,
@@ -12,10 +13,16 @@ import { Buffer } from 'buffer';
 import { timingSafeEqual } from 'node:crypto';
 import * as readline from 'node:readline';
 import figlet, { Fonts } from 'figlet';
-import { OPNetSysInfo } from './command/OPNetSysInfo.js';
-import { Command } from './command/Command.js';
+import { OPNetSysInfo } from './custom/OPNetSysInfo.js';
+import { CustomOperationCommand } from './custom/CustomOperationCommand.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { OPNetIdentity } from '../../poa/identity/OPNetIdentity.js';
+import { Commands, CommandsAliases, PossibleCommands } from './types/PossibleCommands.js';
+import { HelpCommand } from './commands/HelpCommand.js';
+import { Command } from './commands/Command.js';
+import { Config } from '../../config/Config.js';
+import { PeerInfoCommand } from './commands/PeerInfoCommand.js';
+import { SendMessageToThreadFunction } from '../../threading/thread/Thread.js';
 
 export class SSHClient extends Logger {
     public readonly logColor: string = '#c33ce8';
@@ -28,22 +35,29 @@ export class SSHClient extends Logger {
 
     private readonly allowedUsername: string = 'opnet';
     private isAuthorized: boolean = false;
-    private ptyInfo: ssh2.PseudoTtyOptions | undefined;
-    private windowSize: ssh2.WindowChangeInfo | undefined;
 
-    private opnetSysInfo: OPNetSysInfo = new OPNetSysInfo();
+    //private ptyInfo: ssh2.PseudoTtyOptions | undefined;
+    //private windowSize: ssh2.WindowChangeInfo | undefined;
 
-    private commands: Command[] = [this.opnetSysInfo];
+    private readonly commands: PossibleCommands;
+
+    private customCommands: CustomOperationCommand[] = [new OPNetSysInfo()];
 
     constructor(
         private readonly client: ssh2.Connection,
         private readonly clientInfo: ssh2.ClientInfo,
         private readonly sshConfig: SSHConfig,
         private readonly identity: OPNetIdentity,
+        private readonly sendMessageToThread: SendMessageToThreadFunction,
     ) {
         super();
 
         this.allowedKeys = this.loadPublicKeys();
+
+        this.commands = {
+            [Commands.HELP]: new HelpCommand(this.chalk, this.sendMessageToThread),
+            [Commands.PEER_INFO]: new PeerInfoCommand(this.chalk, this.sendMessageToThread),
+        };
 
         this.init();
     }
@@ -94,10 +108,6 @@ export class SSHClient extends Logger {
         throw new Error('Method not implemented.');
     }
 
-    public onAuthFailure(): void {
-        throw new Error('Method not implemented.');
-    }
-
     private loadPublicKeys(): ssh2.ParsedKey[] {
         const pubKeys: string[] = [this.sshConfig.PUBLIC_KEY];
 
@@ -128,13 +138,13 @@ export class SSHClient extends Logger {
     }
 
     private rejectAuth(ctx: ssh2.AuthContext): void {
-        this.warn(`Client authentication failed: ${ctx.method}`);
-
         ctx.reject(this.getUnusedAuthMethods(ctx.method as AuthMethods), false);
     }
 
     private onPasswordAuth(ctx: ssh2.PasswordAuthContext): void {
-        this.log('Client attempting password authentication');
+        if (Config.DEV_MODE) {
+            this.log('Client attempting password authentication');
+        }
 
         if (!this.sshConfig.PASSWORD) {
             this.rejectAuth(ctx);
@@ -245,11 +255,10 @@ export class SSHClient extends Logger {
     }
 
     private onReady(): void {
-        this.success('Client ready');
+        this.success(`Client connected from ${this.clientInfo.ip}`);
     }
 
     private onSession(accept: () => ssh2.Session, reject: () => void): void {
-        this.log(`Client session request. Is authorized: ${this.isAuthorized}`);
         if (!this.isAuthorized) {
             reject();
             return;
@@ -267,6 +276,7 @@ export class SSHClient extends Logger {
     }
 
     private disconnect(): void {
+        this.cli.close();
         this.client.end();
     }
 
@@ -275,29 +285,24 @@ export class SSHClient extends Logger {
             this._session = undefined;
         });
 
-        this.session.on('pty', (accept, reject, info) => {
-            this.info('Client pty request');
-
-            this.ptyInfo = info;
+        this.session.on('pty', (accept, _reject, _info) => {
+            //this.ptyInfo = info;
             this.setWindowSize();
 
             accept();
         });
 
-        this.session.on('subsystem', (accept, reject, info) => {
-            //console.log('subsystem', info);
-
+        this.session.on('subsystem', (_accept, reject, _info) => {
             reject();
         });
 
-        this.session.on('x11', (accept, reject, info) => {
+        this.session.on('x11', (accept, _reject, _info) => {
             accept();
-            //reject();
         });
 
-        this.session.on('window-change', (accept, reject, info) => {
+        this.session.on('window-change', (accept, reject, _info) => {
             if (this._shell) {
-                this.windowSize = info;
+                //this.windowSize = info;
                 this.setWindowSize();
 
                 if (typeof accept === 'function') {
@@ -308,7 +313,7 @@ export class SSHClient extends Logger {
             }
         });
 
-        this.session.on('shell', (accept, reject) => {
+        this.session.on('shell', (accept, _reject) => {
             if (this._shell && !this._shell.destroyed) {
                 this._shell.end();
             }
@@ -317,8 +322,8 @@ export class SSHClient extends Logger {
             this.onShellCreated();
         });
 
-        this.session.on('error', () => {
-            this.error('Session error');
+        this.session.on('error', (err: Error & ClientErrorExtensions) => {
+            this.error(`Session error ${err}`);
         });
 
         this.session.on('end', () => {
@@ -340,23 +345,33 @@ export class SSHClient extends Logger {
             this._cli.close();
         }
 
-        stdin.on('data', (data: Buffer) => {
+        /*stdin.on('data', (data: Buffer) => {
             if (data.toString().includes('\x03')) {
                 this.disconnect();
+
+                return;
             }
 
-            if (data[0] === 0x0d) {
+            const firstChar = data[0];
+            if (firstChar === 0x08) {
+                stdout.write('\b \b');
+                return;
+            } else if (firstChar === 0x0d) {
                 data = Buffer.from('\r\n', 'utf8');
             }
 
             stdout.write(data);
-        });
+        });*/
 
         this.setWindowSize();
 
-        this._cli = readline.createInterface({ input: stdin, output: stdout });
+        this._cli = readline.createInterface({ input: stdin, output: stdout, terminal: true });
+        this.cli.on('SIGINT', () => {
+            this.disconnect();
+        });
 
         this.cli.on('line', this.onCommand.bind(this));
+
         this.cli.on('SIGTSTP', this.onSIGTSTP.bind(this));
     }
 
@@ -408,8 +423,64 @@ export class SSHClient extends Logger {
         this.cli.prompt(true);
     }
 
-    private onCommand(line: string): void {
-        this.info(`Command: ${line}`);
+    private warnCommandNotFound(): void {
+        this.shell.stdout.write(
+            this.chalk.hex('#ff8c00')(
+                'Command not found. Type "help" for a list of available commands\r\n',
+            ),
+        );
+
+        this.cli.prompt(true);
+    }
+
+    private async onCommand(line: string): Promise<void> {
+        try {
+            const args: string[] = line.trim().split(' ');
+            const command: Commands | undefined = args.shift() as Commands | undefined;
+            if (!command) {
+                this.warnCommandNotFound();
+                return;
+            }
+
+            await this.executeCommand(command, args);
+        } catch (e) {
+            this.error(`Error executing command: ${(e as Error).stack}`);
+
+            this.shell.stdout.write(
+                this.chalk.hex('#ff1e00')(
+                    `Something went wrong while executing the command. Consult server log for details.\r\n`,
+                ),
+            );
+        }
+    }
+
+    private findCommand<T extends Commands>(command: T): Command<T> | undefined {
+        if (this.commands[command]) {
+            return this.commands[command];
+        }
+
+        const keys = Object.keys(CommandsAliases);
+        for (const cmd of keys) {
+            const commandObj = CommandsAliases[cmd as Commands];
+
+            if (commandObj.includes(command)) {
+                return this.commands[cmd as Commands] as Command<T>;
+            }
+        }
+
+        return;
+    }
+
+    private async executeCommand(command: Commands, args: string[]): Promise<void> {
+        command = command.toLowerCase() as Commands;
+
+        const cmd = this.findCommand(command);
+        if (!cmd) {
+            this.warnCommandNotFound();
+            return;
+        }
+
+        await cmd.execute(this.shell.stdout, args);
 
         this.cli.prompt(true);
     }
@@ -429,15 +500,20 @@ export class SSHClient extends Logger {
         );
 
         const currentBlockHeight = this.chalk.hex('#c868f8')(
-            `OPNet block height: ${this.chalk.underline.bold.hex('#ddadfc')(OPNetConsensus.getBlockHeight())}`,
+            `Block height: ${this.chalk.underline.bold.hex('#ddadfc')(OPNetConsensus.getBlockHeight())}`,
         );
 
-        const opnetAddress = this.chalk.hex('#68d6f8')(
-            `This node bitcoin address is ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.tapAddress)} (taproot) or ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.segwitAddress)} (segwit).`,
-        );
+        const opnetAddress = [
+            this.chalk.hex('#68d6f8')('This node Bitcoin addresses are:'),
+            `  - ${this.chalk.hex('#afe9fc').underline.bold(this.identity.pubKey)} (Public Key)`,
+            `  - ${this.chalk.hex('#afe9fc').underline.bold(this.identity.tapAddress)} (Taproot)`,
+            `  - ${this.chalk.hex('#afe9fc').underline.bold(this.identity.segwitAddress)} (Segwit)\r\n`,
+        ].join('\r\n');
+
         const opnetIdentifier = this.chalk.hex('#68d6f8')(
             `Your OPNet identity is ${this.chalk.underline.bold.hex('#afe9fc')(this.identity.opnetAddress)}.`,
         );
+
         const opnetTrustedCertificate = this.chalk.hex('#68d6f8')(
             `Your OPNet trusted certificate is\r\n\r\n${this.chalk.underline.bold.hex('#afe9fc')(this.identity.trustedPublicKey)}.`,
         );
@@ -474,10 +550,8 @@ export class SSHClient extends Logger {
         reject: RejectConnection,
         info: ExecInfo,
     ): void {
-        this.log(`Client request exec: ${info.command}`);
-
         const command = info.command;
-        for (const cmd of this.commands) {
+        for (const cmd of this.customCommands) {
             if (cmd.command === command) {
                 const accepted = accept();
 
@@ -489,9 +563,7 @@ export class SSHClient extends Logger {
         reject();
     }
 
-    private onGreeting(): void {
-        this.log('Client greeting');
-    }
+    private onGreeting(): void {}
 
     private listenEvents(): void {
         this.client.on('greeting', this.onGreeting.bind(this));
@@ -511,8 +583,6 @@ export class SSHClient extends Logger {
     }
 
     private init(): void {
-        this.log(`Client connected: ${this.clientInfo.ip}`);
-
         this.listenEvents();
     }
 }

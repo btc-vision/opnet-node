@@ -1,9 +1,8 @@
 import { Binary, Long } from 'mongodb';
-import { Address } from '@btc-vision/bsi-binary';
 
 export interface ShortScriptPubKey {
     readonly hex: Binary;
-    readonly address: Address | null;
+    readonly address: string | null;
 }
 
 export interface IUnspentTransaction {

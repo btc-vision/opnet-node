@@ -1,11 +1,14 @@
 import { ExecutionParameters } from '../types/InternalContractCallParameters.js';
 import {
     Address,
+    AddressMap,
     BinaryReader,
-    BlockchainStorage,
     DeterministicMap,
+    MemorySlotData,
+    MemorySlotPointer,
     NetEvent,
-} from '@btc-vision/bsi-binary';
+    PointerStorage,
+} from '@btc-vision/transaction';
 import {
     BlockchainStorageMap,
     EvaluatedEvents,
@@ -14,13 +17,13 @@ import {
 } from '../../evaluated/EvaluatedResult.js';
 import { MapConverter } from '../MapConverter.js';
 import { GasTracker } from '../GasTracker.js';
-import { MemorySlotData, MemorySlotPointer } from '@btc-vision/bsi-binary/src/buffer/types/math.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import {ZERO_HASH} from "../../../blockchain-indexer/processor/block/types/ZeroValue.js";
+import { ZERO_HASH } from '../../../blockchain-indexer/processor/block/types/ZeroValue.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
+    public readonly contractAddressStr: string;
 
     public readonly calldata: Uint8Array;
     public readonly msgSender: Address;
@@ -34,7 +37,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public modifiedStorage: BlockchainStorageMap | undefined;
 
-    public events: EvaluatedEvents = new Map();
+    public events: EvaluatedEvents = new AddressMap();
 
     public result: Uint8Array | undefined;
     public readonly gasTracker: GasTracker;
@@ -45,7 +48,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly transactionId: string;
     public readonly transactionHash: string | null;
 
-    public readonly storage: BlockchainStorage;
+    public readonly storage: AddressMap<PointerStorage>;
     public readonly deployedContracts: ContractInformation[];
 
     public callStack: Address[];
@@ -56,6 +59,8 @@ export class ContractEvaluation implements ExecutionParameters {
 
     constructor(params: ExecutionParameters) {
         this.contractAddress = params.contractAddress;
+        this.contractAddressStr = params.contractAddressStr;
+
         this.calldata = params.calldata;
         this.msgSender = params.msgSender;
         this.txOrigin = params.txOrigin;
@@ -124,7 +129,7 @@ export class ContractEvaluation implements ExecutionParameters {
     }
 
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
-        const current =
+        const current: PointerStorage =
             this.storage.get(this.contractAddress) ||
             new DeterministicMap((a: bigint, b: bigint) => {
                 return BinaryReader.bigintCompare(a, b);
@@ -177,7 +182,7 @@ export class ContractEvaluation implements ExecutionParameters {
             throw new Error('execution reverted (merge)');
         }
 
-        if (extern.contractAddress === this.contractAddress) {
+        if (extern.contractAddress.equals(this.contractAddress)) {
             throw new Error('Cannot call self');
         }
 
@@ -215,10 +220,10 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public getEvaluationResult(): EvaluatedResult {
         const modifiedStorage: BlockchainStorageMap | undefined = this.revert
-            ? new Map()
+            ? new AddressMap()
             : this.modifiedStorage;
 
-        const events = this.revert ? new Map() : this.events;
+        const events: AddressMap<NetEvent[]> = this.revert ? new AddressMap() : this.events;
         const result = this.revert ? new Uint8Array(1) : this.result;
         const deployedContracts = this.revert ? [] : this.deployedContracts;
 
@@ -256,7 +261,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     private mergeEvents(events: EvaluatedEvents): void {
         if (!this.events) {
-            this.events = new Map();
+            this.events = new AddressMap();
         }
 
         for (const [key, value] of events) {
@@ -271,7 +276,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     private mergeStorage(storage: BlockchainStorageMap): void {
         if (!this.modifiedStorage) {
-            this.modifiedStorage = new Map();
+            this.modifiedStorage = new AddressMap();
         }
 
         for (const [key, value] of storage) {

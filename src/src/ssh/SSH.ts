@@ -1,6 +1,5 @@
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { BtcIndexerConfig } from '../config/BtcIndexerConfig.js';
-import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
 import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { MessageType } from '../threading/enum/MessageType.js';
 import { ThreadData } from '../threading/interfaces/ThreadData.js';
@@ -18,6 +17,8 @@ import { OPNetIdentity } from '../poa/identity/OPNetIdentity.js';
 import { AuthorityManager } from '../poa/configurations/manager/AuthorityManager.js';
 import { P2PVersion } from '../poa/configurations/P2PVersion.js';
 import { TrustedAuthority } from '../poa/configurations/manager/TrustedAuthority.js';
+import fs from 'fs';
+import { SendMessageToThreadFunction } from '../threading/thread/Thread.js';
 
 const chalk = new Chalk({ level: 3 });
 
@@ -32,15 +33,20 @@ export class SSH extends Logger {
     private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
 
     private readonly identity: OPNetIdentity;
+    private hostKey: string | undefined;
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getAuthority(P2PVersion);
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
 
-    constructor(private readonly config: BtcIndexerConfig) {
+    constructor(
+        private readonly sendMessageToThread: SendMessageToThreadFunction,
+        private readonly config: BtcIndexerConfig,
+    ) {
         super();
 
         this.identity = new OPNetIdentity(this.config, this.currentAuthority);
+        this.generateHostKey();
     }
 
     private _ssh2: ssh2.Server | undefined;
@@ -60,13 +66,6 @@ export class SSH extends Logger {
 
         return this.#blockchainInformationRepository;
     }
-
-    public sendMessageToThread: (
-        threadType: ThreadTypes,
-        m: ThreadMessageBase<MessageType>,
-    ) => Promise<ThreadData | null> = () => {
-        throw new Error('sendMessageToThread not implemented.');
-    };
 
     public async init(): Promise<void> {
         this.log(`Starting SSH...`);
@@ -106,19 +105,26 @@ export class SSH extends Logger {
         );
     }
 
-    private getHostKeys(): string[] {
-        const keys = ssh2.utils.generateKeyPairSync('ed25519');
-        const keys2 = ssh2.utils.generateKeyPairSync('ecdsa', {
-            bits: 256,
-            comment: 'node.js rules!',
-        });
+    private saveHostKey(): void {
+        if (!this.hostKey) {
+            throw new Error('Host key not generated');
+        }
 
-        const rsa = ssh2.utils.generateKeyPairSync('rsa', {
-            bits: 2048,
-            cipher: 'aes256-cbc',
-        });
+        fs.writeFileSync('./bin/host.bin', this.hostKey, { encoding: 'utf-8' });
+    }
 
-        return [keys.private, keys2.private, rsa.private];
+    private generateHostKey(): void {
+        if (fs.existsSync('./bin/host.bin')) {
+            try {
+                this.hostKey = fs.readFileSync('./bin/host.bin', { encoding: 'utf-8' });
+            } catch {
+                this.panic(`Failed to read host key. Aborting...`);
+            }
+        } else {
+            this.hostKey = ssh2.utils.generateKeyPairSync('ed25519').private;
+
+            this.saveHostKey();
+        }
     }
 
     private notifyArt(
@@ -171,8 +177,14 @@ export class SSH extends Logger {
     }
 
     private ssh2Configs(): ServerConfig {
+        if (!this.hostKey) {
+            this.panic(`Host key not found for SSH server. Aborting...`);
+
+            throw new Error('Host key not found');
+        }
+
         return {
-            hostKeys: this.getHostKeys(),
+            hostKeys: [this.hostKey],
             keepaliveInterval: 5000,
             banner: this.banner,
             ident: 'OPNet 1.0.0',
@@ -220,14 +232,19 @@ export class SSH extends Logger {
                 ],
                 compress: ['zlib', 'zlib@openssh.com', 'none'],
             },
-            debug: (message) => {
-                //this.debug(message);
-            },
+            debug: () => {},
         };
     }
 
     private addClient(client: ssh2.Connection, info: ssh2.ClientInfo): void {
-        const sshClient = new SSHClient(client, info, this.config.SSH, this.identity);
+        const sshClient = new SSHClient(
+            client,
+            info,
+            this.config.SSH,
+            this.identity,
+            this.sendMessageToThread,
+        );
+
         sshClient.onDisconnect = () => {
             this.removeClient(client);
         };
@@ -259,7 +276,7 @@ export class SSH extends Logger {
     }
 
     private async createSSHServer(): Promise<void> {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             this._ssh2 = new ssh2.Server(this.ssh2Configs());
 
             this.ssh2.listen(this.config.SSH.PORT, this.config.SSH.HOST, () => {

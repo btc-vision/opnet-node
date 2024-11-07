@@ -1,5 +1,5 @@
 import { NetworkAuthorityConfiguration } from '../../../types/TrustedPublicKeys.js';
-import { TrustedCompanies } from '../../../TrustedCompanies.js';
+import { TrustedEntities } from '../../../TrustedEntities.js';
 
 export const SignetTrustedKeys001: NetworkAuthorityConfiguration = {
     /** Minimum different trusted validators */
@@ -15,7 +15,7 @@ export const SignetTrustedKeys001: NetworkAuthorityConfiguration = {
     maximumValidatorPerTrustedEntities: 3,
 
     trusted: {
-        [TrustedCompanies.OPNet]: {
+        [TrustedEntities.OPNet]: {
             keys: [],
         },
     },

@@ -36,7 +36,7 @@ export class MempoolThread extends Thread<ThreadTypes.MEMPOOL> {
             case ThreadTypes.API: {
                 return await this.handleRequest(m);
             }
-            case ThreadTypes.POA: {
+            case ThreadTypes.P2P: {
                 return await this.handleRequest(m);
             }
             default: {

@@ -62,7 +62,7 @@ class BlockchainIndexerManager extends ThreadManager<ThreadTypes.INDEXER> {
     }
 
     protected async createLinkBetweenThreads(): Promise<void> {
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.P2P);
     }
 
     protected async init(): Promise<void> {

@@ -1,60 +1,59 @@
-import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
+import { defaultAbiCoder } from '@ethersproject/abi';
+import { arrayify as toBytes } from '@ethersproject/bytes';
+import { Address, AddressMap } from '@btc-vision/transaction';
+import { BTC_FAKE_ADDRESS } from '../types/ZeroValue.js';
+import { MerkleTree as RustMerkleTree, safeInitRust } from '@btc-vision/rust-merkle-tree';
+
+safeInitRust();
 
 export abstract class MerkleTree<K, V> {
-    protected tree: StandardMerkleTree<[Buffer, Buffer]> | undefined;
-    protected readonly values: Map<string, Map<K, V>> = new Map();
+    public static readonly DUMMY_ADDRESS_NON_EXISTENT: Address = BTC_FAKE_ADDRESS;
+
+    public readonly values: AddressMap<Map<K, V>> = new AddressMap();
 
     protected valueChanged: boolean = false;
     protected frozen: boolean = false;
-
-    protected readonly DUMMY_ADDRESS_NON_EXISTENT = 'bc1dead';
 
     private readonly MINIMUM_VALUES = 2; // To generate a tree, we need at least 2 values
 
     protected constructor(protected readonly treeType: [string, string]) {}
 
-    get root(): string {
-        if (!this.tree) {
+    public get root(): string {
+        return this.tree.rootHex();
+    }
+
+    protected _tree: RustMerkleTree | undefined;
+
+    private get tree(): RustMerkleTree {
+        if (!this._tree) {
             throw new Error('Merkle tree not generated');
         }
 
-        return this.tree.root;
+        return this._tree;
     }
 
-    public static verify(
-        root: string,
-        type: [string, string],
-        value: Buffer[] | Uint8Array[],
-        proof: string[],
-    ): boolean {
-        return StandardMerkleTree.verify(root, type, value, proof);
+    public toBytes(value: unknown[]): Uint8Array {
+        const data = defaultAbiCoder.encode(this.treeType, value);
+        return toBytes(data);
+    }
+
+    public getProofHashes(data: Buffer[]): Array<string> {
+        return this.tree.getProof(this.tree.getIndexData(this.toBytes(data))).proofHashesHex();
     }
 
     public size(): number {
         return this.values.size;
     }
 
-    public validate(): void {
-        if (!this.tree) {
-            throw new Error('Merkle tree not generated');
-        }
-
-        if (this.countValues() < this.MINIMUM_VALUES) {
-            throw new Error('Not enough values to generate a tree');
-        }
-
-        this.tree.validate();
-    }
-
-    public abstract getValue(address: string, key: K): V | undefined;
+    public abstract getValue(address: Address, key: K): V | undefined;
 
     public abstract getValueWithProofs(
-        address: string,
+        address: Address,
         key: K,
     ): [V | Uint8Array, string[]] | undefined;
 
     public hasTree(): boolean {
-        return !!this.tree;
+        return !!this._tree;
     }
 
     public generateTree(regeneratedIfValueChanged: boolean = true): void {
@@ -66,21 +65,19 @@ export abstract class MerkleTree<K, V> {
             return;
         }
 
-        if (this.tree && !this.valueChanged && !regeneratedIfValueChanged) {
+        if (this._tree && !this.valueChanged && !regeneratedIfValueChanged) {
             return;
         }
 
         const values = this.getValues();
-        this.tree = StandardMerkleTree.of<[Buffer, Buffer]>(values, this.treeType, {
-            sortLeaves: true,
-        });
+        this._tree = new RustMerkleTree(values.map((l) => this.toBytes(l)));
 
         this.valueChanged = false;
     }
 
-    public abstract getValuesWithProofs(address: string): Map<K, [V, string[]]>;
+    public abstract getValuesWithProofs(address: Address): Map<K, [V, string[]]>;
 
-    public abstract getEverythingWithProofs(): Map<string, Map<K, [V, string[]]>> | undefined;
+    public abstract getEverythingWithProofs(): AddressMap<Map<K, [V, string[]]>> | undefined;
 
     public freeze(): void {
         if (this.countValues() < this.MINIMUM_VALUES) {
@@ -110,19 +107,19 @@ export abstract class MerkleTree<K, V> {
         this.frozen = true;
     }
 
-    public getData(): Map<string, Map<K, V>> {
+    /*public getData(): AddressMap<Map<K, V>> {
         return this.values;
-    }
+    }*/
 
-    public abstract getProofs(): Map<string, Map<K, string[]>>;
+    public abstract getProofs(): AddressMap<Map<K, string[]>>;
 
-    public abstract updateValue(address: string, key: K, val: V): void;
+    public abstract updateValue(address: Address, key: K, val: V): void;
 
-    public abstract updateValues(address: string, val: Map<K, V>): void;
+    public abstract updateValues(address: Address, val: Map<K, V>): void;
 
     public abstract getValues(): [Buffer, Buffer][];
 
-    protected abstract getDummyValues(): Map<string, Map<K, V>>;
+    protected abstract getDummyValues(): AddressMap<Map<K, V>>;
 
     private countValues(): number {
         let count = 0;

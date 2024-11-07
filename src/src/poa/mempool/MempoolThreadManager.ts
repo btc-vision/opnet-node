@@ -60,7 +60,7 @@ export class MempoolThreadManager extends ThreadManager<ThreadTypes.MEMPOOL> {
 
     protected async createLinkBetweenThreads(): Promise<void> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.P2P);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL_MANAGER);
     }

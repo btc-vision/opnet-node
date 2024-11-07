@@ -17,6 +17,7 @@ import {
     TransactionReceiptResultAPI,
 } from '../../../../json-rpc/types/interfaces/results/transactions/TransactionReceiptResult.js';
 import { Route } from '../../../Route.js';
+import { Address } from '@btc-vision/transaction';
 
 export class TransactionReceipt extends Route<
     Routes.TRANSACTION_RECEIPT,
@@ -99,8 +100,8 @@ export class TransactionReceipt extends Route<
         data: ITransactionDocument<OPNetTransactionTypes>,
     ): TransactionReceiptResult {
         if (
-            data.OPNetType !== OPNetTransactionTypes.Interaction &&
-            data.OPNetType !== OPNetTransactionTypes.WrapInteraction
+            data.OPNetType !== OPNetTransactionTypes.Interaction //&&
+            //data.OPNetType !== OPNetTransactionTypes.WrapInteraction
         ) {
             return this.buildEmptyReceipt();
         }
@@ -121,11 +122,15 @@ export class TransactionReceipt extends Route<
 
     private restoreEvents(events: NetEventDocument[]): EventReceiptDataForAPI[] {
         return events.map((event: NetEventDocument): EventReceiptDataForAPI => {
+            const contractAddress: Address =
+                'p2tr' in event.contractAddress
+                    ? event.contractAddress
+                    : new Address(event.contractAddress.buffer);
+
             return {
-                contractAddress: event.contractAddress,
-                eventType: event.eventType,
-                eventDataSelector: DataConverter.fromDecimal128(event.eventDataSelector).toString(),
-                eventData: event.eventData.toString('base64'),
+                contractAddress: contractAddress.p2tr(this.network),
+                type: event.type,
+                data: event.data.toString('base64'),
             };
         });
     }

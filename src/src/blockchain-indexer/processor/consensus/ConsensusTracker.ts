@@ -47,7 +47,7 @@ export class ConsensusTracker extends Logger {
             }
 
             return false;
-        } catch (e) {
+        } catch {
             return true;
         }
     }

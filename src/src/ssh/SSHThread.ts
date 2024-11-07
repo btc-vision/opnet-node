@@ -9,10 +9,12 @@ import { SSH } from './SSH.js';
 export class SSHThread extends Thread<ThreadTypes.SSH> {
     public readonly threadType: ThreadTypes.SSH = ThreadTypes.SSH;
 
-    private ssh: SSH = new SSH(Config);
+    private ssh: SSH;
 
     constructor() {
         super();
+
+        this.ssh = new SSH(this.sendMessageToThread.bind(this), Config);
 
         this.init();
     }
@@ -20,8 +22,6 @@ export class SSHThread extends Thread<ThreadTypes.SSH> {
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected init(): void {
-        this.ssh.sendMessageToThread = this.sendMessageToThread.bind(this);
-
         /**
          * Make sure that other threads are setup before starting PoA.
          */

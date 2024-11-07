@@ -103,7 +103,9 @@ export class ChainObserver extends Logger {
         await this.sync();
 
         // Set initial consensus from database.
-        this.consensusTracker.setConsensusBlockHeight(this.pendingTaskHeight);
+        if (this.consensusTracker.setConsensusBlockHeight(this.pendingTaskHeight)) {
+            throw new Error('Consensus block height not set.');
+        }
     }
 
     public notifyBlockProcessed: (block: BlockProcessedData) => Promise<void> = () => {
@@ -130,7 +132,10 @@ export class ChainObserver extends Logger {
             this.setNewHeight(fromHeight),
         ]);
 
-        this.consensusTracker.setConsensusBlockHeight(fromHeight);
+        if (this.consensusTracker.setConsensusBlockHeight(fromHeight)) {
+            throw new Error('Consensus block height not set.');
+        }
+
         this.targetBlockHeight = blockHeight;
         this.nextBestTip = fromHeight;
 
@@ -156,7 +161,9 @@ export class ChainObserver extends Logger {
         this.blockchainRepository.watchBlockChanges(async (blockHeight: bigint) => {
             this.info(`Block change detected: ${blockHeight}`);
 
-            this.consensusTracker.setConsensusBlockHeight(blockHeight);
+            if (this.consensusTracker.setConsensusBlockHeight(blockHeight)) {
+                throw new Error('Consensus block height not set.');
+            }
 
             const currentBlock = await this.vmStorage.getBlockHeader(blockHeight);
             if (!currentBlock) {

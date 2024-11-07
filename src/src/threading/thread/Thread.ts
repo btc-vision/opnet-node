@@ -18,6 +18,11 @@ import fs from 'fs';
 const genRanHex = (size: number) =>
     [...(Array(size) as number[])].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
+export type SendMessageToThreadFunction = (
+    threadType: ThreadTypes,
+    m: ThreadMessageBase<MessageType>,
+) => Promise<ThreadData | null>;
+
 export abstract class Thread<T extends ThreadTypes> extends Logger implements IThread<T> {
     public abstract readonly threadType: T;
 

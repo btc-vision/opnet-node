@@ -25,25 +25,19 @@ import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
-import {
-    BlockchainStorageMap,
-    EvaluatedEvents,
-    PointerStorageMap,
-} from '../../../vm/evaluated/EvaluatedResult.js';
-import { Address, NetEvent } from '@btc-vision/bsi-binary';
+import { PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
+import { NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
 import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
 
-    private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC(1000, false);
+    private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC(1500, false);
     private readonly vmStorage: VMMongoStorage = new VMMongoStorage(Config);
 
     private blockHeaderValidator: BlockHeaderValidator;
-    private currentBlockHeight: bigint = 0n;
 
     private readonly rpcSubWorkerManager: RPCSubWorkerManager = new RPCSubWorkerManager();
 
@@ -60,9 +54,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     protected async init(): Promise<void> {
         await this.vmStorage.init();
-
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
-        await this.setBlockHeight();
 
         this.rpcSubWorkerManager.startWorkers();
     }
@@ -80,7 +72,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             case ThreadTypes.INDEXER: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
-            case ThreadTypes.POA: {
+            case ThreadTypes.P2P: {
                 return await this.processAPIMessage(m as RPCMessage<BitcoinRPCThreadMessageType>);
             }
             case ThreadTypes.MEMPOOL: {
@@ -92,68 +84,50 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         }
     }
 
-    private async setBlockHeight(): Promise<void> {
-        try {
-            const blockHeight = await this.bitcoinRPC.getBlockHeight();
-            if (!blockHeight) {
-                throw new Error('Failed to get block height');
-            }
-
-            this.currentBlockHeight = BigInt(blockHeight.blockHeight + 1);
-            OPNetConsensus.setBlockHeight(this.currentBlockHeight);
-        } catch (e) {
-            this.error(`Failed to get block height. ${e}`);
-        }
-
-        setTimeout(() => {
-            void this.setBlockHeight();
-        }, 1000);
-    }
-
     private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
         const response = (await this.rpcSubWorkerManager.resolve(data, 'call')) as
-            | (Omit<CallRequestResponse, 'response'> & {
+            | {
                   result: string | Uint8Array;
-              })
+                  changedStorage: [string, [string, string][]][] | null;
+                  gasUsed: string | null;
+                  events: [string, [string, string][]][];
+              }
+            | {
+                  error: string;
+              }
             | undefined;
 
         if (!response) {
             return;
         }
 
-        if (response && !('error' in response)) {
-            if (typeof response.result === 'string') {
-                response.result = Uint8Array.from(Buffer.from(response.result, 'hex'));
-            }
-
-            // @ts-expect-error - TODO: Fix this.
-            response.gasUsed = response.gasUsed ? BigInt(response.gasUsed as string) : null;
-
-            // @ts-expect-error - TODO: Fix this.
-            response.changedStorage = response.changedStorage
-                ? // @ts-expect-error - TODO: Fix this.
-                  this.convertArrayToMap(response.changedStorage as [string, [string, string][]][])
-                : null;
-
-            // @ts-expect-error - TODO: Fix this.
-            response.events = response.events
-                ? this.convertArrayEventsToEvents(
-                      // @ts-expect-error - TODO: Fix this.
-                      response.events as [string, [string, string, string][]][],
-                  )
-                : null;
-
-            // @ts-expect-error - TODO: Fix this.
-            response.deployedContracts = [];
+        if (!('error' in response)) {
+            return {
+                ...response,
+                changedStorage: response.changedStorage
+                    ? this.convertArrayToMap(response.changedStorage)
+                    : undefined,
+                gasUsed: response.gasUsed ? BigInt(response.gasUsed) : 0n,
+                events: response.events
+                    ? this.convertArrayEventsToEvents(response.events)
+                    : undefined,
+                result:
+                    typeof response.result === 'string'
+                        ? Uint8Array.from(Buffer.from(response.result, 'hex'))
+                        : response.result,
+                deployedContracts: [],
+            };
+        } else {
+            return {
+                error: response.error,
+            };
         }
-
-        return response as unknown as CallRequestResponse;
     }
 
     private convertArrayEventsToEvents(
-        array: [string, [string, string, string][]][],
-    ): EvaluatedEvents {
-        const map: EvaluatedEvents = new Map<Address, NetEvent[]>();
+        array: [string, [string, string][]][],
+    ): Map<string, NetEvent[]> {
+        const map: Map<string, NetEvent[]> = new Map<string, NetEvent[]>();
 
         for (const [key, value] of array) {
             const events: NetEvent[] = [];
@@ -162,8 +136,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 const innerValue = value[i];
                 const event: NetEvent = new NetEvent(
                     innerValue[0],
-                    BigInt(innerValue[1]),
-                    Uint8Array.from(Buffer.from(innerValue[2], 'hex')),
+                    Uint8Array.from(Buffer.from(innerValue[1], 'hex')),
                 );
 
                 events.push(event);
@@ -175,8 +148,10 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         return map;
     }
 
-    private convertArrayToMap(array: [string, [string, string][]][]): BlockchainStorageMap {
-        const map: BlockchainStorageMap = new Map<string, PointerStorageMap>();
+    private convertArrayToMap(
+        array: [string, [string, string][]][],
+    ): Map<string, PointerStorageMap> {
+        const map: Map<string, PointerStorageMap> = new Map<string, PointerStorageMap>();
 
         for (const [key, value] of array) {
             const innerMap: PointerStorageMap = new Map<bigint, bigint>();
@@ -296,7 +271,17 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             }
 
             case BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE: {
-                return await this.broadcastTransaction(message.data as BroadcastRequest);
+                try {
+                    return await this.broadcastTransaction(message.data as BroadcastRequest);
+                } catch (e) {
+                    this.error(`Error broadcasting transaction: ${e}`);
+
+                    return {
+                        success: false,
+                        error: 'Error broadcasting transaction',
+                        identifier: 0n,
+                    };
+                }
             }
 
             default:
