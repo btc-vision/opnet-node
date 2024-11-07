@@ -56,7 +56,6 @@ export class HelpCommand extends Command<Commands.HELP> {
 
     private writeHelpMessageWithAllAvailableCommands(cli: Channel): void {
         const message: string[] = [
-            '\n\r',
             this.chalk.whiteBright(`List Available commands:`),
             `----------------------------------------`,
         ];
