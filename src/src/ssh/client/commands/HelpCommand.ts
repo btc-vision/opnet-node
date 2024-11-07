@@ -56,6 +56,7 @@ export class HelpCommand extends Command<Commands.HELP> {
 
     private writeHelpMessageWithAllAvailableCommands(cli: Channel): void {
         const message: string[] = [
+            '\r\n',
             this.chalk.whiteBright(`List Available commands:`),
             `----------------------------------------`,
         ];
@@ -76,6 +77,6 @@ export class HelpCommand extends Command<Commands.HELP> {
             }
         }
 
-        cli.write(message.join('\n\r') + '\n\r\n\r');
+        cli.write(message.join('\r\n') + '\r\n\r\n');
     }
 }

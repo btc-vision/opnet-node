@@ -20,6 +20,7 @@ import { OPNetIdentity } from '../../poa/identity/OPNetIdentity.js';
 import { Commands, CommandsAliases, PossibleCommands } from './types/PossibleCommands.js';
 import { HelpCommand } from './commands/HelpCommand.js';
 import { Command } from './commands/Command.js';
+import { Config } from '../../config/Config.js';
 
 export class SSHClient extends Logger {
     public readonly logColor: string = '#c33ce8';
@@ -139,7 +140,9 @@ export class SSHClient extends Logger {
     }
 
     private onPasswordAuth(ctx: ssh2.PasswordAuthContext): void {
-        this.log('Client attempting password authentication');
+        if (Config.DEV_MODE) {
+            this.log('Client attempting password authentication');
+        }
 
         if (!this.sshConfig.PASSWORD) {
             this.rejectAuth(ctx);
@@ -250,7 +253,7 @@ export class SSHClient extends Logger {
     }
 
     private onReady(): void {
-        this.success('Client ready');
+        this.success(`Client connected from ${this.clientInfo.ip}`);
     }
 
     private onSession(accept: () => ssh2.Session, reject: () => void): void {
