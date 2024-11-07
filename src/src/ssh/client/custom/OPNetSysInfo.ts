@@ -1,10 +1,10 @@
-import { Command } from './Command.js';
+import { CustomOperationCommand } from './CustomOperationCommand.js';
 import { P2PVersion } from '../../../poa/configurations/P2PVersion.js';
 import * as os from 'node:os';
 
 const startedAt: number = Date.now();
 
-export class OPNetSysInfo extends Command {
+export class OPNetSysInfo extends CustomOperationCommand {
     public readonly version: string = P2PVersion;
     public readonly name: string = 'OPNetSysInfo';
     public readonly command: string =

@@ -2,6 +2,7 @@ import { Logger } from '@btc-vision/bsi-common';
 import ssh2, {
     AcceptConnection,
     AuthenticationType,
+    ClientErrorExtensions,
     ExecInfo,
     RejectConnection,
     ServerChannel,
@@ -12,10 +13,13 @@ import { Buffer } from 'buffer';
 import { timingSafeEqual } from 'node:crypto';
 import * as readline from 'node:readline';
 import figlet, { Fonts } from 'figlet';
-import { OPNetSysInfo } from './command/OPNetSysInfo.js';
-import { Command } from './command/Command.js';
+import { OPNetSysInfo } from './custom/OPNetSysInfo.js';
+import { CustomOperationCommand } from './custom/CustomOperationCommand.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { OPNetIdentity } from '../../poa/identity/OPNetIdentity.js';
+import { Commands, CommandsAliases, PossibleCommands } from './types/PossibleCommands.js';
+import { HelpCommand } from './commands/HelpCommand.js';
+import { Command } from './commands/Command.js';
 
 export class SSHClient extends Logger {
     public readonly logColor: string = '#c33ce8';
@@ -28,12 +32,15 @@ export class SSHClient extends Logger {
 
     private readonly allowedUsername: string = 'opnet';
     private isAuthorized: boolean = false;
+
     private ptyInfo: ssh2.PseudoTtyOptions | undefined;
     private windowSize: ssh2.WindowChangeInfo | undefined;
 
-    private opnetSysInfo: OPNetSysInfo = new OPNetSysInfo();
+    private commands: PossibleCommands = {
+        [Commands.HELP]: new HelpCommand(this.chalk),
+    };
 
-    private commands: Command[] = [this.opnetSysInfo];
+    private customCommands: CustomOperationCommand[] = [new OPNetSysInfo()];
 
     constructor(
         private readonly client: ssh2.Connection,
@@ -128,8 +135,6 @@ export class SSHClient extends Logger {
     }
 
     private rejectAuth(ctx: ssh2.AuthContext): void {
-        this.warn(`Client authentication failed: ${ctx.method}`);
-
         ctx.reject(this.getUnusedAuthMethods(ctx.method as AuthMethods), false);
     }
 
@@ -249,7 +254,6 @@ export class SSHClient extends Logger {
     }
 
     private onSession(accept: () => ssh2.Session, reject: () => void): void {
-        this.log(`Client session request. Is authorized: ${this.isAuthorized}`);
         if (!this.isAuthorized) {
             reject();
             return;
@@ -267,6 +271,7 @@ export class SSHClient extends Logger {
     }
 
     private disconnect(): void {
+        this.cli.close();
         this.client.end();
     }
 
@@ -276,8 +281,6 @@ export class SSHClient extends Logger {
         });
 
         this.session.on('pty', (accept, reject, info) => {
-            this.info('Client pty request');
-
             this.ptyInfo = info;
             this.setWindowSize();
 
@@ -285,14 +288,11 @@ export class SSHClient extends Logger {
         });
 
         this.session.on('subsystem', (accept, reject, info) => {
-            //console.log('subsystem', info);
-
             reject();
         });
 
         this.session.on('x11', (accept, reject, info) => {
             accept();
-            //reject();
         });
 
         this.session.on('window-change', (accept, reject, info) => {
@@ -317,8 +317,8 @@ export class SSHClient extends Logger {
             this.onShellCreated();
         });
 
-        this.session.on('error', () => {
-            this.error('Session error');
+        this.session.on('error', (err: Error & ClientErrorExtensions) => {
+            this.error(`Session error ${err}`);
         });
 
         this.session.on('end', () => {
@@ -340,23 +340,33 @@ export class SSHClient extends Logger {
             this._cli.close();
         }
 
-        stdin.on('data', (data: Buffer) => {
+        /*stdin.on('data', (data: Buffer) => {
             if (data.toString().includes('\x03')) {
                 this.disconnect();
+
+                return;
             }
 
-            if (data[0] === 0x0d) {
+            const firstChar = data[0];
+            if (firstChar === 0x08) {
+                stdout.write('\b \b');
+                return;
+            } else if (firstChar === 0x0d) {
                 data = Buffer.from('\r\n', 'utf8');
             }
 
             stdout.write(data);
-        });
+        });*/
 
         this.setWindowSize();
 
-        this._cli = readline.createInterface({ input: stdin, output: stdout });
+        this._cli = readline.createInterface({ input: stdin, output: stdout, terminal: true });
+        this.cli.on('SIGINT', () => {
+            this.disconnect();
+        });
 
         this.cli.on('line', this.onCommand.bind(this));
+
         this.cli.on('SIGTSTP', this.onSIGTSTP.bind(this));
     }
 
@@ -408,8 +418,62 @@ export class SSHClient extends Logger {
         this.cli.prompt(true);
     }
 
-    private onCommand(line: string): void {
-        this.info(`Command: ${line}`);
+    private warnCommandNotFound(): void {
+        this.shell.stdout.write(
+            this.chalk.hex('#ff8c00')(
+                'Command not found. Type "help" for a list of available commands\r\n',
+            ),
+        );
+
+        this.cli.prompt(true);
+    }
+
+    private async onCommand(line: string): Promise<void> {
+        try {
+            const args: string[] = line.trim().split(' ');
+            const command: Commands | undefined = args.shift() as Commands | undefined;
+            if (!command) {
+                this.warnCommandNotFound();
+                return;
+            }
+
+            await this.executeCommand(command, args);
+        } catch (e) {
+            this.error(`Error executing command: ${(e as Error).stack}`);
+
+            this.shell.stdout.write(
+                this.chalk.hex('#ff1e00')(
+                    `Something went wrong while executing the command. Consult server log for details.\r\n`,
+                ),
+            );
+        }
+    }
+
+    private findCommand<T extends Commands>(command: T): Command<T> | undefined {
+        if (this.commands[command as Commands]) {
+            return this.commands[command];
+        }
+
+        const keys = Object.keys(CommandsAliases);
+        for (const cmd of keys) {
+            const commandObj = CommandsAliases[cmd as Commands];
+
+            if (commandObj.includes(command)) {
+                return this.commands[cmd as Commands] as Command<T>;
+            }
+        }
+
+        return;
+    }
+
+    private async executeCommand(command: Commands, args: string[]): Promise<void> {
+        const cmd = this.findCommand(command);
+        if (!cmd) {
+            this.warnCommandNotFound();
+            return;
+        }
+
+        await cmd.execute(this.shell.stdout, args);
 
         this.cli.prompt(true);
     }
@@ -474,10 +538,8 @@ export class SSHClient extends Logger {
         reject: RejectConnection,
         info: ExecInfo,
     ): void {
-        this.log(`Client request exec: ${info.command}`);
-
         const command = info.command;
-        for (const cmd of this.commands) {
+        for (const cmd of this.customCommands) {
             if (cmd.command === command) {
                 const accepted = accept();
 
@@ -489,9 +551,7 @@ export class SSHClient extends Logger {
         reject();
     }
 
-    private onGreeting(): void {
-        this.log('Client greeting');
-    }
+    private onGreeting(): void {}
 
     private listenEvents(): void {
         this.client.on('greeting', this.onGreeting.bind(this));
@@ -511,8 +571,6 @@ export class SSHClient extends Logger {
     }
 
     private init(): void {
-        this.log(`Client connected: ${this.clientInfo.ip}`);
-
         this.listenEvents();
     }
 }

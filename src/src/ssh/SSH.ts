@@ -18,6 +18,7 @@ import { OPNetIdentity } from '../poa/identity/OPNetIdentity.js';
 import { AuthorityManager } from '../poa/configurations/manager/AuthorityManager.js';
 import { P2PVersion } from '../poa/configurations/P2PVersion.js';
 import { TrustedAuthority } from '../poa/configurations/manager/TrustedAuthority.js';
+import fs from 'fs';
 
 const chalk = new Chalk({ level: 3 });
 
@@ -32,6 +33,7 @@ export class SSH extends Logger {
     private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
 
     private readonly identity: OPNetIdentity;
+    private hostKey: string | undefined;
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getAuthority(P2PVersion);
 
@@ -41,6 +43,7 @@ export class SSH extends Logger {
         super();
 
         this.identity = new OPNetIdentity(this.config, this.currentAuthority);
+        this.generateHostKey();
     }
 
     private _ssh2: ssh2.Server | undefined;
@@ -106,19 +109,26 @@ export class SSH extends Logger {
         );
     }
 
-    private getHostKeys(): string[] {
-        const keys = ssh2.utils.generateKeyPairSync('ed25519');
-        const keys2 = ssh2.utils.generateKeyPairSync('ecdsa', {
-            bits: 256,
-            comment: 'node.js rules!',
-        });
+    private saveHostKey(): void {
+        if (!this.hostKey) {
+            throw new Error('Host key not generated');
+        }
 
-        const rsa = ssh2.utils.generateKeyPairSync('rsa', {
-            bits: 2048,
-            cipher: 'aes256-cbc',
-        });
+        fs.writeFileSync('./bin/host.bin', this.hostKey, { encoding: 'utf-8' });
+    }
 
-        return [keys.private, keys2.private, rsa.private];
+    private generateHostKey(): void {
+        if (fs.existsSync('./bin/host.bin')) {
+            try {
+                this.hostKey = fs.readFileSync('./bin/host.bin', { encoding: 'utf-8' });
+            } catch {
+                this.panic(`Failed to read host key. Aborting...`);
+            }
+        } else {
+            this.hostKey = ssh2.utils.generateKeyPairSync('ed25519').private;
+
+            this.saveHostKey();
+        }
     }
 
     private notifyArt(
@@ -171,8 +181,14 @@ export class SSH extends Logger {
     }
 
     private ssh2Configs(): ServerConfig {
+        if (!this.hostKey) {
+            this.panic(`Host key not found for SSH server. Aborting...`);
+
+            throw new Error('Host key not found');
+        }
+
         return {
-            hostKeys: this.getHostKeys(),
+            hostKeys: [this.hostKey],
             keepaliveInterval: 5000,
             banner: this.banner,
             ident: 'OPNet 1.0.0',

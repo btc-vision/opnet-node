@@ -1,6 +1,6 @@
 import { ServerChannel } from 'ssh2';
 
-export abstract class Command {
+export abstract class CustomOperationCommand {
     public abstract readonly command: string;
 
     protected constructor() {}
