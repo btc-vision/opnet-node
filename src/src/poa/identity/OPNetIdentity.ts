@@ -152,6 +152,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         return this.keyPairGenerator.verifyChallenge(challenge, signature, pubKey);
     }
 
+    // PoC: Proof of Computational Acknowledgment
     public verifyAcknowledgment(data: Buffer, witness: OPNetBlockWitness): boolean {
         if (!data) return false;
         if (!witness.opnetPubKey) return false;
@@ -166,6 +167,7 @@ export class OPNetIdentity extends OPNetPathFinder {
         );
     }
 
+    // PoV: Proof of Validation
     public verifyTrustedAcknowledgment(
         data: Buffer,
         witness: OPNetBlockWitness,

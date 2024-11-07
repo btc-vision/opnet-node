@@ -1,15 +1,15 @@
-import {Config} from '../config/Config.js';
-import {MessageType} from '../threading/enum/MessageType.js';
-import {ThreadMessageBase} from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
-import {ThreadData} from '../threading/interfaces/ThreadData.js';
-import {ThreadTypes} from '../threading/thread/enums/ThreadTypes.js';
-import {Thread} from '../threading/thread/Thread.js';
-import {PoA} from './PoA.js';
+import { Config } from '../config/Config.js';
+import { MessageType } from '../threading/enum/MessageType.js';
+import { ThreadMessageBase } from '../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import { ThreadData } from '../threading/interfaces/ThreadData.js';
+import { ThreadTypes } from '../threading/thread/enums/ThreadTypes.js';
+import { Thread } from '../threading/thread/Thread.js';
+import { PoC } from './PoC.js';
 
-export class PoAThread extends Thread<ThreadTypes.P2P> {
+export class PoCThread extends Thread<ThreadTypes.P2P> {
     public readonly threadType: ThreadTypes.P2P = ThreadTypes.P2P;
 
-    private poa: PoA = new PoA(Config);
+    private poa: PoC = new PoC(Config);
 
     constructor() {
         super();
@@ -64,4 +64,4 @@ export class PoAThread extends Thread<ThreadTypes.P2P> {
     }
 }
 
-new PoAThread();
+new PoCThread();

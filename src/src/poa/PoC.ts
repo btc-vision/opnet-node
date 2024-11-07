@@ -10,7 +10,7 @@ import { RPCMessage } from '../threading/interfaces/thread-messages/messages/api
 import { BitcoinRPCThreadMessageType } from '../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 
-export class PoA extends Logger {
+export class PoC extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly p2p: P2PManager;

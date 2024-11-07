@@ -1,8 +1,8 @@
 {
   "type": "module",
-  "name": "btcindexer",
+  "name": "@btc-vision/opnet-node",
   "version": "0.0.1",
-  "description": "",
+  "description": "Bitcoin Smart Contracts Node",
   "main": "build/index.js",
   "scripts": {
     "watch": "gulp watch",
@@ -12,32 +12,26 @@
     "setup": "npm i && npm run build"
   },
   "engines": {
-    "node": ">=20.0.0 <23.0.0"
+    "node": ">=21.0.0 <23.0.0"
   },
   "homepage": "https://opnet.org",
   "keywords": [
-    "opnet indexer",
     "opnet",
-    "bsi",
-    "bsi-binary",
-    "bsi-bitcoin-rpc",
+    "opnet node",
+    "opnet indexer",
+    "bitcoin",
+    "btc",
+    "bitcoin-rpc",
     "bitcoin transaction",
     "transaction builder",
     "transaction signer",
-    "bitcoin",
-    "btc",
-    "bitcoin smart contracts",
-    "smart inscriptions"
+    "bitcoin smart contracts"
   ],
-  "author": "BlobMaster41",
-  "license": "LICENSE.MD",
+  "author": "Anakun",
+  "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git://github.com/btc-vision/bsi-indexer.git"
-  },
-  "nsolid": {
-    "command": "localhost:9001",
-    "tracingEnabled": true
+    "url": "https://github.com/btc-vision/opnet-node.git"
   },
   "dependencies": {
     "@asyncapi/generator": "^2.5.0",

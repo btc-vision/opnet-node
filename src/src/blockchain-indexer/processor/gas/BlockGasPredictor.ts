@@ -63,7 +63,13 @@ export class BlockGasPredictor {
         }
 
         const uCurrent = this.calculateUCurrent(usedBlockGas) / BlockGasPredictor.scalingFactor;
-        const emaScaled = this.calculateEMA(uCurrent, prevEMA);
+        let emaScaled = this.calculateEMA(uCurrent, prevEMA);
+
+        // Default to 10000n if EMA is less than 10000n
+        if (emaScaled < 50000n) {
+            emaScaled = 50000n;
+        }
+
         const alpha = usedBlockGas > this.gasTarget ? this.alpha1 : this.alpha2;
         const sign = emaScaled > this.uTarget ? 1n : -1n;
         const adjustment = this.calculateAdjustment(emaScaled, alpha, sign);
