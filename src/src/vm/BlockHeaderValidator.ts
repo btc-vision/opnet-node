@@ -81,7 +81,9 @@ export class BlockHeaderValidator extends Logger {
         const blockStorage: string | undefined = blockHeader.storageRoot;
         const blockHash: string | undefined = blockHeader.hash;
         const blockMerkelRoot: string | undefined = blockHeader.merkleRoot;
-        const checksumRoot: string | undefined = blockHeader.checksumRoot;
+        const checksumRoot: Uint8Array | undefined = Uint8Array.from(
+            Buffer.from(blockHeader.checksumRoot.replace('0x', ''), 'hex'),
+        );
         const proofs: BlockHeaderChecksumProof | undefined = blockHeader.checksumProofs;
 
         if (
@@ -123,7 +125,6 @@ export class BlockHeaderValidator extends Logger {
         const prevHashProof = this.getProofForIndex(proofs, 0);
         const hasValidPrevHash: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             prevHashValue,
             prevHashProof,
         );
@@ -131,7 +132,6 @@ export class BlockHeaderValidator extends Logger {
         const prevChecksumProof = this.getProofForIndex(proofs, 1);
         const hasValidPrevChecksum: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             [1, BufferHelper.hexToUint8Array(previousBlockChecksum)],
             prevChecksumProof,
         );
@@ -139,7 +139,6 @@ export class BlockHeaderValidator extends Logger {
         const blockHashProof = this.getProofForIndex(proofs, 2);
         const hasValidBlockHash: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             [2, BufferHelper.hexToUint8Array(blockHash)],
             blockHashProof,
         );
@@ -147,7 +146,6 @@ export class BlockHeaderValidator extends Logger {
         const blockMerkelRootProof = this.getProofForIndex(proofs, 3);
         const hasValidBlockMerkelRoot: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             [3, BufferHelper.hexToUint8Array(blockMerkelRoot)],
             blockMerkelRootProof,
         );
@@ -155,7 +153,6 @@ export class BlockHeaderValidator extends Logger {
         const blockStorageProof = this.getProofForIndex(proofs, 4);
         const hasValidBlockStorage: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             [4, BufferHelper.hexToUint8Array(blockStorage)],
             blockStorageProof,
         );
@@ -163,7 +160,6 @@ export class BlockHeaderValidator extends Logger {
         const blockReceiptProof = this.getProofForIndex(proofs, 5);
         const hasValidBlockReceipt: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             [5, BufferHelper.hexToUint8Array(blockReceipt)],
             blockReceiptProof,
         );

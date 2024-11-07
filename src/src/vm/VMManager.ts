@@ -1100,12 +1100,7 @@ export class VMManager extends Logger {
             // Same block.
             return this.config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK
                 ? true
-                : StateMerkleTree.verify(
-                      this.blockState.root,
-                      StateMerkleTree.TREE_TYPE,
-                      [encodedPointer, value],
-                      proofs,
-                  );
+                : StateMerkleTree.verify(this.blockState.root, [encodedPointer, value], proofs);
         }
 
         /** We must get the block root states */
@@ -1130,12 +1125,7 @@ export class VMManager extends Logger {
         }
 
         // We must verify the proofs from the block root states.
-        return StateMerkleTree.verify(
-            blockHeaders.storageRoot,
-            StateMerkleTree.TREE_TYPE,
-            [encodedPointer, value],
-            proofs,
-        );
+        return StateMerkleTree.verify(blockHeaders.storageRoot, [encodedPointer, value], proofs);
     }
 
     private async verifyBlockAtHeight(

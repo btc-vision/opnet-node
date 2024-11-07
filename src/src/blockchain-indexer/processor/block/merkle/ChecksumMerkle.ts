@@ -1,36 +1,32 @@
+import { defaultAbiCoder } from '@ethersproject/abi';
 import { BufferHelper } from '@btc-vision/transaction';
-import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
-import { BlockHeaderChecksumProof } from '../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ZERO_HASH } from '../types/ZeroValue.js';
+import { arrayify as toBytes } from '@ethersproject/bytes';
+import { MerkleProof, MerkleTree } from '@btc-vision/rust-merkle-tree';
+import { BlockHeaderChecksumProof } from '../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 
 export class ChecksumMerkle {
     public static TREE_TYPE: [string, string] = ['uint8', 'bytes32'];
-    protected tree: StandardMerkleTree<[number, Uint8Array]> | undefined;
-    private values: [number, Uint8Array][] = [];
+
+    public tree: MerkleTree | undefined;
+    public values: [number, Uint8Array][] = [];
 
     public get root(): string {
         if (!this.tree) {
             throw new Error('[Checksum] Merkle tree not generated (Get root)');
         }
 
-        return this.tree.root;
+        return this.tree.rootHex();
     }
 
-    public static verify(
-        root: string,
-        type: [string, string],
-        value: [number, Uint8Array],
-        proof: string[],
-    ): boolean {
-        return StandardMerkleTree.verify<[number, Uint8Array]>(root, type, value, proof);
+    public static toBytes(value: unknown[]): Uint8Array {
+        const data = defaultAbiCoder.encode(ChecksumMerkle.TREE_TYPE, value);
+        return toBytes(data);
     }
 
-    public validate(): void {
-        if (!this.tree) {
-            throw new Error('[Checksum] Merkle tree not generated');
-        }
-
-        this.tree.validate();
+    public static verify(root: Uint8Array, values: [number, Uint8Array], proof: string[]): boolean {
+        const generatedProof = new MerkleProof(proof.map((p) => toBytes(p)));
+        return generatedProof.verify(root, MerkleTree.hash(ChecksumMerkle.toBytes(values)));
     }
 
     public setBlockData(
@@ -56,33 +52,24 @@ export class ChecksumMerkle {
             throw new Error('Merkle tree not generated');
         }
 
-        this.validate();
+        const result: BlockHeaderChecksumProof = [];
+        const hashes = this.tree.hashes();
 
-        const proofs: BlockHeaderChecksumProof = [];
-        for (let i = 0; i < this.values.length; i++) {
-            const proof: string[] = this.tree.getProof(this.values[i]);
-
-            if (!proof || !proof.length) {
-                throw new Error(`Proof not found for ${this.values[i][0]}`);
-            }
-
-            proofs.push([this.values[i][0], proof]);
+        for (let i = 0; i < hashes.length; i++) {
+            const hash = hashes[i];
+            result.push([
+                Number(i),
+                this.tree.getProof(this.tree.getIndexHash(hash)).proofHashesHex(),
+            ]);
         }
 
-        return proofs;
+        return result;
     }
 
     private generateTree(): void {
-        if (this.tree) {
-            throw new Error('Checksum Merkle tree already generated');
-        }
-
-        this.tree = StandardMerkleTree.of<[number, Uint8Array]>(
-            this.values,
-            ChecksumMerkle.TREE_TYPE,
-            {
-                sortLeaves: true,
-            },
+        this.tree = new MerkleTree(
+            this.values.map((v) => ChecksumMerkle.toBytes(v)),
+            true,
         );
     }
 }
