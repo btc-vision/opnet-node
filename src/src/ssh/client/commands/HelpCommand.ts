@@ -56,6 +56,7 @@ export class HelpCommand extends Command<Commands.HELP> {
 
     private writeHelpMessageWithAllAvailableCommands(cli: Channel): void {
         const message: string[] = [
+            '\n\r',
             this.chalk.whiteBright(`List Available commands:`),
             `----------------------------------------`,
         ];
@@ -64,8 +65,9 @@ export class HelpCommand extends Command<Commands.HELP> {
             const metadata = this.availableCommands[command as Commands];
             const description = metadata.description;
             const aliases = metadata.aliases.join(', ');
+            const aliasesString = aliases.length > 0 ? ` (${aliases})` : '';
 
-            message.push(this.chalk.white(`${command} (${aliases}): ${description}`));
+            message.push(this.chalk.white(`${command}${aliasesString}: ${description}`));
 
             if (metadata.examples.length > 0) {
                 message.push(`Examples:`);
@@ -75,6 +77,6 @@ export class HelpCommand extends Command<Commands.HELP> {
             }
         }
 
-        cli.write(message.join('\n\r') + '\n\r');
+        cli.write(message.join('\n\r') + '\n\r\n\r');
     }
 }
