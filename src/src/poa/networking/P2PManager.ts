@@ -219,6 +219,18 @@ export class P2PManager extends Logger {
             if (peer.clientChainId === undefined) continue;
             if (peer.clientNetwork === undefined) continue;
 
+            // filter out self
+            const thisNodeAddr = this.node.peerId.toString();
+            const addresses = peerData.addresses
+                .map((addr) => {
+                    if (addr.multiaddr.toString().includes(thisNodeAddr)) return null;
+
+                    return addr.multiaddr.bytes;
+                })
+                .filter((addr) => !!addr);
+
+            if (addresses.length === 0) continue;
+
             const peerInfo: OPNetPeerInfo = {
                 opnetVersion: peer.clientVersion,
                 identity: peer.clientIdentity,
@@ -226,7 +238,7 @@ export class P2PManager extends Logger {
                 network: peer.clientNetwork,
                 chainId: peer.clientChainId,
                 peer: peerData.id.toCID().bytes,
-                addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
+                addresses: addresses,
             };
 
             if (!peerInfo.addresses.length) {
