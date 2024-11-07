@@ -75,8 +75,6 @@ export class HelpCommand extends Command<Commands.HELP> {
             }
         }
 
-        console.log(message);
-
         cli.write(message.join('\n\r') + '\n\r');
     }
 }
