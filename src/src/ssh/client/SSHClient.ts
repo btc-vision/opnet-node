@@ -500,7 +500,7 @@ export class SSHClient extends Logger {
         );
 
         const currentBlockHeight = this.chalk.hex('#c868f8')(
-            `OPNet block height: ${this.chalk.underline.bold.hex('#ddadfc')(OPNetConsensus.getBlockHeight())}`,
+            `Network block height: ${this.chalk.underline.bold.hex('#ddadfc')(OPNetConsensus.getBlockHeight())}`,
         );
 
         const opnetAddress = [
