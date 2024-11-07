@@ -20,6 +20,7 @@ export interface IndexerConfig {
 
     readonly DISABLE_UTXO_INDEXING: boolean;
     readonly PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: number;
+    readonly UTXO_SAVE_INTERVAL: number;
 }
 
 export interface RPCConfig {
@@ -42,7 +43,7 @@ export interface OPNetConfig {
     readonly MODE: OPNetIndexerMode;
 }
 
-export interface PoA {
+export interface PoC {
     readonly ENABLED: boolean;
 }
 
@@ -51,6 +52,7 @@ export interface P2P {
     readonly CLIENT_MODE: boolean;
 
     readonly MDNS: boolean;
+    readonly ENABLE_IP_BANNING: boolean;
 
     readonly ENABLE_IPV6: boolean;
     readonly P2P_HOST_V6: string;
@@ -81,6 +83,8 @@ export interface MempoolConfig {
 
     readonly EXPIRATION_BLOCKS: number;
     readonly ENABLE_BLOCK_PURGE: boolean;
+    readonly BATCH_SIZE: number;
+    readonly FETCH_INTERVAL: number;
 }
 
 export interface SSHConfig {
@@ -122,6 +126,7 @@ export interface DevConfig {
     readonly SAVE_TIMEOUTS_TO_FILE: boolean;
     readonly SIMULATE_HIGH_GAS_USAGE: boolean;
     readonly DEBUG_VALID_TRANSACTIONS: boolean;
+    readonly DEBUG_API_ERRORS: boolean;
 }
 
 export interface Bech32Config {
@@ -179,7 +184,7 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
 
     DOCS: DocsConfig;
 
-    POA: PoA;
+    POC: PoC;
     P2P: P2P;
     MEMPOOL: MempoolConfig;
 

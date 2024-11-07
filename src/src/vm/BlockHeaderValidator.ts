@@ -1,19 +1,19 @@
 import {
-    BlockHeaderBlockDocument,
     BlockHeaderChecksumProof,
+    BlockHeaderDocument,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { VMStorage } from './storage/VMStorage.js';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import { BufferHelper } from '@btc-vision/bsi-binary';
+import { BufferHelper } from '@btc-vision/transaction';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 
 export class BlockHeaderValidator extends Logger {
     public readonly logColor: string = '#00ff66';
 
-    private cachedBlockHeader: Map<bigint, BlockHeaderBlockDocument> = new Map();
+    private cachedBlockHeader: Map<bigint, BlockHeaderDocument> = new Map();
 
     public constructor(
         private readonly config: IBtcIndexerConfig,
@@ -22,7 +22,7 @@ export class BlockHeaderValidator extends Logger {
         super();
     }
 
-    public setLastBlockHeader(blockHeader: BlockHeaderBlockDocument): void {
+    public setLastBlockHeader(blockHeader: BlockHeaderDocument): void {
         this.cachedBlockHeader.set(DataConverter.fromDecimal128(blockHeader.height), blockHeader);
     }
 
@@ -34,14 +34,12 @@ export class BlockHeaderValidator extends Logger {
      * Returns null if the block is before the enabled block.
      * @param height
      */
-    public async getBlockHeader(
-        height: bigint,
-    ): Promise<BlockHeaderBlockDocument | null | undefined> {
+    public async getBlockHeader(height: bigint): Promise<BlockHeaderDocument | null | undefined> {
         if (this.cachedBlockHeader.has(height)) {
             return this.cachedBlockHeader.get(height);
         }
 
-        const blockHeader: BlockHeaderBlockDocument | undefined =
+        const blockHeader: BlockHeaderDocument | undefined =
             await this.vmStorage.getBlockHeader(height);
 
         if (blockHeader) {
@@ -57,7 +55,7 @@ export class BlockHeaderValidator extends Logger {
             return ZERO_HASH;
         }
 
-        const blockRootStates: BlockHeaderBlockDocument | undefined | null =
+        const blockRootStates: BlockHeaderDocument | undefined | null =
             await this.getBlockHeader(newHeight);
 
         if (!blockRootStates || !blockRootStates.checksumRoot) {
@@ -67,9 +65,9 @@ export class BlockHeaderValidator extends Logger {
         return blockRootStates.checksumRoot;
     }
 
-    /** TODO: Move this method to an other class and use this method when synchronizing block headers once PoA is implemented. */
+    /** TODO: Move this method to an other class and use this method when synchronizing block headers once PoC is implemented. */
     public async validateBlockChecksum(
-        blockHeader: Partial<BlockHeaderBlockDocument>,
+        blockHeader: Partial<BlockHeaderDocument>,
     ): Promise<boolean> {
         if (!blockHeader.checksumRoot || blockHeader.height === undefined) {
             throw new Error('Block checksum not found');
@@ -83,7 +81,9 @@ export class BlockHeaderValidator extends Logger {
         const blockStorage: string | undefined = blockHeader.storageRoot;
         const blockHash: string | undefined = blockHeader.hash;
         const blockMerkelRoot: string | undefined = blockHeader.merkleRoot;
-        const checksumRoot: string | undefined = blockHeader.checksumRoot;
+        const checksumRoot: Uint8Array | undefined = Uint8Array.from(
+            Buffer.from(blockHeader.checksumRoot.replace('0x', ''), 'hex'),
+        );
         const proofs: BlockHeaderChecksumProof | undefined = blockHeader.checksumProofs;
 
         if (
@@ -125,7 +125,6 @@ export class BlockHeaderValidator extends Logger {
         const prevHashProof = this.getProofForIndex(proofs, 0);
         const hasValidPrevHash: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             prevHashValue,
             prevHashProof,
         );
@@ -133,7 +132,6 @@ export class BlockHeaderValidator extends Logger {
         const prevChecksumProof = this.getProofForIndex(proofs, 1);
         const hasValidPrevChecksum: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             [1, BufferHelper.hexToUint8Array(previousBlockChecksum)],
             prevChecksumProof,
         );
@@ -141,7 +139,6 @@ export class BlockHeaderValidator extends Logger {
         const blockHashProof = this.getProofForIndex(proofs, 2);
         const hasValidBlockHash: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             [2, BufferHelper.hexToUint8Array(blockHash)],
             blockHashProof,
         );
@@ -149,7 +146,6 @@ export class BlockHeaderValidator extends Logger {
         const blockMerkelRootProof = this.getProofForIndex(proofs, 3);
         const hasValidBlockMerkelRoot: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             [3, BufferHelper.hexToUint8Array(blockMerkelRoot)],
             blockMerkelRootProof,
         );
@@ -157,7 +153,6 @@ export class BlockHeaderValidator extends Logger {
         const blockStorageProof = this.getProofForIndex(proofs, 4);
         const hasValidBlockStorage: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             [4, BufferHelper.hexToUint8Array(blockStorage)],
             blockStorageProof,
         );
@@ -165,7 +160,6 @@ export class BlockHeaderValidator extends Logger {
         const blockReceiptProof = this.getProofForIndex(proofs, 5);
         const hasValidBlockReceipt: boolean = ChecksumMerkle.verify(
             checksumRoot,
-            ChecksumMerkle.TREE_TYPE,
             [5, BufferHelper.hexToUint8Array(blockReceipt)],
             blockReceiptProof,
         );

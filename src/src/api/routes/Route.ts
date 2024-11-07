@@ -12,12 +12,17 @@ import { JSONRpc2RequestParams } from '../json-rpc/types/interfaces/JSONRpc2Requ
 import { JSONRpc2ResultData } from '../json-rpc/types/interfaces/JSONRpc2ResultData.js';
 import { JSONRpcParams } from '../json-rpc/types/interfaces/JSONRpcParams.js';
 import { Config } from '../../config/Config.js';
+import { BlockHeaderAPIBlockDocument } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { networks } from '@btc-vision/bitcoin';
+import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 
 export abstract class Route<
     T extends Routes,
     R extends JSONRpcMethods,
     U extends object | string | undefined,
 > extends Logger {
+    protected readonly network: networks.Network = NetworkConverter.getNetwork();
+
     protected storage: VMStorage | undefined;
 
     protected constructor(
@@ -44,6 +49,8 @@ export abstract class Route<
             handler: this.onRequestHandler.bind(this) as MiddlewareHandler,
         };
     }
+
+    public onBlockChange(_blockNumber: bigint, _blockHeader: BlockHeaderAPIBlockDocument): void {}
 
     public abstract getData(params?: JSONRpc2RequestParams<R>): Promise<U> | U;
 

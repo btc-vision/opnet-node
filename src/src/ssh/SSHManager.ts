@@ -60,7 +60,7 @@ export class SSHThreadManager extends ThreadManager<ThreadTypes.SSH> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.MEMPOOL);
-        await this.threadManager.createLinkBetweenThreads(ThreadTypes.POA);
+        await this.threadManager.createLinkBetweenThreads(ThreadTypes.P2P);
     }
 
     private async createAllThreads(): Promise<void> {

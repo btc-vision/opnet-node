@@ -1,4 +1,4 @@
-import { Address, BufferHelper } from '@btc-vision/bsi-binary';
+import { Address, AddressVerificator, BufferHelper } from '@btc-vision/transaction';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -130,7 +130,7 @@ export class GetStorageAt extends Route<
     private getDecodedParams(
         params: GetStorageAtParams,
     ): [Address, Binary, boolean, bigint | undefined] {
-        let address: Address | undefined;
+        let address: string | undefined;
         let pointer: string | undefined;
         let sendProofs: boolean | undefined;
         let height: bigint | undefined;
@@ -164,6 +164,15 @@ export class GetStorageAt extends Route<
 
         if (!address || address.length < 20) throw new Error(`Invalid address specified.`);
 
-        return [address, Binary.createFromBase64(pointer), sendProofs ?? true, height || undefined];
+        if (!AddressVerificator.isValidPublicKey(address, this.network)) {
+            throw new Error(`Invalid address pubkey specified.`);
+        }
+
+        return [
+            Address.fromString(address),
+            Binary.createFromBase64(pointer),
+            sendProofs ?? true,
+            height || undefined,
+        ];
     }
 }

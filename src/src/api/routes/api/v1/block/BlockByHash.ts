@@ -28,38 +28,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
 
             if (blockHash.length !== 64) throw new Error(`Invalid hash length`);
 
-            const cachedData = await this.getCachedData(blockHash);
-            if (cachedData) {
-                if (!includeTransactions && cachedData.transactions.length !== 0) {
-                    this.decrementPendingRequests();
-                    return {
-                        ...cachedData,
-                        transactions: [],
-                    };
-                } else if (includeTransactions && cachedData.transactions.length === 0) {
-                } else {
-                    this.decrementPendingRequests();
-                    return cachedData;
-                }
-            }
-
-            if (!this.storage) {
-                throw new Error('Storage not initialized');
-            }
-
-            const transactions = await this.storage.getBlockTransactions(
-                undefined,
-                blockHash,
-                includeTransactions,
-            );
-
-            if (!transactions) {
-                throw new Error(`No transactions found for block ${blockHash}`);
-            }
-
-            data = this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
-            if (data) this.setToCache(blockHash, data);
-            else this.currentBlockData = data;
+            data = this.getCachedBlockData(includeTransactions, undefined, blockHash);
         } catch (e) {
             this.decrementPendingRequests();
 

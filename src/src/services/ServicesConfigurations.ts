@@ -22,14 +22,14 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
     },
 
     [ThreadTypes.RPC]: {
-        maxInstance: Config.RPC.THREADS,
+        maxInstance: Math.ceil(Config.RPC.THREADS / 3), // This creates 3 threads per instance
         target: './src/blockchain-indexer/rpc/thread/BitcoinRPCThread.js',
     },
 
-    [ThreadTypes.POA]: {
+    [ThreadTypes.P2P]: {
         maxInstance: 1,
-        target: './src/poa/PoAThread.js',
-        managerTarget: './src/poa/PoAThreadManager.js',
+        target: './src/poa/PoCThread.js',
+        managerTarget: './src/poa/PoCThreadManager.js',
     },
 
     [ThreadTypes.SSH]: {
@@ -90,7 +90,7 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
         },
     },
 
-    [ThreadTypes.POA]: {
+    [ThreadTypes.P2P]: {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 6,
             maxYoungGenerationSizeMb: 1024 * 2,

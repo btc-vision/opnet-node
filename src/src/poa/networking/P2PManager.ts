@@ -1,5 +1,4 @@
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap, BootstrapComponents } from '@libp2p/bootstrap';
 import { Identify, identify } from '@libp2p/identify';
@@ -10,6 +9,7 @@ import {
     PeerId,
     PeerInfo,
     PeerUpdate,
+    PrivateKey,
 } from '@libp2p/interface';
 import { IdentifyResult } from '@libp2p/interface/src';
 import type { Connection, MultiaddrConnection } from '@libp2p/interface/src/connection/index.js';
@@ -18,7 +18,7 @@ import { IncomingStreamData } from '@libp2p/interface/src/stream-handler/index.j
 import { KadDHT, kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
 import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';
-import { peerIdFromBytes, peerIdFromString } from '@libp2p/peer-id';
+import { peerIdFromCID, peerIdFromString } from '@libp2p/peer-id';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { tcp } from '@libp2p/tcp';
 import { uPnPNAT } from '@libp2p/upnp-nat';
@@ -56,12 +56,14 @@ import {
 import { BroadcastResponse } from '../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
+import { shuffleArray, TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../configurations/manager/AuthorityManager.js';
 import { xxHash } from '../hashing/xxhash.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { Components } from 'libp2p/components.js';
 import { Config } from '../../config/Config.js';
+import { noise } from '@chainsafe/libp2p-noise';
+import { CID } from 'multiformats/cid';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -83,18 +85,20 @@ export class P2PManager extends Logger {
     private readonly p2pConfigurations: P2PConfigurations;
     private node: Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }> | undefined;
 
+    private privateKey: PrivateKey | undefined;
+
     private peers: Map<string, OPNetPeer> = new Map();
 
     private blackListedPeerIds: Map<string, BlacklistedPeerInfo> = new Map();
     private blackListedPeerIps: Map<string, BlacklistedPeerInfo> = new Map();
 
+    private knownMempoolIdentifiers: Set<bigint> = new Set();
+    private broadcastIdentifiers: Set<bigint> = new Set();
+
     private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 30_000;
 
     private readonly identity: OPNetIdentity;
     private startedIndexer: boolean = false;
-
-    private knownMempoolIdentifiers: Set<bigint> = new Set();
-    private broadcastedIdentifiers: Set<bigint> = new Set();
 
     private readonly blockWitnessManager: BlockWitnessManager;
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
@@ -113,7 +117,7 @@ export class P2PManager extends Logger {
 
         setInterval(() => {
             this.knownMempoolIdentifiers.clear();
-            this.broadcastedIdentifiers.clear();
+            this.broadcastIdentifiers.clear();
 
             this.purgeOldBlacklistedPeers();
         }, 10_000);
@@ -178,15 +182,15 @@ export class P2PManager extends Logger {
     }
 
     public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
-        if (this.broadcastedIdentifiers.has(data.identifier) && data.identifier) {
-            this.warn(`Transaction already broadcasted.`);
+        if (this.broadcastIdentifiers.has(data.identifier) && data.identifier) {
+            this.warn(`Transaction already broadcast.`);
 
             return {
                 peers: 0,
             };
         }
 
-        if (data.identifier) this.broadcastedIdentifiers.add(data.identifier);
+        if (data.identifier) this.broadcastIdentifiers.add(data.identifier);
 
         return {
             peers: await this.broadcastMempoolTransaction({
@@ -195,6 +199,55 @@ export class P2PManager extends Logger {
                 identifier: data.identifier,
             }),
         };
+    }
+
+    public async getOPNetPeers(): Promise<OPNetPeerInfo[]> {
+        if (!this.node) throw new Error('Node not initialized');
+
+        const peers: OPNetPeerInfo[] = [];
+        const peersData: Peer[] = await this.node.peerStore.all();
+
+        for (const peerData of peersData) {
+            const peer = this.peers.get(peerData.id.toString());
+            if (!peer) continue;
+
+            if (!peer.hasAuthenticated) continue;
+            if (peer.clientVersion === undefined) continue;
+            if (peer.clientChecksum === undefined) continue;
+            if (peer.clientIdentity === undefined) continue;
+            if (peer.clientIndexerMode === undefined) continue;
+            if (peer.clientChainId === undefined) continue;
+            if (peer.clientNetwork === undefined) continue;
+
+            // filter out self
+            const thisNodeAddr = this.node.peerId.toString();
+            const addresses = peerData.addresses
+                .map((addr) => {
+                    if (addr.multiaddr.toString().includes(thisNodeAddr)) return null;
+
+                    return addr.multiaddr.bytes;
+                })
+                .filter((addr) => !!addr);
+
+            if (addresses.length === 0) continue;
+
+            const peerInfo: OPNetPeerInfo = {
+                opnetVersion: peer.clientVersion,
+                identity: peer.clientIdentity,
+                type: peer.clientIndexerMode,
+                network: peer.clientNetwork,
+                chainId: peer.clientChainId,
+                peer: peerData.id.toCID().bytes,
+                addresses: addresses,
+            };
+
+            peers.push(peerInfo);
+        }
+
+        // Apply shuffle to the peers list, way to not be "predictable" and re-identified by the same peers.
+        shuffleArray(peers);
+
+        return peers;
     }
 
     private purgeOldBlacklistedPeers(): void {
@@ -220,7 +273,7 @@ export class P2PManager extends Logger {
                 );
 
                 this.panic(
-                    `PoA has been disabled. This node will not connect to any peers. And any processing will be halted.`,
+                    `PoC has been disabled. This node will not connect to any peers. And any processing will be halted.`,
                 );
 
                 this.notifyArt(
@@ -228,7 +281,7 @@ export class P2PManager extends Logger {
                     `FATAL.`,
                     'Doh',
                     `\n\n\n!!!!!!!!!! -------------------- UPGRADE FAILED. --------------------  !!!!!!!!!!\n\n\n\n\n`,
-                    `\n\nPoA has been disabled. This node will not connect to any peers. And any processing will be halted.\n`,
+                    `\n\nPoC has been disabled. This node will not connect to any peers. And any processing will be halted.\n`,
                     `This node is not ready to apply ${consensusName}.\n`,
                     `UPGRADE IMMEDIATELY.\n\n`,
                 );
@@ -475,7 +528,7 @@ export class P2PManager extends Logger {
             const peerInfo: OPNetPeerInfo = peers[peer];
 
             try {
-                const peerId = peerIdFromBytes(peerInfo.peer);
+                const peerId = peerIdFromCID(CID.decode(peerInfo.peer));
                 if (!peerId.toString()) continue;
 
                 const peerIdStr = peerId.toString();
@@ -516,7 +569,7 @@ export class P2PManager extends Logger {
 
                 peersToTry.push(peerData);
             } catch (e) {
-                console.log(`Error while adding peer to try:`, e);
+                this.error(`Error while adding peer to try: ${(e as Error).message}`);
             }
         }
 
@@ -530,9 +583,6 @@ export class P2PManager extends Logger {
             const promises: Promise<Peer>[] = [];
 
             for (const peerData of batch) {
-                //const has = await this.node.peerStore.has(peerData.id);
-                //if (has) continue;
-
                 const addedPeer = this.node.peerStore.merge(peerData.id, {
                     multiaddrs: peerData.multiaddrs,
                     tags: {
@@ -542,8 +592,6 @@ export class P2PManager extends Logger {
                         },
                     },
                 });
-
-                //this.log(`Added peer ${peerData.id.toString()} to peer store.`);
 
                 promises.push(addedPeer);
             }
@@ -564,8 +612,8 @@ export class P2PManager extends Logger {
                 'info',
                 'OPNet',
                 'Doh',
-                `\n\n\nPoA enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
-                `\nThis node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
+                `\n\n\nPoC enabled. At least one peer was found! You are now connected to,\n\n\n\n\n`,
+                `\nThis node bitcoin address is ${this.identity.pubKey} or ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
                 `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n`,
                 `Looking for peers...\n\n`,
@@ -593,61 +641,7 @@ export class P2PManager extends Logger {
             } else {
                 this.fail(`Failed to start indexer.`);
             }
-        }, 5000);
-    }
-
-    private async getOPNetPeers(): Promise<OPNetPeerInfo[]> {
-        if (!this.node) throw new Error('Node not initialized');
-
-        const peers: OPNetPeerInfo[] = [];
-        const peersData: Peer[] = await this.node.peerStore.all();
-
-        for (const peerData of peersData) {
-            const peer = this.peers.get(peerData.id.toString());
-            if (!peer) continue;
-
-            if (!peer.hasAuthenticated) continue;
-            if (peer.clientVersion === undefined) continue;
-            if (peer.clientChecksum === undefined) continue;
-            if (peer.clientIdentity === undefined) continue;
-            if (peer.clientIndexerMode === undefined) continue;
-            if (peer.clientChainId === undefined) continue;
-            if (peer.clientNetwork === undefined) continue;
-
-            const peerInfo: OPNetPeerInfo = {
-                opnetVersion: peer.clientVersion,
-                identity: peer.clientIdentity,
-                type: peer.clientIndexerMode,
-                network: peer.clientNetwork,
-                chainId: peer.clientChainId,
-                peer: peerData.id.toCID().bytes,
-                addresses: peerData.addresses.map((addr) => addr.multiaddr.bytes),
-            };
-
-            if (!peerInfo.addresses.length) {
-                continue;
-            }
-
-            peers.push(peerInfo);
-        }
-
-        this.shuffleArray(peers);
-
-        return peers;
-    }
-
-    private shuffleArray<T>(array: T[]): void {
-        let currentIndex = array.length;
-
-        // While there remain elements to shuffle...
-        while (currentIndex != 0) {
-            // Pick a remaining element...
-            const randomIndex = Math.floor(Math.random() * currentIndex);
-            currentIndex--;
-
-            // And swap it with the current element.
-            [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
-        }
+        }, 3000);
     }
 
     private async blackListPeerId(peerId: PeerId, reason: DisconnectionCode): Promise<void> {
@@ -685,7 +679,7 @@ export class P2PManager extends Logger {
                 'Big Money-sw',
                 `\n\n\nThis node is a,\n\n\n\n\n`,
                 `\n\nThis node is running in bootstrap mode. This means it will not connect to other peers automatically. It will only accept incoming connections.\n`,
-                `This node bitcoin address is ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
+                `This node bitcoin address is ${this.identity.pubKey} or ${this.identity.tapAddress} (taproot) or ${this.identity.segwitAddress} (segwit).\n`,
                 `Your OPNet identity is ${this.identity.opnetAddress}.\n`,
                 `Your OPNet trusted certificate is\n${this.identity.trustedPublicKey}\n\n`,
             );
@@ -700,7 +694,11 @@ export class P2PManager extends Logger {
             }
         }
 
-        this.p2pConfigurations.savePeer(this.node.peerId);
+        if (!this.privateKey) {
+            throw new Error('Private key not set');
+        }
+
+        this.p2pConfigurations.savePeer(this.node.peerId, this.privateKey);
 
         return this.refreshRouting();
     }
@@ -783,11 +781,15 @@ export class P2PManager extends Logger {
         this.peers.delete(peerStr);
 
         await this.node.hangUp(peerId).catch((e: unknown) => {
-            console.log('Error while hanging up peer:', e);
+            this.warn(`Error while hanging up peer: ${(e as Error).message}`);
         });
     }
 
     private blacklistPeerIps(peer: Peer, reason: DisconnectionCode): void {
+        if (!this.config.P2P.ENABLE_IP_BANNING) {
+            return;
+        }
+
         const address = peer.addresses;
 
         if (address.length === 0) {
@@ -1085,7 +1087,7 @@ export class P2PManager extends Logger {
     private async createNode(): Promise<
         Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }>
     > {
-        const peerId = await this.p2pConfigurations.peerIdConfigurations();
+        this.privateKey = await this.p2pConfigurations.privateKeyConfigurations();
 
         const peerDiscovery: Partial<
             [(components: MulticastDNSComponents) => PeerDiscovery, BootstrapDiscoveryMethod]
@@ -1103,15 +1105,11 @@ export class P2PManager extends Logger {
         }
 
         const datastore = await this.getDatastore();
-
         return await createLibp2p({
             datastore: datastore,
-            peerId: peerId,
-            transports: [
-                tcp(this.p2pConfigurations.tcpConfiguration),
-                //webSockets(this.p2pConfigurations.websocketConfiguration),
-            ],
-            connectionEncryption: [noise()],
+            privateKey: this.privateKey,
+            transports: [tcp(this.p2pConfigurations.tcpConfiguration)],
+            connectionEncrypters: [noise()],
             connectionGater: this.getConnectionGater(),
             streamMuxers: [yamux(this.p2pConfigurations.yamuxConfiguration)],
             addresses: this.p2pConfigurations.listeningConfiguration,

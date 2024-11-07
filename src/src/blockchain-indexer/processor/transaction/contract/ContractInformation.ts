@@ -2,13 +2,12 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { IContractDocument } from '../../../../db/documents/interfaces/IContractDocument.js';
 import { DeploymentTransaction } from '../transactions/DeploymentTransaction.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 
 export interface ContractInformationAsString {
     readonly blockHeight: string;
     readonly contractAddress: string;
-    readonly virtualAddress: string;
-    readonly p2trAddress: string | null;
+    readonly contractTweakedPublicKey: string;
     readonly bytecode: string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: string;
@@ -22,9 +21,8 @@ export interface ContractInformationAsString {
 export class ContractInformation {
     constructor(
         public readonly blockHeight: bigint,
-        public readonly contractAddress: Address,
-        public readonly virtualAddress: Address,
-        public readonly p2trAddress: Address | null,
+        public readonly contractAddress: string,
+        public readonly contractTweakedPublicKey: Address,
         public readonly bytecode: Buffer,
         public readonly wasCompressed: boolean,
         public readonly deployedTransactionId: string,
@@ -67,8 +65,9 @@ export class ContractInformation {
         return new ContractInformation(
             DataConverter.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
-            contractDocument.virtualAddress,
-            contractDocument.p2trAddress,
+            typeof contractDocument.contractTweakedPublicKey === 'string'
+                ? new Address(Buffer.from(contractDocument.contractTweakedPublicKey, 'base64'))
+                : new Address(contractDocument.contractTweakedPublicKey.buffer),
             bytecodeBuffer,
             contractDocument.wasCompressed,
             contractDocument.deployedTransactionId,
@@ -76,7 +75,7 @@ export class ContractInformation {
             deployerPubKeyBuffer,
             contractSeedBuffer,
             contractSaltHashBuffer,
-            contractDocument.deployerAddress,
+            new Address(contractDocument.deployerPubKey.buffer),
         );
     }
 
@@ -84,10 +83,6 @@ export class ContractInformation {
         blockHeight: bigint,
         transaction: DeploymentTransaction,
     ): ContractInformation {
-        if (!transaction.p2trAddress) {
-            throw new Error('Contract address is missing');
-        }
-
         if (!transaction.bytecode) {
             throw new Error('Contract bytecode is missing');
         }
@@ -106,9 +101,8 @@ export class ContractInformation {
 
         return new ContractInformation(
             blockHeight,
-            transaction.segwitAddress,
-            transaction.virtualAddress,
-            transaction.p2trAddress,
+            transaction.contractAddress,
+            transaction.address,
             transaction.bytecode,
             transaction.wasCompressed,
             transaction.transactionId,
@@ -124,8 +118,7 @@ export class ContractInformation {
         return {
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
             contractAddress: this.contractAddress,
-            p2trAddress: this.p2trAddress,
-            virtualAddress: this.virtualAddress,
+            contractTweakedPublicKey: new Binary(this.contractTweakedPublicKey),
             bytecode: new Binary(this.bytecode),
             wasCompressed: this.wasCompressed,
             deployedTransactionId: this.deployedTransactionId,
@@ -133,7 +126,6 @@ export class ContractInformation {
             deployerPubKey: new Binary(this.deployerPubKey),
             contractSeed: new Binary(this.contractSeed),
             contractSaltHash: new Binary(this.contractSaltHash),
-            deployerAddress: this.deployerAddress,
         };
     }
 }

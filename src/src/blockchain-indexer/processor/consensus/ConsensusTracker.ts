@@ -47,7 +47,7 @@ export class ConsensusTracker extends Logger {
             }
 
             return false;
-        } catch (e) {
+        } catch {
             return true;
         }
     }
@@ -72,7 +72,7 @@ export class ConsensusTracker extends Logger {
             `FATAL.`,
             'Doh',
             `\n\n\n!!!!!!!!!! -------------------- UPGRADE FAILED. --------------------  !!!!!!!!!!\n\n\n\n\n`,
-            `\n\nPoA has been disabled. This node will not connect to any peers. And any processing will be halted.\n`,
+            `\n\nPoC has been disabled. This node will not connect to any peers. And any processing will be halted.\n`,
             `This node is not ready to apply ${consensusName}.\n`,
             `UPGRADE IMMEDIATELY.\n\n`,
         );

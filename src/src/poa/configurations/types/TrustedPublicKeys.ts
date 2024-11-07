@@ -1,8 +1,8 @@
 import { ChainIds } from '../../../config/enums/ChainIds.js';
-import { TrustedCompanies } from '../TrustedCompanies.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { TrustedEntities } from '../TrustedEntities.js';
 
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
+import { Address } from '@btc-vision/transaction';
 
 export type TrustedNetworkPublicKeys = {
     [key in BitcoinNetwork]: NetworkAuthorityConfiguration;
@@ -16,7 +16,7 @@ export interface AuthorityKey {
     readonly opnet: string;
     readonly publicKey: string;
     readonly signature: string;
-    readonly wallet: Address;
+    readonly walletPubKey: string;
 }
 
 export interface AuthorityBufferKey {
@@ -35,7 +35,7 @@ export interface AuthorityKeysAsBytes {
 }
 
 export type ProvenAuthorityKeys = {
-    [key in TrustedCompanies]: AuthorityKeys;
+    [key in TrustedEntities]: AuthorityKeys;
 };
 
 export interface NetworkAuthorityConfiguration {
@@ -56,11 +56,11 @@ export interface NetworkAuthorityConfiguration {
 }
 
 export type PrecomputedAuthorityKeys = {
-    [key in TrustedCompanies]: {
+    [key in TrustedEntities]: {
         readonly keys: string[];
     };
 };
 
 export type ProvenAuthorityKeysAsBytes = {
-    [key in TrustedCompanies]: AuthorityKeysAsBytes;
+    [key in TrustedEntities]: AuthorityKeysAsBytes;
 };

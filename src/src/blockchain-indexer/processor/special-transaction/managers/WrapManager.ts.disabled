@@ -1,0 +1,74 @@
+import { AbstractSpecialManager } from './AbstractSpecialManager.js';
+import { VMStorage } from '../../../../vm/storage/VMStorage.js';
+import { OPNetTransactionTypes } from '../../transaction/enums/OPNetTransactionTypes.js';
+import { WrapTransactionTs } from '../../transaction/transactions/WrapTransactionTs.js';
+import { IVaultDocument } from '../../../../db/interfaces/IVaultDocument.js';
+import { DataConverter } from '@btc-vision/bsi-db';
+import { IWBTCUTXODocumentTs } from '../../../../db/interfaces/IWBTCUTXODocumentTs.js';
+import { Binary } from 'mongodb';
+
+export class WrapManagerDisabled extends AbstractSpecialManager<OPNetTransactionTypes.WrapInteraction> {
+    public managerType: OPNetTransactionTypes.WrapInteraction =
+        OPNetTransactionTypes.WrapInteraction;
+
+    public readonly logColor: string = '#afeeee';
+    private readonly cachedVaults: Set<string> = new Set();
+
+    public constructor(vmStorage: VMStorage) {
+        super(vmStorage);
+    }
+
+    public async execute(transaction: WrapTransactionTs): Promise<void> {
+        const promises: Promise<void>[] = [];
+        if (!this.hasVault(transaction.vault)) {
+            promises.push(this.addVault(transaction));
+        }
+
+        promises.push(this.addUTXO(transaction));
+
+        await Promise.all(promises);
+    }
+
+    public reset(): void {
+        this.cachedVaults.clear();
+    }
+
+    private hasVault(vault: string): boolean {
+        return this.cachedVaults.has(vault);
+    }
+
+    private async addUTXO(transaction: WrapTransactionTs): Promise<void> {
+        const output = transaction.wrapOutput;
+        if (output.address !== transaction.vault) {
+            this.panic(
+                `Output address does not match vault address: ${output.address} !== ${transaction.vault}`,
+            );
+        }
+
+        const utxoData: IWBTCUTXODocumentTs = {
+            vault: transaction.vault,
+            blockId: DataConverter.toDecimal128(transaction.blockHeight),
+            value: DataConverter.toDecimal128(transaction.depositTotal),
+            hash: transaction.txid,
+            outputIndex: transaction.wrapIndex,
+            output: Binary.createFromHexString(output.hex),
+            spent: false,
+            spentAt: null,
+        };
+
+        await this.vmStorage.setWBTCUTXO(utxoData);
+    }
+
+    private async addVault(transaction: WrapTransactionTs): Promise<void> {
+        const vaultData: IVaultDocument = {
+            vault: transaction.vault,
+            firstSeen: DataConverter.toDecimal128(transaction.blockHeight),
+            publicKeys: transaction.publicKeys,
+            minimum: transaction.minimumSignatures,
+        };
+
+        this.cachedVaults.add(transaction.vault);
+
+        await this.vmStorage.setVault(vaultData);
+    }
+}

@@ -18,29 +18,33 @@ import { TransactionByHash } from './api/v1/transaction/TransactionByHash.js';
 import { TransactionReceipt } from './api/v1/transaction/TransactionReceipt.js';
 import { Route } from './Route.js';
 import { BroadcastTransaction } from './api/v1/transaction/BroadcastTransaction.js';
-import { GenerateRoute } from './api/v1/opnet/GenerateRoute.js';
+import { GasRoute } from './api/v1/block/GasRoute.js';
+import { Simulation } from './api/v1/states/Simulation.js';
+import { PublicKeyInfoRoute } from './api/v1/address/PublicKeyInfoRoute.js';
 
 export const DefinedRoutes: {
     [key in Routes]: Route<key, JSONRpcMethods, object | string | undefined>;
 } = {
     /** Blocks */
     [Routes.LATEST_BLOCK]: new LatestBlock(),
-
     [Routes.BLOCK_BY_ID]: new BlockById(),
     [Routes.BLOCK_BY_HASH]: new BlockByHash(),
+    [Routes.BLOCK_WITNESS]: new OPNetWitnessRoute(),
+    [Routes.GAS]: new GasRoute(),
 
     /** OPNet */
-    [Routes.BLOCK_WITNESS]: new OPNetWitnessRoute(),
-    [Routes.GENERATE]: new GenerateRoute(),
+    //[Routes.GENERATE]: new GenerateRoute(),
 
     /** Address */
     [Routes.UTXOS]: new UTXOsRoute(),
     [Routes.GET_BALANCE]: new GetBalanceRoute(),
+    [Routes.PUBLIC_KEY_INFO]: new PublicKeyInfoRoute(),
 
     /** States */
     [Routes.GET_STORAGE_AT]: new GetStorageAt(),
     [Routes.GET_CODE]: new GetCode(),
     [Routes.CALL]: new Call(),
+    [Routes.SIMULATE]: new Simulation(),
 
     /** Chain */
     [Routes.CHAIN_ID]: new ChainId(),

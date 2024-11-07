@@ -27,6 +27,7 @@ export class BlockHeader {
 
     public readonly nTx: number;
     public readonly previousBlockHash: string;
+    public readonly safeU64: bigint;
 
     private readonly raw: BlockDataWithoutTransactionData & { tx: undefined };
 
@@ -40,6 +41,8 @@ export class BlockHeader {
         this.strippedSize = rawBlockData.strippedsize;
         this.weight = rawBlockData.weight;
         this.merkleRoot = rawBlockData.merkleroot;
+
+        this.safeU64 = this.convertBlockHashToSafeU64(rawBlockData.hash);
 
         this.time = new Date(rawBlockData.time * 1000);
         this.medianTime = new Date(rawBlockData.mediantime * 1000);
@@ -59,5 +62,28 @@ export class BlockHeader {
 
     public toJSON(): BlockDataWithoutTransactionData {
         return this.raw;
+    }
+
+    private convertBlockHashToSafeU64(blockHash: string): bigint {
+        const hashBuffer = Buffer.from(blockHash, 'hex');
+
+        if (hashBuffer.length < 8) {
+            throw new Error('Block hash too short, must be at least 8 bytes.');
+        }
+
+        let randomBigInt = 0n;
+        for (let i = 0; i < hashBuffer.length; i++) {
+            const byteValue = BigInt(hashBuffer[i]);
+
+            // XOR current value with a shifted and rotated byte from the hash
+            randomBigInt ^= (byteValue << BigInt(i % 8)) | (byteValue >> BigInt((8 - i) % 8));
+
+            // Apply additional mixing by rotating bits
+            randomBigInt = (randomBigInt << BigInt(7)) | (randomBigInt >> BigInt(57)); // 64-bit rotation
+        }
+
+        randomBigInt &= 0xffffffffffffffffn; // Apply 64-bit mask
+
+        return randomBigInt;
     }
 }

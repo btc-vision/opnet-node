@@ -1,12 +1,10 @@
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
-import bitcoin from 'bitcoinjs-lib';
+import bitcoin from '@btc-vision/bitcoin';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { Transaction } from './Transaction.js';
 import { DeploymentTransaction } from './transactions/DeploymentTransaction.js';
 import { GenericTransaction } from './transactions/GenericTransaction.js';
 import { InteractionTransaction } from './transactions/InteractionTransaction.js';
-import { WrapTransaction } from './transactions/WrapTransaction.js';
-import { UnwrapTransaction } from './transactions/UnwrapTransaction.js';
 
 export type OPNetTransactionByType<T extends OPNetTransactionTypes> = (
     data: TransactionData,
@@ -43,17 +41,17 @@ export const PossibleOpNetTransactions: {
             return InteractionTransaction.is(data);
         },
     },
-    [OPNetTransactionTypes.WrapInteraction]: {
-        parse: (...args) =>
-            new WrapTransaction(...args) as Transaction<OPNetTransactionTypes.WrapInteraction>,
-        isTransaction(data: TransactionData): TransactionInformation | undefined {
-            return WrapTransaction.is(data);
-        },
-    },
     [OPNetTransactionTypes.Deployment]: {
         parse: (...args) => new DeploymentTransaction(...args),
         isTransaction(data: TransactionData): TransactionInformation | undefined {
             return DeploymentTransaction.is(data);
+        },
+    },
+    /*[OPNetTransactionTypes.WrapInteraction]: {
+        parse: (...args) =>
+            new WrapTransaction(...args) as Transaction<OPNetTransactionTypes.WrapInteraction>,
+        isTransaction(data: TransactionData): TransactionInformation | undefined {
+            return WrapTransaction.is(data);
         },
     },
     [OPNetTransactionTypes.UnwrapInteraction]: {
@@ -62,5 +60,5 @@ export const PossibleOpNetTransactions: {
         isTransaction(data: TransactionData): TransactionInformation | undefined {
             return UnwrapTransaction.is(data);
         },
-    },
+    },*/
 };

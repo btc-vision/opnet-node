@@ -3,7 +3,6 @@ import { VMManager } from '../../../vm/VMManager.js';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { Transaction } from '../transaction/Transaction.js';
 import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
-import { WrapManager } from './managers/WrapManager.js';
 import { AbstractSpecialManager } from './managers/AbstractSpecialManager.js';
 
 type Managers = Partial<{
@@ -21,7 +20,8 @@ export class SpecialManager extends Logger {
 
         this.vmStorage = vmManager.getVMStorage();
 
-        this.managers[OPNetTransactionTypes.WrapInteraction] = new WrapManager(this.vmStorage);
+        // DISABLED WBTC 2024-11-07
+        //this.managers[OPNetTransactionTypes.WrapInteraction] = new WrapManager(this.vmStorage);
     }
 
     public requireAdditionalSteps(type: OPNetTransactionTypes): boolean {

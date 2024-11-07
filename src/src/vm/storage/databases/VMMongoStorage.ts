@@ -1,4 +1,4 @@
-import { Address, BufferHelper } from '@btc-vision/bsi-binary';
+import { Address, AddressMap, BufferHelper } from '@btc-vision/transaction';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
 import { ClientSession, TransactionOptions } from 'mongodb';
 import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
@@ -7,10 +7,9 @@ import { ContractInformation } from '../../../blockchain-indexer/processor/trans
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { IBtcIndexerConfig } from '../../../config/interfaces/IBtcIndexerConfig.js';
 import { BlockWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
-import { BlockRootStates } from '../../../db/interfaces/BlockRootStates.js';
 import {
     BlockHeaderAPIBlockDocument,
-    BlockHeaderBlockDocument,
+    BlockHeaderDocument,
     IBlockHeaderBlockDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../../db/interfaces/IReorgDocument.js';
@@ -25,21 +24,13 @@ import { TransactionRepository } from '../../../db/repositories/TransactionRepos
 import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
 import { VMStorage } from '../VMStorage.js';
-import {
-    IUsedWBTCUTXODocument,
-    IWBTCUTXODocument,
-    UsedUTXOToDelete,
-} from '../../../db/interfaces/IWBTCUTXODocument.js';
-import { IVaultDocument } from '../../../db/interfaces/IVaultDocument.js';
-import { VaultRepository } from '../../../db/repositories/VaultRepository.js';
-import { SelectedUTXOs, WBTCUTXORepository } from '../../../db/repositories/WBTCUTXORepository.js';
-import { CompromisedTransactionRepository } from '../../../db/repositories/CompromisedTransactionRepository.js';
-import { ICompromisedTransactionDocument } from '../../../db/interfaces/CompromisedTransactionDocument.js';
-import { UsedWbtcUxtoRepository } from '../../../db/repositories/UsedWbtcUxtoRepository.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { UnspentTransactionRepository } from '../../../db/repositories/UnspentTransactionRepository.js';
 import { Config } from '../../../config/Config.js';
 import { CurrentOpOutput, OperationDetails } from '../interfaces/StorageInterfaces.js';
+import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
+import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
+import { IPublicKeyInfoResult } from '../../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -60,10 +51,14 @@ export class VMMongoStorage extends VMStorage {
     private blockWitnessRepository: BlockWitnessRepository | undefined;
     private mempoolRepository: MempoolRepository | undefined;
 
-    private vaultRepository: VaultRepository | undefined;
-    private wbtcUTXORepository: WBTCUTXORepository | undefined;
-    private compromisedTransactionRepository: CompromisedTransactionRepository | undefined;
-    private usedUTXOsRepository: UsedWbtcUxtoRepository | undefined;
+    //private vaultRepository: VaultRepository | undefined;
+    //private wbtcUTXORepository: WBTCUTXORepository | undefined;
+    //private compromisedTransactionRepository: CompromisedTransactionRepository | undefined;
+    //private usedUTXOsRepository: UsedWbtcUxtoRepository | undefined;
+
+    private blockchainInfoRepository: BlockchainInfoRepository | undefined;
+    private publicKeysRepository: PublicKeysRepository | undefined;
+    private initialized: boolean = false;
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -72,6 +67,14 @@ export class VMMongoStorage extends VMStorage {
         super();
 
         this.databaseManager = databaseManager || new ConfigurableDBManager(this.config);
+    }
+
+    public get blockchainRepository(): BlockchainInfoRepository {
+        if (!this.blockchainInfoRepository) {
+            throw new Error('Blockchain info repository not initialized');
+        }
+
+        return this.blockchainInfoRepository;
     }
 
     public async revertDataUntilBlock(blockId: bigint): Promise<void> {
@@ -106,7 +109,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Reorg repository not initialized');
         }
 
-        if (!this.vaultRepository) {
+        /*if (!this.vaultRepository) {
             throw new Error('Vault repository not initialized');
         }
 
@@ -120,7 +123,7 @@ export class VMMongoStorage extends VMStorage {
 
         if (!this.usedUTXOsRepository) {
             throw new Error('Used UTXO repository not initialized');
-        }
+        }*/
 
         await this.killAllPendingWrites();
 
@@ -148,17 +151,17 @@ export class VMMongoStorage extends VMStorage {
             this.log(`Purging reorgs...`);
             await this.reorgRepository.deleteReorgs(blockId);
 
-            this.log(`Purging vaults...`);
-            await this.vaultRepository.deleteVaultsSeenAfter(blockId);
+            //this.log(`Purging vaults...`);
+            //await this.vaultRepository.deleteVaultsSeenAfter(blockId);
 
-            this.log(`Purging WBTC UTXOs...`);
-            await this.wbtcUTXORepository.deleteWBTCUTXOs(blockId);
+            //this.log(`Purging WBTC UTXOs...`);
+            //await this.wbtcUTXORepository.deleteWBTCUTXOs(blockId);
 
-            this.log(`Purging compromised transactions...`);
-            await this.compromisedTransactionRepository.deleteCompromisedTransactions(blockId);
+            //this.log(`Purging compromised transactions...`);
+            //await this.compromisedTransactionRepository.deleteCompromisedTransactions(blockId);
 
-            this.log(`Purging used UTXOs...`);
-            await this.usedUTXOsRepository.deleteOldUsedUtxos(blockId);
+            //this.log(`Purging used UTXOs...`);
+            //await this.usedUTXOsRepository.deleteOldUsedUtxos(blockId);
 
             this.info(`Data purged until block ${blockId}`);
         } else {
@@ -170,17 +173,17 @@ export class VMMongoStorage extends VMStorage {
                 this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
                 this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId),
                 this.reorgRepository.deleteReorgs(blockId),
-                this.vaultRepository.deleteVaultsSeenAfter(blockId),
-                this.wbtcUTXORepository.deleteWBTCUTXOs(blockId),
-                this.compromisedTransactionRepository.deleteCompromisedTransactions(blockId),
-                this.usedUTXOsRepository.deleteOldUsedUtxos(blockId),
+                //this.vaultRepository.deleteVaultsSeenAfter(blockId),
+                //this.wbtcUTXORepository.deleteWBTCUTXOs(blockId),
+                //this.compromisedTransactionRepository.deleteCompromisedTransactions(blockId),
+                //this.usedUTXOsRepository.deleteOldUsedUtxos(blockId),
             ];
 
             await Promise.all(promises);
         }
     }
 
-    public async deleteUsedUtxos(UTXOs: UsedUTXOToDelete[]): Promise<void> {
+    /*public async deleteUsedUtxos(UTXOs: UsedUTXOToDelete[]): Promise<void> {
         if (!this.usedUTXOsRepository) {
             throw new Error('Used UTXO repository not initialized');
         }
@@ -202,6 +205,18 @@ export class VMMongoStorage extends VMStorage {
         }
 
         await this.usedUTXOsRepository.setUsedUtxo(usedUtxo, this.currentSession);
+    }*/
+
+    public async getAddressOrPublicKeysInformation(
+        addressOrPublicKeys: string[],
+    ): Promise<IPublicKeyInfoResult> {
+        if (!this.publicKeysRepository) {
+            throw new Error('Public key repository not initialized');
+        }
+
+        return await this.publicKeysRepository.getAddressOrPublicKeysInformation(
+            addressOrPublicKeys,
+        );
     }
 
     public async getWitnesses(
@@ -223,6 +238,9 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async init(): Promise<void> {
+        if (this.initialized) return;
+        this.initialized = true;
+
         await this.connectDatabase();
 
         if (!this.databaseManager.db) {
@@ -232,6 +250,7 @@ export class VMMongoStorage extends VMStorage {
         this.pointerRepository = new ContractPointerValueRepository(this.databaseManager.db);
         this.contractRepository = new ContractRepository(this.databaseManager.db);
         this.blockRepository = new BlockRepository(this.databaseManager.db);
+        this.blockchainInfoRepository = new BlockchainInfoRepository(this.databaseManager.db);
         this.transactionRepository = new TransactionRepository(this.databaseManager.db);
         this.unspentTransactionRepository = new UnspentTransactionRepository(
             this.databaseManager.db,
@@ -239,15 +258,16 @@ export class VMMongoStorage extends VMStorage {
 
         this.reorgRepository = new ReorgsRepository(this.databaseManager.db);
         this.blockWitnessRepository = new BlockWitnessRepository(this.databaseManager.db);
-        this.vaultRepository = new VaultRepository(this.databaseManager.db);
-        this.wbtcUTXORepository = new WBTCUTXORepository(this.databaseManager.db);
-        this.compromisedTransactionRepository = new CompromisedTransactionRepository(
-            this.databaseManager.db,
-        );
+        //this.vaultRepository = new VaultRepository(this.databaseManager.db);
+        //this.wbtcUTXORepository = new WBTCUTXORepository(this.databaseManager.db);
+        //this.compromisedTransactionRepository = new CompromisedTransactionRepository(
+        //    this.databaseManager.db,
+        //);
 
         this.mempoolRepository = new MempoolRepository(this.databaseManager.db);
 
-        this.usedUTXOsRepository = new UsedWbtcUxtoRepository(this.databaseManager.db);
+        //this.usedUTXOsRepository = new UsedWbtcUxtoRepository(this.databaseManager.db);
+        this.publicKeysRepository = new PublicKeysRepository(this.databaseManager.db);
     }
 
     public async purgePointers(block: bigint): Promise<void> {
@@ -447,7 +467,6 @@ export class VMMongoStorage extends VMStorage {
             address,
             pointer,
             height,
-            //this.currentSession,
         );
 
         if (Buffer.isBuffer(value)) {
@@ -472,25 +491,6 @@ export class VMMongoStorage extends VMStorage {
             lastSeenAt: value.lastSeenAt,
         };
     }
-
-    /*public async insertUTXOs(
-        blockHeight: bigint,
-        transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[],
-    ): Promise<void> {
-        if (!this.unspentTransactionRepository) {
-            throw new Error('Transaction repository not initialized');
-        }
-
-        if (!this.currentSession) {
-            throw new Error('Session not started');
-        }
-
-        await this.unspentTransactionRepository.insertTransactions(
-            blockHeight,
-            transactions,
-            this.utxoSession,
-        );
-    }*/
 
     public async setStorage(
         address: Address,
@@ -517,22 +517,8 @@ export class VMMongoStorage extends VMStorage {
         );
     }
 
-    /*public async saveTransaction(
-        transaction: ITransactionDocument<OPNetTransactionTypes>,
-    ): Promise<void> {
-        if (!this.transactionRepository) {
-            throw new Error('Transaction repository not initialized');
-        }
-
-        if (!this.transactionSession) {
-            throw new Error('Session not started');
-        }
-
-        await this.transactionRepository.saveTransaction(transaction, this.transactionSession);
-    }*/
-
     public async setStoragePointers(
-        storage: Map<Address, Map<StoragePointer, [MemoryValue, string[]]>>,
+        storage: AddressMap<Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
     ): Promise<void> {
         if (!this.pointerRepository) {
@@ -546,36 +532,13 @@ export class VMMongoStorage extends VMStorage {
         await this.pointerRepository.setStoragePointers(storage, lastSeenAt, this.currentSession);
     }
 
-    /*public saveTransactions(
-        blockHeight: bigint,
-        transactions: ITransactionDocument<OPNetTransactionTypes>[],
-    ): void {
-        if (!this.transactionRepository || !this.unspentTransactionRepository) {
-            throw new Error('Transaction repository not initialized');
-        }
-
-        if (!this.transactionSession || !this.currentSession) {
-            throw new Error('Session not started');
-        }
-
-        const promise = this.transactionRepository.saveTransactions(
-            transactions,
-            this.transactionSession,
-        );
-
-        const data = this.writeTransactions.get(blockHeight) || [];
-        data.push(promise);
-
-        this.writeTransactions.set(blockHeight, data);
-    }*/
-
-    public async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
+    /*public async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
         }
 
         return await this.blockRepository.getBlockRootStates(height, this.currentSession);
-    }
+    }*/
 
     public async setContractAt(contractData: ContractInformation): Promise<void> {
         if (!this.contractRepository) {
@@ -590,7 +553,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getContractAt(
-        contractAddress: Address,
+        contractAddress: string,
         height?: bigint,
     ): Promise<ContractInformation | undefined> {
         if (!this.contractRepository) {
@@ -605,7 +568,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getContractAddressAt(
-        contractAddress: Address,
+        contractAddress: string,
         height?: bigint,
     ): Promise<Address | undefined> {
         if (!this.contractRepository) {
@@ -619,7 +582,7 @@ export class VMMongoStorage extends VMStorage {
         );
     }
 
-    public async saveBlockHeader(blockHeader: BlockHeaderBlockDocument): Promise<void> {
+    public async saveBlockHeader(blockHeader: BlockHeaderDocument): Promise<void> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
         }
@@ -627,25 +590,17 @@ export class VMMongoStorage extends VMStorage {
         await this.blockRepository.saveBlockHeader(blockHeader, this.currentSession);
     }
 
-    public async getContractAtVirtualAddress(
-        virtualAddress: string,
+    public async getContractFromTweakedPubKey(
+        tweakedPublicKey: string,
     ): Promise<ContractInformation | undefined> {
         if (!this.contractRepository) {
             throw new Error('Repository not initialized');
         }
 
-        return await this.contractRepository.getContractAtVirtualAddress(virtualAddress);
+        return await this.contractRepository.getContractFromTweakedPubKey(tweakedPublicKey);
     }
 
-    public async hasContractAt(contractAddress: Address): Promise<boolean> {
-        if (!this.contractRepository) {
-            throw new Error('Repository not initialized');
-        }
-
-        return await this.contractRepository.hasContract(contractAddress);
-    }
-
-    public async getBlockHeader(height: bigint): Promise<BlockHeaderBlockDocument | undefined> {
+    public async getBlockHeader(height: bigint): Promise<BlockHeaderDocument | undefined> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
         }
@@ -654,7 +609,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public async getUTXOs(
-        address: Address,
+        address: string,
         optimize: boolean = false,
     ): Promise<UTXOsOutputTransactions> {
         if (!this.unspentTransactionRepository || !this.mempoolRepository) {
@@ -677,7 +632,7 @@ export class VMMongoStorage extends VMStorage {
         };
     }
 
-    public async setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void> {
+    /*public async setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void> {
         if (!this.wbtcUTXORepository) {
             throw new Error('WBTC UTXO repository not initialized');
         }
@@ -756,16 +711,16 @@ export class VMMongoStorage extends VMStorage {
         await this.wbtcUTXORepository.deleteOldUTXOs(height, this.currentSession);
     }
 
-    public async getVault(vault: Address): Promise<IVaultDocument | undefined> {
+    public async getVault(vault: string): Promise<IVaultDocument | undefined> {
         if (!this.vaultRepository) {
             throw new Error('Vault repository not initialized');
         }
 
         return await this.vaultRepository.getVault(vault);
-    }
+    }*/
 
     public async getBalanceOf(
-        address: Address,
+        address: string,
         filterOrdinals: boolean,
     ): Promise<bigint | undefined> {
         if (!this.unspentTransactionRepository) {
@@ -782,15 +737,6 @@ export class VMMongoStorage extends VMStorage {
 
         try {
             await this.waitForAllSessionsCommitted();
-
-            //await this.databaseManager.db.command({
-            //    killAllSessions: [
-            //{
-            //    user: 'admin', //Config.DATABASE.AUTH.USERNAME
-            //    db: Config.DATABASE.DATABASE_NAME,
-            //},
-            //    ],
-            //});
         } catch (e) {
             this.error(`Error killing all pending writes: ${e}`);
         }
@@ -814,6 +760,34 @@ export class VMMongoStorage extends VMStorage {
         });
 
         await Promise.all(promises);
+    }
+
+    public convertBlockHeaderToBlockHeaderDocument(
+        blockHeader: BlockHeaderDocument,
+    ): BlockHeaderAPIBlockDocument {
+        return {
+            hash: blockHeader.hash,
+            height: blockHeader.height.toString(),
+            time: blockHeader.time.getTime(),
+            version: blockHeader.version,
+            bits: blockHeader.bits,
+            nonce: blockHeader.nonce,
+            previousBlockHash: blockHeader.previousBlockHash,
+            merkleRoot: blockHeader.merkleRoot,
+            txCount: blockHeader.txCount,
+            size: blockHeader.size,
+            weight: blockHeader.weight,
+            strippedSize: blockHeader.strippedSize,
+            storageRoot: blockHeader.storageRoot,
+            receiptRoot: blockHeader.receiptRoot,
+            checksumProofs: blockHeader.checksumProofs,
+            medianTime: blockHeader.medianTime.getTime(),
+            previousBlockChecksum: blockHeader.previousBlockChecksum,
+            checksumRoot: blockHeader.checksumRoot,
+            ema: blockHeader.ema.toString(),
+            baseGas: blockHeader.baseGas.toString(),
+            gasUsed: blockHeader.gasUsed.toString(),
+        };
     }
 
     private async waitForAllSessionsCommitted(pollInterval: number = 100): Promise<void> {
@@ -853,6 +827,7 @@ export class VMMongoStorage extends VMStorage {
             // Polling function
             const poll = async () => {
                 const writesFinished = await checkWrites();
+
                 if (writesFinished) {
                     resolve();
                 } else {
@@ -894,35 +869,7 @@ export class VMMongoStorage extends VMStorage {
 
     private getTransactionOptions(): TransactionOptions {
         return {
-            maxCommitTimeMS: 29 * 60000,
-        };
-    }
-
-    private convertBlockHeaderToBlockHeaderDocument(
-        blockHeader: BlockHeaderBlockDocument,
-    ): BlockHeaderAPIBlockDocument {
-        return {
-            hash: blockHeader.hash,
-            height: blockHeader.height.toString(),
-            time: blockHeader.time.getTime(),
-            version: blockHeader.version,
-            bits: blockHeader.bits,
-            nonce: blockHeader.nonce,
-            previousBlockHash: blockHeader.previousBlockHash,
-            merkleRoot: blockHeader.merkleRoot,
-            txCount: blockHeader.txCount,
-            size: blockHeader.size,
-            weight: blockHeader.weight,
-            strippedSize: blockHeader.strippedSize,
-            storageRoot: blockHeader.storageRoot,
-            receiptRoot: blockHeader.receiptRoot,
-            checksumProofs: blockHeader.checksumProofs,
-            medianTime: blockHeader.medianTime.getTime(),
-            previousBlockChecksum: blockHeader.previousBlockChecksum,
-            checksumRoot: blockHeader.checksumRoot,
-            ema: blockHeader.ema.toString(),
-            baseGas: blockHeader.baseGas.toString(),
-            gasUsed: blockHeader.gasUsed.toString(),
+            maxCommitTimeMS: 20 * 60000,
         };
     }
 

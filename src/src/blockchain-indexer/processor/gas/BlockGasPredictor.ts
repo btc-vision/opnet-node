@@ -16,7 +16,6 @@ export class BlockGasPredictor {
 
     private readonly alpha1: bigint; // Adjustment factor when G_t > G_targetBlock (scaled)
     private readonly alpha2: bigint; // Adjustment factor when G_t <= G_targetBlock (scaled)
-    //private readonly deltaMax: bigint; // Maximum adjustment rate per block (scaled)
     private readonly uTarget: bigint; // Target utilization ratio (scaled)
 
     private currentB: bigint; // Current base gas price (scaled)
@@ -29,7 +28,6 @@ export class BlockGasPredictor {
         smoothingFactor: number,
         alpha1: number,
         alpha2: number,
-        //deltaMax: number,
         uTarget: number,
     ) {
         this.bMin = BlockGasPredictor.toBase(bMin);
@@ -38,50 +36,10 @@ export class BlockGasPredictor {
 
         this.alpha1 = BlockGasPredictor.toBase(alpha1);
         this.alpha2 = BlockGasPredictor.toBase(alpha2);
-        //this.deltaMax = this.toBase(deltaMax);
         this.uTarget = BlockGasPredictor.toBase(uTarget);
 
         // Ensure currentB is scaled; if not provided, default to bMin
         this.currentB = currentB !== undefined && currentB > 0n ? currentB : this.bMin;
-    }
-
-    // Calculates the current utilization ratio (U_current)
-    public calculateUCurrent(usedBlockGas: bigint): bigint {
-        // U_current = (G_t * scalingFactor) / G_targetBlock
-        return this.divideBigInt(usedBlockGas * BlockGasPredictor.scalingFactor, this.gasTarget);
-    }
-
-    // Calculates the next base gas price
-    public calculateNextBaseGas(usedBlockGas: bigint, prevEMA: bigint): CalculatedBlockGas {
-        if (prevEMA === 0n) {
-            prevEMA = this.uTarget;
-        }
-
-        // Step 1: Calculate U_current
-        const uCurrent = this.calculateUCurrent(usedBlockGas) / BlockGasPredictor.scalingFactor;
-        if (uCurrent === 0n) {
-            return { bNext: this.currentB, ema: prevEMA };
-        }
-
-        // Step 2: Update EMA
-        const emaScaled = this.calculateEMA(uCurrent, prevEMA);
-
-        // Step 3: Determine condition
-        const alpha = usedBlockGas > this.gasTarget ? this.alpha1 : this.alpha2;
-
-        // Determine the sign based on whether ema is above or below the target
-        const sign = emaScaled > this.uTarget ? 1n : -1n;
-
-        // Step 4: Calculate Adjustment
-        const adjustment = this.calculateAdjustment(emaScaled, alpha, sign);
-
-        // Step 5: Apply Rate Limiting
-        // const adjustmentLimited = this.applyRateLimiting(adjustment, sign);
-
-        // Step 6: Calculate bNext
-        this.currentB = this.calculateBNext(adjustment);
-
-        return { bNext: this.currentB, ema: emaScaled };
     }
 
     // Converts a number to a scaled bigint
@@ -93,14 +51,33 @@ export class BlockGasPredictor {
         return value * BlockGasPredictor.scalingFactor;
     }
 
-    // Applies rate limiting to the adjustment factor
-    //private applyRateLimiting(adjustment: bigint, sign: bigint): bigint {
-    //    return this.min(this.max(adjustment, this.one - this.deltaMax), this.one + this.deltaMax);
-    //}
+    // Calculates the current utilization ratio (U_current)
+    public calculateUCurrent(usedBlockGas: bigint): bigint {
+        // U_current = (G_t * scalingFactor) / G_targetBlock
+        return this.divideBigInt(usedBlockGas * BlockGasPredictor.scalingFactor, this.gasTarget);
+    }
 
-    /*private min(a: bigint, b: bigint): bigint {
-        return a < b ? a : b;
-    }*/
+    public calculateNextBaseGas(usedBlockGas: bigint, prevEMA: bigint): CalculatedBlockGas {
+        if (prevEMA === 0n) {
+            prevEMA = this.uTarget;
+        }
+
+        const uCurrent = this.calculateUCurrent(usedBlockGas) / BlockGasPredictor.scalingFactor;
+        let emaScaled = this.calculateEMA(uCurrent, prevEMA);
+
+        // Default to 10000n if EMA is less than 10000n
+        if (emaScaled < 50000n) {
+            emaScaled = 50000n;
+        }
+
+        const alpha = usedBlockGas > this.gasTarget ? this.alpha1 : this.alpha2;
+        const sign = emaScaled > this.uTarget ? 1n : -1n;
+        const adjustment = this.calculateAdjustment(emaScaled, alpha, sign);
+
+        this.currentB = this.calculateBNext(adjustment);
+
+        return { bNext: this.currentB, ema: emaScaled };
+    }
 
     private max(a: bigint, b: bigint): bigint {
         return a > b ? a : b;

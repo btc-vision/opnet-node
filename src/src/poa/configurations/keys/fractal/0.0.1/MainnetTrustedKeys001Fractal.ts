@@ -1,5 +1,5 @@
 import { NetworkAuthorityConfiguration } from '../../../types/TrustedPublicKeys.js';
-import { TrustedCompanies } from '../../../TrustedCompanies.js';
+import { TrustedEntities } from '../../../TrustedEntities.js';
 
 export const MainnetTrustedKeys001Fractal: NetworkAuthorityConfiguration = {
     /** Minimum different trusted validators */
@@ -15,14 +15,15 @@ export const MainnetTrustedKeys001Fractal: NetworkAuthorityConfiguration = {
     maximumValidatorPerTrustedEntities: 3,
 
     trusted: {
-        [TrustedCompanies.OPNet]: {
+        [TrustedEntities.OPNet]: {
             keys: [
                 {
                     opnet: 'sipzeI6gxmed7flaZe8/S0ud1AbolTRTgXPJqdLDsXQ=',
                     publicKey: 'AwsdUc6BvUNz0ntDvhjRWwrIDDyxQET0Y6KUldqVOl0l',
                     signature:
                         'Toi04FwpfrZG7ChYBvnqOBy/Gf28OJ8s8VTnJaKa54iMlQvhbZAxLv83a5crVRQ7oOQFTATlzZsA/FXbFBM5Aw==',
-                    wallet: 'bc1pf73kac2d5udqfej04juxngnd4r586jctndrslk8mxy42gfqzmdfsea8hng',
+                    walletPubKey:
+                        '0x027fdcb918fa0f4a7693f3df5ed6f2510ea91f33f16e081d208cf3dd93f466c8ab',
                 },
 
                 {
@@ -30,7 +31,8 @@ export const MainnetTrustedKeys001Fractal: NetworkAuthorityConfiguration = {
                     publicKey: 'A1IEmPGIa9InIL6VWJSyyhrGQ5rH43NYJG6jo/iOOmlT',
                     signature:
                         '1SyAB+wqnwAwP3VxmzO3dz2oXg4RGslNZKO58fUXFvWbRxfZfbOTl7/4KyVHfRriittk9b197u7vQ+yb0/HDBw==',
-                    wallet: 'bc1pp7dqx4mz3tmnp5hqnu4h873qpa9n3lqg0a8lk9azelrqf2kckmzqtgegw7',
+                    walletPubKey:
+                        '0x027fdcb918fa0f4a7693f3df5ed6f2510ea91f33f16e081d208cf3dd93f466c8ab',
                 },
             ],
         },

@@ -21,6 +21,7 @@ export interface ContractEvents {
 export interface CallResultData {
     readonly result: string;
     readonly events: ContractEvents;
+    revert?: string;
     readonly accessList: AccessList;
     readonly estimatedGas: string;
 }

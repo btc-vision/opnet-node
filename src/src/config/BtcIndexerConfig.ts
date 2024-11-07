@@ -12,7 +12,7 @@ import {
     MempoolConfig,
     OPNetConfig,
     P2P,
-    PoA,
+    PoC,
     RPCConfig,
     SSHConfig,
 } from './interfaces/IBtcIndexerConfig.js';
@@ -24,7 +24,7 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
     public readonly RPC: RPCConfig;
     public readonly OP_NET: OPNetConfig;
 
-    public readonly POA: PoA;
+    public readonly POC: PoC;
     public readonly P2P: P2P;
     public readonly SSH: SSHConfig;
 
@@ -66,7 +66,7 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
         this.DOCS = config.DOCS;
 
         this.P2P = config.P2P;
-        this.POA = config.POA;
+        this.POC = config.POC;
 
         this.MEMPOOL = config.MEMPOOL;
         this.API = config.API;

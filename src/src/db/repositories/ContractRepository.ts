@@ -1,9 +1,20 @@
 import { BaseRepository, DataAccessError, DataAccessErrorType } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { ClientSession, Collection, Db, Document, Filter, FindOptions, Sort } from 'mongodb';
+import {
+    Binary,
+    ClientSession,
+    Collection,
+    Db,
+    Document,
+    Filter,
+    FindOptions,
+    InsertOneOptions,
+    OptionalUnlessRequiredId,
+    Sort,
+} from 'mongodb';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
-import { Address } from '@btc-vision/bsi-binary';
+import { Address } from '@btc-vision/transaction';
 
 export class ContractRepository extends BaseRepository<IContractDocument> {
     public readonly logColor: string = '#afeeee';
@@ -23,38 +34,16 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         await this.delete(criteria, currentSession);
     }
 
-    public async hasContract(
-        contractAddress: string,
-        currentSession?: ClientSession,
-    ): Promise<boolean> {
-        const collection = this.getCollection();
-        const options: FindOptions = this.getOptions(currentSession);
-
-        const criteria: Filter<Document> = {
-            $or: [
-                { contractAddress: contractAddress },
-                { virtualAddress: contractAddress },
-                //{ p2trAddress: contractAddress }, disabled.
-            ],
-        };
-
-        const hasContract: number = await collection.countDocuments(criteria, options);
-        return hasContract > 0;
-    }
-
     public async getContract(
         contractAddress: string,
         height?: bigint,
         currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
-        const criteria: Filter<Document> = {
-            $or: [
-                { contractAddress: contractAddress },
-                { virtualAddress: contractAddress },
-                //{ p2trAddress: contractAddress }, disabled.
-            ],
-        };
+        if (contractAddress.startsWith('0x')) {
+            return await this.getContractFromTweakedPubKey(contractAddress, height, currentSession);
+        }
 
+        const criteria: Filter<Document> = { contractAddress: contractAddress };
         if (height !== undefined) {
             criteria.blockHeight = { $lte: DataConverter.toDecimal128(height) };
         }
@@ -72,22 +61,24 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         height?: bigint,
         currentSession?: ClientSession,
     ): Promise<Address | undefined> {
+        if (contractAddress.startsWith('0x')) {
+            return Address.fromString(contractAddress);
+        }
+
         const criteria: Filter<Document> = {
-            $or: [
-                { contractAddress: contractAddress },
-                { virtualAddress: contractAddress },
-                //{ p2trAddress: contractAddress }, disabled
-            ],
+            contractAddress: contractAddress,
         };
 
         if (height !== undefined) {
             criteria.blockHeight = { $lt: DataConverter.toDecimal128(height) };
         }
 
-        const contract: { contractAddress: string } | null = await this.queryOneAndProject(
+        const contract: {
+            contractTweakedPublicKey: Binary;
+        } | null = await this.queryOneAndProject(
             criteria,
             {
-                contractAddress: 1,
+                contractTweakedPublicKey: 1,
             },
             currentSession,
         );
@@ -96,26 +87,42 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             return;
         }
 
-        return contract.contractAddress;
+        return new Address(contract.contractTweakedPublicKey.buffer);
     }
 
-    // TODO: Add verification to make sure the contract it tries to deploy does not already exist.
     public async setContract(
         contract: ContractInformation,
         currentSession?: ClientSession,
     ): Promise<void> {
-        const criteria: Partial<Filter<IContractDocument>> = {
-            contractAddress: contract.contractAddress,
-        };
+        const contractExists = await this.getContractAddressAt(
+            contract.contractAddress,
+            undefined,
+            currentSession,
+        );
 
-        await this.updatePartial(criteria, contract.toDocument(), currentSession);
+        if (contractExists) {
+            throw new Error('OP_NET: Contract already exists');
+        }
+
+        await this.insert(contract.toDocument(), currentSession);
     }
 
-    public async getContractAtVirtualAddress(
-        virtualAddress: string,
+    public async getContractFromTweakedPubKey(
+        contractTweakedPublicKey: string,
+        height?: bigint,
         currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
-        const contract = await this.queryOne({ virtualAddress }, currentSession);
+        const criteria: Filter<Document> = {
+            contractTweakedPublicKey: Binary.createFromHexString(
+                contractTweakedPublicKey.replace('0x', ''),
+            ),
+        };
+
+        if (height !== undefined) {
+            criteria.blockHeight = { $lte: DataConverter.toDecimal128(height) };
+        }
+
+        const contract = await this.queryOne(criteria, currentSession);
         if (!contract) {
             return;
         }
@@ -125,6 +132,25 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
 
     protected override getCollection(): Collection<IContractDocument> {
         return this._db.collection('Contracts');
+    }
+
+    private async insert(
+        criteria: OptionalUnlessRequiredId<IContractDocument>,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        try {
+            const collection = this.getCollection();
+            const options: InsertOneOptions = {
+                ...this.getOptions(currentSession),
+            };
+
+            const insertedResult = await collection.insertOne(criteria, options);
+            if (!insertedResult.acknowledged || !insertedResult.insertedId) {
+                throw new Error('OP_NET: Unable to insert contract.');
+            }
+        } catch {
+            throw new Error('OP_NET: Unable to insert contract.');
+        }
     }
 
     private async queryOneAndProject<TDocument>(

@@ -1,11 +1,8 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin, { address, initEccLib, opcodes, payments } from 'bitcoinjs-lib';
+import bitcoin, { initEccLib, opcodes } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
-import {
-    InteractionTransactionDocument,
-    NetEventDocument,
-} from '../../../../db/interfaces/ITransactionDocument.js';
+import { InteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
 import {
     InteractionTransactionType,
@@ -15,11 +12,10 @@ import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
-import { AuthorityManager } from '../../../../poa/configurations/manager/AuthorityManager.js';
-import { P2PVersion } from '../../../../poa/configurations/P2PVersion.js';
-import { Address, BinaryReader } from '@btc-vision/bsi-binary';
-import { WBTC_UNWRAP_SELECTOR, WBTC_WRAP_SELECTOR } from '../../../../poa/wbtc/WBTCRules.js';
+import { Address, AddressVerificator } from '@btc-vision/transaction';
 import * as ecc from 'tiny-secp256k1';
+import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
+import crypto from 'crypto';
 
 export interface InteractionWitnessData {
     senderPubKey: Buffer;
@@ -27,15 +23,19 @@ export interface InteractionWitnessData {
     senderPubKeyHash160: Buffer;
     contractSecretHash160: Buffer;
     calldata: Buffer;
+
+    readonly firstByte: Buffer;
 }
 
 initEccLib(ecc);
 
-const authorityManager = AuthorityManager.getAuthority(P2PVersion);
+//const authorityManager = AuthorityManager.getAuthority(P2PVersion);
 
 /* TODO: Potentially allow multiple contract interaction per transaction since BTC supports that? Maybe, in the future, for now let's stick with one. */
 export class InteractionTransaction extends Transaction<InteractionTransactionType> {
     public static LEGACY_INTERACTION: Buffer = Buffer.from([
+        opcodes.OP_TOALTSTACK,
+
         opcodes.OP_CHECKSIGVERIFY,
         opcodes.OP_CHECKSIGVERIFY,
 
@@ -65,8 +65,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     protected contractSecret: Buffer | undefined;
     protected interactionPubKey: Buffer | undefined;
 
-    protected receiptProofs: string[] | undefined;
-
     protected interactionWitnessData: InteractionWitnessData | undefined;
 
     public constructor(
@@ -87,19 +85,28 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         const newCalldata = Buffer.alloc(this._calldata.byteLength);
-        this._calldata?.copy(newCalldata);
+        if (this._calldata) this._calldata.copy(newCalldata);
 
         return newCalldata;
     }
 
     protected _contractAddress: Address | undefined;
 
-    public get contractAddress(): Address {
-        return this._contractAddress as string;
+    public get contractAddress(): string {
+        if (!this._contractAddress) {
+            throw new Error(`Contract address not set for transaction ${this.txid}`);
+        }
+
+        return this._contractAddress.p2tr(this.network);
     }
 
-    public set contractAddress(contractAddress: Address) {
-        this._contractAddress = contractAddress;
+    //public set contractAddress(contractAddress: Address) {
+    //    this._contractAddress = contractAddress;
+    //}
+
+    public get address(): Address {
+        if (!this._contractAddress) throw new Error('Contract address not found');
+        return this._contractAddress;
     }
 
     protected _txOrigin: Address | undefined;
@@ -112,15 +119,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
     public get msgSender(): Address | undefined {
         return this._msgSender;
-    }
-
-    public get gasUsed(): bigint {
-        if (!this.receipt) {
-            return 0n;
-        }
-
-        const receiptData: EvaluatedResult | undefined = this.receipt;
-        return receiptData?.gasUsed || 0n;
     }
 
     public static is(data: TransactionData): TransactionInformation | undefined {
@@ -139,6 +137,15 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     public static getInteractionWitnessDataHeader(
         scriptData: Array<number | Buffer>,
     ): Omit<InteractionWitnessData, 'calldata'> | undefined {
+        const firstByte = scriptData.shift();
+        if (!Buffer.isBuffer(firstByte)) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
+            return;
+        }
+
         const senderPubKey: Buffer = scriptData.shift() as Buffer;
         if (!Buffer.isBuffer(senderPubKey)) {
             return;
@@ -198,6 +205,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         return {
+            firstByte,
             senderPubKey,
             interactionSaltPubKey,
             senderPubKeyHash160,
@@ -223,7 +231,15 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             throw new Error(`No contract bytecode found in deployment transaction.`);
         }
 
+        if (
+            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_DECOMPRESSED <
+            calldata.byteLength
+        ) {
+            throw new Error(`OP_NET: Calldata length exceeds maximum allowed size.`);
+        }
+
         return {
+            firstByte: header.firstByte,
             senderPubKey: header.senderPubKey,
             interactionSaltPubKey: header.interactionSaltPubKey,
             senderPubKeyHash160: header.senderPubKeyHash160,
@@ -251,8 +267,9 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
         return {
             ...super.toDocument(),
-            from: this.from,
+            from: new Binary(this.from),
             contractAddress: this.contractAddress,
+            contractTweakedPublicKey: new Binary(this.address),
 
             calldata: new Binary(this.calldata),
             senderPubKeyHash: new Binary(this.senderPubKeyHash),
@@ -267,10 +284,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             receipt: receipt ? new Binary(receipt) : undefined,
             events: this.convertEvents(events),
         };
-    }
-
-    public setReceiptProofs(proofs: string[] | undefined): void {
-        this.receiptProofs = proofs;
     }
 
     public parseTransaction(
@@ -333,12 +346,11 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             );
         }
 
-        const { address } = payments.p2tr({ internalPubkey: senderPubKey, network: this.network });
-        if (!address) {
-            throw new Error(`Failed to generate sender address for transaction ${this.txid}`);
-        }
+        this._from = new Address([this.interactionWitnessData.firstByte[0], ...senderPubKey]);
 
-        this._from = address;
+        if (!this._from.isValid(this.network)) {
+            throw new Error(`OP_NET: Invalid sender address.`);
+        }
 
         this.senderPubKeyHash = this.interactionWitnessData.senderPubKeyHash160;
         this.senderPubKey = this.interactionWitnessData.senderPubKey;
@@ -358,23 +370,27 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this.contractSecret = contractSecret;
 
         /** We must verify that the contract secret match with at least one output. */
-        const outputWitness: TransactionOutput | undefined =
-            this.getOutputWitnessFromSecret(contractSecret);
-
+        const outputWitness: TransactionOutput | undefined = this.outputs[0];
         if (!outputWitness) {
-            throw new Error(
-                `No output transaction found for contract secret for transaction ${this.txid}. Secret: ${contractSecret.toString(
-                    'hex',
-                )}`,
-            );
+            throw new Error(`OP_NET: Interaction miss configured.`);
         }
 
-        const outputAddress = outputWitness.scriptPubKey.address;
-        if (!outputAddress) {
-            throw new Error(`No address found for contract witness output`);
+        const contractSecretRegenerated: Buffer =
+            outputWitness.decodedSchnorrPublicKey ||
+            outputWitness.decodedPubKeyHash ||
+            (outputWitness.decodedPublicKeys || [])[0];
+
+        if (!contractSecretRegenerated || !outputWitness.scriptPubKey.type) {
+            throw new Error(`OP_NET: Interaction miss configured.`);
         }
 
-        this._contractAddress = outputAddress;
+        this._contractAddress = this.regenerateContractAddress(contractSecret);
+
+        this.verifyContractAddress(
+            outputWitness.scriptPubKey.type,
+            contractSecretRegenerated,
+            this._contractAddress,
+        );
 
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
@@ -385,70 +401,71 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this.verifyUnallowed();
     }
 
-    /**
-     * Convert the events to the document format.
-     * @param events NetEvent[]
-     * @protected
-     */
-    protected convertEvents(events: EvaluatedEvents | undefined): NetEventDocument[] {
-        if (!events) {
-            return [];
+    protected verifyContractAddress(type: string, pubKey: Buffer, contractAddress: Address): void {
+        if (!type || !pubKey) {
+            throw new Error(`OP_NET: Invalid contract address specified.`);
         }
 
-        const netEvents: NetEventDocument[] = [];
-        for (const [contractAddress, contractEvents] of events) {
-            for (const event of contractEvents) {
-                netEvents.push({
-                    contractAddress,
-                    eventData: new Binary(event.eventData),
-                    eventDataSelector: DataConverter.toDecimal128(event.eventDataSelector),
-                    eventType: event.eventType,
-                });
+        switch (type) {
+            case 'witness_v1_taproot': {
+                break;
+            }
+            case 'pubkey': {
+                break;
+            }
+            default: {
+                throw new Error(
+                    `OP_NET: Only P2TR, legacy and pubkey interactions are supported at this time. Got ${type}`,
+                );
             }
         }
 
-        return netEvents;
+        if (!crypto.timingSafeEqual(pubKey, contractAddress)) {
+            throw new Error(`OP_NET: Malformed UTXO output.`);
+        }
+    }
+
+    protected regenerateContractAddress(contractSecret: Buffer): Address {
+        const isValid =
+            contractSecret.length === 32 ||
+            contractSecret.length === 33 ||
+            contractSecret.length === 65;
+
+        if (!isValid) {
+            throw new Error(`OP_NET: Invalid contract address length specified.`);
+        }
+
+        if (contractSecret.length === 33) {
+            if (contractSecret[0] !== 0x02 && contractSecret[0] !== 0x03) {
+                throw new Error(`OP_NET: Invalid contract address prefix specified.`);
+            }
+        }
+
+        if (contractSecret.length === 65) {
+            if (contractSecret[0] !== 0x04) {
+                throw new Error(`OP_NET: Invalid contract uncompressed address specified.`);
+            }
+        }
+
+        if (!AddressVerificator.isValidPublicKey(contractSecret.toString('hex'), this.network)) {
+            throw new Error(`OP_NET: Invalid contract pubkey specified.`);
+        }
+
+        return new Address(contractSecret);
     }
 
     /** We must verify that the transaction is not bypassing another transaction type. */
     protected verifyUnallowed(): void {
         // We handle wbtc checks here.
-        if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
-            this.verifyWBTC();
-        }
-    }
-
-    /**
-     * Get the output witness from the secret. Note: If there is multiple interaction in the same transaction, there should be only one output that match the secret.
-     * @param secret Buffer
-     * @private
-     */
-    private getOutputWitnessFromSecret(secret: Buffer): TransactionOutput | undefined {
-        for (let i = 0; i < this.outputs.length; i++) {
-            const output = this.outputs[i];
-
-            const scriptPubKey = output.scriptPubKey;
-            const outAddress = scriptPubKey.address;
-
-            if (!outAddress) {
-                continue;
-            }
-
-            const bech32Address = address.fromBech32(outAddress);
-            if (!bech32Address) {
-                continue;
-            }
-
-            if (secret.equals(bech32Address.data)) {
-                return output;
-            }
-        }
-
-        return undefined;
+        //if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
+        //    this.verifyWBTC();
+        //}
     }
 
     /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */
     private decompressCalldata(): void {
+        if (!this._calldata) throw new Error(`Calldata not specified in transaction.`);
+
         this._calldata = this.decompressData(this._calldata);
     }
 
@@ -460,7 +477,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     /**
      * Verify that the WBTC transaction is valid.
      */
-    private verifyWBTC(): void {
+    /*private verifyWBTC(): void {
         const selectorBytes = this.calldata.subarray(0, 4);
         const reader = new BinaryReader(selectorBytes);
 
@@ -468,5 +485,5 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         if (selector === WBTC_WRAP_SELECTOR || selector === WBTC_UNWRAP_SELECTOR) {
             throw new Error(`Invalid WBTC mint/burn transaction.`);
         }
-    }
+    }*/
 }

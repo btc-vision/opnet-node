@@ -48,8 +48,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ALLOW_PURGE: true,
             BLOCK_QUERY_INTERVAL: 5000,
             READONLY_MODE: false,
+
+            /** UTXOs */
             DISABLE_UTXO_INDEXING: false,
             PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
+            UTXO_SAVE_INTERVAL: 5000,
         },
 
         DEV: {
@@ -62,6 +65,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             SAVE_TIMEOUTS_TO_FILE: false,
             SIMULATE_HIGH_GAS_USAGE: false,
             DEBUG_VALID_TRANSACTIONS: false,
+            DEBUG_API_ERRORS: false,
         },
 
         BASE58: {},
@@ -73,6 +77,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             CLIENT_MODE: false,
             ENABLE_IPV6: false,
 
+            ENABLE_IP_BANNING: false,
             MDNS: false,
 
             P2P_HOST_V6: '::',
@@ -113,7 +118,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             UTXO_LIMIT: 500,
         },
 
-        POA: {
+        POC: {
             ENABLED: false,
         },
 
@@ -121,6 +126,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             THREADS: 2,
             EXPIRATION_BLOCKS: 20,
             ENABLE_BLOCK_PURGE: true,
+            BATCH_SIZE: 25,
+            FETCH_INTERVAL: 30000,
         },
 
         RPC: {
@@ -281,6 +288,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
+                parsedConfig.INDEXER.UTXO_SAVE_INTERVAL !== undefined &&
+                typeof parsedConfig.INDEXER.UTXO_SAVE_INTERVAL !== 'number'
+            ) {
+                throw new Error(`Oops the property INDEXER.UTXO_SAVE_INTERVAL is not a number.`);
+            }
+
+            if (
                 parsedConfig.INDEXER.BLOCK_QUERY_INTERVAL !== undefined &&
                 typeof parsedConfig.INDEXER.BLOCK_QUERY_INTERVAL !== 'number'
             ) {
@@ -368,6 +382,16 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(`Oops the property OP_NET.CHAIN_ID is not a number.`);
             }
 
+            // Prohibit the use of the main chain id.
+            if (
+                parsedConfig.BITCOIN.NETWORK === BitcoinNetwork.mainnet &&
+                parsedConfig.BITCOIN.CHAIN_ID === ChainIds.Bitcoin
+            ) {
+                throw new Error(
+                    `Mainnet configuration is not allowed. Please use the testnet configuration.`,
+                );
+            }
+
             if (
                 parsedConfig.BITCOIN.NETWORK_MAGIC !== undefined &&
                 !Array.isArray(parsedConfig.BITCOIN.NETWORK_MAGIC)
@@ -400,10 +424,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
         }
 
-        if (parsedConfig.POA) {
+        if (parsedConfig.POC) {
             if (
-                parsedConfig.POA.ENABLED !== undefined &&
-                typeof parsedConfig.POA.ENABLED !== 'boolean'
+                parsedConfig.POC.ENABLED !== undefined &&
+                typeof parsedConfig.POC.ENABLED !== 'boolean'
             ) {
                 throw new Error(`Oops the property POA.ENABLED is not a boolean.`);
             }
@@ -419,6 +443,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             if (parsedConfig.P2P.MDNS !== undefined && typeof parsedConfig.P2P.MDNS !== 'boolean') {
                 throw new Error(`Oops the property P2P.MDNS is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.P2P.ENABLE_IP_BANNING !== undefined &&
+                typeof parsedConfig.P2P.ENABLE_IP_BANNING !== 'boolean'
+            ) {
+                throw new Error(`Oops the property P2P.ENABLE_IP_BANNING is not a boolean.`);
             }
 
             if (
@@ -555,6 +586,20 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.MEMPOOL.ENABLE_BLOCK_PURGE !== 'boolean'
             ) {
                 throw new Error(`Oops the property MEMPOOL.ENABLE_BLOCK_PURGE is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.MEMPOOL.BATCH_SIZE !== undefined &&
+                typeof parsedConfig.MEMPOOL.BATCH_SIZE !== 'number'
+            ) {
+                throw new Error(`Oops the property MEMPOOL.BATCH_SIZE is not a number.`);
+            }
+
+            if (
+                parsedConfig.MEMPOOL.FETCH_INTERVAL !== undefined &&
+                typeof parsedConfig.MEMPOOL.FETCH_INTERVAL !== 'number'
+            ) {
+                throw new Error(`Oops the property MEMPOOL.FETCH_INTERVAL is not a number.`);
             }
         }
 
@@ -740,6 +785,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(`Oops the property DEV.DEBUG_VALID_TRANSACTIONS is not a boolean.`);
             }
+
+            if (
+                parsedConfig.DEV.DEBUG_API_ERRORS !== undefined &&
+                typeof parsedConfig.DEV.DEBUG_API_ERRORS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.DEBUG_API_ERRORS is not a boolean.`);
+            }
         }
 
         if (parsedConfig.BASE58) {
@@ -854,9 +906,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             defaultConfigs.P2P,
         );
 
-        this.config.POA = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['POA']>(
-            parsedConfig.POA,
-            defaultConfigs.POA,
+        this.config.POC = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['POC']>(
+            parsedConfig.POC,
+            defaultConfigs.POC,
         );
 
         this.config.MEMPOOL = this.getConfigModified<

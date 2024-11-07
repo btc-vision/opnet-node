@@ -1,5 +1,5 @@
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
-import bitcoin from 'bitcoinjs-lib';
+import bitcoin from '@btc-vision/bitcoin';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';

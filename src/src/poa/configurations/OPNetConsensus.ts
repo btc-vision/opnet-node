@@ -48,10 +48,6 @@ class OPNetConsensusConfiguration extends Logger {
         return this.blockHeight;
     }
 
-    public isConsensusEnforced(consensus: Consensus): boolean {
-        return this.consensus.CONSENSUS === consensus;
-    }
-
     public isReadyForNextConsensus(): boolean {
         return this.consensus.GENERIC.IS_READY_FOR_NEXT_CONSENSUS;
     }
@@ -72,10 +68,6 @@ class OPNetConsensusConfiguration extends Logger {
         } else if (this.#consensus.GENERIC.NEXT_CONSENSUS_BLOCK <= blockHeight) {
             this.enforceNextConsensus();
         }
-    }
-
-    public getNextConsensus(): Consensus {
-        return this.consensus.GENERIC.NEXT_CONSENSUS;
     }
 
     /**

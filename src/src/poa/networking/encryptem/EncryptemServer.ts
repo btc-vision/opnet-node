@@ -112,11 +112,8 @@ export class EncryptemServer extends Logger {
             if (decryptedBuffer !== null) {
                 msg = decryptedBuffer;
             }
-        } catch (err: unknown) {
-            const e: Error = err as Error;
+        } catch {
             this.error(`[SERVER] Decryption failed.`);
-
-            console.log(e);
         }
 
         return msg;

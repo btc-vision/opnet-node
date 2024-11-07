@@ -1,5 +1,4 @@
-import { Address, BufferHelper } from '@btc-vision/bsi-binary';
-import bitcoin from 'bitcoinjs-lib';
+import { AddressVerificator, BufferHelper, NetEvent } from '@btc-vision/transaction';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -12,10 +11,7 @@ import {
 } from '../../../../../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
-import {
-    BlockchainStorageMap,
-    EvaluatedEvents,
-} from '../../../../../vm/evaluated/EvaluatedResult.js';
+import { PointerStorageMap } from '../../../../../vm/evaluated/EvaluatedResult.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { CallParams } from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
@@ -28,24 +24,18 @@ import {
 import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
-import { AddressVerificator } from '@btc-vision/transaction';
-import { NetworkConverter } from '../../../../../config/network/NetworkConverter.js';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
-    private readonly network: bitcoin.networks.Network = bitcoin.networks.testnet;
-
     private pendingRequests: number = 0;
 
     constructor() {
         super(Routes.CALL, RouteType.GET);
-
-        this.network = NetworkConverter.getNetwork();
     }
 
     public static async requestThreadExecution(
-        to: Address,
+        to: string,
         calldata: string,
-        from?: Address,
+        from?: string,
         blockNumber?: bigint,
     ): Promise<CallRequestResponse> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
@@ -96,13 +86,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             this.decrementPendingRequests();
             return this.convertDataToResult(res);
         } catch (e) {
-            this.decrementPendingRequests();
+            console.log(e);
 
-            if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-                this.error(
-                    `Failed to execute the given calldata at the requested contract: ${(e as Error).stack}`,
-                );
-            }
+            this.decrementPendingRequests();
 
             throw `Something went wrong while simulating call.`;
         }
@@ -214,45 +200,54 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             ? this.getAccessList(data.changedStorage)
             : {};
 
-        return {
+        const response: CallResult = {
             result: result,
             events: this.convertEventToResult(data.events),
             accessList,
             estimatedGas: '0x' + (data.gasUsed || 0).toString(16),
         };
+
+        if (data.revert) {
+            response.revert = data.revert.toString();
+        }
+
+        return response;
     }
 
-    private convertEventToResult(events: EvaluatedEvents | undefined): ContractEvents {
+    private convertEventToResult(events: Map<string, NetEvent[]> | undefined): ContractEvents {
         const contractEvents: ContractEvents = {};
 
-        if (events) {
-            for (const [contract, contractEventsList] of events) {
-                const contractEventsListResult: EventReceiptDataForAPI[] = [];
+        if (!events) {
+            return contractEvents;
+        }
 
-                for (const event of contractEventsList) {
-                    const eventResult: EventReceiptDataForAPI = {
-                        contractAddress: contract,
-                        eventType: event.eventType,
-                        eventDataSelector: event.eventDataSelector.toString(),
-                        eventData: Buffer.from(event.eventData).toString('base64'),
-                    };
+        for (const [contract, contractEventsList] of events) {
+            const contractEventsListResult: EventReceiptDataForAPI[] = [];
 
-                    contractEventsListResult.push(eventResult);
-                }
+            for (const event of contractEventsList) {
+                const eventResult: EventReceiptDataForAPI = {
+                    contractAddress: contract,
+                    type: event.type,
+                    data: Buffer.from(event.data).toString('base64'),
+                };
 
-                contractEvents[contract] = contractEventsListResult;
+                contractEventsListResult.push(eventResult);
             }
+
+            contractEvents[contract] = contractEventsListResult;
         }
 
         return contractEvents;
     }
 
-    private getAccessList(changedStorage: BlockchainStorageMap): AccessList {
+    private getAccessList(changedStorage: Map<string, PointerStorageMap> | undefined): AccessList {
         const accessList: AccessList = {};
+        if (!changedStorage) {
+            return accessList;
+        }
 
         for (const [contract, pointerStorage] of changedStorage) {
             const accessListItem: AccessListItem = {};
-
             for (const [key, value] of pointerStorage) {
                 const keyStr: string = Buffer.from(BufferHelper.pointerToUint8Array(key)).toString(
                     'base64',
@@ -271,10 +266,10 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
     private getDecodedParams(
         params: CallParams,
-    ): [Address, string, Address | undefined, bigint | undefined] {
-        let address: Address | undefined;
+    ): [string, string, string | undefined, bigint | undefined] {
+        let address: string | undefined;
         let calldata: string | undefined;
-        let from: Address | undefined;
+        let from: string | undefined;
         let blockNumber: bigint | undefined;
 
         if (Array.isArray(params)) {
@@ -289,14 +284,12 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             blockNumber = params.blockNumber ? BigInt(params.blockNumber) : undefined;
         }
 
-        if (
-            !address ||
-            !(
-                AddressVerificator.validatePKHAddress(address, this.network) ||
-                AddressVerificator.isValidP2TRAddress(address, this.network)
-            )
-        ) {
-            throw new Error(`Invalid address specified. Address must be P2TR (taproot).`);
+        if (!address) {
+            throw new Error('Receiver address not provided.');
+        }
+
+        if (!AddressVerificator.detectAddressType(address, this.network)) {
+            throw new Error(`Address ${address} is not a valid Bitcoin address.`);
         }
 
         if (!calldata || calldata.length < 1) throw new Error(`Invalid calldata specified.`);

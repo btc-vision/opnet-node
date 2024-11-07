@@ -54,10 +54,10 @@ export class Core extends Logger {
             await this.createThread(ThreadTypes.INDEXER);
         }
 
-        if (Config.POA.ENABLED) {
+        if (Config.POC.ENABLED) {
             await this.createThread(ThreadTypes.MEMPOOL_MANAGER);
             await this.createThread(ThreadTypes.MEMPOOL);
-            await this.createThread(ThreadTypes.POA);
+            await this.createThread(ThreadTypes.P2P);
         }
 
         if (Config.SSH.ENABLED) {

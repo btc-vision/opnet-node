@@ -1,8 +1,7 @@
 import { PSBTTypes } from './PSBTTypes.js';
-import { Network, networks, Psbt } from 'bitcoinjs-lib';
+import { Network, networks, Psbt } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { PSBTVerificator } from '../verificator/PSBTVerificator.js';
-import { UnwrapPSBTVerificator } from '../verificator/UnwrapPSBTVerificator.js';
 import { Consensus } from '../../configurations/consensus/Consensus.js';
 
 export interface PSBTDecodedData {
@@ -28,7 +27,7 @@ export class PSBTTransactionVerifier extends Logger {
     ) {
         super();
 
-        this.verificator.push(new UnwrapPSBTVerificator(this.db, network));
+        //this.verificator.push(new UnwrapPSBTVerificator(this.db, network));
     }
 
     public async createRepositories(): Promise<void> {

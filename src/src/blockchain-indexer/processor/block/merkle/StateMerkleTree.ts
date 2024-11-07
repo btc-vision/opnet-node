@@ -1,6 +1,14 @@
-import { Address, BufferHelper, MemorySlotData, MemorySlotPointer } from '@btc-vision/bsi-binary';
-import crypto from 'crypto';
 import { MerkleTree } from './MerkleTree.js';
+import {
+    Address,
+    AddressMap,
+    BufferHelper,
+    MemorySlotData,
+    MemorySlotPointer,
+} from '@btc-vision/transaction';
+import { arrayify as toBytes } from '@ethersproject/bytes';
+import { MerkleProof, MerkleTree as MerkleTreeRust } from '@btc-vision/rust-merkle-tree';
+import { defaultAbiCoder } from '@ethersproject/abi';
 
 export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotData<bigint>> {
     public static TREE_TYPE: [string, string] = ['bytes32', 'bytes32'];
@@ -9,28 +17,23 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         super(StateMerkleTree.TREE_TYPE);
     }
 
-    public static encodePointerBuffer(contract: string, pointer: Uint8Array | Buffer): Buffer {
-        const hash = crypto.createHash('sha256');
-        hash.update(contract);
-        hash.update(pointer);
+    public static verify(root: string, values: Buffer[] | Uint8Array[], proof: string[]): boolean {
+        const data = defaultAbiCoder.encode(StateMerkleTree.TREE_TYPE, values);
 
-        return hash.digest();
+        return new MerkleProof(proof.map((p) => toBytes(p))).verify(
+            toBytes(root),
+            MerkleTreeRust.hash(toBytes(data)),
+        );
     }
 
-    public getProofs(): Map<Address, Map<MemorySlotPointer, string[]>> {
-        if (!this.tree) {
-            throw new Error('Merkle tree not generated');
-        }
-
-        this.validate();
-
-        const proofs = new Map<Address, Map<MemorySlotPointer, string[]>>();
-        for (const [address, val] of this.values.entries()) {
+    public getProofs(): AddressMap<Map<MemorySlotPointer, string[]>> {
+        const proofs = new AddressMap<Map<MemorySlotPointer, string[]>>();
+        for (const [address, val] of this.values) {
             for (const [key, value] of val.entries()) {
-                const pointer = this.encodePointer(address, key);
+                const pointer = this.encodePointer(key);
                 const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
 
-                const proof: string[] = this.tree.getProof([pointer, valueAsBuffer]);
+                const proof: string[] = this.getProofHashes([pointer, valueAsBuffer]);
                 if (!proof || !proof.length) {
                     throw new Error(`Proof not found for ${pointer.toString('hex')}`);
                 }
@@ -100,7 +103,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         this.valueChanged = true;
     }
 
-    public getValue(address: string, key: MemorySlotPointer): MemorySlotData<bigint> | undefined {
+    public getValue(address: Address, key: MemorySlotPointer): MemorySlotData<bigint> | undefined {
         if (!this.values.has(address)) {
             return;
         }
@@ -124,15 +127,13 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
 
         const uint8Array = BufferHelper.valueToUint8Array(value);
         const valueAsBuffer = Buffer.from(uint8Array);
-        const pointer = this.encodePointer(address, key);
+        const pointer = this.encodePointer(key);
 
-        if (!this.tree) {
+        if (!this._tree) {
             return [uint8Array, []];
         }
 
-        this.validate();
-
-        const proof: string[] = this.tree.getProof([pointer, valueAsBuffer]);
+        const proof: string[] = this.getProofHashes([pointer, valueAsBuffer]);
         if (!proof || !proof.length) {
             throw new Error(`Proof not found for ${pointer.toString('hex')}`);
         }
@@ -141,14 +142,8 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
     }
 
     public getValuesWithProofs(
-        address: string,
+        address: Address,
     ): Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]> {
-        if (!this.tree) {
-            throw new Error('Merkle tree not generated');
-        }
-
-        this.validate();
-
         const proofs = new Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>();
         if (!this.values.has(address)) {
             return proofs;
@@ -160,10 +155,10 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         }
 
         for (const [key, value] of map.entries()) {
-            const pointer = this.encodePointer(address, key);
+            const pointer = this.encodePointer(key);
             const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
 
-            const proof: string[] = this.tree.getProof([pointer, valueAsBuffer]);
+            const proof: string[] = this.getProofHashes([pointer, valueAsBuffer]);
 
             if (!proof || !proof.length) {
                 throw new Error(`Proof not found for pointer ${pointer.toString('hex')}`);
@@ -176,20 +171,14 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
     }
 
     public getEverythingWithProofs():
-        | Map<string, Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>>
+        | AddressMap<Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>>
         | undefined {
-        if (!this.tree) {
+        if (!this._tree) {
             return;
         }
 
-        this.validate();
-
-        const proofs = new Map<
-            string,
-            Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>
-        >();
-
-        for (const [address] of this.values.entries()) {
+        const proofs = new AddressMap<Map<MemorySlotPointer, [MemorySlotData<bigint>, string[]]>>();
+        for (const address of this.values.keys()) {
             const map = this.getValuesWithProofs(address);
 
             proofs.set(address, map);
@@ -198,19 +187,16 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         return proofs;
     }
 
-    public encodePointer(contract: string, pointer: bigint): Buffer {
-        return StateMerkleTree.encodePointerBuffer(
-            contract,
-            BufferHelper.pointerToUint8Array(pointer),
-        );
+    public encodePointer(pointer: bigint): Buffer {
+        return Buffer.from(BufferHelper.pointerToUint8Array(pointer));
     }
 
     public getValues(): [Buffer, Buffer][] {
         const entries: [Buffer, Buffer][] = [];
 
-        for (const [address, map] of this.values.entries()) {
+        for (const map of this.values.values()) {
             for (const [key, value] of map.entries()) {
-                const pointer = this.encodePointer(address, key);
+                const pointer = this.encodePointer(key);
                 const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
 
                 entries.push([pointer, valueAsBuffer]);
@@ -220,8 +206,8 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         return entries;
     }
 
-    protected getDummyValues(): Map<string, Map<MemorySlotPointer, MemorySlotData<bigint>>> {
-        const dummyValues = new Map<string, Map<MemorySlotPointer, MemorySlotData<bigint>>>();
+    protected getDummyValues(): AddressMap<Map<MemorySlotPointer, MemorySlotData<bigint>>> {
+        const dummyValues = new AddressMap<Map<MemorySlotPointer, MemorySlotData<bigint>>>();
         const dummyMap = new Map<MemorySlotPointer, MemorySlotData<bigint>>();
 
         // Ensure minimum tree requirements
@@ -229,7 +215,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         dummyMap.set(2n, 2n);
 
         // Add dummy values for the contract
-        dummyValues.set(this.DUMMY_ADDRESS_NON_EXISTENT, dummyMap);
+        dummyValues.set(MerkleTree.DUMMY_ADDRESS_NON_EXISTENT, dummyMap);
 
         return dummyValues;
     }

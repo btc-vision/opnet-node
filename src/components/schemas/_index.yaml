@@ -42,6 +42,14 @@ components:
           properties:
             contractAddress:
               type: string
+    PublicKeyInfoParams:
+      type: object
+      properties:
+        address:
+          type: string
+          description: An address or public key hash.
+          example: "0222513da2b72f9f8e26a016087ee191fc60be4671cae286bd2f16261c026dcb12"
+          required: true
     InteractionTransaction:
       allOf:
         - $ref: '#/components/schemas/GenericTransaction'

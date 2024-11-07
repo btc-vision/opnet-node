@@ -8,7 +8,7 @@ import { MessageType } from '../../../threading/enum/MessageType.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { Config } from '../../../config/Config.js';
 import { Block, DeserializedBlock } from '../block/Block.js';
-import { Network } from 'bitcoinjs-lib';
+import { Network } from '@btc-vision/bitcoin';
 import { VMManager } from '../../../vm/VMManager.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { BlockGasPredictor } from '../gas/BlockGasPredictor.js';
@@ -139,6 +139,10 @@ export class IndexingTask extends Logger {
 
             this.finalizeEnd = Date.now();
 
+            if (this.aborted) {
+                return;
+            }
+
             // Verify finalization
             if (!resp[1]) {
                 throw new Error('Block finalization failed');
@@ -163,9 +167,11 @@ export class IndexingTask extends Logger {
                 `${(Number(this.block.baseGas / scale) / 100000).toFixed(6)}x/gas/sat (${lightOrange(`used ${this.block.gasUsed}`)})`,
             );
 
+            //| Complete: ${pinkLog(`${processEndTime - this.finalizeEnd}ms`)
+
             this.info(
                 //| GasUsed: ${this.block.gasUsed}
-                `Block ${this.tip} processed (${pinkLog(`${processEndTime - this.processedAt}ms`)}). {Transaction(s): ${pinkLog(`${this.block.header.nTx}`)} | Base Gas: ${gasLog} | Download: ${pinkLog(`${this.downloadEnd - this.downloadStart}ms`)} | Deserialize: ${pinkLog(`${this.prefetchEnd - this.prefetchStart}ms`)} | Finalize: ${pinkLog(`${this.finalizeEnd - this.finalizeBlockStart}ms`)} | Execution: ${pinkLog(`${this.block.timeForTransactionExecution}ms`)} | States: ${pinkLog(`${this.block.timeForStateUpdate}ms`)} | Processing: ${pinkLog(`${this.block.timeForBlockProcessing}ms`)} | Complete: ${pinkLog(`${processEndTime - this.finalizeEnd}ms}`)}}`,
+                `Block ${this.tip} processed (${pinkLog(`${processEndTime - this.processedAt}ms`)}). {Transaction(s): ${pinkLog(`${this.block.header.nTx}`)} | Base Gas: ${gasLog} | EMA: ${this.block.ema} | Download: ${pinkLog(`${this.downloadEnd - this.downloadStart}ms`)} | Deserialize: ${pinkLog(`${this.prefetchEnd - this.prefetchStart}ms`)} | Finalize: ${pinkLog(`${this.finalizeEnd - this.finalizeBlockStart}ms`)} | Execution: ${pinkLog(`${this.block.timeForTransactionExecution}ms`)} | States: ${pinkLog(`${this.block.timeForStateUpdate}ms`)} | Processing: ${pinkLog(`${this.block.timeForBlockProcessing}ms`)}}`,
             );
         }
     }
@@ -204,7 +210,10 @@ export class IndexingTask extends Logger {
 
     private async processBlock(): Promise<void> {
         // Define consensus block height
-        this.consensusTracker.setConsensusBlockHeight(this.tip);
+        const cannotProceed = this.consensusTracker.setConsensusBlockHeight(this.tip);
+        if (cannotProceed) {
+            throw new Error('Consensus block height not set');
+        }
 
         try {
             await this.vmManager.prepareBlock(this.tip);

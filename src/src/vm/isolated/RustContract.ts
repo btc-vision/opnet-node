@@ -1,10 +1,10 @@
-import { BitcoinNetworkRequest, ContractManager } from '@btc-vision/op-vm';
-import { Address } from '@btc-vision/bsi-binary';
-import { RustContractBinding } from './RustContractBindings.js';
+import { BitcoinNetworkRequest, CallResponse, ContractManager } from '@btc-vision/op-vm';
 import { Blockchain } from '../Blockchain.js';
+import { RustContractBinding } from './RustContractBindings.js';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
-    readonly address: Address;
+    readonly address: string;
+
     readonly bytecode: Buffer;
     readonly gasLimit: bigint;
     readonly network: BitcoinNetworkRequest;
@@ -45,6 +45,9 @@ export class RustContract {
                 call: this.params.call,
                 deployContractAtAddress: this.params.deployContractAtAddress,
                 log: this.params.log,
+                emit: this.params.emit,
+                inputs: this.params.inputs,
+                outputs: this.params.outputs,
             });
 
             this.contractManager.instantiate(
@@ -92,9 +95,12 @@ export class RustContract {
 
         if (this.enableDebug || this.enableDisposeLog) console.log('Disposing contract', this._id);
 
+        let deadlock: unknown;
         try {
             this.gasUsed = this.getUsedGas();
-        } catch {}
+        } catch (e) {
+            deadlock = e;
+        }
 
         delete this._params;
 
@@ -105,150 +111,38 @@ export class RustContract {
 
         Blockchain.removeBinding(this._id);
         this.contractManager.destroyContract(this._id);
-    }
 
-    public async defineSelectors(): Promise<void> {
-        if (this.enableDebug) console.log('Defining selectors');
+        if (deadlock) {
+            const strErr = (deadlock as Error).message;
 
-        try {
-            const resp = await this.contractManager.call(this.id, 'defineSelectors', []);
-            this.gasCallback(resp.gasUsed, 'defineSelectors');
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in defineSelectors', e);
-
-            const error = e as Error;
-            throw this.getError(error);
+            if (strErr.includes('mutex')) {
+                throw new Error('OPNET: REENTRANCY DETECTED');
+            }
         }
     }
 
-    public async readMethod(method: number, buffer: Uint8Array | Buffer): Promise<Uint8Array> {
-        if (this.enableDebug) console.log('Reading method', method, buffer);
+    public async execute(buffer: Uint8Array | Buffer): Promise<Uint8Array> {
+        if (this.enableDebug) console.log('execute', buffer);
 
         try {
             const pointer = await this.__lowerTypedArray(13, 0, buffer);
             const data = await this.__retain(pointer);
 
-            let finalResult;
-            try {
-                const resp = await this.contractManager.call(this.id, 'readMethod', [method, data]);
-                this.gasCallback(resp.gasUsed, 'readMethod');
+            const resp = await this.contractManager.call(this.id, 'execute', [data]);
+            this.gasCallback(resp.gasUsed, 'execute');
 
-                const result = resp.result.filter((n) => n !== undefined);
-                finalResult = this.__liftTypedArray(result[0] >>> 0);
-            } finally {
-                await this.__release(data);
-            }
+            const result = resp.result.filter((n) => n !== undefined);
+            const finalResult = this.__liftTypedArray(result[0] >>> 0);
+
+            await this.__release(data);
 
             return finalResult;
         } catch (e) {
-            if (this.enableDebug) console.log('Error in readMethod', e);
+            if (this.enableDebug) console.log('Error in execute', e);
 
             const error = e as Error;
             throw this.getError(error);
         }
-    }
-
-    public async readView(method: number): Promise<Uint8Array> {
-        if (this.enableDebug) console.log('Reading view', method);
-
-        let finalResult: Uint8Array;
-        try {
-            const resp = await this.contractManager.call(this.id, 'readView', [method]);
-
-            this.gasCallback(resp.gasUsed, 'readView');
-            const result = resp.result.filter((n) => n !== undefined);
-
-            finalResult = this.__liftTypedArray(result[0] >>> 0);
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in readView', e);
-
-            const error = e as Error;
-            throw this.getError(error);
-        }
-
-        return finalResult;
-    }
-
-    public async getViewABI(): Promise<Uint8Array> {
-        if (this.enableDebug) console.log('Getting view ABI');
-
-        let finalResult: Uint8Array;
-        try {
-            const resp = await this.contractManager.call(this.id, 'getViewABI', []);
-            this.gasCallback(resp.gasUsed, 'getViewABI');
-
-            const result = resp.result.filter((n) => n !== undefined);
-            finalResult = this.__liftTypedArray(result[0] >>> 0);
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in getViewABI', e);
-
-            const error = e as Error;
-            throw this.getError(error);
-        }
-
-        return finalResult;
-    }
-
-    public async getEvents(): Promise<Uint8Array> {
-        if (this.enableDebug) console.log('Getting events');
-
-        let finalResult: Uint8Array;
-        try {
-            const resp = await this.contractManager.call(this.id, 'getEvents', []);
-            this.gasCallback(resp.gasUsed, 'getEvents');
-
-            const result = resp.result.filter((n) => n !== undefined);
-            finalResult = this.__liftTypedArray(result[0] >>> 0);
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in getEvents', e);
-
-            const error = e as Error;
-            throw this.getError(error);
-        }
-
-        this.dispose();
-
-        return finalResult;
-    }
-
-    public async getMethodABI(): Promise<Uint8Array> {
-        if (this.enableDebug) console.log('Getting method ABI');
-
-        let finalResult: Uint8Array;
-        try {
-            const resp = await this.contractManager.call(this.id, 'getMethodABI', []);
-            this.gasCallback(resp.gasUsed, 'getMethodABI');
-
-            const result = resp.result.filter((n) => n !== undefined);
-            finalResult = this.__liftTypedArray(result[0] >>> 0);
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in getMethodABI', e);
-
-            const error = e as Error;
-            throw this.getError(error);
-        }
-
-        return finalResult;
-    }
-
-    public async getWriteMethods(): Promise<Uint8Array> {
-        if (this.enableDebug) console.log('Getting write methods');
-
-        let finalResult: Uint8Array;
-        try {
-            const resp = await this.contractManager.call(this.id, 'getWriteMethods', []);
-            this.gasCallback(resp.gasUsed, 'getWriteMethods');
-
-            const result = resp.result.filter((n) => n !== undefined);
-            finalResult = this.__liftTypedArray(result[0] >>> 0);
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in getWriteMethods', e);
-
-            const error = e as Error;
-            throw this.getError(error);
-        }
-
-        return finalResult;
     }
 
     public async setEnvironment(buffer: Uint8Array | Buffer): Promise<void> {
@@ -262,6 +156,25 @@ export class RustContract {
             this.gasCallback(resp.gasUsed, 'setEnvironment');
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
+
+            const error = e as Error;
+            throw this.getError(error);
+        }
+    }
+
+    public async onDeploy(buffer: Uint8Array | Buffer): Promise<CallResponse> {
+        if (this.enableDebug) console.log('Setting onDeployment', buffer);
+
+        try {
+            const data = await this.__lowerTypedArray(13, 0, buffer);
+            if (data == null) throw new Error('Data cannot be null');
+
+            const resp = await this.contractManager.call(this.id, 'onDeploy', [data]);
+            this.gasCallback(resp.gasUsed, 'onDeploy');
+
+            return resp;
+        } catch (e) {
+            if (this.enableDebug) console.log('Error in onDeployment', e);
 
             const error = e as Error;
             throw this.getError(error);
@@ -360,7 +273,7 @@ export class RustContract {
         const length = new Uint32Array(lengthBuffer.buffer)[0];
 
         const end = (pointer + length) >>> 1;
-        const stringParts = [];
+        const stringParts: Array<string> = [];
         let start = pointer >>> 1;
 
         while (end - start > 1024) {

@@ -21,6 +21,14 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         IS_READY_FOR_NEXT_CONSENSUS: false,
     },
 
+    CONTRACTS: {
+        /** The maximum size of a calldata in bytes. */
+        MAXIMUM_CONTRACT_SIZE_DECOMPRESSED: 128 * 1024,
+
+        /** The maximum size of calldata in bytes. */
+        MAXIMUM_CALLDATA_SIZE_DECOMPRESSED: 1024 * 1024,
+    },
+
     NETWORK: {
         /** Networking */
         MAXIMUM_TRANSACTION_BROADCAST_SIZE: 440_000, // Cap to 800k bytes.
@@ -30,7 +38,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     GAS: {
         /** Target block gas limit, a transaction can not pass this limit. */
-        TARGET_GAS: 2_000_000_000_000n,
+        TARGET_GAS: 3_000_000_000_000n,
 
         /** Smooth out gas increase when equal to gas target. */
         SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
@@ -42,7 +50,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MAX_THEORETICAL_GAS: 28_000_000_000_000n,
 
         /** Max gas per transactions */
-        TRANSACTION_MAX_GAS: 100_000_000_000n,
+        TRANSACTION_MAX_GAS: 350_000_000_000n,
 
         /** btc_call maximum gas */
         EMULATION_MAX_GAS: 15_000_000_000n,
@@ -63,10 +71,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         ALPHA1: 0.5,
 
         /** Adjustment factor when G_t <= G_targetBlock */
-        ALPHA2: 0.8,
-
-        /** Maximum adjustment rate per block */
-        DELTA_MAX: 0.5, // +-50%
+        ALPHA2: 1.0,
 
         /** Target utilization ratio */
         U_TARGET: 1.0,
@@ -96,8 +101,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: 5n,
     },
 
-    VAULTS: {
-        /** Vaults related properties */
+    /*VAULTS: {
         VAULT_MINIMAL_FEE_ADDITION_VB_PER_SAT: 10n,
 
         // Defines the minimum amount that can be consolidated in a single transaction.
@@ -118,5 +122,5 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         // The maximum number of UTXOs that can be consolidated in a single transaction.
         MAXIMUM_CONSOLIDATION_UTXOS: 4,
-    },
+    },*/
 };

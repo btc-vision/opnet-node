@@ -17,11 +17,18 @@ type BlockChangeStream =
     | ChangeStream<{ inProgressBlock: number }, BlockChangeStreamDocument>
     | undefined;
 
+interface UpdatedChangeStreamDocument
+    extends ChangeStreamUpdateDocument<IBlockchainInformationDocument> {
+    readonly wallTime?: Date;
+}
+
 export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformationDocument> {
     public readonly logColor: string = '#afeeee';
 
     private readonly blockUpdateListeners: Array<(blockHeight: bigint) => void> = [];
     private changeStream: BlockChangeStream;
+
+    private latestBlockHeightUpdate: Date | undefined;
 
     public constructor(db: Db) {
         super(db);
@@ -98,29 +105,34 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
             return;
         }
 
-        this.changeStream.on(
-            'change',
-            (change: ChangeStreamUpdateDocument<IBlockchainInformationDocument>) => {
-                const updatedFields = change.updateDescription?.updatedFields;
+        this.changeStream.on('change', (change: UpdatedChangeStreamDocument) => {
+            const updatedFields = change.updateDescription?.updatedFields;
+            if (!updatedFields) {
+                return;
+            }
 
-                if (!updatedFields) {
-                    return;
-                }
+            const updatedProgressBlock = updatedFields.inProgressBlock;
+            if (updatedProgressBlock === undefined) {
+                return;
+            }
 
-                const updatedProgressBlock = updatedFields.inProgressBlock;
-                if (updatedProgressBlock === undefined) {
-                    return;
-                }
+            if (!change.wallTime) {
+                return;
+            }
 
-                // We are getting the next block, so we need to subtract 1 to get the current block.
-                let blockHeight = BigInt(updatedProgressBlock);
-                if (blockHeight < 0n) {
-                    blockHeight = 0n;
-                }
+            // We are getting the next block, so we need to subtract 1 to get the current block.
+            let blockHeight = BigInt(updatedProgressBlock);
+            if (blockHeight < 0n) {
+                blockHeight = 0n;
+            }
+
+            const wallTime = change.wallTime;
+            if (!this.latestBlockHeightUpdate || wallTime > this.latestBlockHeightUpdate) {
+                this.latestBlockHeightUpdate = wallTime;
 
                 this.triggerBlockUpdateListeners(blockHeight);
-            },
-        );
+            }
+        });
     }
 
     private createDefault(network: string): IBlockchainInformationDocument {

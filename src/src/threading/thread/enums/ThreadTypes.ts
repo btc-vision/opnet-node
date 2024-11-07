@@ -3,7 +3,7 @@ export enum ThreadTypes {
     API = `api`,
     DOCS = `docs`,
     RPC = `rpc`,
-    POA = `poa`,
+    P2P = `p2p`,
     MEMPOOL = `mempool`,
     MEMPOOL_MANAGER = `mempool-manager`,
     SSH = `ssh`,

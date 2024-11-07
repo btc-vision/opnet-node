@@ -230,7 +230,7 @@ export class BroadcastTransaction extends Route<
                 } as BroadcastOPNetRequest,
             };
 
-        return (await ServerThread.sendMessageToThread(ThreadTypes.POA, currentBlockMsg)) as
+        return (await ServerThread.sendMessageToThread(ThreadTypes.P2P, currentBlockMsg)) as
             | BroadcastResponse
             | undefined;
     }
