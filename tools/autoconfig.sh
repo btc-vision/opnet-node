@@ -755,7 +755,7 @@ clone_and_build_indexer() {
 
     # Clone the repository
     echo -e "${BLUE}Cloning the OPNet Indexer repository...${NC}"
-    git clone git@github.com:btc-vision/bsi-indexer.git "$indexer_dir"
+    git clone git@github.com:btc-vision/opnet-node.git "$indexer_dir"
     cd "$indexer_dir" || exit 1
     git checkout features/recode-sync-task
 
@@ -800,7 +800,7 @@ setup_opnet_indexer() {
         echo -e "${GREEN}Rust (Cargo) is already installed ($rust_version).${NC}"
     fi
 
-    INDEXER_DIR="$HOME/bsi-indexer"
+    INDEXER_DIR="$HOME/opnet-node"
     CONFIG_FILE="$INDEXER_DIR/build/config/btc.conf"
 
     if [ -d "$INDEXER_DIR" ]; then
@@ -1082,7 +1082,7 @@ EOF
 update_opnet_indexer() {
     echo -e "${BLUE}Updating OPNet Indexer...${NC}"
 
-    INDEXER_DIR="$HOME/bsi-indexer"
+    INDEXER_DIR="$HOME/opnet-node"
     CONFIG_FILE="$INDEXER_DIR/build/config/btc.conf"
     BACKUP_CONFIG_FILE="$HOME/btc.conf.backup"
 
@@ -1104,7 +1104,7 @@ update_opnet_indexer() {
 
     # Get latest version from GitHub
     echo -e "${BLUE}Fetching latest version from GitHub...${NC}"
-    latest_version=$(curl -s https://raw.githubusercontent.com/btc-vision/bsi-indexer/main/package.json | grep '"version":' | head -1 | awk -F '"' '{print $4}')
+    latest_version=$(curl -s https://raw.githubusercontent.com/btc-vision/opnet-node/main/package.json | grep '"version":' | head -1 | awk -F '"' '{print $4}')
     if [ -z "$latest_version" ]; then
         echo -e "${RED}Failed to fetch latest version from GitHub.${NC}"
         exit 1
