@@ -2,7 +2,9 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import { arrayify as toBytes } from '@ethersproject/bytes';
 import { Address, AddressMap } from '@btc-vision/transaction';
 import { BTC_FAKE_ADDRESS } from '../types/ZeroValue.js';
-import { MerkleTree as RustMerkleTree } from '@btc-vision/rust-merkle-tree';
+import { MerkleTree as RustMerkleTree, safeInitRust } from '@btc-vision/rust-merkle-tree';
+
+safeInitRust();
 
 export abstract class MerkleTree<K, V> {
     public static readonly DUMMY_ADDRESS_NON_EXISTENT: Address = BTC_FAKE_ADDRESS;
@@ -38,13 +40,6 @@ export abstract class MerkleTree<K, V> {
     public getProofHashes(data: Buffer[]): Array<string> {
         return this.tree.getProof(this.tree.getIndexData(this.toBytes(data))).proofHashesHex();
     }
-
-    /*public verify(root: string, value: Buffer[] | Uint8Array[], proof: string[]): boolean {
-        return new MerkleProof(proof.map((p) => toBytes(p))).verify(
-            toBytes(root),
-            this.toBytes(value),
-        );
-    }*/
 
     public size(): number {
         return this.values.size;

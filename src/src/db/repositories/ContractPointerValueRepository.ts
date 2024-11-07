@@ -1,14 +1,14 @@
 import { Address, AddressMap, BufferHelper } from '@btc-vision/transaction';
 import { BaseRepository } from '@btc-vision/bsi-common';
-import { DataConverter } from '@btc-vision/bsi-db';
 import {
+    AnyBulkWriteOperation,
     Binary,
     BulkWriteOptions,
-    BulkWriteResult,
     ClientSession,
     Collection,
     Db,
     Filter,
+    UpdateFilter,
 } from 'mongodb';
 import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
@@ -34,7 +34,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         currentSession?: ClientSession,
     ): Promise<void> {
         const criteria: Partial<Filter<IContractPointerValueDocument>> = {
-            lastSeenAt: { $gte: DataConverter.toDecimal128(blockHeight) },
+            lastSeenAt: { $gte: blockHeight },
         };
 
         await this.delete(criteria, currentSession);
@@ -54,7 +54,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
 
         if (height) {
             /** Allow block to be rescanned */
-            criteria.lastSeenAt = { $lt: DataConverter.toDecimal128(height) };
+            criteria.lastSeenAt = { $lt: height };
         }
 
         /** Sorting is VERY important. */
@@ -77,7 +77,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             pointer: BufferHelper.bufferToUint8Array(results.pointer.value()),
             value: BufferHelper.bufferToUint8Array(results.value.value()),
             proofs: results.proofs,
-            lastSeenAt: DataConverter.fromDecimal128(results.lastSeenAt),
+            lastSeenAt: BigInt(results.lastSeenAt.toString()),
         };
     }
 
@@ -90,58 +90,56 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             throw new Error('Current session is required.');
         }
 
-        let length: number = 0;
-        const bulk = this.getCollection().initializeUnorderedBulkOp();
+        const MAX_OPERATIONS_PER_BATCH = 1000;
+        const promises: Promise<void>[] = [];
+
+        let operations: AnyBulkWriteOperation<IContractPointerValueDocument>[] = [];
+
         for (const [contractAddress, pointers] of storage) {
+            if (contractAddress.equals(MerkleTree.DUMMY_ADDRESS_NON_EXISTENT)) {
+                continue;
+            }
+
             for (const [pointer, [value, proofs]] of pointers) {
                 const pointerToBinary = new Binary(pointer);
                 const valueToBinary = new Binary(value);
 
-                if (contractAddress === MerkleTree.DUMMY_ADDRESS_NON_EXISTENT) {
-                    continue;
+                const filter: Filter<IContractPointerValueDocument> = {
+                    contractAddress: contractAddress,
+                    pointer: pointerToBinary,
+                };
+
+                const update: UpdateFilter<IContractPointerValueDocument> = {
+                    $set: {
+                        contractAddress: contractAddress,
+                        pointer: pointerToBinary,
+                        value: valueToBinary,
+                        proofs: proofs,
+                        lastSeenAt: lastSeenAt,
+                    },
+                };
+
+                operations.push({
+                    updateOne: {
+                        filter: filter,
+                        update: update,
+                        upsert: true,
+                    },
+                });
+
+                // Execute in batches
+                if (operations.length >= MAX_OPERATIONS_PER_BATCH) {
+                    promises.push(this.executeBulkWrite(operations, currentSession));
+                    operations = [];
                 }
-
-                const criteria: Partial<Filter<IContractPointerValueDocument>> = {
-                    contractAddress: contractAddress,
-                    pointer: pointerToBinary,
-                    lastSeenAt: DataConverter.toDecimal128(lastSeenAt),
-                };
-
-                const update: Partial<IContractPointerValueDocument> = {
-                    contractAddress: contractAddress,
-                    pointer: pointerToBinary,
-                    value: valueToBinary,
-                    proofs: proofs,
-                    lastSeenAt: DataConverter.toDecimal128(lastSeenAt),
-                };
-
-                bulk.find(criteria).upsert().updateOne({ $set: update });
-                length++;
             }
         }
 
-        if (!length) return;
-
-        const options: BulkWriteOptions = this.getOptions(currentSession);
-        const response: BulkWriteResult = await bulk.execute(options);
-
-        let errored = false;
-        if (response.hasWriteErrors()) {
-            const errors = response.getWriteErrors();
-
-            for (const error of errors) {
-                this.error(`[DATABASE ERROR.] ${error.errmsg}`);
-            }
-
-            errored = true;
-        } else if (!response.isOk()) {
-            errored = true;
+        if (operations.length > 0) {
+            promises.push(this.executeBulkWrite(operations, currentSession));
         }
 
-        if (errored) {
-            this.error(`[DATABASE ERROR.] Bulk write operation failed.`);
-            throw new Error(`[DATABASE ERROR.] Bulk write operation failed.`);
-        }
+        await Promise.all(promises);
     }
 
     public async setByContractAndPointer(
@@ -158,7 +156,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         const criteria: Partial<Filter<IContractPointerValueDocument>> = {
             contractAddress: contractAddress,
             pointer: pointerToBinary,
-            lastSeenAt: DataConverter.toDecimal128(lastSeenAt),
+            lastSeenAt: lastSeenAt,
         };
 
         const update: Partial<IContractPointerValueDocument> = {
@@ -166,7 +164,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             pointer: pointerToBinary,
             value: valueToBinary,
             proofs: proofs,
-            lastSeenAt: DataConverter.toDecimal128(lastSeenAt),
+            lastSeenAt: lastSeenAt,
         };
 
         await this.updatePartial(criteria, update, currentSession);
@@ -174,5 +172,25 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
 
     protected override getCollection(): Collection<IContractPointerValueDocument> {
         return this._db.collection('InternalPointers');
+    }
+
+    private async executeBulkWrite(
+        operations: ReadonlyArray<AnyBulkWriteOperation<IContractPointerValueDocument>>,
+        currentSession: ClientSession,
+    ): Promise<void> {
+        const options: BulkWriteOptions = this.getOptions(currentSession);
+        options.bypassDocumentValidation = true;
+        options.useBigInt64 = true;
+        options.ordered = false;
+
+        const response = await this.getCollection().bulkWrite(operations, options);
+
+        if (response.hasWriteErrors()) {
+            const errors = response.getWriteErrors();
+            for (const error of errors) {
+                this.error(`[DATABASE ERROR.] ${error.errmsg}`);
+            }
+            throw new Error(`[DATABASE ERROR.] Bulk write operation failed.`);
+        }
     }
 }
