@@ -180,8 +180,6 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         currentSession: ClientSession,
     ): Promise<void> {
         const options: BulkWriteOptions = this.getOptions(currentSession);
-        options.bypassDocumentValidation = true;
-        options.useBigInt64 = true;
         options.ordered = false;
 
         const response = await this.getCollection().bulkWrite(operations, options);
