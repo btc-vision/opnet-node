@@ -86,8 +86,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             this.decrementPendingRequests();
             return this.convertDataToResult(res);
         } catch (e) {
-            console.log(e);
-
             this.decrementPendingRequests();
 
             throw `Something went wrong while simulating call.`;
