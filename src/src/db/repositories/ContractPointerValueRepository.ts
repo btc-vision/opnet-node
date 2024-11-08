@@ -57,8 +57,6 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             criteria.lastSeenAt = { $lt: height };
         }
 
-        //console.log('getByContractAndPointer', criteria);
-
         /** Sorting is VERY important. */
         const results: IContractPointerValueDocument | null = await this.queryOne(
             criteria,
@@ -161,8 +159,6 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             pointer: pointerToBinary,
             lastSeenAt: lastSeenAt,
         };
-
-        //console.log('setByContractAndPointer', criteria);
 
         const update: Partial<IContractPointerValueDocument> = {
             contractAddress: contractAddress,
