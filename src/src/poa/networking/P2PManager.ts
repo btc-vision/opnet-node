@@ -228,8 +228,6 @@ export class P2PManager extends Logger {
 
             // filter out self
             const thisNodeAddr = this.node.peerId.toString();
-            console.log(thisNodeAddr, peerData.addresses);
-
             const addresses = peerData.addresses
                 .map((addr) => {
                     if (addr.multiaddr.toString().includes(thisNodeAddr)) return null;
