@@ -231,6 +231,7 @@ export class P2PManager extends Logger {
             const addresses = peerData.addresses
                 .map((addr) => {
                     if (addr.multiaddr.toString().includes(thisNodeAddr)) return null;
+                    if (addr.isCertified) return null; // Skip certified addresses.
 
                     return addr.multiaddr.bytes;
                 })
