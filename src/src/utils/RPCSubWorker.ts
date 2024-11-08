@@ -31,7 +31,7 @@ class RPCManager extends Logger {
     private readonly vmManagers: VMManager[] = [];
     private currentVMManagerIndex: number = 0;
 
-    private readonly CONCURRENT_VMS: number = 1;
+    private readonly CONCURRENT_VMS: number = Config.RPC.VM_CONCURRENCY || 1;
 
     private currentBlockHeight: bigint = 0n;
 
@@ -222,6 +222,12 @@ class RPCManager extends Logger {
     private async onCallRequest(
         data: CallRequestData,
     ): Promise<EvaluatedResult | CallRequestError | undefined> {
+        if (!data.calldata || !data.to) {
+            return {
+                error: 'Invalid call request data',
+            };
+        }
+
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.info(
                 `Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`,
@@ -235,7 +241,7 @@ class RPCManager extends Logger {
             return await vmManager.execute(
                 data.to,
                 data.from ? Address.fromString(data.from) : BTC_FAKE_ADDRESS,
-                data.calldata,
+                Buffer.from(data.calldata, 'hex'),
                 data.blockNumber,
             );
         } catch (e) {
