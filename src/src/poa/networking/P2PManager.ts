@@ -1,7 +1,7 @@
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap, BootstrapComponents } from '@libp2p/bootstrap';
-import { Identify, identify } from '@libp2p/identify';
+import { Identify, identify, IdentifyPush, identifyPush } from '@libp2p/identify';
 import {
     type ConnectionGater,
     Peer,
@@ -79,11 +79,18 @@ interface BlacklistedPeerInfo {
     attempts: number;
 }
 
+type Libp2pInstance = Libp2p<{
+    nat: unknown;
+    kadDHT: KadDHT;
+    identify: Identify;
+    identifyPush: IdentifyPush;
+}>;
+
 export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly p2pConfigurations: P2PConfigurations;
-    private node: Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }> | undefined;
+    private node: Libp2pInstance | undefined;
 
     private privateKey: PrivateKey | undefined;
 
@@ -221,6 +228,8 @@ export class P2PManager extends Logger {
 
             // filter out self
             const thisNodeAddr = this.node.peerId.toString();
+            console.log(thisNodeAddr, peerData.addresses);
+
             const addresses = peerData.addresses
                 .map((addr) => {
                     if (addr.multiaddr.toString().includes(thisNodeAddr)) return null;
@@ -1084,9 +1093,7 @@ export class P2PManager extends Logger {
         return !(this.isBlackListedPeerId(peerIdStr) || this.blackListedPeerIps.has(ip));
     }
 
-    private async createNode(): Promise<
-        Libp2p<{ nat: unknown; kadDHT: KadDHT; identify: Identify }>
-    > {
+    private async createNode(): Promise<Libp2pInstance> {
         this.privateKey = await this.p2pConfigurations.privateKeyConfigurations();
 
         const peerDiscovery: Partial<
@@ -1122,6 +1129,7 @@ export class P2PManager extends Logger {
             transportManager: this.p2pConfigurations.transportManagerConfiguration,
             services: {
                 identify: identify(this.p2pConfigurations.identifyConfiguration),
+                identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
                 nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),
                 kadDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
             },
