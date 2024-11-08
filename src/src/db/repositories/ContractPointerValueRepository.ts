@@ -52,10 +52,12 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             pointer: pointerToBinary,
         };
 
-        if (height) {
+        if (typeof height !== 'undefined') {
             /** Allow block to be rescanned */
             criteria.lastSeenAt = { $lt: height };
         }
+
+        //console.log('getByContractAndPointer', criteria);
 
         /** Sorting is VERY important. */
         const results: IContractPointerValueDocument | null = await this.queryOne(
@@ -107,6 +109,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
                 const filter: Filter<IContractPointerValueDocument> = {
                     contractAddress: contractAddress,
                     pointer: pointerToBinary,
+                    lastSeenAt: lastSeenAt,
                 };
 
                 const update: UpdateFilter<IContractPointerValueDocument> = {
@@ -158,6 +161,8 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             pointer: pointerToBinary,
             lastSeenAt: lastSeenAt,
         };
+
+        //console.log('setByContractAndPointer', criteria);
 
         const update: Partial<IContractPointerValueDocument> = {
             contractAddress: contractAddress,
