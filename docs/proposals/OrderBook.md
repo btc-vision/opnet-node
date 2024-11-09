@@ -1,8 +1,9 @@
-# OPNet Order Book Trading System
+# OP_NET Order Book Trading System
 
 This document provides a detailed explanation of the OPNet Order Book Trading System, covering its features, transaction
 structures, reservation mechanics, and comparisons to traditional PSBT trading and Uniswap’s tick-based system. The
-OPNet system allows users to securely buy and sell tokens for BTC with flexible orders and anti-abuse mechanisms.
+OPNet order book system allows users to securely buy and sell tokens for BTC with flexible orders and anti-abuse
+mechanisms.
 
 ---
 
