@@ -237,7 +237,7 @@ OPNet utilizes a dual-layer consensus mechanism to maintain network security and
 
 ## Converting OP20/NFT to BTC
 
-Please consult the [OP_NET Order Book Section](/docs/proposals/OrderBook.md) for more information on how to convert
+Please consult the [OP_NET Order Book Section](/docs/in-progress/OrderBook.md) for more information on how to convert
 OP20/NFT to BTC.
 
 ## Potential Issues
