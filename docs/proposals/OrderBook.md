@@ -1,8 +1,9 @@
 # OP_NET Order Book Trading System
 
-This document provides a detailed explanation of the OPNet Order Book Trading System, covering its features, transaction
+This document provides a detailed explanation of the OP_NET Order Book Trading System, covering its features,
+transaction
 structures, reservation mechanics, and comparisons to traditional PSBT trading and Uniswap’s tick-based system. The
-OPNet order book system allows users to securely buy and sell tokens for BTC with flexible orders and anti-abuse
+OP_NET order book system allows users to securely buy and sell tokens for BTC with flexible orders and anti-abuse
 mechanisms.
 
 ---
@@ -26,10 +27,10 @@ mechanisms.
 
 ## 1. Introduction
 
-The **OPNet Order Book Trading System** provides a decentralized and flexible way for users to trade tokens for BTC.
+The **OP_NET Order Book Trading System** provides a decentralized and flexible way for users to trade tokens for BTC.
 Unlike traditional PSBT (Partially Signed Bitcoin Transaction) trades, which often require fixed amounts or complete
-orders, OPNet’s approach allows users to fulfill partial orders and select specific price positions. This design makes
-the OPNet trading system similar to exchange-based order books or liquidity pools, enabling order fulfillment across
+orders, OP_NET’s approach allows users to fulfill partial orders and select specific price positions. This design makes
+the OP_NET trading system similar to exchange-based order books or liquidity pools, enabling order fulfillment across
 multiple price points and quantities.
 
 ---
@@ -94,7 +95,7 @@ disrupting ongoing trades.
 
 ## 4. Reservation Mechanism in Detail
 
-The reservation mechanism in OPNet operates as follows:
+The reservation mechanism in OP_NET operates as follows:
 
 1. **Reservation Locking:** When a buyer submits a reservation request, the contract locks the requested quantity of
    tokens at the specified price. These tokens are now exclusively reserved for the buyer, preventing any other user
@@ -118,11 +119,11 @@ The reservation mechanism in OPNet operates as follows:
 ### Key Differences
 
 - **Flexible Order Quantities:** Unlike traditional PSBT trades on Bitcoin, which are often rigid in quantity and
-  require precise order amounts, OPNet’s system allows buyers to reserve partial amounts across different price points.
+  require precise order amounts, OP_NET’s system allows buyers to reserve partial amounts across different price points.
 - **No Fixed BTC Total Requirement:** The system does not require a specific BTC total or fixed token amount, allowing
   users to buy in smaller increments and across price ranges, similar to fulfilling multiple smaller orders in an order
   book.
-- **Order Book Functionality:** OPNet resembles an exchange-based order book, where users can place and fulfill orders
+- **Order Book Functionality:** OP_NET resembles an exchange-based order book, where users can place and fulfill orders
   at different price levels, offering the flexibility that PSBT trading typically lacks.
 
 ---
@@ -134,9 +135,9 @@ allowing liquidity providers to set price ranges.
 
 ### Comparison Points
 
-- **Price Positions as Ticks:** Like Uniswap, OPNet enables users to define specific price points, effectively creating
+- **Price Positions as Ticks:** Like Uniswap, OP_NET enables users to define specific price points, effectively creating
   “ticks” in the order book. Each position acts as a price level, and buyers can reserve tokens across these levels.
-- **Order Fulfillment Flexibility:** While Uniswap requires users to swap based on liquidity within tick ranges, OPNet
+- **Order Fulfillment Flexibility:** While Uniswap requires users to swap based on liquidity within tick ranges, OP_NET
   allows buyers to reserve tokens across multiple price points with slippage control. This system enables more
   controlled and precise order fulfillment, akin to selecting specific orders in a traditional exchange order book.
 
@@ -146,7 +147,7 @@ allowing liquidity providers to set price ranges.
 
 ### Scenario 1: Standard Token Sale by Seller
 
-1. **Seller’s Setup:** Alice wants to sell 10 tokens at a price of 0.005 BTC each and creates a position on OPNet.
+1. **Seller’s Setup:** Alice wants to sell 10 tokens at a price of 0.005 BTC each and creates a position on OP_NET.
 2. **Position Listing:** The contract lists Alice’s order, making it available to potential buyers.
 3. **Buyer’s Reservation:** Bob reserves 5 tokens, burning a reservation fee. The contract locks the reserved tokens
    specifically for Bob.

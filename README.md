@@ -44,18 +44,7 @@ manage and execute smart contracts on the Bitcoin or any other UTXO-based blockc
 - [Feature Implementation Status](#feature-implementation-status)
     - [Implemented Features](#implemented-features)
     - [Features Left to Implement](#features-left-to-implement)
-- [P2P and PSBT Trading](#p2p-and-psbt-trading)
-    - [Overview](#overview)
-    - [PSBT Trading on OPNet](#psbt-trading-on-opnet)
-    - [How PSBT Trading Works](#how-psbt-trading-works)
-        - [Seller Initiates Trade](#seller-initiates-trade)
-        - [PSBT Creation](#psbt-creation)
-        - [Buyer Participation](#buyer-participation)
-        - [Transaction Completion](#transaction-completion)
-    - [Security and Trustlessness](#security-and-trustlessness)
-    - [Benefits of P2P and PSBT Trading on OPNet](#benefits-of-p2p-and-psbt-trading-on-opnet)
-    - [Attack Vectors and Mitigations](#attack-vectors-and-mitigations)
-    - [Failsafe Mechanism](#failsafe-mechanism)
+- [Converting OP20/NFT to BTC](#converting-op20nft-to-btc)
 - [Potential Issues](#potential-issues)
 - [License](#license)
 
@@ -246,95 +235,10 @@ OPNet utilizes a dual-layer consensus mechanism to maintain network security and
 | **Light Nodes with Peering**          | Implement light nodes that can peer with full nodes, allowing resource-constrained devices to participate in the network without full data storage. Light nodes rely on full nodes for data and transaction verification, enabling broader network participation.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **Websocket Support**                 | Add Websocket support for real-time data streaming, enabling efficient and low-latency communication between nodes and external applications.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
-## P2P and PSBT Trading
+## Converting OP20/NFT to BTC
 
-### Overview
-
-OPNet enhances decentralized exchange capabilities by integrating Peer-to-Peer (P2P) networking with **Partially Signed
-Bitcoin Transactions (PSBT)** trading. This combination allows users to trade tokens directly on the Bitcoin network
-without the need for intermediaries or centralized exchanges, fostering a truly decentralized and trustless trading
-environment.
-
-### PSBT Trading on OPNet
-
-- **Decentralized Exchange via P2P Networking**: OPNet utilizes P2P networking to facilitate the distribution and
-  exchange of PSBTs among nodes in the network. This approach enables users to find trading partners and exchange tokens
-  directly, without relying on a central server or authority.
-
-- **Partially Signed Bitcoin Transactions (PSBT)**: PSBTs allow multiple parties to collaboratively build and sign
-  Bitcoin transactions. In the context of OPNet, PSBTs enable complex token exchange transactions that require inputs
-  and signatures from different parties.
-
-### How PSBT Trading Works
-
-1. **Seller Initiates Trade**: A seller who wants to exchange their tokens for BTC creates a PSBT and broadcasts it over
-   the P2P network.
-
-2. **PSBT Creation**: The PSBT includes:
-
-    - An instruction to the OPNet smart contract to transfer a specified amount of tokens upon successful completion.
-    - A Bitcoin output specifying the amount of BTC the seller wants in exchange, directed to their Bitcoin wallet.
-    - A dummy UTXO generated during the initial token deposit to prevent front-running and double-spending attacks.
-
-3. **Buyer Participation**: Buyers on the network receive the PSBT and can choose to participate by:
-
-    - Reviewing the PSBT to ensure the terms are acceptable.
-    - Adding an input to the PSBT that fulfills the seller's BTC request.
-    - Signing the PSBT to complete their part of the transaction.
-
-4. **Transaction Completion**:
-
-    - The fully signed PSBT is broadcasted to the network.
-    - The OPNet smart contract verifies that all conditions are met, including correct outputs and gas limits.
-    - Upon successful verification, tokens are transferred to the buyer, and BTC is transferred to the seller.
-
-### Security and Trustlessness
-
-- **Smart Contract Verification**: OPNet's smart contracts ensure that all conditions specified in the PSBT are met
-  before executing the token transfer, providing a secure trading mechanism.
-
-- **Mitigation of Attack Vectors**: By leveraging P2P networking and PSBTs, OPNet reduces risks such as front-running,
-  honeypots, and transaction reversions. The system includes safeguards like dummy UTXOs, frontend simulations, and gas
-  cost enforcement to prevent malicious activities.
-
-- **No Peer Interaction Required**: PSBT trading on OPNet allows for trustless trading with no direct interaction
-  between peers. All necessary information and signatures are exchanged through the P2P network.
-
-### Benefits of P2P and PSBT Trading on OPNet
-
-- **Decentralization**: Eliminates the need for centralized exchanges, reducing single points of failure and censorship
-  risks.
-
-- **Security**: Enhances security through cryptographic verification and smart contract enforcement.
-
-- **Flexibility**: Allows users to trade any tokens supported by OPNet directly on the Bitcoin network.
-
-- **User Empowerment**: Empowers users by giving them full control over their assets and trades.
-
-### Attack Vectors and Mitigations
-
-- **Front-running**: Mitigated by using dummy UTXOs and the nature of PSBTs, which prevent attackers from intercepting
-  and executing transactions before the intended buyer.
-
-- **Honeypots**: The frontend simulates and validates PSBTs before signing, protecting users from malicious sellers
-  attempting to steal BTC.
-
-- **Transfer Fees on Tokens**: While the system cannot control token mechanics, simulations and contract verifications
-  help identify and prevent issues arising from unexpected fees.
-
-- **Transaction Reversions**: A failsafe mechanism with checksum verification invalidates compromised PSBT listings,
-  preventing exploitation.
-
-### Failsafe Mechanism
-
-- **Checksum Verification**: All PSBT listings include a checksum verified after each block. If the checksum does not
-  match, the listing becomes invalid.
-
-- **Frontend Reversion**: An invalid checksum causes the frontend's validation to fail, preventing users from proceeding
-  with compromised transactions.
-
-- **Gas Cost Enforcement**: Transactions are limited to a maximum of 1,000,000,000g, ensuring that excessive gas
-  requirements flag a PSBT as invalid.
+Please consult the [OP_NET Order Book Section](/docs/proposals/OrderBook.md) for more information on how to convert
+OP20/NFT to BTC.
 
 ## Potential Issues
 
