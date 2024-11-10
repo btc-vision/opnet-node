@@ -193,6 +193,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             timeout: 3000,
             maxInboundStreams: 3,
             maxOutboundStreams: 3,
+            maxObservedAddresses: 1,
             runOnConnectionOpen: false,
         };
     }

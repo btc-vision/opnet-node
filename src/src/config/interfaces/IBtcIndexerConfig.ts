@@ -25,6 +25,7 @@ export interface IndexerConfig {
 
 export interface RPCConfig {
     readonly THREADS: number;
+    readonly VM_CONCURRENCY: number;
 }
 
 export interface OPNetConfig {

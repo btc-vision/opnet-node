@@ -71,7 +71,7 @@ export class VMManager extends Logger {
         | {
               to: string;
               from: Address;
-              calldataString: string;
+              calldata: Buffer;
               height?: bigint;
           }
         | undefined;
@@ -175,18 +175,20 @@ export class VMManager extends Logger {
     public async execute(
         to: string,
         from: Address,
-        calldataString: string,
+        calldata: Buffer,
         height?: bigint,
     ): Promise<EvaluatedResult> {
         if (this.isProcessing) {
-            throw new Error(`VM is already processing: ${JSON.stringify(this.currentRequest)}`);
+            throw new Error(
+                `VM is already processing a request. Increase the amount of VMs threads or concurrency or send fewer requests.`,
+            );
         }
 
         this.isProcessing = true;
         this.currentRequest = {
             to,
             from,
-            calldataString,
+            calldata,
             height,
         };
 
@@ -205,7 +207,7 @@ export class VMManager extends Logger {
                 from: from,
                 txOrigin: from,
                 maxGas: OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
-                calldata: Buffer.from(calldataString, 'hex'),
+                calldata: calldata,
 
                 blockHeight: currentHeight,
                 blockMedian: BigInt(Date.now()), // add support for this
