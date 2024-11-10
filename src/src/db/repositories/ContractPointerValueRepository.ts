@@ -52,7 +52,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             pointer: pointerToBinary,
         };
 
-        if (height) {
+        if (typeof height !== 'undefined') {
             /** Allow block to be rescanned */
             criteria.lastSeenAt = { $lt: height };
         }
@@ -107,6 +107,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
                 const filter: Filter<IContractPointerValueDocument> = {
                     contractAddress: contractAddress,
                     pointer: pointerToBinary,
+                    lastSeenAt: lastSeenAt,
                 };
 
                 const update: UpdateFilter<IContractPointerValueDocument> = {
@@ -179,8 +180,6 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         currentSession: ClientSession,
     ): Promise<void> {
         const options: BulkWriteOptions = this.getOptions(currentSession);
-        options.bypassDocumentValidation = true;
-        options.useBigInt64 = true;
         options.ordered = false;
 
         const response = await this.getCollection().bulkWrite(operations, options);

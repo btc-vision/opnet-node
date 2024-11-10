@@ -132,6 +132,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         RPC: {
             THREADS: 2,
+            VM_CONCURRENCY: 1,
         },
 
         SSH: {
@@ -304,10 +305,17 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         if (parsedConfig.RPC) {
             if (
-                parsedConfig.RPC.THREADS === undefined ||
+                parsedConfig.RPC.THREADS !== undefined &&
                 typeof parsedConfig.RPC.THREADS !== 'number'
             ) {
-                throw new Error(`Oops the property RPC.ENABLED is not a boolean.`);
+                throw new Error(`Oops the property RPC.THREADS is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.RPC.VM_CONCURRENCY !== undefined &&
+                typeof parsedConfig.RPC.VM_CONCURRENCY !== 'number'
+            ) {
+                throw new Error(`Oops the property RPC.VM_CONCURRENCY is not a number.`);
             }
         }
 
