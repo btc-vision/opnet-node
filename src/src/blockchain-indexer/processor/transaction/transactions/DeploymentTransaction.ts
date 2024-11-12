@@ -137,9 +137,10 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             throw new Error(`OP_NET: No contract address found.`);
         }
 
+        const fromPubKey: Uint8Array = this.from.originalPublicKey || this.from;
         return {
             ...super.toDocument(),
-            from: new Binary(this.from),
+            from: new Binary(fromPubKey),
             contractAddress: this.contractAddress,
             contractTweakedPublicKey: new Binary(this.address),
 

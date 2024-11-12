@@ -265,9 +265,10 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             throw new Error(`No receipt proofs found for transaction ${this.txid}`);
         }
 
+        const fromPubKey: Uint8Array = this.from.originalPublicKey || this.from;
         return {
             ...super.toDocument(),
-            from: new Binary(this.from),
+            from: new Binary(fromPubKey),
             contractAddress: this.contractAddress,
             contractTweakedPublicKey: new Binary(this.address),
 
