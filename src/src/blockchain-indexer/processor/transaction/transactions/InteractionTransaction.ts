@@ -29,8 +29,6 @@ export interface InteractionWitnessData {
 
 initEccLib(ecc);
 
-//const authorityManager = AuthorityManager.getAuthority(P2PVersion);
-
 /* TODO: Potentially allow multiple contract interaction per transaction since BTC supports that? Maybe, in the future, for now let's stick with one. */
 export class InteractionTransaction extends Transaction<InteractionTransactionType> {
     public static LEGACY_INTERACTION: Buffer = Buffer.from([

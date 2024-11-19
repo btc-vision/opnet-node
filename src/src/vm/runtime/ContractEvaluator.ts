@@ -353,7 +353,39 @@ export class ContractEvaluator extends Logger {
             },
             inputs: this.onInputsRequested.bind(this),
             outputs: this.onOutputsRequested.bind(this),
+            nextPointerValueGreaterThan: (data: Buffer) => {
+                return new Promise((resolve) => {
+                    const reader = new BinaryReader(data);
+                    const pointer: bigint = reader.readU256();
+                    const valueAtLeast: bigint = reader.readU256();
+                    const lte: boolean = reader.readBoolean();
+
+                    resolve(this.nextPointerValueGreaterThan(pointer, lte, valueAtLeast));
+                });
+            },
         };
+    }
+
+    private getBestNextPointerValueGreaterThan(
+        _pointer: bigint,
+        _lte: boolean,
+        _valueAtLeast: bigint,
+    ): bigint {
+        // TODO: Implement this
+
+        return 0n;
+    }
+
+    private nextPointerValueGreaterThan(
+        pointer: bigint,
+        lte: boolean,
+        valueAtLeast: bigint,
+    ): Buffer | Uint8Array {
+        const pointerReturn = this.getBestNextPointerValueGreaterThan(pointer, lte, valueAtLeast);
+        const response: BinaryWriter = new BinaryWriter();
+        response.writeU256(pointerReturn);
+
+        return response.getBuffer();
     }
 
     private loadContractFromBytecode(evaluation: ContractEvaluation): boolean {
