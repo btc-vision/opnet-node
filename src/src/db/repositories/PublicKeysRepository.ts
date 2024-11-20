@@ -9,7 +9,7 @@ import { TransactionOutput } from '../../blockchain-indexer/processor/transactio
 import { Network, payments } from '@btc-vision/bitcoin';
 import { toXOnly } from '@btc-vision/bitcoin/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
-import { EcKeyPair } from '@btc-vision/transaction';
+import { AddressVerificator, EcKeyPair } from '@btc-vision/transaction';
 import {
     IPubKeyNotFoundError,
     IPublicKeyInfoResult,
@@ -48,11 +48,32 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         const pubKeyData: IPublicKeyInfoResult = {};
 
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
-            const key = addressOrPublicKeys[i];
+            let key = addressOrPublicKeys[i];
             const result: PublicKeyDocument | IPubKeyNotFoundError = results[i];
 
             if ('error' in result) {
-                pubKeyData[key] = result;
+                key = key.replace('0x', '');
+                if (AddressVerificator.isValidPublicKey(key, this.network)) {
+                    if (key.length === 64) {
+                        pubKeyData[key] = {
+                            tweakedPubkey: key,
+
+                            p2tr: this.tweakedPubKeyToAddress(
+                                Buffer.from(key, 'hex'),
+                                this.network,
+                            ),
+                        } as PublicKeyInfo;
+                    } else if (key.length === 66) {
+                        // TODO: Implement
+                        //pubKeyData[key] = {
+                        //    originalPubKey: key,
+                        //} as PublicKeyInfo;
+                    }
+                }
+
+                if (!pubKeyData[key]) {
+                    pubKeyData[key] = result;
+                }
             } else {
                 pubKeyData[key] = this.convertToPublicKeysInfo(result);
             }
