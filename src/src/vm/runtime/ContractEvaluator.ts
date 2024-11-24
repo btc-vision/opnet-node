@@ -373,7 +373,7 @@ export class ContractEvaluator extends Logger {
     ): bigint {
         // TODO: Implement this
 
-        return 0n;
+        throw new Error(`Experimental feature not enabled.`);
     }
 
     private nextPointerValueGreaterThan(
