@@ -98,6 +98,7 @@ export abstract class VMStorage extends Logger {
     public abstract close(): Promise<void>;
 
     public abstract getLatestBlock(): Promise<BlockHeaderAPIBlockDocument | undefined>;
+    public abstract addTweakedPublicKey(buffer: Buffer): Promise<void>;
 
     public abstract getBlockTransactions(
         height?: bigint | -1,

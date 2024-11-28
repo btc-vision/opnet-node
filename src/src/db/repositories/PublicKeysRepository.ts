@@ -1,4 +1,4 @@
-import { AnyBulkWriteOperation, Binary, Collection, Db, Filter } from 'mongodb';
+import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
@@ -80,6 +80,22 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         }
 
         return pubKeyData;
+    }
+
+    public async addTweakedPublicKey(tweaked: Buffer, session?: ClientSession): Promise<void> {
+        const filter = {
+            tweakedPublicKey: new Binary(tweaked),
+
+            p2tr: this.tweakedPubKeyToAddress(tweaked, this.network),
+        };
+
+        await this.updatePartialWithFilter(
+            filter,
+            {
+                $set: filter,
+            },
+            session,
+        );
     }
 
     public async processPublicKeys(transactions: ProcessUnspentTransactionList): Promise<void> {
@@ -183,7 +199,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         this.log(`Saving ${documents.length} public keys`);
 
         const chunks = this.chunkArray(bulkWriteOperations, 500);
-
         const promises = [];
         for (const chunk of chunks) {
             promises.push(this.bulkWrite(chunk));
@@ -276,7 +291,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
             const p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
             const p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(ecKeyPair, this.network);
-
             const p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
 
             this.cache.add(str);

@@ -745,22 +745,14 @@ export class Block extends Logger {
                 await this.executeInteractionTransaction(interactionTransaction, vmManager);
                 break;
             }
-            /*case OPNetTransactionTypes.WrapInteraction: {
-                const interactionTransaction = transaction as WrapTransaction;
-
-                await this.executeInteractionTransaction(interactionTransaction, vmManager, true);
-                break;
-            }
-            case OPNetTransactionTypes.UnwrapInteraction: {
-                const interactionTransaction = transaction as WrapTransaction;
-
-                await this.executeInteractionTransaction(interactionTransaction, vmManager, true);
-                break;
-            }*/
             case OPNetTransactionTypes.Deployment: {
                 const deploymentTransaction = transaction as DeploymentTransaction;
 
                 await this.executeDeploymentTransaction(deploymentTransaction, vmManager);
+                await vmManager
+                    .getVMStorage()
+                    .addTweakedPublicKey(deploymentTransaction.contractTweakedPublicKey);
+
                 break;
             }
             case OPNetTransactionTypes.Generic: {

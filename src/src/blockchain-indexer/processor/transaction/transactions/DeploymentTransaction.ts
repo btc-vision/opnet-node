@@ -71,7 +71,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
     public contractSigner: ECPairInterface | undefined;
 
-    protected contractTweakedPublicKey: Buffer | undefined;
+    protected _contractTweakedPublicKey: Buffer | undefined;
 
     public constructor(
         rawTransactionData: TransactionData,
@@ -93,6 +93,14 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public get address(): Address {
         if (!this._contractAddress) throw new Error('OP_NET: Contract address not found');
         return this._contractAddress;
+    }
+
+    public get contractTweakedPublicKey(): Buffer {
+        if (!this._contractTweakedPublicKey) {
+            throw new Error(`OP_NET: Contract tweaked public key not found.`);
+        }
+
+        return this._contractTweakedPublicKey;
     }
 
     protected _calldata: Buffer | undefined;
@@ -241,17 +249,17 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         this._calldata = deploymentWitnessData.calldata;
 
         /** Restore contract seed/address */
-        this.contractTweakedPublicKey = TapscriptVerificator.getContractSeed(
+        this._contractTweakedPublicKey = TapscriptVerificator.getContractSeed(
             deployerPubKey,
             this.bytecode,
             hashOriginalSalt,
         );
 
         /** Generate contract segwit address */
-        this._contractAddress = new Address(this.contractTweakedPublicKey);
+        this._contractAddress = new Address(this._contractTweakedPublicKey);
 
         this.contractSigner = EcKeyPair.fromSeedKeyPair(
-            this.contractTweakedPublicKey,
+            this._contractTweakedPublicKey,
             this.network,
         );
 

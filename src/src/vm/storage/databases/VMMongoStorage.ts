@@ -219,6 +219,14 @@ export class VMMongoStorage extends VMStorage {
         );
     }
 
+    public async addTweakedPublicKey(tweaked: Buffer): Promise<void> {
+        if (!this.publicKeysRepository) {
+            throw new Error('Public key repository not initialized');
+        }
+
+        await this.publicKeysRepository.addTweakedPublicKey(tweaked, this.currentSession);
+    }
+
     public async getWitnesses(
         height: bigint | -1,
         trusted?: boolean,
