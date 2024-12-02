@@ -308,14 +308,14 @@ export class ContractEvaluator extends Logger {
         evaluation.emitEvent(event);
     }
 
-    private onInputsRequested(_evaluation: ContractEvaluation): Promise<Buffer> {
-        return Promise.resolve(Buffer.alloc(1));
+    private onInputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+        return Promise.resolve(evaluation.getSerializeInputUTXOs());
     }
 
-    private onOutputsRequested(evaluation: ContractEvaluation): Promise<Buffer> {
-        console.log('Evaluation', evaluation);
+    private onOutputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+        console.log('onOutputsRequested', evaluation);
 
-        return Promise.resolve(Buffer.alloc(1));
+        return Promise.resolve(evaluation.getSerializeOutputUTXOs());
     }
 
     private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {

@@ -117,20 +117,20 @@ export class ContractEvaluation implements ExecutionParameters {
         return this.gasTracker.gasUsed;
     }
 
-    public getSerializeInputUTXOs(): Uint8Array {
+    public getSerializeInputUTXOs(): Buffer {
         if (!this.serializedInputs) {
             this.serializedInputs = this.computeInputUTXOs();
         }
 
-        return this.serializedInputs;
+        return Buffer.from(this.serializedInputs);
     }
 
-    public getSerializeOutputUTXOs(): Uint8Array {
+    public getSerializeOutputUTXOs(): Buffer {
         if (!this.serializedOutputs) {
             this.serializedOutputs = this.computeOutputUTXOs();
         }
 
-        return this.serializedOutputs;
+        return Buffer.from(this.serializedOutputs);
     }
 
     public setGas(gas: bigint): void {
