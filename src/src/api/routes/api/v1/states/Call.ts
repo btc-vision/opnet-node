@@ -57,6 +57,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             } as CallRequest,
         };
 
+        console.log(currentBlockMsg);
+
         const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
             ThreadTypes.RPC,
             currentBlockMsg,
@@ -93,8 +95,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             this.decrementPendingRequests();
             return this.convertDataToResult(res);
         } catch (e) {
-            console.log(e);
-
             this.decrementPendingRequests();
 
             throw `Something went wrong while simulating call.`;
