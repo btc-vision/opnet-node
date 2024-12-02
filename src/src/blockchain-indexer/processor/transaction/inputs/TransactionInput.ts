@@ -20,6 +20,18 @@ export interface APIDocumentInput extends TransactionInputBase {
     //pubKeyHash?: string;
 }
 
+export interface StrippedTransactionInput {
+    readonly txId: Uint8Array | Buffer;
+    readonly outputIndex: number;
+    readonly scriptSig: Uint8Array | Buffer;
+}
+
+export interface StrippedTransactionInputAPI {
+    readonly txId: string;
+    readonly outputIndex: number;
+    readonly scriptSig: string;
+}
+
 export class TransactionInput implements TransactionInputBase {
     public readonly originalTransactionId: string | undefined;
     public readonly outputTransactionIndex: number | undefined; // consumer output index
@@ -47,7 +59,7 @@ export class TransactionInput implements TransactionInputBase {
     }
 
     public toDocument(): ITransactionInput {
-        const returnType: ITransactionInput = {
+        return {
             originalTransactionId: this.originalTransactionId,
             outputTransactionIndex: this.outputTransactionIndex,
 
@@ -56,16 +68,14 @@ export class TransactionInput implements TransactionInputBase {
 
             transactionInWitness: this.transactionInWitness,
         };
+    }
 
-        /*if (this.decodedPubKey) {
-            returnType.pubKey = new Binary(this.decodedPubKey);
-        }
-
-        if (this.decodedPubKeyHash) {
-            returnType.pubKeyHash = new Binary(this.decodedPubKeyHash);
-        }*/
-
-        return returnType;
+    public toStripped(): StrippedTransactionInput {
+        return {
+            txId: Buffer.from(this.originalTransactionId || '', 'hex'),
+            outputIndex: this.outputTransactionIndex || 0,
+            scriptSig: Buffer.from(this.scriptSignature?.hex || '', 'hex'),
+        };
     }
 
     // decode public key for P2PK and SegWit (P2WPKH)

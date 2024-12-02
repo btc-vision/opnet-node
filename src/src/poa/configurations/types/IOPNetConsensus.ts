@@ -90,6 +90,12 @@ export interface IOPNetConsensus<T extends Consensus> {
         /** The cost of a byte in gas */
         readonly STORAGE_COST_PER_BYTE: bigint;
 
+        /** The maximum inputs utxos to forward to a contract */
+        readonly MAXIMUM_INPUTS: number;
+
+        /** The maximum outputs utxos to forward to a contract */
+        readonly MAXIMUM_OUTPUTS: number;
+
         /** Skip proof validation for execution before transaction */
         readonly SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: boolean;
     };

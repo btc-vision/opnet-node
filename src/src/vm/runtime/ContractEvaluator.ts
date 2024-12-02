@@ -229,6 +229,12 @@ export class ContractEvaluator extends Logger {
 
             deployedContracts: evaluation.deployedContracts,
             storage: evaluation.storage,
+
+            inputs: evaluation.inputs,
+            outputs: evaluation.outputs,
+
+            serializedInputs: evaluation.serializedInputs,
+            serializedOutputs: evaluation.serializedOutputs,
         };
 
         const response = await this.callExternal(externalCallParams);
@@ -302,11 +308,13 @@ export class ContractEvaluator extends Logger {
         evaluation.emitEvent(event);
     }
 
-    private onInputsRequested(): Promise<Buffer> {
+    private onInputsRequested(_evaluation: ContractEvaluation): Promise<Buffer> {
         return Promise.resolve(Buffer.alloc(1));
     }
 
-    private onOutputsRequested(): Promise<Buffer> {
+    private onOutputsRequested(evaluation: ContractEvaluation): Promise<Buffer> {
+        console.log('Evaluation', evaluation);
+
         return Promise.resolve(Buffer.alloc(1));
     }
 
@@ -351,8 +359,12 @@ export class ContractEvaluator extends Logger {
             emit: (buffer: Buffer) => {
                 this.onEvent(buffer, evaluation);
             },
-            inputs: this.onInputsRequested.bind(this),
-            outputs: this.onOutputsRequested.bind(this),
+            inputs: () => {
+                return this.onInputsRequested(evaluation);
+            },
+            outputs: () => {
+                return this.onOutputsRequested(evaluation);
+            },
             nextPointerValueGreaterThan: (data: Buffer) => {
                 return new Promise((resolve) => {
                     const reader = new BinaryReader(data);

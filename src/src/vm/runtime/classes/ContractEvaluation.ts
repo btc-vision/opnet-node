@@ -3,6 +3,7 @@ import {
     Address,
     AddressMap,
     BinaryReader,
+    BinaryWriter,
     DeterministicMap,
     MemorySlotData,
     MemorySlotPointer,
@@ -20,6 +21,8 @@ import { GasTracker } from '../GasTracker.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { ZERO_HASH } from '../../../blockchain-indexer/processor/block/types/ZeroValue.js';
+import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -57,6 +60,12 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public readonly transactionIdAsBuffer: Buffer;
 
+    public readonly inputs: StrippedTransactionInput[] = [];
+    public readonly outputs: StrippedTransactionOutput[] = [];
+
+    public serializedInputs: Uint8Array | undefined;
+    public serializedOutputs: Uint8Array | undefined;
+
     constructor(params: ExecutionParameters) {
         this.contractAddress = params.contractAddress;
         this.contractAddressStr = params.contractAddressStr;
@@ -85,6 +94,9 @@ export class ContractEvaluation implements ExecutionParameters {
         this.callStack.push(this.contractAddress);
 
         this.storage = params.storage;
+
+        this.serializedInputs = params.serializedInputs;
+        this.serializedOutputs = params.serializedOutputs;
     }
 
     public get maxGas(): bigint {
@@ -103,6 +115,22 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public get gasUsed(): bigint {
         return this.gasTracker.gasUsed;
+    }
+
+    public getSerializeInputUTXOs(): Uint8Array {
+        if (!this.serializedInputs) {
+            this.serializedInputs = this.computeInputUTXOs();
+        }
+
+        return this.serializedInputs;
+    }
+
+    public getSerializeOutputUTXOs(): Uint8Array {
+        if (!this.serializedOutputs) {
+            this.serializedOutputs = this.computeOutputUTXOs();
+        }
+
+        return this.serializedOutputs;
     }
 
     public setGas(gas: bigint): void {
@@ -244,6 +272,44 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public addContractInformation(contract: ContractInformation): void {
         this.deployedContracts.push(contract);
+    }
+
+    private computeInputUTXOs(): Uint8Array {
+        const maxInputs = Math.min(
+            OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS,
+            this.inputs.length,
+        );
+
+        const writer = new BinaryWriter();
+        writer.writeU8(maxInputs);
+
+        for (let i = 0; i < maxInputs; i++) {
+            const input = this.inputs[i];
+            writer.writeBytes(input.txId);
+            writer.writeU8(input.outputIndex);
+            writer.writeBytesWithLength(input.scriptSig);
+        }
+
+        return writer.getBuffer();
+    }
+
+    private computeOutputUTXOs(): Uint8Array {
+        const maxOutputs = Math.min(
+            OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_OUTPUTS,
+            this.outputs.length,
+        );
+
+        const writer = new BinaryWriter();
+        writer.writeU8(maxOutputs);
+
+        for (let i = 0; i < maxOutputs; i++) {
+            const output = this.outputs[i];
+            writer.writeU8(output.index);
+            writer.writeStringWithLength(output.to);
+            writer.writeU64(output.value);
+        }
+
+        return writer.getBuffer();
     }
 
     private checkReentrancy(callStack: Address[]): void {

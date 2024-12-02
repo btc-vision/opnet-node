@@ -44,6 +44,7 @@ import { Blockchain } from './Blockchain.js';
 import { BlockHeaderValidator } from './BlockHeaderValidator.js';
 import { Config } from '../config/Config.js';
 import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasPredictor.js';
+import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 
 Globals.register();
 
@@ -177,6 +178,7 @@ export class VMManager extends Logger {
         from: Address,
         calldata: Buffer,
         height?: bigint,
+        transaction?: ParsedSimulatedTransaction,
     ): Promise<EvaluatedResult> {
         if (this.isProcessing) {
             throw new Error(
@@ -222,6 +224,12 @@ export class VMManager extends Logger {
                 contractDeployDepth: 0,
                 transactionId: null,
                 transactionHash: null,
+
+                inputs: transaction ? transaction.inputs : [],
+                outputs: transaction ? transaction.outputs : [],
+
+                serializedInputs: undefined,
+                serializedOutputs: undefined,
             };
 
             // Execute the function
@@ -302,6 +310,12 @@ export class VMManager extends Logger {
                 gasUsed: 0n,
                 callDepth: 0,
                 contractDeployDepth: 0,
+
+                inputs: interactionTransaction.strippedInputs,
+                outputs: interactionTransaction.strippedOutputs,
+
+                serializedInputs: undefined,
+                serializedOutputs: undefined,
             };
 
             const result: ContractEvaluation = await this.executeCallInternal(params);
@@ -388,6 +402,12 @@ export class VMManager extends Logger {
                 contractDeployDepth: 1,
                 //deployedContracts: [contractInformation], // TODO: Understand what is going on when using this. (cause db conflicts)
                 isConstructor: true,
+
+                inputs: contractDeploymentTransaction.strippedInputs,
+                outputs: contractDeploymentTransaction.strippedOutputs,
+
+                serializedInputs: undefined,
+                serializedOutputs: undefined,
             };
 
             const execution = await vmEvaluator.execute(params);
@@ -611,6 +631,12 @@ export class VMManager extends Logger {
             callStack: params.callStack || [],
             isConstructor: false,
             safeU64: params.safeU64,
+
+            inputs: params.inputs,
+            outputs: params.outputs,
+
+            serializedInputs: params.serializedInputs,
+            serializedOutputs: params.serializedOutputs,
         };
 
         // Execute the function
