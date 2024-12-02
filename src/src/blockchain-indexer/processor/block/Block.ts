@@ -749,9 +749,11 @@ export class Block extends Logger {
                 const deploymentTransaction = transaction as DeploymentTransaction;
 
                 await this.executeDeploymentTransaction(deploymentTransaction, vmManager);
-                await vmManager
-                    .getVMStorage()
-                    .addTweakedPublicKey(deploymentTransaction.contractTweakedPublicKey);
+                try {
+                    await vmManager
+                        .getVMStorage()
+                        .addTweakedPublicKey(deploymentTransaction.contractTweakedPublicKey);
+                } catch {}
 
                 break;
             }
