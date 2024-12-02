@@ -93,6 +93,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             this.decrementPendingRequests();
             return this.convertDataToResult(res);
         } catch (e) {
+            console.log(e);
+
             this.decrementPendingRequests();
 
             throw `Something went wrong while simulating call.`;
@@ -277,9 +279,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
     private verifyPartialTransaction(
         partial: Partial<SimulatedTransaction> | undefined,
-    ): SimulatedTransaction {
+    ): SimulatedTransaction | undefined {
         if (!partial) {
-            throw new Error('Invalid transaction');
+            return;
         }
 
         if (!('inputs' in partial) || !('outputs' in partial)) {
