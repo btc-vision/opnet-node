@@ -57,8 +57,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             } as CallRequest,
         };
 
-        console.log(currentBlockMsg);
-
         const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
             ThreadTypes.RPC,
             currentBlockMsg,

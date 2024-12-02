@@ -10,7 +10,7 @@ export interface CallRequestData {
     readonly calldata: string;
     readonly from?: string;
     readonly blockNumber?: bigint;
-    readonly transaction: SimulatedTransaction;
+    readonly transaction?: SimulatedTransaction;
 }
 
 export type CallRequestResponse = ThreadData & (CallRequestError | SafeEvaluatedResult);

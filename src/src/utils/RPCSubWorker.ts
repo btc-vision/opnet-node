@@ -223,7 +223,13 @@ class RPCManager extends Logger {
         }, 20000);
     }
 
-    private parseTransaction(transaction: SimulatedTransaction): ParsedSimulatedTransaction {
+    private parseTransaction(
+        transaction: SimulatedTransaction | undefined,
+    ): ParsedSimulatedTransaction | undefined {
+        if (!transaction) {
+            return;
+        }
+
         return {
             inputs: transaction.inputs.map((input) => {
                 return {
