@@ -238,13 +238,22 @@ class RPCManager extends Logger {
                     scriptSig: Buffer.from(input.scriptSig, 'base64'),
                 };
             }),
-            outputs: transaction.outputs.map((output) => {
-                return {
-                    value: BigInt(output.value),
-                    index: output.index,
-                    to: output.to,
-                };
-            }),
+            outputs: [
+                ...[
+                    {
+                        value: 0n,
+                        index: 0,
+                        to: 'dead',
+                    },
+                ],
+                ...transaction.outputs.map((output) => {
+                    return {
+                        value: BigInt(output.value),
+                        index: output.index,
+                        to: output.to,
+                    };
+                }),
+            ],
         };
     }
 

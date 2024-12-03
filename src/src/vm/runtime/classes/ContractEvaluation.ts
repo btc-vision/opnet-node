@@ -95,6 +95,9 @@ export class ContractEvaluation implements ExecutionParameters {
 
         this.storage = params.storage;
 
+        this.inputs = params.inputs;
+        this.outputs = params.outputs;
+
         this.serializedInputs = params.serializedInputs;
         this.serializedOutputs = params.serializedOutputs;
     }

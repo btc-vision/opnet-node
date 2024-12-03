@@ -69,7 +69,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return currentBlock;
     }
 
-    public async getData(_params: CallParams): Promise<CallResult | undefined> {
+    public async getData(params: CallParams): Promise<CallResult | undefined> {
         this.incrementPendingRequests();
 
         try {
@@ -77,7 +77,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw new Error('Storage not initialized');
             }
 
-            const [to, calldata, from, blockNumber, transaction] = this.getDecodedParams(_params);
+            const [to, calldata, from, blockNumber, transaction] = this.getDecodedParams(params);
             const res: CallRequestResponse = await Call.requestThreadExecution(
                 to,
                 calldata,

@@ -313,8 +313,6 @@ export class ContractEvaluator extends Logger {
     }
 
     private onOutputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
-        console.log('onOutputsRequested', evaluation);
-
         return Promise.resolve(evaluation.getSerializeOutputUTXOs());
     }
 
