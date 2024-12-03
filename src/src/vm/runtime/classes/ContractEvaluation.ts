@@ -193,12 +193,6 @@ export class ContractEvaluation implements ExecutionParameters {
         this.events.set(this.contractAddress, current);
     }
 
-    public setEvent(contract: Address, events: NetEvent[]) {
-        if (!this.events) throw new Error('Events not set');
-
-        this.events.set(contract, events);
-    }
-
     public setResult(result: Uint8Array): void {
         this.result = result;
 
