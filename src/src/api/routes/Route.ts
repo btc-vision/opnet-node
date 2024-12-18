@@ -60,7 +60,10 @@ export abstract class Route<
         throw new Error('Method not implemented.');
     }
 
-    protected getParams(_req: Request, _res: Response): JSONRpcParams<R> | undefined {
+    protected getParams(
+        _req: Request,
+        _res: Response,
+    ): JSONRpcParams<R> | undefined | Promise<JSONRpcParams<R>> {
         throw new Error('Method not implemented.');
     }
 

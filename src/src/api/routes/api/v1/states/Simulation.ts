@@ -14,7 +14,10 @@ import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.j
 import { PointerStorageMap } from '../../../../../vm/evaluated/EvaluatedResult.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { CallParams } from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
+import {
+    CallParams,
+    SimulatedTransaction,
+} from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
 import {
     AccessList,
     AccessListItem,
@@ -32,8 +35,8 @@ export class Simulation extends Route<
 > {
     private pendingRequests: number = 0;
 
-    public constructor() {
-        super(Routes.SIMULATE, RouteType.GET);
+    constructor() {
+        super(Routes.SIMULATE, RouteType.POST);
     }
 
     public static async requestThreadExecution(
@@ -41,6 +44,7 @@ export class Simulation extends Route<
         calldata: string,
         from?: string,
         blockNumber?: bigint,
+        transaction?: SimulatedTransaction,
     ): Promise<CallRequestResponse> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
             type: MessageType.RPC_METHOD,
@@ -51,6 +55,7 @@ export class Simulation extends Route<
                     calldata: calldata,
                     from: from,
                     blockNumber: blockNumber,
+                    transaction,
                 },
             } as CallRequest,
         };
@@ -75,12 +80,13 @@ export class Simulation extends Route<
                 throw new Error('Storage not initialized');
             }
 
-            const [to, calldata, from, blockNumber] = this.getDecodedParams(_params);
+            const [to, calldata, from, blockNumber, transaction] = this.getDecodedParams(_params);
             const res: CallRequestResponse = await Simulation.requestThreadExecution(
                 to,
                 calldata,
                 from,
                 blockNumber,
+                this.verifyPartialTransaction(transaction),
             );
 
             if (!res) {
@@ -125,17 +131,19 @@ export class Simulation extends Route<
     /**
      * POST /api/v1/states/simulate
      * @tag States
-     * @summary Simulate multiple contract calls one after the other.
-     * @description Allows to simulate multiple contract calls one after the other. If one of the calls fails, the simulation stops and returns the error.
-     * @bodyContent {CallParams[]} application/json
-     * @response 200 - Return the result of the simulation.
+     * @summary Simulate multiple contract calls.
+     * @description Call a contract function with the given address, data, and value.
+     * @queryParam {string} to - The address of the contract.
+     * @queryParam {string} data - The calldata of the contract function.
+     * @queryParam {string} [from] - The address of the sender.
+     * @response 200 - Return the result of the contract function call.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
      * @responseContent {object} 200.application/json
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
-            const params = this.getParams(req, res);
+            const params = await this.getParams(req, res);
             if (!params) {
                 throw new Error('Invalid params.');
             }
@@ -156,7 +164,7 @@ export class Simulation extends Route<
         }
     }
 
-    protected getParams(req: Request, res: Response): CallParams | undefined {
+    protected async getParams(req: Request, res: Response): Promise<CallParams | undefined> {
         if (!req.query) {
             throw new Error('Invalid params.');
         }
@@ -178,11 +186,17 @@ export class Simulation extends Route<
             return;
         }
 
+        const transaction: Partial<SimulatedTransaction> | undefined = await req.json();
+        if (transaction && (!('inputs' in transaction) || !('outputs' in transaction))) {
+            throw new Error('Invalid transaction');
+        }
+
         return {
             to,
             calldata: data,
             from,
             blockNumber,
+            transaction,
         };
     }
 
@@ -264,24 +278,118 @@ export class Simulation extends Route<
         return accessList;
     }
 
+    private verifyPartialTransaction(
+        partial: Partial<SimulatedTransaction> | undefined,
+    ): SimulatedTransaction {
+        if (!partial) {
+            throw new Error('Invalid transaction');
+        }
+
+        if (!('inputs' in partial) || !('outputs' in partial)) {
+            throw new Error('Invalid transaction');
+        }
+
+        if (Array.isArray(partial.inputs) && Array.isArray(partial.outputs)) {
+            if (partial.inputs.length > 255 || partial.outputs.length > 255) {
+                throw new Error('Too many inputs/outputs');
+            }
+
+            for (const input of partial.inputs) {
+                if (typeof input !== 'object') {
+                    throw new Error('Invalid transaction inputs/outputs');
+                }
+
+                if (!input.scriptSig) {
+                    throw new Error('Missing scriptSig');
+                }
+
+                if (!input.txId) {
+                    throw new Error('Missing txId');
+                }
+
+                if (!('outputIndex' in input)) {
+                    throw new Error('Missing outputIndex');
+                }
+
+                if (typeof input.outputIndex !== 'number') {
+                    throw new Error('Invalid outputIndex');
+                }
+
+                if (typeof input.txId !== 'string') {
+                    throw new Error('Invalid txId');
+                }
+
+                if (typeof input.scriptSig !== 'string') {
+                    throw new Error('Invalid scriptSig');
+                }
+            }
+
+            for (const output of partial.outputs) {
+                if (typeof output !== 'object') {
+                    throw new Error('Invalid transaction inputs/outputs');
+                }
+
+                if (!('value' in output)) {
+                    throw new Error('Missing value');
+                }
+
+                if (!output.to) {
+                    throw new Error('Missing to');
+                }
+
+                if (!('index' in output)) {
+                    throw new Error('Missing index');
+                }
+
+                if (typeof output.index !== 'number') {
+                    throw new Error('Invalid index');
+                }
+
+                if (typeof output.value !== 'string') {
+                    throw new Error('Invalid value');
+                }
+
+                if (typeof output.to !== 'string') {
+                    throw new Error('Invalid to');
+                }
+            }
+        } else {
+            throw new Error('Invalid transaction inputs/outputs');
+        }
+
+        return partial as SimulatedTransaction;
+    }
+
     private getDecodedParams(
         params: CallParams,
-    ): [string, string, string | undefined, bigint | undefined] {
+    ): [
+        string,
+        string,
+        string | undefined,
+        bigint | undefined,
+        Partial<SimulatedTransaction> | undefined,
+    ] {
         let address: string | undefined;
         let calldata: string | undefined;
         let from: string | undefined;
         let blockNumber: bigint | undefined;
+        let transaction: Partial<SimulatedTransaction> | undefined;
 
         if (Array.isArray(params)) {
-            address = params.shift();
-            calldata = params.shift();
-            from = params.shift();
-            blockNumber = params.shift() as bigint | undefined;
+            address = params.shift() as string | undefined;
+            calldata = params.shift() as string | undefined;
+            from = params.shift() as string | undefined;
+
+            const temp: string | undefined = params.shift() as string | undefined;
+            blockNumber = temp ? BigInt(temp) : undefined;
+
+            transaction = params.shift() as Partial<SimulatedTransaction> | undefined;
         } else {
             address = params.to;
             calldata = params.calldata;
             from = params.from;
             blockNumber = params.blockNumber ? BigInt(params.blockNumber) : undefined;
+            transaction = params.transaction;
         }
 
         if (!address) {
@@ -293,7 +401,6 @@ export class Simulation extends Route<
         }
 
         if (!calldata || calldata.length < 1) throw new Error(`Invalid calldata specified.`);
-
-        return [address, calldata, from, blockNumber];
+        return [address, calldata, from, blockNumber, transaction];
     }
 }

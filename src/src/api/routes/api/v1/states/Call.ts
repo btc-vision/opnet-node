@@ -14,7 +14,10 @@ import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.j
 import { PointerStorageMap } from '../../../../../vm/evaluated/EvaluatedResult.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { CallParams } from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
+import {
+    CallParams,
+    SimulatedTransaction,
+} from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
 import {
     AccessList,
     AccessListItem,
@@ -24,12 +27,13 @@ import {
 import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
+import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private pendingRequests: number = 0;
 
     constructor() {
-        super(Routes.CALL, RouteType.GET);
+        super(Routes.CALL, RouteType.POST);
     }
 
     public static async requestThreadExecution(
@@ -37,6 +41,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         calldata: string,
         from?: string,
         blockNumber?: bigint,
+        transaction?: SimulatedTransaction,
     ): Promise<CallRequestResponse> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
             type: MessageType.RPC_METHOD,
@@ -47,6 +52,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     calldata: calldata,
                     from: from,
                     blockNumber: blockNumber,
+                    transaction,
                 },
             } as CallRequest,
         };
@@ -63,7 +69,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return currentBlock;
     }
 
-    public async getData(_params: CallParams): Promise<CallResult | undefined> {
+    public async getData(params: CallParams): Promise<CallResult | undefined> {
         this.incrementPendingRequests();
 
         try {
@@ -71,12 +77,13 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw new Error('Storage not initialized');
             }
 
-            const [to, calldata, from, blockNumber] = this.getDecodedParams(_params);
+            const [to, calldata, from, blockNumber, transaction] = this.getDecodedParams(params);
             const res: CallRequestResponse = await Call.requestThreadExecution(
                 to,
                 calldata,
                 from,
                 blockNumber,
+                this.verifyPartialTransaction(transaction),
             );
 
             if (!res) {
@@ -133,7 +140,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
      */
     protected async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
-            const params = this.getParams(req, res);
+            const params = await this.getParams(req, res);
             if (!params) {
                 throw new Error('Invalid params.');
             }
@@ -154,7 +161,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         }
     }
 
-    protected getParams(req: Request, res: Response): CallParams | undefined {
+    protected async getParams(req: Request, res: Response): Promise<CallParams | undefined> {
         if (!req.query) {
             throw new Error('Invalid params.');
         }
@@ -176,11 +183,17 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             return;
         }
 
+        const transaction: Partial<SimulatedTransaction> | undefined = await req.json();
+        if (transaction && (!('inputs' in transaction) || !('outputs' in transaction))) {
+            throw new Error('Invalid transaction');
+        }
+
         return {
             to,
             calldata: data,
             from,
             blockNumber,
+            transaction,
         };
     }
 
@@ -262,24 +275,121 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return accessList;
     }
 
+    private verifyPartialTransaction(
+        partial: Partial<SimulatedTransaction> | undefined,
+    ): SimulatedTransaction | undefined {
+        if (!partial) {
+            return;
+        }
+
+        if (!('inputs' in partial) || !('outputs' in partial)) {
+            throw new Error('Invalid transaction');
+        }
+
+        if (Array.isArray(partial.inputs) && Array.isArray(partial.outputs)) {
+            if (
+                partial.inputs.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS ||
+                partial.outputs.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_OUTPUTS
+            ) {
+                throw new Error('Too many inputs/outputs');
+            }
+
+            for (const input of partial.inputs) {
+                if (typeof input !== 'object') {
+                    throw new Error('Invalid transaction inputs/outputs');
+                }
+
+                if (!input.scriptSig) {
+                    throw new Error('Missing scriptSig');
+                }
+
+                if (!input.txId) {
+                    throw new Error('Missing txId');
+                }
+
+                if (!('outputIndex' in input)) {
+                    throw new Error('Missing outputIndex');
+                }
+
+                if (typeof input.outputIndex !== 'number') {
+                    throw new Error('Invalid outputIndex');
+                }
+
+                if (typeof input.txId !== 'string') {
+                    throw new Error('Invalid txId');
+                }
+
+                if (typeof input.scriptSig !== 'string') {
+                    throw new Error('Invalid scriptSig');
+                }
+            }
+
+            for (const output of partial.outputs) {
+                if (typeof output !== 'object') {
+                    throw new Error('Invalid transaction inputs/outputs');
+                }
+
+                if (!('value' in output)) {
+                    throw new Error('Missing value');
+                }
+
+                if (!output.to) {
+                    throw new Error('Missing to');
+                }
+
+                if (!('index' in output)) {
+                    throw new Error('Missing index');
+                }
+
+                if (typeof output.index !== 'number') {
+                    throw new Error('Invalid index');
+                }
+
+                if (typeof output.value !== 'string') {
+                    throw new Error('Invalid value');
+                }
+
+                if (typeof output.to !== 'string') {
+                    throw new Error('Invalid to');
+                }
+            }
+        } else {
+            throw new Error('Invalid transaction inputs/outputs');
+        }
+
+        return partial as SimulatedTransaction;
+    }
+
     private getDecodedParams(
         params: CallParams,
-    ): [string, string, string | undefined, bigint | undefined] {
+    ): [
+        string,
+        string,
+        string | undefined,
+        bigint | undefined,
+        Partial<SimulatedTransaction> | undefined,
+    ] {
         let address: string | undefined;
         let calldata: string | undefined;
         let from: string | undefined;
         let blockNumber: bigint | undefined;
+        let transaction: Partial<SimulatedTransaction> | undefined;
 
         if (Array.isArray(params)) {
-            address = params.shift();
-            calldata = params.shift();
-            from = params.shift();
-            blockNumber = params.shift() as bigint | undefined;
+            address = params.shift() as string | undefined;
+            calldata = params.shift() as string | undefined;
+            from = params.shift() as string | undefined;
+
+            const temp: string | undefined = params.shift() as string | undefined;
+            blockNumber = temp ? BigInt(temp) : undefined;
+
+            transaction = params.shift() as Partial<SimulatedTransaction> | undefined;
         } else {
             address = params.to;
             calldata = params.calldata;
             from = params.from;
             blockNumber = params.blockNumber ? BigInt(params.blockNumber) : undefined;
+            transaction = params.transaction;
         }
 
         if (!address) {
@@ -291,7 +401,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         }
 
         if (!calldata || calldata.length < 1) throw new Error(`Invalid calldata specified.`);
-
-        return [address, calldata, from, blockNumber];
+        return [address, calldata, from, blockNumber, transaction];
     }
 }

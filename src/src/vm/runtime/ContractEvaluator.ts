@@ -229,6 +229,12 @@ export class ContractEvaluator extends Logger {
 
             deployedContracts: evaluation.deployedContracts,
             storage: evaluation.storage,
+
+            inputs: evaluation.inputs,
+            outputs: evaluation.outputs,
+
+            serializedInputs: evaluation.serializedInputs,
+            serializedOutputs: evaluation.serializedOutputs,
         };
 
         const response = await this.callExternal(externalCallParams);
@@ -302,12 +308,12 @@ export class ContractEvaluator extends Logger {
         evaluation.emitEvent(event);
     }
 
-    private onInputsRequested(): Promise<Buffer> {
-        return Promise.resolve(Buffer.alloc(1));
+    private onInputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+        return Promise.resolve(evaluation.getSerializeInputUTXOs());
     }
 
-    private onOutputsRequested(): Promise<Buffer> {
-        return Promise.resolve(Buffer.alloc(1));
+    private onOutputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+        return Promise.resolve(evaluation.getSerializeOutputUTXOs());
     }
 
     private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {
@@ -351,9 +357,45 @@ export class ContractEvaluator extends Logger {
             emit: (buffer: Buffer) => {
                 this.onEvent(buffer, evaluation);
             },
-            inputs: this.onInputsRequested.bind(this),
-            outputs: this.onOutputsRequested.bind(this),
+            inputs: () => {
+                return this.onInputsRequested(evaluation);
+            },
+            outputs: () => {
+                return this.onOutputsRequested(evaluation);
+            },
+            nextPointerValueGreaterThan: (data: Buffer) => {
+                return new Promise((resolve) => {
+                    const reader = new BinaryReader(data);
+                    const pointer: bigint = reader.readU256();
+                    const valueAtLeast: bigint = reader.readU256();
+                    const lte: boolean = reader.readBoolean();
+
+                    resolve(this.nextPointerValueGreaterThan(pointer, lte, valueAtLeast));
+                });
+            },
         };
+    }
+
+    private getBestNextPointerValueGreaterThan(
+        _pointer: bigint,
+        _lte: boolean,
+        _valueAtLeast: bigint,
+    ): bigint {
+        // TODO: Implement this
+
+        throw new Error(`Experimental feature not enabled.`);
+    }
+
+    private nextPointerValueGreaterThan(
+        pointer: bigint,
+        lte: boolean,
+        valueAtLeast: bigint,
+    ): Buffer | Uint8Array {
+        const pointerReturn = this.getBestNextPointerValueGreaterThan(pointer, lte, valueAtLeast);
+        const response: BinaryWriter = new BinaryWriter();
+        response.writeU256(pointerReturn);
+
+        return response.getBuffer();
     }
 
     private loadContractFromBytecode(evaluation: ContractEvaluation): boolean {

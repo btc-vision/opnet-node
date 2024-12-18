@@ -1,6 +1,6 @@
 import { BitcoinNetworkRequest, CallResponse, ContractManager } from '@btc-vision/op-vm';
-import { Blockchain } from '../Blockchain.js';
 import { RustContractBinding } from './RustContractBindings.js';
+import { Blockchain } from '../Blockchain.js';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -41,6 +41,7 @@ export class RustContract {
             Blockchain.registerBinding({
                 id: this._id,
                 load: this.params.load,
+                nextPointerValueGreaterThan: this.params.nextPointerValueGreaterThan,
                 store: this.params.store,
                 call: this.params.call,
                 deployContractAtAddress: this.params.deployContractAtAddress,

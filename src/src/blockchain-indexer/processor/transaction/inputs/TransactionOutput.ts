@@ -15,7 +15,6 @@ export interface ITransactionOutputBase {
 
 export interface ITransactionOutput extends ITransactionOutputBase {
     readonly value: Decimal128;
-
     //pubKeyHash?: Binary;
     //pubKeys?: Binary[];
     //schnorrPubKey?: Binary;
@@ -26,6 +25,18 @@ export interface APIDocumentOutput extends ITransactionOutputBase {
     //readonly pubKeyHash?: string;
     //readonly pubKeys?: string[];
     //readonly schnorrPubKey?: string;
+}
+
+export interface StrippedTransactionOutput {
+    readonly value: bigint;
+    readonly index: number;
+    readonly to: string;
+}
+
+export interface StrippedTransactionOutputAPI {
+    readonly value: string;
+    readonly index: number;
+    readonly to: string;
 }
 
 export class TransactionOutput {
@@ -54,7 +65,7 @@ export class TransactionOutput {
     }
 
     public toDocument(): ITransactionOutput {
-        const returnType: ITransactionOutput = {
+        return {
             value: new Decimal128(this.value.toString()),
             index: this.index,
             scriptPubKey: {
@@ -63,20 +74,19 @@ export class TransactionOutput {
                 address: this.scriptPubKey.address,
             },
         };
+    }
 
-        /*if (this.decodedPubKeyHash) {
-            returnType.pubKeyHash = new Binary(this.decodedPubKeyHash);
+    public toStripped(): StrippedTransactionOutput | null {
+        const to = this.scriptPubKey.address || this.scriptPubKey.hex;
+        if (!to) {
+            return null;
         }
 
-        if (this.decodedPublicKeys) {
-            returnType.pubKeys = this.decodedPublicKeys.map((key) => new Binary(key));
-        }
-
-        if (this.decodedSchnorrPublicKey) {
-            returnType.schnorrPubKey = new Binary(this.decodedSchnorrPublicKey);
-        }*/
-
-        return returnType;
+        return {
+            value: this.value,
+            index: this.index,
+            to: to,
+        };
     }
 
     private decodeSchnorrPublicKey(): Buffer | null {

@@ -11,9 +11,10 @@ import {
 } from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
-import { TransactionInput } from './inputs/TransactionInput.js';
-import { TransactionOutput } from './inputs/TransactionOutput.js';
+import { StrippedTransactionInput, TransactionInput } from './inputs/TransactionInput.js';
+import { StrippedTransactionOutput, TransactionOutput } from './inputs/TransactionOutput.js';
 import { Address } from '@btc-vision/transaction';
+import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 
 const OPNet_MAGIC: Buffer = Buffer.from('bsi', 'utf-8');
 const textEncoder = new TextEncoder();
@@ -95,6 +96,19 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.time = rawTransactionData.time;
 
         this._computedIndexingHash = this.computeHashForTransaction();
+    }
+
+    public get strippedInputs(): StrippedTransactionInput[] {
+        return this.inputs
+            .slice(0, OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS)
+            .map((input) => input.toStripped());
+    }
+
+    public get strippedOutputs(): StrippedTransactionOutput[] {
+        const outputs = this.outputs
+            .slice(0, OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_OUTPUTS)
+            .map((output) => output.toStripped());
+        return outputs.filter((output): output is StrippedTransactionOutput => !!output);
     }
 
     public get computedIndexingHash(): Buffer {

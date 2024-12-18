@@ -38,8 +38,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     GAS: {
         /** Target block gas limit, a transaction can not pass this limit. */
-        TARGET_GAS: 3_000_000_000_000n,
-
+        TARGET_GAS: 4_000_000_000_000n, // 0.04 BTC.
         /** Smooth out gas increase when equal to gas target. */
         SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
 
@@ -47,13 +46,13 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
          */
-        MAX_THEORETICAL_GAS: 28_000_000_000_000n,
+        MAX_THEORETICAL_GAS: 50_000_000_000_000n, // 0.5 BTC.
 
         /** Max gas per transactions */
         TRANSACTION_MAX_GAS: 350_000_000_000n,
 
         /** btc_call maximum gas */
-        EMULATION_MAX_GAS: 15_000_000_000n,
+        EMULATION_MAX_GAS: 200_000_000_000n,
 
         /** Panic gas cost */
         PANIC_GAS_COST: 1_000_000n,
@@ -92,6 +91,12 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         /** The cost of a byte in gas */
         STORAGE_COST_PER_BYTE: 10_000n,
+
+        /** The maximum inputs utxos to forward to a contract */
+        MAXIMUM_INPUTS: 250,
+
+        /** The maximum outputs utxos to forward to a contract */
+        MAXIMUM_OUTPUTS: 250,
 
         /** Skip proof validation for execution before transaction */
         SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: true,

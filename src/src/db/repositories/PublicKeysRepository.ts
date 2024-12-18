@@ -1,4 +1,4 @@
-import { AnyBulkWriteOperation, Binary, Collection, Db, Filter } from 'mongodb';
+import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
@@ -9,7 +9,7 @@ import { TransactionOutput } from '../../blockchain-indexer/processor/transactio
 import { Network, payments } from '@btc-vision/bitcoin';
 import { toXOnly } from '@btc-vision/bitcoin/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
-import { EcKeyPair } from '@btc-vision/transaction';
+import { AddressVerificator, EcKeyPair } from '@btc-vision/transaction';
 import {
     IPubKeyNotFoundError,
     IPublicKeyInfoResult,
@@ -48,17 +48,54 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         const pubKeyData: IPublicKeyInfoResult = {};
 
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
-            const key = addressOrPublicKeys[i];
+            let key = addressOrPublicKeys[i];
             const result: PublicKeyDocument | IPubKeyNotFoundError = results[i];
 
             if ('error' in result) {
-                pubKeyData[key] = result;
+                key = key.replace('0x', '');
+                if (AddressVerificator.isValidPublicKey(key, this.network)) {
+                    if (key.length === 64) {
+                        pubKeyData[key] = {
+                            tweakedPubkey: key,
+
+                            p2tr: this.tweakedPubKeyToAddress(
+                                Buffer.from(key, 'hex'),
+                                this.network,
+                            ),
+                        } as PublicKeyInfo;
+                    } else if (key.length === 66) {
+                        // TODO: Implement
+                        //pubKeyData[key] = {
+                        //    originalPubKey: key,
+                        //} as PublicKeyInfo;
+                    }
+                }
+
+                if (!pubKeyData[key]) {
+                    pubKeyData[key] = result;
+                }
             } else {
                 pubKeyData[key] = this.convertToPublicKeysInfo(result);
             }
         }
 
         return pubKeyData;
+    }
+
+    public async addTweakedPublicKey(tweaked: Buffer, session?: ClientSession): Promise<void> {
+        const filter = {
+            tweakedPublicKey: new Binary(tweaked),
+
+            p2tr: this.tweakedPubKeyToAddress(tweaked, this.network),
+        };
+
+        await this.updatePartialWithFilter(
+            filter,
+            {
+                $set: filter,
+            },
+            session,
+        );
     }
 
     public async processPublicKeys(transactions: ProcessUnspentTransactionList): Promise<void> {
@@ -162,7 +199,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         this.log(`Saving ${documents.length} public keys`);
 
         const chunks = this.chunkArray(bulkWriteOperations, 500);
-
         const promises = [];
         for (const chunk of chunks) {
             promises.push(this.bulkWrite(chunk));
@@ -255,7 +291,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
             const p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
             const p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(ecKeyPair, this.network);
-
             const p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
 
             this.cache.add(str);

@@ -30,6 +30,7 @@ export class ChainSynchronisation extends Logger {
     private isProcessing: boolean = false;
 
     private abortControllers: Map<bigint, AbortController> = new Map();
+    private pendingSave: Promise<void> | undefined;
 
     public constructor() {
         super();
@@ -152,26 +153,39 @@ export class ChainSynchronisation extends Logger {
     }
 
     private async saveUTXOs(): Promise<void> {
-        if (this.isProcessing) return;
-        this.isProcessing = true;
+        if (this.pendingSave) {
+            await this.pendingSave;
+        } else {
+            this.isProcessing = true;
+            this.pendingSave = this._saveUTXOs();
+            await this.pendingSave;
+            this.pendingSave = undefined;
+            this.isProcessing = false;
+        }
+    }
 
+    private async _saveUTXOs(): Promise<void> {
         const utxos = this.unspentTransactionOutputs;
         this.purgeUTXOs();
 
         try {
             await this.publicKeysRepository.processPublicKeys(utxos);
+        } catch (e) {
+            this.error(`TODO: FIX THIS ERROR ${e}`);
+        }
+
+        try {
             await this.unspentTransactionRepository.insertTransactions(utxos);
 
             this.success(`Saved ${utxos.length} block UTXOs to database.`);
         } catch (e) {
+            this.error(`${e}`);
             this.fail(`Failed to save UTXOs to database. ${(e as Error).message}`);
         }
-
-        this.isProcessing = false;
     }
 
     private async awaitUTXOWrites(): Promise<void> {
-        if (!this.isProcessing) await this.saveUTXOs();
+        await this.saveUTXOs();
 
         this.warn('Awaiting UTXO writes to complete... May take a while.');
 

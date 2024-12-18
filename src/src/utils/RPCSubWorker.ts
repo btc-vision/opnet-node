@@ -23,6 +23,10 @@ import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { Address } from '@btc-vision/transaction';
 import { CallRequestError } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
+import {
+    ParsedSimulatedTransaction,
+    SimulatedTransaction,
+} from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 
 class RPCManager extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -219,6 +223,40 @@ class RPCManager extends Logger {
         }, 20000);
     }
 
+    private parseTransaction(
+        transaction: SimulatedTransaction | undefined,
+    ): ParsedSimulatedTransaction | undefined {
+        if (!transaction) {
+            return;
+        }
+
+        return {
+            inputs: transaction.inputs.map((input) => {
+                return {
+                    txId: Buffer.from(input.txId, 'base64'),
+                    outputIndex: input.outputIndex,
+                    scriptSig: Buffer.from(input.scriptSig, 'base64'),
+                };
+            }),
+            outputs: [
+                ...[
+                    {
+                        value: 0n,
+                        index: 0,
+                        to: 'dead',
+                    },
+                ],
+                ...transaction.outputs.map((output) => {
+                    return {
+                        value: BigInt(output.value),
+                        index: output.index,
+                        to: output.to,
+                    };
+                }),
+            ],
+        };
+    }
+
     private async onCallRequest(
         data: CallRequestData,
     ): Promise<EvaluatedResult | CallRequestError | undefined> {
@@ -238,11 +276,13 @@ class RPCManager extends Logger {
 
         let result: CallRequestResponse | undefined;
         try {
+            const parsedTransaction = this.parseTransaction(data.transaction);
             return await vmManager.execute(
                 data.to,
                 data.from ? Address.fromString(data.from) : BTC_FAKE_ADDRESS,
                 Buffer.from(data.calldata, 'hex'),
                 data.blockNumber,
+                parsedTransaction,
             );
         } catch (e) {
             const error = e as Error;

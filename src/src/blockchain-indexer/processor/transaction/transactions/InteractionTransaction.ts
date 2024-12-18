@@ -29,8 +29,6 @@ export interface InteractionWitnessData {
 
 initEccLib(ecc);
 
-//const authorityManager = AuthorityManager.getAuthority(P2PVersion);
-
 /* TODO: Potentially allow multiple contract interaction per transaction since BTC supports that? Maybe, in the future, for now let's stick with one. */
 export class InteractionTransaction extends Transaction<InteractionTransactionType> {
     public static LEGACY_INTERACTION: Buffer = Buffer.from([
@@ -265,9 +263,10 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             throw new Error(`No receipt proofs found for transaction ${this.txid}`);
         }
 
+        const fromPubKey: Uint8Array = this.from.originalPublicKey || this.from;
         return {
             ...super.toDocument(),
-            from: new Binary(this.from),
+            from: new Binary(fromPubKey),
             contractAddress: this.contractAddress,
             contractTweakedPublicKey: new Binary(this.address),
 
