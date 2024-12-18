@@ -43,7 +43,7 @@
     "@btc-vision/logger": "^1.0.6",
     "@btc-vision/op-vm": "^0.2.5",
     "@btc-vision/rust-merkle-tree": "^0.0.3",
-    "@btc-vision/transaction": "^1.1.13",
+    "@btc-vision/transaction": "^1.1.15",
     "@chainsafe/libp2p-noise": "^16.0.0",
     "@chainsafe/libp2p-yamux": "^7.0.1",
     "@eslint/js": "^9.14.0",
