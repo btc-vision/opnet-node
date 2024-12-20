@@ -1,4 +1,4 @@
-import { Decimal128, Document, Long } from 'mongodb';
+import { Binary, Decimal128, Document, Long } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 import { ShortScriptPubKey } from '../../../../db/interfaces/IUnspentTransaction.js';
 import { Config } from '../../../../config/Config.js';
@@ -8,6 +8,7 @@ export interface UTXOSOutputTransactionFromDBV2 {
     readonly outputIndex: number;
     readonly value: Decimal128;
     readonly scriptPubKey: ShortScriptPubKey;
+    readonly raw: Binary;
 }
 
 export class UTXOsAggregationV2 extends Aggregation {
@@ -43,6 +44,7 @@ export class UTXOsAggregationV2 extends Aggregation {
                 outputIndex: 1,
                 value: 1,
                 scriptPubKey: 1,
+                raw: 1,
             },
         });
 

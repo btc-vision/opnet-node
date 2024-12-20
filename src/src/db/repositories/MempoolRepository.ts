@@ -18,7 +18,6 @@ import {
     MempoolTransactionAggregationOutput,
 } from '../../vm/storage/databases/aggregation/MempoolTransactionAggregation.js';
 import { UTXOSOutputTransaction } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
-import { Address } from '@btc-vision/transaction';
 
 export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     public readonly logColor: string = '#afeeee';
@@ -207,6 +206,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
                             output.value instanceof Long
                                 ? output.value.toBigInt()
                                 : BigInt(output.value),
+                        raw: result.data.toString('base64'),
                     });
                 }
             }

@@ -18,6 +18,8 @@ export interface TransactionDocumentBasic<T extends OPNetTransactionTypes> {
     readonly id: string;
     readonly hash: string;
 
+    readonly raw: Buffer;
+
     readonly index: number; // Mark the order of the transaction in the block
     readonly blockHeight: Decimal128 | string | undefined;
 

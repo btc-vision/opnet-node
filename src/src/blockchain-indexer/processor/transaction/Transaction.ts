@@ -353,6 +353,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             outputs: this.outputs,
 
             OPNetType: this.transactionType,
+            raw: Buffer.from(this.raw, 'hex'),
         };
     }
 
@@ -361,12 +362,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         const inputDocuments = this.inputs.map((input: TransactionInput) => {
             return input.toDocument();
         });
-        const outputDocuments = this.outputs.map((output) => output.toDocument());
 
+        const outputDocuments = this.outputs.map((output) => output.toDocument());
         return {
             id: this.transactionId,
             hash: this.hash,
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
+            raw: Buffer.from(this.raw, 'hex'),
 
             index: this.index,
             burnedBitcoin: DataConverter.toDecimal128(this.burnedFee),

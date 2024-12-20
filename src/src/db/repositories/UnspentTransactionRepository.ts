@@ -124,6 +124,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                     hex: transaction.scriptPubKey.hex,
                                     address: transaction.scriptPubKey.address,
                                 },
+                                raw: transaction.raw,
                             },
                         },
                         upsert: true,
@@ -233,6 +234,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                             ? result.scriptPubKey.address
                             : undefined,
                     },
+                    raw: result.raw.toString('base64'),
                 };
             });
         } catch (e) {
@@ -304,11 +306,12 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                 blockHeight: this.decimal128ToLong(transaction.blockHeight),
                                 transactionId: transaction.id,
                                 outputIndex: output.index,
-                                value: new Long(output.value), //this.decimal128ToLong(document.value),
+                                value: new Long(output.value),
                                 scriptPubKey: {
                                     hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                     address: output.scriptPubKey.address ?? null,
                                 },
+                                raw: new Binary(transaction.raw),
                             });
                         }
                     }
