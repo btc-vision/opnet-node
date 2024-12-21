@@ -9,6 +9,8 @@ import {MainnetTrustedKeys001Fractal} from './keys/fractal/0.0.1/MainnetTrustedK
 import {TestnetTrustedKeys001Fractal} from './keys/fractal/0.0.1/TestnetTrustedKeys001Fractal.js';
 
 import {BitcoinNetwork} from '../../config/network/BitcoinNetwork.js';
+import {DogecoinMainnetTrustedKeys} from './keys/dogecoin/0.0.1/MainnetTrustedKeys001.js';
+import {DogecoinTestnetTrustedKeys} from './keys/dogecoin/0.0.1/TestnetTrustedKeys001.js';
 
 /**
  * DO NOT MODIFY THIS FILE IF YOU DON'T KNOW WHAT YOU ARE DOING.
@@ -21,7 +23,7 @@ export const P2PMajorVersion: TrustedVersion = TrustedVersion.V0_0_1;
 // TODO: Add the trusted checksum for the new version
 export const TRUSTED_CHECKSUM: { [key in TrustedVersion]: string } = {
     [TrustedVersion.V0_0_1]: '0x00000000',
-    [TrustedVersion.V0_0_2]: '0x00000000',
+    //[TrustedVersion.V0_0_2]: '0x00000000',
 };
 
 export const TRUSTED_PUBLIC_KEYS: { [key in TrustedVersion]: TrustedPublicKeys } = {
@@ -38,8 +40,12 @@ export const TRUSTED_PUBLIC_KEYS: { [key in TrustedVersion]: TrustedPublicKeys }
             [BitcoinNetwork.regtest]: RegTestTrustedKeys001,
             [BitcoinNetwork.signet]: SignetTrustedKeys001,
         },
+        [ChainIds.Dogecoin]: {
+            [BitcoinNetwork.mainnet]: DogecoinMainnetTrustedKeys,
+            [BitcoinNetwork.testnet]: DogecoinTestnetTrustedKeys,
+        },
     },
-    [TrustedVersion.V0_0_2]: {
+    /*[TrustedVersion.V0_0_2]: {
         [ChainIds.Bitcoin]: {
             [BitcoinNetwork.mainnet]: MainnetTrustedKeys001,
             [BitcoinNetwork.testnet]: TestNetTrustedKeys001,
@@ -52,5 +58,5 @@ export const TRUSTED_PUBLIC_KEYS: { [key in TrustedVersion]: TrustedPublicKeys }
             [BitcoinNetwork.regtest]: RegTestTrustedKeys001,
             [BitcoinNetwork.signet]: SignetTrustedKeys001,
         },
-    },
+    },*/
 };

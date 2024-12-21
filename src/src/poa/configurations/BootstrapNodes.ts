@@ -7,7 +7,7 @@ type BootstrapNode = {
 };
 
 type BootstrapNodes = {
-    [key in ChainIds]?: BootstrapNode;
+    [key in ChainIds]: BootstrapNode;
 };
 
 export const BootstrapNodes: BootstrapNodes = {
@@ -26,6 +26,16 @@ export const BootstrapNodes: BootstrapNodes = {
     },
 
     [ChainIds.Fractal]: {
+        [BitcoinNetwork.mainnet]: [],
+
+        [BitcoinNetwork.testnet]: [],
+
+        [BitcoinNetwork.regtest]: [],
+
+        [BitcoinNetwork.signet]: [],
+    },
+
+    [ChainIds.Dogecoin]: {
         [BitcoinNetwork.mainnet]: [],
 
         [BitcoinNetwork.testnet]: [],

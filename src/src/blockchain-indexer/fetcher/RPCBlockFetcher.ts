@@ -1,5 +1,11 @@
 import { BlockFetcher, BlockFetcherConfiguration } from './abstract/BlockFetcher.js';
-import { BitcoinRPC, BlockDataWithTransactionData } from '@btc-vision/bsi-bitcoin-rpc';
+import {
+    BitcoinRPC,
+    BitcoinVerbosity,
+    BlockDataWithTransactionData,
+    TransactionData,
+    TransactionDetail,
+} from '@btc-vision/bsi-bitcoin-rpc';
 import { Config } from '../../config/Config.js';
 
 export interface RPCBlockFetcherConfiguration extends BlockFetcherConfiguration {
@@ -27,7 +33,33 @@ export class RPCBlockFetcher extends BlockFetcher {
             throw new Error(`Error fetching block ${blockHeight}.`);
         }
 
-        return await this.rpc.getBlockInfoWithTransactionData(blockHash);
+        const resp = await this.rpc.getBlockInfoWithTransactionData(blockHash);
+        if (resp) {
+            const txs = resp.tx;
+            if (resp && txs && txs.length && !txs[0].hex) {
+                const promises = txs.map(async (tx) => {
+                    return await this.rpc.getRawTransaction({
+                        txId: tx.txid,
+                        //blockHash: blockHash,
+                        verbose: BitcoinVerbosity.NONE,
+                    });
+                });
+
+                //const d = Date.now();
+                const rawTxs = await Promise.all(promises);
+                for (let i = 0; i < rawTxs.length; i++) {
+                    const t: TransactionDetail = rawTxs[i] as TransactionDetail;
+                    if (!t) {
+                        continue;
+                    }
+
+                    resp.tx[i] = t as TransactionData;
+                }
+                //console.log(`Fetched ${rawTxs.length} raw transactions in ${Date.now() - d}ms.`);
+            }
+        }
+
+        return resp;
     }
 
     protected async watchBlockChanges(): Promise<void> {

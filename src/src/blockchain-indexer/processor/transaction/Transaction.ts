@@ -80,11 +80,11 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.transactionHashBuffer = Buffer.from(this.transactionHash, 'hex');
 
         this.raw = rawTransactionData.hex;
-        this.inActiveChain = rawTransactionData.in_active_chain;
+        this.inActiveChain = rawTransactionData.in_active_chain || false;
 
         this.size = rawTransactionData.size;
         this.vSize = rawTransactionData.vsize;
-        this.weight = rawTransactionData.weight;
+        this.weight = rawTransactionData.weight || 0;
 
         this.version = rawTransactionData.version;
         this.lockTime = rawTransactionData.locktime;
@@ -353,7 +353,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             outputs: this.outputs,
 
             OPNetType: this.transactionType,
-            raw: Buffer.from(this.raw, 'hex'),
+            raw: this.raw ? Buffer.from(this.raw, 'hex') : Buffer.alloc(0),
         };
     }
 
@@ -368,7 +368,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             id: this.transactionId,
             hash: this.hash,
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
-            raw: Buffer.from(this.raw, 'hex'),
+            raw: this.raw ? Buffer.from(this.raw, 'hex') : Buffer.alloc(0),
 
             index: this.index,
             burnedBitcoin: DataConverter.toDecimal128(this.burnedFee),
