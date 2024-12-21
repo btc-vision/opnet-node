@@ -123,7 +123,9 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                 scriptPubKey: {
                                     hex: transaction.scriptPubKey.hex,
                                     address: transaction.scriptPubKey.address,
-                                    addresses: transaction.scriptPubKey.addresses,
+                                    addresses: !transaction.scriptPubKey.address
+                                        ? transaction.scriptPubKey.addresses
+                                        : [],
                                 },
                                 raw: transaction.raw,
                             },
