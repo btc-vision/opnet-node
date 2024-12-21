@@ -292,3 +292,13 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 }
 
 new BitcoinRPCThread();
+
+process.on('SIGINT', () => {
+    console.log('Received SIGINT. Shutting down gracefully...');
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    console.log('Received SIGTERM. Shutting down gracefully...');
+    process.exit(0);
+});
