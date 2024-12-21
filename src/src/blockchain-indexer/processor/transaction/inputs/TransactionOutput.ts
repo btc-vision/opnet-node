@@ -56,6 +56,11 @@ export class TransactionOutput {
         this.index = data.n;
 
         this.scriptPubKey = data.scriptPubKey;
+        this.scriptPubKey.address =
+            this.scriptPubKey.address || Array.isArray(this.scriptPubKey.addresses)
+                ? (this.scriptPubKey.addresses || [])[0]
+                : undefined;
+
         this.script = script.decompile(Buffer.from(this.scriptPubKey.hex, 'hex'));
 
         // Decode the public key hash or public keys based on the script type
