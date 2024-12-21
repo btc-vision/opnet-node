@@ -37,7 +37,7 @@
     "@asyncapi/generator": "^2.5.0",
     "@asyncapi/html-template": "^3.1.0",
     "@btc-vision/bitcoin": "^6.3.1",
-    "@btc-vision/bsi-bitcoin-rpc": "file:../bsi-bitcoin-rpc",
+    "@btc-vision/bsi-bitcoin-rpc": "^1.0.30",
     "@btc-vision/bsi-common": "^1.0.22",
     "@btc-vision/bsi-db": "^1.0.4",
     "@btc-vision/logger": "^1.0.6",
