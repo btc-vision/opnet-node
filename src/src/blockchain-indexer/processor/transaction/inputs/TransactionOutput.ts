@@ -57,7 +57,8 @@ export class TransactionOutput {
 
         this.scriptPubKey = data.scriptPubKey;
         this.scriptPubKey.address =
-            this.scriptPubKey.address || Array.isArray(this.scriptPubKey.addresses)
+            this.scriptPubKey.address ||
+            (Array.isArray(this.scriptPubKey.addresses) && this.scriptPubKey.addresses.length === 1)
                 ? (this.scriptPubKey.addresses || [])[0]
                 : undefined;
 
