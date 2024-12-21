@@ -68,8 +68,8 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.DOCS]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024,
-            maxYoungGenerationSizeMb: 1024,
+            maxOldGenerationSizeMb: 256,
+            maxYoungGenerationSizeMb: 256,
             stackSizeMb: 256,
         },
     },
@@ -84,15 +84,15 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.RPC]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 128,
-            maxYoungGenerationSizeMb: 128,
+            maxOldGenerationSizeMb: 1024 * 2,
+            maxYoungGenerationSizeMb: 1024,
             stackSizeMb: 256,
         },
     },
 
     [ThreadTypes.P2P]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 6,
+            maxOldGenerationSizeMb: 1024 * 8,
             maxYoungGenerationSizeMb: 1024 * 2,
             stackSizeMb: 256,
         },
@@ -100,8 +100,8 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.SSH]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024,
-            maxYoungGenerationSizeMb: 1024,
+            maxOldGenerationSizeMb: 512,
+            maxYoungGenerationSizeMb: 512,
             stackSizeMb: 256,
         },
     },
