@@ -34,6 +34,7 @@ export interface OPNetConfig {
     readonly MAXIMUM_PREFETCH_BLOCKS: number;
 
     readonly ENABLED_AT_BLOCK: number;
+    readonly ENABLE_BATCH_PROCESSING: boolean;
 
     REINDEX: boolean;
     readonly REINDEX_FROM_BLOCK: number;

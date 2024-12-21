@@ -28,6 +28,9 @@ export class RPCBlockFetcher extends BlockFetcher {
     }
 
     protected async queryBlock(blockHeight: bigint): Promise<BlockDataWithTransactionData | null> {
+        //const a = await this.queryBlocks(blockHeight);
+        //console.log(a);
+
         const blockHash: string | null = await this.rpc.getBlockHash(Number(blockHeight));
         if (blockHash == null) {
             throw new Error(`Error fetching block ${blockHeight}.`);
@@ -35,31 +38,101 @@ export class RPCBlockFetcher extends BlockFetcher {
 
         const resp = await this.rpc.getBlockInfoWithTransactionData(blockHash);
         if (resp) {
-            const txs = resp.tx;
-            if (resp && txs && txs.length && !txs[0].hex) {
-                const promises = txs.map(async (tx) => {
-                    return await this.rpc.getRawTransaction({
-                        txId: tx.txid,
-                        //blockHash: blockHash,
-                        verbose: BitcoinVerbosity.NONE,
-                    });
-                });
-
-                //const d = Date.now();
-                const rawTxs = await Promise.all(promises);
-                for (let i = 0; i < rawTxs.length; i++) {
-                    const t: TransactionDetail = rawTxs[i] as TransactionDetail;
-                    if (!t) {
-                        continue;
-                    }
-
-                    resp.tx[i] = t as TransactionData;
-                }
-                //console.log(`Fetched ${rawTxs.length} raw transactions in ${Date.now() - d}ms.`);
-            }
+            await this.processResponse(resp);
         }
 
         return resp;
+    }
+
+    protected async processResponse(response: BlockDataWithTransactionData): Promise<void> {
+        const txs = response.tx;
+        if (response && txs && txs.length && !txs[0].hex) {
+            const rawTxs = await this.rpc.getRawTransactions(
+                txs.map((tx) => tx.txid),
+                BitcoinVerbosity.NONE,
+            );
+
+            if (!rawTxs) {
+                throw new Error('Error fetching raw transactions');
+            }
+
+            for (let i = 0; i < rawTxs.length; i++) {
+                const t: TransactionDetail = rawTxs[i] as TransactionDetail;
+                if (!t) {
+                    continue;
+                }
+
+                response.tx[i] = t as TransactionData;
+            }
+        }
+    }
+
+    protected async processMultipleResponses(
+        responses: (BlockDataWithTransactionData | null)[],
+    ): Promise<void> {
+        const txs: TransactionData[] = [];
+        for (let i = 0; i < responses.length; i++) {
+            const response = responses[i];
+            if (!response) {
+                continue;
+            }
+
+            const tx = response.tx;
+            if (tx && tx.length && !tx[0].hex) {
+                txs.push(...tx);
+            }
+        }
+
+        const txids = txs.map((tx) => tx.txid);
+        const rawTxs = await this.rpc.getRawTransactions(txids, BitcoinVerbosity.NONE);
+        if (!rawTxs) {
+            throw new Error('Error fetching raw transactions');
+        }
+
+        for (let i = 0; i < rawTxs.length; i++) {
+            const t: TransactionDetail = rawTxs[i] as TransactionDetail;
+            if (!t) {
+                continue;
+            }
+
+            const tx = txs[i];
+            if (tx) {
+                txs[i].hex = t.hex;
+            }
+        }
+    }
+
+    protected async queryBlocks(
+        blockHeight: bigint,
+        batchSize: number = 100,
+    ): Promise<BlockDataWithTransactionData[] | null> {
+        const blockHashes: (string | null)[] | null = await this.rpc.getBlockHashes(
+            Number(blockHeight.toString()),
+            batchSize,
+        );
+
+        if (blockHashes === null) {
+            throw new Error(`Error fetching block ${blockHeight}.`);
+        }
+
+        const finalHashes: string[] = blockHashes.filter((hash) => hash !== null);
+        const resp = await this.rpc.getBlocksInfoWithTransactionData(finalHashes);
+
+        const finalResp: BlockDataWithTransactionData[] = [];
+        if (resp) {
+            await this.processMultipleResponses(resp);
+
+            for (let i = 0; i < resp.length; i++) {
+                const response = resp[i];
+                if (!response) {
+                    continue;
+                }
+
+                finalResp.push(response);
+            }
+        }
+
+        return finalResp;
     }
 
     protected async watchBlockChanges(): Promise<void> {
