@@ -25,7 +25,7 @@ export class BlockHeader {
     public readonly difficulty: number;
     public readonly chainWork: string;
 
-    public readonly nTx: number;
+    public nTx: number;
     public readonly previousBlockHash: string;
     public readonly safeU64: bigint;
 
@@ -51,7 +51,11 @@ export class BlockHeader {
         this.bits = rawBlockData.bits;
         this.difficulty = rawBlockData.difficulty;
         this.chainWork = rawBlockData.chainwork;
-        this.nTx = rawBlockData.nTx;
+        this.nTx =
+            rawBlockData.nTx || (rawBlockData as BlockDataWithTransactionData).tx
+                ? (rawBlockData as BlockDataWithTransactionData).tx.length
+                : 0;
+
         this.previousBlockHash = rawBlockData.previousblockhash;
 
         this.raw = {
