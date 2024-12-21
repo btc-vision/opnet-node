@@ -123,6 +123,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                 scriptPubKey: {
                                     hex: transaction.scriptPubKey.hex,
                                     address: transaction.scriptPubKey.address,
+                                    addresses: transaction.scriptPubKey.addresses,
                                 },
                                 raw: transaction.raw,
                             },
@@ -293,13 +294,17 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                     const spentKey = `${transaction.id}:${output.index}`;
                     const spent = spentSet.get(spentKey);
 
-                    if (output.value.toString() !== '0' && output.scriptPubKey.address) {
+                    if (
+                        output.value.toString() !== '0' &&
+                        (output.scriptPubKey.address || output.scriptPubKey.addresses)
+                    ) {
                         if (spent) {
                             spent.blockHeight = this.decimal128ToLong(transaction.blockHeight);
                             spent.value = new Long(output.value); //this.decimal128ToLong(output.value);
                             spent.scriptPubKey = {
                                 hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                 address: output.scriptPubKey.address ?? null,
+                                addresses: output.scriptPubKey.addresses ?? null,
                             };
                         } else {
                             finalList.push({
@@ -310,6 +315,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                 scriptPubKey: {
                                     hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                     address: output.scriptPubKey.address ?? null,
+                                    addresses: output.scriptPubKey.addresses ?? null,
                                 },
                                 raw: new Binary(transaction.raw),
                             });

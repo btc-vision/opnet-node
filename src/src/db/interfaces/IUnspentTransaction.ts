@@ -3,6 +3,7 @@ import { Binary, Long } from 'mongodb';
 export interface ShortScriptPubKey {
     readonly hex: Binary;
     readonly address: string | null;
+    readonly addresses: string[] | null;
 }
 
 export interface IUnspentTransaction {
