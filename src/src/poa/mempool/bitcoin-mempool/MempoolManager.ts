@@ -32,6 +32,7 @@ export class MempoolManager extends Logger {
     private readonly BACKUP_FILE: string = 'mempool-backup.json';
 
     private readonly jsonProcessor: LargeJSONProcessor<string[]> = new LargeJSONProcessor();
+    private mempoolLoopCheck: string | number | NodeJS.Timeout | undefined;
 
     public constructor() {
         super();
@@ -91,20 +92,22 @@ export class MempoolManager extends Logger {
     }
 
     private async watchBlockchain(): Promise<void> {
-        this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
+        this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
             this.currentBlockHeight = blockHeight;
 
             try {
                 OPNetConsensus.setBlockHeight(blockHeight);
             } catch {}
+        });
 
+        this.mempoolLoopCheck = setInterval(async () => {
             if (!this.startedMainLoop) {
                 const currentBlockHeight = await this.bitcoinRPC.getBlockHeight();
                 if (!currentBlockHeight) {
                     return;
                 }
 
-                const blockDiff = BigInt(currentBlockHeight.blockHeight) - blockHeight;
+                const blockDiff = BigInt(currentBlockHeight.blockHeight) - this.currentBlockHeight;
                 if (blockDiff >= 2n) {
                     return;
                 }
@@ -113,13 +116,17 @@ export class MempoolManager extends Logger {
                     this.warn(`Starting to track mempool transactions...`);
 
                     this.startedMainLoop = true;
+                    clearInterval(this.mempoolLoopCheck);
+
                     this.createMempoolFolderIfNotExists();
                     await this.restoreMempoolBackup();
 
                     void this.startFetchingMempool();
                 }
+            } else {
+                clearInterval(this.mempoolLoopCheck);
             }
-        });
+        }, 30000);
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
             Config.BITCOIN.NETWORK,

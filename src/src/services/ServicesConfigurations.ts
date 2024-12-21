@@ -84,8 +84,8 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
 
     [ThreadTypes.RPC]: {
         resourceLimits: {
-            maxOldGenerationSizeMb: 1024 * 8,
-            maxYoungGenerationSizeMb: 1024 * 2,
+            maxOldGenerationSizeMb: 512,
+            maxYoungGenerationSizeMb: 512,
             stackSizeMb: 256,
         },
     },
