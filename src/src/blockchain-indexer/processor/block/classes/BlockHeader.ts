@@ -51,9 +51,10 @@ export class BlockHeader {
         this.bits = rawBlockData.bits;
         this.difficulty = rawBlockData.difficulty;
         this.chainWork = rawBlockData.chainwork;
+
         this.nTx =
-            rawBlockData.nTx || (rawBlockData as BlockDataWithTransactionData).tx
-                ? (rawBlockData as BlockDataWithTransactionData).tx.length
+            (rawBlockData.nTx ?? (rawBlockData as BlockDataWithTransactionData).tx)
+                ? (rawBlockData as BlockDataWithTransactionData).tx?.length || 0
                 : 0;
 
         this.previousBlockHash = rawBlockData.previousblockhash;
