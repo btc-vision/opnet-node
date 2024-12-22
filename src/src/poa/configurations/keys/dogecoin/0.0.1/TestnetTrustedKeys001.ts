@@ -18,30 +18,12 @@ export const DogecoinTestnetTrustedKeys: NetworkAuthorityConfiguration = {
         [TrustedEntities.OPNet]: {
             keys: [
                 {
-                    opnet: 'ebWtJ4qxy0HKEgE72BRFQZhCIaO/6zVjrBwd64K1UMA=',
-                    publicKey: 'Awl4XAeELLnpyUvXXWnW5hWLZsGJBRuA36+YFMYk6dSA',
+                    opnet: 'do6HCM3EoGpPSC++D9i0quUiTaEkt9icgI9Pja60KtE=',
+                    publicKey: 'AgIWCrJBWmkAe0L2MsQV34sNb/4pC7Jj/RabWQc05pv0',
                     signature:
-                        '1yclNUxjodcDkY9L+Kg7rq/VW7f3kfFnz+ftuBsekDGW0kXdLNGN7qYO8Hc482gcwQHVB4nz0G7XM/xyYnTMDg==',
+                        'BPde2pIgm5U+UJN1NSLOWYjn8rxx879daG+7pM4W3fS9Gv88E+znFmtl74xY9MfORKamq8W01kFR8TeMqNZxBQ==',
                     walletPubKey:
-                        '0x027fdcb918fa0f4a7693f3df5ed6f2510ea91f33f16e081d208cf3dd93f466c8ab',
-                },
-
-                {
-                    opnet: '/G29rhUysSbvxfcHL1icK8+Qs4whsj2gwaIy6Lo+jS0=',
-                    publicKey: 'A1TTZcFlM+wb8bF+Jtb8ZSH8cEkeT3UtEqn/Gx6Ib6rV',
-                    signature:
-                        'A9sxaq5+Fe5dcpACydgImZgMNCRHVcAFj7GVPgBOmxD0Xsdl5FftR4L4Q6MtuVByXswXpmgQI4Lo6bTdQQNfBQ==',
-                    walletPubKey:
-                        '0x027fdcb918fa0f4a7693f3df5ed6f2510ea91f33f16e081d208cf3dd93f466c8ab',
-                },
-
-                {
-                    opnet: 'yik6iMXTL4R7866sRlJ7Vw+02Yc+cfUBHr1tCpHaQoY=',
-                    publicKey: 'A1ByXH6baQmW/K6rKuHGZCvwKodE0kSwy9RECNRG0ysv',
-                    signature:
-                        'ynfrWXR0xLatX7zXJxWtt78oa6qgVfdvqehAVHKV0fuqdNJ7esBMNC+v3GLiBdWdoU4d5bHXCVAS/EAVL4B8AA==',
-                    walletPubKey:
-                        '0x027fdcb918fa0f4a7693f3df5ed6f2510ea91f33f16e081d208cf3dd93f466c8ab',
+                        '0x0202160ab2415a69007b42f632c415df8b0d6ffe290bb263fd169b590734e69bf4',
                 },
             ],
         },
