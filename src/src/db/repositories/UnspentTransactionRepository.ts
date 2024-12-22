@@ -220,6 +220,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         currentSession?: ClientSession,
     ): Promise<UTXOSOutputTransaction[]> {
         // TODO: Add cursor page support.
+        // TODO: Optimize this function so only legacy have raw transaction data added to them. (PERFORMANCE)
         const aggregation: Document[] = this.uxtosAggregation.getAggregation(
             wallet,
             true,

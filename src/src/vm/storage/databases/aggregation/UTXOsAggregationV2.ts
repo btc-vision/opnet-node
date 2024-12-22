@@ -8,7 +8,7 @@ export interface UTXOSOutputTransactionFromDBV2 {
     readonly outputIndex: number;
     readonly value: Decimal128;
     readonly scriptPubKey: ShortScriptPubKey;
-    readonly raw: Binary;
+    readonly raw?: Binary;
 }
 
 export class UTXOsAggregationV2 extends Aggregation {

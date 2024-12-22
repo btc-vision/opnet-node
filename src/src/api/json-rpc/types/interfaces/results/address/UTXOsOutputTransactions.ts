@@ -5,7 +5,7 @@ export interface UTXOSOutputTransaction {
     readonly outputIndex: number;
     readonly value: bigint;
     readonly scriptPubKey: ScriptPubKey;
-    readonly raw: string;
+    readonly raw?: string;
 }
 
 export type UTXOsOutputTransactions = {
