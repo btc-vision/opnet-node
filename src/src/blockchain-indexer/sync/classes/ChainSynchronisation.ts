@@ -32,6 +32,8 @@ export class ChainSynchronisation extends Logger {
     private abortControllers: Map<bigint, AbortController> = new Map();
     private pendingSave: Promise<void> | undefined;
 
+    private readonly AWAIT_UTXO_WRITE_IF_QUEUE_SIZE: number = 100_000;
+
     public constructor() {
         super();
     }
@@ -236,10 +238,6 @@ export class ChainSynchronisation extends Logger {
 
     // TODO: Move fetching to an other thread.
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
-        if (this.amountOfUTXOs > 100_000) {
-            await this.awaitUTXOWrites();
-        }
-
         const blockData = await this.blockFetcher.getBlock(blockNumber);
         if (!blockData) {
             const chainHeight = await this.getBlockHeightForEver();
@@ -266,6 +264,10 @@ export class ChainSynchronisation extends Logger {
 
         this.abortControllers.delete(blockNumber);
 
+        if (this.amountOfUTXOs > this.AWAIT_UTXO_WRITE_IF_QUEUE_SIZE) {
+            await this.awaitUTXOWrites();
+        }
+
         return {
             //block.toJSON(); will become handy later.
             header: block.header.toJSON(),
@@ -274,11 +276,57 @@ export class ChainSynchronisation extends Logger {
         };
     }
 
+    private async deserializeBlockBatch(startBlock: bigint): Promise<ThreadData> {
+        // Instead of calling queryBlocks(...) directly, call getBlocks(...) from BlockFetcher
+        const blocksData = await this.blockFetcher.getBlocks(startBlock, 10);
+
+        // For each block returned, do the same processing you'd do for a single block
+        const result: DeserializedBlock[] = [];
+        for (let i = 0; i < blocksData.length; i++) {
+            const blockNumber = startBlock + BigInt(i);
+
+            const abortController = new AbortController();
+            this.abortControllers.set(blockNumber, abortController);
+
+            // Convert raw block data into a "Block" class instance
+            const block = new Block({
+                network: this.network,
+                abortController,
+                header: blocksData[i],
+                processEverythingAsGeneric: true,
+            });
+
+            // Pull out UTXOs
+            this.queryUTXOs(block, blocksData[i].tx);
+
+            // Clean up the abort controller
+            this.abortControllers.delete(blockNumber);
+
+            result.push({
+                header: block.header.toJSON(),
+                rawTransactionData: blocksData[i].tx,
+                transactionOrder: undefined,
+            });
+        }
+
+        // If we have a lot of UTXOs, do a flush
+        if (this.amountOfUTXOs > this.AWAIT_UTXO_WRITE_IF_QUEUE_SIZE) {
+            await this.awaitUTXOWrites();
+        }
+
+        // Return all blocks if your system expects an array
+        return { blocks: result };
+    }
+
     private async deserializeBlock(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
         try {
-            const blockNumber = m.data as bigint;
+            const startBlock = m.data as bigint;
 
-            return await this.queryBlock(blockNumber);
+            //if (Config.OP_NET.ENABLE_BATCH_PROCESSING) {
+            //    return await this.deserializeBlockBatch(startBlock);
+            //} else {
+            return await this.queryBlock(startBlock);
+            //}
         } catch (e) {
             return { error: e };
         }

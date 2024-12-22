@@ -16,6 +16,7 @@ export class RPCBlockFetcher extends BlockFetcher {
     private readonly rpc: BitcoinRPC;
 
     private syncBlockHash: string | null = null;
+    private readonly maxRetries: number = 3;
 
     public constructor(config: RPCBlockFetcherConfiguration) {
         super(config);
@@ -28,78 +29,17 @@ export class RPCBlockFetcher extends BlockFetcher {
     }
 
     protected async queryBlock(blockHeight: bigint): Promise<BlockDataWithTransactionData | null> {
-        //const a = await this.queryBlocks(blockHeight);
-        //console.log(a);
-
-        const blockHash: string | null = await this.rpc.getBlockHash(Number(blockHeight));
+        const blockHash: string | null = await this.getBlockHashAndRetryIfNull(blockHeight);
         if (blockHash == null) {
-            throw new Error(`Error fetching block ${blockHeight}.`);
+            throw new Error(`Error fetching block ${blockHeight}. (hash is null)`);
         }
 
-        const resp = await this.rpc.getBlockInfoWithTransactionData(blockHash);
+        const resp = await this.getBlockTransactionDataAndRetryIfNull(blockHash);
         if (resp) {
             await this.processResponse(resp);
         }
 
         return resp;
-    }
-
-    protected async processResponse(response: BlockDataWithTransactionData): Promise<void> {
-        const txs = response.tx;
-        if (response && txs && txs.length && !txs[0].hex) {
-            const rawTxs = await this.rpc.getRawTransactions(
-                txs.map((tx) => tx.txid),
-                BitcoinVerbosity.NONE,
-            );
-
-            if (!rawTxs) {
-                throw new Error('Error fetching raw transactions');
-            }
-
-            for (let i = 0; i < rawTxs.length; i++) {
-                const t: TransactionDetail = rawTxs[i] as TransactionDetail;
-                if (!t) {
-                    continue;
-                }
-
-                response.tx[i] = t as TransactionData;
-            }
-        }
-    }
-
-    protected async processMultipleResponses(
-        responses: (BlockDataWithTransactionData | null)[],
-    ): Promise<void> {
-        const txs: TransactionData[] = [];
-        for (let i = 0; i < responses.length; i++) {
-            const response = responses[i];
-            if (!response) {
-                continue;
-            }
-
-            const tx = response.tx;
-            if (tx && tx.length && !tx[0].hex) {
-                txs.push(...tx);
-            }
-        }
-
-        const txids = txs.map((tx) => tx.txid);
-        const rawTxs = await this.rpc.getRawTransactions(txids, BitcoinVerbosity.NONE);
-        if (!rawTxs) {
-            throw new Error('Error fetching raw transactions');
-        }
-
-        for (let i = 0; i < rawTxs.length; i++) {
-            const t: TransactionDetail = rawTxs[i] as TransactionDetail;
-            if (!t) {
-                continue;
-            }
-
-            const tx = txs[i];
-            if (tx) {
-                txs[i].hex = t.hex;
-            }
-        }
     }
 
     protected async queryBlocks(
@@ -112,7 +52,7 @@ export class RPCBlockFetcher extends BlockFetcher {
         );
 
         if (blockHashes === null) {
-            throw new Error(`Error fetching block ${blockHeight}.`);
+            throw new Error(`Error fetching block ${blockHeight}. (hashes are null)`);
         }
 
         const finalHashes: string[] = blockHashes.filter((hash) => hash !== null);
@@ -171,5 +111,103 @@ export class RPCBlockFetcher extends BlockFetcher {
         }
 
         return BigInt(blockHeight.blockHeight);
+    }
+
+    private async getBlockTransactionDataAndRetryIfNull(
+        blockHash: string,
+        retries: number = 0,
+    ): Promise<BlockDataWithTransactionData | null> {
+        try {
+            const resp = await this.rpc.getBlockInfoWithTransactionData(blockHash);
+            if (resp == null) {
+                throw new Error(`Error fetching block ${blockHash}. (response is null)`);
+            }
+
+            return resp;
+        } catch {
+            if (retries >= this.maxRetries) {
+                throw new Error(`Error fetching block ${blockHash}. (response is null)`);
+            }
+
+            return this.getBlockTransactionDataAndRetryIfNull(blockHash, retries + 1);
+        }
+    }
+
+    private async getBlockHashAndRetryIfNull(
+        blockHeight: bigint,
+        retries: number = 0,
+    ): Promise<string | null> {
+        try {
+            const blockHash: string | null = await this.rpc.getBlockHash(Number(blockHeight));
+            if (blockHash == null) {
+                throw new Error(`Error fetching block ${blockHeight}. (hash is null)`);
+            }
+
+            return blockHash;
+        } catch {
+            if (retries >= this.maxRetries) {
+                throw new Error(`Error fetching block ${blockHeight}. (hash is null)`);
+            }
+
+            return this.getBlockHashAndRetryIfNull(blockHeight, retries + 1);
+        }
+    }
+
+    private async processResponse(response: BlockDataWithTransactionData): Promise<void> {
+        const txs = response.tx;
+        if (response && txs && txs.length && !txs[0].hex) {
+            const rawTxs = await this.rpc.getRawTransactions(
+                txs.map((tx) => tx.txid),
+                BitcoinVerbosity.NONE,
+            );
+
+            if (!rawTxs) {
+                throw new Error('Error fetching raw transactions');
+            }
+
+            for (let i = 0; i < rawTxs.length; i++) {
+                const t: TransactionDetail = rawTxs[i] as TransactionDetail;
+                if (!t) {
+                    continue;
+                }
+
+                response.tx[i] = t as TransactionData;
+            }
+        }
+    }
+
+    private async processMultipleResponses(
+        responses: (BlockDataWithTransactionData | null)[],
+    ): Promise<void> {
+        const txs: TransactionData[] = [];
+        for (let i = 0; i < responses.length; i++) {
+            const response = responses[i];
+            if (!response) {
+                continue;
+            }
+
+            const tx = response.tx;
+            if (tx && tx.length && !tx[0].hex) {
+                txs.push(...tx);
+            }
+        }
+
+        const txids = txs.map((tx) => tx.txid);
+        const rawTxs = await this.rpc.getRawTransactions(txids, BitcoinVerbosity.NONE);
+        if (!rawTxs) {
+            throw new Error('Error fetching raw transactions');
+        }
+
+        for (let i = 0; i < rawTxs.length; i++) {
+            const t: TransactionDetail = rawTxs[i] as TransactionDetail;
+            if (!t) {
+                continue;
+            }
+
+            const tx = txs[i];
+            if (tx) {
+                txs[i].hex = t.hex;
+            }
+        }
     }
 }
