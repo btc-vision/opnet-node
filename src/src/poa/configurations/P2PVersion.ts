@@ -11,6 +11,8 @@ import {TestnetTrustedKeys001Fractal} from './keys/fractal/0.0.1/TestnetTrustedK
 import {BitcoinNetwork} from '../../config/network/BitcoinNetwork.js';
 import {DogecoinMainnetTrustedKeys} from './keys/dogecoin/0.0.1/MainnetTrustedKeys001.js';
 import {DogecoinTestnetTrustedKeys} from './keys/dogecoin/0.0.1/TestnetTrustedKeys001.js';
+import {LitecoinMainnetTrustedKeys} from './keys/litecoin/0.0.1/MainnetTrustedKeys001.js';
+import {LitecoinTestnetTrustedKeys} from './keys/litecoin/0.0.1/TestnetTrustedKeys001.js';
 
 /**
  * DO NOT MODIFY THIS FILE IF YOU DON'T KNOW WHAT YOU ARE DOING.
@@ -43,6 +45,10 @@ export const TRUSTED_PUBLIC_KEYS: { [key in TrustedVersion]: TrustedPublicKeys }
         [ChainIds.Dogecoin]: {
             [BitcoinNetwork.mainnet]: DogecoinMainnetTrustedKeys,
             [BitcoinNetwork.testnet]: DogecoinTestnetTrustedKeys,
+        },
+        [ChainIds.Litecoin]: {
+            [BitcoinNetwork.mainnet]: LitecoinMainnetTrustedKeys,
+            [BitcoinNetwork.testnet]: LitecoinTestnetTrustedKeys,
         },
     },
     /*[TrustedVersion.V0_0_2]: {

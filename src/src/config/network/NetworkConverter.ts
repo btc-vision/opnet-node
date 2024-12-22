@@ -97,6 +97,23 @@ export class NetworkConverter {
         }
     }
 
+    public static getNetworkForLitecoin(): Network {
+        switch (Config.BITCOIN.NETWORK) {
+            case BitcoinNetwork.mainnet:
+                return bitcoin.networks.litecoin;
+            case BitcoinNetwork.testnet:
+                return bitcoin.networks.litecoinTestnet;
+            case BitcoinNetwork.regtest:
+                throw new Error('Regtest network not supported');
+            case BitcoinNetwork.signet:
+                throw new Error('Signet network not supported');
+            case BitcoinNetwork.custom:
+                throw new Error('Custom network not supported');
+            default:
+                throw new Error(`Unsupported network ${Config.BITCOIN.NETWORK}`);
+        }
+    }
+
     public static getNetwork(): Network {
         switch (Config.BITCOIN.CHAIN_ID) {
             case ChainIds.Bitcoin:
@@ -105,6 +122,9 @@ export class NetworkConverter {
             }
             case ChainIds.Dogecoin: {
                 return this.getNetworkForDogecoin();
+            }
+            case ChainIds.Litecoin: {
+                return this.getNetworkForLitecoin();
             }
             default: {
                 throw new Error(`Unsupported chain id ${Config.BITCOIN.CHAIN_ID}`);
