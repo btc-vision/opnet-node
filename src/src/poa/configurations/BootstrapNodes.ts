@@ -38,7 +38,9 @@ export const BootstrapNodes: BootstrapNodes = {
     [ChainIds.Dogecoin]: {
         [BitcoinNetwork.mainnet]: [],
 
-        [BitcoinNetwork.testnet]: [],
+        [BitcoinNetwork.testnet]: [
+            '/dns/bootstrap-dogecoin.opnet.org/tcp/9800/p2p/12D3KooWKsEbfsxa6daEZ4fhBjDmkKU1pBPMUFeFmPFhrZY3Qt2P',
+        ],
 
         [BitcoinNetwork.regtest]: [],
 

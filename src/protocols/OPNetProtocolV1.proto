@@ -10,6 +10,8 @@ enum PeerType {
 enum ChainIds {
   Bitcoin = 0;
   Fractal = 1;
+  Dogecoin = 2;
+  Litecoin = 3;
 }
 
 enum BitcoinNetworks {
