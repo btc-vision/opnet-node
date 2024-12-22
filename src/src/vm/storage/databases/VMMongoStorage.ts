@@ -116,8 +116,10 @@ export class VMMongoStorage extends VMStorage {
             this.log(`Purging transactions...`);
             await this.transactionRepository.deleteTransactionsFromBlockHeight(blockId);
 
-            this.log(`Purging unspent transactions...`);
-            await this.unspentTransactionRepository.deleteTransactionsFromBlockHeight(blockId);
+            if (blockId > 0n) {
+                this.log(`Purging unspent transactions...`);
+                await this.unspentTransactionRepository.deleteTransactionsFromBlockHeight(blockId);
+            }
 
             this.log(`Purging contracts...`);
             await this.contractRepository.deleteContractsFromBlockHeight(blockId);
@@ -147,7 +149,7 @@ export class VMMongoStorage extends VMStorage {
             await Promise.all(promises);
         }
 
-        if (blockId === 0n) {
+        if (blockId <= 0n) {
             this.log(`Purging mempool...`);
             await this.mempoolRepository.deleteGreaterThanBlockHeight(blockId);
 
