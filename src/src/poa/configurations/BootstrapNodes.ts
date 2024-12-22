@@ -46,4 +46,14 @@ export const BootstrapNodes: BootstrapNodes = {
 
         [BitcoinNetwork.signet]: [],
     },
+
+    [ChainIds.Litecoin]: {
+        [BitcoinNetwork.mainnet]: [],
+
+        [BitcoinNetwork.testnet]: [],
+
+        [BitcoinNetwork.regtest]: [],
+
+        [BitcoinNetwork.signet]: [],
+    },
 };
