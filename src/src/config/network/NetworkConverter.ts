@@ -1,7 +1,8 @@
-import bitcoin, { Network } from '@btc-vision/bitcoin';
+import bitcoin, { Network, networks } from '@btc-vision/bitcoin';
 import { Config } from '../Config.js';
 import { BitcoinNetwork } from './BitcoinNetwork.js';
 import { ChainIds } from '../enums/ChainIds.js';
+import { BitcoinNetworkRequest } from '@btc-vision/op-vm';
 
 export class NetworkConverter {
     public static get peerNetwork(): number {
@@ -111,6 +112,31 @@ export class NetworkConverter {
                 throw new Error('Custom network not supported');
             default:
                 throw new Error(`Unsupported network ${Config.BITCOIN.NETWORK}`);
+        }
+    }
+
+    public static networkToBitcoinNetwork(network: Network): BitcoinNetworkRequest {
+        switch (network) {
+            // Bitcoin
+            case networks.bitcoin:
+                return BitcoinNetworkRequest.Mainnet;
+            case networks.testnet:
+                return BitcoinNetworkRequest.Testnet;
+            case networks.regtest:
+                return BitcoinNetworkRequest.Regtest;
+            // Dogecoin
+            case networks.dogecoin:
+                return BitcoinNetworkRequest.Mainnet;
+            case networks.dogecoinTestnet:
+                return BitcoinNetworkRequest.Testnet;
+            // Litecoin
+            case networks.litecoin:
+                return BitcoinNetworkRequest.Mainnet;
+            case networks.litecoinTestnet:
+                return BitcoinNetworkRequest.Testnet;
+            // Not supported
+            default:
+                throw new Error('Invalid network');
         }
     }
 

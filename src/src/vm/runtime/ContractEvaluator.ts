@@ -17,11 +17,12 @@ import {
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import { Network, networks } from '@btc-vision/bitcoin';
-import { BitcoinNetworkRequest } from '@btc-vision/op-vm';
+import { Network } from '@btc-vision/bitcoin';
 import assert from 'node:assert';
 import { ContractParameters, RustContract } from '../isolated/RustContract.js';
 import { Blockchain } from '../Blockchain.js';
+import { Config } from '../../config/Config.js';
+import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 
 export class ContractEvaluator extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -114,7 +115,8 @@ export class ContractEvaluator extends Logger {
 
             const evaluation = new ContractEvaluation(params);
             try {
-                this.loadContractFromBytecode(evaluation);
+                const errored = this.loadContractFromBytecode(evaluation);
+                if (errored) throw new Error('Invalid contract bytecode');
 
                 await this.setEnvironment(evaluation);
 
@@ -286,19 +288,6 @@ export class ContractEvaluator extends Logger {
         this.warn(`Contract log: ${logData}`);*/
     }
 
-    private getNetwork(): BitcoinNetworkRequest {
-        switch (this.network) {
-            case networks.bitcoin:
-                return BitcoinNetworkRequest.Mainnet;
-            case networks.testnet:
-                return BitcoinNetworkRequest.Testnet;
-            case networks.regtest:
-                return BitcoinNetworkRequest.Regtest;
-            default:
-                throw new Error('Invalid network');
-        }
-    }
-
     private onEvent(data: Buffer, evaluation: ContractEvaluation): void {
         const reader = new BinaryReader(data);
         const eventName = reader.readStringWithLength();
@@ -330,7 +319,7 @@ export class ContractEvaluator extends Logger {
             contractManager: Blockchain.contractManager,
             address: evaluation.contractAddressStr,
             bytecode: this.bytecode,
-            network: this.getNetwork(),
+            network: NetworkConverter.networkToBitcoinNetwork(this.network),
             gasLimit: difference, //OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
             gasCallback: evaluation.onGasUsed,
             load: async (data: Buffer) => {
@@ -404,7 +393,11 @@ export class ContractEvaluator extends Logger {
             const params = this.generateContractParameters(evaluation);
 
             this._contractInstance = new RustContract(params);
-        } catch {
+        } catch (e) {
+            if (Config.DEV_MODE) {
+                this.warn(`Something went wrong while loading contract: ${e}`);
+            }
+
             errored = true;
         }
 
