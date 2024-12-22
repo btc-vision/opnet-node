@@ -78,11 +78,11 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             }
         }
 
-        //if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
-        //    await this.purgeSpentUTXOsFromBlockHeight(
-        //        blockHeight - BigInt(Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS),
-        //    );
-        //}
+        if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
+            await this.purgeSpentUTXOsFromBlockHeight(
+                blockHeight - BigInt(Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS),
+            );
+        }
 
         const convertedSpentTransactions = this.convertSpentTransactions(transactions);
         const convertedUnspentTransactions = this.convertToUnspentTransactions(
@@ -165,6 +165,17 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                 `Saved ${convertedUnspentTransactions.length} UTXOs, deleted ${convertedSpentTransactions.length} spent UTXOs in ${Date.now() - start}ms`,
             );
         }
+    }
+
+    public async deleteGreaterThanBlockHeight(
+        blockHeight: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IUnspentTransaction>> = {
+            blockHeight: { $gt: this.bigIntToLong(blockHeight) },
+        };
+
+        await this.delete(criteria, currentSession);
     }
 
     public async purgeSpentUTXOsFromBlockHeight(

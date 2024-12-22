@@ -64,6 +64,16 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         await this.delete(criteria);
     }
 
+    public async deleteGreaterThanBlockHeight(blockHeight: bigint): Promise<void> {
+        const criteria: Filter<IMempoolTransaction> = {
+            blockHeight: {
+                $gt: DataConverter.toDecimal128(blockHeight),
+            },
+        };
+
+        await this.delete(criteria);
+    }
+
     public async hasTransactionByIdentifier(
         transactionIdentifier: bigint,
         psbt: boolean,
