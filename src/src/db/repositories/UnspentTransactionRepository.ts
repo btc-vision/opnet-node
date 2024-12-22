@@ -172,7 +172,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         currentSession?: ClientSession,
     ): Promise<void> {
         const criteria: Partial<Filter<IUnspentTransaction>> = {
-            blockHeight: { $gt: this.bigIntToLong(blockHeight) },
+            blockHeight: { $gte: this.bigIntToLong(blockHeight) },
         };
 
         await this.delete(criteria, currentSession);
