@@ -127,7 +127,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                         ? transaction.scriptPubKey.addresses
                                         : [],
                                 },
-                                raw: transaction.raw,
+                                //raw: transaction.raw,
                             },
                         },
                         upsert: true,
@@ -248,7 +248,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                             ? result.scriptPubKey.address
                             : undefined,
                     },
-                    raw: result.raw.toString('base64'),
+                    raw: result.raw?.toString('base64'),
                 };
             });
         } catch (e) {
@@ -330,7 +330,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                     address: output.scriptPubKey.address ?? null,
                                     addresses: output.scriptPubKey.addresses ?? null,
                                 },
-                                raw: new Binary(transaction.raw),
+                                //raw: new Binary(transaction.raw),
                             });
                         }
                     }
