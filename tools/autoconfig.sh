@@ -758,6 +758,7 @@ clone_and_build_indexer() {
     git clone git@github.com:btc-vision/opnet-node.git "$indexer_dir"
     cd "$indexer_dir" || exit 1
     git checkout main
+    rm -f -r package-lock.json
 
     # Install npm dependencies
     echo -e "${BLUE}Installing npm dependencies...${NC}"
