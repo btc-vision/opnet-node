@@ -56,11 +56,12 @@ export class TransactionOutput {
         this.index = data.n;
 
         this.scriptPubKey = data.scriptPubKey;
+
         this.scriptPubKey.address =
-            this.scriptPubKey.address ||
-            (Array.isArray(this.scriptPubKey.addresses) && this.scriptPubKey.addresses.length === 1)
+            data.scriptPubKey.address ||
+            (Array.isArray(this.scriptPubKey.addresses) && this.scriptPubKey.addresses.length === 1
                 ? (this.scriptPubKey.addresses || [])[0]
-                : undefined;
+                : undefined);
 
         this.script = script.decompile(Buffer.from(this.scriptPubKey.hex, 'hex'));
 

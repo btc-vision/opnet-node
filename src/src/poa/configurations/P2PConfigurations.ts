@@ -24,6 +24,7 @@ import { OPNetPathFinder } from '../identity/OPNetPathFinder.js';
 import { BootstrapNodes } from './BootstrapNodes.js';
 import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
+import { Config } from '../../config/Config.js';
 
 interface BackedUpPeer {
     id: string;
@@ -300,7 +301,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     private peerFilePath(): string {
-        return path.join(this.getBinPath(), 'identity.bin');
+        return path.join(this.getBinPath(), `identity${Config.BITCOIN.CHAIN_ID}.bin`);
     }
 
     private uint8ArrayToString(uint8Array: Uint8Array): string {

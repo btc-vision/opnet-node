@@ -12,6 +12,7 @@ import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js'
 import { EcKeyPair } from '@btc-vision/transaction';
 import { toXOnly } from '@btc-vision/bitcoin/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
+import { Config } from '../../config/Config.js';
 
 export class OPNetIdentity extends OPNetPathFinder {
     public readonly network: Network = NetworkConverter.getNetwork();
@@ -206,11 +207,11 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     private getOPNetAuthKeysPath(): string {
-        return path.join(this.getBinPath(), 'opnet.bin');
+        return path.join(this.getBinPath(), `opnet${Config.BITCOIN.CHAIN_ID}.bin`);
     }
 
     private getOPNetWalletPath(): string {
-        return path.join(this.getBinPath(), 'wallet.bin');
+        return path.join(this.getBinPath(), `wallet${Config.BITCOIN.CHAIN_ID}.bin`);
     }
 
     private loadOPNetAuthKeys(): Buffer {
