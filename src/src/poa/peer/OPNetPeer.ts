@@ -155,7 +155,7 @@ export class OPNetPeer extends Logger {
         }
     }
 
-    public async onMessage(rawBuf: ArrayBuffer): Promise<void> {
+    public async onMessage(rawBuf: ArrayBufferLike): Promise<void> {
         try {
             const buffer: Uint8Array = new Uint8Array(rawBuf);
             const toClient = buffer.slice(0, 1)[0] === 0x01;
