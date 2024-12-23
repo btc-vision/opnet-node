@@ -29,7 +29,8 @@ export default tseslint.config(
             '@typescript-eslint/no-duplicate-enum-values': 'off',
             'prefer-spread': 'off',
             '@typescript-eslint/no-empty-object-type': 'off',
-            "max-depth": ["error", 5],
+            '@typescript-eslint/related-getter-setter-pairs': 'off',
+            'max-depth': ['error', 5],
         },
     },
     {

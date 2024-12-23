@@ -951,7 +951,7 @@ export class P2PManager extends Logger {
             return;
         }
 
-        await peer.onMessage(data);
+        await peer.onMessage(data.buffer);
     }
 
     /** Send a message to a specific peer */
