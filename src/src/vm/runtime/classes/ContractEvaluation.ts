@@ -212,13 +212,15 @@ export class ContractEvaluation implements ExecutionParameters {
         }
 
         this.callStack = extern.callStack;
-        this.checkReentrancy(extern.callStack);
+        if (OPNetConsensus.consensus.TRANSACTIONS.REENTRANCY_GUARD) {
+            this.checkReentrancy(extern.callStack);
+        }
 
         this.callDepth = extern.callDepth;
         this.contractDeployDepth = extern.contractDeployDepth;
 
         if (this.callDepth > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_CALL_DEPTH) {
-            throw new Error('Call depth exceeded');
+            throw new Error(`Call depth exceeded`);
         }
 
         if (

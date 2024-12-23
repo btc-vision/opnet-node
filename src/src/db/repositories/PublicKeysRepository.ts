@@ -15,6 +15,7 @@ import {
     IPublicKeyInfoResult,
     PublicKeyInfo,
 } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
+import fs from 'fs';
 
 const mod = (a: bigint, b: bigint): bigint => {
     const result = a % b;
@@ -311,6 +312,13 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         }
     }
 
+    private reportNonStandardScript(type: string, script: string, txId: string): void {
+        // write the data to a file that can be checked later on.
+        fs.appendFileSync('non-standard-scripts.txt', `${txId}: ${script}\n`);
+
+        this.warn(`Unknown script type: ${type}`);
+    }
+
     private decodeOutput(
         publicKeys: PublicKeyDocument[],
         output: TransactionOutput,
@@ -353,8 +361,16 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 // ignore.
                 break;
             }
+            case 'witness_mweb_hogaddr': {
+                // ignore.
+                break;
+            }
+            case 'nonstandard': {
+                this.reportNonStandardScript(type, output.scriptPubKey.hex, txId);
+                break;
+            }
             default: {
-                this.warn(`Unknown script type: ${type}`);
+                this.reportNonStandardScript(type, output.scriptPubKey.hex, txId);
                 break;
             }
         }

@@ -158,6 +158,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ENABLED_AT_BLOCK: 0,
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
+            ENABLE_BATCH_PROCESSING: true,
 
             VERIFY_INTEGRITY_ON_STARTUP: false,
             DISABLE_SCANNED_BLOCK_STORAGE_CHECK: true,
@@ -341,6 +342,22 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.OP_NET.REINDEX !== 'boolean'
             ) {
                 throw new Error(`Oops the property OP_NET.REINDEX is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.OP_NET.ENABLE_BATCH_PROCESSING !== undefined &&
+                typeof parsedConfig.OP_NET.ENABLE_BATCH_PROCESSING !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property OP_NET.ENABLE_BATCH_PROCESSING is not a boolean.`,
+                );
+            }
+
+            if (
+                parsedConfig.OP_NET.REINDEX_FROM_BLOCK !== undefined &&
+                typeof parsedConfig.OP_NET.REINDEX_FROM_BLOCK !== 'number'
+            ) {
+                throw new Error(`Oops the property OP_NET.REINDEX_FROM_BLOCK is not a number.`);
             }
 
             if (

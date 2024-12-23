@@ -1,4 +1,4 @@
-import { Decimal128, Document, Long } from 'mongodb';
+import { Binary, Decimal128, Document, Long } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 import { ShortScriptPubKey } from '../../../../db/interfaces/IUnspentTransaction.js';
 import { Config } from '../../../../config/Config.js';
@@ -8,6 +8,7 @@ export interface UTXOSOutputTransactionFromDBV2 {
     readonly outputIndex: number;
     readonly value: Decimal128;
     readonly scriptPubKey: ShortScriptPubKey;
+    readonly raw?: Binary;
 }
 
 export class UTXOsAggregationV2 extends Aggregation {
@@ -15,6 +16,7 @@ export class UTXOsAggregationV2 extends Aggregation {
         wallet: string,
         limit: boolean = true,
         optimize: boolean = false,
+        pushRawTxs: boolean = true,
     ): Document[] {
         const minValue: number = optimize ? 20000 : 330;
 
@@ -36,14 +38,38 @@ export class UTXOsAggregationV2 extends Aggregation {
             });
         }
 
+        const projected: {
+            [key: string]: number | string | { $literal: string } | { $transactionData: string };
+        } = {
+            _id: 0,
+            transactionId: 1,
+            outputIndex: 1,
+            value: 1,
+            scriptPubKey: 1,
+        };
+
+        if (pushRawTxs) {
+            aggregation.push({
+                $lookup: {
+                    from: 'Transactions', // Collection name
+                    localField: 'transactionId', // Field in UnspentTransactions
+                    foreignField: 'id', // Field in Transactions
+                    as: 'transactionData',
+                },
+            });
+
+            aggregation.push({
+                $unwind: {
+                    path: '$transactionData',
+                    preserveNullAndEmptyArrays: true, // In case there's no matching doc
+                },
+            });
+
+            projected.raw = '$transactionData.raw';
+        }
+
         aggregation.push({
-            $project: {
-                _id: 0,
-                transactionId: 1,
-                outputIndex: 1,
-                value: 1,
-                scriptPubKey: 1,
-            },
+            $project: projected,
         });
 
         return aggregation;

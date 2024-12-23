@@ -18,12 +18,13 @@ export class BlockHeaderValidator extends Logger {
     public constructor(
         private readonly config: IBtcIndexerConfig,
         private readonly vmStorage: VMStorage,
+        private readonly enableCaching: boolean = true,
     ) {
         super();
     }
 
     public setLastBlockHeader(blockHeader: BlockHeaderDocument): void {
-        this.cachedBlockHeader.set(DataConverter.fromDecimal128(blockHeader.height), blockHeader);
+        this.setToCache(blockHeader);
     }
 
     public clear(): void {
@@ -43,7 +44,7 @@ export class BlockHeaderValidator extends Logger {
             await this.vmStorage.getBlockHeader(height);
 
         if (blockHeader) {
-            this.cachedBlockHeader.set(height, blockHeader);
+            this.setToCache(blockHeader);
         }
 
         return blockHeader;
@@ -172,6 +173,24 @@ export class BlockHeaderValidator extends Logger {
             hasValidBlockStorage &&
             hasValidBlockReceipt
         );
+    }
+
+    private ensureCacheSizeWithinLimit(): void {
+        if (this.cachedBlockHeader.size > 100) {
+            // if the cache is bigger than 100 blocks, we reset it.
+            this.cachedBlockHeader.clear();
+        }
+    }
+
+    private setToCache(blockHeader: BlockHeaderDocument): void {
+        if (this.enableCaching) {
+            this.ensureCacheSizeWithinLimit();
+
+            this.cachedBlockHeader.set(
+                DataConverter.fromDecimal128(blockHeader.height),
+                blockHeader,
+            );
+        }
     }
 
     private getProofForIndex(proofs: BlockHeaderChecksumProof, index: number): string[] {

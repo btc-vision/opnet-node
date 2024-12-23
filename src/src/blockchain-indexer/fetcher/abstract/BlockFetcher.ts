@@ -62,6 +62,75 @@ export abstract class BlockFetcher extends Logger {
         }
     }
 
+    /**
+     * New method to fetch multiple blocks in a batch.
+     * This wraps the abstract queryBlocks(...) method.
+     */
+    public async getBlocks(
+        startHeight: bigint,
+        batchSize = 10,
+    ): Promise<BlockDataWithTransactionData[]> {
+        try {
+            const blocks = await this.queryBlocks(startHeight, batchSize);
+            if (!blocks || blocks.length === 0) {
+                throw new Error(
+                    `No blocks returned for the batch (start=${startHeight}, size=${batchSize}).`,
+                );
+            }
+
+            const finalBlocks: BlockDataWithTransactionData[] = [];
+
+            for (let i = 0; i < blocks.length; i++) {
+                const block = blocks[i];
+                if (!block) {
+                    // If you get null in the array, handle or skip it
+                    this.warn(`Block at index ${i} from batch is null. Skipping...`);
+                    continue;
+                }
+
+                // Verify the returned block's height is exactly (startHeight + i)
+                const expectedHeight = startHeight + BigInt(i);
+                if (BigInt(block.height) !== expectedHeight) {
+                    throw new Error(
+                        `Batch block mismatch: expected height ${expectedHeight}, got ${block.height}.`,
+                    );
+                }
+
+                // Ensure we’re not processing the same block twice
+                if (this.lastBlockHash === block.hash) {
+                    throw new Error(`Block ${block.height} was fetched twice in batch.`);
+                }
+
+                // Update lastBlockHash
+                this.lastBlockHash = block.hash;
+
+                // Optional random error injection for dev environment
+                if (Config.DEV.CAUSE_FETCHING_FAILURE && Math.random() > 0.95) {
+                    throw new Error(`Random error on block ${block.height} in batch.`);
+                }
+
+                finalBlocks.push(block);
+            }
+
+            // If for any reason finalBlocks is empty after filtering, you can handle that here
+            if (finalBlocks.length === 0) {
+                throw new Error(
+                    `All blocks returned from [${startHeight}..${startHeight + BigInt(batchSize) - 1n}] were null or invalid.`,
+                );
+            }
+
+            return finalBlocks;
+        } catch (error) {
+            const err = error as Error;
+            this.error(
+                `Error fetching blocks in range [${startHeight}..${
+                    startHeight + BigInt(batchSize) - 1n
+                }]: ${err.message}`,
+            );
+            throw err;
+        }
+    }
+
     public onReorg(): void {
         this.lastBlockHash = null;
     }
@@ -77,4 +146,9 @@ export abstract class BlockFetcher extends Logger {
     protected abstract queryBlock(
         blockHeightInProgress: bigint,
     ): Promise<BlockDataWithTransactionData | null>;
+
+    protected abstract queryBlocks(
+        blockHeight: bigint,
+        batchSize: number,
+    ): Promise<BlockDataWithTransactionData[] | null>;
 }

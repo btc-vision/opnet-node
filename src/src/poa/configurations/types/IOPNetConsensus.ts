@@ -93,6 +93,9 @@ export interface IOPNetConsensus<T extends Consensus> {
         /** The maximum inputs utxos to forward to a contract */
         readonly MAXIMUM_INPUTS: number;
 
+        /** Check for reentrancy */
+        readonly REENTRANCY_GUARD: boolean;
+
         /** The maximum outputs utxos to forward to a contract */
         readonly MAXIMUM_OUTPUTS: number;
 

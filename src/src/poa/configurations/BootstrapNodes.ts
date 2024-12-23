@@ -7,7 +7,7 @@ type BootstrapNode = {
 };
 
 type BootstrapNodes = {
-    [key in ChainIds]?: BootstrapNode;
+    [key in ChainIds]: BootstrapNode;
 };
 
 export const BootstrapNodes: BootstrapNodes = {
@@ -26,6 +26,28 @@ export const BootstrapNodes: BootstrapNodes = {
     },
 
     [ChainIds.Fractal]: {
+        [BitcoinNetwork.mainnet]: [],
+
+        [BitcoinNetwork.testnet]: [],
+
+        [BitcoinNetwork.regtest]: [],
+
+        [BitcoinNetwork.signet]: [],
+    },
+
+    [ChainIds.Dogecoin]: {
+        [BitcoinNetwork.mainnet]: [],
+
+        [BitcoinNetwork.testnet]: [
+            '/dns/bootstrap-dogecoin.opnet.org/tcp/9800/p2p/12D3KooWKsEbfsxa6daEZ4fhBjDmkKU1pBPMUFeFmPFhrZY3Qt2P',
+        ],
+
+        [BitcoinNetwork.regtest]: [],
+
+        [BitcoinNetwork.signet]: [],
+    },
+
+    [ChainIds.Litecoin]: {
         [BitcoinNetwork.mainnet]: [],
 
         [BitcoinNetwork.testnet]: [],

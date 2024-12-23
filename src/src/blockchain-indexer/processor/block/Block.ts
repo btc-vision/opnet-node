@@ -289,6 +289,10 @@ export class Block extends Logger {
     public setRawTransactionData(rawTransactionData: TransactionData[]): void {
         this.rawTransactionData = rawTransactionData;
 
+        if (!this.header.nTx) {
+            this.header.nTx = rawTransactionData.length;
+        }
+
         // First, we have to create transaction object corresponding to the transactions types in the block
         this.createTransactions();
     }

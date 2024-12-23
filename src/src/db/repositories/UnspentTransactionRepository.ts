@@ -78,11 +78,11 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             }
         }
 
-        //if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
-        //    await this.purgeSpentUTXOsFromBlockHeight(
-        //        blockHeight - BigInt(Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS),
-        //    );
-        //}
+        if (Config.INDEXER.ALLOW_PURGE && Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS) {
+            await this.purgeSpentUTXOsFromBlockHeight(
+                blockHeight - BigInt(Config.INDEXER.PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS),
+            );
+        }
 
         const convertedSpentTransactions = this.convertSpentTransactions(transactions);
         const convertedUnspentTransactions = this.convertToUnspentTransactions(
@@ -123,7 +123,11 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                 scriptPubKey: {
                                     hex: transaction.scriptPubKey.hex,
                                     address: transaction.scriptPubKey.address,
+                                    addresses: !transaction.scriptPubKey.address
+                                        ? transaction.scriptPubKey.addresses
+                                        : [],
                                 },
+                                //raw: transaction.raw,
                             },
                         },
                         upsert: true,
@@ -161,6 +165,17 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                 `Saved ${convertedUnspentTransactions.length} UTXOs, deleted ${convertedSpentTransactions.length} spent UTXOs in ${Date.now() - start}ms`,
             );
         }
+    }
+
+    public async deleteGreaterThanBlockHeight(
+        blockHeight: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IUnspentTransaction>> = {
+            blockHeight: { $gte: this.bigIntToLong(blockHeight) },
+        };
+
+        await this.delete(criteria, currentSession);
     }
 
     public async purgeSpentUTXOsFromBlockHeight(
@@ -205,6 +220,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         currentSession?: ClientSession,
     ): Promise<UTXOSOutputTransaction[]> {
         // TODO: Add cursor page support.
+        // TODO: Optimize this function so only legacy have raw transaction data added to them. (PERFORMANCE)
         const aggregation: Document[] = this.uxtosAggregation.getAggregation(
             wallet,
             true,
@@ -233,6 +249,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                             ? result.scriptPubKey.address
                             : undefined,
                     },
+                    raw: result.raw?.toString('base64'),
                 };
             });
         } catch (e) {
@@ -291,24 +308,30 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                     const spentKey = `${transaction.id}:${output.index}`;
                     const spent = spentSet.get(spentKey);
 
-                    if (output.value.toString() !== '0' && output.scriptPubKey.address) {
+                    if (
+                        output.value.toString() !== '0' &&
+                        (output.scriptPubKey.address || output.scriptPubKey.addresses)
+                    ) {
                         if (spent) {
                             spent.blockHeight = this.decimal128ToLong(transaction.blockHeight);
                             spent.value = new Long(output.value); //this.decimal128ToLong(output.value);
                             spent.scriptPubKey = {
                                 hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                 address: output.scriptPubKey.address ?? null,
+                                addresses: output.scriptPubKey.addresses ?? null,
                             };
                         } else {
                             finalList.push({
                                 blockHeight: this.decimal128ToLong(transaction.blockHeight),
                                 transactionId: transaction.id,
                                 outputIndex: output.index,
-                                value: new Long(output.value), //this.decimal128ToLong(document.value),
+                                value: new Long(output.value),
                                 scriptPubKey: {
                                     hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                     address: output.scriptPubKey.address ?? null,
+                                    addresses: output.scriptPubKey.addresses ?? null,
                                 },
+                                //raw: new Binary(transaction.raw),
                             });
                         }
                     }

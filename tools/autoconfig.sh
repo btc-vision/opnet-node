@@ -352,7 +352,7 @@ install_and_configure_mongodb() {
     echo -e "${BLUE}Detected Ubuntu version: $ubuntu_version${NC}"
 
     # Add MongoDB repository based on Ubuntu version
-    if [[ "$ubuntu_version" == "22.04" || "$ubuntu_version" == "23.04" || "$ubuntu_version" == "23.10" || "$ubuntu_version" == "24.04" ]]; then
+    if [[ "$ubuntu_version" == "22.04" || "$ubuntu_version" == "23.04" || "$ubuntu_version" == "23.10" || "$ubuntu_version" == "24.04" || "$ubuntu_version" == "24.10" ]]; then
         echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
     elif [[ "$ubuntu_version" == "20.04" ]]; then
         echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
@@ -756,8 +756,11 @@ clone_and_build_indexer() {
     # Clone the repository
     echo -e "${BLUE}Cloning the OPNet Indexer repository...${NC}"
     git clone git@github.com:btc-vision/opnet-node.git "$indexer_dir"
+    git pull
+    git fetch
     cd "$indexer_dir" || exit 1
     git checkout main
+    rm -f -r package-lock.json
 
     # Install npm dependencies
     echo -e "${BLUE}Installing npm dependencies...${NC}"
