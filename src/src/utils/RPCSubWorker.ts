@@ -133,6 +133,7 @@ class RPCManager extends Logger {
                 blockHeight: contract.blockHeight.toString(),
                 contractAddress: contract.contractAddress.toString(),
                 contractTweakedPublicKey: contract.contractTweakedPublicKey.toString(),
+                contractHybridPublicKey: contract.contractHybridPublicKey.toString(),
                 bytecode: contract.bytecode.toString('hex'),
                 wasCompressed: contract.wasCompressed,
                 deployedTransactionId: contract.deployedTransactionId,

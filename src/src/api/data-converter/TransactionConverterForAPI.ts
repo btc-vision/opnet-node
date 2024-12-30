@@ -75,34 +75,6 @@ export class TransactionConverterForAPI {
             newTx.from = tx.from ? tx.from.toString('base64') : undefined;
         }
 
-        /*if ('wrappingFees' in transaction) {
-            const tx = transaction as IWrapInteractionTransactionDocument;
-
-            newTx.wrappingFees = '0x' + DataConverter.fromDecimal128(tx.wrappingFees).toString(16);
-            newTx.depositAmount =
-                '0x' + DataConverter.fromDecimal128(tx.depositAmount).toString(16);
-        }
-
-        if ('unwrapAmount' in transaction) {
-            const tx = transaction as IUnwrapInteractionTransactionDocument;
-
-            newTx.unwrapAmount = '0x' + DataConverter.fromDecimal128(tx.unwrapAmount).toString(16);
-            newTx.requestedAmount =
-                '0x' + DataConverter.fromDecimal128(tx.requestedAmount).toString(16);
-
-            if (tx.consolidatedVault) {
-                newTx.consolidatedVault = {
-                    vault: tx.consolidatedVault.vault,
-                    hash: tx.consolidatedVault.hash,
-                    value:
-                        '0x' +
-                        DataConverter.fromDecimal128(tx.consolidatedVault.value).toString(16),
-                    outputIndex: tx.consolidatedVault.outputIndex,
-                    output: tx.consolidatedVault.output.toString('base64'),
-                };
-            }
-        }*/
-
         delete newTx._id;
         delete newTx.blockHeight;
 

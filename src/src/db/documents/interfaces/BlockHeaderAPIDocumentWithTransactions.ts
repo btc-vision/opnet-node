@@ -21,6 +21,7 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     readonly contractAddress?: string;
     from?: string;
     contractTweakedPublicKey?: string;
+    contractHybridPublicKey?: string;
 
     readonly events: EventReceiptDataForAPI[];
     readonly gasUsed: string;
@@ -36,7 +37,6 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     requestedAmount?: string;
     wrappingFees?: string;
     depositAmount?: string;
-    //consolidatedVault?: PartialWBTCUTXODocumentForAPI;
 
     _id: undefined;
 }

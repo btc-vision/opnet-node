@@ -71,8 +71,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
     public contractSigner: ECPairInterface | undefined;
 
-    protected _contractTweakedPublicKey: Buffer | undefined;
-
     public constructor(
         rawTransactionData: TransactionData,
         vInputIndex: number,
@@ -81,6 +79,16 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         network: bitcoin.networks.Network,
     ) {
         super(rawTransactionData, vInputIndex, blockHash, blockHeight, network);
+    }
+
+    protected _contractTweakedPublicKey: Buffer | undefined;
+
+    public get contractTweakedPublicKey(): Buffer {
+        if (!this._contractTweakedPublicKey) {
+            throw new Error(`OP_NET: Contract tweaked public key not found.`);
+        }
+
+        return this._contractTweakedPublicKey;
     }
 
     protected _contractAddress: Address | undefined;
@@ -93,14 +101,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public get address(): Address {
         if (!this._contractAddress) throw new Error('OP_NET: Contract address not found');
         return this._contractAddress;
-    }
-
-    public get contractTweakedPublicKey(): Buffer {
-        if (!this._contractTweakedPublicKey) {
-            throw new Error(`OP_NET: Contract tweaked public key not found.`);
-        }
-
-        return this._contractTweakedPublicKey;
     }
 
     protected _calldata: Buffer | undefined;

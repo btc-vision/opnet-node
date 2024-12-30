@@ -4,6 +4,7 @@ export interface IContractDocumentBase {
     readonly blockHeight: Decimal128 | string | undefined;
     readonly contractAddress: string;
     readonly contractTweakedPublicKey: Binary | string;
+    readonly contractHybridPublicKey: Binary | string;
     readonly bytecode: Binary | string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: string;

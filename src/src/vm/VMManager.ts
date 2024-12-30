@@ -693,18 +693,18 @@ export class VMManager extends Logger {
         contractAddress: Address;
         tweakedPublicKey: Buffer;
     } {
-        const contracttweakedPublicKey = TapscriptVerificator.getContractSeed(
+        const contractTweakedPublicKey = TapscriptVerificator.getContractSeed(
             bitcoin.crypto.hash256(Buffer.from(deployer)),
             bytecode, // TODO: Maybe precompute that on deployment?
             salt,
         );
 
         /** Generate contract segwit address */
-        const address = new Address(contracttweakedPublicKey);
+        const address = new Address(contractTweakedPublicKey);
 
         return {
             contractAddress: address,
-            tweakedPublicKey: contracttweakedPublicKey,
+            tweakedPublicKey: contractTweakedPublicKey,
         };
     }
 
@@ -763,6 +763,7 @@ export class VMManager extends Logger {
             evaluation.blockNumber,
             deployResult.contractAddress.p2tr(this.network),
             deployResult.contractAddress,
+            deployResult.contractAddress.toTweakedHybridPublicKeyBuffer(),
             contractInfo.bytecode,
             false,
             evaluation.transactionId || '',
