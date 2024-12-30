@@ -30,17 +30,16 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
         inputs: PsbtInput[],
         tx: bitcoin.Transaction,
     ): { in: bigint; out: bigint } {
-        let inputAmount = 0;
+        let inputAmount: bigint = 0n;
         inputs.forEach((input, idx) => {
             if (input.witnessUtxo) {
-                inputAmount += input.witnessUtxo.value;
+                inputAmount += BigInt(input.witnessUtxo.value);
             } else {
                 throw new Error(`Input ${idx} does not have a witness UTXO`);
             }
         });
 
         const outputAmount = tx.outs.reduce((total, o) => total + o.value, 0);
-
         return { in: BigInt(inputAmount), out: BigInt(outputAmount) };
     }
 
@@ -48,7 +47,7 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
      * Estimate the fees for the transaction.
      * @param {Psbt} data - The PSBT data.
      * @param {Psbt} bytes - The PSBT bytes.
-     * @param {bitcoin.Transaction} tx - The transaction.
+     * @param {Transaction} tx - The transaction.
      * @private
      * @returns {bigint} The estimated fee.
      */

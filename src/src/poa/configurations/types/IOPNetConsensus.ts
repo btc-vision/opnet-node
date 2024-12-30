@@ -21,6 +21,9 @@ export interface IOPNetConsensus<T extends Consensus> {
 
         // Is this node updated to the next consensus?
         readonly IS_READY_FOR_NEXT_CONSENSUS: boolean;
+
+        // Allow legacy? Hybrid contract address are supported in this version.
+        readonly ALLOW_LEGACY: boolean;
     };
 
     /** Contracts related rules */
