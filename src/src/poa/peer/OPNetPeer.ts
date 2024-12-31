@@ -155,9 +155,8 @@ export class OPNetPeer extends Logger {
         }
     }
 
-    public async onMessage(rawBuf: ArrayBufferLike): Promise<void> {
+    public async onMessage(buffer: Uint8Array): Promise<void> {
         try {
-            const buffer: Uint8Array = new Uint8Array(rawBuf);
             const toClient = buffer.slice(0, 1)[0] === 0x01;
 
             let success = false;
@@ -332,6 +331,8 @@ export class OPNetPeer extends Logger {
 
     private onAuth(): void {
         if (this.isAuthenticated) {
+            console.log(`Peer ${this.peerId} is authenticated.`);
+
             this.reportAuthenticatedPeer(this.peerId);
 
             void this.discoverPeers();

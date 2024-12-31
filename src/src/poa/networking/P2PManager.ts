@@ -64,6 +64,7 @@ import { Components } from 'libp2p/components.js';
 import { Config } from '../../config/Config.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { CID } from 'multiformats/cid';
+import { autoNAT } from '@libp2p/autonat';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -920,10 +921,13 @@ export class P2PManager extends Logger {
                 }
 
                 // TODO: Check if this may contain multiple messages or if this is junk chunks of data
-                const data: Uint8Array = req.subarray();
+                const data: Buffer = req.subarray() as unknown as Buffer;
 
                 /** We could await for the message to process and send a response but this may lead to timeout in some cases */
-                void this.onPeerMessage(peerId, data);
+                void this.onPeerMessage(
+                    peerId,
+                    new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+                );
 
                 // Acknowledge the message
                 await lp.write(new Uint8Array([0x01])).catch(() => {});
@@ -951,7 +955,7 @@ export class P2PManager extends Logger {
             return;
         }
 
-        await peer.onMessage(data.buffer);
+        await peer.onMessage(data);
     }
 
     /** Send a message to a specific peer */
@@ -1127,6 +1131,7 @@ export class P2PManager extends Logger {
             peerStore: this.peerStoreConfigurations(),
             transportManager: this.p2pConfigurations.transportManagerConfiguration,
             services: {
+                autoNAT: autoNAT(this.p2pConfigurations.autoNATConfiguration),
                 identify: identify(this.p2pConfigurations.identifyConfiguration),
                 identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
                 nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),
