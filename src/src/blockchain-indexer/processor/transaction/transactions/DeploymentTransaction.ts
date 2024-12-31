@@ -1,5 +1,5 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
-import bitcoin, { opcodes } from '@btc-vision/bitcoin';
+import bitcoin, { networks, opcodes } from '@btc-vision/bitcoin';
 import { ECPairInterface } from 'ecpair';
 import { DeploymentTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
@@ -76,7 +76,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         vInputIndex: number,
         blockHash: string,
         blockHeight: bigint,
-        network: bitcoin.networks.Network,
+        network: networks.Network,
     ) {
         super(rawTransactionData, vInputIndex, blockHash, blockHeight, network);
     }

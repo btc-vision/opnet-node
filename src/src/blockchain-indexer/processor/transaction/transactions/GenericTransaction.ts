@@ -1,5 +1,5 @@
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
-import bitcoin from '@btc-vision/bitcoin';
+import { networks } from '@btc-vision/bitcoin';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
 import { Transaction } from '../Transaction.js';
@@ -12,7 +12,7 @@ export class GenericTransaction extends Transaction<OPNetTransactionTypes.Generi
         vIndexIn: number,
         blockHash: string,
         blockHeight: bigint,
-        network: bitcoin.networks.Network,
+        network: networks.Network,
     ) {
         super(rawTransactionData, vIndexIn, blockHash, blockHeight, network);
     }

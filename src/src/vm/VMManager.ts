@@ -38,7 +38,7 @@ import {
 import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
 import { GasTracker } from './runtime/GasTracker.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
-import bitcoin from '@btc-vision/bitcoin';
+import bitcoin, { Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { Blockchain } from './Blockchain.js';
 import { BlockHeaderValidator } from './BlockHeaderValidator.js';
@@ -67,7 +67,7 @@ export class VMManager extends Logger {
 
     private readonly _blockHeaderValidator: BlockHeaderValidator;
 
-    private readonly network: bitcoin.Network;
+    private readonly network: Network;
     private currentRequest:
         | {
               to: string;

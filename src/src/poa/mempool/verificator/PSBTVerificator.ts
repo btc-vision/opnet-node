@@ -1,6 +1,6 @@
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { PSBTTypes } from '../psbt/PSBTTypes.js';
-import bitcoin, { Network, networks, Psbt } from '@btc-vision/bitcoin';
+import { Network, networks, Psbt, Transaction } from '@btc-vision/bitcoin';
 import { KnownPSBTObject } from '../psbt/PSBTTransactionVerifier.js';
 import { PsbtInput } from 'bip174/src/lib/interfaces.js';
 import { TransactionBuilder, TweakedTransaction } from '@btc-vision/transaction';
@@ -26,10 +26,7 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
 
     public abstract verify(data: Psbt, version: number): Promise<KnownPSBTObject | false>;
 
-    protected getInOutAmounts(
-        inputs: PsbtInput[],
-        tx: bitcoin.Transaction,
-    ): { in: bigint; out: bigint } {
+    protected getInOutAmounts(inputs: PsbtInput[], tx: Transaction): { in: bigint; out: bigint } {
         let inputAmount: bigint = 0n;
         inputs.forEach((input, idx) => {
             if (input.witnessUtxo) {
@@ -51,7 +48,7 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
      * @private
      * @returns {bigint} The estimated fee.
      */
-    protected estimateFee(data: Psbt, bytes: Psbt, tx: bitcoin.Transaction): bigint {
+    protected estimateFee(data: Psbt, bytes: Psbt, tx: Transaction): bigint {
         const amounts = this.getInOutAmounts(data.data.inputs, tx);
         const amountFee: bigint = amounts.in - amounts.out;
         if (amountFee < 0n) {
@@ -84,7 +81,7 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
     }
 
     protected generatePSBTHash(data: Psbt): {
-        tx: bitcoin.Transaction;
+        tx: Transaction;
         hash: string;
         estimatedFees: bigint;
     } {

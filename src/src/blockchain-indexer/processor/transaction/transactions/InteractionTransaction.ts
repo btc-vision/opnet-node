@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import bitcoin, { initEccLib, opcodes } from '@btc-vision/bitcoin';
+import bitcoin, { initEccLib, networks, opcodes } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
 import { InteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
@@ -70,7 +70,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         vIndexIn: number,
         blockHash: string,
         blockHeight: bigint,
-        network: bitcoin.networks.Network,
+        network: networks.Network,
     ) {
         super(rawTransactionData, vIndexIn, blockHash, blockHeight, network);
     }
