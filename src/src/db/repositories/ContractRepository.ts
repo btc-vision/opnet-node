@@ -127,7 +127,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
         const key = Binary.createFromHexString(contractTweakedPublicKey.replace('0x', ''));
-        if (key.buffer[0] === 0x06 || key.buffer[0] === 0x07) {
+        if ((key.buffer[0] === 0x06 || key.buffer[0] === 0x07) && key.buffer.length === 65) {
             return await this.getContractFromTweakedHybridPubKey(key, height, currentSession);
         }
 
