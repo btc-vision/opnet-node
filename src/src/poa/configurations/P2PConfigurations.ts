@@ -69,7 +69,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             },
         };
     }
-    
+
     public get yamuxConfiguration(): YamuxMuxerInit {
         return {
             /**
