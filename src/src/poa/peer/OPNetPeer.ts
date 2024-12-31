@@ -331,8 +331,6 @@ export class OPNetPeer extends Logger {
 
     private onAuth(): void {
         if (this.isAuthenticated) {
-            console.log(`Peer ${this.peerId} is authenticated.`);
-
             this.reportAuthenticatedPeer(this.peerId);
 
             void this.discoverPeers();
