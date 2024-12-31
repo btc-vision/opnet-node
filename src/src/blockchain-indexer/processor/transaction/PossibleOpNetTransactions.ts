@@ -47,18 +47,4 @@ export const PossibleOpNetTransactions: {
             return DeploymentTransaction.is(data);
         },
     },
-    /*[OPNetTransactionTypes.WrapInteraction]: {
-        parse: (...args) =>
-            new WrapTransaction(...args) as Transaction<OPNetTransactionTypes.WrapInteraction>,
-        isTransaction(data: TransactionData): TransactionInformation | undefined {
-            return WrapTransaction.is(data);
-        },
-    },
-    [OPNetTransactionTypes.UnwrapInteraction]: {
-        parse: (...args) =>
-            new UnwrapTransaction(...args) as Transaction<OPNetTransactionTypes.UnwrapInteraction>,
-        isTransaction(data: TransactionData): TransactionInformation | undefined {
-            return UnwrapTransaction.is(data);
-        },
-    },*/
 };

@@ -69,7 +69,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             },
         };
     }
-
+    
     public get yamuxConfiguration(): YamuxMuxerInit {
         return {
             /**
@@ -173,9 +173,8 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get upnpConfiguration(): UPnPNATInit {
         return {
-            description: P2PConfigurations.protocolName,
-            ttl: 7200,
-            keepAlive: true,
+            portMappingDescription: P2PConfigurations.protocolName,
+            portMappingTTL: 7200,
         };
     }
 
