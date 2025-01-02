@@ -96,7 +96,7 @@ export abstract class BlockFetcher extends Logger {
                     );
                 }
 
-                // Ensure we’re not processing the same block twice
+                // Ensure we're not processing the same block twice
                 if (this.lastBlockHash === block.hash) {
                     throw new Error(`Block ${block.height} was fetched twice in batch.`);
                 }
