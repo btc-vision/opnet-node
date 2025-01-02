@@ -87,6 +87,8 @@ type Libp2pInstance = Libp2p<{
     identifyPush: IdentifyPush;
 }>;
 
+const READ_TIMEOUT_MS: number = 12_000;
+
 export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
@@ -586,6 +588,7 @@ export class P2PManager extends Logger {
             return;
         }
 
+        // Mitigate potential flooding.
         const maxPerBatch = 10;
         for (let i = 0; i < peersToTry.length; i += maxPerBatch) {
             const batch = peersToTry.slice(i, i + maxPerBatch);
@@ -901,6 +904,10 @@ export class P2PManager extends Logger {
         await this.node.start();
     }
 
+    private idle(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
     private async addHandles(): Promise<void> {
         if (this.node === undefined) {
             throw new Error('Node not initialized');
@@ -913,10 +920,22 @@ export class P2PManager extends Logger {
             const peerId: PeerId = connection.remotePeer;
 
             try {
-                const lp = lpStream(stream);
-                const req = await lp.read();
+                const lp = lpStream(stream, {
+                    maxDataLength: 1024 * 1024 * 6,
+                });
+
+                const req = await Promise.race([
+                    lp.read(),
+                    (async () => {
+                        await this.idle(READ_TIMEOUT_MS);
+                        throw new Error('Timeout reading from peer after 5s');
+                    })(),
+                ]);
 
                 if (!req) {
+                    try {
+                        await incomingStream.connection.close();
+                    } catch {}
                     return;
                 }
 

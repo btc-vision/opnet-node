@@ -37,7 +37,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public static readonly protocolName: string = 'opnet';
     public static readonly protocolVersion: string = '1.0.0';
 
-    private static readonly maxMessageSize: number = 8 * 1024 * 1024; // 8 MiB
+    private static readonly maxMessageSize: number = 6 * 1024 * 1024; // 6 MiB
 
     private readonly defaultBootstrapNodes: string[];
 
@@ -77,8 +77,8 @@ export class P2PConfigurations extends OPNetPathFinder {
             timeout: 10000,
             maxInboundStreams: 3,
             maxOutboundStreams: 3,
-            startupDelay: 1000
-        }
+            startupDelay: 1000,
+        };
     }
 
     public get yamuxConfiguration(): YamuxMuxerInit {

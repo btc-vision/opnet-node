@@ -34,11 +34,12 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     public static LEGACY_INTERACTION: Buffer = Buffer.from([
         opcodes.OP_TOALTSTACK,
 
-        opcodes.OP_CHECKSIGVERIFY,
-        opcodes.OP_CHECKSIGVERIFY,
-
-        opcodes.OP_HASH160,
+        opcodes.OP_DUP,
+        opcodes.OP_HASH256,
         opcodes.OP_EQUALVERIFY,
+
+        opcodes.OP_CHECKSIGVERIFY,
+        opcodes.OP_CHECKSIGVERIFY,
 
         opcodes.OP_HASH160,
         opcodes.OP_EQUALVERIFY,
@@ -121,7 +122,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
     public static is(data: TransactionData): TransactionInformation | undefined {
         const vIndex = this._is(data, this.LEGACY_INTERACTION);
-
         if (vIndex === -1) {
             return;
         }
@@ -135,17 +135,25 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     public static getInteractionWitnessDataHeader(
         scriptData: Array<number | Buffer>,
     ): Omit<InteractionWitnessData, 'calldata'> | undefined {
-        const firstByte = scriptData.shift();
-        if (!Buffer.isBuffer(firstByte)) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
-            return;
-        }
-
-        const senderPubKey: Buffer = scriptData.shift() as Buffer;
+        const senderPubKey = scriptData.shift();
         if (!Buffer.isBuffer(senderPubKey)) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_DUP) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_HASH256) {
+            return;
+        }
+
+        const hashedSenderPubKey = scriptData.shift();
+        if (!Buffer.isBuffer(hashedSenderPubKey)) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_EQUALVERIFY) {
             return;
         }
 
@@ -153,7 +161,16 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             return;
         }
 
-        const interactionSaltPubKey: Buffer = scriptData.shift() as Buffer;
+        const firstByte = scriptData.shift();
+        if (!Buffer.isBuffer(firstByte) || firstByte.length !== 1) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
+            return;
+        }
+
+        const interactionSaltPubKey = scriptData.shift();
         if (!Buffer.isBuffer(interactionSaltPubKey)) {
             return;
         }
@@ -166,36 +183,19 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             return;
         }
 
-        const senderPubKeyHash160: Buffer = scriptData.shift() as Buffer;
+        const contractSaltHash160 = scriptData.shift();
+        if (!Buffer.isBuffer(contractSaltHash160)) {
+            return;
+        }
+
         if (scriptData.shift() !== opcodes.OP_EQUALVERIFY) {
             return;
         }
 
-        if (scriptData.shift() !== opcodes.OP_HASH160) {
-            return;
-        }
-
-        // hash of bech32 contract address.
-        const contractSaltHash160: Buffer = scriptData.shift() as Buffer;
-        if (scriptData.shift() !== opcodes.OP_EQUALVERIFY) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_DEPTH) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_1) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_NUMEQUAL) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_IF) {
-            return;
-        }
+        if (scriptData.shift() !== opcodes.OP_DEPTH) return;
+        if (scriptData.shift() !== opcodes.OP_1) return;
+        if (scriptData.shift() !== opcodes.OP_NUMEQUAL) return;
+        if (scriptData.shift() !== opcodes.OP_IF) return;
 
         const magic = scriptData.shift();
         if (!Buffer.isBuffer(magic)) {
@@ -206,7 +206,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             firstByte,
             senderPubKey,
             interactionSaltPubKey,
-            senderPubKeyHash160,
+            senderPubKeyHash160: hashedSenderPubKey,
             contractSecretHash160: contractSaltHash160,
         };
     }
@@ -396,8 +396,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
         /** Decompress calldata if needed */
         this.decompressCalldata();
-
-        this.verifyUnallowed();
     }
 
     protected verifyContractAddress(type: string, pubKey: Buffer, contractAddress: Address): void {
@@ -441,7 +439,11 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         if (contractSecret.length === 65) {
-            if (contractSecret[0] !== 0x04) {
+            if (
+                contractSecret[0] !== 0x04 &&
+                contractSecret[0] !== 0x06 &&
+                contractSecret[0] !== 0x07
+            ) {
                 throw new Error(`OP_NET: Invalid contract uncompressed address specified.`);
             }
         }
@@ -451,14 +453,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         return new Address(contractSecret);
-    }
-
-    /** We must verify that the transaction is not bypassing another transaction type. */
-    protected verifyUnallowed(): void {
-        // We handle wbtc checks here.
-        //if (authorityManager.WBTC_CONTRACT_ADDRESSES.includes(this.contractAddress)) {
-        //    this.verifyWBTC();
-        //}
     }
 
     /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */
@@ -472,17 +466,4 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     private getInputWitnessTransactions(): TransactionInput[] {
         return [this.inputs[this.vInputIndex]];
     }
-
-    /**
-     * Verify that the WBTC transaction is valid.
-     */
-    /*private verifyWBTC(): void {
-        const selectorBytes = this.calldata.subarray(0, 4);
-        const reader = new BinaryReader(selectorBytes);
-
-        const selector = reader.readSelector();
-        if (selector === WBTC_WRAP_SELECTOR || selector === WBTC_UNWRAP_SELECTOR) {
-            throw new Error(`Invalid WBTC mint/burn transaction.`);
-        }
-    }*/
 }
