@@ -12,10 +12,8 @@ for their work, and extends OP_NET security by creating state checkpoints each t
 2. [Why This is a Game Changer](#2-why-this-is-a-game-changer)
 3. [Core Concept: The Collision Puzzle](#3-core-concept-the-collision-challenge)
 4. [Bitcoin Script Example](#4-bitcoin-script-example)
-5. [How to Create and Spend a Mineable UTXO](#5-how-to-create-and-spend-a-mineable-utxo)
-6. [Cross-Chain Mining Possibilities](#6-cross-chain-mining-possibilities)
-7. [Considerations](#7-considerations)
-8. [License](#8-license)
+5. [Cross-Chain Mining Possibilities](#5-cross-chain-mining-possibilities)
+6. [End Game Goal](#6-end-game-goal)
 
 ---
 
