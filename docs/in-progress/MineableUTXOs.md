@@ -41,7 +41,7 @@ across multiple chains, unifying cross-chain incentives.
 
 ### Miner Incentives Aligned
 
-Miners can gather extra income by solving these collision challenges (or front-running solutions). Rather than ignoring
+Miners can gather extra income by solving these collision challenges. Rather than ignoring
 or resenting large fees that vanish, they have direct potential gains. Additionally, each solved challenge can act as a
 checkpoint in OP_NET's security model.
 
