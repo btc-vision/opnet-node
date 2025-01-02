@@ -57,9 +57,8 @@ checkpoint in OP_NET's security model.
 
 ### Cross-Chain Potential
 
-The concept is easily ported to any chain with a flexible-enough scripting system or EVM-like environment. Hence,
-**"cross-chain mining"** can unify multiple blockchains' fees into a single collision challenge, allowing miners or
-users to claim bounties across multiple networks at once.
+The concept is easily ported to any chain. Hence, **"cross-chain mining"** can unify multiple blockchains' fees into a
+single collision challenge, allowing miners or users to claim bounties across multiple networks at once.
 
 ---
 
