@@ -35,6 +35,14 @@ This setup incentivizes miners (and the broader community) to attempt challenge 
 gas fees back into the network. It also creates a new type of mining accessible to the average user and can be applied
 across multiple chains, unifying cross-chain incentives.
 
+A proof of concept can be visualized here:
+
+**OPNET INTERACTION TX:**
+https://mempool.opnet.org/tx/50619ebbe6ed9a8af2f257321afba77d4e1545b3b043e1475566064bb54f5a87
+
+**REWARD CLAIMED (COLLISION) (faked for testnet):**
+https://mempool.opnet.org/tx/70770e34687bb79a649bd9ad1b1a54de3eec8a7f76c5bb91b0db4aed6ce0c799
+
 ---
 
 ## 2. Why This is a Game Changer
