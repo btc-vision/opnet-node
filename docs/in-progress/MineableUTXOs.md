@@ -131,7 +131,7 @@ Although the above example is Bitcoin-specific, the concept extends to:
 
 ## 6. End Game Goal
 
-The end game goal is that once, volume is large enough, miner will mine SHA256 and SHA1 collisions in parallel. This
+The end game goal is that once, volume is large enough, miner will mine SHA256 and SHA1 in parallel. This
 will
 create a new type of mining that is accessible to the average user and can be applied across multiple chains, unifying
 cross-chain incentives. Since front running in this model is possible, miners will be the end game winners.
