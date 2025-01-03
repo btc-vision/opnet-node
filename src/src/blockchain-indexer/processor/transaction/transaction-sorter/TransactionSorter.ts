@@ -1,7 +1,7 @@
-import {OPNetTransactionTypes} from '../enums/OPNetTransactionTypes.js';
-import {Transaction} from '../Transaction.js';
-import {TransactionGroupBuilder} from './TransactionGroupBuilder.js';
-import {TransactionGroupFeesSorter} from './TransactionGroupFeesSorter.js';
+import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
+import { Transaction } from '../Transaction.js';
+import { TransactionGroupBuilder } from './TransactionGroupBuilder.js';
+import { TransactionGroupFeesSorter } from './TransactionGroupFeesSorter.js';
 
 /**
  * The goal of this class is to sort transactions in bitcoin blocks where their position in a block is topologically sorted.
@@ -35,7 +35,7 @@ export class TransactionSorter {
             groupBuilder.buildGroups(nonBlockRewards);
 
         // Sort groups by total burned fee and flatten into the final list
-        const sortedGroups = feesSorter.sortGroupsByBurnedFees(groups);
+        const sortedGroups = feesSorter.sortGroupByFees(groups);
         for (let i = 0; i < sortedGroups.length; i++) {
             const group = sortedGroups[i];
             //const totalGroupBurnedFee = this.calculateTotalBurnedFees(group);

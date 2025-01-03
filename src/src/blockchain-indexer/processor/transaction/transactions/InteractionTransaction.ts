@@ -349,13 +349,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
         this.senderPubKeyHash = this.interactionWitnessData.hashedSenderPubKey;
         this.senderPubKey = senderPubKey;
-        this._preimage = this.interactionWitnessData.header.preimage;
-
-        // TODO: Verify preimage, from db for existing preimage, now, we have to be careful so people may not exploit this check.
-        // If an attacker send the same preimage as someone else, he may be able to cause a reversion of the transaction of the other person.
-        // We have to make it so it only checks if the preimage was used from block range: 0 to currentHeight - 10.
-        // We allow duplicates in the last 10 blocks to prevent this attack.
-        // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
 
         /** Verify contract salt */
         const hashContractSalt = bitcoin.crypto.hash160(contractSecret);
@@ -371,6 +364,8 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this.interactionPubKey = this.interactionWitnessData.interactionSaltPubKey;
         this.contractSecretHash = this.interactionWitnessData.contractSecretHash160;
         this.contractSecret = contractSecret;
+
+        this._preimage = this.interactionWitnessData.header.preimage;
 
         /** We must verify that the contract secret match with at least one output. */
         const outputWitness: TransactionOutput | undefined = this.outputs[0];
@@ -397,6 +392,13 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
+
+        // TODO: Verify preimage, from db for existing preimage, now, we have to be careful so people may not exploit this check.
+        // If an attacker send the same preimage as someone else, he may be able to cause a reversion of the transaction of the other person.
+        // We have to make it so it only checks if the preimage was used from block range: 0 to currentHeight - 10.
+        // We allow duplicates in the last 10 blocks to prevent this attack.
+        // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
+        this.verifyRewardUTXO();
 
         /** Decompress calldata if needed */
         this.decompressCalldata();

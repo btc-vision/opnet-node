@@ -1,5 +1,5 @@
 import { IBaseDocument } from '@btc-vision/bsi-common';
-import { Binary, Decimal128 } from 'mongodb';
+import { Binary, Decimal128, Long } from 'mongodb';
 import {
     InteractionTransactionType,
     OPNetTransactionTypes,
@@ -37,6 +37,7 @@ export interface ITransactionDocumentBasic<T extends OPNetTransactionTypes>
 export interface TransactionDocumentBase<T extends OPNetTransactionTypes>
     extends TransactionDocumentBasic<T> {
     readonly burnedBitcoin: Decimal128 | string;
+    readonly reward: Long | string;
     readonly revert: Binary | undefined | string;
 }
 
@@ -44,6 +45,7 @@ export interface TransactionDocument<T extends OPNetTransactionTypes>
     extends Omit<TransactionDocumentBase<T>, 'inputs' | 'outputs'> {
     readonly blockHeight: Decimal128;
     readonly burnedBitcoin: Decimal128;
+    readonly reward: Long;
     readonly gasUsed: Decimal128;
 
     readonly inputs: ITransactionInput[];
@@ -56,6 +58,7 @@ export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocum
     readonly from: Binary;
     readonly contractAddress: string;
     readonly contractTweakedPublicKey: Binary;
+    readonly preimage: Binary;
 };
 
 interface InteractionBase {

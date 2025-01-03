@@ -277,13 +277,15 @@ export class VMManager extends Logger {
                 );
             }
 
-            const burnedBitcoins: bigint = interactionTransaction.burnedFee;
-            if (!burnedBitcoins) {
+            const feeBitcoin: bigint =
+                interactionTransaction.burnedFee + interactionTransaction.reward;
+
+            if (!feeBitcoin) {
                 throw new Error('execution reverted (out of gas)');
             }
 
             // Trace the execution time
-            const maxGas: bigint = this.calculateMaxGas(unlimitedGas, burnedBitcoins, baseGas);
+            const maxGas: bigint = this.calculateMaxGas(unlimitedGas, feeBitcoin, baseGas);
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
@@ -370,13 +372,14 @@ export class VMManager extends Logger {
                 throw new Error('VM evaluator not found');
             }
 
-            const burnedBitcoins: bigint = contractDeploymentTransaction.burnedFee;
-            if (!burnedBitcoins) {
+            const feeBitcoin: bigint =
+                contractDeploymentTransaction.burnedFee + contractDeploymentTransaction.reward;
+            if (!feeBitcoin) {
                 throw new Error('execution reverted (out of gas)');
             }
 
             // Trace the execution time
-            const maxGas: bigint = this.calculateMaxGas(false, burnedBitcoins, baseGas);
+            const maxGas: bigint = this.calculateMaxGas(false, feeBitcoin, baseGas);
 
             const params: ExecutionParameters = {
                 contractAddressStr: contractDeploymentTransaction.contractAddress,

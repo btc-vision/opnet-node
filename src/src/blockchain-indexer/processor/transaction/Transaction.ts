@@ -2,7 +2,7 @@ import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoi
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Network, opcodes, script } from '@btc-vision/bitcoin';
 import crypto from 'crypto';
-import { Binary } from 'mongodb';
+import { Binary, Long } from 'mongodb';
 import * as zlib from 'zlib';
 import {
     ITransactionDocumentBasic,
@@ -13,7 +13,7 @@ import { EvaluatedEvents, EvaluatedResult } from '../../../vm/evaluated/Evaluate
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { StrippedTransactionInput, TransactionInput } from './inputs/TransactionInput.js';
 import { StrippedTransactionOutput, TransactionOutput } from './inputs/TransactionOutput.js';
-import { Address } from '@btc-vision/transaction';
+import { Address, ChallengeGenerator } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from './interfaces/OPNetHeader.js';
 
@@ -187,6 +187,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     // This represent OP_NET burned fees, priority fees, THIS IS NOT MINING FEES
     public get burnedFee(): bigint {
         return this._burnedFee;
+    }
+
+    protected _reward: bigint = 0n;
+
+    public get reward(): bigint {
+        return this._reward;
     }
 
     public get transactionId(): string {
@@ -386,6 +392,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             index: this.index,
             burnedBitcoin: DataConverter.toDecimal128(this.burnedFee),
+            reward: new Long(this.reward),
             gasUsed: DataConverter.toDecimal128(
                 this.receipt && this.receipt.gasUsed ? this.receipt.gasUsed : 0n,
             ),
@@ -402,6 +409,29 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         this.parseInputs(vIn);
         this.parseOutputs(vOuts);
+    }
+
+    protected verifyRewardUTXO(): void {
+        if (!this._preimage) {
+            throw new Error('Preimage not found');
+        }
+
+        // Reward output should always be the second output.
+        const rewardOutput = this.outputs[1];
+        if (!rewardOutput) {
+            return; // even if the user dont include the reward, this will revert due to out of gas
+        }
+
+        const rewardChallenge = ChallengeGenerator.generateMineableReward(
+            this.preimage,
+            this.network,
+        );
+
+        if (rewardOutput.scriptPubKey.address !== rewardChallenge.address) {
+            throw new Error('Invalid reward output address');
+        }
+
+        this.setReward(rewardOutput);
     }
 
     /**
@@ -461,6 +491,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
         // We set fees sent to the target witness as burned fees
         this._burnedFee = witnessOutput.value;
+
+        if (this._burnedFee > 2000n) {
+            throw new Error('Burned too much fee');
+        }
+    }
+
+    protected setReward(output: TransactionOutput): void {
+        this._reward = output.value;
     }
 
     /**

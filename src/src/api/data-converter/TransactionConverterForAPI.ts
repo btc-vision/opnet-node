@@ -44,7 +44,7 @@ export class TransactionConverterForAPI {
                       },
                   ) satisfies EventReceiptDataForAPI[])
                 : [];
-
+        
         const newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
             inputs: transaction.inputs,
@@ -59,11 +59,17 @@ export class TransactionConverterForAPI {
             burnedBitcoin:
                 '0x' + DataConverter.fromDecimal128(transaction.burnedBitcoin || 0n).toString(16),
             gasUsed: '0x' + DataConverter.fromDecimal128(transaction.gasUsed || 0n).toString(16),
+            reward: '0x' + transaction.reward.toString(16),
             _id: undefined,
             blockHeight: undefined,
             deployedTransactionHash: undefined,
             deployedTransactionId: undefined,
         };
+
+        if ('preimage' in transaction) {
+            const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
+            newTx.preimage = tx.preimage.toString('base64');
+        }
 
         if ('contractTweakedPublicKey' in transaction) {
             const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;

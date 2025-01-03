@@ -224,13 +224,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             throw new Error(`OP_NET: Invalid sender address.`);
         }
 
-        // TODO: Verify preimage, from db for existing preimage, now, we have to be careful so people may not exploit this check.
-        // If an attacker send the same preimage as someone else, he may be able to cause a reversion of the transaction of the other person.
-        // We have to make it so it only checks if the preimage was used from block range: 0 to currentHeight - 10.
-        // We allow duplicates in the last 10 blocks to prevent this attack.
-        // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
-        this._preimage = deploymentWitnessData.header.preimage;
-
         // Verify salt validity.
         if (originalSalt.byteLength < 32 || originalSalt.byteLength > 128) {
             throw new Error(`OP_NET: Salt should be between 32 and 128 bytes.`);
@@ -272,7 +265,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             throw new Error(`OP_NET: Invalid contract signer.`);
         }
 
-        /** TODO: Verify signatures, OPTIONAL, bitcoin-core job is supposed to handle that already. */
+        this._preimage = deploymentWitnessData.header.preimage;
 
         /** We regenerate the contract address and verify it */
         const input0: TransactionInput = this.inputs[0];
@@ -280,7 +273,16 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         this.getOriginalContractAddress(Buffer.from(controlBlock, 'hex'));
 
         const outputWitness: TransactionOutput = this.getWitnessOutput(this.contractAddress);
+
+        /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
+
+        // TODO: Verify preimage, from db for existing preimage, now, we have to be careful so people may not exploit this check.
+        // If an attacker send the same preimage as someone else, he may be able to cause a reversion of the transaction of the other person.
+        // We have to make it so it only checks if the preimage was used from block range: 0 to currentHeight - 10.
+        // We allow duplicates in the last 10 blocks to prevent this attack.
+        // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
+        this.verifyRewardUTXO();
 
         /** Decompress contract bytecode if needed */
         this.decompress();

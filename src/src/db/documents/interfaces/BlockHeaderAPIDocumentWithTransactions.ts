@@ -16,12 +16,14 @@ export interface EventReceiptDataForAPI {
 export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     extends Omit<TransactionDocumentBase<T>, 'outputs' | 'inputs'> {
     readonly burnedBitcoin: string;
+    readonly reward: string;
     readonly revert: string | undefined;
 
     readonly contractAddress?: string;
     from?: string;
     contractTweakedPublicKey?: string;
     contractHybridPublicKey?: string;
+    preimage?: string;
 
     readonly events: EventReceiptDataForAPI[];
     readonly gasUsed: string;
