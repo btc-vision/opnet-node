@@ -24,6 +24,10 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         ALLOW_LEGACY: false,
     },
 
+    POW: {
+        PREIMAGE_LENGTH: 128,
+    },
+
     CONTRACTS: {
         /** The maximum size of a calldata in bytes. */
         MAXIMUM_CONTRACT_SIZE_DECOMPRESSED: 128 * 1024,

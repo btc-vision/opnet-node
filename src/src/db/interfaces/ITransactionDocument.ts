@@ -68,7 +68,10 @@ interface InteractionBase {
 
 export interface DeploymentTransactionDocument
     extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment>,
-        InteractionBase {}
+        InteractionBase {
+    readonly preimage: Binary;
+    readonly calldata: Binary;
+}
 
 export interface NetEventDocument {
     readonly type: string;
@@ -80,32 +83,13 @@ export interface InteractionTransactionDocument
     extends ExtendedBaseInfo<InteractionTransactionType>,
         InteractionBase {
     readonly calldata: Binary;
+    readonly preimage: Binary;
     readonly senderPubKeyHash: Binary;
     readonly contractSecret: Binary;
     readonly interactionPubKey: Binary;
 
     readonly wasCompressed: boolean;
 }
-
-/*export interface IWrapInteractionTransactionDocument extends InteractionTransactionDocument {
-    readonly pubKeys: Binary[];
-    readonly vault: string;
-    readonly depositAmount: Decimal128;
-    readonly minimumSignatures: number;
-
-    readonly wrappingFees: Decimal128;
-
-    readonly penalized: boolean;
-    readonly depositAddress: Address;
-}
-
-export interface IUnwrapInteractionTransactionDocument extends InteractionTransactionDocument {
-    readonly authorizedBy: TrustedEntities[];
-    readonly usedUTXOs: UsedUTXOToDelete[];
-    readonly consolidatedVault: PartialWBTCUTXODocument | undefined;
-    readonly unwrapAmount: Decimal128;
-    readonly requestedAmount: Decimal128;
-}*/
 
 export type ITransactionDocument<T extends OPNetTransactionTypes> = TransactionDocument<T> &
     IBaseDocument;

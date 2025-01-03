@@ -15,8 +15,9 @@ import { StrippedTransactionInput, TransactionInput } from './inputs/Transaction
 import { StrippedTransactionOutput, TransactionOutput } from './inputs/TransactionOutput.js';
 import { Address } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { OPNetHeader } from './interfaces/OPNetHeader.js';
 
-const OPNet_MAGIC: Buffer = Buffer.from('bsi', 'utf-8');
+const OPNet_MAGIC: Buffer = Buffer.from('op', 'utf-8');
 const textEncoder = new TextEncoder();
 const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
 
@@ -53,12 +54,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     protected readonly vInputIndex: number;
 
     protected receiptProofs: string[] | undefined;
-
-    //protected readonly _authorizedVaultUsage: boolean = false;
-
-    //private readonly vaultDecoder: VaultInputDecoder = new VaultInputDecoder();
-
-    //readonly #vaultInputs: VaultInput[] = [];
 
     protected constructor(
         rawTransactionData: TransactionData,
@@ -98,6 +93,18 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._computedIndexingHash = this.computeHashForTransaction();
     }
 
+    protected _preimage: Buffer | undefined;
+
+    public get preimage(): Buffer {
+        const preimage = Buffer.alloc(this._preimage?.length || 0);
+
+        if (this._preimage) {
+            this._preimage.copy(preimage);
+        }
+
+        return preimage;
+    }
+
     public get strippedInputs(): StrippedTransactionInput[] {
         return this.inputs
             .slice(0, OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS)
@@ -125,10 +132,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._revert = error;
     }
 
-    //public get authorizedVaultUsage(): boolean {
-    //    return this._authorizedVaultUsage;
-    //}
-
     public get revertBuffer(): Uint8Array | undefined {
         if (!this._revert) {
             return;
@@ -152,10 +155,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._receipt = receipt;
     }
 
-    //public get vaultInputs(): VaultInput[] {
-    //    return this.#vaultInputs;
-    //}
-
     protected _from: Address | undefined;
 
     public get from(): Address {
@@ -178,10 +177,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     protected _originalIndex: number = 0;
-
-    /*public get originalIndex(): number {
-        return this._originalIndex;
-    }*/
 
     public set originalIndex(index: number) {
         this._originalIndex = index;
@@ -258,28 +253,28 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return { out: buffer, compressed: false };
     }
 
-    public static getDataFromWitness(
+    public static getDataFromScript(
         scriptData: Array<number | Buffer>,
         breakWhenReachOpcode: number = opcodes.OP_ELSE,
     ): Buffer | undefined {
-        let contractBytecode: Buffer | undefined = undefined;
+        let data: Buffer | undefined = undefined;
         for (let i = 0; i < scriptData.length; i++) {
             if (scriptData[i] === breakWhenReachOpcode) {
                 break;
             }
 
             if (Buffer.isBuffer(scriptData[i])) {
-                if (!contractBytecode) {
-                    contractBytecode = scriptData[i] as Buffer;
+                if (!data) {
+                    data = scriptData[i] as Buffer;
                 } else {
-                    contractBytecode = Buffer.concat([contractBytecode, scriptData[i] as Buffer]);
+                    data = Buffer.concat([data, scriptData[i] as Buffer]);
                 }
             } else {
                 throw new Error(`Invalid contract bytecode found in deployment transaction.`);
             }
         }
 
-        return contractBytecode;
+        return data;
     }
 
     protected static _is(data: TransactionData, typeChecksum: Buffer): number {
@@ -328,18 +323,37 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return Buffer.from(checksum);
     }
 
+    /** Decode an OP_NET header from the script data */
+    protected static decodeOPNetHeader(
+        scriptData: Array<number | Buffer>,
+    ): OPNetHeader | undefined {
+        const header = scriptData.shift();
+        if (!Buffer.isBuffer(header) || header.length !== 4) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
+            return;
+        }
+
+        const preimage = scriptData.shift();
+        if (
+            !Buffer.isBuffer(preimage) ||
+            preimage.length !== OPNetConsensus.consensus.POW.PREIMAGE_LENGTH
+        ) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
+            return;
+        }
+
+        return new OPNetHeader(header, preimage);
+    }
+
     public setReceiptProofs(proofs: string[] | undefined): void {
         this.receiptProofs = proofs;
     }
-
-    /*public getCompromisedDocument(): ICompromisedTransactionDocument {
-        return {
-            id: this.transactionId,
-            height: this.blockHeight,
-
-            compromisedAuthorities: this.vaultInputs,
-        };
-    }*/
 
     public toBitcoinDocument(): ITransactionDocumentBasic<T> {
         return {
@@ -388,8 +402,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         this.parseInputs(vIn);
         this.parseOutputs(vOuts);
-
-        //this.decodeVaults();
     }
 
     /**
@@ -415,19 +427,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
         return netEvents;
     }
-
-    /** We must verify every single transaction and decode any vault inputs */
-
-    /*protected decodeVaults(): void {
-        for (const input of this.inputs) {
-            const vault = this.vaultDecoder.decodeInput(input);
-            if (!vault) {
-                continue;
-            }
-
-            this.#vaultInputs.push(vault);
-        }
-    }*/
 
     protected decompressData(buffer: Buffer): Buffer {
         const decompressed = Transaction.decompressBuffer(buffer);
@@ -456,18 +455,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     protected setBurnedFee(witnessOutput: TransactionOutput): void {
         const scriptPubKey: ScriptPubKey = witnessOutput.scriptPubKey;
-
-        /*if (
-            !(
-                scriptPubKey.type === 'witness_v1_taproot' ||
-                scriptPubKey.type === 'witness_v0_keyhash'
-            )
-        ) {
-            throw new Error(
-                `Invalid scriptPubKey type for contract witness output. Was ${scriptPubKey.type}`,
-            );
-        }*/
-
         if (!scriptPubKey.address) {
             throw new Error('No address found for contract witness output');
         }

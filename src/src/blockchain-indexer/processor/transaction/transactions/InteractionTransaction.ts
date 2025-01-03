@@ -16,15 +16,16 @@ import { Address, AddressVerificator } from '@btc-vision/transaction';
 import * as ecc from 'tiny-secp256k1';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import crypto from 'crypto';
+import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 
 export interface InteractionWitnessData {
     senderPubKey: Buffer;
     interactionSaltPubKey: Buffer;
-    senderPubKeyHash160: Buffer;
+    hashedSenderPubKey: Buffer;
     contractSecretHash160: Buffer;
     calldata: Buffer;
 
-    readonly firstByte: Buffer;
+    readonly header: OPNetHeader;
 }
 
 initEccLib(ecc);
@@ -33,6 +34,7 @@ initEccLib(ecc);
 export class InteractionTransaction extends Transaction<InteractionTransactionType> {
     public static LEGACY_INTERACTION: Buffer = Buffer.from([
         opcodes.OP_TOALTSTACK,
+        opcodes.OP_TOALTSTACK, // preimage
 
         opcodes.OP_DUP,
         opcodes.OP_HASH256,
@@ -135,8 +137,14 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     public static getInteractionWitnessDataHeader(
         scriptData: Array<number | Buffer>,
     ): Omit<InteractionWitnessData, 'calldata'> | undefined {
+        const header = InteractionTransaction.decodeOPNetHeader(scriptData);
+        if (!header) {
+            return;
+        }
+
+        // Enforce 32 bytes pubkey only.
         const senderPubKey = scriptData.shift();
-        if (!Buffer.isBuffer(senderPubKey)) {
+        if (!Buffer.isBuffer(senderPubKey) || senderPubKey.length !== 32) {
             return;
         }
 
@@ -149,7 +157,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         const hashedSenderPubKey = scriptData.shift();
-        if (!Buffer.isBuffer(hashedSenderPubKey)) {
+        if (!Buffer.isBuffer(hashedSenderPubKey) || hashedSenderPubKey.length !== 32) {
             return;
         }
 
@@ -161,17 +169,8 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             return;
         }
 
-        const firstByte = scriptData.shift();
-        if (!Buffer.isBuffer(firstByte) || firstByte.length !== 1) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
-            return;
-        }
-
         const interactionSaltPubKey = scriptData.shift();
-        if (!Buffer.isBuffer(interactionSaltPubKey)) {
+        if (!Buffer.isBuffer(interactionSaltPubKey) || interactionSaltPubKey.length !== 32) {
             return;
         }
 
@@ -184,7 +183,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         const contractSaltHash160 = scriptData.shift();
-        if (!Buffer.isBuffer(contractSaltHash160)) {
+        if (!Buffer.isBuffer(contractSaltHash160) || contractSaltHash160.length !== 20) {
             return;
         }
 
@@ -198,15 +197,15 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         if (scriptData.shift() !== opcodes.OP_IF) return;
 
         const magic = scriptData.shift();
-        if (!Buffer.isBuffer(magic)) {
+        if (!Buffer.isBuffer(magic) || magic.length !== 2) {
             return;
         }
 
         return {
-            firstByte,
+            header: header,
             senderPubKey,
             interactionSaltPubKey,
-            senderPubKeyHash160: hashedSenderPubKey,
+            hashedSenderPubKey: hashedSenderPubKey,
             contractSecretHash160: contractSaltHash160,
         };
     }
@@ -214,8 +213,8 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     public static getInteractionWitnessData(
         scriptData: Array<number | Buffer>,
     ): InteractionWitnessData | undefined {
-        const header = this.getInteractionWitnessDataHeader(scriptData);
-        if (!header) {
+        const tx = this.getInteractionWitnessDataHeader(scriptData);
+        if (!tx) {
             return;
         }
 
@@ -224,7 +223,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             return;
         }
 
-        const calldata: Buffer | undefined = this.getDataFromWitness(scriptData);
+        const calldata: Buffer | undefined = this.getDataFromScript(scriptData);
         if (!calldata) {
             throw new Error(`No contract bytecode found in deployment transaction.`);
         }
@@ -237,11 +236,11 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         return {
-            firstByte: header.firstByte,
-            senderPubKey: header.senderPubKey,
-            interactionSaltPubKey: header.interactionSaltPubKey,
-            senderPubKeyHash160: header.senderPubKeyHash160,
-            contractSecretHash160: header.contractSecretHash160,
+            header: tx.header,
+            senderPubKey: tx.senderPubKey,
+            interactionSaltPubKey: tx.interactionSaltPubKey,
+            hashedSenderPubKey: tx.hashedSenderPubKey,
+            contractSecretHash160: tx.contractSecretHash160,
             calldata,
         };
     }
@@ -271,6 +270,8 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             contractTweakedPublicKey: new Binary(this.address),
 
             calldata: new Binary(this.calldata),
+            preimage: new Binary(this.preimage),
+
             senderPubKeyHash: new Binary(this.senderPubKeyHash),
             contractSecret: new Binary(this.contractSecret),
             interactionPubKey: new Binary(this.interactionPubKey),
@@ -298,29 +299,25 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     protected parseTransactionData(self: typeof InteractionTransaction): void {
         const inputOPNetWitnessTransactions = this.getInputWitnessTransactions();
         if (inputOPNetWitnessTransactions.length === 0) {
-            throw new Error(
-                `No input witness transactions found for deployment transaction ${this.txid}`,
-            );
+            throw new Error(`OP_NET: No input witness transactions found.`);
         }
 
         // TODO: If we add support multiple call inside a single transaction, we must make sure to check that we dont rescan old transaction without this check by specifying the block height.
         if (inputOPNetWitnessTransactions.length > 1) {
             throw new Error(
-                `Multiple input witness transactions found for deployment transaction ${this.txid}. This is not implemented.`,
+                `OP_NET: Multiple input witness transactions found. Reserved for future use.`,
             );
         }
 
         /** As we only support one contract interaction per transaction, we can safely assume that the first element is the one we are looking for. */
         const scriptData = this.getWitnessWithMagic();
         if (!scriptData) {
-            throw new Error(`No script data found for deployment transaction ${this.txid}`);
+            throw new Error(`OP_NET: No script data found.`);
         }
 
         this.interactionWitnessData = self.getInteractionWitnessData(scriptData);
         if (!this.interactionWitnessData) {
-            throw new Error(
-                `Failed to parse interaction witness data for transaction ${this.txid}`,
-            );
+            throw new Error(`OP_NET: Failed to parse interaction witness data.`);
         }
 
         this._calldata = this.interactionWitnessData.calldata;
@@ -329,39 +326,46 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
 
         const contractSecret: Buffer = Buffer.from(witnesses[0], 'hex');
-        const senderPubKey: Buffer = Buffer.from(witnesses[1], 'hex');
+        const senderPubKey: Buffer = Buffer.from([
+            this.interactionWitnessData.header.publicKeyPrefix,
+            ...this.interactionWitnessData.senderPubKey,
+        ]);
 
         /** Verify witness data */
-        const hashSenderPubKey = bitcoin.crypto.hash160(senderPubKey);
-        if (!hashSenderPubKey.equals(this.interactionWitnessData.senderPubKeyHash160)) {
-            throw new Error(`Sender public key hash mismatch for transaction ${this.txid}`);
+        const hashSenderPubKey = bitcoin.crypto.hash256(this.interactionWitnessData.senderPubKey);
+        if (
+            !crypto.timingSafeEqual(
+                hashSenderPubKey,
+                this.interactionWitnessData.hashedSenderPubKey,
+            )
+        ) {
+            throw new Error(`OP_NET: Sender public key hash mismatch.`);
         }
 
-        if (!senderPubKey.equals(this.interactionWitnessData.senderPubKey)) {
-            throw new Error(
-                `Sender public key mismatch for transaction ${this.txid}. Expected ${this.interactionWitnessData.senderPubKey.toString(
-                    'hex',
-                )} but got ${senderPubKey.toString('hex')}`,
-            );
-        }
-
-        this._from = new Address([this.interactionWitnessData.firstByte[0], ...senderPubKey]);
-
+        this._from = new Address(senderPubKey);
         if (!this._from.isValid(this.network)) {
             throw new Error(`OP_NET: Invalid sender address.`);
         }
 
-        this.senderPubKeyHash = this.interactionWitnessData.senderPubKeyHash160;
-        this.senderPubKey = this.interactionWitnessData.senderPubKey;
+        this.senderPubKeyHash = this.interactionWitnessData.hashedSenderPubKey;
+        this.senderPubKey = senderPubKey;
+        this._preimage = this.interactionWitnessData.header.preimage;
+
+        // TODO: Verify preimage, from db for existing preimage, now, we have to be careful so people may not exploit this check.
+        // If an attacker send the same preimage as someone else, he may be able to cause a reversion of the transaction of the other person.
+        // We have to make it so it only checks if the preimage was used from block range: 0 to currentHeight - 10.
+        // We allow duplicates in the last 10 blocks to prevent this attack.
+        // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
 
         /** Verify contract salt */
         const hashContractSalt = bitcoin.crypto.hash160(contractSecret);
-        if (!hashContractSalt.equals(this.interactionWitnessData.contractSecretHash160)) {
-            throw new Error(
-                `Contract salt hash mismatch for transaction ${this.txid}. Expected ${this.interactionWitnessData.contractSecretHash160.toString(
-                    'hex',
-                )} but got ${hashContractSalt.toString('hex')}`,
-            );
+        if (
+            !crypto.timingSafeEqual(
+                hashContractSalt,
+                this.interactionWitnessData.contractSecretHash160,
+            )
+        ) {
+            throw new Error(`OP_NET: Contract salt hash mismatch.`);
         }
 
         this.interactionPubKey = this.interactionWitnessData.interactionSaltPubKey;

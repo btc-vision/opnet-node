@@ -26,6 +26,10 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly ALLOW_LEGACY: boolean;
     };
 
+    readonly POW: {
+        readonly PREIMAGE_LENGTH: number;
+    };
+
     /** Contracts related rules */
     readonly CONTRACTS: {
         /** The maximum size of a calldata in bytes. */
