@@ -1,5 +1,5 @@
 import { IMempoolTransactionObj } from '../db/interfaces/IMempoolTransaction.js';
-import bitcoin from '@btc-vision/bitcoin';
+import bitcoin, { Transaction } from '@btc-vision/bitcoin';
 import { Long } from 'mongodb';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 
@@ -25,7 +25,7 @@ export function getOutputAddressForScript(script: Buffer): string | null {
 
 export function parseAndStoreInputOutputs(data: Buffer, transaction: IMempoolTransactionObj): void {
     try {
-        const decoded = bitcoin.Transaction.fromBuffer(data);
+        const decoded = Transaction.fromBuffer(data);
 
         for (const input of decoded.ins) {
             transaction.inputs.push({

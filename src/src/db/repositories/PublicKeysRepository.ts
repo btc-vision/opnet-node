@@ -4,10 +4,8 @@ import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
 import { CURVE, ProjectivePoint as Point } from '@noble/secp256k1';
-import { taggedHash } from '@btc-vision/bitcoin/src/crypto.js';
+import { Network, payments, taggedHash, toXOnly } from '@btc-vision/bitcoin';
 import { TransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
-import { Network, payments } from '@btc-vision/bitcoin';
-import { toXOnly } from '@btc-vision/bitcoin/src/psbt/bip371.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { AddressVerificator, EcKeyPair } from '@btc-vision/transaction';
 import {
@@ -16,6 +14,7 @@ import {
     PublicKeyInfo,
 } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 import fs from 'fs';
+import { Config } from '../../config/Config.js';
 
 const mod = (a: bigint, b: bigint): bigint => {
     const result = a % b;
@@ -276,7 +275,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return controlByte === 0xc0 || controlByte === 0xc1;
     }
 
-    private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Buffer, txId: string): void {
+    private addPubKey(publicKeys: PublicKeyDocument[], publicKey: Buffer, txId: Buffer): void {
         const str = publicKey.toString('hex');
         if (this.cache.has(str)) return;
 
@@ -308,22 +307,28 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             });
         } catch (err) {
             const e = err as Error;
-            this.error(`error in tx (${e.message})`, publicKey.toString('hex'), txId);
+            this.error(
+                `error in tx (${e.message})`,
+                publicKey.toString('hex'),
+                txId.toString('hex'),
+            );
         }
     }
 
-    private reportNonStandardScript(type: string, script: string, txId: string): void {
+    private reportNonStandardScript(type: string, script: string, txId: Buffer): void {
         // write the data to a file that can be checked later on.
-        fs.appendFileSync('non-standard-scripts.txt', `${txId}: ${script}\n`);
+        if (Config.DEV_MODE) {
+            fs.appendFileSync('non-standard-scripts.txt', `${txId.toString('hex')}: ${script}\n`);
 
-        this.warn(`Unknown script type: ${type}`);
+            this.warn(`Unknown script type: ${type}`);
+        }
     }
 
     private decodeOutput(
         publicKeys: PublicKeyDocument[],
         output: TransactionOutput,
         type: string,
-        txId: string,
+        txId: Buffer,
     ): void {
         switch (type) {
             case 'pubkey': {

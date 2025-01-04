@@ -11,10 +11,6 @@ import {
     ITransactionDocument,
     NetEventDocument,
 } from '../../db/interfaces/ITransactionDocument.js';
-import { Address } from '@btc-vision/transaction';
-import { NetworkConverter } from '../../config/network/NetworkConverter.js';
-
-const network = NetworkConverter.getNetwork();
 
 export class TransactionConverterForAPI {
     public static convertTransactionToAPI(
@@ -28,14 +24,12 @@ export class TransactionConverterForAPI {
             'events' in transaction
                 ? ((transaction as InteractionTransactionDocument).events.map(
                       (event: NetEventDocument) => {
-                          const contractAddress: Address =
-                              'p2tr' in event.contractAddress
-                                  ? event.contractAddress
-                                  : new Address(event.contractAddress.buffer);
-
                           return {
-                              contractAddress: contractAddress.p2tr(network),
-                              type: event.type,
+                              contractAddress: '0x' + event.contractAddress.toString('hex'),
+                              type: (event.type instanceof Uint8Array
+                                  ? new Binary(event.type)
+                                  : event.type
+                              ).toString('utf8'),
                               data: (event.data instanceof Uint8Array
                                   ? new Binary(event.data)
                                   : event.data
@@ -47,6 +41,8 @@ export class TransactionConverterForAPI {
 
         const newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
+            hash: transaction.hash.toString('hex'),
+            id: transaction.id.toString('hex'),
             inputs: transaction.inputs,
             outputs: transaction.outputs?.map((output) => {
                 return {
@@ -63,7 +59,17 @@ export class TransactionConverterForAPI {
             blockHeight: undefined,
             deployedTransactionHash: undefined,
             deployedTransactionId: undefined,
+            reward: undefined,
+            preimage: undefined,
         };
+
+        if ('preimage' in transaction) {
+            const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
+            newTx.pow = {
+                preimage: tx.preimage.toString('base64'),
+                reward: '0x' + tx.reward.toString(16),
+            };
+        }
 
         if ('contractTweakedPublicKey' in transaction) {
             const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
@@ -74,34 +80,6 @@ export class TransactionConverterForAPI {
             const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
             newTx.from = tx.from ? tx.from.toString('base64') : undefined;
         }
-
-        /*if ('wrappingFees' in transaction) {
-            const tx = transaction as IWrapInteractionTransactionDocument;
-
-            newTx.wrappingFees = '0x' + DataConverter.fromDecimal128(tx.wrappingFees).toString(16);
-            newTx.depositAmount =
-                '0x' + DataConverter.fromDecimal128(tx.depositAmount).toString(16);
-        }
-
-        if ('unwrapAmount' in transaction) {
-            const tx = transaction as IUnwrapInteractionTransactionDocument;
-
-            newTx.unwrapAmount = '0x' + DataConverter.fromDecimal128(tx.unwrapAmount).toString(16);
-            newTx.requestedAmount =
-                '0x' + DataConverter.fromDecimal128(tx.requestedAmount).toString(16);
-
-            if (tx.consolidatedVault) {
-                newTx.consolidatedVault = {
-                    vault: tx.consolidatedVault.vault,
-                    hash: tx.consolidatedVault.hash,
-                    value:
-                        '0x' +
-                        DataConverter.fromDecimal128(tx.consolidatedVault.value).toString(16),
-                    outputIndex: tx.consolidatedVault.outputIndex,
-                    output: tx.consolidatedVault.output.toString('base64'),
-                };
-            }
-        }*/
 
         delete newTx._id;
         delete newTx.blockHeight;

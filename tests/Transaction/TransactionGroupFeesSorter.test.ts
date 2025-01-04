@@ -29,7 +29,7 @@ describe('TransactionGroupFeesSorter', () => {
             const groups: Transaction<OPNetTransactionTypes>[][] = [groupA, groupB, groupC];
 
             // When
-            const sortedGroups = sorter.sortGroupsByBurnedFees(groups);
+            const sortedGroups = sorter.sortGroupByFees(groups);
 
             // Then
             expect(sortedGroups[0]).toMatchObject(groupB);
@@ -66,7 +66,7 @@ describe('TransactionGroupFeesSorter', () => {
             const groups: Transaction<OPNetTransactionTypes>[][] = [groupA, groupB];
 
             // When
-            const sortedGroups = sorter.sortGroupsByBurnedFees(groups);
+            const sortedGroups = sorter.sortGroupByFees(groups);
 
             // Then
             expect(sortedGroups[0]).toMatchObject(groupB);
@@ -82,7 +82,7 @@ describe('TransactionGroupFeesSorter', () => {
             const groups = [groupA, groupB];
 
             // When
-            const sortedGroups = sorter.sortGroupsByBurnedFees(groups);
+            const sortedGroups = sorter.sortGroupByFees(groups);
 
             // Then
             expect(sortedGroups[0]).toBe(groupB);

@@ -2,12 +2,12 @@ import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { Transaction } from '../Transaction.js';
 
 export class TransactionGroupFeesSorter {
-    public sortGroupsByBurnedFees(
+    public sortGroupByFees(
         groups: Transaction<OPNetTransactionTypes>[][],
     ): Transaction<OPNetTransactionTypes>[][] {
         return groups.sort((a, b) => {
-            const totalA = this.calculateTotalBurnedFees(a);
-            const totalB = this.calculateTotalBurnedFees(b);
+            const totalA = this.calculateFees(a);
+            const totalB = this.calculateFees(b);
 
             if (totalA < totalB) {
                 return 1; // For descending order, return 1 if A is less than B
@@ -19,8 +19,8 @@ export class TransactionGroupFeesSorter {
         });
     }
 
-    private calculateTotalBurnedFees(group: Transaction<OPNetTransactionTypes>[]): bigint {
-        return group.reduce((acc, tx) => acc + tx.burnedFee, 0n);
+    private calculateFees(group: Transaction<OPNetTransactionTypes>[]): bigint {
+        return group.reduce((acc, tx) => acc + tx.burnedFee + tx.reward, 0n);
     }
 
     private compareHashLists(

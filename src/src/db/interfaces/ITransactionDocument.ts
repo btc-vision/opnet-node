@@ -1,5 +1,5 @@
 import { IBaseDocument } from '@btc-vision/bsi-common';
-import { Binary, Decimal128 } from 'mongodb';
+import { Binary, Decimal128, Long } from 'mongodb';
 import {
     InteractionTransactionType,
     OPNetTransactionTypes,
@@ -15,9 +15,8 @@ import {
 import { Address } from '@btc-vision/transaction';
 
 export interface TransactionDocumentBasic<T extends OPNetTransactionTypes> {
-    readonly id: string;
-    readonly hash: string;
-
+    readonly id: Buffer;
+    readonly hash: Buffer;
     readonly raw: Buffer;
 
     readonly index: number; // Mark the order of the transaction in the block
@@ -44,6 +43,7 @@ export interface TransactionDocument<T extends OPNetTransactionTypes>
     extends Omit<TransactionDocumentBase<T>, 'inputs' | 'outputs'> {
     readonly blockHeight: Decimal128;
     readonly burnedBitcoin: Decimal128;
+    readonly reward: Long;
     readonly gasUsed: Decimal128;
 
     readonly inputs: ITransactionInput[];
@@ -56,6 +56,7 @@ export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocum
     readonly from: Binary;
     readonly contractAddress: string;
     readonly contractTweakedPublicKey: Binary;
+    readonly preimage: Binary;
 };
 
 interface InteractionBase {
@@ -68,10 +69,13 @@ interface InteractionBase {
 
 export interface DeploymentTransactionDocument
     extends ExtendedBaseInfo<OPNetTransactionTypes.Deployment>,
-        InteractionBase {}
+        InteractionBase {
+    readonly preimage: Binary;
+    readonly calldata: Binary;
+}
 
 export interface NetEventDocument {
-    readonly type: string;
+    readonly type: Binary | Uint8Array;
     readonly data: Binary | Uint8Array;
     readonly contractAddress: Address | Binary;
 }
@@ -80,32 +84,13 @@ export interface InteractionTransactionDocument
     extends ExtendedBaseInfo<InteractionTransactionType>,
         InteractionBase {
     readonly calldata: Binary;
+    readonly preimage: Binary;
     readonly senderPubKeyHash: Binary;
     readonly contractSecret: Binary;
     readonly interactionPubKey: Binary;
 
     readonly wasCompressed: boolean;
 }
-
-/*export interface IWrapInteractionTransactionDocument extends InteractionTransactionDocument {
-    readonly pubKeys: Binary[];
-    readonly vault: string;
-    readonly depositAmount: Decimal128;
-    readonly minimumSignatures: number;
-
-    readonly wrappingFees: Decimal128;
-
-    readonly penalized: boolean;
-    readonly depositAddress: Address;
-}
-
-export interface IUnwrapInteractionTransactionDocument extends InteractionTransactionDocument {
-    readonly authorizedBy: TrustedEntities[];
-    readonly usedUTXOs: UsedUTXOToDelete[];
-    readonly consolidatedVault: PartialWBTCUTXODocument | undefined;
-    readonly unwrapAmount: Decimal128;
-    readonly requestedAmount: Decimal128;
-}*/
 
 export type ITransactionDocument<T extends OPNetTransactionTypes> = TransactionDocument<T> &
     IBaseDocument;

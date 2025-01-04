@@ -1,4 +1,4 @@
-import { BitcoinRawTransactionParams, BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRawTransactionParams, BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Config } from '../../../config/Config.js';
 import {
@@ -150,12 +150,11 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     private convertArrayToMap(
         array: [string, [string, string][]][],
-    ): Map<string, PointerStorageMap> {
-        const map: Map<string, PointerStorageMap> = new Map<string, PointerStorageMap>();
+    ): Map<string, Map<bigint, bigint>> {
+        const map: Map<string, Map<bigint, bigint>> = new Map<string, PointerStorageMap>();
 
         for (const [key, value] of array) {
-            const innerMap: PointerStorageMap = new Map<bigint, bigint>();
-
+            const innerMap: Map<bigint, bigint> = new Map();
             for (const [innerKey, innerValue] of value) {
                 innerMap.set(BigInt(innerKey), BigInt(innerValue));
             }

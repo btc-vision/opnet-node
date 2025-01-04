@@ -2,6 +2,7 @@ import { BaseRepository, DataAccessError, DataAccessErrorType } from '@btc-visio
 import { DataConverter } from '@btc-vision/bsi-db';
 import {
     AnyBulkWriteOperation,
+    Binary,
     BulkWriteOptions,
     BulkWriteResult,
     ClientSession,
@@ -16,6 +17,9 @@ import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transa
 import { ITransactionDocument, TransactionDocument } from '../interfaces/ITransactionDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 
+/**
+ * Reworked repository that stores hash/id purely as binary.
+ */
 export class TransactionRepository extends BaseRepository<
     ITransactionDocument<OPNetTransactionTypes>
 > {
@@ -25,6 +29,9 @@ export class TransactionRepository extends BaseRepository<
         super(db);
     }
 
+    /**
+     * Removes all transactions from the given blockHeight onward.
+     */
     public async deleteTransactionsFromBlockHeight(
         blockHeight: bigint,
         currentSession?: ClientSession,
@@ -34,12 +41,12 @@ export class TransactionRepository extends BaseRepository<
         };
 
         await this.delete(criteria, currentSession);
-
-        //const promises: Promise<unknown>[] = [this.delete(criteria, currentSession)];
-
-        //await Promise.all(promises);
     }
 
+    /**
+     * Internal method to run bulkWrite operations.
+     * Everything is already expected to be in binary form (hash/id).
+     */
     public async bulkWrite(
         operations: AnyBulkWriteOperation<ITransactionDocument<OPNetTransactionTypes>>[],
         currentSession?: ClientSession,
@@ -66,7 +73,6 @@ export class TransactionRepository extends BaseRepository<
         } catch (error) {
             if (error instanceof Error) {
                 const errorDescription: string = error.stack || error.message;
-
                 throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
             } else {
                 throw error;
@@ -74,6 +80,10 @@ export class TransactionRepository extends BaseRepository<
         }
     }
 
+    /**
+     * Saves or upserts a set of transactions to MongoDB.
+     * Expects that the transaction.hash and transaction.id are already binary.
+     */
     public async saveTransactions(
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
         currentSession?: ClientSession,
@@ -96,6 +106,10 @@ export class TransactionRepository extends BaseRepository<
         await this.bulkWrite(bulkWriteOperations, currentSession);
     }
 
+    /**
+     * Retrieves all transactions for a given blockHeight.
+     * `height` is Decimal128, so we can filter directly by blockHeight.
+     */
     public async getTransactionsByBlockHash(
         height: Decimal128,
         currentSession?: ClientSession,
@@ -105,16 +119,32 @@ export class TransactionRepository extends BaseRepository<
         };
 
         const sort: Sort = { index: 1 };
-
         return await this.getAll(criteria, currentSession, sort);
     }
 
+    /**
+     * Retrieves a single transaction by its hash or id (both are stored as binary).
+     *
+     * If you still have external code that provides the hash as a hex string,
+     * you must convert it to Binary/Buffer here.
+     *
+     * @param hashOrId - a Buffer or a string (hex) to be matched against `hash` or `id` in binary form
+     * @param currentSession
+     */
     public async getTransactionByHash(
-        hash: string,
+        hashOrId: Buffer | string,
         currentSession?: ClientSession,
     ): Promise<TransactionDocument<OPNetTransactionTypes> | undefined> {
+        // If `hashOrId` is string (hex?), convert to a Buffer. Then wrap in Binary to query.
+        let binHash: Binary;
+        if (typeof hashOrId === 'string') {
+            binHash = new Binary(Buffer.from(hashOrId, 'hex'));
+        } else {
+            binHash = new Binary(hashOrId);
+        }
+
         const criteria: Document = {
-            $or: [{ hash }, { id: hash }],
+            $or: [{ hash: binHash }, { id: binHash }],
         };
 
         const transaction = await this.queryOne(criteria, currentSession);
@@ -123,6 +153,9 @@ export class TransactionRepository extends BaseRepository<
         return transaction ?? undefined;
     }
 
+    /**
+     * We override getCollection to ensure we get the right collection with correct typing.
+     */
     protected override getCollection(): Collection<ITransactionDocument<OPNetTransactionTypes>> {
         return this._db.collection(OPNetCollections.Transactions);
     }

@@ -25,6 +25,7 @@ import { BootstrapNodes } from './BootstrapNodes.js';
 import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
+import { AutoNATServiceInit } from '@libp2p/autonat/src';
 
 interface BackedUpPeer {
     id: string;
@@ -36,7 +37,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public static readonly protocolName: string = 'opnet';
     public static readonly protocolVersion: string = '1.0.0';
 
-    private static readonly maxMessageSize: number = 8 * 1024 * 1024; // 8 MiB
+    private static readonly maxMessageSize: number = 6 * 1024 * 1024; // 6 MiB
 
     private readonly defaultBootstrapNodes: string[];
 
@@ -67,6 +68,16 @@ export class P2PConfigurations extends OPNetPathFinder {
                 handshakeTimeout: 10000,
                 maxPayload: P2PConfigurations.maxMessageSize,
             },
+        };
+    }
+
+    public get autoNATConfiguration(): AutoNATServiceInit {
+        return {
+            protocolPrefix: P2PConfigurations.protocolName,
+            timeout: 10000,
+            maxInboundStreams: 3,
+            maxOutboundStreams: 3,
+            startupDelay: 1000,
         };
     }
 
@@ -173,9 +184,8 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get upnpConfiguration(): UPnPNATInit {
         return {
-            description: P2PConfigurations.protocolName,
-            ttl: 7200,
-            keepAlive: true,
+            portMappingDescription: P2PConfigurations.protocolName,
+            portMappingTTL: 7200,
         };
     }
 

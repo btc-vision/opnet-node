@@ -1,4 +1,4 @@
-import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
+import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { EcKeyPair } from '@btc-vision/transaction';
 import { Network } from '@btc-vision/bitcoin';
 import { createHash, Hash, randomBytes } from 'crypto';

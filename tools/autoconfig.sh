@@ -755,7 +755,7 @@ clone_and_build_indexer() {
 
     # Clone the repository
     echo -e "${BLUE}Cloning the OPNet Indexer repository...${NC}"
-    git clone git@github.com:btc-vision/opnet-node.git "$indexer_dir"
+    git clone https://github.com/btc-vision/opnet-node.git "$indexer_dir"
     git pull
     git fetch
     cd "$indexer_dir" || exit 1

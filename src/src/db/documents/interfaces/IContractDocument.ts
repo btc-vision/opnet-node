@@ -4,10 +4,11 @@ export interface IContractDocumentBase {
     readonly blockHeight: Decimal128 | string | undefined;
     readonly contractAddress: string;
     readonly contractTweakedPublicKey: Binary | string;
+    readonly contractHybridPublicKey: Binary | string;
     readonly bytecode: Binary | string;
     readonly wasCompressed: boolean;
-    readonly deployedTransactionId: string;
-    readonly deployedTransactionHash: string;
+    readonly deployedTransactionId: Binary | string;
+    readonly deployedTransactionHash: Binary | string;
     readonly deployerPubKey: Binary | string;
     readonly contractSeed: Binary | string;
     readonly contractSaltHash: Binary | string;
@@ -18,6 +19,8 @@ export interface IContractAPIDocument extends Omit<IContractDocumentBase, 'deplo
     readonly deployerPubKey: string;
     readonly contractSeed: string;
     readonly contractSaltHash: string;
+    readonly deployedTransactionId: string;
+    readonly deployedTransactionHash: string;
     _id: undefined;
     blockHeight: undefined;
     deployerAddress: undefined;
@@ -29,4 +32,6 @@ export interface IContractDocument extends IContractDocumentBase {
     readonly deployerPubKey: Binary;
     readonly contractSeed: Binary;
     readonly contractSaltHash: Binary;
+    readonly deployedTransactionId: Binary;
+    readonly deployedTransactionHash: Binary;
 }

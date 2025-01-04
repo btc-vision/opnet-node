@@ -28,6 +28,7 @@ import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
+import { FastStringMap } from '../../../../../utils/fast/FastStringMap.js';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private pendingRequests: number = 0;
@@ -225,7 +226,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return response;
     }
 
-    private convertEventToResult(events: Map<string, NetEvent[]> | undefined): ContractEvents {
+    private convertEventToResult(
+        events: FastStringMap<NetEvent[]> | Map<string, NetEvent[]> | undefined,
+    ): ContractEvents {
         const contractEvents: ContractEvents = {};
 
         if (!events) {
@@ -251,7 +254,12 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return contractEvents;
     }
 
-    private getAccessList(changedStorage: Map<string, PointerStorageMap> | undefined): AccessList {
+    private getAccessList(
+        changedStorage:
+            | FastStringMap<PointerStorageMap>
+            | Map<string, Map<bigint, bigint>>
+            | undefined,
+    ): AccessList {
         const accessList: AccessList = {};
         if (!changedStorage) {
             return accessList;

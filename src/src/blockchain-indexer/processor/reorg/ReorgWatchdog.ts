@@ -1,4 +1,4 @@
-import { BitcoinRPC, BlockHeaderInfo } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC, BlockHeaderInfo } from '@btc-vision/bitcoin-rpc';
 import { Block } from '../block/Block.js';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { VMManager } from '../../../vm/VMManager.js';

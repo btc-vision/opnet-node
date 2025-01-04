@@ -2,7 +2,7 @@ import { VMStorage } from '../vm/storage/VMStorage.js';
 import { VMManager } from '../vm/VMManager.js';
 import { Config } from '../config/Config.js';
 import { Logger } from '@btc-vision/bsi-common';
-import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import {
     CallRequestData,
     CallRequestResponse,
@@ -133,10 +133,11 @@ class RPCManager extends Logger {
                 blockHeight: contract.blockHeight.toString(),
                 contractAddress: contract.contractAddress.toString(),
                 contractTweakedPublicKey: contract.contractTweakedPublicKey.toString(),
+                contractHybridPublicKey: contract.contractHybridPublicKey.toString(),
                 bytecode: contract.bytecode.toString('hex'),
                 wasCompressed: contract.wasCompressed,
-                deployedTransactionId: contract.deployedTransactionId,
-                deployedTransactionHash: contract.deployedTransactionHash,
+                deployedTransactionId: contract.deployedTransactionId.toString('hex'),
+                deployedTransactionHash: contract.deployedTransactionHash.toString('hex'),
                 deployerPubKey: contract.deployerPubKey.toString('hex'),
                 contractSeed: contract.contractSeed.toString('hex'),
                 contractSaltHash: contract.contractSaltHash.toString('hex'),

@@ -64,6 +64,9 @@ import { Components } from 'libp2p/components.js';
 import { Config } from '../../config/Config.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { CID } from 'multiformats/cid';
+import { autoNAT } from '@libp2p/autonat';
+import { FastStringMap } from '../../utils/fast/FastStringMap.js';
+import { FastBigIntSet } from '../../utils/fast/FastBigIntSet.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -86,6 +89,8 @@ type Libp2pInstance = Libp2p<{
     identifyPush: IdentifyPush;
 }>;
 
+const READ_TIMEOUT_MS: number = 12_000;
+
 export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
@@ -94,13 +99,13 @@ export class P2PManager extends Logger {
 
     private privateKey: PrivateKey | undefined;
 
-    private peers: Map<string, OPNetPeer> = new Map();
+    private peers: FastStringMap<OPNetPeer> = new FastStringMap();
 
-    private blackListedPeerIds: Map<string, BlacklistedPeerInfo> = new Map();
-    private blackListedPeerIps: Map<string, BlacklistedPeerInfo> = new Map();
+    private blackListedPeerIds: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
+    private blackListedPeerIps: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
 
-    private knownMempoolIdentifiers: Set<bigint> = new Set();
-    private broadcastIdentifiers: Set<bigint> = new Set();
+    private knownMempoolIdentifiers: FastBigIntSet = new FastBigIntSet();
+    private broadcastIdentifiers: FastBigIntSet = new FastBigIntSet();
 
     private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 30_000;
 
@@ -585,6 +590,7 @@ export class P2PManager extends Logger {
             return;
         }
 
+        // Mitigate potential flooding.
         const maxPerBatch = 10;
         for (let i = 0; i < peersToTry.length; i += maxPerBatch) {
             const batch = peersToTry.slice(i, i + maxPerBatch);
@@ -900,6 +906,10 @@ export class P2PManager extends Logger {
         await this.node.start();
     }
 
+    private idle(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
     private async addHandles(): Promise<void> {
         if (this.node === undefined) {
             throw new Error('Node not initialized');
@@ -912,18 +922,33 @@ export class P2PManager extends Logger {
             const peerId: PeerId = connection.remotePeer;
 
             try {
-                const lp = lpStream(stream);
-                const req = await lp.read();
+                const lp = lpStream(stream, {
+                    maxDataLength: 1024 * 1024 * 6,
+                });
+
+                const req = await Promise.race([
+                    lp.read(),
+                    (async () => {
+                        await this.idle(READ_TIMEOUT_MS);
+                        throw new Error('Timeout reading from peer after 5s');
+                    })(),
+                ]);
 
                 if (!req) {
+                    try {
+                        await incomingStream.connection.close();
+                    } catch {}
                     return;
                 }
 
                 // TODO: Check if this may contain multiple messages or if this is junk chunks of data
-                const data: Uint8Array = req.subarray();
+                const data: Buffer = req.subarray() as unknown as Buffer;
 
                 /** We could await for the message to process and send a response but this may lead to timeout in some cases */
-                void this.onPeerMessage(peerId, data);
+                void this.onPeerMessage(
+                    peerId,
+                    new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+                );
 
                 // Acknowledge the message
                 await lp.write(new Uint8Array([0x01])).catch(() => {});
@@ -1127,6 +1152,7 @@ export class P2PManager extends Logger {
             peerStore: this.peerStoreConfigurations(),
             transportManager: this.p2pConfigurations.transportManagerConfiguration,
             services: {
+                autoNAT: autoNAT(this.p2pConfigurations.autoNATConfiguration),
                 identify: identify(this.p2pConfigurations.identifyConfiguration),
                 identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
                 nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),

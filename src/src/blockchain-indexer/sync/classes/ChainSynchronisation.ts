@@ -8,9 +8,9 @@ import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { BlockFetcher } from '../../fetcher/abstract/BlockFetcher.js';
 import { Config } from '../../../config/Config.js';
 import { RPCBlockFetcher } from '../../fetcher/RPCBlockFetcher.js';
-import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import { Block, DeserializedBlock } from '../../processor/block/Block.js';
-import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc/build/rpc/types/BlockData.js';
+import { TransactionData } from '@btc-vision/bitcoin-rpc/build/rpc/types/BlockData.js';
 import {
     ProcessUnspentTransactionList,
     UnspentTransactionRepository,

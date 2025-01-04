@@ -19,6 +19,13 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         // Is this node updated to the next consensus?
         IS_READY_FOR_NEXT_CONSENSUS: false,
+
+        // Allow legacy? Hybrid contract address are supported in this version.
+        ALLOW_LEGACY: false,
+    },
+
+    POW: {
+        PREIMAGE_LENGTH: 128,
     },
 
     CONTRACTS: {
@@ -27,6 +34,10 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         /** The maximum size of calldata in bytes. */
         MAXIMUM_CALLDATA_SIZE_DECOMPRESSED: 1024 * 1024,
+    },
+
+    COMPRESSION: {
+        MAX_DECOMPRESSED_SIZE: Math.ceil(1024 * 1024 * 1.5),
     },
 
     NETWORK: {
@@ -77,11 +88,19 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     TRANSACTIONS: {
+        EVENTS: {
+            /** The maximum size of an event in bytes */
+            MAXIMUM_EVENT_LENGTH: 1024 * 1024, // 1 Mo.
+
+            /** The maximum size of all events combined  */
+            MAXIMUM_TOTAL_EVENT_LENGTH: 1024 * 1024 * 2, // 4 Mo.
+
+            /** The maximum size of an event name in bytes */
+            MAXIMUM_EVENT_NAME_LENGTH: 64,
+        },
+
         /** The maximum size of a receipt in bytes */
         MAXIMUM_RECEIPT_LENGTH: 128,
-
-        /** The maximum size of an event in bytes */
-        MAXIMUM_EVENT_LENGTH: 352,
 
         /** The maximum amount of contract a transaction can deploy */
         MAXIMUM_DEPLOYMENT_DEPTH: 2,

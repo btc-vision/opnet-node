@@ -107,7 +107,7 @@ export class IndexingTask extends Logger {
      * null out our AbortController so it can be GC'd.
      */
     public destroy(): void {
-        // Avoid calls after we’ve already destroyed
+        // Avoid calls after we've already destroyed
         if (!this._abortController) {
             return;
         }

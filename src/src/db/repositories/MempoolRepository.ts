@@ -228,15 +228,15 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     public async fetchSpentUnspentTransactions(
         txs: UTXOSOutputTransaction[],
     ): Promise<UTXOSOutputTransaction[]> {
+        const list = txs.map((tx) => tx.transactionId);
         const aggregation: Document[] = [
             {
                 $match: {
                     'inputs.transactionId': {
-                        $in: txs.map((tx) => tx.transactionId),
+                        $in: list,
                     },
                 },
             },
-
             {
                 $limit: 100,
             },

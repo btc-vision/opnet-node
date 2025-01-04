@@ -48,8 +48,8 @@ export class GetCode extends Route<
                 contractSeed: document.contractSeed.toString('base64'),
                 contractSaltHash: document.contractSaltHash.toString('hex'),
 
-                deployedTransactionId: document.deployedTransactionId,
-                deployedTransactionHash: document.deployedTransactionHash,
+                deployedTransactionId: document.deployedTransactionId.toString('hex'),
+                deployedTransactionHash: document.deployedTransactionHash.toString('hex'),
                 deployerPubKey: document.deployerPubKey.toString('base64'),
 
                 bytecode: contract.bytecode.toString('base64'),
@@ -139,7 +139,9 @@ export class GetCode extends Route<
 
         if (!address || address.length < 20) throw new Error(`Invalid address specified.`);
 
-        const startsWith = address.startsWith('0x');
+        const startsWith =
+            address.startsWith('0x') && (address.length === 66 || address.length === 132);
+
         return [address, onlyBytecode, startsWith];
     }
 }

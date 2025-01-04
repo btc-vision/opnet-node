@@ -9,7 +9,7 @@ import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thre
 import { ChainObserver } from './observer/ChainObserver.js';
 import { IndexingTask } from './tasks/IndexingTask.js';
 import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';
-import { BitcoinRPC, BlockHeaderInfo } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC, BlockHeaderInfo } from '@btc-vision/bitcoin-rpc';
 import { ConsensusTracker } from './consensus/ConsensusTracker.js';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';

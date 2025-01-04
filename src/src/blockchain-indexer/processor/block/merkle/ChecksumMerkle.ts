@@ -1,13 +1,10 @@
-import { defaultAbiCoder } from '@ethersproject/abi';
-import { BufferHelper } from '@btc-vision/transaction';
+import { BinaryWriter, BufferHelper } from '@btc-vision/transaction';
 import { ZERO_HASH } from '../types/ZeroValue.js';
-import { arrayify as toBytes } from '@ethersproject/bytes';
 import { MerkleProof, MerkleTree } from '@btc-vision/rust-merkle-tree';
 import { BlockHeaderChecksumProof } from '../../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { toBytes } from './MerkleTree.js';
 
 export class ChecksumMerkle {
-    public static TREE_TYPE: [string, string] = ['uint8', 'bytes32'];
-
     public tree: MerkleTree | undefined;
     public values: [number, Uint8Array][] = [];
 
@@ -19,9 +16,12 @@ export class ChecksumMerkle {
         return this.tree.rootHex();
     }
 
-    public static toBytes(value: unknown[]): Uint8Array {
-        const data = defaultAbiCoder.encode(ChecksumMerkle.TREE_TYPE, value);
-        return toBytes(data);
+    public static toBytes(value: [number, Uint8Array]): Uint8Array {
+        const writer = new BinaryWriter(1 + value[1].length);
+        writer.writeU8(value[0]);
+        writer.writeBytes(value[1]);
+
+        return writer.getBuffer();
     }
 
     public static verify(root: Uint8Array, values: [number, Uint8Array], proof: string[]): boolean {

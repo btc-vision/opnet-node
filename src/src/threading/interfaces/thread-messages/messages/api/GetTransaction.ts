@@ -1,4 +1,4 @@
-import { BitcoinRawTransactionParams } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRawTransactionParams } from '@btc-vision/bitcoin-rpc';
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { RPCMessageData } from './RPCMessage.js';
 

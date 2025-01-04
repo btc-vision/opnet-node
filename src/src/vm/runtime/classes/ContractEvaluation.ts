@@ -16,13 +16,12 @@ import {
     EvaluatedResult,
     PointerStorageMap,
 } from '../../evaluated/EvaluatedResult.js';
-import { MapConverter } from '../MapConverter.js';
 import { GasTracker } from '../GasTracker.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import { ZERO_HASH } from '../../../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
+import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -48,8 +47,8 @@ export class ContractEvaluation implements ExecutionParameters {
     public contractDeployDepth: number;
     public callDepth: number;
 
-    public readonly transactionId: string;
-    public readonly transactionHash: string | null;
+    public readonly transactionId: Buffer;
+    public readonly transactionHash: Buffer | null;
 
     public readonly storage: AddressMap<PointerStorage>;
     public readonly deployedContracts: ContractInformation[];
@@ -57,8 +56,6 @@ export class ContractEvaluation implements ExecutionParameters {
     public callStack: Address[];
 
     public isConstructor: boolean = false;
-
-    public readonly transactionIdAsBuffer: Buffer;
 
     public readonly inputs: StrippedTransactionInput[] = [];
     public readonly outputs: StrippedTransactionOutput[] = [];
@@ -82,10 +79,8 @@ export class ContractEvaluation implements ExecutionParameters {
         this.isConstructor = params.isConstructor || false;
         this.safeU64 = params.safeU64;
 
-        this.transactionId = params.transactionId || ZERO_HASH.replace('0x', '');
+        this.transactionId = params.transactionId || Buffer.alloc(32);
         this.transactionHash = params.transactionHash;
-
-        this.transactionIdAsBuffer = Buffer.from(this.transactionId, 'hex');
 
         this.gasTracker = new GasTracker(params.maxGas);
         this.gasTracker.gasUsed = params.gasUsed;
@@ -100,6 +95,21 @@ export class ContractEvaluation implements ExecutionParameters {
 
         this.serializedInputs = params.serializedInputs;
         this.serializedOutputs = params.serializedOutputs;
+    }
+
+    public _totalEventSize: number = 0;
+
+    public get totalEventSize(): number {
+        return this._totalEventSize;
+    }
+
+    public set totalEventSize(size: number) {
+        const newSize = this._totalEventSize + size;
+        if (newSize > OPNetConsensus.consensus.TRANSACTIONS.EVENTS.MAXIMUM_TOTAL_EVENT_LENGTH) {
+            throw new Error('OP_NET: Maximum total event length exceeded.');
+        }
+
+        this._totalEventSize = newSize;
     }
 
     public get maxGas(): bigint {
@@ -187,6 +197,8 @@ export class ContractEvaluation implements ExecutionParameters {
     public emitEvent(event: NetEvent): void {
         if (!this.events) throw new Error('Events not set');
 
+        this.enforceEventLimits(event);
+
         const current = this.events.get(this.contractAddress) || [];
         current.push(event);
 
@@ -273,6 +285,24 @@ export class ContractEvaluation implements ExecutionParameters {
         this.deployedContracts.push(contract);
     }
 
+    private enforceEventLimits(event: NetEvent): void {
+        // Enforce event limits
+        if (event.data.length > OPNetConsensus.consensus.TRANSACTIONS.EVENTS.MAXIMUM_EVENT_LENGTH) {
+            throw new Error('OP_NET: Maximum event length exceeded.');
+        }
+
+        // Enforce total event size limit
+        this.totalEventSize += event.data.length;
+
+        // Enforce event type length limit
+        if (
+            event.type.length >
+            OPNetConsensus.consensus.TRANSACTIONS.EVENTS.MAXIMUM_EVENT_NAME_LENGTH
+        ) {
+            throw new Error('OP_NET: Maximum event type length exceeded.');
+        }
+    }
+
     private computeInputUTXOs(): Uint8Array {
         const maxInputs = Math.min(
             OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS,
@@ -318,10 +348,7 @@ export class ContractEvaluation implements ExecutionParameters {
     }
 
     private setModifiedStorage(): void {
-        const modifiedStorage =
-            MapConverter.convertDeterministicBlockchainStorageMapToBlockchainStorage(this.storage);
-
-        this.mergeStorage(modifiedStorage);
+        this.mergeStorage(this.storage);
     }
 
     private mergeEvents(events: EvaluatedEvents): void {
@@ -332,6 +359,8 @@ export class ContractEvaluation implements ExecutionParameters {
         for (const [key, value] of events) {
             const current = this.events.get(key) || [];
             for (const v of value) {
+                this.enforceEventLimits(v);
+
                 current.push(v);
             }
 
@@ -339,14 +368,13 @@ export class ContractEvaluation implements ExecutionParameters {
         }
     }
 
-    private mergeStorage(storage: BlockchainStorageMap): void {
+    private mergeStorage(storage: BlockchainStorageMap | AddressMap<PointerStorage>): void {
         if (!this.modifiedStorage) {
             this.modifiedStorage = new AddressMap();
         }
 
         for (const [key, value] of storage) {
-            const current: PointerStorageMap =
-                this.modifiedStorage.get(key) || (new Map() as PointerStorageMap);
+            const current: PointerStorageMap = this.modifiedStorage.get(key) || new FastBigIntMap();
 
             for (const [k, v] of value) {
                 current.set(k, v);

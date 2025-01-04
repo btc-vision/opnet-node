@@ -1,17 +1,17 @@
-import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
-import bitcoin from '@btc-vision/bitcoin';
+import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { Transaction } from './Transaction.js';
 import { DeploymentTransaction } from './transactions/DeploymentTransaction.js';
 import { GenericTransaction } from './transactions/GenericTransaction.js';
 import { InteractionTransaction } from './transactions/InteractionTransaction.js';
+import { networks } from '@btc-vision/bitcoin';
 
 export type OPNetTransactionByType<T extends OPNetTransactionTypes> = (
     data: TransactionData,
     vIndexIn: number,
     blockHash: string,
     blockHeight: bigint,
-    network: bitcoin.networks.Network,
+    network: networks.Network,
 ) => Transaction<T>;
 
 export interface TransactionInformation {
@@ -47,18 +47,4 @@ export const PossibleOpNetTransactions: {
             return DeploymentTransaction.is(data);
         },
     },
-    /*[OPNetTransactionTypes.WrapInteraction]: {
-        parse: (...args) =>
-            new WrapTransaction(...args) as Transaction<OPNetTransactionTypes.WrapInteraction>,
-        isTransaction(data: TransactionData): TransactionInformation | undefined {
-            return WrapTransaction.is(data);
-        },
-    },
-    [OPNetTransactionTypes.UnwrapInteraction]: {
-        parse: (...args) =>
-            new UnwrapTransaction(...args) as Transaction<OPNetTransactionTypes.UnwrapInteraction>,
-        isTransaction(data: TransactionData): TransactionInformation | undefined {
-            return UnwrapTransaction.is(data);
-        },
-    },*/
 };

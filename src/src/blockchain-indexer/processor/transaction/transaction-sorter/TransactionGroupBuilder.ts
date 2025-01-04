@@ -9,7 +9,7 @@ export class TransactionGroupBuilder {
         const visited = new Set<string>();
 
         transactions.forEach((tx) => {
-            if (!visited.has(tx.transactionId)) {
+            if (!visited.has(tx.transactionIdString)) {
                 const group: Transaction<OPNetTransactionTypes>[] = [];
                 this.collectGroup(tx, transactions, group, visited);
                 groups.push(group);
@@ -25,9 +25,9 @@ export class TransactionGroupBuilder {
         group: Transaction<OPNetTransactionTypes>[],
         visited: Set<string>,
     ): void {
-        if (visited.has(tx.transactionId)) return;
+        if (visited.has(tx.transactionIdString)) return;
 
-        visited.add(tx.transactionId);
+        visited.add(tx.transactionIdString);
         group.push(tx);
         const dependencies = this.findDependencies(allTransactions, tx.transactionId);
         dependencies.forEach((dep) => this.collectGroup(dep, allTransactions, group, visited));
@@ -35,10 +35,12 @@ export class TransactionGroupBuilder {
 
     private findDependencies(
         transactions: Transaction<OPNetTransactionTypes>[],
-        txid: string,
+        txid: Buffer,
     ): Transaction<OPNetTransactionTypes>[] {
         return transactions.filter((tx) =>
-            tx.inputs.some((input) => input.originalTransactionId === txid),
+            tx.inputs.some((input) =>
+                input.originalTransactionId ? input.originalTransactionId.equals(txid) : false,
+            ),
         );
     }
 }

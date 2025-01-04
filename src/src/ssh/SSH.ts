@@ -11,7 +11,7 @@ import figlet, { Fonts } from 'figlet';
 import { Chalk } from 'chalk';
 import { BlockchainInfoRepository } from '../db/repositories/BlockchainInfoRepository.js';
 import { Config } from '../config/Config.js';
-import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { OPNetIdentity } from '../poa/identity/OPNetIdentity.js';
 import { AuthorityManager } from '../poa/configurations/manager/AuthorityManager.js';

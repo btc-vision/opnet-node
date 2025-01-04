@@ -1,6 +1,7 @@
 import { BitcoinNetworkRequest, CallResponse, ContractManager } from '@btc-vision/op-vm';
 import { RustContractBinding } from './RustContractBindings.js';
 import { Blockchain } from '../Blockchain.js';
+import { FastNumberMap } from '../../utils/fast/FastNumberMap.js';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -14,7 +15,7 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
 }
 
 export class RustContract {
-    private refCounts: Map<number, number> = new Map();
+    private refCounts: FastNumberMap<number> = new FastNumberMap<number>();
 
     private readonly enableDebug: boolean = false;
     private readonly enableDisposeLog: boolean = false;

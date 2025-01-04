@@ -20,6 +20,7 @@ import { ThreadData } from './interfaces/ThreadData.js';
 import { ThreaderConfigurations } from './interfaces/ThreaderConfigurations.js';
 import { ThreadTypes } from './thread/enums/ThreadTypes.js';
 import { ThreadConfigurations } from './interfaces/ThreadConfigurations.js';
+import { FastStringMap } from '../utils/fast/FastStringMap.js';
 
 export type ThreadTaskCallback = {
     timeout: ReturnType<typeof setTimeout>;
@@ -33,7 +34,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
     private readonly target: string | null = null;
 
     private readonly threads: Worker[] = [];
-    private readonly tasks: Map<string, ThreadTaskCallback> = new Map<string, ThreadTaskCallback>();
+    private readonly tasks: FastStringMap<ThreadTaskCallback> = new FastStringMap();
     private readonly subChannels: MessageChannel[] = [];
 
     private currentId: number = 0;

@@ -38,13 +38,14 @@ import {
 import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
 import { GasTracker } from './runtime/GasTracker.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
-import bitcoin from '@btc-vision/bitcoin';
+import bitcoin, { Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { Blockchain } from './Blockchain.js';
 import { BlockHeaderValidator } from './BlockHeaderValidator.js';
 import { Config } from '../config/Config.js';
 import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasPredictor.js';
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
+import { FastStringMap } from '../utils/fast/FastStringMap.js';
 
 Globals.register();
 
@@ -61,13 +62,13 @@ export class VMManager extends Logger {
     private contractCache: AddressMap<ContractInformation> = new AddressMap();
 
     private vmEvaluators: AddressMap<Promise<ContractEvaluator | null>> = new AddressMap();
-    private contractAddressCache: Map<string, Address> = new Map();
+    private contractAddressCache: FastStringMap<Address> = new FastStringMap();
     private cachedLastBlockHeight: Promise<bigint> | undefined;
     private isProcessing: boolean = false;
 
     private readonly _blockHeaderValidator: BlockHeaderValidator;
 
-    private readonly network: bitcoin.Network;
+    private readonly network: Network;
     private currentRequest:
         | {
               to: string;
@@ -277,13 +278,15 @@ export class VMManager extends Logger {
                 );
             }
 
-            const burnedBitcoins: bigint = interactionTransaction.burnedFee;
-            if (!burnedBitcoins) {
+            const feeBitcoin: bigint =
+                interactionTransaction.burnedFee + interactionTransaction.reward;
+
+            if (!feeBitcoin) {
                 throw new Error('execution reverted (out of gas)');
             }
 
             // Trace the execution time
-            const maxGas: bigint = this.calculateMaxGas(unlimitedGas, burnedBitcoins, baseGas);
+            const maxGas: bigint = this.calculateMaxGas(unlimitedGas, feeBitcoin, baseGas);
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
@@ -370,13 +373,14 @@ export class VMManager extends Logger {
                 throw new Error('VM evaluator not found');
             }
 
-            const burnedBitcoins: bigint = contractDeploymentTransaction.burnedFee;
-            if (!burnedBitcoins) {
+            const feeBitcoin: bigint =
+                contractDeploymentTransaction.burnedFee + contractDeploymentTransaction.reward;
+            if (!feeBitcoin) {
                 throw new Error('execution reverted (out of gas)');
             }
 
             // Trace the execution time
-            const maxGas: bigint = this.calculateMaxGas(false, burnedBitcoins, baseGas);
+            const maxGas: bigint = this.calculateMaxGas(false, feeBitcoin, baseGas);
 
             const params: ExecutionParameters = {
                 contractAddressStr: contractDeploymentTransaction.contractAddress,
@@ -693,18 +697,18 @@ export class VMManager extends Logger {
         contractAddress: Address;
         tweakedPublicKey: Buffer;
     } {
-        const contracttweakedPublicKey = TapscriptVerificator.getContractSeed(
+        const contractTweakedPublicKey = TapscriptVerificator.getContractSeed(
             bitcoin.crypto.hash256(Buffer.from(deployer)),
             bytecode, // TODO: Maybe precompute that on deployment?
             salt,
         );
 
         /** Generate contract segwit address */
-        const address = new Address(contracttweakedPublicKey);
+        const address = new Address(contractTweakedPublicKey);
 
         return {
             contractAddress: address,
-            tweakedPublicKey: contracttweakedPublicKey,
+            tweakedPublicKey: contractTweakedPublicKey,
         };
     }
 
@@ -763,10 +767,11 @@ export class VMManager extends Logger {
             evaluation.blockNumber,
             deployResult.contractAddress.p2tr(this.network),
             deployResult.contractAddress,
+            deployResult.contractAddress.toTweakedHybridPublicKeyBuffer(),
             contractInfo.bytecode,
             false,
-            evaluation.transactionId || '',
-            evaluation.transactionHash || '',
+            evaluation.transactionId || Buffer.alloc(32),
+            evaluation.transactionHash || Buffer.alloc(32),
             Buffer.from(deployerKeyPair),
             salt,
             contractSaltHash,

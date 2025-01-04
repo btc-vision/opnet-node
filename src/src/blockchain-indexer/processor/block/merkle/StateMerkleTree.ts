@@ -1,29 +1,36 @@
-import { MerkleTree } from './MerkleTree.js';
+import { MerkleTree, toBytes } from './MerkleTree.js';
 import {
     Address,
     AddressMap,
+    BinaryWriter,
     BufferHelper,
     MemorySlotData,
     MemorySlotPointer,
 } from '@btc-vision/transaction';
-import { arrayify as toBytes } from '@ethersproject/bytes';
 import { MerkleProof, MerkleTree as MerkleTreeRust } from '@btc-vision/rust-merkle-tree';
-import { defaultAbiCoder } from '@ethersproject/abi';
+import { FastBigIntMap } from '../../../../utils/fast/FastBigintMap.js';
 
 export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotData<bigint>> {
-    public static TREE_TYPE: [string, string] = ['bytes32', 'bytes32'];
-
-    constructor() {
-        super(StateMerkleTree.TREE_TYPE);
-    }
-
     public static verify(root: string, values: Buffer[] | Uint8Array[], proof: string[]): boolean {
-        const data = defaultAbiCoder.encode(StateMerkleTree.TREE_TYPE, values);
+        const writer = new BinaryWriter(32 * values.length);
+        for (const value of values) {
+            writer.writeBytes(value);
+        }
 
+        const data = writer.getBuffer();
         return new MerkleProof(proof.map((p) => toBytes(p))).verify(
             toBytes(root),
-            MerkleTreeRust.hash(toBytes(data)),
+            MerkleTreeRust.hash(data),
         );
+    }
+
+    public toBytes(values: Buffer[]): Uint8Array {
+        const writer = new BinaryWriter(32 * values.length);
+        for (const value of values) {
+            writer.writeBytes(value);
+        }
+
+        return writer.getBuffer();
     }
 
     public getProofs(): AddressMap<Map<MemorySlotPointer, string[]>> {
@@ -53,10 +60,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
     }
 
     /** We have to replace the value of the given address and key with the new value */
-    public updateValues(
-        address: Address,
-        val: Map<MemorySlotPointer, MemorySlotData<bigint>>,
-    ): void {
+    public updateValues(address: Address, val: FastBigIntMap): void {
         this.ensureAddress(address);
 
         const map = this.values.get(address);

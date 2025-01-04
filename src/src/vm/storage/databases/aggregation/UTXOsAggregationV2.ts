@@ -4,7 +4,7 @@ import { ShortScriptPubKey } from '../../../../db/interfaces/IUnspentTransaction
 import { Config } from '../../../../config/Config.js';
 
 export interface UTXOSOutputTransactionFromDBV2 {
-    readonly transactionId: string;
+    readonly transactionId: Binary;
     readonly outputIndex: number;
     readonly value: Decimal128;
     readonly scriptPubKey: ShortScriptPubKey;

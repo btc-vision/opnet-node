@@ -14,6 +14,8 @@ import { ThreadTypes } from './enums/ThreadTypes.js';
 import { IThread } from './interfaces/IThread.js';
 import { Config } from '../../config/Config.js';
 import fs from 'fs';
+import { FastStringMap } from '../../utils/fast/FastStringMap.js';
+import { FastNumberMap } from '../../utils/fast/FastNumberMap.js';
 
 const genRanHex = (size: number) =>
     [...(Array(size) as number[])].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
@@ -26,11 +28,11 @@ export type SendMessageToThreadFunction = (
 export abstract class Thread<T extends ThreadTypes> extends Logger implements IThread<T> {
     public abstract readonly threadType: T;
 
-    protected threadRelations: Partial<Record<ThreadTypes, Map<number, MessagePort>>> = {};
+    protected threadRelations: Partial<Record<ThreadTypes, FastNumberMap<MessagePort>>> = {};
     protected threadRelationsArray: Partial<Record<ThreadTypes, MessagePort[]>> = {};
 
     private messagePort: MessagePort | null = null;
-    private tasks: Map<string, ThreadTaskCallback> = new Map<string, ThreadTaskCallback>();
+    private tasks: FastStringMap<ThreadTaskCallback> = new FastStringMap<ThreadTaskCallback>();
     private availableThreads: Partial<Record<ThreadTypes, number>> = {};
 
     protected constructor() {
@@ -197,7 +199,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
         const type = m.data.type;
         const id = type === LinkType.TX ? data.sourceThreadId : data.targetThreadId;
-        const relation = this.threadRelations[threadType] || new Map<number, MessagePort>();
+        const relation = this.threadRelations[threadType] || new FastNumberMap<MessagePort>();
         relation.set(id, data.port);
 
         const array = this.threadRelationsArray[threadType] || [];

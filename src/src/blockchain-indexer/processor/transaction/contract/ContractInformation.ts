@@ -8,6 +8,7 @@ export interface ContractInformationAsString {
     readonly blockHeight: string;
     readonly contractAddress: string;
     readonly contractTweakedPublicKey: string;
+    readonly contractHybridPublicKey: string;
     readonly bytecode: string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: string;
@@ -23,10 +24,11 @@ export class ContractInformation {
         public readonly blockHeight: bigint,
         public readonly contractAddress: string,
         public readonly contractTweakedPublicKey: Address,
+        public readonly contractHybridPublicKey: Buffer,
         public readonly bytecode: Buffer,
         public readonly wasCompressed: boolean,
-        public readonly deployedTransactionId: string,
-        public readonly deployedTransactionHash: string,
+        public readonly deployedTransactionId: Buffer,
+        public readonly deployedTransactionHash: Buffer,
         public readonly deployerPubKey: Buffer,
         public readonly contractSeed: Buffer,
         public readonly contractSaltHash: Buffer,
@@ -62,16 +64,35 @@ export class ContractInformation {
             contractSaltHashBuffer = Buffer.from(contractDocument.contractSaltHash.buffer);
         }
 
+        let transactionIdBuffer: Buffer;
+        if (Buffer.isBuffer(contractDocument.deployedTransactionId)) {
+            transactionIdBuffer = contractDocument.deployedTransactionId;
+        } else {
+            transactionIdBuffer = Buffer.from(contractDocument.deployedTransactionId.buffer);
+        }
+
+        let deployedTransactionHashBuffer: Buffer;
+        if (Buffer.isBuffer(contractDocument.deployedTransactionHash)) {
+            deployedTransactionHashBuffer = contractDocument.deployedTransactionHash;
+        } else {
+            deployedTransactionHashBuffer = Buffer.from(
+                contractDocument.deployedTransactionHash.buffer,
+            );
+        }
+
         return new ContractInformation(
             DataConverter.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
             typeof contractDocument.contractTweakedPublicKey === 'string'
                 ? new Address(Buffer.from(contractDocument.contractTweakedPublicKey, 'base64'))
                 : new Address(contractDocument.contractTweakedPublicKey.buffer),
+            typeof contractDocument.contractHybridPublicKey === 'string'
+                ? Buffer.from(contractDocument.contractHybridPublicKey, 'base64')
+                : Buffer.from(contractDocument.contractHybridPublicKey.buffer),
             bytecodeBuffer,
             contractDocument.wasCompressed,
-            contractDocument.deployedTransactionId,
-            contractDocument.deployedTransactionHash,
+            transactionIdBuffer,
+            deployedTransactionHashBuffer,
             deployerPubKeyBuffer,
             contractSeedBuffer,
             contractSaltHashBuffer,
@@ -103,6 +124,7 @@ export class ContractInformation {
             blockHeight,
             transaction.contractAddress,
             transaction.address,
+            transaction.address.toTweakedHybridPublicKeyBuffer(),
             transaction.bytecode,
             transaction.wasCompressed,
             transaction.transactionId,
@@ -119,10 +141,11 @@ export class ContractInformation {
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
             contractAddress: this.contractAddress,
             contractTweakedPublicKey: new Binary(this.contractTweakedPublicKey),
+            contractHybridPublicKey: new Binary(this.contractHybridPublicKey),
             bytecode: new Binary(this.bytecode),
             wasCompressed: this.wasCompressed,
-            deployedTransactionId: this.deployedTransactionId,
-            deployedTransactionHash: this.deployedTransactionHash,
+            deployedTransactionId: new Binary(this.deployedTransactionId),
+            deployedTransactionHash: new Binary(this.deployedTransactionHash),
             deployerPubKey: new Binary(this.deployerPubKey),
             contractSeed: new Binary(this.contractSeed),
             contractSaltHash: new Binary(this.contractSaltHash),

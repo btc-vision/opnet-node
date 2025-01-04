@@ -1,7 +1,9 @@
-import { AddressMap, MemorySlotData, MemorySlotPointer, NetEvent } from '@btc-vision/transaction';
+import { AddressMap, NetEvent } from '@btc-vision/transaction';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
+import { FastBigIntMap } from '../../utils/fast/FastBigintMap.js';
+import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 
-export type PointerStorageMap = Map<MemorySlotPointer, MemorySlotData<bigint>>;
+export type PointerStorageMap = FastBigIntMap;
 export type BlockchainStorageMap = AddressMap<PointerStorageMap>;
 export type EvaluatedEvents = AddressMap<NetEvent[]>;
 
@@ -15,6 +17,9 @@ export interface EvaluatedResult {
 }
 
 export type SafeEvaluatedResult = Omit<EvaluatedResult, 'changedStorage' | 'events'> & {
-    readonly changedStorage: Map<string, PointerStorageMap> | undefined;
-    readonly events: Map<string, NetEvent[]> | undefined;
+    readonly changedStorage:
+        | Map<string, Map<bigint, bigint>>
+        | FastStringMap<PointerStorageMap>
+        | undefined;
+    readonly events: FastStringMap<NetEvent[]> | Map<string, NetEvent[]> | undefined;
 };

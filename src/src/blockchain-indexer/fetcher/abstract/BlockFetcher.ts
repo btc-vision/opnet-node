@@ -1,4 +1,4 @@
-import { BlockDataWithTransactionData, BlockHeaderInfo } from '@btc-vision/bsi-bitcoin-rpc';
+import { BlockDataWithTransactionData, BlockHeaderInfo } from '@btc-vision/bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 import { Config } from '../../../config/Config.js';
 
@@ -96,7 +96,7 @@ export abstract class BlockFetcher extends Logger {
                     );
                 }
 
-                // Ensure we’re not processing the same block twice
+                // Ensure we're not processing the same block twice
                 if (this.lastBlockHash === block.hash) {
                     throw new Error(`Block ${block.height} was fetched twice in batch.`);
                 }

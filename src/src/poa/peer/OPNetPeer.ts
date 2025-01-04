@@ -16,6 +16,7 @@ import {
 import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
+import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 
 const PEER_DISCOVERY_TIMEOUT = 1000 * 60 * 2; // 2 minutes
 
@@ -33,7 +34,7 @@ export class OPNetPeer extends Logger {
 
     private peerDiscoveryTimeout: NodeJS.Timeout | undefined;
 
-    private eventHandlers: Map<string, NetworkingEventHandler[]> = new Map();
+    private eventHandlers: FastStringMap<NetworkingEventHandler[]> = new FastStringMap();
 
     constructor(
         private _peerIdentity: OPNetConnectionInfo | undefined,
@@ -155,9 +156,8 @@ export class OPNetPeer extends Logger {
         }
     }
 
-    public async onMessage(rawBuf: ArrayBuffer): Promise<void> {
+    public async onMessage(buffer: Uint8Array): Promise<void> {
         try {
-            const buffer: Uint8Array = new Uint8Array(rawBuf);
             const toClient = buffer.slice(0, 1)[0] === 0x01;
 
             let success = false;

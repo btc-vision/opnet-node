@@ -1,8 +1,8 @@
-import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
+import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Network, opcodes, script } from '@btc-vision/bitcoin';
 import crypto from 'crypto';
-import { Binary } from 'mongodb';
+import { Binary, Long } from 'mongodb';
 import * as zlib from 'zlib';
 import {
     ITransactionDocumentBasic,
@@ -13,11 +13,11 @@ import { EvaluatedEvents, EvaluatedResult } from '../../../vm/evaluated/Evaluate
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { StrippedTransactionInput, TransactionInput } from './inputs/TransactionInput.js';
 import { StrippedTransactionOutput, TransactionOutput } from './inputs/TransactionOutput.js';
-import { Address } from '@btc-vision/transaction';
+import { Address, BinaryWriter, ChallengeGenerator } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { OPNetHeader } from './interfaces/OPNetHeader.js';
 
-const OPNet_MAGIC: Buffer = Buffer.from('bsi', 'utf-8');
-const textEncoder = new TextEncoder();
+const OPNet_MAGIC: Buffer = Buffer.from('op', 'utf-8');
 const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
 
 export abstract class Transaction<T extends OPNetTransactionTypes> {
@@ -26,8 +26,8 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public readonly inputs: TransactionInput[] = [];
     public readonly outputs: TransactionOutput[] = [];
 
-    public readonly txid: string;
-    public readonly raw: string;
+    public readonly txidHex: string;
+    public readonly raw: Buffer;
 
     public readonly inActiveChain: boolean | undefined;
 
@@ -47,18 +47,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public wasCompressed: boolean = false;
 
     protected readonly _computedIndexingHash: Buffer;
-    protected readonly transactionHashBuffer: Buffer;
+    protected readonly transactionHash: Buffer;
 
-    protected readonly transactionHash: string;
     protected readonly vInputIndex: number;
 
     protected receiptProofs: string[] | undefined;
 
-    //protected readonly _authorizedVaultUsage: boolean = false;
-
-    //private readonly vaultDecoder: VaultInputDecoder = new VaultInputDecoder();
-
-    //readonly #vaultInputs: VaultInput[] = [];
+    private readonly txid: Buffer;
 
     protected constructor(
         rawTransactionData: TransactionData,
@@ -74,12 +69,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
 
         this.vInputIndex = vInputIndex;
-        this.txid = rawTransactionData.txid;
 
-        this.transactionHash = rawTransactionData.hash;
-        this.transactionHashBuffer = Buffer.from(this.transactionHash, 'hex');
+        this.txid = Buffer.from(rawTransactionData.txid, 'hex');
+        this.txidHex = rawTransactionData.txid;
+        this.transactionHash = Buffer.from(rawTransactionData.hash, 'hex');
+        this.raw = rawTransactionData.hex
+            ? Buffer.from(rawTransactionData.hex, 'hex')
+            : Buffer.alloc(0);
 
-        this.raw = rawTransactionData.hex;
         this.inActiveChain = rawTransactionData.in_active_chain || false;
 
         this.size = rawTransactionData.size;
@@ -96,6 +93,18 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.time = rawTransactionData.time;
 
         this._computedIndexingHash = this.computeHashForTransaction();
+    }
+
+    protected _preimage: Buffer | undefined;
+
+    public get preimage(): Buffer {
+        const preimage = Buffer.alloc(this._preimage?.length || 0);
+
+        if (this._preimage) {
+            this._preimage.copy(preimage);
+        }
+
+        return preimage;
     }
 
     public get strippedInputs(): StrippedTransactionInput[] {
@@ -125,21 +134,20 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._revert = error;
     }
 
-    //public get authorizedVaultUsage(): boolean {
-    //    return this._authorizedVaultUsage;
-    //}
-
     public get revertBuffer(): Uint8Array | undefined {
         if (!this._revert) {
             return;
         }
 
         const finalMsg: string =
-            this._revert.message.length > 1000
-                ? this._revert.message.slice(0, 1000)
+            this._revert.message.length > 512
+                ? this._revert.message.slice(0, 512)
                 : this._revert.message;
 
-        return textEncoder.encode(finalMsg);
+        const writer = new BinaryWriter(finalMsg.length);
+        writer.writeString(finalMsg);
+
+        return writer.getBuffer();
     }
 
     protected _receipt: EvaluatedResult | undefined;
@@ -151,10 +159,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public set receipt(receipt: EvaluatedResult) {
         this._receipt = receipt;
     }
-
-    //public get vaultInputs(): VaultInput[] {
-    //    return this.#vaultInputs;
-    //}
 
     protected _from: Address | undefined;
 
@@ -179,10 +183,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     protected _originalIndex: number = 0;
 
-    /*public get originalIndex(): number {
-        return this._originalIndex;
-    }*/
-
     public set originalIndex(index: number) {
         this._originalIndex = index;
     }
@@ -194,16 +194,22 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this._burnedFee;
     }
 
-    public get transactionId(): string {
+    protected _reward: bigint = 0n;
+
+    public get reward(): bigint {
+        return this._reward;
+    }
+
+    public get transactionId(): Buffer {
         return this.txid;
     }
 
-    public get hash(): string {
-        return this.transactionHash;
+    public get transactionIdString(): string {
+        return this.txidHex;
     }
 
-    public get bufferHash(): Buffer {
-        return this.transactionHashBuffer;
+    public get hash(): Buffer {
+        return this.transactionHash;
     }
 
     public get gasUsed(): bigint {
@@ -246,7 +252,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             try {
                 buffer = zlib.unzipSync(buffer, {
                     finishFlush: zlib.constants.Z_SYNC_FLUSH,
-                    maxOutputLength: 1024 * 1024, // limit to 1mb no matter what.
+                    maxOutputLength: OPNetConsensus.consensus.COMPRESSION.MAX_DECOMPRESSED_SIZE, // limit to 1mb no matter what.
                 });
             } catch {
                 throw new Error('OP_NET: Invalid compressed data.');
@@ -258,28 +264,28 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return { out: buffer, compressed: false };
     }
 
-    public static getDataFromWitness(
+    public static getDataFromScript(
         scriptData: Array<number | Buffer>,
         breakWhenReachOpcode: number = opcodes.OP_ELSE,
     ): Buffer | undefined {
-        let contractBytecode: Buffer | undefined = undefined;
+        let data: Buffer | undefined = undefined;
         for (let i = 0; i < scriptData.length; i++) {
             if (scriptData[i] === breakWhenReachOpcode) {
                 break;
             }
 
             if (Buffer.isBuffer(scriptData[i])) {
-                if (!contractBytecode) {
-                    contractBytecode = scriptData[i] as Buffer;
+                if (!data) {
+                    data = scriptData[i] as Buffer;
                 } else {
-                    contractBytecode = Buffer.concat([contractBytecode, scriptData[i] as Buffer]);
+                    data = Buffer.concat([data, scriptData[i] as Buffer]);
                 }
             } else {
                 throw new Error(`Invalid contract bytecode found in deployment transaction.`);
             }
         }
 
-        return contractBytecode;
+        return data;
     }
 
     protected static _is(data: TransactionData, typeChecksum: Buffer): number {
@@ -328,18 +334,37 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return Buffer.from(checksum);
     }
 
+    /** Decode an OP_NET header from the script data */
+    protected static decodeOPNetHeader(
+        scriptData: Array<number | Buffer>,
+    ): OPNetHeader | undefined {
+        const header = scriptData.shift();
+        if (!Buffer.isBuffer(header) || header.length !== 4) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
+            return;
+        }
+
+        const preimage = scriptData.shift();
+        if (
+            !Buffer.isBuffer(preimage) ||
+            preimage.length !== OPNetConsensus.consensus.POW.PREIMAGE_LENGTH
+        ) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
+            return;
+        }
+
+        return new OPNetHeader(header, preimage);
+    }
+
     public setReceiptProofs(proofs: string[] | undefined): void {
         this.receiptProofs = proofs;
     }
-
-    /*public getCompromisedDocument(): ICompromisedTransactionDocument {
-        return {
-            id: this.transactionId,
-            height: this.blockHeight,
-
-            compromisedAuthorities: this.vaultInputs,
-        };
-    }*/
 
     public toBitcoinDocument(): ITransactionDocumentBasic<T> {
         return {
@@ -353,7 +378,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             outputs: this.outputs,
 
             OPNetType: this.transactionType,
-            raw: this.raw ? Buffer.from(this.raw, 'hex') : Buffer.alloc(0),
+            raw: this.raw,
         };
     }
 
@@ -368,10 +393,11 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             id: this.transactionId,
             hash: this.hash,
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
-            raw: this.raw ? Buffer.from(this.raw, 'hex') : Buffer.alloc(0),
+            raw: this.raw,
 
             index: this.index,
             burnedBitcoin: DataConverter.toDecimal128(this.burnedFee),
+            reward: new Long(this.reward),
             gasUsed: DataConverter.toDecimal128(
                 this.receipt && this.receipt.gasUsed ? this.receipt.gasUsed : 0n,
             ),
@@ -388,8 +414,29 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         this.parseInputs(vIn);
         this.parseOutputs(vOuts);
+    }
 
-        //this.decodeVaults();
+    protected verifyRewardUTXO(): void {
+        if (!this._preimage) {
+            throw new Error('Preimage not found');
+        }
+
+        // Reward output should always be the second output.
+        const rewardOutput = this.outputs[1];
+        if (!rewardOutput) {
+            return; // even if the user dont include the reward, this will revert due to out of gas
+        }
+
+        const rewardChallenge = ChallengeGenerator.generateMineableReward(
+            this.preimage,
+            this.network,
+        );
+
+        if (rewardOutput.scriptPubKey.address !== rewardChallenge.address) {
+            throw new Error('Invalid reward output address');
+        }
+
+        this.setReward(rewardOutput);
     }
 
     /**
@@ -408,26 +455,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                 netEvents.push({
                     contractAddress: contractAddress,
                     data: new Binary(event.data),
-                    type: event.type,
+                    type: new Binary(this.strToBuffer(event.type)),
                 });
             }
         }
 
         return netEvents;
     }
-
-    /** We must verify every single transaction and decode any vault inputs */
-
-    /*protected decodeVaults(): void {
-        for (const input of this.inputs) {
-            const vault = this.vaultDecoder.decodeInput(input);
-            if (!vault) {
-                continue;
-            }
-
-            this.#vaultInputs.push(vault);
-        }
-    }*/
 
     protected decompressData(buffer: Buffer): Buffer {
         const decompressed = Transaction.decompressBuffer(buffer);
@@ -456,24 +490,20 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     protected setBurnedFee(witnessOutput: TransactionOutput): void {
         const scriptPubKey: ScriptPubKey = witnessOutput.scriptPubKey;
-
-        /*if (
-            !(
-                scriptPubKey.type === 'witness_v1_taproot' ||
-                scriptPubKey.type === 'witness_v0_keyhash'
-            )
-        ) {
-            throw new Error(
-                `Invalid scriptPubKey type for contract witness output. Was ${scriptPubKey.type}`,
-            );
-        }*/
-
         if (!scriptPubKey.address) {
             throw new Error('No address found for contract witness output');
         }
 
         // We set fees sent to the target witness as burned fees
         this._burnedFee = witnessOutput.value;
+
+        if (this._burnedFee > 2000n) {
+            throw new Error('Burned too much fee');
+        }
+    }
+
+    protected setReward(output: TransactionOutput): void {
+        this._reward = output.value;
     }
 
     /**
@@ -513,10 +543,17 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
     }
 
+    private strToBuffer(str: string): Uint8Array {
+        const writer = new BinaryWriter(str.length);
+        writer.writeString(str);
+
+        return writer.getBuffer();
+    }
+
     private computeHashForTransaction(): Buffer {
         // Create a hash from the transaction hash and the block hash
         const hash = crypto.createHash('sha256');
-        hash.update(this.bufferHash);
+        hash.update(this.transactionHash);
         hash.update(Buffer.from(this.blockHash, 'hex'));
         return hash.digest();
     }

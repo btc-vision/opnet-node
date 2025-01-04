@@ -24,6 +24,7 @@ import {
 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
+import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 
 export interface ProcessUnspentTransaction {
     transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[];
@@ -240,7 +241,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             const results: UTXOSOutputTransactionFromDBV2[] = await aggregatedDocument.toArray();
             return results.map((result) => {
                 return {
-                    transactionId: result.transactionId,
+                    transactionId: result.transactionId.toString('hex'),
                     outputIndex: result.outputIndex,
                     value: DataConverter.fromDecimal128(result.value),
                     scriptPubKey: {
@@ -293,7 +294,8 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         spentTransactions: ISpentTransaction[],
     ): IUnspentTransaction[] {
         const finalList: IUnspentTransaction[] = [];
-        const spentSet: Map<string, IUnspentTransaction> = new Map();
+        const spentSet: FastStringMap<IUnspentTransaction> =
+            new FastStringMap<IUnspentTransaction>();
 
         for (const spent of spentTransactions) {
             spentSet.set(

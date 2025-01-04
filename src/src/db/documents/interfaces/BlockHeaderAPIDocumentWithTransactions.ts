@@ -14,13 +14,22 @@ export interface EventReceiptDataForAPI {
 }
 
 export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
-    extends Omit<TransactionDocumentBase<T>, 'outputs' | 'inputs'> {
+    extends Omit<TransactionDocumentBase<T>, 'outputs' | 'inputs' | 'id' | 'hash'> {
+    readonly hash: string;
+    readonly id: string;
+
     readonly burnedBitcoin: string;
     readonly revert: string | undefined;
 
     readonly contractAddress?: string;
     from?: string;
     contractTweakedPublicKey?: string;
+    contractHybridPublicKey?: string;
+
+    pow?: {
+        preimage?: string;
+        reward?: string;
+    };
 
     readonly events: EventReceiptDataForAPI[];
     readonly gasUsed: string;
@@ -31,12 +40,13 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     blockHeight: undefined;
     deployedTransactionHash: undefined;
     deployedTransactionId: undefined;
+    reward: undefined;
+    preimage: undefined;
 
     unwrapAmount?: string;
     requestedAmount?: string;
     wrappingFees?: string;
     depositAmount?: string;
-    //consolidatedVault?: PartialWBTCUTXODocumentForAPI;
 
     _id: undefined;
 }
