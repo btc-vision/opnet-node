@@ -241,7 +241,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             const results: UTXOSOutputTransactionFromDBV2[] = await aggregatedDocument.toArray();
             return results.map((result) => {
                 return {
-                    transactionId: result.transactionId,
+                    transactionId: result.transactionId.toString('hex'),
                     outputIndex: result.outputIndex,
                     value: DataConverter.fromDecimal128(result.value),
                     scriptPubKey: {

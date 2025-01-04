@@ -57,7 +57,7 @@ export class TransactionInput implements TransactionInputBase {
             originalTransactionId: this.originalTransactionId,
             outputTransactionIndex: this.outputTransactionIndex,
 
-            scriptSignature: this.scriptSignature,
+            scriptSignature: this.scriptSignature?.hex ? this.scriptSignature : undefined,
             sequenceId: this.sequenceId,
 
             //transactionInWitness: this.transactionInWitness,

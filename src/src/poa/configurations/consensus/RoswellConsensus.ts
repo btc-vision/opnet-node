@@ -96,7 +96,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
             MAXIMUM_TOTAL_EVENT_LENGTH: 1024 * 1024 * 2, // 4 Mo.
 
             /** The maximum size of an event name in bytes */
-            MAXIMUM_EVENT_NAME_LENGTH: 48,
+            MAXIMUM_EVENT_NAME_LENGTH: 64,
         },
 
         /** The maximum size of a receipt in bytes */

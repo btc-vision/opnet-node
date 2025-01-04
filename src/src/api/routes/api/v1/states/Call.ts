@@ -226,7 +226,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return response;
     }
 
-    private convertEventToResult(events: FastStringMap<NetEvent[]> | undefined): ContractEvents {
+    private convertEventToResult(
+        events: FastStringMap<NetEvent[]> | Map<string, NetEvent[]> | undefined,
+    ): ContractEvents {
         const contractEvents: ContractEvents = {};
 
         if (!events) {
@@ -252,7 +254,12 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return contractEvents;
     }
 
-    private getAccessList(changedStorage: FastStringMap<PointerStorageMap> | undefined): AccessList {
+    private getAccessList(
+        changedStorage:
+            | FastStringMap<PointerStorageMap>
+            | Map<string, Map<bigint, bigint>>
+            | undefined,
+    ): AccessList {
         const accessList: AccessList = {};
         if (!changedStorage) {
             return accessList;

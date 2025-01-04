@@ -12,8 +12,6 @@ import {
     NetEventDocument,
 } from '../../db/interfaces/ITransactionDocument.js';
 
-//const network = NetworkConverter.getNetwork();
-
 export class TransactionConverterForAPI {
     public static convertTransactionToAPI(
         transaction: ITransactionDocument<OPNetTransactionTypes>,
@@ -26,17 +24,12 @@ export class TransactionConverterForAPI {
             'events' in transaction
                 ? ((transaction as InteractionTransactionDocument).events.map(
                       (event: NetEventDocument) => {
-                          /*const contractAddress: Address =
-                  'p2tr' in event.contractAddress
-                      ? event.contractAddress
-                      : new Address(event.contractAddress.buffer);*/
-
                           return {
                               contractAddress: event.contractAddress.toString('base64'),
-                              type: (event.data instanceof Uint8Array
-                                  ? new Binary(event.data)
-                                  : event.data
-                              ).toString('base64'),
+                              type: (event.type instanceof Uint8Array
+                                  ? new Binary(event.type)
+                                  : event.type
+                              ).toString('utf8'),
                               data: (event.data instanceof Uint8Array
                                   ? new Binary(event.data)
                                   : event.data

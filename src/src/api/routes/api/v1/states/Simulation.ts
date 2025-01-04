@@ -229,7 +229,9 @@ export class Simulation extends Route<
         return response;
     }
 
-    private convertEventToResult(events: FastStringMap<NetEvent[]> | undefined): ContractEvents {
+    private convertEventToResult(
+        events: FastStringMap<NetEvent[]> | Map<string, NetEvent[]> | undefined,
+    ): ContractEvents {
         const contractEvents: ContractEvents = {};
 
         if (!events) {
@@ -255,7 +257,12 @@ export class Simulation extends Route<
         return contractEvents;
     }
 
-    private getAccessList(changedStorage: FastStringMap<PointerStorageMap> | undefined): AccessList {
+    private getAccessList(
+        changedStorage:
+            | FastStringMap<PointerStorageMap>
+            | Map<string, Map<bigint, bigint>>
+            | undefined,
+    ): AccessList {
         const accessList: AccessList = {};
         if (!changedStorage) {
             return accessList;

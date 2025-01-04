@@ -17,6 +17,9 @@ export interface EvaluatedResult {
 }
 
 export type SafeEvaluatedResult = Omit<EvaluatedResult, 'changedStorage' | 'events'> & {
-    readonly changedStorage: FastStringMap<PointerStorageMap> | undefined;
-    readonly events: FastStringMap<NetEvent[]> | undefined;
+    readonly changedStorage:
+        | Map<string, Map<bigint, bigint>>
+        | FastStringMap<PointerStorageMap>
+        | undefined;
+    readonly events: FastStringMap<NetEvent[]> | Map<string, NetEvent[]> | undefined;
 };
