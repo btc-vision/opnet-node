@@ -18,7 +18,6 @@ import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from './interfaces/OPNetHeader.js';
 
 const OPNet_MAGIC: Buffer = Buffer.from('op', 'utf-8');
-const textEncoder = new TextEncoder();
 const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
 
 export abstract class Transaction<T extends OPNetTransactionTypes> {
@@ -141,11 +140,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
 
         const finalMsg: string =
-            this._revert.message.length > 1000
-                ? this._revert.message.slice(0, 1000)
+            this._revert.message.length > 512
+                ? this._revert.message.slice(0, 512)
                 : this._revert.message;
 
-        return textEncoder.encode(finalMsg);
+        const writer = new BinaryWriter(finalMsg.length);
+        writer.writeString(finalMsg);
+
+        return writer.getBuffer();
     }
 
     protected _receipt: EvaluatedResult | undefined;

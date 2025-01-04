@@ -90,7 +90,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     TRANSACTIONS: {
         EVENTS: {
             /** The maximum size of an event in bytes */
-            MAXIMUM_EVENT_LENGTH: 1024 * 512, // 512 ko.
+            MAXIMUM_EVENT_LENGTH: 1024 * 1024, // 1 Mo.
 
             /** The maximum size of all events combined  */
             MAXIMUM_TOTAL_EVENT_LENGTH: 1024 * 1024 * 2, // 4 Mo.
