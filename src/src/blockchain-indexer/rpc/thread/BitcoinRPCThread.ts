@@ -1,4 +1,4 @@
-import { BitcoinRawTransactionParams, BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRawTransactionParams, BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Config } from '../../../config/Config.js';
 import {

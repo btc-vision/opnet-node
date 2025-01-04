@@ -2,7 +2,7 @@ import { VMStorage } from '../vm/storage/VMStorage.js';
 import { VMManager } from '../vm/VMManager.js';
 import { Config } from '../config/Config.js';
 import { Logger } from '@btc-vision/bsi-common';
-import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import {
     CallRequestData,
     CallRequestResponse,

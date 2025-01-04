@@ -1,4 +1,4 @@
-import { ScriptPubKey, VOut } from '@btc-vision/bsi-bitcoin-rpc';
+import { ScriptPubKey, VOut } from '@btc-vision/bitcoin-rpc';
 import BigNumber from 'bignumber.js';
 import { opcodes, script } from '@btc-vision/bitcoin';
 import { Decimal128 } from 'mongodb';

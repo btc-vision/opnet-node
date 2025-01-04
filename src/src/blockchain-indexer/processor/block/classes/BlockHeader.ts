@@ -1,4 +1,4 @@
-import { BlockDataWithTransactionData } from '@btc-vision/bsi-bitcoin-rpc';
+import { BlockDataWithTransactionData } from '@btc-vision/bitcoin-rpc';
 
 export type BlockDataWithoutTransactionData = Omit<BlockDataWithTransactionData, 'tx'>;
 

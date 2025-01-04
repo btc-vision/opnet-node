@@ -1,4 +1,4 @@
-import { ScriptSig, VIn } from '@btc-vision/bsi-bitcoin-rpc';
+import { ScriptSig, VIn } from '@btc-vision/bitcoin-rpc';
 
 export interface TransactionInputBase {
     readonly originalTransactionId: Buffer | undefined;

@@ -1,6 +1,6 @@
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
-import { BitcoinRPC, BlockchainInfo, BlockHeaderInfo } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC, BlockchainInfo, BlockHeaderInfo } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { ConsensusTracker } from '../consensus/ConsensusTracker.js';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';

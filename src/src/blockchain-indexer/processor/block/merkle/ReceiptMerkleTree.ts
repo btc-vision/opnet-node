@@ -1,13 +1,16 @@
 import { BTC_FAKE_ADDRESS, MAX_HASH, MAX_MINUS_ONE } from '../types/ZeroValue.js';
-import { Address, AddressMap } from '@btc-vision/transaction';
+import { Address, AddressMap, BinaryWriter } from '@btc-vision/transaction';
 import { MerkleTree } from './MerkleTree.js';
 import { FastStringMap } from '../../../../utils/fast/FastStringMap.js';
 
 export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
-    public static TREE_TYPE: [string, string] = ['bytes', 'bytes'];
+    public toBytes(values: Buffer[]): Uint8Array {
+        const writer = new BinaryWriter(32 * values.length);
+        for (const value of values) {
+            writer.writeBytes(value);
+        }
 
-    constructor() {
-        super(ReceiptMerkleTree.TREE_TYPE);
+        return writer.getBuffer();
     }
 
     public getProofs(): AddressMap<FastStringMap<string[]>> {

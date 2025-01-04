@@ -1,4 +1,4 @@
-import { BlockDataWithTransactionData, BlockHeaderInfo } from '@btc-vision/bsi-bitcoin-rpc';
+import { BlockDataWithTransactionData, BlockHeaderInfo } from '@btc-vision/bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 import { Config } from '../../../config/Config.js';
 

@@ -1,4 +1,4 @@
-import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
+import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
 import bitcoin, { initEccLib, networks, opcodes } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';

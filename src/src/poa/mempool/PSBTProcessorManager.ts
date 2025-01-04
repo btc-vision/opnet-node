@@ -4,7 +4,7 @@ import { PSBTProcessedResponse, PSBTProcessor } from './processor/PSBTProcessor.
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { Network } from '@btc-vision/bitcoin';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
-import { BitcoinRPC } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 
 export class PSBTProcessorManager {
     private readonly verificator: PSBTProcessor<PSBTTypes>[] = [];

@@ -1,4 +1,4 @@
-import { TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
+import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import bitcoin, { networks, opcodes, toXOnly } from '@btc-vision/bitcoin';
 import { ECPairInterface } from 'ecpair';
 import { DeploymentTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';

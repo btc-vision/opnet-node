@@ -1,5 +1,5 @@
 import { AddressMap } from '@btc-vision/transaction';
-import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
+import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Network } from '@btc-vision/bitcoin';
@@ -536,6 +536,11 @@ export class Block extends Logger {
         try {
             this.checkConstraintsBlock();
 
+            // Verify that tx is not coinbase.
+            if (!transaction.inputs[0]?.originalTransactionId) {
+                throw new Error('Coinbase transactions are not allowed');
+            }
+
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.executeTransaction(
                 this.height,
@@ -581,6 +586,10 @@ export class Block extends Logger {
         const start = Date.now();
         try {
             this.checkConstraintsBlock();
+
+            if (!transaction.inputs[0]?.originalTransactionId) {
+                throw new Error('Coinbase transactions are not allowed');
+            }
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.deployContract(

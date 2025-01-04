@@ -1,4 +1,4 @@
-import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bsi-bitcoin-rpc';
+import { ScriptPubKey, TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Network, opcodes, script } from '@btc-vision/bitcoin';
 import crypto from 'crypto';

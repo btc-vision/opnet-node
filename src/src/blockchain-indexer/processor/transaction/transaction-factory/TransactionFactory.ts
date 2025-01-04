@@ -1,4 +1,4 @@
-import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
+import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { networks } from '@btc-vision/bitcoin';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { PossibleOpNetTransactions, TransactionInformation } from '../PossibleOpNetTransactions.js';

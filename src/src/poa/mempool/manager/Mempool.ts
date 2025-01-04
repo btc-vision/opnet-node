@@ -14,7 +14,7 @@ import {
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { PSBTTransactionVerifier } from '../psbt/PSBTTransactionVerifier.js';
-import { BitcoinRPC, FeeEstimation } from '@btc-vision/bsi-bitcoin-rpc';
+import { BitcoinRPC, FeeEstimation } from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';

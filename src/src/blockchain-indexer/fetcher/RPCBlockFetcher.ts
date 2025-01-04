@@ -5,7 +5,7 @@ import {
     BlockDataWithTransactionData,
     TransactionData,
     TransactionDetail,
-} from '@btc-vision/bsi-bitcoin-rpc';
+} from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../config/Config.js';
 
 export interface RPCBlockFetcherConfiguration extends BlockFetcherConfiguration {
