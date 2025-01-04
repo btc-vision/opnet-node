@@ -4,9 +4,10 @@ import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { NetworkingEventHandler } from '../interfaces/IEventHandler.js';
 import { OPNetPacket } from '../protobuf/types/OPNetPacket.js';
 import { OPNetProtocolV1 } from '../server/protocol/OPNetProtocolV1.js';
+import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 
 export abstract class AbstractPacketManager extends Logger {
-    private eventHandlers: Map<string, NetworkingEventHandler[]> = new Map();
+    private eventHandlers: FastStringMap<NetworkingEventHandler[]> = new FastStringMap();
 
     protected constructor(
         protected readonly protocol: OPNetProtocolV1,

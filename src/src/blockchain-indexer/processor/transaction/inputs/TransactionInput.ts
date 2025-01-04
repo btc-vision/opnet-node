@@ -1,7 +1,7 @@
 import { ScriptSig, VIn } from '@btc-vision/bsi-bitcoin-rpc';
 
 export interface TransactionInputBase {
-    readonly originalTransactionId: string | undefined;
+    readonly originalTransactionId: Buffer | undefined;
     readonly outputTransactionIndex: number | undefined; // consumer output index
 
     readonly scriptSignature?: ScriptSig;
@@ -10,15 +10,9 @@ export interface TransactionInputBase {
     readonly transactionInWitness: string[];
 }
 
-export interface ITransactionInput extends TransactionInputBase {
-    //pubKey?: Binary;
-    //pubKeyHash?: Binary;
-}
+export interface ITransactionInput extends Omit<TransactionInputBase, 'transactionInWitness'> {}
 
-export interface APIDocumentInput extends TransactionInputBase {
-    //pubKey?: string;
-    //pubKeyHash?: string;
-}
+export interface APIDocumentInput extends ITransactionInput {}
 
 export interface StrippedTransactionInput {
     readonly txId: Uint8Array | Buffer;
@@ -33,7 +27,7 @@ export interface StrippedTransactionInputAPI {
 }
 
 export class TransactionInput implements TransactionInputBase {
-    public readonly originalTransactionId: string | undefined;
+    public readonly originalTransactionId: Buffer;
     public readonly outputTransactionIndex: number | undefined; // consumer output index
 
     public readonly scriptSignature: ScriptSig | undefined;
@@ -46,7 +40,7 @@ export class TransactionInput implements TransactionInputBase {
     public readonly decodedPubKeyHash: Buffer | null;
 
     constructor(data: VIn) {
-        this.originalTransactionId = data.txid;
+        this.originalTransactionId = Buffer.from(data.txid || '', 'hex') || Buffer.alloc(32);
         this.outputTransactionIndex = data.vout;
 
         this.scriptSignature = data.scriptSig;
@@ -66,13 +60,13 @@ export class TransactionInput implements TransactionInputBase {
             scriptSignature: this.scriptSignature,
             sequenceId: this.sequenceId,
 
-            transactionInWitness: this.transactionInWitness,
+            //transactionInWitness: this.transactionInWitness,
         };
     }
 
     public toStripped(): StrippedTransactionInput {
         return {
-            txId: Buffer.from(this.originalTransactionId || '', 'hex'),
+            txId: this.originalTransactionId,
             outputIndex: this.outputTransactionIndex || 0,
             scriptSig: Buffer.from(this.scriptSignature?.hex || '', 'hex'),
         };

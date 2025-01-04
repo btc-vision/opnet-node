@@ -226,7 +226,8 @@ export class Mempool extends Logger {
             };
 
             if (psbt) {
-                return await this.decodePSBTAndProcess(transaction);
+                throw new Error(`PSBTs support is current disabled.`);
+                //return await this.decodePSBTAndProcess(transaction);
             } else {
                 return await this.decodeTransactionAndProcess(transaction);
             }

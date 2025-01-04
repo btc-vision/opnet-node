@@ -82,7 +82,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
     public get calldata(): Buffer {
         if (!this._calldata) {
-            throw new Error(`No calldata found for transaction ${this.txid}`);
+            throw new Error(`No calldata found for transaction ${this.txidHex}`);
         }
 
         const newCalldata = Buffer.alloc(this._calldata.byteLength);
@@ -95,7 +95,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
     public get contractAddress(): string {
         if (!this._contractAddress) {
-            throw new Error(`Contract address not set for transaction ${this.txid}`);
+            throw new Error(`Contract address not set for transaction ${this.txidHex}`);
         }
 
         return this._contractAddress.p2tr(this.network);
@@ -259,7 +259,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         const receiptProofs: string[] = this.receiptProofs || [];
 
         if (receipt && receiptProofs.length === 0) {
-            throw new Error(`No receipt proofs found for transaction ${this.txid}`);
+            throw new Error(`No receipt proofs found for transaction ${this.txidHex}`);
         }
 
         const fromPubKey: Uint8Array = this.from.originalPublicKey || this.from;

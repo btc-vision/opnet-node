@@ -1,4 +1,4 @@
-import { AddressMap, MemorySlotPointer } from '@btc-vision/transaction';
+import { AddressMap } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bsi-bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -32,6 +32,7 @@ import assert from 'node:assert';
 import { BlockGasPredictor, CalculatedBlockGas } from '../gas/BlockGasPredictor.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { Long } from 'mongodb';
+import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
@@ -88,9 +89,8 @@ export class Block extends Logger {
     #compromised: boolean = false;
 
     #_storageRoot: string | undefined;
-    #_storageProofs: AddressMap<Map<MemorySlotPointer, string[]>> | undefined;
     #_receiptRoot: string | undefined;
-    #_receiptProofs: AddressMap<Map<string, string[]>> | undefined;
+    #_receiptProofs: AddressMap<FastStringMap<string[]>> | undefined;
     #_checksumMerkle: ChecksumMerkle = new ChecksumMerkle();
     #_checksumProofs: BlockHeaderChecksumProof | undefined;
     #_previousBlockChecksum: string | undefined;
@@ -191,28 +191,12 @@ export class Block extends Logger {
         return this.#_receiptRoot;
     }
 
-    public get receiptProofs(): AddressMap<Map<string, string[]>> {
-        if (!this.#_receiptProofs) {
-            throw new Error('Storage proofs not found');
-        }
-
-        return this.#_receiptProofs;
-    }
-
     public get storageRoot(): string {
         if (!this.#_storageRoot) {
             throw new Error('Storage root not found');
         }
 
         return this.#_storageRoot;
-    }
-
-    public get storageProofs(): AddressMap<Map<MemorySlotPointer, string[]>> {
-        if (!this.#_storageProofs) {
-            throw new Error('Storage proofs not found');
-        }
-
-        return this.#_storageProofs;
     }
 
     public get compromised(): boolean {
@@ -369,7 +353,7 @@ export class Block extends Logger {
 
         return {
             rawTransactionData: this.rawTransactionData,
-            transactionOrder: this.transactions.map((t) => t.transactionId),
+            transactionOrder: this.transactions.map((t) => t.transactionIdString),
             header: this.header.toJSON(),
         };
     }
@@ -377,7 +361,7 @@ export class Block extends Logger {
     /** Get all transactions hashes of this block */
     public getTransactionsHashes(): string[] {
         return this.transactions.map((transaction: Transaction<OPNetTransactionTypes>) => {
-            return transaction.transactionId;
+            return transaction.transactionIdString;
         });
     }
 
@@ -487,17 +471,19 @@ export class Block extends Logger {
     }
 
     public async revertBlock(vmManager: VMManager): Promise<void> {
-        this._reverted = true;
+        await Promise.all(this.saveGenericPromises);
 
+        if (this.specialExecutionPromise) {
+            await this.specialExecutionPromise;
+        }
+
+        this._reverted = true;
         await vmManager.revertBlock();
     }
 
     protected async onEmptyBlock(vmManager: VMManager): Promise<void> {
         this.#_storageRoot = ZERO_HASH;
-        this.#_storageProofs = new AddressMap();
-
         this.#_receiptRoot = ZERO_HASH;
-        this.#_receiptProofs = new AddressMap();
 
         await this.signBlock(vmManager);
     }
@@ -518,12 +504,9 @@ export class Block extends Logger {
 
         // We must verify if we're only storing one pointer, if it crashes.
         if (storageTree.size()) {
-            const proofs = storageTree.getProofs();
             this.#_storageRoot = storageTree.root;
-            this.#_storageProofs = proofs;
         } else {
             this.#_storageRoot = ZERO_HASH;
-            this.#_storageProofs = new AddressMap();
         }
 
         this.verifyIfBlockAborted();
@@ -571,7 +554,7 @@ export class Block extends Logger {
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
                 this.debug(
-                    `Executed transaction ${transaction.txid} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                    `Executed transaction ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
                 );
             }
 
@@ -579,7 +562,7 @@ export class Block extends Logger {
                 vmManager.updateBlockValuesFromResult(
                     evaluation,
                     evaluation.contractAddress,
-                    evaluation.transactionId,
+                    evaluation.transactionId.toString('hex'),
                     Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
                 );
             }
@@ -615,7 +598,7 @@ export class Block extends Logger {
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
                 this.debug(
-                    `Executed transaction (deployment) ${transaction.txid} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                    `Executed transaction (deployment) ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
                 );
             }
 
@@ -623,7 +606,7 @@ export class Block extends Logger {
                 vmManager.updateBlockValuesFromResult(
                     evaluation,
                     evaluation.contractAddress,
-                    evaluation.transactionId,
+                    evaluation.transactionId.toString('hex'),
                     Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
                 );
             }
@@ -655,13 +638,18 @@ export class Block extends Logger {
 
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             this.error(
-                `Failed to execute transaction ${transaction.txid} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.gasUsed})`,
+                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.gasUsed})`,
             );
         }
 
         transaction.revert = error;
 
-        vmManager.updateBlockValuesFromResult(null, transaction.address, transaction.txid, true);
+        vmManager.updateBlockValuesFromResult(
+            null,
+            transaction.address,
+            transaction.transactionIdString,
+            true,
+        );
     }
 
     private checkConstraintsBlock(): void {
@@ -683,9 +671,9 @@ export class Block extends Logger {
         const error = transaction.receipt.revert;
 
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-            this.error(`Transaction ${transaction.txid} reverted with reason: ${error}`);
+            this.error(`Transaction ${transaction.txidHex} reverted with reason: ${error}`);
         } else if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.error(`Transaction ${transaction.txid} reverted.`);
+            this.error(`Transaction ${transaction.txidHex} reverted.`);
         }
 
         transaction.revert = new Error(error);
@@ -799,7 +787,7 @@ export class Block extends Logger {
                 continue;
             }
 
-            const proofs = contractProofs.get(interactionTransaction.transactionId);
+            const proofs = contractProofs.get(interactionTransaction.transactionIdString);
             interactionTransaction.setReceiptProofs(proofs);
         }
     }

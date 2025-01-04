@@ -107,10 +107,6 @@ export abstract class MerkleTree<K, V> {
         this.frozen = true;
     }
 
-    /*public getData(): AddressMap<Map<K, V>> {
-        return this.values;
-    }*/
-
     public abstract getProofs(): AddressMap<Map<K, string[]>>;
 
     public abstract updateValue(address: Address, key: K, val: V): void;

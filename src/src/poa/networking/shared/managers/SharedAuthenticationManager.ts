@@ -8,6 +8,7 @@ import { OPNetPacket } from '../../protobuf/types/OPNetPacket.js';
 import { OPNetProtocolV1 } from '../../server/protocol/OPNetProtocolV1.js';
 import { PeerNetworkingManager } from '../PeerNetworkingManager.js';
 import { TrustedVersion } from '../../../configurations/version/TrustedVersion.js';
+import { FastStringMap } from '../../../../utils/fast/FastStringMap.js';
 
 export abstract class SharedAuthenticationManager extends PeerNetworkingManager {
     public static readonly CURRENT_PROTOCOL_VERSION: TrustedVersion = P2PVersion;
@@ -20,7 +21,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
 
     protected abstract _encryptem: EncryptemServer | EncryptemClient | undefined;
 
-    private eventHandlers: Map<string, NetworkingEventHandler[]> = new Map();
+    private eventHandlers: FastStringMap<NetworkingEventHandler[]> = new FastStringMap();
 
     protected constructor(protected selfIdentity: OPNetIdentity | undefined) {
         super();

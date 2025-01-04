@@ -30,6 +30,8 @@ import { PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
 import { NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
 import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
+import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
+import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
@@ -126,8 +128,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     private convertArrayEventsToEvents(
         array: [string, [string, string][]][],
-    ): Map<string, NetEvent[]> {
-        const map: Map<string, NetEvent[]> = new Map<string, NetEvent[]>();
+    ): FastStringMap<NetEvent[]> {
+        const map: FastStringMap<NetEvent[]> = new FastStringMap<NetEvent[]>();
 
         for (const [key, value] of array) {
             const events: NetEvent[] = [];
@@ -150,11 +152,11 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     private convertArrayToMap(
         array: [string, [string, string][]][],
-    ): Map<string, PointerStorageMap> {
-        const map: Map<string, PointerStorageMap> = new Map<string, PointerStorageMap>();
+    ): FastStringMap<PointerStorageMap> {
+        const map: FastStringMap<PointerStorageMap> = new FastStringMap<PointerStorageMap>();
 
         for (const [key, value] of array) {
-            const innerMap: PointerStorageMap = new Map<bigint, bigint>();
+            const innerMap: PointerStorageMap = new FastBigIntMap();
 
             for (const [innerKey, innerValue] of value) {
                 innerMap.set(BigInt(innerKey), BigInt(innerValue));

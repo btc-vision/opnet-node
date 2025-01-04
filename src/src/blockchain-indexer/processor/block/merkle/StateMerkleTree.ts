@@ -9,6 +9,7 @@ import {
 import { arrayify as toBytes } from '@ethersproject/bytes';
 import { MerkleProof, MerkleTree as MerkleTreeRust } from '@btc-vision/rust-merkle-tree';
 import { defaultAbiCoder } from '@ethersproject/abi';
+import { FastBigIntMap } from '../../../../utils/fast/FastBigintMap.js';
 
 export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotData<bigint>> {
     public static TREE_TYPE: [string, string] = ['bytes32', 'bytes32'];
@@ -53,10 +54,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
     }
 
     /** We have to replace the value of the given address and key with the new value */
-    public updateValues(
-        address: Address,
-        val: Map<MemorySlotPointer, MemorySlotData<bigint>>,
-    ): void {
+    public updateValues(address: Address, val: FastBigIntMap): void {
         this.ensureAddress(address);
 
         const map = this.values.get(address);

@@ -65,6 +65,8 @@ import { Config } from '../../config/Config.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { CID } from 'multiformats/cid';
 import { autoNAT } from '@libp2p/autonat';
+import { FastStringMap } from '../../utils/fast/FastStringMap.js';
+import { FastBigIntSet } from '../../utils/fast/FastBigIntSet.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -97,13 +99,13 @@ export class P2PManager extends Logger {
 
     private privateKey: PrivateKey | undefined;
 
-    private peers: Map<string, OPNetPeer> = new Map();
+    private peers: FastStringMap<OPNetPeer> = new FastStringMap();
 
-    private blackListedPeerIds: Map<string, BlacklistedPeerInfo> = new Map();
-    private blackListedPeerIps: Map<string, BlacklistedPeerInfo> = new Map();
+    private blackListedPeerIds: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
+    private blackListedPeerIps: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
 
-    private knownMempoolIdentifiers: Set<bigint> = new Set();
-    private broadcastIdentifiers: Set<bigint> = new Set();
+    private knownMempoolIdentifiers: FastBigIntSet = new FastBigIntSet();
+    private broadcastIdentifiers: FastBigIntSet = new FastBigIntSet();
 
     private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 30_000;
 

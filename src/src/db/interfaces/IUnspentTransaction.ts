@@ -11,7 +11,7 @@ export interface IUnspentTransaction {
 
     //raw: Binary;
 
-    readonly transactionId: string;
+    readonly transactionId: Binary | Buffer;
     readonly outputIndex: number;
     value: Long;
 
@@ -21,7 +21,7 @@ export interface IUnspentTransaction {
 }
 
 export interface ISpentTransaction {
-    readonly transactionId: string;
+    readonly transactionId: Buffer;
     readonly outputIndex: number;
     readonly deletedAtBlock?: Long;
 }

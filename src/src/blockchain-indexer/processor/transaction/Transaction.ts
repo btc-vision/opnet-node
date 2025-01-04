@@ -13,7 +13,7 @@ import { EvaluatedEvents, EvaluatedResult } from '../../../vm/evaluated/Evaluate
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { StrippedTransactionInput, TransactionInput } from './inputs/TransactionInput.js';
 import { StrippedTransactionOutput, TransactionOutput } from './inputs/TransactionOutput.js';
-import { Address, ChallengeGenerator } from '@btc-vision/transaction';
+import { Address, BinaryWriter, ChallengeGenerator } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from './interfaces/OPNetHeader.js';
 
@@ -27,8 +27,8 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public readonly inputs: TransactionInput[] = [];
     public readonly outputs: TransactionOutput[] = [];
 
-    public readonly txid: string;
-    public readonly raw: string;
+    public readonly txidHex: string;
+    public readonly raw: Buffer;
 
     public readonly inActiveChain: boolean | undefined;
 
@@ -48,12 +48,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public wasCompressed: boolean = false;
 
     protected readonly _computedIndexingHash: Buffer;
-    protected readonly transactionHashBuffer: Buffer;
+    protected readonly transactionHash: Buffer;
 
-    protected readonly transactionHash: string;
     protected readonly vInputIndex: number;
 
     protected receiptProofs: string[] | undefined;
+
+    private readonly txid: Buffer;
 
     protected constructor(
         rawTransactionData: TransactionData,
@@ -69,12 +70,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
 
         this.vInputIndex = vInputIndex;
-        this.txid = rawTransactionData.txid;
 
-        this.transactionHash = rawTransactionData.hash;
-        this.transactionHashBuffer = Buffer.from(this.transactionHash, 'hex');
+        this.txid = Buffer.from(rawTransactionData.txid, 'hex');
+        this.txidHex = rawTransactionData.txid;
+        this.transactionHash = Buffer.from(rawTransactionData.hash, 'hex');
+        this.raw = rawTransactionData.hex
+            ? Buffer.from(rawTransactionData.hex, 'hex')
+            : Buffer.alloc(0);
 
-        this.raw = rawTransactionData.hex;
         this.inActiveChain = rawTransactionData.in_active_chain || false;
 
         this.size = rawTransactionData.size;
@@ -195,16 +198,16 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this._reward;
     }
 
-    public get transactionId(): string {
+    public get transactionId(): Buffer {
         return this.txid;
     }
 
-    public get hash(): string {
-        return this.transactionHash;
+    public get transactionIdString(): string {
+        return this.txidHex;
     }
 
-    public get bufferHash(): Buffer {
-        return this.transactionHashBuffer;
+    public get hash(): Buffer {
+        return this.transactionHash;
     }
 
     public get gasUsed(): bigint {
@@ -247,7 +250,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             try {
                 buffer = zlib.unzipSync(buffer, {
                     finishFlush: zlib.constants.Z_SYNC_FLUSH,
-                    maxOutputLength: 1024 * 1024, // limit to 1mb no matter what.
+                    maxOutputLength: OPNetConsensus.consensus.COMPRESSION.MAX_DECOMPRESSED_SIZE, // limit to 1mb no matter what.
                 });
             } catch {
                 throw new Error('OP_NET: Invalid compressed data.');
@@ -373,7 +376,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             outputs: this.outputs,
 
             OPNetType: this.transactionType,
-            raw: this.raw ? Buffer.from(this.raw, 'hex') : Buffer.alloc(0),
+            raw: this.raw,
         };
     }
 
@@ -388,7 +391,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             id: this.transactionId,
             hash: this.hash,
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
-            raw: this.raw ? Buffer.from(this.raw, 'hex') : Buffer.alloc(0),
+            raw: this.raw,
 
             index: this.index,
             burnedBitcoin: DataConverter.toDecimal128(this.burnedFee),
@@ -450,7 +453,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                 netEvents.push({
                     contractAddress: contractAddress,
                     data: new Binary(event.data),
-                    type: event.type,
+                    type: new Binary(this.strToBuffer(event.type)),
                 });
             }
         }
@@ -538,10 +541,17 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
     }
 
+    private strToBuffer(str: string): Uint8Array {
+        const writer = new BinaryWriter(str.length);
+        writer.writeString(str);
+
+        return writer.getBuffer();
+    }
+
     private computeHashForTransaction(): Buffer {
         // Create a hash from the transaction hash and the block hash
         const hash = crypto.createHash('sha256');
-        hash.update(this.bufferHash);
+        hash.update(this.transactionHash);
         hash.update(Buffer.from(this.blockHash, 'hex'));
         return hash.digest();
     }

@@ -486,7 +486,7 @@ export class ContractEvaluator extends Logger {
         evaluation: ContractEvaluation,
     ): Promise<void> {
         if (result.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
-            evaluation.revert = new Error('Result is too long');
+            evaluation.revert = new Error('OP_NET: Maximum receipt length exceeded.');
 
             return;
         }
@@ -494,7 +494,7 @@ export class ContractEvaluator extends Logger {
         // Check if result only contains zeros or is false.
         const isSuccess: boolean = result.length > 0;
         if (!isSuccess) {
-            evaluation.revert = new Error('execution reverted due to an unknown error');
+            evaluation.revert = new Error('OP_NET: Contract execution failed.');
             return;
         }
 
@@ -524,14 +524,14 @@ export class ContractEvaluator extends Logger {
 
     private async setEnvironment(evaluation: ContractEvaluation): Promise<void> {
         if (!this.contractOwner || !this.contractAddress) {
-            throw new Error('Contract not initialized');
+            throw new Error('OP_NET: Contract not initialized');
         }
 
         const writer = new BinaryWriter();
 
         writer.writeAddress(evaluation.msgSender);
         writer.writeAddress(evaluation.txOrigin); // "leftmost thing in the call chain"
-        writer.writeBytes(evaluation.transactionIdAsBuffer); // "transaction id"
+        writer.writeBytes(evaluation.transactionId); // "transaction id"
 
         writer.writeU256(evaluation.blockNumber);
         writer.writeAddress(this.contractOwner);

@@ -76,6 +76,10 @@ export class DeploymentTxEncoder {
             contractHybridPublicKey: Buffer.from(data.contractHybridPublicKey.buffer).toString(
                 'base64',
             ),
+            deployedTransactionId: Buffer.from(data.deployedTransactionId.buffer).toString('hex'),
+            deployedTransactionHash: Buffer.from(data.deployedTransactionHash.buffer).toString(
+                'hex',
+            ),
             bytecode: data.bytecode.toString('base64'),
             deployerPubKey: data.deployerPubKey.toString('base64'),
             contractSeed: data.contractSeed.toString('base64'),

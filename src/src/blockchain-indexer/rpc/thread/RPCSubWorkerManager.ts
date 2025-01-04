@@ -1,18 +1,16 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { ChildProcess, fork, ForkOptions } from 'node:child_process';
 import path from 'path';
+import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 
 export class RPCSubWorkerManager extends Logger {
     public readonly workers: ChildProcess[] = [];
     private readonly numConcurrent: number = 3;
 
-    private readonly tasks: Map<
-        string,
-        {
-            resolve: (value: object | undefined) => void;
-            timeout: NodeJS.Timeout;
-        }
-    > = new Map();
+    private readonly tasks: FastStringMap<{
+        resolve: (value: object | undefined) => void;
+        timeout: NodeJS.Timeout;
+    }> = new FastStringMap();
 
     private nextWorkerIndex: number = 0;
 

@@ -45,6 +45,7 @@ import { BlockHeaderValidator } from './BlockHeaderValidator.js';
 import { Config } from '../config/Config.js';
 import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasPredictor.js';
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
+import { FastStringMap } from '../utils/fast/FastStringMap.js';
 
 Globals.register();
 
@@ -61,7 +62,7 @@ export class VMManager extends Logger {
     private contractCache: AddressMap<ContractInformation> = new AddressMap();
 
     private vmEvaluators: AddressMap<Promise<ContractEvaluator | null>> = new AddressMap();
-    private contractAddressCache: Map<string, Address> = new Map();
+    private contractAddressCache: FastStringMap<Address> = new FastStringMap();
     private cachedLastBlockHeight: Promise<bigint> | undefined;
     private isProcessing: boolean = false;
 
@@ -769,8 +770,8 @@ export class VMManager extends Logger {
             deployResult.contractAddress.toTweakedHybridPublicKeyBuffer(),
             contractInfo.bytecode,
             false,
-            evaluation.transactionId || '',
-            evaluation.transactionHash || '',
+            evaluation.transactionId || Buffer.alloc(32),
+            evaluation.transactionHash || Buffer.alloc(32),
             Buffer.from(deployerKeyPair),
             salt,
             contractSaltHash,

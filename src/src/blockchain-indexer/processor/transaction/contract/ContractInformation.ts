@@ -27,8 +27,8 @@ export class ContractInformation {
         public readonly contractHybridPublicKey: Buffer,
         public readonly bytecode: Buffer,
         public readonly wasCompressed: boolean,
-        public readonly deployedTransactionId: string,
-        public readonly deployedTransactionHash: string,
+        public readonly deployedTransactionId: Buffer,
+        public readonly deployedTransactionHash: Buffer,
         public readonly deployerPubKey: Buffer,
         public readonly contractSeed: Buffer,
         public readonly contractSaltHash: Buffer,
@@ -64,6 +64,22 @@ export class ContractInformation {
             contractSaltHashBuffer = Buffer.from(contractDocument.contractSaltHash.buffer);
         }
 
+        let transactionIdBuffer: Buffer;
+        if (Buffer.isBuffer(contractDocument.deployedTransactionId)) {
+            transactionIdBuffer = contractDocument.deployedTransactionId;
+        } else {
+            transactionIdBuffer = Buffer.from(contractDocument.deployedTransactionId.buffer);
+        }
+
+        let deployedTransactionHashBuffer: Buffer;
+        if (Buffer.isBuffer(contractDocument.deployedTransactionHash)) {
+            deployedTransactionHashBuffer = contractDocument.deployedTransactionHash;
+        } else {
+            deployedTransactionHashBuffer = Buffer.from(
+                contractDocument.deployedTransactionHash.buffer,
+            );
+        }
+
         return new ContractInformation(
             DataConverter.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
@@ -75,8 +91,8 @@ export class ContractInformation {
                 : Buffer.from(contractDocument.contractHybridPublicKey.buffer),
             bytecodeBuffer,
             contractDocument.wasCompressed,
-            contractDocument.deployedTransactionId,
-            contractDocument.deployedTransactionHash,
+            transactionIdBuffer,
+            deployedTransactionHashBuffer,
             deployerPubKeyBuffer,
             contractSeedBuffer,
             contractSaltHashBuffer,
@@ -128,8 +144,8 @@ export class ContractInformation {
             contractHybridPublicKey: new Binary(this.contractHybridPublicKey),
             bytecode: new Binary(this.bytecode),
             wasCompressed: this.wasCompressed,
-            deployedTransactionId: this.deployedTransactionId,
-            deployedTransactionHash: this.deployedTransactionHash,
+            deployedTransactionId: new Binary(this.deployedTransactionId),
+            deployedTransactionHash: new Binary(this.deployedTransactionHash),
             deployerPubKey: new Binary(this.deployerPubKey),
             contractSeed: new Binary(this.contractSeed),
             contractSaltHash: new Binary(this.contractSaltHash),

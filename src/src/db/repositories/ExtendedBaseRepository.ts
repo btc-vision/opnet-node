@@ -63,7 +63,7 @@ export abstract class ExtendedBaseRepository<T extends IBaseDocument> extends Ba
         try {
             const collection = this.getCollection();
             const options: BulkWriteOptions = this.getOptions(currentSession);
-            options.ordered = false;
+            options.ordered = true;
             options.writeConcern = { w: 1 };
 
             const result: BulkWriteResult = await collection.bulkWrite(operations, options);

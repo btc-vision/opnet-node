@@ -27,6 +27,7 @@ import {
 import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
+import { FastStringMap } from '../../../../../utils/fast/FastStringMap.js';
 
 export class Simulation extends Route<
     Routes.SIMULATE,
@@ -228,7 +229,7 @@ export class Simulation extends Route<
         return response;
     }
 
-    private convertEventToResult(events: Map<string, NetEvent[]> | undefined): ContractEvents {
+    private convertEventToResult(events: FastStringMap<NetEvent[]> | undefined): ContractEvents {
         const contractEvents: ContractEvents = {};
 
         if (!events) {
@@ -254,7 +255,7 @@ export class Simulation extends Route<
         return contractEvents;
     }
 
-    private getAccessList(changedStorage: Map<string, PointerStorageMap> | undefined): AccessList {
+    private getAccessList(changedStorage: FastStringMap<PointerStorageMap> | undefined): AccessList {
         const accessList: AccessList = {};
         if (!changedStorage) {
             return accessList;

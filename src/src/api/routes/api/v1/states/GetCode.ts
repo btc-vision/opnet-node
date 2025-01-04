@@ -48,8 +48,8 @@ export class GetCode extends Route<
                 contractSeed: document.contractSeed.toString('base64'),
                 contractSaltHash: document.contractSaltHash.toString('hex'),
 
-                deployedTransactionId: document.deployedTransactionId,
-                deployedTransactionHash: document.deployedTransactionHash,
+                deployedTransactionId: document.deployedTransactionId.toString('hex'),
+                deployedTransactionHash: document.deployedTransactionHash.toString('hex'),
                 deployerPubKey: document.deployerPubKey.toString('base64'),
 
                 bytecode: contract.bytecode.toString('base64'),

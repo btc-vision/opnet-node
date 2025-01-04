@@ -36,6 +36,10 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         MAXIMUM_CALLDATA_SIZE_DECOMPRESSED: 1024 * 1024,
     },
 
+    COMPRESSION: {
+        MAX_DECOMPRESSED_SIZE: Math.ceil(1024 * 1024 * 1.5),
+    },
+
     NETWORK: {
         /** Networking */
         MAXIMUM_TRANSACTION_BROADCAST_SIZE: 440_000, // Cap to 800k bytes.
@@ -84,11 +88,19 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     TRANSACTIONS: {
+        EVENTS: {
+            /** The maximum size of an event in bytes */
+            MAXIMUM_EVENT_LENGTH: 1024 * 512, // 512 ko.
+
+            /** The maximum size of all events combined  */
+            MAXIMUM_TOTAL_EVENT_LENGTH: 1024 * 1024 * 2, // 4 Mo.
+
+            /** The maximum size of an event name in bytes */
+            MAXIMUM_EVENT_NAME_LENGTH: 48,
+        },
+
         /** The maximum size of a receipt in bytes */
         MAXIMUM_RECEIPT_LENGTH: 128,
-
-        /** The maximum size of an event in bytes */
-        MAXIMUM_EVENT_LENGTH: 352,
 
         /** The maximum amount of contract a transaction can deploy */
         MAXIMUM_DEPLOYMENT_DEPTH: 2,

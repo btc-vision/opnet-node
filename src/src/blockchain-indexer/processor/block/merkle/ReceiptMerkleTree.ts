@@ -1,6 +1,7 @@
 import { BTC_FAKE_ADDRESS, MAX_HASH, MAX_MINUS_ONE } from '../types/ZeroValue.js';
 import { Address, AddressMap } from '@btc-vision/transaction';
 import { MerkleTree } from './MerkleTree.js';
+import { FastStringMap } from '../../../../utils/fast/FastStringMap.js';
 
 export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
     public static TREE_TYPE: [string, string] = ['bytes', 'bytes'];
@@ -9,8 +10,8 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         super(ReceiptMerkleTree.TREE_TYPE);
     }
 
-    public getProofs(): AddressMap<Map<string, string[]>> {
-        const proofs = new AddressMap<Map<string, string[]>>();
+    public getProofs(): AddressMap<FastStringMap<string[]>> {
+        const proofs = new AddressMap<FastStringMap<string[]>>();
         for (const [address, val] of this.values) {
             for (const [key, value] of val.entries()) {
                 const transactionBuf = Buffer.from(key, 'hex');
@@ -21,7 +22,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
                 }
 
                 if (!proofs.has(address)) {
-                    proofs.set(address, new Map());
+                    proofs.set(address, new FastStringMap());
                 }
 
                 const proofMap = proofs.get(address);
@@ -35,7 +36,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
     }
 
     /** We have to replace the value of the given address and key with the new value */
-    public updateValues(address: Address, val: Map<string, Buffer>): void {
+    public updateValues(address: Address, val: FastStringMap<Buffer>): void {
         this.ensureAddress(address);
 
         const map = this.values.get(address);
@@ -110,8 +111,8 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         return [value, proof];
     }
 
-    public getValuesWithProofs(address: Address): Map<string, [Buffer, string[]]> {
-        const proofs = new Map<string, [Buffer, string[]]>();
+    public getValuesWithProofs(address: Address): FastStringMap<[Buffer, string[]]> {
+        const proofs = new FastStringMap<[Buffer, string[]]>();
         if (!this.values.has(address)) {
             return proofs;
         }
@@ -135,12 +136,12 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         return proofs;
     }
 
-    public getEverythingWithProofs(): AddressMap<Map<string, [Buffer, string[]]>> | undefined {
+    public getEverythingWithProofs(): AddressMap<FastStringMap<[Buffer, string[]]>> | undefined {
         if (!this._tree) {
             return;
         }
 
-        const proofs = new AddressMap<Map<string, [Buffer, string[]]>>();
+        const proofs = new AddressMap<FastStringMap<[Buffer, string[]]>>();
         for (const address of this.values.keys()) {
             const map = this.getValuesWithProofs(address);
 
@@ -164,9 +165,9 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
         return entries;
     }
 
-    protected getDummyValues(): AddressMap<Map<string, Buffer>> {
-        const dummyValues = new AddressMap<Map<string, Buffer>>();
-        const dummyMap = new Map<string, Buffer>();
+    protected getDummyValues(): AddressMap<FastStringMap<Buffer>> {
+        const dummyValues = new AddressMap<FastStringMap<Buffer>>();
+        const dummyMap = new FastStringMap<Buffer>();
 
         // Ensure minimum tree requirements
         dummyMap.set(MAX_HASH, Buffer.from([1]));

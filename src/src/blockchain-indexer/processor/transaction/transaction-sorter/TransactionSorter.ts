@@ -71,7 +71,7 @@ export class TransactionSorter {
         const newOrder: Transaction<OPNetTransactionTypes>[] = [];
 
         for (let i = 0; i < transactionIds.length; i++) {
-            const tx = transactions.find((t) => t.transactionId === transactionIds[i]);
+            const tx = transactions.find((t) => t.transactionIdString === transactionIds[i]);
             if (tx) {
                 newOrder.push(tx);
             } else {

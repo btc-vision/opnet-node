@@ -15,9 +15,8 @@ import {
 import { Address } from '@btc-vision/transaction';
 
 export interface TransactionDocumentBasic<T extends OPNetTransactionTypes> {
-    readonly id: string;
-    readonly hash: string;
-
+    readonly id: Buffer;
+    readonly hash: Buffer;
     readonly raw: Buffer;
 
     readonly index: number; // Mark the order of the transaction in the block
@@ -37,7 +36,6 @@ export interface ITransactionDocumentBasic<T extends OPNetTransactionTypes>
 export interface TransactionDocumentBase<T extends OPNetTransactionTypes>
     extends TransactionDocumentBasic<T> {
     readonly burnedBitcoin: Decimal128 | string;
-    readonly reward: Long | string;
     readonly revert: Binary | undefined | string;
 }
 
@@ -77,7 +75,7 @@ export interface DeploymentTransactionDocument
 }
 
 export interface NetEventDocument {
-    readonly type: string;
+    readonly type: Binary | Uint8Array;
     readonly data: Binary | Uint8Array;
     readonly contractAddress: Address | Binary;
 }

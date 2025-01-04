@@ -11,10 +11,8 @@ import {
     ITransactionDocument,
     NetEventDocument,
 } from '../../db/interfaces/ITransactionDocument.js';
-import { Address } from '@btc-vision/transaction';
-import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 
-const network = NetworkConverter.getNetwork();
+//const network = NetworkConverter.getNetwork();
 
 export class TransactionConverterForAPI {
     public static convertTransactionToAPI(
@@ -28,14 +26,17 @@ export class TransactionConverterForAPI {
             'events' in transaction
                 ? ((transaction as InteractionTransactionDocument).events.map(
                       (event: NetEventDocument) => {
-                          const contractAddress: Address =
-                              'p2tr' in event.contractAddress
-                                  ? event.contractAddress
-                                  : new Address(event.contractAddress.buffer);
+                          /*const contractAddress: Address =
+                  'p2tr' in event.contractAddress
+                      ? event.contractAddress
+                      : new Address(event.contractAddress.buffer);*/
 
                           return {
-                              contractAddress: contractAddress.p2tr(network),
-                              type: event.type,
+                              contractAddress: event.contractAddress.toString('base64'),
+                              type: (event.data instanceof Uint8Array
+                                  ? new Binary(event.data)
+                                  : event.data
+                              ).toString('base64'),
                               data: (event.data instanceof Uint8Array
                                   ? new Binary(event.data)
                                   : event.data
@@ -44,9 +45,11 @@ export class TransactionConverterForAPI {
                       },
                   ) satisfies EventReceiptDataForAPI[])
                 : [];
-        
+
         const newTx: TransactionDocumentForAPI<OPNetTransactionTypes> = {
             ...transaction,
+            hash: transaction.hash.toString('hex'),
+            id: transaction.id.toString('hex'),
             inputs: transaction.inputs,
             outputs: transaction.outputs?.map((output) => {
                 return {
@@ -59,16 +62,20 @@ export class TransactionConverterForAPI {
             burnedBitcoin:
                 '0x' + DataConverter.fromDecimal128(transaction.burnedBitcoin || 0n).toString(16),
             gasUsed: '0x' + DataConverter.fromDecimal128(transaction.gasUsed || 0n).toString(16),
-            reward: '0x' + transaction.reward.toString(16),
             _id: undefined,
             blockHeight: undefined,
             deployedTransactionHash: undefined,
             deployedTransactionId: undefined,
+            reward: undefined,
+            preimage: undefined,
         };
 
         if ('preimage' in transaction) {
             const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
-            newTx.preimage = tx.preimage.toString('base64');
+            newTx.pow = {
+                preimage: tx.preimage.toString('base64'),
+                reward: '0x' + tx.reward.toString(16),
+            };
         }
 
         if ('contractTweakedPublicKey' in transaction) {

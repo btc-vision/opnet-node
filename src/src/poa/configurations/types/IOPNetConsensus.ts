@@ -39,6 +39,10 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly MAXIMUM_CALLDATA_SIZE_DECOMPRESSED: number;
     };
 
+    readonly COMPRESSION: {
+        MAX_DECOMPRESSED_SIZE: number;
+    };
+
     /** Transactions related properties */
     readonly GAS: {
         /** Target block gas limit */
@@ -82,11 +86,19 @@ export interface IOPNetConsensus<T extends Consensus> {
     };
 
     readonly TRANSACTIONS: {
+        readonly EVENTS: {
+            /** The maximum size of an event in bytes */
+            readonly MAXIMUM_EVENT_LENGTH: number;
+
+            /** The maximum size of all events combined  */
+            readonly MAXIMUM_TOTAL_EVENT_LENGTH: number;
+
+            /** The maximum length of an event name */
+            readonly MAXIMUM_EVENT_NAME_LENGTH: number;
+        };
+
         /** The maximum size of a receipt in bytes */
         readonly MAXIMUM_RECEIPT_LENGTH: number;
-
-        /** The maximum size of an event in bytes */
-        readonly MAXIMUM_EVENT_LENGTH: number;
 
         /** The maximum amount of contract a transaction can deploy */
         readonly MAXIMUM_DEPLOYMENT_DEPTH: number;
