@@ -599,8 +599,8 @@ export class Block extends Logger {
                 this.safeU64,
                 transaction,
             );
-            this.blockUsedGas += evaluation.gasUsed;
 
+            this.blockUsedGas += evaluation.gasUsed;
             transaction.receipt = evaluation.getEvaluationResult();
 
             this.processRevertedTx(transaction);

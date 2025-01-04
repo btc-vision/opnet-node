@@ -98,10 +98,7 @@ export class TransactionReceipt extends Route<
     private getReceipt(
         data: ITransactionDocument<OPNetTransactionTypes>,
     ): TransactionReceiptResult {
-        if (
-            data.OPNetType !== OPNetTransactionTypes.Interaction //&&
-            //data.OPNetType !== OPNetTransactionTypes.WrapInteraction
-        ) {
+        if (data.OPNetType !== OPNetTransactionTypes.Interaction) {
             return this.buildEmptyReceipt();
         }
 
@@ -121,14 +118,9 @@ export class TransactionReceipt extends Route<
 
     private restoreEvents(events: NetEventDocument[]): EventReceiptDataForAPI[] {
         return events.map((event: NetEventDocument): EventReceiptDataForAPI => {
-            /*const contractAddress: Address =
-                'p2tr' in event.contractAddress
-                    ? event.contractAddress
-                    : new Address(event.contractAddress.buffer);*/
-
             return {
-                contractAddress: event.contractAddress.toString('base64'),
-                type: event.type.toString('base64'),
+                contractAddress: '0x' + event.contractAddress.toString('hex'),
+                type: event.type.toString('utf8'),
                 data: event.data.toString('base64'),
             };
         });

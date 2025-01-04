@@ -25,7 +25,7 @@ export class TransactionConverterForAPI {
                 ? ((transaction as InteractionTransactionDocument).events.map(
                       (event: NetEventDocument) => {
                           return {
-                              contractAddress: event.contractAddress.toString('base64'),
+                              contractAddress: '0x' + event.contractAddress.toString('hex'),
                               type: (event.type instanceof Uint8Array
                                   ? new Binary(event.type)
                                   : event.type
