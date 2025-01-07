@@ -284,6 +284,7 @@ class RPCManager extends Logger {
                 Buffer.from(data.calldata, 'hex'),
                 data.blockNumber,
                 parsedTransaction,
+                data.accessList,
             );
         } catch (e) {
             const error = e as Error;

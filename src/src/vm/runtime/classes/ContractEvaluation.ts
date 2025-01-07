@@ -22,6 +22,8 @@ import { ContractInformation } from '../../../blockchain-indexer/processor/trans
 import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
+import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
+import { Config } from '../../../config/Config.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -63,6 +65,8 @@ export class ContractEvaluation implements ExecutionParameters {
     public serializedInputs: Uint8Array | undefined;
     public serializedOutputs: Uint8Array | undefined;
 
+    public readonly accessList: AccessList | undefined;
+
     constructor(params: ExecutionParameters) {
         this.contractAddress = params.contractAddress;
         this.contractAddressStr = params.contractAddressStr;
@@ -95,6 +99,9 @@ export class ContractEvaluation implements ExecutionParameters {
 
         this.serializedInputs = params.serializedInputs;
         this.serializedOutputs = params.serializedOutputs;
+
+        this.accessList = params.accessList;
+        this.parseAccessList();
     }
 
     public _totalEventSize: number = 0;
@@ -365,6 +372,46 @@ export class ContractEvaluation implements ExecutionParameters {
             }
 
             this.events.set(key, current);
+        }
+    }
+
+    private parseAccessList(): void {
+        // add all items from access list to storage
+
+        try {
+            if (!this.accessList) {
+                return;
+            }
+
+            for (const [address, storageKeys] of Object.entries(this.accessList)) {
+                const contract = Address.fromString(address);
+                const current: PointerStorage =
+                    this.storage.get(contract) ||
+                    new DeterministicMap((a: bigint, b: bigint) => {
+                        return BinaryReader.bigintCompare(a, b);
+                    });
+
+                for (const [key, value] of Object.entries(storageKeys)) {
+                    const bigIntBuf = Buffer.from(key, 'base64');
+                    const valueBuf = Buffer.from(value, 'base64');
+
+                    if (bigIntBuf.length !== 32 || valueBuf.length !== 32) {
+                        throw new Error(`Invalid access list key or value.`);
+                    }
+
+                    const pointerKey = BigInt('0x' + bigIntBuf.toString('hex'));
+                    const pointerValue = BigInt('0x' + valueBuf.toString('hex'));
+                    current.set(pointerKey, pointerValue);
+                }
+
+                this.storage.set(contract, current);
+            }
+        } catch (e) {
+            if (Config.DEV_MODE) {
+                console.log(`Error parsing access list: ${e}`);
+            }
+
+            throw new Error(`Can not parse access list.`);
         }
     }
 

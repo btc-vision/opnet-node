@@ -237,6 +237,7 @@ export class ContractEvaluator extends Logger {
 
             serializedInputs: evaluation.serializedInputs,
             serializedOutputs: evaluation.serializedOutputs,
+            accessList: evaluation.accessList
         };
 
         const response = await this.callExternal(externalCallParams);

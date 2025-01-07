@@ -46,6 +46,7 @@ import { Config } from '../config/Config.js';
 import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasPredictor.js';
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
+import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 
 Globals.register();
 
@@ -180,11 +181,16 @@ export class VMManager extends Logger {
         calldata: Buffer,
         height?: bigint,
         transaction?: ParsedSimulatedTransaction,
+        accessList?: AccessList,
     ): Promise<EvaluatedResult> {
         if (this.isProcessing) {
             throw new Error(
                 `VM is already processing a request. Increase the amount of VMs threads or concurrency or send fewer requests.`,
             );
+        }
+
+        if (!this.isExecutor && accessList) {
+            throw new Error('Access list not allowed in execution mode.');
         }
 
         this.isProcessing = true;
@@ -231,6 +237,8 @@ export class VMManager extends Logger {
 
                 serializedInputs: undefined,
                 serializedOutputs: undefined,
+
+                accessList: accessList,
             };
 
             // Execute the function
@@ -641,6 +649,7 @@ export class VMManager extends Logger {
 
             serializedInputs: params.serializedInputs,
             serializedOutputs: params.serializedOutputs,
+            accessList: params.accessList,
         };
 
         // Execute the function
