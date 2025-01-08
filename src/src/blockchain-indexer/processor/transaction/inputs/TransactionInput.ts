@@ -12,7 +12,9 @@ export interface TransactionInputBase {
 
 export interface ITransactionInput extends Omit<TransactionInputBase, 'transactionInWitness'> {}
 
-export interface APIDocumentInput extends ITransactionInput {}
+export interface APIDocumentInput extends Omit<ITransactionInput, 'originalTransactionId'> {
+    readonly originalTransactionId: string | undefined;
+}
 
 export interface StrippedTransactionInput {
     readonly txId: Uint8Array | Buffer;

@@ -43,7 +43,13 @@ export class TransactionConverterForAPI {
             ...transaction,
             hash: transaction.hash.toString('hex'),
             id: transaction.id.toString('hex'),
-            inputs: transaction.inputs,
+            inputs: transaction.inputs?.map((input) => {
+                return {
+                    ...input,
+                    originalTransactionId: input.originalTransactionId?.toString('hex'),
+                    scriptSignature: input.scriptSignature,
+                };
+            }),
             outputs: transaction.outputs?.map((output) => {
                 return {
                     ...output,
