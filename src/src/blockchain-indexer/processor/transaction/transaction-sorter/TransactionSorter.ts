@@ -20,11 +20,11 @@ export class TransactionSorter {
 
         // Filter block rewards and non-block rewards
         const blockRewards = transactions.filter((t) =>
-            t.inputs.some((input) => input.originalTransactionId === undefined),
+            t.inputs.some((input) => input.originalTransactionId.length === 0),
         );
 
         const nonBlockRewards = transactions.filter((t) =>
-            t.inputs.every((input) => input.originalTransactionId !== undefined),
+            t.inputs.every((input) => input.originalTransactionId.length !== 0),
         );
 
         // Initialize the final list with block rewards since they have no dependencies
