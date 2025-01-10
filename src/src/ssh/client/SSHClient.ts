@@ -177,6 +177,10 @@ export class SSHClient extends Logger {
 
     // AUDIT FIX: Timing Attack
     private verifySafeBuffer(buffer: Buffer, buffer2: Buffer): boolean {
+        if (buffer.length > 1024 || buffer2.length > 1024) {
+            return false;
+        }
+
         const maxLen = Math.max(buffer.length, buffer2.length);
 
         const paddedBuffer1 = Buffer.alloc(maxLen, 0);
