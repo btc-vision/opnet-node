@@ -195,7 +195,7 @@ export class Core extends Logger {
             promises.push(this.requestExitThread(thread));
         }
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
 
         this.success('All threads exited successfully.');
 

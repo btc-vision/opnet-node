@@ -140,7 +140,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             promises.push(this.executeBulkWrite(operations, currentSession));
         }
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     public async setByContractAndPointer(

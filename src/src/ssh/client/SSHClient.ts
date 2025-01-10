@@ -10,7 +10,6 @@ import ssh2, {
 import { AuthMethods } from './enums/AuthMethods.js';
 import { SSHConfig } from '../../config/interfaces/IBtcIndexerConfig.js';
 import { Buffer } from 'buffer';
-import { timingSafeEqual } from 'node:crypto';
 import * as readline from 'node:readline';
 import figlet, { Fonts } from 'figlet';
 import { OPNetSysInfo } from './custom/OPNetSysInfo.js';
@@ -178,7 +177,7 @@ export class SSHClient extends Logger {
     private verifySafeBuffer(buffer: Buffer, buffer2: Buffer): boolean {
         if (buffer.length !== buffer2.length) return false;
 
-        return timingSafeEqual(buffer, buffer2);
+        return buffer.equals(buffer2);
     }
 
     private onPublicKeyAuth(ctx: ssh2.PublicKeyAuthContext): void {

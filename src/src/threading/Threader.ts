@@ -209,7 +209,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
             threads.push(this.createThread(i));
         }
 
-        await Promise.all(threads);
+        await Promise.safeAll(threads);
     }
 
     public async createThread(i: number): Promise<undefined | Worker> {

@@ -155,7 +155,7 @@ export class IndexingTask extends Logger {
             this.finalizeBlockStart = Date.now();
 
             // 3. Finalize the block
-            const resp = await Promise.all([
+            const resp = await Promise.safeAll([
                 this.vmStorage.deleteTransactionsById(this.block.getTransactionsHashes()),
                 this.block.finalizeBlock(this.vmManager),
             ]);

@@ -30,6 +30,6 @@ export class PSBTProcessorManager {
     public async createRepositories(rpc: BitcoinRPC): Promise<void> {
         const promises = this.verificator.map((v) => v.createRepositories(rpc));
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 }

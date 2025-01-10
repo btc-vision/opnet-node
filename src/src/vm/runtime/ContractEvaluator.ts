@@ -237,7 +237,7 @@ export class ContractEvaluator extends Logger {
 
             serializedInputs: evaluation.serializedInputs,
             serializedOutputs: evaluation.serializedOutputs,
-            accessList: evaluation.accessList
+            accessList: evaluation.accessList,
         };
 
         const response = await this.callExternal(externalCallParams);
@@ -510,7 +510,7 @@ export class ContractEvaluator extends Logger {
                 }
 
                 // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
-                await Promise.all(deploymentPromises);
+                await Promise.safeAll(deploymentPromises);
             }
 
             evaluation.setResult(result);

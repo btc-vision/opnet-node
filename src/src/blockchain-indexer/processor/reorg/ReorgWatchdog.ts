@@ -157,7 +157,7 @@ export class ReorgWatchdog extends Logger {
                 this.vmStorage.getBlockHeader(previousBlock),
             ];
 
-            const results = await Promise.all(promises);
+            const results = await Promise.safeAll(promises);
 
             const currentBlockHash: string | null = results[0];
             if (currentBlockHash === null) {
@@ -221,7 +221,11 @@ export class ReorgWatchdog extends Logger {
     private async getLastBlockHash(height: bigint): Promise<LastBlock | undefined> {
         if (height === -1n) {
             return;
-        } else if (this.lastBlock.hash && this.lastBlock.checksum) {
+        } else if (
+            this.lastBlock.hash &&
+            this.lastBlock.checksum &&
+            this.lastBlock.blockNumber === height
+        ) {
             return {
                 hash: this.lastBlock.hash,
                 checksum: this.lastBlock.checksum,

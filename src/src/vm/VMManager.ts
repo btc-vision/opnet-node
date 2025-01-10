@@ -363,11 +363,11 @@ export class VMManager extends Logger {
             throw new Error('Concurrency detected. (deployContract)');
         }
 
-        // We must save the contract information
-        await this.setContractAt(contractInformation);
-
         try {
             this.isProcessing = true;
+
+            // We must save the contract information
+            await this.setContractAt(contractInformation);
 
             const vmEvaluator = await this.getVMEvaluatorFromParams(
                 contractDeploymentTransaction.address,

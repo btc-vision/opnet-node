@@ -72,7 +72,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 promises.push(this.sendMessage({ ...m }, port));
             }
 
-            await Promise.all(promises);
+            await Promise.safeAll(promises);
         } else {
             throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
         }

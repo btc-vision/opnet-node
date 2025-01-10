@@ -84,13 +84,13 @@ export class SSH extends Logger {
 
     private async connect(): Promise<void> {
         this.db.setup();
-        await Promise.all([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
+        await Promise.safeAll([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
 
         if (!this.db.db) throw new Error('Database connection not established.');
 
         this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
-        await Promise.all([this.watchBlockchain()]);
+        await Promise.safeAll([this.watchBlockchain()]);
     }
 
     private async watchBlockchain(): Promise<void> {

@@ -81,7 +81,7 @@ export class MempoolManager extends Logger {
         this.log(`Starting MempoolManager...`);
 
         this.db.setup();
-        await Promise.all([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
+        await Promise.safeAll([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
 
         if (!this.db.db) throw new Error('Database connection not established.');
 
@@ -167,7 +167,7 @@ export class MempoolManager extends Logger {
                 });
             });
 
-            const batchData = await Promise.all(promises);
+            const batchData = await Promise.safeAll(promises);
             txsData.push(...batchData.filter((tx) => !!tx));
         }
 

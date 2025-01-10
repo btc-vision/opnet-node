@@ -1,18 +1,18 @@
-import {ConfigurableDBManager, DebugLevel, Logger} from '@btc-vision/bsi-common';
-import {Document} from 'bson';
-import {Collection, CreateIndexesOptions, Db, IndexDescription, IndexDirection} from 'mongodb';
-import {IndexedBlockchainInformation} from './required/IndexedBlockchainInformation.js';
-import {IndexedBlocks} from './required/IndexedBlocks.js';
-import {IndexedBlockWitnesses} from './required/IndexedBlockWitnesses.js';
-import {IndexedCollection, OPNetCollections} from './required/IndexedCollection.js';
-import {IndexedContracts} from './required/IndexedContracts.js';
-import {IndexedInternalPointers} from './required/IndexedInternalPointers.js';
-import {IndexedReorgs} from './required/IndexedReorgs.js';
-import {IndexedTransactions} from './required/IndexedTransactions.js';
-import {IndexedMempool} from './required/IndexedMempool.js';
-import {IndexedUnspentTransactions} from './required/IndexedUnspentTransactions.js';
-import {Config} from '../../config/Config.js';
-import {IndexedPublicKeys} from './required/IndexedPublicKeys.js';
+import { ConfigurableDBManager, DebugLevel, Logger } from '@btc-vision/bsi-common';
+import { Document } from 'bson';
+import { Collection, CreateIndexesOptions, Db, IndexDescription, IndexDirection } from 'mongodb';
+import { IndexedBlockchainInformation } from './required/IndexedBlockchainInformation.js';
+import { IndexedBlocks } from './required/IndexedBlocks.js';
+import { IndexedBlockWitnesses } from './required/IndexedBlockWitnesses.js';
+import { IndexedCollection, OPNetCollections } from './required/IndexedCollection.js';
+import { IndexedContracts } from './required/IndexedContracts.js';
+import { IndexedInternalPointers } from './required/IndexedInternalPointers.js';
+import { IndexedReorgs } from './required/IndexedReorgs.js';
+import { IndexedTransactions } from './required/IndexedTransactions.js';
+import { IndexedMempool } from './required/IndexedMempool.js';
+import { IndexedUnspentTransactions } from './required/IndexedUnspentTransactions.js';
+import { Config } from '../../config/Config.js';
+import { IndexedPublicKeys } from './required/IndexedPublicKeys.js';
 
 /** This class job is to create the required indexes for the database */
 export class IndexManager extends Logger {
@@ -85,7 +85,7 @@ export class IndexManager extends Logger {
             }
         });
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     private getIndexName(index: IndexDescription): string {
@@ -153,6 +153,6 @@ export class IndexManager extends Logger {
             return await this.createIndex(index);
         });
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 }

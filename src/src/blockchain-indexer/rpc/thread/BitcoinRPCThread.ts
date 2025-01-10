@@ -190,7 +190,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 this.blockHeaderValidator.getBlockHeader(blockNumber),
             ];
 
-            const [hasValidProofs, fetchedBlockHeader] = await Promise.all(requests);
+            const [hasValidProofs, fetchedBlockHeader] = await Promise.safeAll(requests);
             return {
                 hasValidProofs: hasValidProofs,
                 storedBlockHeader: fetchedBlockHeader ?? null,

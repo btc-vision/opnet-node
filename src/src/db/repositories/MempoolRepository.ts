@@ -65,13 +65,24 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     }
 
     public async deleteGreaterThanBlockHeight(blockHeight: bigint): Promise<void> {
-        const criteria: Filter<IMempoolTransaction> = {
-            blockHeight: {
-                $gt: DataConverter.toDecimal128(blockHeight),
-            },
-        };
+        if (blockHeight <= 0) {
+            try {
+                const collection = this.getCollection();
+                await collection.deleteMany({});
+            } catch (e) {
+                this.error(`Error deleting mempool transactions: ${e}`);
 
-        await this.delete(criteria);
+                throw new Error('Error deleting mempool transactions');
+            }
+        } else {
+            const criteria: Filter<IMempoolTransaction> = {
+                blockHeight: {
+                    $gt: DataConverter.toDecimal128(blockHeight),
+                },
+            };
+
+            await this.delete(criteria);
+        }
     }
 
     public async hasTransactionByIdentifier(
@@ -92,7 +103,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
                 return this.storeTransaction(tx);
             });
 
-            await Promise.all(promises);
+            await Promise.safeAll(promises);
         }
     }
 

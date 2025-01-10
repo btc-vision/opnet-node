@@ -149,7 +149,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                 promises.push(this.bulkWrite(chunk));
             }
 
-            await Promise.all(promises);
+            await Promise.safeAll(promises);
 
             promises = [];
 
@@ -158,7 +158,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                 promises.push(this.bulkWrite(chunk));
             }
 
-            await Promise.all(promises);
+            await Promise.safeAll(promises);
         }
 
         if (Config.DEBUG_LEVEL > DebugLevel.TRACE && Config.DEV_MODE) {
@@ -172,11 +172,23 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         blockHeight: bigint,
         currentSession?: ClientSession,
     ): Promise<void> {
-        const criteria: Partial<Filter<IUnspentTransaction>> = {
-            blockHeight: { $gte: this.bigIntToLong(blockHeight) },
-        };
+        if (blockHeight < 0n) {
+            try {
+                const collection = this.getCollection();
 
-        await this.delete(criteria, currentSession);
+                await collection.deleteMany({}, { session: currentSession });
+            } catch (e) {
+                this.error(`Failed to delete all UTXOs: ${(e as Error).stack}`);
+
+                throw new Error('Failed to delete all UTXOs');
+            }
+        } else {
+            const criteria: Partial<Filter<IUnspentTransaction>> = {
+                blockHeight: { $gte: this.bigIntToLong(blockHeight) },
+            };
+
+            await this.delete(criteria, currentSession);
+        }
     }
 
     public async purgeSpentUTXOsFromBlockHeight(
