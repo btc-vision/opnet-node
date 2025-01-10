@@ -270,9 +270,15 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         /** We regenerate the contract address and verify it */
         const input0: TransactionInput = this.inputs[0];
         const controlBlock = input0.transactionInWitness[input0.transactionInWitness.length - 1];
-        this.getOriginalContractAddress(Buffer.from(controlBlock, 'hex'));
+        this.getOriginalContractAddress(
+            Buffer.from(controlBlock, 'hex'),
+            deploymentWitnessData.header.priorityFeeSat,
+        );
 
-        const outputWitness: TransactionOutput = this.getWitnessOutput(this.contractAddress);
+        const outputWitness: TransactionOutput = this.outputs[0]; // SHOULD ALWAYS BE 0.
+        if (outputWitness?.scriptPubKey?.address !== this.contractAddress) {
+            throw new Error(`OP_NET: Invalid contract address.`);
+        }
 
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
@@ -283,12 +289,13 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         // We allow duplicates in the last 10 blocks to prevent this attack.
         // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
         this.verifyRewardUTXO();
+        this.setGasFromHeader(deploymentWitnessData.header);
 
         /** Decompress contract bytecode if needed */
         this.decompress();
     }
 
-    private getOriginalContractAddress(controlBlock: Buffer): void {
+    private getOriginalContractAddress(controlBlock: Buffer, priorityFee: bigint): void {
         if (!this.deployerPubKey) throw new Error('Deployer public key not found');
         if (!this.contractSigner) throw new Error('Contract signer not found');
         if (!this.contractSeed) throw new Error('Contract seed not found');
@@ -305,6 +312,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
                     : undefined,
             preimage: this.preimage,
             network: this.network,
+            priorityFee: priorityFee,
         };
 
         let tapContractAddress: boolean;

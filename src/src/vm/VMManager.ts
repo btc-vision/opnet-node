@@ -286,9 +286,7 @@ export class VMManager extends Logger {
                 );
             }
 
-            const feeBitcoin: bigint =
-                interactionTransaction.burnedFee + interactionTransaction.reward;
-
+            const feeBitcoin: bigint = interactionTransaction.gasSatFee;
             if (!feeBitcoin) {
                 throw new Error('execution reverted (out of gas)');
             }

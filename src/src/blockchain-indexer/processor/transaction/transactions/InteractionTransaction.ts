@@ -399,6 +399,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         // We allow duplicates in the last 10 blocks to prevent this attack.
         // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
         this.verifyRewardUTXO();
+        this.setGasFromHeader(this.interactionWitnessData.header);
 
         /** Decompress calldata if needed */
         this.decompressCalldata();

@@ -200,6 +200,22 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this._reward;
     }
 
+    public get totalFeeFund(): bigint {
+        return this._burnedFee + this._reward;
+    }
+
+    protected _priorityFee: bigint = 0n;
+
+    public get priorityFee(): bigint {
+        return this._priorityFee;
+    }
+
+    protected _gasSatFee: bigint = 0n;
+
+    public get gasSatFee(): bigint {
+        return this._gasSatFee;
+    }
+
     public get transactionId(): Buffer {
         return this.txid;
     }
@@ -339,7 +355,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         scriptData: Array<number | Buffer>,
     ): OPNetHeader | undefined {
         const header = scriptData.shift();
-        if (!Buffer.isBuffer(header) || header.length !== 4) {
+        if (!Buffer.isBuffer(header) || header.length !== OPNetHeader.EXPECTED_HEADER_LENGTH) {
             return;
         }
 
@@ -397,6 +413,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             index: this.index,
             burnedBitcoin: DataConverter.toDecimal128(this.burnedFee),
+            priorityFee: DataConverter.toDecimal128(this.priorityFee),
             reward: new Long(this.reward),
             gasUsed: DataConverter.toDecimal128(
                 this.receipt && this.receipt.gasUsed ? this.receipt.gasUsed : 0n,
@@ -414,6 +431,16 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     public parseTransaction(vIn: VIn[], vOuts: VOut[]): void {
         this.parseInputs(vIn);
         this.parseOutputs(vOuts);
+    }
+
+    protected setGasFromHeader(header: OPNetHeader): void {
+        // verify that priority fee is not higher than actually received.
+        if (this.totalFeeFund < header.priorityFeeSat) {
+            throw new Error(`OP_NET: Priority fee is higher than actually received.`);
+        }
+
+        this._gasSatFee = this.totalFeeFund - header.priorityFeeSat;
+        this._priorityFee = header.priorityFeeSat;
     }
 
     protected verifyRewardUTXO(): void {
@@ -470,22 +497,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
 
         return decompressed.out;
-    }
-
-    protected getWitnessOutput(originalContractAddress: string): TransactionOutput {
-        const contractOutput = this.outputs.find((output): boolean => {
-            if (output.scriptPubKey.address) {
-                return output.scriptPubKey.address === originalContractAddress;
-            }
-
-            return false;
-        });
-
-        if (!contractOutput) {
-            throw new Error(`Could not find the requested output for ${originalContractAddress}`);
-        }
-
-        return contractOutput;
     }
 
     protected setBurnedFee(witnessOutput: TransactionOutput): void {
