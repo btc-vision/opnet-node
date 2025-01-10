@@ -95,7 +95,7 @@ class RPCManager extends Logger {
             throw new Error('Failed to get a VMManager');
         }
 
-        return new Promise<VMManager>((resolve) => {
+        return new Promise<VMManager>(async (resolve) => {
             const startNumber = this.currentVMManagerIndex;
             let vmManager: VMManager | undefined;
 
@@ -108,19 +108,23 @@ class RPCManager extends Logger {
                 }
             } while (this.currentVMManagerIndex !== startNumber);
 
-            if (!vmManager) {
-                setTimeout(async () => {
-                    this.warn(
-                        `High load detected. Try to increase your RPC thread limit or do fewer requests.`,
-                    );
-
-                    const vmManager = await this.getNextVMManager(tries + 1);
-                    resolve(vmManager);
-                }, 100);
+            if (vmManager) {
+                resolve(vmManager);
+                return;
             }
 
-            resolve(vmManager);
+            this.warn(
+                `High load detected. Try to increase your RPC thread limit or do fewer requests.`,
+            );
+
+            await this.sleep(100);
+
+            resolve(await this.getNextVMManager(tries + 1));
         });
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     private convertDeployedContractsToArray(

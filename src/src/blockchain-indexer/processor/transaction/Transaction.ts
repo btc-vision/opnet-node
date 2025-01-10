@@ -17,7 +17,7 @@ import { Address, BinaryWriter, ChallengeGenerator } from '@btc-vision/transacti
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from './interfaces/OPNetHeader.js';
 
-const OPNet_MAGIC: Buffer = Buffer.from('op', 'utf-8');
+export const OPNet_MAGIC: Buffer = Buffer.from('op', 'utf-8');
 const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
 
 export abstract class Transaction<T extends OPNetTransactionTypes> {

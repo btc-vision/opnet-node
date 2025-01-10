@@ -6,7 +6,7 @@ import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
-import { Transaction } from '../Transaction.js';
+import { OPNet_MAGIC, Transaction } from '../Transaction.js';
 import crypto from 'crypto';
 
 import {
@@ -415,7 +415,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         }
 
         const magic = scriptData.shift();
-        if (!Buffer.isBuffer(magic) || magic.length !== 2) {
+        if (!Buffer.isBuffer(magic) || magic.length !== 2 || !magic.equals(OPNet_MAGIC)) {
             return;
         }
 

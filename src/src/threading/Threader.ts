@@ -204,25 +204,35 @@ export class Threader<T extends ThreadTypes> extends Logger {
     }
 
     public async createThreads(): Promise<void> {
-        const threads: Promise<Worker | undefined>[] = [];
+        const createPromises: Promise<void>[] = [];
+
         for (let i = 0; i < this.maxInstance; i++) {
-            threads.push(this.createThread(i));
+            createPromises.push(
+                this.createThread(i).then((worker) => {
+                    // If worker was successfully created, store it at index i
+                    if (worker) {
+                        this.threads[i] = worker;
+                    }
+                }),
+            );
         }
 
-        await Promise.safeAll(threads);
+        await Promise.safeAll(createPromises);
     }
 
-    public async createThread(i: number): Promise<undefined | Worker> {
-        return new Promise((resolve: (value?: Worker | PromiseLike<Worker>) => void) => {
+    public async createThread(i: number): Promise<Worker | undefined> {
+        return new Promise((resolve) => {
             setTimeout(() => {
-                if (!this.target) return;
+                if (!this.target) {
+                    resolve(undefined);
+                    return;
+                }
 
                 const specificConfig: WorkerOptions = WorkerConfigurations[this.threadType];
                 const workerOpts: WorkerOptions = {
                     ...ThreadConfigurations.WORKER_OPTIONS,
                     ...specificConfig,
                 };
-
                 workerOpts.name = `Thread ${i} - ${this.target
                     .split('/')
                     .reverse()[0]
@@ -231,6 +241,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
                 const thread: Worker = new Worker(this.target, workerOpts);
                 const messageChannel = new MessageChannel();
 
+                // keep track of subChannels by thread ID, or by index i
                 this.subChannels[thread.threadId] = messageChannel;
 
                 messageChannel.port2.on('error', () => {
@@ -241,6 +252,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
                     this.onThreadMessage(thread, m);
                 });
 
+                // Fired once the Worker thread successfully starts
                 thread.on('online', async () => {
                     const msg: SetMessagePort = {
                         type: MessageType.SET_MESSAGE_PORT,
@@ -250,35 +262,42 @@ export class Threader<T extends ThreadTypes> extends Logger {
                     thread.postMessage(msg, [messageChannel.port1]);
                     resolve(thread);
 
-                    this.threads.push(thread);
-
+                    // Link the newly created thread with any threads from linkThreadTypes
                     await this.linkAllThreads(thread);
                 });
 
+                // If this worker ever sends a message to the main thread
                 thread.on('message', (m: ThreadMessageBase<MessageType>) => {
                     this.onThreadMessage(thread, m);
                 });
 
-                thread.on('exit', (e: Error) => {
-                    this.error(`Thread #${i} died. {Target: ${this.target} | ExitCode -> ${e}}`);
+                // Handle the worker exiting
+                thread.on('exit', (exitCode: number | Error) => {
+                    this.error(
+                        `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${exitCode}}`,
+                    );
 
                     fs.appendFileSync(
                         'threader.log',
-                        `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${e}}\n`,
+                        `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${exitCode}}\n`,
                     );
 
-                    // remove thread
-                    this.threads.splice(i, 1);
+                    // Find the correct thread by its ID in the array
+                    const idx = this.threads.findIndex((w) => w.threadId === thread.threadId);
+                    if (idx > -1) {
+                        this.threads.splice(idx, 1); // remove just that one
+                    }
 
+                    // Then re-create a new thread instance
                     setTimeout(async () => {
                         this.warn(
-                            `!!!!!!!!!!!!!! ------------ Restarting thread #${i}... ------------ !!!!!!!!!!!!!!`,
+                            `!!!!!!!!!!!!!! --------- Restarting thread #${i}... --------- !!!!!!!!!!!!!!`,
                         );
-
                         await this.createThread(i);
                     }, 1000);
                 });
 
+                // If an error occurs
                 thread.on('error', (e: Error) => {
                     fs.appendFileSync(
                         'threader.log',
@@ -286,7 +305,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
                     );
                     this.error(`Thread #${i} errored. {Target: ${this.target} | Details: ${e}}`);
                     this.error(e.stack as string);
-                    resolve();
+                    resolve(undefined);
                 });
             }, i * 200);
         });
