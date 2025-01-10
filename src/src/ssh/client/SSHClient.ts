@@ -177,6 +177,7 @@ export class SSHClient extends Logger {
 
     // AUDIT FIX: Timing Attack
     private verifySafeBuffer(buffer: Buffer, buffer2: Buffer): boolean {
+        // too big. reject
         if (buffer.length > 1024 || buffer2.length > 1024) {
             return false;
         }
