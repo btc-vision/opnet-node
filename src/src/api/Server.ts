@@ -1,10 +1,14 @@
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import cors from 'cors';
-import HyperExpress, { MiddlewareHandler, WSRouteHandler, WSRouteOptions } from 'hyper-express';
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import { Router } from 'hyper-express/types/components/router/Router.js';
+import HyperExpress, {
+    MiddlewareHandler,
+    MiddlewareNext,
+    Request,
+    Response,
+    Router,
+    WSRouteHandler,
+    WSRouteOptions,
+} from 'hyper-express';
 import { Config } from '../config/Config.js';
 import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
 import { VMStorage } from '../vm/storage/VMStorage.js';
