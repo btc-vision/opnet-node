@@ -124,7 +124,7 @@ export class BlockWitnessManager extends Logger {
             this.blockWitnessRepository.getBlockWitnesses(blockNumber, true),
         ];
 
-        const [opnetWitnesses, trustedWitnesses] = await Promise.all(witnesses);
+        const [opnetWitnesses, trustedWitnesses] = await Promise.safeAll(witnesses);
         if (!opnetWitnesses || !trustedWitnesses) {
             return {
                 blockNumber: Long.fromString(blockNumber.toString()),
@@ -241,7 +241,7 @@ export class BlockWitnessManager extends Logger {
             return this.processBlockWitnesses(block, witness);
         });
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     private async getBlockDataAtHeight(

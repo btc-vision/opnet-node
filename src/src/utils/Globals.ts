@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import path from 'path';
 
+import '../promise/promise.safeAll.js';
+
 if (!globalThis['__filename'] && !process.env.TS_JEST) {
     const __filename = fileURLToPath(import.meta.url);
     global.__filename = __filename;

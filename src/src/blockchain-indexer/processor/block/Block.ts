@@ -451,7 +451,7 @@ export class Block extends Logger {
             this.saveGenericPromises.push(vmManager.saveBlock(this));
 
             // We must wait for the generic transactions to be saved before finalizing the block
-            await Promise.all(this.saveGenericPromises);
+            await Promise.safeAll(this.saveGenericPromises);
 
             await vmManager.terminateBlock();
 
@@ -471,7 +471,7 @@ export class Block extends Logger {
     }
 
     public async revertBlock(vmManager: VMManager): Promise<void> {
-        await Promise.all(this.saveGenericPromises);
+        await Promise.safeAll(this.saveGenericPromises);
 
         if (this.specialExecutionPromise) {
             await this.specialExecutionPromise;
@@ -719,7 +719,7 @@ export class Block extends Logger {
             promises.push(specialManager.execute(transaction));
         }
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     private async executeOPNetTransactions(
@@ -940,7 +940,7 @@ export class Block extends Logger {
 
         promises.push(vmManager.saveTransactions(transactionData));
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
 
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
             this.success(`All OPNet transactions of block ${this.height} saved successfully.`);

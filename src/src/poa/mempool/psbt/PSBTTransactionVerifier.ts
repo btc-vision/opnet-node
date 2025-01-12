@@ -33,7 +33,7 @@ export class PSBTTransactionVerifier extends Logger {
     public async createRepositories(): Promise<void> {
         const promises = this.verificator.map((v) => v.createRepositories());
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     public async verify(data: Uint8Array): Promise<KnownPSBTObject | false> {

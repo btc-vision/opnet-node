@@ -251,7 +251,7 @@ export class OPNetPeer extends Logger {
             promises.push(handler(data));
         }
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     protected async disconnect(code: DisconnectionCode, reason?: string): Promise<void> {

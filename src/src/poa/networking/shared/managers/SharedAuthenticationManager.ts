@@ -107,7 +107,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
             promises.push(handler(data));
         }
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     protected async sendMsg(buffer: Uint8Array): Promise<void> {

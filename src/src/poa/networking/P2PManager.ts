@@ -329,7 +329,7 @@ export class P2PManager extends Logger {
             broadcastPromises.push(peer.broadcastMempoolTransaction(transaction));
         }
 
-        await Promise.all(broadcastPromises);
+        await Promise.safeAll(broadcastPromises);
 
         return broadcastPromises.length;
     }
@@ -342,7 +342,7 @@ export class P2PManager extends Logger {
             promises.push(peer.requestBlockWitnessesFromPeer(blockNumber));
         }
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     private internalSendMessageToThread(
@@ -378,7 +378,7 @@ export class P2PManager extends Logger {
             promises.push(peer.sendFromServer(generatedWitness));
         }
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     private isBootstrapNode(): boolean {
@@ -610,7 +610,7 @@ export class P2PManager extends Logger {
                 promises.push(addedPeer);
             }
 
-            await Promise.all(promises);
+            await Promise.safeAll(promises);
         }
     }
 

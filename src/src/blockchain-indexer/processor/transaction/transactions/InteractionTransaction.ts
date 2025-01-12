@@ -11,7 +11,7 @@ import {
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
-import { Transaction } from '../Transaction.js';
+import { OPNet_MAGIC, Transaction } from '../Transaction.js';
 import { Address, AddressVerificator } from '@btc-vision/transaction';
 import * as ecc from 'tiny-secp256k1';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
@@ -197,7 +197,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         if (scriptData.shift() !== opcodes.OP_IF) return;
 
         const magic = scriptData.shift();
-        if (!Buffer.isBuffer(magic) || magic.length !== 2) {
+        if (!Buffer.isBuffer(magic) || magic.length !== 2 || !magic.equals(OPNet_MAGIC)) {
             return;
         }
 
@@ -399,6 +399,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         // We allow duplicates in the last 10 blocks to prevent this attack.
         // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
         this.verifyRewardUTXO();
+        this.setGasFromHeader(this.interactionWitnessData.header);
 
         /** Decompress calldata if needed */
         this.decompressCalldata();

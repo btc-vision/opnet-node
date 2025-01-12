@@ -10,7 +10,6 @@ import ssh2, {
 import { AuthMethods } from './enums/AuthMethods.js';
 import { SSHConfig } from '../../config/interfaces/IBtcIndexerConfig.js';
 import { Buffer } from 'buffer';
-import { timingSafeEqual } from 'node:crypto';
 import * as readline from 'node:readline';
 import figlet, { Fonts } from 'figlet';
 import { OPNetSysInfo } from './custom/OPNetSysInfo.js';
@@ -23,6 +22,7 @@ import { Command } from './commands/Command.js';
 import { Config } from '../../config/Config.js';
 import { PeerInfoCommand } from './commands/PeerInfoCommand.js';
 import { SendMessageToThreadFunction } from '../../threading/thread/Thread.js';
+import { timingSafeEqual } from 'node:crypto';
 
 export class SSHClient extends Logger {
     public readonly logColor: string = '#c33ce8';
@@ -175,10 +175,26 @@ export class SSHClient extends Logger {
         return username === this.allowedUsername;
     }
 
+    // AUDIT FIX: Timing Attack
     private verifySafeBuffer(buffer: Buffer, buffer2: Buffer): boolean {
-        if (buffer.length !== buffer2.length) return false;
+        // too big. reject
+        if (buffer.length > 1024 || buffer2.length > 1024) {
+            return false;
+        }
 
-        return timingSafeEqual(buffer, buffer2);
+        const maxLen = Math.max(buffer.length, buffer2.length);
+
+        const paddedBuffer1 = Buffer.alloc(maxLen, 0);
+        const paddedBuffer2 = Buffer.alloc(maxLen, 0);
+
+        buffer.copy(paddedBuffer1);
+        buffer2.copy(paddedBuffer2);
+
+        // Perform a constant-time comparison on equally sized buffers
+        const isMatch = timingSafeEqual(paddedBuffer1, paddedBuffer2);
+
+        // Only if lengths are also the same do we consider them truly equal
+        return isMatch && buffer.length === buffer2.length;
     }
 
     private onPublicKeyAuth(ctx: ssh2.PublicKeyAuthContext): void {

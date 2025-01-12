@@ -43,6 +43,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         from?: string,
         blockNumber?: bigint,
         transaction?: SimulatedTransaction,
+        accessList?: AccessList,
     ): Promise<CallRequestResponse> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
             type: MessageType.RPC_METHOD,
@@ -54,6 +55,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     from: from,
                     blockNumber: blockNumber,
                     transaction,
+                    accessList,
                 },
             } as CallRequest,
         };
@@ -78,13 +80,16 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw new Error('Storage not initialized');
             }
 
-            const [to, calldata, from, blockNumber, transaction] = this.getDecodedParams(params);
+            const [to, calldata, from, blockNumber, transaction, accessList] =
+                this.getDecodedParams(params);
+
             const res: CallRequestResponse = await Call.requestThreadExecution(
                 to,
                 calldata,
                 from,
                 blockNumber,
                 this.verifyPartialTransaction(transaction),
+                accessList as AccessList,
             );
 
             if (!res) {
@@ -96,7 +101,14 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         } catch (e) {
             this.decrementPendingRequests();
 
-            throw `Something went wrong while simulating call.`;
+            if (
+                (e as Error).message.includes('mongo') ||
+                (e as Error).message.includes('database')
+            ) {
+                throw `Something went wrong while simulating call (Database error)`;
+            }
+
+            throw `Something went wrong while simulating call (${e})`;
         }
     }
 
@@ -376,12 +388,14 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         string | undefined,
         bigint | undefined,
         Partial<SimulatedTransaction> | undefined,
+        Partial<AccessList> | undefined,
     ] {
         let address: string | undefined;
         let calldata: string | undefined;
         let from: string | undefined;
         let blockNumber: bigint | undefined;
         let transaction: Partial<SimulatedTransaction> | undefined;
+        let accessList: Partial<AccessList> | undefined;
 
         if (Array.isArray(params)) {
             address = params.shift() as string | undefined;
@@ -392,12 +406,14 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             blockNumber = temp ? BigInt(temp) : undefined;
 
             transaction = params.shift() as Partial<SimulatedTransaction> | undefined;
+            accessList = params.shift() as Partial<AccessList> | undefined;
         } else {
             address = params.to;
             calldata = params.calldata;
             from = params.from;
             blockNumber = params.blockNumber ? BigInt(params.blockNumber) : undefined;
             transaction = params.transaction;
+            accessList = params.accessList;
         }
 
         if (!address) {
@@ -409,6 +425,41 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         }
 
         if (!calldata || calldata.length < 1) throw new Error(`Invalid calldata specified.`);
-        return [address, calldata, from, blockNumber, transaction];
+
+        if (
+            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_DECOMPRESSED < calldata.length
+        ) {
+            throw new Error(`Calldata exceeds maximum size reached.`);
+        }
+
+        // Verify access list
+        if (accessList) {
+            if (Object.keys(accessList).length > 6) {
+                throw new Error(`Can not provide access list for more than 6 contracts.`);
+            }
+
+            for (const contract in accessList) {
+                if (!AddressVerificator.isValidPublicKey(contract, this.network)) {
+                    throw new Error('Contract address must be a valid public key.');
+                }
+
+                const storage = accessList[contract];
+                if (storage && Object.keys(storage).length > 200) {
+                    throw new Error(`Storage exceeds maximum size reached.`);
+                }
+
+                for (const key in storage) {
+                    if (key.length > 60) {
+                        throw new Error(`Key exceeds maximum size reached.`);
+                    }
+
+                    if (storage[key].length > 60) {
+                        throw new Error(`Value exceeds maximum size reached.`);
+                    }
+                }
+            }
+        }
+
+        return [address, calldata, from, blockNumber, transaction, accessList];
     }
 }

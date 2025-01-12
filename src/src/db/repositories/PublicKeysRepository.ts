@@ -44,7 +44,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             promises.push(this.getKeyInfo(addressOrPublicKeys[i]));
         }
 
-        const results = await Promise.all(promises);
+        const results = await Promise.safeAll(promises);
         const pubKeyData: IPublicKeyInfoResult = {};
 
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
@@ -204,7 +204,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             promises.push(this.bulkWrite(chunk));
         }
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     protected override getCollection(): Collection<PublicKeyDocument> {

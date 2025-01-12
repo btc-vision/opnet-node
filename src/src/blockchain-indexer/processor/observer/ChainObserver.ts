@@ -127,7 +127,7 @@ export class ChainObserver extends Logger {
 
         this.synchronisationStatus.bestBlockHash = newBest;
 
-        const [blockHeight] = await Promise.all([
+        const [blockHeight] = await Promise.safeAll([
             this.fetchChainHeight(),
             this.setNewHeight(fromHeight),
         ]);
@@ -245,7 +245,7 @@ export class ChainObserver extends Logger {
     }
 
     private async sync(): Promise<void> {
-        const [opnetHeight, chainHeight, chainInfo] = await Promise.all([
+        const [opnetHeight, chainHeight, chainInfo] = await Promise.safeAll([
             this.fetchCurrentHeightFromDB(),
             this.fetchChainHeight(),
             this.fetchChainInfo(),

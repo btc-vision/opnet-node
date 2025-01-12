@@ -47,6 +47,6 @@ export abstract class AbstractPacketManager extends Logger {
             promises.push(handler(data));
         }
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 }

@@ -107,14 +107,14 @@ export class Mempool extends Logger {
         this.log(`Starting Mempool...`);
 
         this.db.setup();
-        await Promise.all([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
+        await Promise.safeAll([this.db.connect(), this.bitcoinRPC.init(Config.BLOCKCHAIN)]);
 
         if (!this.db.db) throw new Error('Database connection not established.');
 
         this.#mempoolRepository = new MempoolRepository(this.db.db);
         this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
-        await Promise.all([
+        await Promise.safeAll([
             this.watchBlockchain(),
             this.estimateFees(),
             this.psbtProcessorManager.createRepositories(this.bitcoinRPC),
@@ -354,7 +354,7 @@ export class Mempool extends Logger {
                 this.broadcastBitcoinTransaction(finalizedHex),
             ];
 
-            const result = await Promise.all(submitData);
+            const result = await Promise.safeAll(submitData);
             const broadcastResult = result[1] as BroadcastTransactionResult | undefined;
 
             if (broadcastResult?.success) {

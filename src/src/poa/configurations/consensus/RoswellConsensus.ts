@@ -48,8 +48,12 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     GAS: {
+        /** How many sat of gas is equal to 1 sat of priority */
+        GAS_PENALTY_FACTOR: 1n,
+
         /** Target block gas limit, a transaction can not pass this limit. */
         TARGET_GAS: 4_000_000_000_000n, // 0.04 BTC.
+        
         /** Smooth out gas increase when equal to gas target. */
         SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
 

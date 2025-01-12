@@ -2,6 +2,7 @@ import { Address, AddressMap, PointerStorage } from '@btc-vision/transaction';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 
 export interface InternalContractCallParameters {
     contractAddress: Address;
@@ -40,6 +41,8 @@ export interface InternalContractCallParameters {
 
     readonly serializedInputs: Uint8Array | undefined;
     readonly serializedOutputs: Uint8Array | undefined;
+
+    readonly accessList?: AccessList;
 }
 
 export interface ExecutionParameters {
@@ -78,4 +81,6 @@ export interface ExecutionParameters {
 
     readonly serializedInputs: Uint8Array | undefined;
     readonly serializedOutputs: Uint8Array | undefined;
+
+    readonly accessList?: AccessList;
 }

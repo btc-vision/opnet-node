@@ -146,7 +146,7 @@ export class VMMongoStorage extends VMStorage {
                 this.reorgRepository.deleteReorgs(blockId),
             ];
 
-            await Promise.all(promises);
+            await Promise.safeAll(promises);
         }
 
         if (blockId <= 0n) {
@@ -344,7 +344,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session already started');
         }
 
-        const sessions = await Promise.all([
+        const sessions = await Promise.safeAll([
             this.databaseManager.startSession(),
             this.databaseManager.startSession(),
         ]);
@@ -365,7 +365,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Session not started');
         }
 
-        await Promise.all([
+        await Promise.safeAll([
             this.currentSession.commitTransaction(),
             this.commitUTXOPromise,
             ...this.saveTxSessions.map((session) => session.commitTransaction()),
@@ -398,7 +398,7 @@ export class VMMongoStorage extends VMStorage {
             await this.commitUTXOPromise;
         } catch {}
 
-        await Promise.all([
+        await Promise.safeAll([
             this.currentSession.abortTransaction(),
             this.utxoSession.abortTransaction(),
             ...this.saveTxSessions.map((session) => session.abortTransaction()),
@@ -577,7 +577,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
 
-        const utxos = await Promise.all([
+        const utxos = await Promise.safeAll([
             this.unspentTransactionRepository.getWalletUnspentUTXOS(address, optimize),
             this.mempoolRepository.getPendingTransactions(address),
         ]);
@@ -633,7 +633,7 @@ export class VMMongoStorage extends VMStorage {
             await this.transactionRepository.saveTransactions(chunk, session);
         });
 
-        await Promise.all(promises);
+        await Promise.safeAll(promises);
     }
 
     public convertBlockHeaderToBlockHeaderDocument(
@@ -766,7 +766,7 @@ export class VMMongoStorage extends VMStorage {
             ...this.saveTxSessions.map((session) => session.endSession()),
         ];
 
-        await Promise.all(promiseTerminate);
+        await Promise.safeAll(promiseTerminate);
 
         this.currentSession = undefined;
         this.utxoSession = undefined;

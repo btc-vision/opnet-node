@@ -170,7 +170,7 @@ export class JSONRpc2Manager extends Logger {
                 pendingPromise.push(this.processSingleRequest(res, req));
             }
 
-            const resp = await Promise.all(pendingPromise);
+            const resp = await Promise.safeAll(pendingPromise);
 
             // We must check if the response is an array of undefined values
             // If so, we must send an internal error

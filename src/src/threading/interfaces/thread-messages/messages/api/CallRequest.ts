@@ -1,4 +1,7 @@
-import { CallRequestError } from '../../../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
+import {
+    AccessList,
+    CallRequestError,
+} from '../../../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { ThreadData } from '../../../ThreadData.js';
 import { RPCMessageData } from './RPCMessage.js';
@@ -11,6 +14,7 @@ export interface CallRequestData {
     readonly from?: string;
     readonly blockNumber?: bigint;
     readonly transaction?: SimulatedTransaction;
+    readonly accessList?: AccessList;
 }
 
 export type CallRequestResponse = ThreadData & (CallRequestError | SafeEvaluatedResult);

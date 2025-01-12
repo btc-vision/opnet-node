@@ -45,6 +45,9 @@ export interface IOPNetConsensus<T extends Consensus> {
 
     /** Transactions related properties */
     readonly GAS: {
+        /** How many sat of gas is equal to 1 sat of priority */
+        readonly GAS_PENALTY_FACTOR: bigint;
+
         /** Target block gas limit */
         readonly TARGET_GAS: bigint;
 
