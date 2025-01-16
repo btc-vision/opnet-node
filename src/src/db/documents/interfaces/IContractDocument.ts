@@ -14,16 +14,14 @@ export interface IContractDocumentBase {
     readonly contractSaltHash: Binary | string;
 }
 
-export interface IContractAPIDocument extends Omit<IContractDocumentBase, 'deployerAddress'> {
+export interface IContractAPIDocument
+    extends Omit<IContractDocumentBase, 'deployerAddress' | 'deployerPubKey' | 'blockHeight'> {
     readonly bytecode: string;
     readonly deployerPubKey: string;
     readonly contractSeed: string;
     readonly contractSaltHash: string;
     readonly deployedTransactionId: string;
     readonly deployedTransactionHash: string;
-    _id: undefined;
-    blockHeight: undefined;
-    deployerAddress: undefined;
 }
 
 export interface IContractDocument extends IContractDocumentBase {
