@@ -47,18 +47,22 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
             throw new Error('Map not found');
         }
 
-        let valueChanged: boolean = false;
+        // Local flag for this call
+        let valueChanged = false;
+
         for (const [key, value] of val.entries()) {
             const currentValue = map.get(key);
+            // If the value is unchanged, skip
             if (currentValue && currentValue === value) {
                 continue;
             }
 
+            // A real change occurred
             map.set(key, value);
             valueChanged = true;
         }
 
-        this.valueChanged = valueChanged;
+        this.valueChanged = this.valueChanged || valueChanged;
     }
 
     public updateValue(contractAddress: Address, transactionId: string, result: Uint8Array): void {

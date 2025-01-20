@@ -119,13 +119,6 @@ export class Block extends Logger {
         this.header = new BlockHeader(params.header);
 
         this.processEverythingAsGeneric = params.processEverythingAsGeneric || false;
-
-        if ('rawTransactionData' in params) {
-            this.setRawTransactionData(params.rawTransactionData);
-            this.deserialize(true, params.transactionOrder);
-
-            this.processed = true;
-        }
     }
 
     public get gasUsed(): bigint {
@@ -270,7 +263,16 @@ export class Block extends Logger {
         return new Block(data);
     }
 
-    public setRawTransactionData(rawTransactionData: TransactionData[]): void {
+    public async initializeBlock(params: RawBlockParam | DeserializedBlock): Promise<void> {
+        if ('rawTransactionData' in params) {
+            await this.setRawTransactionData(params.rawTransactionData);
+            this.deserialize(true, params.transactionOrder);
+
+            this.processed = true;
+        }
+    }
+
+    public async setRawTransactionData(rawTransactionData: TransactionData[]): Promise<void> {
         this.rawTransactionData = rawTransactionData;
 
         if (!this.header.nTx) {
@@ -278,7 +280,7 @@ export class Block extends Logger {
         }
 
         // First, we have to create transaction object corresponding to the transactions types in the block
-        this.createTransactions();
+        await this.createTransactions();
     }
 
     public getBlockHeaderDocument(): BlockHeaderDocument {
@@ -996,7 +998,7 @@ export class Block extends Logger {
         return { genericTransactions, opnetTransactions: nonGenericTransactions };
     }
 
-    private createTransactions(): void {
+    private async createTransactions(): Promise<void> {
         if (this.transactions.length > 0) {
             throw new Error('Transactions are already created');
         }
@@ -1007,6 +1009,7 @@ export class Block extends Logger {
 
         this.erroredTransactions.clear();
 
+        const promises: Promise<void>[] = [];
         for (let i = 0; i < this.rawTransactionData.length; i++) {
             const rawTransactionData = this.rawTransactionData[i];
 
@@ -1016,31 +1019,50 @@ export class Block extends Logger {
                 continue;
             }
 
-            try {
-                const transaction = this.transactionFactory.parseTransaction(
-                    rawTransactionData,
-                    this.hash,
-                    this.height,
-                    this.network,
-                );
-
-                transaction.originalIndex = i;
-
-                this.transactions.push(transaction);
-            } catch (e) {
-                if (Config.DEV.DEBUG_TRANSACTION_PARSE_FAILURE) {
-                    const error: Error = e as Error;
-
-                    this.error(
-                        `Failed to parse transaction ${rawTransactionData.txid}: ${Config.DEV_MODE ? error.stack : error.message}`,
-                    );
-                }
-
-                this.treatAsGenericTransaction(rawTransactionData, i);
-
-                this.erroredTransactions.add(rawTransactionData);
-            }
+            promises.push(this.processTransaction(rawTransactionData, i));
         }
+
+        await Promise.safeAll(promises);
+    }
+
+    private async processTransaction(
+        rawTransactionData: TransactionData,
+        i: number,
+    ): Promise<void> {
+        try {
+            const transaction = await this.transactionFactory.parseTransaction(
+                rawTransactionData,
+                this.hash,
+                this.height,
+                this.network,
+                this.queryPreviousTransaction.bind(this),
+            );
+
+            transaction.originalIndex = i;
+
+            this.transactions.push(transaction);
+        } catch (e) {
+            if (Config.DEV.DEBUG_TRANSACTION_PARSE_FAILURE) {
+                const error: Error = e as Error;
+
+                this.error(
+                    `Failed to parse transaction ${rawTransactionData.txid}: ${Config.DEV_MODE ? error.stack : error.message}`,
+                );
+            }
+
+            this.treatAsGenericTransaction(rawTransactionData, i);
+
+            this.erroredTransactions.add(rawTransactionData);
+        }
+    }
+
+    private async queryPreviousTransaction(
+        txid: string,
+        vout: number,
+    ): Promise<{ scriptPubKeyHex: string; type: string } | undefined> {
+        await Promise.resolve();
+
+        return undefined;
     }
 
     /**

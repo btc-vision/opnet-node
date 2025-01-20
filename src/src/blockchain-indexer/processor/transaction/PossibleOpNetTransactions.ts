@@ -22,7 +22,13 @@ export interface TransactionInformation {
 export interface TransactionParser<T extends OPNetTransactionTypes> {
     parse: OPNetTransactionByType<T>;
 
-    isTransaction(data: TransactionData): TransactionInformation | undefined;
+    isTransaction(
+        data: TransactionData,
+        utxoResolver: (
+            txid: string,
+            vout: number,
+        ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
+    ): Promise<TransactionInformation | undefined>;
 }
 
 export const PossibleOpNetTransactions: {
@@ -30,21 +36,39 @@ export const PossibleOpNetTransactions: {
 } = {
     [OPNetTransactionTypes.Generic]: {
         parse: (...args) => new GenericTransaction(...args),
-        isTransaction(data: TransactionData): TransactionInformation | undefined {
-            return GenericTransaction.is(data);
+        isTransaction(
+            data: TransactionData,
+            utxoResolver: (
+                txid: string,
+                vout: number,
+            ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
+        ): Promise<TransactionInformation | undefined> {
+            return GenericTransaction.is(data, utxoResolver);
         },
     },
     [OPNetTransactionTypes.Interaction]: {
         parse: (...args) =>
             new InteractionTransaction(...args) as Transaction<OPNetTransactionTypes.Interaction>,
-        isTransaction(data: TransactionData): TransactionInformation | undefined {
-            return InteractionTransaction.is(data);
+        isTransaction(
+            data: TransactionData,
+            utxoResolver: (
+                txid: string,
+                vout: number,
+            ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
+        ): Promise<TransactionInformation | undefined> {
+            return InteractionTransaction.is(data, utxoResolver);
         },
     },
     [OPNetTransactionTypes.Deployment]: {
         parse: (...args) => new DeploymentTransaction(...args),
-        isTransaction(data: TransactionData): TransactionInformation | undefined {
-            return DeploymentTransaction.is(data);
+        isTransaction(
+            data: TransactionData,
+            utxoResolver: (
+                txid: string,
+                vout: number,
+            ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
+        ): Promise<TransactionInformation | undefined> {
+            return DeploymentTransaction.is(data, utxoResolver);
         },
     },
 };
