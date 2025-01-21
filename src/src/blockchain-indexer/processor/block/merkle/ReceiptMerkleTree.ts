@@ -58,7 +58,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
             valueChanged = true;
         }
 
-        this.valueChanged = valueChanged;
+        this.valueChanged = this.valueChanged || valueChanged;
     }
 
     public updateValue(contractAddress: Address, transactionId: string, result: Uint8Array): void {
