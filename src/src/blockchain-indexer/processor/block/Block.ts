@@ -504,6 +504,8 @@ export class Block extends Logger {
             throw new Error('Storage tree not found');
         }
 
+        console.log(storageTree);
+
         // We must verify if we're only storing one pointer, if it crashes.
         if (storageTree.size()) {
             this.#_storageRoot = storageTree.root;
