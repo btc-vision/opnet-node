@@ -187,7 +187,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         }
 
         /** Contract should ALWAYS have ONLY ONE input witness transaction */
-        const scriptData = this.getWitnessWithMagic();
+        const scriptData = this.getParsedScript(3);
         if (!scriptData) {
             throw new Error(`OP_NET: No script data.`);
         }

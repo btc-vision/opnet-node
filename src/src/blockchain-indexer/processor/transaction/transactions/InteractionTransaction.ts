@@ -288,7 +288,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             );
         }
 
-        const scriptData = this.getWitnessWithMagic();
+        const scriptData = this.getParsedScript(3);
         if (!scriptData) {
             throw new Error(`OP_NET: No script data found in witness.`);
         }

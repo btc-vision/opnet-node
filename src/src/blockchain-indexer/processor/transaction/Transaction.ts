@@ -261,7 +261,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return data;
     }
 
-    // The detection logic...
     // eslint-disable-next-line @typescript-eslint/require-await
     protected static async _is(
         data: TransactionData,
@@ -276,11 +275,26 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         for (let y = 0; y < data.vin.length; y++) {
             const vIn = data.vin[y];
             const witnesses = vIn.txinwitness || [];
-            if (witnesses.length < 2) {
+
+            // Invalid witness count.
+            if (witnesses.length !== 5) {
                 continue;
             }
-            // Suppose last items are the script + control block, etc.
-            const rawScriptHex = witnesses[witnesses.length - 2];
+
+            const signatureA = witnesses[1];
+            const signatureB = witnesses[2];
+
+            // not a valid signature
+            if (signatureA.length !== 128 || signatureB.length !== 128) {
+                continue;
+            }
+
+            // invalid control block
+            if (witnesses[4].length !== 130) {
+                continue;
+            }
+
+            const rawScriptHex = witnesses[3]; //witnesses.length - 2
             const rawScriptBuf = Buffer.from(rawScriptHex, 'hex');
 
             let decodedScript: (number | Buffer)[] | null;
@@ -289,6 +303,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             } catch {
                 continue;
             }
+
             if (!decodedScript) {
                 continue;
             }
@@ -297,15 +312,19 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             if (!this.dataIncludeOPNetMagic(decodedScript)) {
                 continue;
             }
+
             if (!this.verifyChecksum(decodedScript, typeChecksum)) {
                 continue;
             }
+
             isCorrectType = y;
             break;
         }
 
         return isCorrectType;
     }
+
+    // The detection logic...
 
     protected static getDataChecksum(data: Array<Buffer | number>): Buffer {
         const checksum: number[] = [];
@@ -389,6 +408,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     /**
      * DOES A TAPROOT SCRIPT-PATH SIGNATURE CHECK
+     * [OPTIONAL, NOT USED CURRENTLY]
      *
      * @param senderPubKey x-only or full public key. We'll convert it to x-only.
      * @param senderSig The Schnorr signature from the witness
@@ -409,7 +429,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             throw new Error('OP_NET: No senderPubKey found to verify signature.');
         }
 
-        // 1) Generate the exact BIP341 Tapscript sighash
         const sighash = this.generateTapscriptSighashAll(
             leafScript,
             leafVersion,
@@ -417,19 +436,15 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             prevOutValue,
         );
 
-        // 2) Convert pubkey to x-only if it is 33 bytes (02/03).
-        //    If it's 65 bytes or 32 bytes, you might handle differently.
         let xOnlyPub: Buffer;
         if (senderPubKey.length === 33 && (senderPubKey[0] === 0x02 || senderPubKey[0] === 0x03)) {
             xOnlyPub = senderPubKey.subarray(1);
         } else if (senderPubKey.length === 32) {
-            // already x-only
             xOnlyPub = senderPubKey;
         } else {
             throw new Error('OP_NET: Unexpected public key length. Must be x-only or compressed.');
         }
 
-        // 3) Check signature with tiny-secp256k1
         try {
             return ecc.verifySchnorr(sighash, xOnlyPub, senderSig);
         } catch {
@@ -500,19 +515,25 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._reward = output.value;
     }
 
-    protected getWitnessWithMagic(
+    protected getParsedScript(
+        expectedPositionInWitness: number,
         vIndex: number = this.vInputIndex,
     ): Array<Buffer | number> | undefined {
         const vIn = this.inputs[vIndex];
         const witnesses = vIn.transactionInWitness;
-        for (let i = 0; i < witnesses.length; i++) {
-            const witnessHex = witnesses[i];
-            const raw = Buffer.from(witnessHex, 'hex');
-            const decoded = script.decompile(raw);
-            if (!decoded) continue;
-            if (Transaction.dataIncludeOPNetMagic(decoded)) {
-                return decoded;
-            }
+        if (!witnesses) {
+            return;
+        }
+
+        const witnessHex = witnesses[expectedPositionInWitness];
+        if (!witnessHex) return;
+
+        const raw = Buffer.from(witnessHex, 'hex');
+        const decoded = script.decompile(raw);
+        if (!decoded) return;
+
+        if (Transaction.dataIncludeOPNetMagic(decoded)) {
+            return decoded;
         }
     }
 
@@ -528,9 +549,51 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
     }
 
+    // ADDED: Compute the TapLeaf hash: leafVersion || varint(script.length) || script => taggedHash("TapLeaf", ...)
+    private computeTapLeafHash(leafScript: Buffer, leafVersion: number): Buffer {
+        // BIP341: leafVersion(1 byte) + varint(script.length) + script
+        const varint = this.encodeVarint(leafScript.length);
+        const toHash = Buffer.concat([Buffer.from([leafVersion]), varint, leafScript]);
+
+        // "TapLeaf" tagged hash
+        return this.taggedHash('TapLeaf', toHash);
+    }
+
+    // ADDED: replicate BIP341 "TapLeaf" or "TapSighash" tagged hashing
+    private taggedHash(prefix: string, data: Buffer): Buffer {
+        // This is the same approach as bip341, bip340, etc.
+        const h1 = crypto.createHash('sha256').update(prefix).digest();
+        const h2 = crypto.createHash('sha256').update(prefix).digest();
+
+        const tagHash = Buffer.concat([h1, h2]); // 64 bytes
+        return crypto.createHash('sha256').update(tagHash).update(data).digest();
+    }
+
+    // ADDED: minimal varint encoder for script length
+    private encodeVarint(num: number): Buffer {
+        if (num < 0xfd) {
+            return Buffer.from([num]);
+        } else if (num <= 0xffff) {
+            const buf = Buffer.alloc(3);
+            buf[0] = 0xfd;
+            buf.writeUInt16LE(num, 1);
+            return buf;
+        } else if (num <= 0xffffffff) {
+            const buf = Buffer.alloc(5);
+            buf[0] = 0xfe;
+            buf.writeUInt32LE(num, 1);
+            return buf;
+        } else {
+            const buf = Buffer.alloc(9);
+            buf[0] = 0xff;
+            buf.writeBigUInt64LE(BigInt(num), 1);
+            return buf;
+        }
+    }
+
     /**
      * BUILD A TAPROOT (SCRIPT-PATH) SIGHASH THAT OP_CHECKSIGVERIFY WOULD USE.
-     * This replicates BIP341 SIGHASH_ALL for Tapscript path.
+     * This replicates BIP341 SIGHASH_ALL for Tapscript path (no ANYPREVOUT, no annex).
      *
      * @param leafScript The Tapscript used
      * @param leafVersion The version (commonly 0xc0)
@@ -543,14 +606,29 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         prevOutScript: Buffer,
         prevOutValue: number,
     ): Buffer {
-        const tx = BitcoinTransaction.fromBuffer(this.raw);
+        // 1) parse the transaction from this.raw
+        const txObj = BitcoinTransaction.fromBuffer(this.raw);
 
-        // STRICT CONSENSUS, NO PSBT ALLOWED.
+        // 2) build a leafHash for the Tapscript
+        const leafHash = this.computeTapLeafHash(leafScript, leafVersion);
+
+        // 3) we only do SIGHASH_ALL => hashType = 0x00
         const hashType = 0x00;
 
-        // 3) Provide the Tapscript via the "leafScript" parameter
-        //    This ensures the final sighash commits to the script path, not key path.
-        return tx.
+        // We must supply scriptPubKey & value for ALL inputs.
+        // For demonstration, we fill out arrays of length txObj.ins.length,
+        // with zero for everything except our vInputIndex.
+        const nIn = txObj.ins.length;
+        const prevOutScripts = new Array<Buffer>(nIn).fill(Buffer.alloc(0));
+        const values = new Array<number>(nIn).fill(0);
+
+        // fill our input with the real data
+        prevOutScripts[this.vInputIndex] = prevOutScript;
+        values[this.vInputIndex] = prevOutValue;
+
+        // 4) call hashForWitnessV1
+        // -> If leafHash is provided, it's Tapscript path
+        return txObj.hashForWitnessV1(this.vInputIndex, prevOutScripts, values, hashType, leafHash);
     }
 
     private strToBuffer(str: string): Uint8Array {
