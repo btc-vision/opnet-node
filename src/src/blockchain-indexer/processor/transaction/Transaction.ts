@@ -532,9 +532,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         const decoded = script.decompile(raw);
         if (!decoded) return;
 
-        if (Transaction.dataIncludeOPNetMagic(decoded)) {
-            return decoded;
-        }
+        // this check is redundant now
+        //if (Transaction.dataIncludeOPNetMagic(decoded)) {
+        //    return decoded;
+        //}
+
+        return decoded;
     }
 
     protected parseInputs(vIn: VIn[]): void {
