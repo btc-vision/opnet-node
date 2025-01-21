@@ -5,7 +5,7 @@ import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 
 export class RPCSubWorkerManager extends Logger {
     public readonly workers: ChildProcess[] = [];
-    private readonly numConcurrent: number = 3;
+    private readonly numConcurrent: number = 10;
 
     private readonly tasks: FastStringMap<{
         resolve: (value: object | undefined) => void;
