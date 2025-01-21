@@ -114,15 +114,9 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     /**
      * PATCH: We only allow P2TR. So we rely on `_is(...)` which rejects anything else.
      */
-    public static async is(
-        data: TransactionData,
-        utxoResolver: (
-            txid: string,
-            vout: number,
-        ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
-    ): Promise<TransactionInformation | undefined> {
+    public static is(data: TransactionData): TransactionInformation | undefined {
         // Only checks for LEGACY_INTERACTION pattern, but strictly in P2TR context.
-        const vIndex = await this._is(data, this.LEGACY_INTERACTION, utxoResolver);
+        const vIndex = this._is(data, this.LEGACY_INTERACTION);
         if (vIndex === -1) {
             return;
         }
@@ -377,6 +371,11 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
 
+        // TODO: Verify preimage, from db for existing preimage, now, we have to be careful so people may not exploit this check.
+        // If an attacker send the same preimage as someone else, he may be able to cause a reversion of the transaction of the other person.
+        // We have to make it so it only checks if the preimage was used from block range: 0 to currentHeight - 10.
+        // We allow duplicates in the last 10 blocks to prevent this attack.
+        // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
         this.verifyRewardUTXO();
         this.setGasFromHeader(this.interactionWitnessData.header);
 

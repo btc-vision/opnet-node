@@ -261,15 +261,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return data;
     }
 
-    // eslint-disable-next-line @typescript-eslint/require-await
-    protected static async _is(
-        data: TransactionData,
-        typeChecksum: Buffer,
-        _utxoResolver: (
-            txid: string,
-            vout: number,
-        ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
-    ): Promise<number> {
+    protected static _is(data: TransactionData, typeChecksum: Buffer): number {
         let isCorrectType: number = -1;
 
         for (let y = 0; y < data.vin.length; y++) {
@@ -323,8 +315,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
         return isCorrectType;
     }
-
-    // The detection logic...
 
     protected static getDataChecksum(data: Array<Buffer | number>): Buffer {
         const checksum: number[] = [];

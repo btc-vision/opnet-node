@@ -119,14 +119,10 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         return calldata;
     }
 
-    public static async is(
+    public static is(
         data: TransactionData,
-        utxoResolver: (
-            txid: string,
-            vout: number,
-        ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
-    ): Promise<TransactionInformation | undefined> {
-        const vIndex = await this._is(data, this.LEGACY_DEPLOYMENT_SCRIPT, utxoResolver);
+    ): TransactionInformation | undefined {
+        const vIndex = this._is(data, this.LEGACY_DEPLOYMENT_SCRIPT);
         if (vIndex === -1) {
             return;
         }

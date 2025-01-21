@@ -79,7 +79,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
             valueChanged = true;
         }
 
-        this.valueChanged = valueChanged;
+        this.valueChanged = this.valueChanged || valueChanged;
     }
 
     public updateValue(
