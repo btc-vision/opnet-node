@@ -119,6 +119,13 @@ export class Block extends Logger {
         this.header = new BlockHeader(params.header);
 
         this.processEverythingAsGeneric = params.processEverythingAsGeneric || false;
+
+        if ('rawTransactionData' in params) {
+            this.setRawTransactionData(params.rawTransactionData);
+            this.deserialize(true, params.transactionOrder);
+
+            this.processed = true;
+        }
     }
 
     public get gasUsed(): bigint {
@@ -263,16 +270,7 @@ export class Block extends Logger {
         return new Block(data);
     }
 
-    public async initializeBlock(params: RawBlockParam | DeserializedBlock): Promise<void> {
-        if ('rawTransactionData' in params) {
-            await this.setRawTransactionData(params.rawTransactionData);
-            this.deserialize(true, params.transactionOrder);
-
-            this.processed = true;
-        }
-    }
-
-    public async setRawTransactionData(rawTransactionData: TransactionData[]): Promise<void> {
+    public setRawTransactionData(rawTransactionData: TransactionData[]): void {
         this.rawTransactionData = rawTransactionData;
 
         if (!this.header.nTx) {
@@ -280,7 +278,7 @@ export class Block extends Logger {
         }
 
         // First, we have to create transaction object corresponding to the transactions types in the block
-        await this.createTransactions();
+        this.createTransactions();
     }
 
     public getBlockHeaderDocument(): BlockHeaderDocument {
@@ -503,8 +501,6 @@ export class Block extends Logger {
         if (!storageTree) {
             throw new Error('Storage tree not found');
         }
-
-        console.log(storageTree);
 
         // We must verify if we're only storing one pointer, if it crashes.
         if (storageTree.size()) {
@@ -1000,7 +996,7 @@ export class Block extends Logger {
         return { genericTransactions, opnetTransactions: nonGenericTransactions };
     }
 
-    private async createTransactions(): Promise<void> {
+    private createTransactions(): void {
         if (this.transactions.length > 0) {
             throw new Error('Transactions are already created');
         }
@@ -1011,7 +1007,6 @@ export class Block extends Logger {
 
         this.erroredTransactions.clear();
 
-        const promises: Promise<void>[] = [];
         for (let i = 0; i < this.rawTransactionData.length; i++) {
             const rawTransactionData = this.rawTransactionData[i];
 
@@ -1021,23 +1016,17 @@ export class Block extends Logger {
                 continue;
             }
 
-            promises.push(this.processTransaction(rawTransactionData, i));
+            this.processTransaction(rawTransactionData, i);
         }
-
-        await Promise.safeAll(promises);
     }
 
-    private async processTransaction(
-        rawTransactionData: TransactionData,
-        i: number,
-    ): Promise<void> {
+    private processTransaction(rawTransactionData: TransactionData, i: number): void {
         try {
-            const transaction = await this.transactionFactory.parseTransaction(
+            const transaction = this.transactionFactory.parseTransaction(
                 rawTransactionData,
                 this.hash,
                 this.height,
                 this.network,
-                this.queryPreviousTransaction.bind(this),
             );
 
             transaction.originalIndex = i;

@@ -204,8 +204,8 @@ export class ChainSynchronisation extends Logger {
         this.abortControllers.clear();
     }
 
-    private async queryUTXOs(block: Block, txs: TransactionData[]): Promise<void> {
-        await block.setRawTransactionData(txs);
+    private queryUTXOs(block: Block, txs: TransactionData[]): void {
+        block.setRawTransactionData(txs);
         block.deserialize(false);
 
         // Save UTXOs
@@ -252,18 +252,15 @@ export class ChainSynchronisation extends Logger {
         const abortController = new AbortController();
         this.abortControllers.set(blockNumber, abortController);
 
-        const params = {
+        const block = new Block({
             network: this.network,
             abortController: abortController,
             header: blockData,
             processEverythingAsGeneric: true,
-        };
-
-        const block = new Block(params);
-        await block.initializeBlock(params)
+        });
 
         // Deserialize the block
-        await this.queryUTXOs(block, blockData.tx);
+        this.queryUTXOs(block, blockData.tx);
 
         this.abortControllers.delete(blockNumber);
 
@@ -300,7 +297,7 @@ export class ChainSynchronisation extends Logger {
             });
 
             // Pull out UTXOs
-            await this.queryUTXOs(block, blocksData[i].tx);
+            this.queryUTXOs(block, blocksData[i].tx);
 
             // Clean up the abort controller
             this.abortControllers.delete(blockNumber);

@@ -114,15 +114,9 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     /**
      * PATCH: We only allow P2TR. So we rely on `_is(...)` which rejects anything else.
      */
-    public static async is(
-        data: TransactionData,
-        utxoResolver: (
-            txid: string,
-            vout: number,
-        ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
-    ): Promise<TransactionInformation | undefined> {
+    public static is(data: TransactionData): TransactionInformation | undefined {
         // Only checks for LEGACY_INTERACTION pattern, but strictly in P2TR context.
-        const vIndex = await this._is(data, this.LEGACY_INTERACTION, utxoResolver);
+        const vIndex = this._is(data, this.LEGACY_INTERACTION);
         if (vIndex === -1) {
             return;
         }

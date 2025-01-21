@@ -18,16 +18,12 @@ export class GenericTransaction extends Transaction<OPNetTransactionTypes.Generi
     }
 
     public static is(
-        _data: TransactionData,
-        _utxoResolver: (
-            txid: string,
-            vout: number,
-        ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
-    ): Promise<TransactionInformation | undefined> {
-        return Promise.resolve({
+        _data: TransactionData
+    ): TransactionInformation | undefined{
+        return {
             type: this.getType(),
             vInIndex: 0,
-        });
+        };
     }
 
     private static getType(): OPNetTransactionTypes.Generic {

@@ -341,17 +341,12 @@ export class IndexingTask extends Logger {
         }
 
         this.prefetchStart = Date.now();
-
-        const params = {
+        
+        return new Block({
             ...blockData,
             network: this.network,
             abortController: this._abortController,
-        };
-
-        const block = new Block(params);
-        await block.initializeBlock(params);
-
-        return block;
+        });
     }
 
     /**
