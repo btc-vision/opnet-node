@@ -30,7 +30,6 @@ export interface InteractionWitnessData {
 
 initEccLib(ecc);
 
-/* TODO: Potentially allow multiple contract interaction per transaction since BTC supports that? Maybe, in the future, for now let's stick with one. */
 export class InteractionTransaction extends Transaction<InteractionTransactionType> {
     public static LEGACY_INTERACTION: Buffer = Buffer.from([
         opcodes.OP_TOALTSTACK,
@@ -65,7 +64,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     protected contractSecretHash: Buffer | undefined;
     protected contractSecret: Buffer | undefined;
     protected interactionPubKey: Buffer | undefined;
-
     protected interactionWitnessData: InteractionWitnessData | undefined;
 
     public constructor(
@@ -84,11 +82,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         if (!this._calldata) {
             throw new Error(`No calldata found for transaction ${this.txidHex}`);
         }
-
-        const newCalldata = Buffer.alloc(this._calldata.byteLength);
-        if (this._calldata) this._calldata.copy(newCalldata);
-
-        return newCalldata;
+        return Buffer.from(this._calldata);
     }
 
     protected _contractAddress: Address | undefined;
@@ -97,17 +91,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         if (!this._contractAddress) {
             throw new Error(`Contract address not set for transaction ${this.txidHex}`);
         }
-
         return this._contractAddress.p2tr(this.network);
-    }
-
-    //public set contractAddress(contractAddress: Address) {
-    //    this._contractAddress = contractAddress;
-    //}
-
-    public get address(): Address {
-        if (!this._contractAddress) throw new Error('Contract address not found');
-        return this._contractAddress;
     }
 
     protected _txOrigin: Address | undefined;
@@ -122,8 +106,23 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return this._msgSender;
     }
 
-    public static is(data: TransactionData): TransactionInformation | undefined {
-        const vIndex = this._is(data, this.LEGACY_INTERACTION);
+    public get address(): Address {
+        if (!this._contractAddress) throw new Error('Contract address not found');
+        return this._contractAddress;
+    }
+
+    /**
+     * PATCH: We only allow P2TR. So we rely on `_is(...)` which rejects anything else.
+     */
+    public static async is(
+        data: TransactionData,
+        utxoResolver: (
+            txid: string,
+            vout: number,
+        ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
+    ): Promise<TransactionInformation | undefined> {
+        // Only checks for LEGACY_INTERACTION pattern, but strictly in P2TR context.
+        const vIndex = await this._is(data, this.LEGACY_INTERACTION, utxoResolver);
         if (vIndex === -1) {
             return;
         }
@@ -142,45 +141,31 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             return;
         }
 
-        // Enforce 32 bytes pubkey only.
+        // Enforce 32-byte pubkey only.
         const senderPubKey = scriptData.shift();
         if (!Buffer.isBuffer(senderPubKey) || senderPubKey.length !== 32) {
             return;
         }
 
-        if (scriptData.shift() !== opcodes.OP_DUP) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_HASH256) {
-            return;
-        }
+        if (scriptData.shift() !== opcodes.OP_DUP) return;
+        if (scriptData.shift() !== opcodes.OP_HASH256) return;
 
         const hashedSenderPubKey = scriptData.shift();
         if (!Buffer.isBuffer(hashedSenderPubKey) || hashedSenderPubKey.length !== 32) {
             return;
         }
 
-        if (scriptData.shift() !== opcodes.OP_EQUALVERIFY) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_CHECKSIGVERIFY) {
-            return;
-        }
+        if (scriptData.shift() !== opcodes.OP_EQUALVERIFY) return;
+        if (scriptData.shift() !== opcodes.OP_CHECKSIGVERIFY) return;
 
         const interactionSaltPubKey = scriptData.shift();
         if (!Buffer.isBuffer(interactionSaltPubKey) || interactionSaltPubKey.length !== 32) {
             return;
         }
 
-        if (scriptData.shift() !== opcodes.OP_CHECKSIGVERIFY) {
-            return;
-        }
+        if (scriptData.shift() !== opcodes.OP_CHECKSIGVERIFY) return;
 
-        if (scriptData.shift() !== opcodes.OP_HASH160) {
-            return;
-        }
+        if (scriptData.shift() !== opcodes.OP_HASH160) return;
 
         const contractSaltHash160 = scriptData.shift();
         if (!Buffer.isBuffer(contractSaltHash160) || contractSaltHash160.length !== 20) {
@@ -202,10 +187,10 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         return {
-            header: header,
+            header,
             senderPubKey,
             interactionSaltPubKey,
-            hashedSenderPubKey: hashedSenderPubKey,
+            hashedSenderPubKey,
             contractSecretHash160: contractSaltHash160,
         };
     }
@@ -218,14 +203,13 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             return;
         }
 
-        // ... Future implementation before this opcode
         if (scriptData.shift() !== opcodes.OP_1NEGATE) {
             return;
         }
 
         const calldata: Buffer | undefined = this.getDataFromScript(scriptData);
         if (!calldata) {
-            throw new Error(`No contract bytecode found in deployment transaction.`);
+            throw new Error(`No contract bytecode found in interaction transaction.`);
         }
 
         if (
@@ -249,9 +233,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return OPNetTransactionTypes.Interaction;
     }
 
-    /**
-     * Convert the transaction to a document.
-     */
     public toDocument(): InteractionTransactionDocument {
         const receiptData: EvaluatedResult | undefined = this.receipt;
         const events: EvaluatedEvents | undefined = receiptData?.events;
@@ -292,7 +273,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         self: typeof InteractionTransaction = InteractionTransaction,
     ): void {
         super.parseTransaction(vIn, vOuts);
-
         this.parseTransactionData(self);
     }
 
@@ -302,17 +282,15 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             throw new Error(`OP_NET: No input witness transactions found.`);
         }
 
-        // TODO: If we add support multiple call inside a single transaction, we must make sure to check that we dont rescan old transaction without this check by specifying the block height.
         if (inputOPNetWitnessTransactions.length > 1) {
             throw new Error(
                 `OP_NET: Multiple input witness transactions found. Reserved for future use.`,
             );
         }
 
-        /** As we only support one contract interaction per transaction, we can safely assume that the first element is the one we are looking for. */
-        const scriptData = this.getWitnessWithMagic();
+        const scriptData = this.getParsedScript(3);
         if (!scriptData) {
-            throw new Error(`OP_NET: No script data found.`);
+            throw new Error(`OP_NET: No script data found in witness.`);
         }
 
         this.interactionWitnessData = self.getInteractionWitnessData(scriptData);
@@ -325,6 +303,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
         const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
 
+        // The first witness item might be your "contractSecret" or other salt
         const contractSecret: Buffer = Buffer.from(witnesses[0], 'hex');
         const senderPubKey: Buffer = Buffer.from([
             this.interactionWitnessData.header.publicKeyPrefix,
@@ -367,10 +346,10 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
 
         this._preimage = this.interactionWitnessData.header.preimage;
 
-        /** We must verify that the contract secret match with at least one output. */
+        /** We must verify that the contract secret matches at least one output. */
         const outputWitness: TransactionOutput | undefined = this.outputs[0];
         if (!outputWitness) {
-            throw new Error(`OP_NET: Interaction miss configured.`);
+            throw new Error(`OP_NET: Interaction miss configured. No outputs found.`);
         }
 
         const contractSecretRegenerated: Buffer =
@@ -379,11 +358,16 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             (outputWitness.decodedPublicKeys || [])[0];
 
         if (!contractSecretRegenerated || !outputWitness.scriptPubKey.type) {
-            throw new Error(`OP_NET: Interaction miss configured.`);
+            throw new Error(`OP_NET: Interaction miss configured. No scriptPubKey type?`);
         }
 
-        this._contractAddress = this.regenerateContractAddress(contractSecret);
+        // Here, we only allow 'witness_v1_taproot'
+        if (outputWitness.scriptPubKey.type !== 'witness_v1_taproot') {
+            throw new Error(`OP_NET: Only P2TR is allowed for interactions.`);
+        }
 
+        // We build an Address from the contractSecret:
+        this._contractAddress = this.regenerateContractAddress(contractSecret);
         this.verifyContractAddress(
             outputWitness.scriptPubKey.type,
             contractSecretRegenerated,
@@ -393,11 +377,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
 
-        // TODO: Verify preimage, from db for existing preimage, now, we have to be careful so people may not exploit this check.
-        // If an attacker send the same preimage as someone else, he may be able to cause a reversion of the transaction of the other person.
-        // We have to make it so it only checks if the preimage was used from block range: 0 to currentHeight - 10.
-        // We allow duplicates in the last 10 blocks to prevent this attack.
-        // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
         this.verifyRewardUTXO();
         this.setGasFromHeader(this.interactionWitnessData.header);
 
@@ -406,30 +385,29 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     }
 
     protected verifyContractAddress(type: string, pubKey: Buffer, contractAddress: Address): void {
-        if (!type || !pubKey) {
-            throw new Error(`OP_NET: Invalid contract address specified.`);
-        }
-
+        // We now only allow 'witness_v1_taproot'
         switch (type) {
             case 'witness_v1_taproot': {
                 break;
             }
-            case 'pubkey': {
-                break;
-            }
             default: {
-                throw new Error(
-                    `OP_NET: Only P2TR, legacy and pubkey interactions are supported at this time. Got ${type}`,
-                );
+                throw new Error(`OP_NET: Only P2TR interactions are supported at this time.`);
             }
         }
 
-        if (!crypto.timingSafeEqual(pubKey, contractAddress)) {
-            throw new Error(`OP_NET: Malformed UTXO output.`);
+        // Ensure the “regenerated” public key matches the contract address
+        if (
+            pubKey.length !== contractAddress.length ||
+            !crypto.timingSafeEqual(pubKey, contractAddress) ||
+            !pubKey.equals(contractAddress)
+        ) {
+            throw new Error(`OP_NET: Malformed UTXO output or mismatched pubKey.`);
         }
     }
 
     protected regenerateContractAddress(contractSecret: Buffer): Address {
+        // For demonstration, we assume 32 or 33 or 65 bytes possible
+        // but in practice, you'd probably want only 32/33 for x-only or compressed public keys
         const isValid =
             contractSecret.length === 32 ||
             contractSecret.length === 33 ||
@@ -439,12 +417,12 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             throw new Error(`OP_NET: Invalid contract address length specified.`);
         }
 
+        // Quick check for compressed or x-only
         if (contractSecret.length === 33) {
             if (contractSecret[0] !== 0x02 && contractSecret[0] !== 0x03) {
                 throw new Error(`OP_NET: Invalid contract address prefix specified.`);
             }
         }
-
         if (contractSecret.length === 65) {
             if (
                 contractSecret[0] !== 0x04 &&
@@ -462,14 +440,13 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         return new Address(contractSecret);
     }
 
-    /** We must check if the calldata was compressed using GZIP. If so, we must decompress it. */
     private decompressCalldata(): void {
-        if (!this._calldata) throw new Error(`Calldata not specified in transaction.`);
-
+        if (!this._calldata) {
+            throw new Error(`Calldata not specified in transaction.`);
+        }
         this._calldata = this.decompressData(this._calldata);
     }
 
-    /* For future implementation we return an array here. */
     private getInputWitnessTransactions(): TransactionInput[] {
         return [this.inputs[this.vInputIndex]];
     }

@@ -270,6 +270,7 @@ export class IndexingTask extends Logger {
                 this.vmManager,
                 this.specialTransactionManager,
             );
+
             if (!success) {
                 throw new Error('Block execution failed');
             }
@@ -341,11 +342,16 @@ export class IndexingTask extends Logger {
 
         this.prefetchStart = Date.now();
 
-        return new Block({
+        const params = {
             ...blockData,
             network: this.network,
             abortController: this._abortController,
-        });
+        };
+
+        const block = new Block(params);
+        await block.initializeBlock(params);
+
+        return block;
     }
 
     /**

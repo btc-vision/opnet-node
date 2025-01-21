@@ -8,13 +8,17 @@ export class TransactionFactory {
     public readonly genericTransactionType: OPNetTransactionTypes.Generic =
         OPNetTransactionTypes.Generic;
 
-    public parseTransaction(
+    public async parseTransaction(
         data: TransactionData,
         blockHash: string,
         blockHeight: bigint,
         network: networks.Network,
-    ): Transaction<OPNetTransactionTypes> {
-        const parser: TransactionInformation = this.getTransactionType(data);
+        utxoResolver: (
+            txid: string,
+            vout: number,
+        ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
+    ): Promise<Transaction<OPNetTransactionTypes>> {
+        const parser: TransactionInformation = await this.getTransactionType(data, utxoResolver);
         const transactionObj = PossibleOpNetTransactions[parser.type];
 
         const tx = transactionObj.parse(data, parser.vInIndex, blockHash, blockHeight, network);
@@ -23,7 +27,13 @@ export class TransactionFactory {
         return tx;
     }
 
-    protected getTransactionType(data: TransactionData): TransactionInformation {
+    protected async getTransactionType(
+        data: TransactionData,
+        utxoResolver: (
+            txid: string,
+            vout: number,
+        ) => Promise<{ scriptPubKeyHex: string; type: string } | undefined>,
+    ): Promise<TransactionInformation> {
         for (const _transactionType in PossibleOpNetTransactions) {
             const transactionType = _transactionType as OPNetTransactionTypes;
 
@@ -33,7 +43,7 @@ export class TransactionFactory {
             }
 
             const transactionObj = PossibleOpNetTransactions[transactionType];
-            const isTransactionOfType = transactionObj.isTransaction(data);
+            const isTransactionOfType = await transactionObj.isTransaction(data, utxoResolver);
             if (!isTransactionOfType) {
                 continue;
             }

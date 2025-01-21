@@ -68,8 +68,8 @@ export class DeploymentTxEncoder {
     }
 
     private convertToBlockHeaderAPIDocument(data: ContractInformation): IContractAPIDocument {
-        const document: IContractAPIDocument = {
-            ...data,
+        return {
+            contractAddress: data.contractAddress,
             contractTweakedPublicKey: Buffer.from(data.contractTweakedPublicKey.buffer).toString(
                 'base64',
             ),
@@ -84,15 +84,7 @@ export class DeploymentTxEncoder {
             deployerPubKey: data.deployerPubKey.toString('base64'),
             contractSeed: data.contractSeed.toString('base64'),
             contractSaltHash: data.contractSaltHash.toString('hex'),
-            blockHeight: undefined,
-            deployerAddress: undefined,
-            _id: undefined,
+            wasCompressed: data.wasCompressed,
         };
-
-        delete document.deployerAddress;
-        delete document.blockHeight;
-        delete document._id;
-
-        return document;
     }
 }
