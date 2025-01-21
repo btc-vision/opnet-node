@@ -1047,15 +1047,6 @@ export class Block extends Logger {
         }
     }
 
-    private async queryPreviousTransaction(
-        txid: string,
-        vout: number,
-    ): Promise<{ scriptPubKeyHex: string; type: string } | undefined> {
-        await Promise.resolve();
-
-        return undefined;
-    }
-
     /**
      * Treats a transaction as a generic transaction.
      * @param {TransactionData} rawTransactionData Raw transaction data
