@@ -293,6 +293,7 @@ export class VMManager extends Logger {
 
             // Trace the execution time
             const maxGas: bigint = this.calculateMaxGas(unlimitedGas, feeBitcoin, baseGas);
+            console.log(maxGas);
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
