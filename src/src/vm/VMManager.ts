@@ -224,7 +224,7 @@ export class VMManager extends Logger {
 
                 storage: new AddressMap(),
 
-                allowCached: true,
+                allowCached: false,
                 externalCall: false,
                 gasUsed: 0n,
                 callDepth: 0,
@@ -314,7 +314,7 @@ export class VMManager extends Logger {
                 transactionHash: interactionTransaction.hash,
                 storage: new AddressMap(),
 
-                allowCached: true,
+                allowCached: false,
                 externalCall: false,
                 gasUsed: 0n,
                 callDepth: 0,
@@ -555,7 +555,7 @@ export class VMManager extends Logger {
     private async callExternal(
         params: InternalContractCallParameters,
     ): Promise<ContractEvaluation> {
-        params.allowCached = !this.isExecutor;
+        params.allowCached = false; //!this.isExecutor;
 
         const result = await this.executeCallInternal(params);
         if (!result.result) {
