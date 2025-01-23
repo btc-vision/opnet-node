@@ -218,7 +218,16 @@ class BlockchainBase {
             throw new Error('Binding not found (call)');
         }
 
-        return c.call(buf);
+        const resp = c.call(buf);
+
+        // @eslint-disable-next-line @typescript-eslint/no-floating-promises @typescript-eslint/no-floating-promises
+        (async () => {
+            const r = await resp;
+
+            console.log('CALL RESPONSE', r);
+        })();
+
+        return resp;
     };
 
     private deployContractAtAddressJSFunction: (
