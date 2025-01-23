@@ -424,11 +424,13 @@ export class RustContract {
     }
 
     private async __new(size: number, align: number): Promise<number> {
-        if (this.enableDebug) console.log('Creating new', size, align);
+        if (this.enableDebug) console.log('Creating new', size, align, this.id);
 
         let finalResult;
         try {
+            console.log('calling.');
             const resp = await this.contractManager.call(this.id, '__new', [size, align]);
+            console.log('ok.');
             this.gasCallback(resp.gasUsed, '__new');
 
             const result = resp.result.filter((n) => n !== undefined);
