@@ -7,7 +7,7 @@ class BlockchainBase {
         RustContractBinding
     >();
 
-    private readonly enableDebug: boolean = false;
+    private readonly enableDebug: boolean = true;
 
     private _contractManager?: ContractManager;
 
@@ -61,6 +61,7 @@ class BlockchainBase {
         _value: ThreadSafeJsImportResponse,
     ): Promise<void> => {
         return new Promise((resolve) => {
+            console.log('LOG');
             /*const u = new Uint8Array(value.buffer);
             const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
@@ -80,6 +81,7 @@ class BlockchainBase {
         value: ThreadSafeJsImportResponse,
     ): Promise<void> => {
         return new Promise<void>((resolve) => {
+            console.log('EMIT');
             const u = new Uint8Array(value.buffer);
             const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
