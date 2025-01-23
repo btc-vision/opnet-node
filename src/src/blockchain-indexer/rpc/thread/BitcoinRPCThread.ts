@@ -25,11 +25,25 @@ import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import { RPCSubWorkerManager } from './RPCSubWorkerManager.js';
-import { PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
-import { NetEvent } from '@btc-vision/transaction';
+import {
+    BlockchainStorageMap,
+    EvaluatedEvents,
+    EvaluatedResult,
+    PointerStorageMap,
+} from '../../../vm/evaluated/EvaluatedResult.js';
+import { Address, NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
 import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
+import { VMManager } from '../../../vm/VMManager.js';
+import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { Blockchain } from '../../../vm/Blockchain.js';
+import { DebugLevel } from '@btc-vision/logger';
+import { BTC_FAKE_ADDRESS } from '../../processor/block/types/ZeroValue.js';
+import {
+    ParsedSimulatedTransaction,
+    SimulatedTransaction,
+} from '../../../api/json-rpc/types/interfaces/params/states/CallParams.js';
+import { Buffer } from 'buffer';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
@@ -39,7 +53,13 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     private blockHeaderValidator: BlockHeaderValidator;
 
-    private readonly rpcSubWorkerManager: RPCSubWorkerManager = new RPCSubWorkerManager();
+    //private readonly rpcSubWorkerManager: RPCSubWorkerManager = new RPCSubWorkerManager();
+
+    private readonly vmManagers: VMManager[] = [];
+    private currentVMManagerIndex: number = 0;
+
+    private readonly CONCURRENT_VMS: number = Config.RPC.VM_CONCURRENCY || 1;
+    private currentBlockHeight: bigint = 0n;
 
     constructor() {
         super();
@@ -53,10 +73,46 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     protected async onMessage(_message: ThreadMessageBase<MessageType>): Promise<void> {}
 
     protected async init(): Promise<void> {
-        await this.vmStorage.init();
         await this.bitcoinRPC.init(Config.BLOCKCHAIN);
+        await this.vmStorage.init();
 
-        this.rpcSubWorkerManager.startWorkers();
+        await this.setBlockHeight();
+        await this.createVMManagers();
+
+        //this.rpcSubWorkerManager.startWorkers();
+    }
+
+    protected async getNextVMManager(tries: number = 0): Promise<VMManager> {
+        if (tries > 10) {
+            throw new Error('Failed to get a VMManager');
+        }
+
+        return new Promise<VMManager>(async (resolve) => {
+            const startNumber = this.currentVMManagerIndex;
+            let vmManager: VMManager | undefined;
+
+            do {
+                vmManager = this.vmManagers[this.currentVMManagerIndex];
+                this.currentVMManagerIndex = (this.currentVMManagerIndex + 1) % this.CONCURRENT_VMS;
+
+                if (!vmManager.busy() && vmManager.initiated) {
+                    break;
+                }
+            } while (this.currentVMManagerIndex !== startNumber);
+
+            if (vmManager) {
+                resolve(vmManager);
+                return;
+            }
+
+            this.warn(
+                `High load detected. Try to increase your RPC thread limit or do fewer requests.`,
+            );
+
+            await this.sleep(100);
+
+            resolve(await this.getNextVMManager(tries + 1));
+        });
     }
 
     protected async onLinkMessage(
@@ -84,7 +140,49 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         }
     }
 
-    private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
+    private async createVMManagers(): Promise<void> {
+        for (let i = 0; i < this.CONCURRENT_VMS; i++) {
+            const vmManager: VMManager = new VMManager(Config, true, this.vmStorage);
+            await vmManager.init();
+
+            this.vmManagers.push(vmManager);
+        }
+
+        setInterval(async () => {
+            for (let i = 0; i < this.vmManagers.length; i++) {
+                const vmManager = this.vmManagers[i];
+                await vmManager.clear();
+            }
+
+            Blockchain.purgeCached();
+        }, 20000);
+    }
+
+    private onBlockChange(blockHeight: bigint): void {
+        if (this.currentBlockHeight === blockHeight) {
+            return;
+        }
+
+        this.currentBlockHeight = blockHeight;
+        OPNetConsensus.setBlockHeight(this.currentBlockHeight);
+    }
+
+    private async setBlockHeight(): Promise<void> {
+        this.vmStorage.blockchainRepository.watchBlockChanges(this.onBlockChange.bind(this));
+
+        try {
+            const currentBlock = await this.bitcoinRPC.getBlockHeight();
+            this.onBlockChange(BigInt(currentBlock?.blockHeight || 0) + 1n);
+        } catch (e) {
+            this.error(`Failed to get current block height. ${e}`);
+        }
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    /*private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
         const response = (await this.rpcSubWorkerManager.resolve(data, 'call')) as
             | {
                   result: string | Uint8Array;
@@ -122,6 +220,123 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 error: response.error,
             };
         }
+    }*/
+
+    private parseTransaction(
+        transaction: SimulatedTransaction | undefined,
+    ): ParsedSimulatedTransaction | undefined {
+        if (!transaction) {
+            return;
+        }
+
+        return {
+            inputs: transaction.inputs.map((input) => {
+                return {
+                    txId: Buffer.from(input.txId, 'base64'),
+                    outputIndex: input.outputIndex,
+                    scriptSig: Buffer.from(input.scriptSig, 'base64'),
+                };
+            }),
+            outputs: [
+                ...[
+                    {
+                        value: 0n,
+                        index: 0,
+                        to: 'dead',
+                    },
+                ],
+                ...transaction.outputs.map((output) => {
+                    return {
+                        value: BigInt(output.value),
+                        index: output.index,
+                        to: output.to,
+                    };
+                }),
+            ],
+        };
+    }
+
+    private async onCallRequest(data: CallRequestData): Promise<CallRequestResponse | undefined> {
+        if (!data.calldata || !data.to) {
+            return {
+                error: 'Invalid call request data',
+            };
+        }
+
+        if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            this.info(
+                `Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`,
+            );
+        }
+
+        const vmManager = await this.getNextVMManager();
+
+        let result: CallRequestResponse | undefined;
+        try {
+            const parsedTransaction = this.parseTransaction(data.transaction);
+            const response: EvaluatedResult = await vmManager.execute(
+                data.to,
+                data.from ? Address.fromString(data.from) : BTC_FAKE_ADDRESS,
+                Buffer.from(data.calldata, 'hex'),
+                data.blockNumber,
+                parsedTransaction,
+                data.accessList,
+            );
+
+            result = {
+                ...response,
+                changedStorage: response.changedStorage
+                    ? this.convertArrayToMap(this.convertMapToArray(response.changedStorage))
+                    : undefined,
+                gasUsed: response.gasUsed ? BigInt(response.gasUsed) : 0n,
+                events: response.events
+                    ? this.convertArrayEventsToEvents(this.convertEventsToArray(response.events))
+                    : undefined,
+                result: response.result ? Buffer.from(response.result) : undefined,
+                deployedContracts: response.deployedContracts || [],
+            };
+        } catch (e) {
+            const error = e as Error;
+            if (Config.DEV_MODE) {
+                this.error(`Failed to execute call request (subworker). ${error.stack}`);
+            }
+
+            result = {
+                error: error.message || 'Unknown error',
+            };
+        }
+
+        return result;
+    }
+
+    private convertEventsToArray(events: EvaluatedEvents): [string, [string, string][]][] {
+        const array: [string, [string, string][]][] = [];
+
+        for (const [key, value] of events) {
+            const innerArray: [string, string][] = [];
+            for (const event of value) {
+                innerArray.push([event.type, Buffer.from(event.data).toString('hex')]);
+            }
+
+            array.push([key.toString(), innerArray]);
+        }
+
+        return array;
+    }
+
+    private convertMapToArray(map: BlockchainStorageMap): [string, [string, string][]][] {
+        const array: [string, [string, string][]][] = [];
+
+        for (const [key, value] of map) {
+            const innerArray: [string, string][] = [];
+            for (const [innerKey, innerValue] of value) {
+                innerArray.push([innerKey.toString(), innerValue.toString()]);
+            }
+
+            array.push([key.toHex(), innerArray]);
+        }
+
+        return array;
     }
 
     private convertArrayEventsToEvents(
