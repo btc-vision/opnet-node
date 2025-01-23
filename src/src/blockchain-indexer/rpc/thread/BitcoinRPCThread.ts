@@ -48,7 +48,7 @@ import { Buffer } from 'buffer';
 export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
 
-    private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC(1500, false);
+    private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC(1500, true);
     private readonly vmStorage: VMMongoStorage = new VMMongoStorage(Config);
 
     private blockHeaderValidator: BlockHeaderValidator;

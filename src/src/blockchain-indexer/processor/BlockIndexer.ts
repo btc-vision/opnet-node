@@ -34,7 +34,7 @@ export class BlockIndexer extends Logger {
     private readonly vmStorage: VMStorage = this.getVMStorage();
 
     private readonly vmManager: VMManager = new VMManager(Config, false, this.vmStorage);
-    private readonly rpcClient: BitcoinRPC = new BitcoinRPC(500, false);
+    private readonly rpcClient: BitcoinRPC = new BitcoinRPC(500, true);
     private readonly consensusTracker: ConsensusTracker = new ConsensusTracker();
     private readonly specialTransactionManager: SpecialManager = new SpecialManager(this.vmManager);
 
