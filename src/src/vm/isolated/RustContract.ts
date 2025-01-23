@@ -17,7 +17,7 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
 export class RustContract {
     private refCounts: FastNumberMap<number> = new FastNumberMap<number>();
 
-    private readonly enableDebug: boolean = false;
+    private readonly enableDebug: boolean = true;
     private readonly enableDisposeLog: boolean = false;
 
     private gasUsed: bigint = 0n;
