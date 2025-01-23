@@ -68,6 +68,10 @@ export class RPCSubWorkerManager extends Logger {
         const params: ForkOptions = {};
         const currentPath: string = path.join(__dirname, 'RPCSubWorker.js');
         const worker: ChildProcess = fork(currentPath, ['child'], params);
+        console.log('FORKED AT', worker.pid);
+        console.log('FORKED AT', worker.pid);
+        console.log('FORKED AT', worker.pid);
+        console.log('FORKED AT', worker.pid);
 
         worker.on('message', this.onMessage.bind(this));
 
