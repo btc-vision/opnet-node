@@ -25,7 +25,7 @@ class BlockchainBase {
 
     public createManager(): void {
         this._contractManager = new ContractManager(
-            1, // max idling runtime
+            18, // max idling runtime
             this.loadJsFunction,
             this.storeJSFunction,
             this.callJSFunction,
@@ -39,6 +39,7 @@ class BlockchainBase {
     }
 
     public purgeCached(): void {
+        console.log('Purging cache');
         this.contractManager.destroyCache();
     }
 
@@ -51,6 +52,7 @@ class BlockchainBase {
     }
 
     public purge(): void {
+        console.log('Purging all bindings');
         this.contractManager.destroyAll();
 
         this.bindings.clear();
@@ -219,6 +221,7 @@ class BlockchainBase {
         }
 
         const resp = c.call(buf);
+        console.log('await response!');
 
         // @eslint-disable-next-line @typescript-eslint/no-floating-promises @typescript-eslint/no-floating-promises
         (async () => {
