@@ -25,7 +25,7 @@ class BlockchainBase {
 
     public createManager(): void {
         this._contractManager = new ContractManager(
-            105, // max idling runtime
+            1, // max idling runtime
             this.loadJsFunction,
             this.storeJSFunction,
             this.callJSFunction,
