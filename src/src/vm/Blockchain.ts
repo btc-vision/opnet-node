@@ -7,7 +7,7 @@ class BlockchainBase {
         RustContractBinding
     >();
 
-    private readonly enableDebug: boolean = true;
+    private readonly enableDebug: boolean = false;
 
     private _contractManager?: ContractManager;
 
