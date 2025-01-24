@@ -40,7 +40,7 @@ class BlockchainBase {
 
     public purgeCached(): void {
         console.log('Purging cache');
-        this.contractManager.destroyCache();
+        //this.contractManager.destroyCache();
     }
 
     public removeBinding(id: bigint): void {
@@ -53,7 +53,7 @@ class BlockchainBase {
 
     public purge(): void {
         console.log('Purging all bindings');
-        this.contractManager.destroyAll();
+        //this.contractManager.destroyAll();
 
         this.bindings.clear();
     }
@@ -220,17 +220,7 @@ class BlockchainBase {
             throw new Error('Binding not found (call)');
         }
 
-        const resp = c.call(buf);
-        console.log('await response!');
-
-        // @eslint-disable-next-line @typescript-eslint/no-floating-promises @typescript-eslint/no-floating-promises
-        (async () => {
-            const r = await resp;
-
-            console.log('CALL RESPONSE', r);
-        })();
-
-        return resp;
+        return c.call(buf);
     };
 
     private deployContractAtAddressJSFunction: (
