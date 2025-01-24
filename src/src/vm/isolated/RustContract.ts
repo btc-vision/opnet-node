@@ -124,7 +124,7 @@ export class RustContract {
     }
 
     public async execute(buffer: Uint8Array | Buffer): Promise<Uint8Array> {
-        if (this.enableDebug) console.log('execute', buffer);
+        if (this.enableDebug) console.log('execute ${this.id}', buffer);
 
         try {
             const pointer = await this.__lowerTypedArray(13, 0, buffer);
@@ -148,7 +148,7 @@ export class RustContract {
     }
 
     public async setEnvironment(buffer: Uint8Array | Buffer): Promise<void> {
-        if (this.enableDebug) console.log('Setting environment', buffer);
+        if (this.enableDebug) console.log(`Setting environment ${this.id}`, buffer);
 
         try {
             const data = await this.__lowerTypedArray(13, 0, buffer);
@@ -165,7 +165,7 @@ export class RustContract {
     }
 
     public async onDeploy(buffer: Uint8Array | Buffer): Promise<CallResponse> {
-        if (this.enableDebug) console.log('Setting onDeployment', buffer);
+        if (this.enableDebug) console.log(`Setting onDeployment ${this.id}`, buffer);
 
         try {
             const data = await this.__lowerTypedArray(13, 0, buffer);
@@ -249,7 +249,7 @@ export class RustContract {
     }
 
     private async __release(pointer: number): Promise<void> {
-        if (this.enableDebug) console.log('Releasing pointer', pointer);
+        if (this.enableDebug) console.log(`Releasing pointer ${this.id}`, pointer);
 
         if (pointer) {
             const refcount = this.refCounts.get(pointer);
@@ -265,7 +265,7 @@ export class RustContract {
     }
 
     private __liftString(pointer: number): string | null {
-        if (this.enableDebug) console.log('Lifting string', pointer);
+        if (this.enableDebug) console.log(`Lifting string ${this.id}`, pointer);
 
         if (!pointer) return null;
 
@@ -298,7 +298,7 @@ export class RustContract {
     }
 
     private __liftTypedArray(pointer: number): Uint8Array {
-        if (this.enableDebug) console.log('Lifting typed array', pointer);
+        if (this.enableDebug) console.log(`Lifting typed array ${this.id}`, pointer);
 
         if (!pointer) throw new Error('Pointer cannot be null');
 
@@ -326,7 +326,7 @@ export class RustContract {
         align: number,
         values: Uint8Array | Buffer,
     ): Promise<number> {
-        if (this.enableDebug) console.log('Lowering typed array', id, align, values);
+        if (this.enableDebug) console.log(`Lowering typed array ${this.id}`, id, align, values);
 
         if (values == null) return 0;
 
@@ -424,7 +424,7 @@ export class RustContract {
     }
 
     private async __new(size: number, align: number): Promise<number> {
-        if (this.enableDebug) console.log('Creating new', size, align, this.id);
+        if (this.enableDebug) console.log('Creating new', this.id);
 
         let finalResult;
         try {
