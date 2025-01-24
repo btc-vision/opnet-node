@@ -428,9 +428,8 @@ export class RustContract {
 
         let finalResult;
         try {
-            console.log('calling.');
             const resp = await this.contractManager.call(this.id, '__new', [size, align]);
-            console.log('ok.');
+            console.log('called _new correctly.', this.id);
             this.gasCallback(resp.gasUsed, '__new');
 
             const result = resp.result.filter((n) => n !== undefined);
