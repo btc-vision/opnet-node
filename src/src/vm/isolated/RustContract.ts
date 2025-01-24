@@ -426,21 +426,25 @@ export class RustContract {
     private async __new(size: number, align: number): Promise<number> {
         if (this.enableDebug) console.log('Creating new', this.id);
 
-        let finalResult;
-        try {
-            const resp = await this.contractManager.call(this.id, '__new', [size, align]);
-            console.log('called _new correctly.', this.id);
-            this.gasCallback(resp.gasUsed, '__new');
+        return new Promise((resolve) => {
+            setTimeout(async () => {
+                let finalResult;
+                try {
+                    const resp = await this.contractManager.call(this.id, '__new', [size, align]);
+                    console.log('called _new correctly.', this.id);
+                    this.gasCallback(resp.gasUsed, '__new');
 
-            const result = resp.result.filter((n) => n !== undefined);
-            finalResult = result[0];
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in __new', e);
+                    const result = resp.result.filter((n) => n !== undefined);
+                    finalResult = result[0];
+                } catch (e) {
+                    if (this.enableDebug) console.log('Error in __new', e);
 
-            const error = e as Error;
-            throw this.getError(error);
-        }
+                    const error = e as Error;
+                    throw this.getError(error);
+                }
 
-        return finalResult;
+                resolve(finalResult);
+            }, 500);
+        });
     }
 }
