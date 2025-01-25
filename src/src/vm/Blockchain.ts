@@ -60,11 +60,10 @@ class BlockchainBase {
 
     private logJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
         _: never,
-        _value: ThreadSafeJsImportResponse,
+        value: ThreadSafeJsImportResponse,
     ): Promise<void> => {
         return new Promise((resolve) => {
-            console.log('LOG');
-            /*const u = new Uint8Array(value.buffer);
+            const u = new Uint8Array(value.buffer);
             const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
             const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
@@ -72,7 +71,7 @@ class BlockchainBase {
                 throw new Error('Binding not found');
             }
 
-            c.log(buf);*/
+            c.log(buf);
 
             resolve();
         });
