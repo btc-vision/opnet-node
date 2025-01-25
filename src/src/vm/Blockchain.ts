@@ -39,8 +39,7 @@ class BlockchainBase {
     }
 
     public purgeCached(): void {
-        console.log('Purging cache');
-        //this.contractManager.destroyCache();
+        this.contractManager.destroyCache();
     }
 
     public removeBinding(id: bigint): void {
@@ -52,8 +51,7 @@ class BlockchainBase {
     }
 
     public purge(): void {
-        console.log('Purging all bindings');
-        //this.contractManager.destroyAll();
+        this.contractManager.destroyAll();
 
         this.bindings.clear();
     }
