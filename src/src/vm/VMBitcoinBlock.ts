@@ -18,7 +18,13 @@ export class VMBitcoinBlock extends Logger {
 
     public async prepare(blockId: bigint): Promise<void> {
         if (this.isPrepared) {
-            throw new Error(`The block ${this.blockId} is already prepared`);
+            if (blockId === this.blockId) {
+                throw new Error(`The block ${this.blockId} is already prepared`);
+            } else {
+                throw new Error(
+                    `The block ${this.blockId} is not commited and you are trying to prepare block ${blockId}`,
+                );
+            }
         }
 
         this.blockId = blockId;

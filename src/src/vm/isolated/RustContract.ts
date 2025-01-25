@@ -444,7 +444,7 @@ export class RustContract {
                 }
 
                 resolve(finalResult);
-            }, 500);
+            }, 200);
         });
     }
 }
