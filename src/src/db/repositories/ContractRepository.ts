@@ -184,10 +184,10 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
 
             const insertedResult = await collection.insertOne(criteria, options);
             if (!insertedResult.acknowledged || !insertedResult.insertedId) {
-                throw new Error('OP_NET: Unable to insert contract.');
+                throw new Error('OP_NET: Unable to insert contract. (not acknowledged)');
             }
-        } catch {
-            throw new Error('OP_NET: Unable to insert contract.');
+        } catch (e) {
+            throw new Error(`OP_NET: Unable to insert contract. ${e}`);
         }
     }
 
