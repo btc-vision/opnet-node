@@ -182,6 +182,8 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
                 ...this.getOptions(currentSession),
             };
 
+            console.dir(criteria, { depth: null, colors: true });
+
             const insertedResult = await collection.insertOne(criteria, options);
             if (!insertedResult.acknowledged || !insertedResult.insertedId) {
                 throw new Error('OP_NET: Unable to insert contract. (not acknowledged)');
