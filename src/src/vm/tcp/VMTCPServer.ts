@@ -184,6 +184,10 @@ export class VMTCPServer extends Logger {
         contractId: bigint,
         payload: Buffer,
     ): Promise<Buffer | undefined | void> {
+        this.info(
+            `Received opcode ${opcode} with payload: ${payload.toString('hex')} for contract ${contractId}`,
+        );
+
         switch (opcode) {
             case Opcode.StorageLoad: {
                 return await this.loadFunction(contractId, payload);
