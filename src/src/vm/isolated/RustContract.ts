@@ -430,10 +430,7 @@ export class RustContract {
         return new Promise(async (resolve) => {
             let finalResult;
             try {
-                const resp = await Promise.race([
-                    this.contractManager.call(this.id, '__new', [size, align]),
-                    this.contractManager.call(this.id, '__new', [size, align]),
-                ]);
+                const resp = await this.contractManager.call(this.id, '__new', [size, align]);
 
                 console.log('called _new correctly.', this.id);
                 this.gasCallback(resp.gasUsed, '__new');
