@@ -1,5 +1,5 @@
 import { RustContractBinding } from './isolated/RustContractBindings.js';
-import { ContractManager, ThreadSafeJsImportResponse } from '@btc-vision/op-vm';
+import { ContractManager } from '@btc-vision/op-vm';
 import { VMTCPServer } from './tcp/VMTCPServer.js';
 
 class BlockchainBase {
@@ -54,100 +54,6 @@ class BlockchainBase {
         this.bindings.clear();
     }
 
-    private logJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<void> => {
-        return new Promise((resolve) => {
-            const u = new Uint8Array(value.buffer);
-            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-
-            const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-            if (!c) {
-                throw new Error('Binding not found');
-            }
-
-            c.log(buf);
-
-            resolve();
-        });
-    };
-
-    private emitJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<void> => {
-        return new Promise<void>((resolve) => {
-            console.log('EMIT');
-            const u = new Uint8Array(value.buffer);
-            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-
-            const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
-            if (!c) {
-                throw new Error('Binding not found');
-            }
-
-            c.emit(buf);
-
-            resolve();
-        });
-    };
-
-    private inputsJSFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('INPUTS', value);
-
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-        if (!c) {
-            throw new Error('Binding not found (inputs)');
-        }
-
-        return c.inputs();
-    };
-
-    private outputsJSFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('OUTPUT', value);
-
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-        if (!c) {
-            throw new Error('Binding not found (outputs)');
-        }
-
-        return c.outputs();
-    };
-
-    private nextPointerValueGreaterThan: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('LOAD', value.buffer);
-
-        const u = new Uint8Array(value.buffer);
-        const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
-        if (!c) {
-            throw new Error('Binding not found');
-        }
-
-        return c.nextPointerValueGreaterThan(buf);
-    };
-
     // For future use?
     /*public cleanUp(): void {
         this.contractManager.destroyAll();
@@ -155,89 +61,6 @@ class BlockchainBase {
 
         delete this._contractManager;
     }*/
-
-    private loadJsFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('LOAD', value.buffer);
-
-        const u = new Uint8Array(value.buffer);
-        const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
-        if (!c) {
-            throw new Error('Binding not found (load)');
-        }
-
-        return c.load(buf);
-    };
-
-    private storeJSFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('STORE', value.buffer);
-
-        const u = new Uint8Array(value.buffer);
-        const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
-        if (!c) {
-            throw new Error('Binding not found (store)');
-        }
-
-        return c.store(buf);
-    };
-
-    private callJSFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('CALL', value.buffer);
-
-        const u = new Uint8Array(value.buffer);
-        const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
-        if (!c) {
-            throw new Error('Binding not found (call)');
-        }
-
-        return c.call(buf);
-    };
-
-    private deployContractAtAddressJSFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('DEPLOY', value.buffer);
-
-        const u = new Uint8Array(value.buffer);
-        const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
-        if (!c) {
-            throw new Error('Binding not found (deploy)');
-        }
-
-        return c.deployContractAtAddress(buf);
-    };
 }
 
 export const Blockchain = new BlockchainBase();
