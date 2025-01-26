@@ -52,6 +52,8 @@ export class RustContract {
                 outputs: this.params.outputs,
             });
 
+            this._instantiated = true;
+
             this.contractManager.instantiate(
                 this._id,
                 this.params.address,
@@ -60,7 +62,7 @@ export class RustContract {
                 this.params.network,
             );
 
-            this._instantiated = true;
+            console.log(`Instantiated contract ${this._id}`);
         }
 
         return this._id;
