@@ -146,21 +146,27 @@ export class RustContract {
         }
     }
 
-    public async setEnvironment(buffer: Uint8Array | Buffer): Promise<void> {
-        if (this.enableDebug) console.log(`Setting environment ${this.id}`, buffer);
+    public setEnvironment(buffer: Uint8Array | Buffer): Promise<void> {
+        return new Promise((resolve, reject) => {
+            process.nextTick(async () => {
+                if (this.enableDebug) console.log(`Setting environment ${this.id}`, buffer);
 
-        try {
-            const data = await this.__lowerTypedArray(13, 0, buffer);
-            if (data == null) throw new Error('Data cannot be null');
+                try {
+                    const data = await this.__lowerTypedArray(13, 0, buffer);
+                    if (data == null) throw new Error('Data cannot be null');
 
-            const resp = await this.contractManager.call(this.id, 'setEnvironment', [data]);
-            this.gasCallback(resp.gasUsed, 'setEnvironment');
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in setEnvironment', e);
+                    const resp = await this.contractManager.call(this.id, 'setEnvironment', [data]);
+                    this.gasCallback(resp.gasUsed, 'setEnvironment');
 
-            const error = e as Error;
-            throw this.getError(error);
-        }
+                    resolve();
+                } catch (e) {
+                    if (this.enableDebug) console.log('Error in setEnvironment', e);
+
+                    const error = e as Error;
+                    reject(this.getError(error));
+                }
+            });
+        });
     }
 
     public async onDeploy(buffer: Uint8Array | Buffer): Promise<CallResponse> {
@@ -425,25 +431,27 @@ export class RustContract {
     private async __new(size: number, align: number): Promise<number> {
         if (this.enableDebug) console.log('Creating new', this.id);
 
-        return new Promise((resolve) => {
-            setTimeout(async () => {
-                let finalResult;
-                try {
-                    const resp = await this.contractManager.call(this.id, '__new', [size, align]);
-                    console.log('called _new correctly.', this.id);
-                    this.gasCallback(resp.gasUsed, '__new');
+        return new Promise(async (resolve) => {
+            let finalResult;
+            try {
+                const resp = await Promise.race([
+                    this.contractManager.call(this.id, '__new', [size, align]),
+                    this.contractManager.call(this.id, '__new', [size, align]),
+                ]);
 
-                    const result = resp.result.filter((n) => n !== undefined);
-                    finalResult = result[0];
-                } catch (e) {
-                    if (this.enableDebug) console.log('Error in __new', e);
+                console.log('called _new correctly.', this.id);
+                this.gasCallback(resp.gasUsed, '__new');
 
-                    const error = e as Error;
-                    throw this.getError(error);
-                }
+                const result = resp.result.filter((n) => n !== undefined);
+                finalResult = result[0];
+            } catch (e) {
+                if (this.enableDebug) console.log('Error in __new', e);
 
-                resolve(finalResult);
-            }, 200);
+                const error = e as Error;
+                throw this.getError(error);
+            }
+
+            resolve(finalResult);
         });
     }
 }
