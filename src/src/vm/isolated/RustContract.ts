@@ -428,8 +428,8 @@ export class RustContract {
 
         try {
             const i = setInterval(() => {
-                this.contractManager.log('hello?');
-            }, 100);
+                this.contractManager.log(`pending call for __new ${this._id}`);
+            }, 1000);
 
             this.contractManager.log(`hello? ${this._id}`);
 
