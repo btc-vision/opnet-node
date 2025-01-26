@@ -66,7 +66,7 @@ export class VMTCPServer extends Logger {
         const c = this.bindings.get(BigInt(`${contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (load)');
         }
 
         return c.load(buffer) as Promise<Buffer>;
@@ -81,7 +81,7 @@ export class VMTCPServer extends Logger {
         const c = this.bindings.get(BigInt(`${contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (store)');
         }
 
         return c.store(buffer) as Promise<Buffer>;
@@ -96,7 +96,7 @@ export class VMTCPServer extends Logger {
         const c = this.bindings.get(BigInt(`${contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (call)');
         }
 
         return c.call(buffer) as Promise<Buffer>;
@@ -111,7 +111,7 @@ export class VMTCPServer extends Logger {
         const c = this.bindings.get(BigInt(`${contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (emit)');
         }
 
         return c.emit(buffer);
@@ -126,7 +126,7 @@ export class VMTCPServer extends Logger {
         const c = this.bindings.get(BigInt(`${contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (deploy)');
         }
 
         return c.deployContractAtAddress(buffer) as Promise<Buffer>;
@@ -140,7 +140,7 @@ export class VMTCPServer extends Logger {
         const c = this.bindings.get(BigInt(`${contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (inputs)');
         }
 
         return c.inputs() as Promise<Buffer>;
@@ -154,7 +154,7 @@ export class VMTCPServer extends Logger {
         const c = this.bindings.get(BigInt(`${contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (outputs)');
         }
 
         return c.outputs() as Promise<Buffer>;
@@ -169,7 +169,7 @@ export class VMTCPServer extends Logger {
         const c = this.bindings.get(BigInt(`${contractId}`)); // otherwise unsafe.
 
         if (!c) {
-            throw new Error('Binding not found');
+            throw new Error('Binding not found (console)');
         }
 
         return c.log(buffer);
@@ -184,9 +184,9 @@ export class VMTCPServer extends Logger {
         contractId: bigint,
         payload: Buffer,
     ): Promise<Buffer | undefined | void> {
-        this.info(
-            `Received opcode ${opcode} with payload: ${payload.toString('hex')} for contract ${contractId}`,
-        );
+        //this.info(
+        //    `Received opcode ${opcode} with payload: ${payload.toString('hex')} for contract ${contractId}`,
+        //);
 
         switch (opcode) {
             case Opcode.StorageLoad: {
