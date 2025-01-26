@@ -131,6 +131,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         RPC: {
+            CHILD_PROCESSES: 2,
             THREADS: 2,
             VM_CONCURRENCY: 1,
         },
@@ -317,6 +318,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.RPC.VM_CONCURRENCY !== 'number'
             ) {
                 throw new Error(`Oops the property RPC.VM_CONCURRENCY is not a number.`);
+            }
+
+            if (
+                parsedConfig.RPC.CHILD_PROCESSES !== undefined &&
+                typeof parsedConfig.RPC.CHILD_PROCESSES !== 'number'
+            ) {
+                throw new Error(`Oops the property RPC.CHILD_PROCESSES is not a number.`);
             }
         }
 
