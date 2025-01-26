@@ -12,7 +12,7 @@ import { Logger } from '@btc-vision/bsi-common';
 export class TCPSocket extends Logger {
     public readonly logColor: string = '#00ff8c';
 
-    private readonly enableDebug: boolean = true; // Set to true for verbose logging.
+    private readonly enableDebug: boolean = false; // Set to true for verbose logging.
 
     private dataBuffer: Buffer = Buffer.alloc(0); // Accumulate partial data here.
     private isClosed: boolean = false; // Track if the socket is closed.
