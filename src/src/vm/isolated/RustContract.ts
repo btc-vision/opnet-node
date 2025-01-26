@@ -428,12 +428,15 @@ export class RustContract {
 
         try {
             const i = setInterval(() => {
-                this.contractManager.log(`pending call for __new ${this._id}`);
+                this.contractManager.log(BigInt(`${this.id}`), '__new', [size, align]);
             }, 1000);
 
-            this.contractManager.log(`hello? ${this._id}`);
+            this.contractManager.log(BigInt(`${this.id}`), '__new', [size, align]);
 
-            const resp = await this.contractManager.call(this.id, '__new', [size, align]);
+            const resp = await this.contractManager.call(BigInt(`${this.id}`), '__new', [
+                size,
+                align,
+            ]);
 
             clearInterval(i);
 
