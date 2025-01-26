@@ -2,6 +2,7 @@ import { BitcoinNetworkRequest, CallResponse, ContractManager } from '@btc-visio
 import { RustContractBinding } from './RustContractBindings.js';
 import { Blockchain } from '../Blockchain.js';
 import { FastNumberMap } from '../../utils/fast/FastNumberMap.js';
+import { clearInterval } from 'node:timers';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -426,9 +427,15 @@ export class RustContract {
         if (this.enableDebug) console.log('Creating new', this.id);
 
         try {
-            console.log(this.contractManager);
-            
+            const i = setInterval(() => {
+                this.contractManager.log('hello?');
+            }, 100);
+
+            this.contractManager.log(`hello? ${this._id}`);
+
             const resp = await this.contractManager.call(this.id, '__new', [size, align]);
+
+            clearInterval(i);
 
             console.log('called _new correctly.', this.id);
             this.gasCallback(resp.gasUsed, '__new');
