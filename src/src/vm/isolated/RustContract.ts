@@ -17,8 +17,8 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
 export class RustContract {
     private refCounts: FastNumberMap<number> = new FastNumberMap<number>();
 
-    private readonly enableDebug: boolean = false;
-    private readonly enableDisposeLog: boolean = false;
+    private readonly enableDebug: boolean = true;
+    private readonly enableDisposeLog: boolean = true;
 
     private gasUsed: bigint = 0n;
 
@@ -146,27 +146,21 @@ export class RustContract {
         }
     }
 
-    public setEnvironment(buffer: Uint8Array | Buffer): Promise<void> {
-        return new Promise((resolve, reject) => {
-            process.nextTick(async () => {
-                if (this.enableDebug) console.log(`Setting environment ${this.id}`, buffer);
+    public async setEnvironment(buffer: Uint8Array | Buffer): Promise<void> {
+        if (this.enableDebug) console.log(`Setting environment ${this.id}`, buffer);
 
-                try {
-                    const data = await this.__lowerTypedArray(13, 0, buffer);
-                    if (data == null) throw new Error('Data cannot be null');
+        try {
+            const data = await this.__lowerTypedArray(13, 0, buffer);
+            if (data == null) throw new Error('Data cannot be null');
 
-                    const resp = await this.contractManager.call(this.id, 'setEnvironment', [data]);
-                    this.gasCallback(resp.gasUsed, 'setEnvironment');
+            const resp = await this.contractManager.call(this.id, 'setEnvironment', [data]);
+            this.gasCallback(resp.gasUsed, 'setEnvironment');
+        } catch (e) {
+            if (this.enableDebug) console.log('Error in setEnvironment', e);
 
-                    resolve();
-                } catch (e) {
-                    if (this.enableDebug) console.log('Error in setEnvironment', e);
-
-                    const error = e as Error;
-                    reject(this.getError(error));
-                }
-            });
-        });
+            const error = e as Error;
+            throw this.getError(error);
+        }
     }
 
     public async onDeploy(buffer: Uint8Array | Buffer): Promise<CallResponse> {
