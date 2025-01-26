@@ -52,8 +52,6 @@ export class RustContract {
                 outputs: this.params.outputs,
             });
 
-            this._instantiated = true;
-
             this.contractManager.instantiate(
                 this._id,
                 this.params.address,
@@ -62,7 +60,7 @@ export class RustContract {
                 this.params.network,
             );
 
-            console.log(`Instantiated contract ${this._id}`);
+            this._instantiated = true;
         }
 
         return this._id;
@@ -427,24 +425,21 @@ export class RustContract {
     private async __new(size: number, align: number): Promise<number> {
         if (this.enableDebug) console.log('Creating new', this.id);
 
-        return new Promise(async (resolve) => {
-            let finalResult;
-            try {
-                const resp = await this.contractManager.call(this.id, '__new', [size, align]);
+        try {
+            console.log(this.contractManager);
+            
+            const resp = await this.contractManager.call(this.id, '__new', [size, align]);
 
-                console.log('called _new correctly.', this.id);
-                this.gasCallback(resp.gasUsed, '__new');
+            console.log('called _new correctly.', this.id);
+            this.gasCallback(resp.gasUsed, '__new');
 
-                const result = resp.result.filter((n) => n !== undefined);
-                finalResult = result[0];
-            } catch (e) {
-                if (this.enableDebug) console.log('Error in __new', e);
+            const result = resp.result.filter((n) => n !== undefined);
+            return result[0];
+        } catch (e) {
+            if (this.enableDebug) console.log('Error in __new', e);
 
-                const error = e as Error;
-                throw this.getError(error);
-            }
-
-            resolve(finalResult);
-        });
+            const error = e as Error;
+            throw this.getError(error);
+        }
     }
 }
