@@ -120,6 +120,8 @@ export class VMManager extends Logger {
     public async init(): Promise<void> {
         await this.vmStorage.init();
 
+        await Blockchain.createManager();
+
         this.initiated = true;
     }
 

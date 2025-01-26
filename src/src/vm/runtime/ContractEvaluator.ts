@@ -31,7 +31,6 @@ export class ContractEvaluator extends Logger {
 
     private contractOwner: Address | undefined;
     private contractAddress: Address | undefined;
-    private contractAddressStr: string | undefined;
 
     private bytecode: Buffer | undefined;
     private readonly enableTracing: boolean = false;
@@ -89,7 +88,7 @@ export class ContractEvaluator extends Logger {
         // We use pub the pub key as the deployer address.
         this.contractOwner = contractInformation.deployerAddress;
         this.contractAddress = contractInformation.contractTweakedPublicKey;
-        this.contractAddressStr = contractInformation.contractAddress;
+        //this.contractAddressStr = contractInformation.contractAddress;
         this.bytecode = contractInformation.bytecode;
     }
 

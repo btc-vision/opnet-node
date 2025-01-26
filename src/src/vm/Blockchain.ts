@@ -1,5 +1,6 @@
 import { RustContractBinding } from './isolated/RustContractBindings.js';
 import { ContractManager, ThreadSafeJsImportResponse } from '@btc-vision/op-vm';
+import { VMTCPServer } from './tcp/VMTCPServer.js';
 
 class BlockchainBase {
     private readonly bindings: Map<bigint, RustContractBinding> = new Map<
@@ -9,13 +10,15 @@ class BlockchainBase {
 
     private readonly enableDebug: boolean = false;
 
+    private readonly tcpServer: VMTCPServer;
+
+    constructor() {
+        this.tcpServer = new VMTCPServer(this.bindings, this.enableDebug);
+    }
+
     private _contractManager?: ContractManager;
 
     public get contractManager(): ContractManager {
-        if (!this._contractManager) {
-            this.createManager();
-        }
-
         if (!this._contractManager) {
             throw new Error('Contract manager not initialized');
         }
@@ -23,23 +26,18 @@ class BlockchainBase {
         return this._contractManager;
     }
 
-    public createManager(): void {
+    public async createManager(): Promise<void> {
+        const port = await this.tcpServer.start();
+
         this._contractManager = new ContractManager(
             18, // max idling runtime
-            this.loadJsFunction,
-            this.storeJSFunction,
-            this.callJSFunction,
-            this.deployContractAtAddressJSFunction,
-            this.logJSFunction,
-            this.emitJSFunction,
-            this.inputsJSFunction,
-            this.outputsJSFunction,
-            this.nextPointerValueGreaterThan,
+            port,
+            10,
         );
     }
 
     public purgeCached(): void {
-        this.contractManager.destroyCache();
+        if (this._contractManager) this.contractManager.destroyCache();
     }
 
     public removeBinding(id: bigint): void {
@@ -51,7 +49,7 @@ class BlockchainBase {
     }
 
     public purge(): void {
-        this.contractManager.destroyAll();
+        if (this._contractManager) this.contractManager.destroyAll();
 
         this.bindings.clear();
     }

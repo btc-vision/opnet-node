@@ -112,7 +112,6 @@ export class RustContract {
         this._disposed = true;
 
         Blockchain.removeBinding(this._id);
-        this.contractManager.destroyContract(this._id);
 
         if (deadlock) {
             const strErr = (deadlock as Error).message;

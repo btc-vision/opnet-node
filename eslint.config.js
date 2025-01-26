@@ -32,6 +32,7 @@ export default tseslint.config(
             '@typescript-eslint/related-getter-setter-pairs': 'off',
             'max-depth': ['error', 5],
             '@typescript-eslint/no-floating-promises': 'warn',
+            '@typescript-eslint/no-invalid-void-type': 'off',
         },
     },
     {
