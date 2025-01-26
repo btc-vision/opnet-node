@@ -30,9 +30,9 @@ class BlockchainBase {
         const port = await this.tcpServer.start();
 
         this._contractManager = new ContractManager(
-            18, // max idling runtime
+            1, // max idling runtime
             port,
-            10,
+            1,
         );
     }
 

@@ -246,8 +246,4 @@ export class VMTCPServer extends Logger {
     private getSocketId(socket: Socket): string {
         return `${socket.remoteAddress}:${socket.remotePort}:${socket.localPort}`;
     }
-
-    private onDisconnect(id: string): void {
-        this.sockets.delete(id);
-    }
 }
