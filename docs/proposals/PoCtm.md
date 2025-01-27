@@ -3,8 +3,8 @@
 ## Introduction
 
 Bitcoin's block times (~10 minutes on average) are **slow** and limited in throughput. Yet, **developers want** to build
-advanced smart contracts, instant token transfers, and high-throughput dApps **directly on Bitcoin's security**. This is
-where this OP_NET proposal comes in.
+advanced smart contracts, users will want instant token transfers, and high-throughput dApps **directly on Bitcoin's
+security**. This is where this OP_NET proposal comes in.
 
 This proposal introduces a novel approach to **fast, ephemeral transactions** on top of Bitcoin, allowing **~800ms-1sec
 blocks** for internal state changes, while anchoring them in Bitcoin's security. You may see this concept like solana,
