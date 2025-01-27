@@ -31,7 +31,6 @@ export class ContractEvaluator extends Logger {
 
     private contractOwner: Address | undefined;
     private contractAddress: Address | undefined;
-    private contractAddressStr: string | undefined;
 
     private bytecode: Buffer | undefined;
     private readonly enableTracing: boolean = false;
@@ -89,7 +88,6 @@ export class ContractEvaluator extends Logger {
         // We use pub the pub key as the deployer address.
         this.contractOwner = contractInformation.deployerAddress;
         this.contractAddress = contractInformation.contractTweakedPublicKey;
-        this.contractAddressStr = contractInformation.contractAddress;
         this.bytecode = contractInformation.bytecode;
     }
 
@@ -353,39 +351,7 @@ export class ContractEvaluator extends Logger {
             outputs: () => {
                 return this.onOutputsRequested(evaluation);
             },
-            nextPointerValueGreaterThan: (data: Buffer) => {
-                return new Promise((resolve) => {
-                    const reader = new BinaryReader(data);
-                    const pointer: bigint = reader.readU256();
-                    const valueAtLeast: bigint = reader.readU256();
-                    const lte: boolean = reader.readBoolean();
-
-                    resolve(this.nextPointerValueGreaterThan(pointer, lte, valueAtLeast));
-                });
-            },
         };
-    }
-
-    private getBestNextPointerValueGreaterThan(
-        _pointer: bigint,
-        _lte: boolean,
-        _valueAtLeast: bigint,
-    ): bigint {
-        // TODO: Implement this
-
-        throw new Error(`Experimental feature not enabled.`);
-    }
-
-    private nextPointerValueGreaterThan(
-        pointer: bigint,
-        lte: boolean,
-        valueAtLeast: bigint,
-    ): Buffer | Uint8Array {
-        const pointerReturn = this.getBestNextPointerValueGreaterThan(pointer, lte, valueAtLeast);
-        const response: BinaryWriter = new BinaryWriter();
-        response.writeU256(pointerReturn);
-
-        return response.getBuffer();
     }
 
     private loadContractFromBytecode(evaluation: ContractEvaluation): boolean {

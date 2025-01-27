@@ -42,7 +42,6 @@ export class RustContract {
             Blockchain.registerBinding({
                 id: this._id,
                 load: this.params.load,
-                nextPointerValueGreaterThan: this.params.nextPointerValueGreaterThan,
                 store: this.params.store,
                 call: this.params.call,
                 deployContractAtAddress: this.params.deployContractAtAddress,

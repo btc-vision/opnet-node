@@ -1,5 +1,6 @@
 import { RustContractBinding } from './isolated/RustContractBindings.js';
 import { ContractManager, ThreadSafeJsImportResponse } from '@btc-vision/op-vm';
+import { Config } from '../config/Config.js';
 
 class BlockchainBase {
     private readonly bindings: Map<bigint, RustContractBinding> = new Map<
@@ -34,7 +35,6 @@ class BlockchainBase {
             this.emitJSFunction,
             this.inputsJSFunction,
             this.outputsJSFunction,
-            this.nextPointerValueGreaterThan,
         );
     }
 
@@ -58,20 +58,22 @@ class BlockchainBase {
 
     private logJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
         _: never,
-        _value: ThreadSafeJsImportResponse,
+        value: ThreadSafeJsImportResponse,
     ): Promise<void> => {
         return new Promise((resolve) => {
-            /*const u = new Uint8Array(value.buffer);
-            const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+            if (Config.DEV.ENABLE_CONTRACT_DEBUG) {
+                const u = new Uint8Array(value.buffer);
+                const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
-            const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-            if (!c) {
-                throw new Error('Binding not found');
+                const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+                if (!c) {
+                    throw new Error('Binding not found');
+                }
+
+                c.log(buf);
+            } else {
+                resolve();
             }
-
-            c.log(buf);*/
-
-            resolve();
         });
     };
 
@@ -127,26 +129,6 @@ class BlockchainBase {
         }
 
         return c.outputs();
-    };
-
-    private nextPointerValueGreaterThan: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('LOAD', value.buffer);
-
-        const u = new Uint8Array(value.buffer);
-        const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
-        if (!c) {
-            throw new Error('Binding not found');
-        }
-
-        return c.nextPointerValueGreaterThan(buf);
     };
 
     // For future use?
