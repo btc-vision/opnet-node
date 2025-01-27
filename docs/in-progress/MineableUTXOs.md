@@ -26,7 +26,7 @@ claim the fees locked in the challenge:
 - We generate a mineable UTXO on Bitcoin (or other compatible chains) that requires a cryptographic SHA-1 collision.
 - Excess fees go into that challenge script instead of being burned.
 - Anyone can attempt to solve the collision challenge.
-- If they find distinct preimages with the same hash, they can claim (spend) funds, effectively “mining” the UTXO and
+- If they find distinct preimages with the same hash, they can claim (spend) funds, effectively "mining" the UTXO and
   improving OP_NET security by creating checkpoints when a collision is found.
 
 This setup incentivizes miners (and the broader community) to attempt challenge solutions, effectively returning locked
@@ -124,7 +124,7 @@ Although the above example is Bitcoin-specific, the concept extends to:
 - **Cross-Chain Bridging**: The same challenge can exist on multiple chains, potentially letting multi-chain solvers
   race each other. For instance, you could have some aggregator watch collisions found on chain A that also apply to
   chain B, awarding multiple bounties at once.
-- **“Cross-chain mining”**: The idea that a single second-preimage or partial collision might pay you from multiple
+- **"Cross-chain mining"**: The idea that a single second-preimage or partial collision might pay you from multiple
   challenge outputs across different blockchains if they all share the same challenge structure.
 
 ---
