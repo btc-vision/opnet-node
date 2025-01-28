@@ -174,7 +174,7 @@ export class OPNetPeer extends Logger {
                 throw new Error(`Unknown opcode received. ${buffer[1]}`);
             }
         } catch (e) {
-            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            if (Config.DEV_MODE) {
                 console.log(`BAD PACKET`, e);
             }
 

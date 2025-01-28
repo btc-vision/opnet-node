@@ -154,9 +154,10 @@ export class BlockWitnessManager extends Logger {
         throw new Error('broadcastBlockWitness not implemented.');
     };
 
-    public async setCurrentBlock(newBlock?: bigint): Promise<void> {
-        this.currentBlock = newBlock === undefined ? await this.getCurrentBlock() : newBlock;
-        OPNetConsensus.setBlockHeight(this.currentBlock);
+    public async setCurrentBlock(newBlock?: bigint, reorg?: boolean): Promise<void> {
+        this.currentBlock = newBlock === undefined ? await this.getCurrentBlock() : newBlock; // for initial block number
+
+        OPNetConsensus.setBlockHeight(this.currentBlock, reorg);
     }
 
     public async generateBlockHeaderProof(
@@ -164,12 +165,12 @@ export class BlockWitnessManager extends Logger {
         isSelf: boolean,
     ): Promise<void> {
         if (isSelf) {
-            // if the current block is higher than the block number, this mean a reorg happened. We have to purge the known trusted witnesses.
+            // if the current block is higher or equal than the block number, this mean a reorg happened. We have to purge the known trusted witnesses.
             if (this.currentBlock >= data.blockNumber) {
                 this.revertKnownWitnessesReorg(data.blockNumber);
             }
 
-            await this.setCurrentBlock(data.blockNumber);
+            await this.setCurrentBlock(data.blockNumber, true);
         }
 
         const blockChecksumHash = this.generateBlockHeaderChecksumHash(data);

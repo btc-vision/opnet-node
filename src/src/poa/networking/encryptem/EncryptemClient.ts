@@ -1,4 +1,4 @@
-import {Logger} from '@btc-vision/bsi-common';
+import { Logger } from '@btc-vision/bsi-common';
 
 import sodium from 'sodium-native';
 
@@ -146,7 +146,7 @@ export class EncryptemClient extends Logger {
         privateKey: Buffer;
     } {
         const publicKey = this.sodium.sodium_malloc(this.sodium.crypto_box_PUBLICKEYBYTES);
-        const privateKey = this.sodium.sodium_malloc(this.sodium.crypto_box_PUBLICKEYBYTES);
+        const privateKey = this.sodium.sodium_malloc(this.sodium.crypto_box_SECRETKEYBYTES);
 
         this.sodium.crypto_box_keypair(publicKey, privateKey);
 

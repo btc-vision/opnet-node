@@ -56,8 +56,8 @@ class OPNetConsensusConfiguration extends Logger {
         return !!this.#consensus;
     }
 
-    public setBlockHeight(blockHeight: bigint): void {
-        if (Config.OP_NET.REINDEX && !this.#consensus) {
+    public setBlockHeight(blockHeight: bigint, wasReorg: boolean = false): void {
+        if (Config.OP_NET.REINDEX && !this.#consensus && !wasReorg) {
             blockHeight = BigInt(Config.OP_NET.REINDEX_FROM_BLOCK);
         }
 
