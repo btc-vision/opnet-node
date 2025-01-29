@@ -280,11 +280,11 @@ export class ContractEvaluator extends Logger {
         return response.getBuffer();
     }
 
-    private onDebug(_buffer: Buffer): void {
-        /*const reader = new BinaryReader(buffer);
+    private onDebug(buffer: Buffer): void {
+        const reader = new BinaryReader(buffer);
         const logData = reader.readStringWithLength();
 
-        this.warn(`Contract log: ${logData}`);*/
+        this.warn(`Contract log: ${logData}`);
     }
 
     private onEvent(data: Buffer, evaluation: ContractEvaluation): void {
@@ -341,7 +341,6 @@ export class ContractEvaluator extends Logger {
             log: (buffer: Buffer) => {
                 this.onDebug(buffer);
             },
-
             emit: (buffer: Buffer) => {
                 this.onEvent(buffer, evaluation);
             },

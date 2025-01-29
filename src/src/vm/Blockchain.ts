@@ -71,8 +71,10 @@ class BlockchainBase {
                 }
 
                 c.log(buf);
-            } else {
+
                 resolve();
+            } else {
+                throw new Error('Logging not enabled in production.');
             }
         });
     };
