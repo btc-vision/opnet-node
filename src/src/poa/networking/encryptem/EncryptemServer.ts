@@ -1,4 +1,4 @@
-import {Logger} from '@btc-vision/bsi-common';
+import { Logger } from '@btc-vision/bsi-common';
 import sodium from 'sodium-native';
 
 /** Merge client and server encryption and decryption into one class */
@@ -63,7 +63,7 @@ export class EncryptemServer extends Logger {
         this.#serverPublicKey = keys.publicKey;
         this.#serverPrivateKey = keys.privateKey;
 
-        const signatureSeededKeyPairs = this.generateSignatureSeededKeyPairs(keys.publicKey);
+        const signatureSeededKeyPairs = this.generateSignatureSeededKeyPairs(keys.privateKey);
 
         this.#serverSignaturePublicKey = signatureSeededKeyPairs.publicKey;
         this.#serverSignaturePrivateKey = signatureSeededKeyPairs.privateKey;
@@ -100,21 +100,23 @@ export class EncryptemServer extends Logger {
             throw new Error('[Server] Bad AHEAD authentication.');
         }
 
-        try {
-            const decryptedBuffer = this.#decrypt(
-                data,
-                this.#clientPublicKey,
-                this.#serverPrivateKey,
-                signature,
-                this.#clientSignaturePublicKey,
-                auth,
-            );
-            if (decryptedBuffer !== null) {
-                msg = decryptedBuffer;
-            }
-        } catch {
-            this.error(`[SERVER] Decryption failed.`);
+        //try {
+        const decryptedBuffer = this.#decrypt(
+            data,
+            this.#clientPublicKey,
+            this.#serverPrivateKey,
+            signature,
+            this.#clientSignaturePublicKey,
+            auth,
+        );
+
+        if (decryptedBuffer !== null) {
+            msg = decryptedBuffer;
         }
+
+        //} catch {
+        //this.error(`[SERVER] Decryption failed.`);
+        //}
 
         return msg;
     }
@@ -259,7 +261,7 @@ export class EncryptemServer extends Logger {
 
     private generateNewCipherKey(): { publicKey: Buffer; privateKey: Buffer } {
         const publicKey = this.sodium.sodium_malloc(this.sodium.crypto_box_PUBLICKEYBYTES);
-        const privateKey = this.sodium.sodium_malloc(this.sodium.crypto_box_PUBLICKEYBYTES);
+        const privateKey = this.sodium.sodium_malloc(this.sodium.crypto_box_SECRETKEYBYTES);
 
         this.sodium.crypto_box_keypair(publicKey, privateKey);
 

@@ -394,7 +394,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             }
         }
 
-        // Ensure the “regenerated” public key matches the contract address
+        // Ensure the "regenerated" public key matches the contract address
         if (
             pubKey.length !== contractAddress.length ||
             !crypto.timingSafeEqual(pubKey, contractAddress) ||

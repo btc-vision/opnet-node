@@ -26,6 +26,7 @@ export interface IndexerConfig {
 export interface RPCConfig {
     readonly THREADS: number;
     readonly VM_CONCURRENCY: number;
+    readonly CHILD_PROCESSES: number;
 }
 
 export interface OPNetConfig {
@@ -129,6 +130,7 @@ export interface DevConfig {
     readonly SIMULATE_HIGH_GAS_USAGE: boolean;
     readonly DEBUG_VALID_TRANSACTIONS: boolean;
     readonly DEBUG_API_ERRORS: boolean;
+    readonly ENABLE_CONTRACT_DEBUG: boolean;
 }
 
 export interface Bech32Config {

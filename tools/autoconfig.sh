@@ -970,7 +970,9 @@ EXT_SECRET_KEY = "$EXT_SECRET_KEY"
 HRP = "$HRP" # hrp for Bitcoin, leave empty for auto-detection available hrps are: bc, tb, bcrt
 
 [RPC]
-THREADS = 4 # Number of threads to process calls such as rpc calls, smart contract calls, etc.
+CHILD_PROCESSES = 4 # Number of child processes to spawn
+THREADS = 4 # Number of threads per child process
+VM_CONCURRENCY = 6 # Number of concurrent VMs to run in parallel
 
 [POC]
 ENABLED = true # Enable Proof of Computational Acknowledgment Consensus

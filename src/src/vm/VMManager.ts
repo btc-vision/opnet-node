@@ -70,14 +70,6 @@ export class VMManager extends Logger {
     private readonly _blockHeaderValidator: BlockHeaderValidator;
 
     private readonly network: Network;
-    private currentRequest:
-        | {
-              to: string;
-              from: Address;
-              calldata: Buffer;
-              height?: bigint;
-          }
-        | undefined;
 
     private pointerCache: AddressMap<Map<MemorySlotData<bigint>, [Uint8Array, string[]] | null>> =
         new AddressMap();
@@ -194,13 +186,6 @@ export class VMManager extends Logger {
         }
 
         this.isProcessing = true;
-        this.currentRequest = {
-            to,
-            from,
-            calldata,
-            height,
-        };
-
         try {
             const contractAddress: Address | undefined = await this.getContractAddress(to);
             if (!contractAddress) {

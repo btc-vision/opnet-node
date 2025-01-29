@@ -66,6 +66,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             SIMULATE_HIGH_GAS_USAGE: false,
             DEBUG_VALID_TRANSACTIONS: false,
             DEBUG_API_ERRORS: false,
+            ENABLE_CONTRACT_DEBUG: false,
         },
 
         BASE58: {},
@@ -131,6 +132,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         },
 
         RPC: {
+            CHILD_PROCESSES: 2,
             THREADS: 2,
             VM_CONCURRENCY: 1,
         },
@@ -317,6 +319,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.RPC.VM_CONCURRENCY !== 'number'
             ) {
                 throw new Error(`Oops the property RPC.VM_CONCURRENCY is not a number.`);
+            }
+
+            if (
+                parsedConfig.RPC.CHILD_PROCESSES !== undefined &&
+                typeof parsedConfig.RPC.CHILD_PROCESSES !== 'number'
+            ) {
+                throw new Error(`Oops the property RPC.CHILD_PROCESSES is not a number.`);
             }
         }
 
@@ -788,6 +797,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(
                     `Oops the property DEV.DISPLAY_INVALID_BLOCK_WITNESS is not a boolean.`,
                 );
+            }
+
+            if (
+                parsedConfig.DEV.ENABLE_CONTRACT_DEBUG !== undefined &&
+                typeof parsedConfig.DEV.ENABLE_CONTRACT_DEBUG !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.ENABLE_CONTRACT_DEBUG is not a boolean.`);
             }
 
             if (

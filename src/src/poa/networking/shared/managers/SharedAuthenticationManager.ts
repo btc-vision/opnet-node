@@ -95,6 +95,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
                 }
             }
         }
+
         return managed;
     }
 
