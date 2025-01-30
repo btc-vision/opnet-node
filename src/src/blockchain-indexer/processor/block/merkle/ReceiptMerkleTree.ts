@@ -106,7 +106,7 @@ export class ReceiptMerkleTree extends MerkleTree<string, Buffer> {
 
         const keyBuf = Buffer.from(key, 'hex');
         const value = this.getValue(address, key);
-        if (!value) {
+        if (value == undefined) {
             return undefined;
         }
 

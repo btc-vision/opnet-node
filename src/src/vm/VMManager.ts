@@ -977,7 +977,7 @@ export class VMManager extends Logger {
             blockNumber,
         );
 
-        if (!valueFromDB) {
+        if (valueFromDB == undefined) {
             return null;
         }
 
