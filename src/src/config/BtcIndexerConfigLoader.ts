@@ -417,14 +417,14 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             // Prohibit the use of the main chain id.
-            if (
+            /*if (
                 parsedConfig.BITCOIN.NETWORK === BitcoinNetwork.mainnet &&
                 parsedConfig.BITCOIN.CHAIN_ID === ChainIds.Bitcoin
             ) {
                 throw new Error(
                     `Mainnet configuration is not allowed. Please use the testnet configuration.`,
                 );
-            }
+            }*/
 
             if (
                 parsedConfig.BITCOIN.NETWORK_MAGIC !== undefined &&
