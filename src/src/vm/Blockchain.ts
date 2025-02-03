@@ -71,6 +71,8 @@ class BlockchainBase {
                 }
 
                 c.log(buf);
+
+                resolve();
             } else {
                 resolve();
             }

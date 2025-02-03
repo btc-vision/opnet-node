@@ -125,7 +125,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         key: MemorySlotPointer,
     ): [Uint8Array, string[]] | undefined {
         const value = this.getValue(address, key);
-        if (!value) {
+        if (value == undefined) {
             return undefined;
         }
 
