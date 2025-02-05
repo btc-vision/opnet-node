@@ -42,7 +42,7 @@
     "@btc-vision/bsi-db": "^1.0.4",
     "@btc-vision/logger": "^1.0.6",
     "@btc-vision/op-vm": "^0.2.7",
-    "@btc-vision/rust-merkle-tree": "^0.0.3",
+    "@btc-vision/rust-merkle-tree": "file:../rust-merkle-tree",
     "@btc-vision/transaction": "^1.2.10",
     "@chainsafe/libp2p-noise": "^16.0.1",
     "@chainsafe/libp2p-yamux": "^7.0.1",
