@@ -42,6 +42,14 @@ export const RegTestTrustedKeys001: NetworkAuthorityConfiguration = {
                     walletPubKey:
                         '0x03c792e5baecd844b67bc0df0c8dee0d0345cf4780db723fad7a6275ae7b30f626',
                 },
+                {
+                    opnet: 'rvp8hahw3SU4SoX9yjBVCw9r2pb8bAPU7iH/ngegYw0=',
+                    publicKey: 'Agu63urPfnJyQHXxLtc1ctaazDAmbGVc4yeG974yFFS6',
+                    signature:
+                        'PrqgAOeMteX+8DDlnnBg/MNRn69T3Td7wbxxbyTAs0TOprrEoMlGECBWJKqykJ/yym6XupbIa6Ucij6HJxPRBw==',
+                    walletPubKey:
+                        '0x020bbadeeacf7e72724075f12ed73572d69acc30266c655ce32786f7be321454ba',
+                },
             ],
         },
     },
