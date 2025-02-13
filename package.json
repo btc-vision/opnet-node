@@ -50,6 +50,7 @@
     "@libp2p/autonat": "^2.0.16",
     "@libp2p/bootstrap": "^11.0.17",
     "@libp2p/identify": "^3.0.15",
+    "@libp2p/interface": "^2.5.0",
     "@libp2p/interface-transport": "^4.0.3",
     "@libp2p/kad-dht": "^14.2.0",
     "@libp2p/mdns": "^11.0.17",

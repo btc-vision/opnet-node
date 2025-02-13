@@ -12,9 +12,9 @@ import {
     PrivateKey,
 } from '@libp2p/interface';
 import { IdentifyResult } from '@libp2p/interface/src';
-import type { Connection, MultiaddrConnection } from '@libp2p/interface/src/connection/index.js';
-import { PeerData } from '@libp2p/interface/src/peer-store/index.js';
-import { IncomingStreamData } from '@libp2p/interface/src/stream-handler/index.js';
+import type { Connection, MultiaddrConnection } from '@libp2p/interface/src/connection.js';
+import { PeerData } from '@libp2p/interface/src/peer-store.js';
+import { IncomingStreamData } from '@libp2p/interface/src/stream-handler.js';
 import { KadDHT, kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
 import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';

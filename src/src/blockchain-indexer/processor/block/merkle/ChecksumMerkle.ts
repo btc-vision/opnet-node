@@ -67,9 +67,6 @@ export class ChecksumMerkle {
     }
 
     private generateTree(): void {
-        this.tree = new MerkleTree(
-            this.values.map((v) => ChecksumMerkle.toBytes(v)),
-            true,
-        );
+        this.tree = new MerkleTree(this.values.map((v) => ChecksumMerkle.toBytes(v)));
     }
 }

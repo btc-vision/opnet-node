@@ -171,6 +171,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get nodeConfigurations(): NodeInfo {
         return {
+            userAgent: `${P2PConfigurations.protocolName}/${P2PVersion}`,
             name: `${P2PConfigurations.protocolName}/${P2PVersion}`,
             version: P2PConfigurations.protocolVersion,
         };
