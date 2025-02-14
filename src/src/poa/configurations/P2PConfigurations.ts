@@ -77,7 +77,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             timeout: 10000,
             maxInboundStreams: 3,
             maxOutboundStreams: 3,
-            startupDelay: 5000,
+            startupDelay: 3000,
         };
     }
 

@@ -707,6 +707,7 @@ export class P2PManager extends Logger {
 
         if (this.config.DEV_MODE) {
             const addresses = this.multiAddresses;
+            console.log(addresses);
             for (const address of addresses) {
                 this.info(`Listening on ${address.toString()}`);
             }
