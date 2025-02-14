@@ -37,7 +37,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public static readonly protocolName: string = 'opnet';
     public static readonly protocolVersion: string = '1.0.0';
 
-    private static readonly maxMessageSize: number = 6 * 1024 * 1024; // 6 MiB
+    public static readonly maxMessageSize: number = 6 * 1024 * 1024; // 6 MiB
 
     private readonly defaultBootstrapNodes: string[];
 
@@ -77,7 +77,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             timeout: 10000,
             maxInboundStreams: 3,
             maxOutboundStreams: 3,
-            startupDelay: 1000,
+            startupDelay: 5000,
         };
     }
 
@@ -98,6 +98,20 @@ export class P2PConfigurations extends OPNetPathFinder {
             maxOutboundStreams: this.config.P2P.MAXIMUM_OUTBOUND_STREAMS,
 
             maxMessageSize: P2PConfigurations.maxMessageSize,
+
+            enableKeepAlive: true,
+            keepAliveInterval: 15000,
+
+            // 5. The size of the initial receive window for each stream.
+            //    This can be raised if you expect large data bursts and have
+            //    ample memory available. But do keep it below your system’s
+            //    memory constraints.
+            initialStreamWindowSize: 256 * 1024, // 256 KB
+
+            // 6. The maximum receive window for each stream.
+            //    Increasing this allows higher throughput but also means a
+            //    single stream can buffer more data (risking memory pressure).
+            maxStreamWindowSize: P2PConfigurations.maxMessageSize,
         };
     }
 

@@ -25,7 +25,6 @@ import { uPnPNAT } from '@libp2p/upnp-nat';
 import { multiaddr, Multiaddr } from '@multiformats/multiaddr';
 import figlet, { Fonts } from 'figlet';
 import type { Datastore } from 'interface-datastore';
-import { lpStream } from 'it-length-prefixed-stream';
 import { createLibp2p, Libp2p } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
@@ -61,12 +60,12 @@ import { AuthorityManager } from '../configurations/manager/AuthorityManager.js'
 import { xxHash } from '../hashing/xxhash.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { Components } from 'libp2p/components.js';
-import { Config } from '../../config/Config.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { CID } from 'multiformats/cid';
 import { autoNAT } from '@libp2p/autonat';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import { FastBigIntSet } from '../../utils/fast/FastBigIntSet.js';
+import { ReusableStreamManager } from './stream/ReusableStreamManager.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -89,8 +88,6 @@ type Libp2pInstance = Libp2p<{
     identifyPush: IdentifyPush;
 }>;
 
-const READ_TIMEOUT_MS: number = 12_000;
-
 export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
@@ -100,6 +97,7 @@ export class P2PManager extends Logger {
     private privateKey: PrivateKey | undefined;
 
     private peers: FastStringMap<OPNetPeer> = new FastStringMap();
+    private streamManager: ReusableStreamManager | undefined;
 
     private blackListedPeerIds: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
     private blackListedPeerIps: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
@@ -177,6 +175,12 @@ export class P2PManager extends Logger {
         await this.blockWitnessManager.setCurrentBlock();
 
         this.node = await this.createNode();
+        this.streamManager = new ReusableStreamManager(
+            this.node,
+            async (peerIdStr: PeerId, data: Uint8Array) => {
+                await this.onPeerMessage(peerIdStr, data);
+            },
+        );
 
         this.addListeners();
         await this.startNode();
@@ -915,55 +919,75 @@ export class P2PManager extends Logger {
             throw new Error('Node not initialized');
         }
 
-        await this.node.handle(this.defaultHandle, async (incomingStream: IncomingStreamData) => {
-            const stream = incomingStream.stream;
-            const connection = incomingStream.connection;
+        await this.node.handle(
+            this.defaultHandle,
+            (incoming: IncomingStreamData) => {
+                if (!this.streamManager) return;
 
-            const peerId: PeerId = connection.remotePeer;
+                // Pass the inbound stream to the manager
+                this.streamManager.handleInboundStream(incoming);
+            },
+            {
+                maxInboundStreams: 1000,
+                maxOutboundStreams: 1000,
+            },
+        );
 
-            try {
-                const lp = lpStream(stream, {
-                    maxDataLength: 1024 * 1024 * 6,
-                });
+        /*await this.node.handle(
+            this.defaultHandle,
+            async (incomingStream: IncomingStreamData) => {
+                const stream = incomingStream.stream;
+                const connection = incomingStream.connection;
 
-                const req = await Promise.race([
-                    lp.read(),
-                    (async () => {
-                        await this.idle(READ_TIMEOUT_MS);
-                        throw new Error('Timeout reading from peer after 5s');
-                    })(),
-                ]);
+                const peerId: PeerId = connection.remotePeer;
 
-                if (!req) {
-                    try {
-                        await incomingStream.connection.close();
-                    } catch {}
-                    return;
-                }
+                try {
+                    const lp = lpStream(stream, {
+                        maxDataLength: P2PConfigurations.maxMessageSize,
+                    });
 
-                // TODO: Check if this may contain multiple messages or if this is junk chunks of data
-                const data: Buffer = req.subarray() as unknown as Buffer;
+                    const req = await Promise.race([
+                        lp.read(),
+                        (async () => {
+                            await this.idle(READ_TIMEOUT_MS);
+                            throw new Error('Timeout reading from peer after 5s');
+                        })(),
+                    ]);
 
-                /** We could await for the message to process and send a response but this may lead to timeout in some cases */
-                void this.onPeerMessage(
-                    peerId,
-                    new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
-                );
+                    if (!req) {
+                        try {
+                            await incomingStream.connection.close();
+                        } catch {}
+                        return;
+                    }
 
-                // Acknowledge the message
-                await lp.write(new Uint8Array([0x01])).catch(() => {});
-            } catch (e) {
-                if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-                    this.debug(
-                        'Error while handling incoming stream',
-                        (e as Error).stack as string,
+                    // TODO: Check if this may contain multiple messages or if this is junk chunks of data
+                    const data: Buffer = req.subarray() as unknown as Buffer;
+
+                    void this.onPeerMessage(
+                        peerId,
+                        new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
                     );
-                }
-            }
 
-            // Close the stream
-            await stream.close().catch(() => {});
-        });
+                    // Acknowledge the message
+                    await lp.write(new Uint8Array([0x01])).catch(() => {});
+                } catch (e) {
+                    if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                        this.debug(
+                            'Error while handling incoming stream',
+                            (e as Error).stack as string,
+                        );
+                    }
+                }
+
+                // Close the stream
+                await stream.close().catch(() => {});
+            },
+            {
+                maxInboundStreams: 1000,
+                maxOutboundStreams: 1000,
+            },
+        );*/
     }
 
     /** We could return a Uint8Array to send a response. For the protocol v1, we will ignore that. */
@@ -985,7 +1009,20 @@ export class P2PManager extends Logger {
             throw new Error('Node not initialized');
         }
 
-        const connection = await this.node.dialProtocol(peerId, this.defaultHandle);
+        if (!this.streamManager) throw new Error('StreamManager is not initialized');
+
+        await this.streamManager.sendMessage(peerId, data);
+    }
+
+    /*private async sendToPeer(peerId: PeerId, data: Uint8Array): Promise<void> {
+        if (this.node === undefined) {
+            throw new Error('Node not initialized');
+        }
+
+        const connection = await this.node.dialProtocol(peerId, this.defaultHandle, {
+            maxOutboundStreams: 1000,
+        });
+
         try {
             const lp = lpStream(connection);
 
@@ -1018,7 +1055,7 @@ export class P2PManager extends Logger {
         }
 
         await connection.close().catch(() => {});
-    }
+    }*/
 
     private getConnectionGater(): ConnectionGater {
         return {
