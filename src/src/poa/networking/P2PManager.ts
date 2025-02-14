@@ -1171,9 +1171,7 @@ export class P2PManager extends Logger {
         if (this.p2pConfigurations.bootstrapConfiguration.list.length) {
             peerDiscovery.push(bootstrap(this.p2pConfigurations.bootstrapConfiguration));
         }
-
-        console.log(this.p2pConfigurations.listeningConfiguration);
-
+        
         const datastore = await this.getDatastore();
         return await createLibp2p({
             datastore: datastore,
