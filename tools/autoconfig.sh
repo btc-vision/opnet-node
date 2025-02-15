@@ -118,7 +118,7 @@ case $choice in
         install_mongodb=true
         ;;
     3)
-        echo "You have chosen to install Node.js 21."
+        echo "You have chosen to install Node.js 22."
         install_nodejs=true
         ;;
     4)
@@ -210,6 +210,24 @@ check_and_fix_mongo_service() {
     echo -e "${GREEN}$service_name is running properly.${NC}"
 }
 
+# Function to remove any existing MongoDB packages that might conflict
+remove_any_existing_mongodb() {
+    echo -e "${BLUE}Checking for any older MongoDB packages...${NC}"
+
+    # Check if the 'mongodb' (Ubuntu default) package is installed
+    if dpkg -l | grep -q "^ii\s\+mongodb\s"; then
+        echo -e "${YELLOW}Found Ubuntu 'mongodb' package installed. Removing...${NC}"
+        sudo apt-get purge -y mongodb
+    fi
+
+    # Check if older mongodb-org packages are installed
+    # e.g., mongodb-org, mongodb-org-server, etc.
+    if dpkg -l | grep -q "^ii\s\+mongodb-org"; then
+        echo -e "${YELLOW}Found older 'mongodb-org' packages installed. Removing...${NC}"
+        sudo apt-get purge -y mongodb-org*
+    fi
+}
+
 # Function to install and configure MongoDB
 install_and_configure_mongodb() {
     echo -e "${BLUE}Starting MongoDB installation...${NC}"
@@ -219,45 +237,29 @@ install_and_configure_mongodb() {
     raid_mount_point=""
     data_dir=""
 
-    # Check if MongoDB is already installed
-    if command_exists mongod; then
-        echo -e "${YELLOW}MongoDB is already installed.${NC}"
-        read -p "Do you want to uninstall it and proceed with fresh installation? [y/N]: " uninstall_mongo
-        if [[ "$uninstall_mongo" =~ ^[Yy]$ ]]; then
-            echo -e "${BLUE}Uninstalling existing MongoDB installation...${NC}"
+    # First remove any existing MongoDB packages
+    remove_any_existing_mongodb
 
-            # Stop MongoDB services if running
-            for service in mongod mongos shard1 shard2 configdb; do
-                if systemctl is-active --quiet "$service"; then
-                    echo -e "${BLUE}Stopping $service service...${NC}"
-                    sudo systemctl stop "$service"
-                fi
-            done
+    # Determine Ubuntu version
+    ubuntu_version=$(lsb_release -rs)
+    echo -e "${BLUE}Detected Ubuntu version: $ubuntu_version${NC}"
 
-            sudo apt-get purge mongodb-org* -y
-            sudo rm -rf /var/log/mongodb
-            sudo rm -rf /var/lib/mongodb
-            sudo rm -rf /etc/mongodb
-        else
-            echo -e "${RED}Canceled by user.${NC}"
-            exit 1
-        fi
-    fi
+    # Decide whether to install MongoDB 7 or 8
+    #
+    # MongoDB 8 is supported on Ubuntu 20.04, 22.04, 24.04 (64-bit).
+    # If the OS is 18.04, we must install MongoDB 7 instead.
+    # Otherwise, if older than 18.04 or a non-LTS, we exit.
+    install_mongodb_version="8.0"
 
-    # Install netcat for port checking
-    if ! command_exists nc; then
-        echo -e "${BLUE}Installing netcat for port checking...${NC}"
-        sudo apt-get install netcat -y
-    fi
-
-    # Install gnupg and curl
-    echo -e "${BLUE}Installing gnupg and curl...${NC}"
-    sudo apt-get install gnupg curl -y
-
-    # Check if OpenSSL is installed
-    if ! command_exists openssl; then
-        echo -e "${BLUE}OpenSSL is not installed. Installing OpenSSL...${NC}"
-        sudo apt-get install openssl -y
+    if [[ "$ubuntu_version" == "18.04" ]]; then
+        echo -e "${YELLOW}Ubuntu 18.04 detected. Installing MongoDB 7 instead of 8 (not supported on 18.04).${NC}"
+        install_mongodb_version="7.0"
+    elif [[ "$ubuntu_version" == "20.04" || "$ubuntu_version" == "22.04" || "$ubuntu_version" == "22.10"  || "$ubuntu_version" == "21.04" || "$ubuntu_version" == "21.10"  || "$ubuntu_version" == "24.04" || "$ubuntu_version" == "24.10" || "$ubuntu_version" == "23.04" || "$ubuntu_version" == "23.10"  ]]; then
+        echo -e "${GREEN}Ubuntu $ubuntu_version is compatible with MongoDB 8. Proceeding with 8.0.${NC}"
+        install_mongodb_version="8.0"
+    else
+        echo -e "${RED}Unsupported or untested Ubuntu version for MongoDB 8.0 (and not 18.04). Exiting.${NC}"
+        exit 1
     fi
 
     # Function to detect unused disks
@@ -283,22 +285,17 @@ install_and_configure_mongodb() {
     unused_disks=($(detect_unused_disks))
 
     if [ "${#unused_disks[@]}" -ge 3 ]; then
-        # shellcheck disable=SC2145
         echo -e "${BLUE}Detected ${#unused_disks[@]} unused disks: ${unused_disks[@]}${NC}"
         read -p "Would you like to create a RAID 5 array using these disks for MongoDB data storage? [y/N]: " create_raid_choice
         if [[ "$create_raid_choice" == "y" || "$create_raid_choice" == "Y" ]]; then
             # Attempt to create RAID 5
-            # Install mdadm if not installed
             if ! command_exists mdadm; then
                 echo -e "${BLUE}Installing mdadm package...${NC}"
                 sudo apt-get install mdadm -y
             fi
-            # Create RAID 5 array
             raid_device="/dev/md0"
             echo -e "${BLUE}Creating RAID 5 array at $raid_device...${NC}"
-            # shellcheck disable=SC2068
             sudo mdadm --create --verbose "$raid_device" --level=5 --raid-devices=${#unused_disks[@]} ${unused_disks[@]}
-            # Wait for the RAID array to be ready
             sleep 5
             # Create filesystem on the RAID array
             echo -e "${BLUE}Creating ext4 filesystem on $raid_device...${NC}"
@@ -326,7 +323,6 @@ install_and_configure_mongodb() {
     if [ "$raid_created" = true ]; then
         data_dir="$raid_mount_point"
     else
-        # Ask user if they want to set a custom data directory
         read -p "Do you want to set a custom data directory for MongoDB? [y/N]: " custom_data_dir_choice
         if [[ "$custom_data_dir_choice" == "y" || "$custom_data_dir_choice" == "Y" ]]; then
             read -p "Please enter the custom data directory path: " custom_data_dir
@@ -336,44 +332,54 @@ install_and_configure_mongodb() {
         fi
     fi
 
-    # Now proceed to install MongoDB
+    echo -e "${BLUE}Installing required tools (gnupg, curl, etc.)...${NC}"
+    sudo apt-get install gnupg curl -y
 
-    # Check if MongoDB public GPG Key is already in the system
-    if [ -f /usr/share/keyrings/mongodb-server-7.0.gpg ]; then
-        echo -e "${YELLOW}MongoDB public GPG key already exists.${NC}"
+    # Import GPG key and add repository, depending on version
+    if [[ "$install_mongodb_version" == "7.0" ]]; then
+        # MongoDB 7
+        if [ -f /usr/share/keyrings/mongodb-server-7.0.gpg ]; then
+            echo -e "${YELLOW}MongoDB 7.0 public GPG key already exists.${NC}"
+        else
+            echo -e "${BLUE}Importing MongoDB 7.0 public GPG Key...${NC}"
+            curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+        fi
+        # Add repo line
+        # - For Ubuntu 18.04 (bionic)
+        echo -e "${BLUE}Adding MongoDB 7.0 repository for Ubuntu 18.04...${NC}"
+        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/7.0 multiverse" \
+            | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
     else
-        # Import the MongoDB public GPG Key
-        echo -e "${BLUE}Importing MongoDB public GPG Key...${NC}"
-        curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+        # MongoDB 8
+        if [ -f /usr/share/keyrings/mongodb-server-8.0.gpg ]; then
+            echo -e "${YELLOW}MongoDB 8.0 public GPG key already exists.${NC}"
+        else
+            echo -e "${BLUE}Importing MongoDB 8.0 public GPG Key...${NC}"
+            curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
+        fi
+        # For 20.04 (focal), 22.04 (jammy), 24.04 (noble)
+        codename=""
+        if [[ "$ubuntu_version" == "20.04" ]]; then
+            codename="focal"
+        elif [[ "$ubuntu_version" == "22.04" ]]; then
+            codename="jammy"
+        elif [[ "$ubuntu_version" == "24.04" ]]; then
+            codename="noble"
+        fi
+        echo -e "${BLUE}Adding MongoDB 8.0 repository for Ubuntu $ubuntu_version ($codename)...${NC}"
+        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu $codename/mongodb-org/8.0 multiverse" \
+            | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
     fi
 
-    # Determine Ubuntu version
-    ubuntu_version=$(lsb_release -rs)
-    echo -e "${BLUE}Detected Ubuntu version: $ubuntu_version${NC}"
-
-    # Add MongoDB repository based on Ubuntu version
-    if [[ "$ubuntu_version" == "22.04" || "$ubuntu_version" == "23.04" || "$ubuntu_version" == "23.10" || "$ubuntu_version" == "24.04" || "$ubuntu_version" == "24.10" ]]; then
-        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-    elif [[ "$ubuntu_version" == "20.04" ]]; then
-        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-    elif [[ "$ubuntu_version" == "18.04" ]]; then
-        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-    else
-        echo -e "${RED}Unsupported Ubuntu version. Exiting.${NC}"
-        exit 1
-    fi
-
-    # Update package list
     echo -e "${BLUE}Updating package list...${NC}"
     sudo apt-get update
 
-    # Install MongoDB
-    echo -e "${BLUE}Installing MongoDB...${NC}"
+    echo -e "${BLUE}Installing MongoDB (mongodb-org) version $install_mongodb_version...${NC}"
     sudo apt-get install -y mongodb-org
 
     # Verify MongoDB installation
     if command_exists mongod; then
-        echo -e "${GREEN}MongoDB installed successfully.${NC}"
+        echo -e "${GREEN}MongoDB $install_mongodb_version installed successfully.${NC}"
     else
         echo -e "${RED}MongoDB installation failed. Exiting.${NC}"
         exit 1
@@ -635,9 +641,9 @@ install_and_configure_mongodb() {
     echo -e "${YELLOW}Please make sure to save the MongoDB admin username and password securely.${NC}"
 }
 
-# Function to install Node.js 21
+# Function to install Node.js 22
 install_nodejs() {
-    echo -e "${BLUE}Starting Node.js 21 installation...${NC}"
+    echo -e "${BLUE}Starting Node.js 22 installation...${NC}"
 
     if command_exists node; then
         node_version=$(node -v)
@@ -787,7 +793,7 @@ setup_opnet_indexer() {
 
     # Check if Node.js is installed
     if ! command_exists node; then
-        echo -e "${YELLOW}Node.js is not installed. Installing Node.js 21...${NC}"
+        echo -e "${YELLOW}Node.js is not installed. Installing Node.js 22...${NC}"
         install_nodejs
     else
         node_version=$(node -v)
@@ -879,7 +885,6 @@ setup_opnet_indexer() {
             NETWORK_MAGIC='[250, 191, 181, 218]'  # Bitcoin regtest
         else
             echo -e "${YELLOW}Unknown NETWORK. Please provide the configurations manually.${NC}"
-            # Prompt for manual input
             read -p "Enter the NETWORK_MAGIC (e.g., [250, 191, 181, 218]): " NETWORK_MAGIC
             echo "[BASE58]"
             read -p "PUBKEY_ADDRESS: " PUBKEY_ADDRESS
@@ -928,7 +933,8 @@ setup_opnet_indexer() {
     read -p "Enter MongoDB username [opnet]: " DATABASE_USERNAME
     DATABASE_USERNAME=${DATABASE_USERNAME:-opnet}
 
-    # Check if $mongodb_password is set; if not, prompt the user
+    # If the script that installed MongoDB already stored the password in $mongodb_password, use it.
+    # Otherwise, prompt again if not set.
     if [ -z "$mongodb_password" ]; then
         echo -e "${YELLOW}MongoDB password is not set.${NC}"
         read -s -p "Please enter the MongoDB password for user '$DATABASE_USERNAME': " mongodb_password
@@ -936,7 +942,6 @@ setup_opnet_indexer() {
     fi
     DATABASE_PASSWORD="$mongodb_password"
 
-     # Database configuration prompt
     echo -e "${BLUE}Please provide database connection details (press Enter to use default values):${NC}"
     read -p "DATABASE_HOST [localhost]: " DATABASE_HOST
     DATABASE_HOST=${DATABASE_HOST:-localhost}
