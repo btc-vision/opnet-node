@@ -248,16 +248,29 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         breakWhenReachOpcode: number = opcodes.OP_ELSE,
     ): Buffer | undefined {
         let data: Buffer | undefined;
-        for (let i = 0; i < scriptData.length; i++) {
-            if (scriptData[i] === breakWhenReachOpcode) break;
-            if (Buffer.isBuffer(scriptData[i])) {
-                data = data
-                    ? Buffer.concat([data, scriptData[i] as Buffer])
-                    : (scriptData[i] as Buffer);
-            } else {
+
+        // Keep reading until we see the break opcode or run out of script data.
+        while (scriptData.length > 0) {
+            const currentItem = scriptData[0];
+
+            // If this matches our break opcode, stop but do NOT consume it:
+            // The caller may wish to explicitly check/shift that next.
+            if (currentItem === breakWhenReachOpcode) {
+                break;
+            }
+
+            // Remove the item from the front:
+            scriptData.shift();
+
+            // Validate it should be a Buffer; if not, it's invalid bytecode.
+            if (!Buffer.isBuffer(currentItem)) {
                 throw new Error(`Invalid contract bytecode found in transaction script.`);
             }
+
+            // Accumulate the data
+            data = data ? Buffer.concat([data, currentItem]) : currentItem;
         }
+
         return data;
     }
 
