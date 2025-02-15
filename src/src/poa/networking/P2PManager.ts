@@ -910,10 +910,6 @@ export class P2PManager extends Logger {
         await this.node.start();
     }
 
-    private idle(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
     private async addHandles(): Promise<void> {
         if (this.node === undefined) {
             throw new Error('Node not initialized');
@@ -932,62 +928,6 @@ export class P2PManager extends Logger {
                 maxOutboundStreams: 1000,
             },
         );
-
-        /*await this.node.handle(
-            this.defaultHandle,
-            async (incomingStream: IncomingStreamData) => {
-                const stream = incomingStream.stream;
-                const connection = incomingStream.connection;
-
-                const peerId: PeerId = connection.remotePeer;
-
-                try {
-                    const lp = lpStream(stream, {
-                        maxDataLength: P2PConfigurations.maxMessageSize,
-                    });
-
-                    const req = await Promise.race([
-                        lp.read(),
-                        (async () => {
-                            await this.idle(READ_TIMEOUT_MS);
-                            throw new Error('Timeout reading from peer after 5s');
-                        })(),
-                    ]);
-
-                    if (!req) {
-                        try {
-                            await incomingStream.connection.close();
-                        } catch {}
-                        return;
-                    }
-
-                    // TODO: Check if this may contain multiple messages or if this is junk chunks of data
-                    const data: Buffer = req.subarray() as unknown as Buffer;
-
-                    void this.onPeerMessage(
-                        peerId,
-                        new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
-                    );
-
-                    // Acknowledge the message
-                    await lp.write(new Uint8Array([0x01])).catch(() => {});
-                } catch (e) {
-                    if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-                        this.debug(
-                            'Error while handling incoming stream',
-                            (e as Error).stack as string,
-                        );
-                    }
-                }
-
-                // Close the stream
-                await stream.close().catch(() => {});
-            },
-            {
-                maxInboundStreams: 1000,
-                maxOutboundStreams: 1000,
-            },
-        );*/
     }
 
     /** We could return a Uint8Array to send a response. For the protocol v1, we will ignore that. */
@@ -1005,57 +945,16 @@ export class P2PManager extends Logger {
 
     /** Send a message to a specific peer */
     private async sendToPeer(peerId: PeerId, data: Uint8Array): Promise<void> {
-        if (this.node === undefined) {
+        if (!this.node) {
             throw new Error('Node not initialized');
         }
 
-        if (!this.streamManager) throw new Error('StreamManager is not initialized');
+        if (!this.streamManager) {
+            throw new Error('StreamManager is not initialized');
+        }
 
         await this.streamManager.sendMessage(peerId, data);
     }
-
-    /*private async sendToPeer(peerId: PeerId, data: Uint8Array): Promise<void> {
-        if (this.node === undefined) {
-            throw new Error('Node not initialized');
-        }
-
-        const connection = await this.node.dialProtocol(peerId, this.defaultHandle, {
-            maxOutboundStreams: 1000,
-        });
-
-        try {
-            const lp = lpStream(connection);
-
-            await lp.write(data);
-
-            const ack = await lp.read();
-            const ackData = ack ? ack.subarray() : new Uint8Array();
-
-            if (ackData[0] !== 0x01) {
-                if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                    this.debug(`Peer ${peerId.toString()} did not acknowledge the message.`);
-                }
-
-                await this.disconnectPeer(
-                    peerId,
-                    DisconnectionCode.BAD_PEER,
-                    'Peer did not acknowledge the message.',
-                );
-            }
-        } catch (e) {
-            const error = e as Error;
-
-            if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && this.config.DEV_MODE) {
-                this.error(
-                    `Error while sending message to peer ${peerId.toString()}: ${Config.DEV_MODE ? error.stack : error.message}`,
-                );
-            }
-
-            connection.abort(new Error(`Unexpected message received.`));
-        }
-
-        await connection.close().catch(() => {});
-    }*/
 
     private getConnectionGater(): ConnectionGater {
         return {
@@ -1171,7 +1070,7 @@ export class P2PManager extends Logger {
         if (this.p2pConfigurations.bootstrapConfiguration.list.length) {
             peerDiscovery.push(bootstrap(this.p2pConfigurations.bootstrapConfiguration));
         }
-        
+
         const datastore = await this.getDatastore();
         return await createLibp2p({
             datastore: datastore,

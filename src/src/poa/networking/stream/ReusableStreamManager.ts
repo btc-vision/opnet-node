@@ -17,17 +17,9 @@ const MAX_OUTBOUND_STREAMS_PER_PEER = 1024;
 export class ReusableStreamManager {
     private node: Libp2p;
 
-    /**
-     * We'll store inbound streams keyed by (peerId + protocol),
-     * and outbound streams likewise.
-     */
     private outboundMap: FastStringMap<ReusableStream> = new FastStringMap();
     private inboundMap: FastStringMap<ReusableStream> = new FastStringMap();
 
-    /**
-     * A reference to your “onPeerMessage” handler. This is how we hand off inbound data
-     * to your actual message logic, instead of just logging it.
-     */
     private readonly onPeerMessage: (peerIdStr: PeerId, data: Uint8Array) => Promise<void>;
 
     constructor(
@@ -43,7 +35,7 @@ export class ReusableStreamManager {
     }
 
     /**
-     * Called by P2PManager (or wherever) to **send** a message. Reuses a single outbound
+     * Called by P2PManager to send a message. Reuses a single outbound
      * stream if it exists, else it dials a new one.
      */
     public async sendMessage(peerId: PeerId, data: Uint8Array): Promise<void> {
@@ -67,7 +59,7 @@ export class ReusableStreamManager {
                     ackTimeoutMs: ACK_TIMEOUT_MS,
                     waitForAck: true,
                 },
-                /* id: */ key,
+                key,
                 this.onOutboundClosed.bind(this),
             );
             this.outboundMap.set(key, streamObj);
@@ -95,12 +87,11 @@ export class ReusableStreamManager {
                 idleTimeoutMs: STREAM_IDLE_TIMEOUT_MS,
                 maxMessageSize: MAX_MESSAGE_SIZE_BYTES,
                 ackTimeoutMs: ACK_TIMEOUT_MS,
-                waitForAck: false, // inbound side is the ack "sender"
+                waitForAck: false,
             },
-            /* id: */ key,
+            key,
             this.onInboundClosed.bind(this),
             async (inboundData, rs) => {
-                // Forward inbound data to your application logic
                 await this.onPeerMessage(rs.peerId, inboundData);
             },
         );

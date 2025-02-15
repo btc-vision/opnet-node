@@ -784,9 +784,7 @@ export class VMMongoStorage extends VMStorage {
             return value;
         }
 
-        const length = Math.max(value.byteLength, BufferHelper.EXPECTED_BUFFER_LENGTH);
-        const buffer = new Uint8Array(length);
-
+        const buffer = new Uint8Array(value.byteLength);
         if (value.byteLength) buffer.set(value, 0);
 
         return buffer;

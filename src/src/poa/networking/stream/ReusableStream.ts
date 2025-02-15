@@ -145,7 +145,7 @@ export class ReusableStream {
     }
 
     /**
-     * Our single read loop. Whenever we see `[0x01]`, that's an ack. Otherwise, we
+     * Single read loop. Whenever we see `[0x01]`, that's an ack. Otherwise, we
      * automatically ack back with `[0x01]`, and if `isInbound` we call `onInboundData()`.
      */
     private async readLoop(): Promise<void> {
@@ -161,7 +161,7 @@ export class ReusableStream {
                 }
 
                 // If chunk is exactly [0x01], treat as ack
-                if (chunk.length === 1 && chunk.getInt8(0) === 0x01) {
+                if (chunk.length === 1 && chunk.getInt8(0) === 0x01 && chunk.length === 1) {
                     const w = this.ackWaiters.shift();
                     if (w) {
                         clearTimeout(w.timer);
@@ -171,9 +171,7 @@ export class ReusableStream {
                 }
 
                 // Otherwise, this is a real message. We always ack it:
-                await this.sendAck().catch(() => {
-                    /* ignore ack error */
-                });
+                await this.sendAck().catch(() => {});
 
                 // If inbound, pass data along
                 if (this.opts.isInbound && this.onInboundData) {
@@ -181,9 +179,9 @@ export class ReusableStream {
                 }
             }
         } catch (err) {
-            //if (!this.isClosed) {
-            //console.error(`Error reading data for ${this.peerIdStr}:`, err);
-            //}
+            if (!this.isClosed) {
+                console.log(`Error reading data for ${this.peerIdStr}:`, err);
+            }
         } finally {
             if (!this.isClosed) {
                 await this.closeStream();
@@ -220,18 +218,18 @@ export class ReusableStream {
     }
 
     /**
-     * Actually writes the data. If `waitForAck`, waits for ack before resolving.
+     * Actually writes the data.
      */
     private async writeData(data: Uint8Array): Promise<void> {
         this.resetIdleTimer();
 
         await this.lp.write(data);
 
-        if (!this.opts.waitForAck) {
-            return;
-        }
+        // THIS IS DISABLED ATM. WE DO NOT NEED THIS FOR NOW.
+        //if (!this.opts.waitForAck) {
+        //    return;
+        //}
 
-        // If we want ack, set up a promise that readLoop() will resolve when it sees [0x01]
         /*await new Promise<void>((resolve, reject) => {
             const timer = setTimeout(() => {
                 reject(new Error('Ack timeout'));
