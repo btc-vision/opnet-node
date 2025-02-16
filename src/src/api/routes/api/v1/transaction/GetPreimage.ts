@@ -22,7 +22,9 @@ export class GetPreimage extends Route<
         const resp = await this.getBlockHeader();
         if (!resp) throw new Error(`No preimage found.`);
 
-        return resp;
+        return {
+            preimage: resp,
+        };
     }
 
     public async getDataRPC(): Promise<PreimageResult> {

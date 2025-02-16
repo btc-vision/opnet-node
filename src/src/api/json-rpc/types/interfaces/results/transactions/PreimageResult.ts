@@ -1,1 +1,3 @@
-export type PreimageResult = string;
+export type PreimageResult = {
+    readonly preimage: string;
+};
