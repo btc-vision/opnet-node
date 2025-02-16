@@ -22,6 +22,7 @@ export enum Routes {
     TRANSACTION_BY_HASH = 'transaction/by-hash',
     TRANSACTION_RECEIPT = 'transaction/receipt',
     BROADCAST_TRANSACTION = 'transaction/broadcast',
+    TRANSACTION_PREIMAGE = 'transaction/preimage',
 
     /** States */
     GET_CODE = 'states/get-code',

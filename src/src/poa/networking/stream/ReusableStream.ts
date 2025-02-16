@@ -176,12 +176,14 @@ export class ReusableStream {
                 // If inbound, pass data along
                 if (this.opts.isInbound && this.onInboundData) {
                     await this.onInboundData(chunk.subarray(), this);
+                } else {
+                    console.log('outbound -> Received data:', chunk);
                 }
             }
         } catch (err) {
-            if (!this.isClosed) {
-                console.log(`Error reading data for ${this.peerIdStr}:`, err);
-            }
+            //if (!this.isClosed) {
+            //console.log(`Error reading data for ${this.peerIdStr}:`, err);
+            //}
         } finally {
             if (!this.isClosed) {
                 await this.closeStream();

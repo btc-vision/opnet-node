@@ -493,13 +493,13 @@ export class VMMongoStorage extends VMStorage {
         await this.pointerRepository.setStoragePointers(storage, lastSeenAt, this.currentSession);
     }
 
-    /*public async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
+    public async getPreimage(blockHeight: bigint): Promise<string> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
         }
 
-        return await this.blockRepository.getBlockRootStates(height, this.currentSession);
-    }*/
+        return await this.blockRepository.getBlockPreimage(blockHeight);
+    }
 
     public async setContractAt(contractData: ContractInformation): Promise<void> {
         if (!this.contractRepository) {

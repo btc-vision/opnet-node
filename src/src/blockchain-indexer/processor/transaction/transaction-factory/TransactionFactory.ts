@@ -13,11 +13,26 @@ export class TransactionFactory {
         blockHash: string,
         blockHeight: bigint,
         network: networks.Network,
+        allowedPreimages: Buffer[] = [],
     ): Transaction<OPNetTransactionTypes> {
+        if (!Array.isArray(allowedPreimages)) {
+            throw new Error('Allowed preimages must be an array');
+        }
+
         const parser: TransactionInformation = this.getTransactionType(data);
         const transactionObj = PossibleOpNetTransactions[parser.type];
 
         const tx = transactionObj.parse(data, parser.vInIndex, blockHash, blockHeight, network);
+        tx.verifyPreImage = (preimage: Buffer) => {
+            const isValid = allowedPreimages.some((allowedPreimage) =>
+                allowedPreimage.equals(preimage),
+            );
+
+            if (!isValid) {
+                throw new Error('Invalid preimage');
+            }
+        };
+
         tx.parseTransaction(data.vin, data.vout);
 
         return tx;

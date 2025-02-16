@@ -338,7 +338,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         this.contractSecretHash = this.interactionWitnessData.contractSecretHash160;
         this.contractSecret = contractSecret;
 
-        this._preimage = this.interactionWitnessData.header.preimage;
+        this.preimage = this.interactionWitnessData.header.preimage;
 
         /** We must verify that the contract secret matches at least one output. */
         const outputWitness: TransactionOutput | undefined = this.outputs[0];

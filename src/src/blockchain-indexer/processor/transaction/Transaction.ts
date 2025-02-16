@@ -99,6 +99,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return preimage;
     }
 
+    public set preimage(preimage: Buffer) {
+        this.verifyPreImage(preimage);
+
+        this._preimage = preimage;
+    }
+
     public get strippedInputs(): StrippedTransactionInput[] {
         return this.inputs
             .slice(0, OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS)
@@ -117,6 +123,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     protected _revert: Error | undefined;
+
     public get revert(): Error | undefined {
         return this._revert;
     }
@@ -138,6 +145,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     protected _receipt: EvaluatedResult | undefined;
+
     public get receipt(): EvaluatedResult | undefined {
         return this._receipt;
     }
@@ -147,6 +155,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     protected _from: Address | undefined;
+
     public get from(): Address {
         if (!this._from) {
             throw new Error(`No sender address found for transaction ${this.txid}`);
@@ -155,6 +164,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     protected _index: number = 0;
+
     public get index(): number {
         return this._index;
     }
@@ -164,16 +174,19 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     protected _originalIndex: number = 0;
+
     public set originalIndex(index: number) {
         this._originalIndex = index;
     }
 
     protected _burnedFee: bigint = 0n;
+
     public get burnedFee(): bigint {
         return this._burnedFee;
     }
 
     protected _reward: bigint = 0n;
+
     public get reward(): bigint {
         return this._reward;
     }
@@ -183,11 +196,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     protected _priorityFee: bigint = 0n;
+
     public get priorityFee(): bigint {
         return this._priorityFee;
     }
 
     protected _gasSatFee: bigint = 0n;
+
     public get gasSatFee(): bigint {
         return this._gasSatFee;
     }
@@ -365,6 +380,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return new OPNetHeader(header, preimage);
     }
 
+    public verifyPreImage: (preimage: Buffer) => void = (_preimage: Buffer) => {
+        throw new Error('Verify preimage method not implemented.');
+    };
+
     public setReceiptProofs(proofs: string[] | undefined): void {
         this.receiptProofs = proofs;
     }
@@ -467,17 +486,21 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         if (!this._preimage) {
             throw new Error('Preimage not found');
         }
+
         const rewardOutput = this.outputs[1];
         if (!rewardOutput) {
             return; // no reward output
         }
+
         const rewardChallenge = ChallengeGenerator.generateMineableReward(
             this.preimage,
             this.network,
         );
+
         if (rewardOutput.scriptPubKey.address !== rewardChallenge.address) {
             throw new Error('Invalid reward output address');
         }
+
         this.setReward(rewardOutput);
     }
 

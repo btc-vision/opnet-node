@@ -18,6 +18,7 @@ import {
 import { DBManagerInstance } from '../../../db/DBManager.js';
 import { IChainReorg } from '../../../threading/interfaces/thread-messages/messages/indexer/IChainReorg.js';
 import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
+import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -46,6 +47,16 @@ export class ChainSynchronisation extends Logger {
         }
 
         return this._unspentTransactionRepository;
+    }
+
+    private _blockRepository: BlockRepository | undefined;
+
+    private get blockRepository(): BlockRepository {
+        if (!this._blockRepository) {
+            throw new Error('BlockRepository not initialized');
+        }
+
+        return this._blockRepository;
     }
 
     private _publicKeysRepository: PublicKeysRepository | undefined;
@@ -87,6 +98,7 @@ export class ChainSynchronisation extends Logger {
 
         this._unspentTransactionRepository = new UnspentTransactionRepository(DBManagerInstance.db);
         this._publicKeysRepository = new PublicKeysRepository(DBManagerInstance.db);
+        this._blockRepository = new BlockRepository(DBManagerInstance.db);
 
         await this.startSaveLoop();
     }
@@ -236,9 +248,28 @@ export class ChainSynchronisation extends Logger {
         return height;
     }
 
+    /**
+     * By default, this means that the minimum activation block for OPNet is block 100.
+     * On bitcoin, mined coins cant be spent before 100 blocks anyway.
+     * @param blockNumber
+     * @private
+     */
+    private async getPreimages(blockNumber: bigint): Promise<Buffer[]> {
+        const hashes = await this.blockRepository.getBlockPreimages(blockNumber);
+        if (!hashes.length) {
+            return [];
+        }
+
+        return hashes.map((hash) => Buffer.from(hash, 'hex'));
+    }
+
     // TODO: Move fetching to an other thread.
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
-        const blockData = await this.blockFetcher.getBlock(blockNumber);
+        const [blockData, allowedPreimages] = await Promise.safeAll([
+            this.blockFetcher.getBlock(blockNumber),
+            this.getPreimages(blockNumber),
+        ]);
+
         if (!blockData) {
             const chainHeight = await this.getBlockHeightForEver();
             if (blockNumber > chainHeight) {
@@ -257,6 +288,7 @@ export class ChainSynchronisation extends Logger {
             abortController: abortController,
             header: blockData,
             processEverythingAsGeneric: true,
+            allowedPreimages: allowedPreimages,
         });
 
         // Deserialize the block
@@ -273,10 +305,11 @@ export class ChainSynchronisation extends Logger {
             header: block.header.toJSON(),
             rawTransactionData: blockData.tx,
             transactionOrder: undefined,
+            allowedPreimages: allowedPreimages,
         };
     }
 
-    private async deserializeBlockBatch(startBlock: bigint): Promise<ThreadData> {
+    /*private async deserializeBlockBatch(startBlock: bigint): Promise<ThreadData> {
         // Instead of calling queryBlocks(...) directly, call getBlocks(...) from BlockFetcher
         const blocksData = await this.blockFetcher.getBlocks(startBlock, 10);
 
@@ -316,7 +349,7 @@ export class ChainSynchronisation extends Logger {
 
         // Return all blocks if your system expects an array
         return { blocks: result };
-    }
+    }*/
 
     private async deserializeBlock(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
         try {
