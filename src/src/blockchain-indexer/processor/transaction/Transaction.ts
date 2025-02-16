@@ -361,6 +361,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         if (!Buffer.isBuffer(header) || header.length !== OPNetHeader.EXPECTED_HEADER_LENGTH) {
             return;
         }
+
         if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
             return;
         }

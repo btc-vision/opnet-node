@@ -25,7 +25,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     POW: {
-        PREIMAGE_LENGTH: 128,
+        PREIMAGE_LENGTH: 32,
     },
 
     CONTRACTS: {
