@@ -100,7 +100,11 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                             outputIndex: transaction.outputIndex,
                         },
                         update: {
-                            $set: transaction,
+                            $set: {
+                                transactionId: transaction.transactionId,
+                                outputIndex: transaction.outputIndex,
+                                deletedAtBlock: transaction.deletedAtBlock,
+                            },
                         },
                         upsert: true,
                     },
@@ -128,7 +132,6 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                         ? transaction.scriptPubKey.addresses
                                         : [],
                                 },
-                                //raw: transaction.raw,
                             },
                         },
                         upsert: true,
@@ -345,7 +348,6 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                     address: output.scriptPubKey.address ?? null,
                                     addresses: output.scriptPubKey.addresses ?? null,
                                 },
-                                //raw: new Binary(transaction.raw),
                             });
                         }
                     }

@@ -493,13 +493,13 @@ export class VMMongoStorage extends VMStorage {
         await this.pointerRepository.setStoragePointers(storage, lastSeenAt, this.currentSession);
     }
 
-    /*public async getBlockRootStates(height: bigint): Promise<BlockRootStates | undefined> {
+    public async getPreimage(blockHeight: bigint): Promise<string> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
         }
 
-        return await this.blockRepository.getBlockRootStates(height, this.currentSession);
-    }*/
+        return await this.blockRepository.getBlockPreimage(blockHeight);
+    }
 
     public async setContractAt(contractData: ContractInformation): Promise<void> {
         if (!this.contractRepository) {
@@ -784,9 +784,7 @@ export class VMMongoStorage extends VMStorage {
             return value;
         }
 
-        const length = Math.max(value.byteLength, BufferHelper.EXPECTED_BUFFER_LENGTH);
-        const buffer = new Uint8Array(length);
-
+        const buffer = new Uint8Array(value.byteLength);
         if (value.byteLength) buffer.set(value, 0);
 
         return buffer;

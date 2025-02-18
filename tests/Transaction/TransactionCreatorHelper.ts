@@ -81,9 +81,11 @@ export function CreateFakeTransaction(
         finalBlockHash,
         0n,
         network,
+        [],
     );
 
     jest.spyOn(transaction, 'burnedFee', 'get').mockReturnValue(fees);
+    // @ts-ignore
     jest.spyOn(transaction, 'from', 'get').mockReturnValue('');
 
     if (computedHash !== null) {

@@ -12,7 +12,7 @@ import { Pong } from '../../protobuf/packets/latency/Pong.js';
 import { PackedMessage, Packet } from '../../protobuf/packets/Packet.js';
 import { DiscoverPacket } from '../../protobuf/packets/peering/DiscoveryPacket.js';
 import { DiscoveryResponsePacket } from '../../protobuf/packets/peering/DiscoveryResponsePacket.js';
-import { ProtobufLoader } from '../../protobuf/PotobufLoader.js';
+import { ProtobufLoader } from '../../protobuf/ProtobufLoader.js';
 import { Packets } from '../../protobuf/types/enums/Packets.js';
 
 type PacketBuilders = { [key in Packets]: Packet<PackedMessage, PackedMessage, PackedMessage> };

@@ -98,6 +98,7 @@ export abstract class VMStorage extends Logger {
     public abstract close(): Promise<void>;
 
     public abstract getLatestBlock(): Promise<BlockHeaderAPIBlockDocument | undefined>;
+
     public abstract addTweakedPublicKey(buffer: Buffer): Promise<void>;
 
     public abstract getBlockTransactions(
@@ -125,28 +126,9 @@ export abstract class VMStorage extends Logger {
 
     public abstract killAllPendingWrites(): Promise<void>;
 
-    /*public abstract setWBTCUTXO(wbtcUTXO: IWBTCUTXODocument): Promise<void>;
-
-    public abstract setVault(vault: IVaultDocument): Promise<void>;
-
-    public abstract getWBTCUTXOs(
-        requestedAmount: bigint,
-        consolidationAcceptance: bigint,
-    ): Promise<SelectedUTXOs | undefined>;
-
-    public abstract saveCompromisedTransactions(
-        compromisedTransactions: ICompromisedTransactionDocument[],
-    ): Promise<void>;
-
-    public abstract setSpentWBTCUTXOs(utxos: UsedUTXOToDelete[], height: bigint): Promise<void>;
-
-    public abstract deleteOldUTXOs(height: bigint): Promise<void>;
-
-    public abstract setWBTCUTXOs(wbtcUTXOs: IWBTCUTXODocument[]): Promise<void>;*/
-
     public abstract deleteTransactionsById(transactions: string[]): Promise<void>;
 
-    //public abstract deleteOldUsedUtxos(height: bigint): Promise<void>;
-
     public abstract purgePointers(block: bigint): Promise<void>;
+
+    public abstract getPreimage(blockHeight: bigint): Promise<string>;
 }

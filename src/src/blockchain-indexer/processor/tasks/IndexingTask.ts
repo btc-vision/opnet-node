@@ -326,6 +326,7 @@ export class IndexingTask extends Logger {
             type: MessageType.DESERIALIZE_BLOCK,
             data: tip,
         })) as DeserializedBlock | { error: Error };
+
         this.downloadEnd = Date.now();
 
         if (!blockData) {
@@ -341,9 +342,12 @@ export class IndexingTask extends Logger {
         }
 
         this.prefetchStart = Date.now();
-        
+
         return new Block({
             ...blockData,
+            allowedPreimages: blockData.allowedPreimages.map((preimage: Uint8Array) =>
+                Buffer.from(preimage),
+            ),
             network: this.network,
             abortController: this._abortController,
         });

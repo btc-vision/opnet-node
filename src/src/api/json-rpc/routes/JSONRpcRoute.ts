@@ -13,9 +13,6 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     [JSONRpcMethods.BLOCK_WITNESS]: Routes.BLOCK_WITNESS,
     [JSONRpcMethods.GAS]: Routes.GAS,
 
-    /** OPNet */
-    //[JSONRpcMethods.GENERATE]: Routes.GENERATE,
-
     /** Addresses */
     [JSONRpcMethods.PUBLIC_KEY_INFO]: Routes.PUBLIC_KEY_INFO,
     [JSONRpcMethods.GET_BALANCE]: Routes.GET_BALANCE,
@@ -28,6 +25,7 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     /** Transactions */
     [JSONRpcMethods.GET_TRANSACTION_BY_HASH]: Routes.TRANSACTION_BY_HASH,
     [JSONRpcMethods.BROADCAST_TRANSACTION]: Routes.BROADCAST_TRANSACTION,
+    [JSONRpcMethods.TRANSACTION_PREIMAGE]: Routes.TRANSACTION_PREIMAGE,
 
     /** State Methods */
     [JSONRpcMethods.GET_TRANSACTION_RECEIPT]: Routes.TRANSACTION_RECEIPT,

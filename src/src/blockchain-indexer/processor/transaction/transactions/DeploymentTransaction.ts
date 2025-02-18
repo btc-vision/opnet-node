@@ -119,9 +119,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         return calldata;
     }
 
-    public static is(
-        data: TransactionData,
-    ): TransactionInformation | undefined {
+    public static is(data: TransactionData): TransactionInformation | undefined {
         const vIndex = this._is(data, this.LEGACY_DEPLOYMENT_SCRIPT);
         if (vIndex === -1) {
             return;
@@ -267,7 +265,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             throw new Error(`OP_NET: Invalid contract signer.`);
         }
 
-        this._preimage = deploymentWitnessData.header.preimage;
+        this.preimage = deploymentWitnessData.header.preimage;
 
         /** We regenerate the contract address and verify it */
         const input0: TransactionInput = this.inputs[0];
@@ -285,11 +283,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
 
-        // TODO: Verify preimage, from db for existing preimage, now, we have to be careful so people may not exploit this check.
-        // If an attacker send the same preimage as someone else, he may be able to cause a reversion of the transaction of the other person.
-        // We have to make it so it only checks if the preimage was used from block range: 0 to currentHeight - 10.
-        // We allow duplicates in the last 10 blocks to prevent this attack.
-        // If the preimage was already used, we revert the transaction with PREIMAGE_ALREADY_USED.
         this.verifyRewardUTXO();
         this.setGasFromHeader(deploymentWitnessData.header);
 

@@ -21,6 +21,7 @@ import { BroadcastTransaction } from './api/v1/transaction/BroadcastTransaction.
 import { GasRoute } from './api/v1/block/GasRoute.js';
 import { Simulation } from './api/v1/states/Simulation.js';
 import { PublicKeyInfoRoute } from './api/v1/address/PublicKeyInfoRoute.js';
+import { GetPreimage } from './api/v1/transaction/GetPreimage.js';
 
 export const DefinedRoutes: {
     [key in Routes]: Route<key, JSONRpcMethods, object | string | undefined>;
@@ -54,6 +55,7 @@ export const DefinedRoutes: {
     [Routes.TRANSACTION_BY_HASH]: new TransactionByHash(),
     [Routes.TRANSACTION_RECEIPT]: new TransactionReceipt(),
     [Routes.BROADCAST_TRANSACTION]: new BroadcastTransaction(),
+    [Routes.TRANSACTION_PREIMAGE]: new GetPreimage(),
 
     /** Others */
     [Routes.PROTOBUF_SCHEMA]: new ProtobufSchema(),

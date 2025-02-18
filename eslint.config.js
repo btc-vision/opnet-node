@@ -31,6 +31,7 @@ export default tseslint.config(
             '@typescript-eslint/no-empty-object-type': 'off',
             '@typescript-eslint/related-getter-setter-pairs': 'off',
             'max-depth': ['error', 5],
+            '@typescript-eslint/require-await': 'warn',
         },
     },
     {

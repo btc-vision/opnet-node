@@ -39,6 +39,8 @@ export interface RawBlockParam {
     abortController: AbortController;
     network: Network;
 
+    readonly allowedPreimages: Buffer[];
+
     readonly processEverythingAsGeneric?: boolean;
 }
 
@@ -74,6 +76,8 @@ export class Block extends Logger {
     protected readonly signal: AbortSignal;
     protected readonly network: Network;
     protected readonly abortController: AbortController;
+
+    protected readonly allowedPreimages: Buffer[];
 
     private rawTransactionData: TransactionData[] | undefined;
 
@@ -117,6 +121,12 @@ export class Block extends Logger {
 
         this.signal = this.abortController.signal;
         this.header = new BlockHeader(params.header);
+
+        this.allowedPreimages = params.allowedPreimages;
+
+        if (!this.allowedPreimages) {
+            throw new Error('Allowed preimages not found');
+        }
 
         this.processEverythingAsGeneric = params.processEverythingAsGeneric || false;
 
@@ -355,6 +365,7 @@ export class Block extends Logger {
             rawTransactionData: this.rawTransactionData,
             transactionOrder: this.transactions.map((t) => t.transactionIdString),
             header: this.header.toJSON(),
+            allowedPreimages: this.allowedPreimages,
         };
     }
 
@@ -1027,6 +1038,7 @@ export class Block extends Logger {
                 this.hash,
                 this.height,
                 this.network,
+                this.allowedPreimages,
             );
 
             transaction.originalIndex = i;
