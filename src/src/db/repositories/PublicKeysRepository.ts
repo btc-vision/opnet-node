@@ -317,7 +317,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
     private reportNonStandardScript(type: string, script: string, txId: Buffer): void {
         // write the data to a file that can be checked later on.
-        if (Config.DEV_MODE) {
+        if (Config.DEV_MODE && !script.endsWith('ae')) {
             fs.appendFileSync('non-standard-scripts.txt', `${txId.toString('hex')}: ${script}\n`);
 
             this.warn(`Unknown script type: ${type}`);
