@@ -681,27 +681,14 @@ export class VMManager extends Logger {
         return this.cachedLastBlockHeight;
     }
 
-    private generateAddress(
-        salt: Buffer,
-        deployer: Address,
-        bytecode: Buffer,
-    ): {
-        contractAddress: Address;
-        tweakedPublicKey: Buffer;
-    } {
+    private generateAddress(salt: Buffer, deployer: Address, bytecode: Buffer): Address {
         const contractTweakedPublicKey = TapscriptVerificator.getContractSeed(
             bitcoin.crypto.hash256(Buffer.from(deployer)),
-            bytecode, // TODO: Maybe precompute that on deployment?
+            bytecode,
             salt,
         );
 
-        /** Generate contract segwit address */
-        const address = new Address(contractTweakedPublicKey);
-
-        return {
-            contractAddress: address,
-            tweakedPublicKey: contractTweakedPublicKey,
-        };
+        return new Address(contractTweakedPublicKey);
     }
 
     private async deployContractAtAddress(
@@ -711,7 +698,6 @@ export class VMManager extends Logger {
     ): Promise<
         | {
               contractAddress: Address;
-              tweakedPublicKey: Buffer;
               bytecodeLength: bigint;
           }
         | undefined
@@ -731,35 +717,33 @@ export class VMManager extends Logger {
             contractInfo.bytecode,
         );
 
-        if (this.contractCache.has(deployResult.contractAddress)) {
+        if (this.contractCache.has(deployResult)) {
             throw new Error('Contract already deployed. (cache)');
         }
 
         const exists = await this.vmStorage.getContractAt(
-            deployResult.contractAddress.toHex(),
+            deployResult.toHex(),
             evaluation.blockNumber + 1n,
         );
 
         if (exists) {
-            throw new Error(
-                `Contract already deployed (${deployResult.contractAddress} as ${deployResult.tweakedPublicKey.toString('hex')}). (db)`,
-            );
+            return Promise.resolve({
+                contractAddress: new Address(new Array(32).fill(0)),
+                bytecodeLength: 0n,
+            });
         }
 
         const deployerKeyPair = contractInfo.contractTweakedPublicKey;
         const bytecodeLength: bigint = BigInt(contractInfo.bytecode.byteLength);
 
         // TODO: ADD GAS COST
-        /*evaluation.gasTracker.addGas(
-            bytecodeLength * OPNetConsensus.consensus.TRANSACTIONS.STORAGE_COST_PER_BYTE,
-        );*/
 
         const contractSaltHash = bitcoin.crypto.hash256(salt);
         const contractInformation: ContractInformation = new ContractInformation(
             evaluation.blockNumber,
-            deployResult.contractAddress.p2tr(this.network),
-            deployResult.contractAddress,
-            deployResult.contractAddress.toTweakedHybridPublicKeyBuffer(),
+            deployResult.p2tr(this.network),
+            deployResult,
+            deployResult.toTweakedHybridPublicKeyBuffer(),
             contractInfo.bytecode,
             false,
             evaluation.transactionId || Buffer.alloc(32),
@@ -773,7 +757,7 @@ export class VMManager extends Logger {
         evaluation.addContractInformation(contractInformation);
 
         return {
-            ...deployResult,
+            contractAddress: deployResult,
             bytecodeLength: bytecodeLength,
         };
     }
