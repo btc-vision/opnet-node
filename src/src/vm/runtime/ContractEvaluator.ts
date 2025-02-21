@@ -76,7 +76,7 @@ export class ContractEvaluator extends Logger {
     ): Promise<
         | {
               contractAddress: Address;
-              bytecodeLength: bigint;
+              bytecodeLength: number;
           }
         | undefined
     > {

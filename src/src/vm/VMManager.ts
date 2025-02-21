@@ -698,7 +698,7 @@ export class VMManager extends Logger {
     ): Promise<
         | {
               contractAddress: Address;
-              bytecodeLength: bigint;
+              bytecodeLength: number;
           }
         | undefined
     > {
@@ -729,14 +729,12 @@ export class VMManager extends Logger {
         if (exists) {
             return Promise.resolve({
                 contractAddress: new Address(new Array(32).fill(0)),
-                bytecodeLength: 0n,
+                bytecodeLength: 0,
             });
         }
 
         const deployerKeyPair = contractInfo.contractTweakedPublicKey;
-        const bytecodeLength: bigint = BigInt(contractInfo.bytecode.byteLength);
-
-        // TODO: ADD GAS COST
+        const bytecodeLength: number = contractInfo.bytecode.byteLength;
 
         const contractSaltHash = bitcoin.crypto.hash256(salt);
         const contractInformation: ContractInformation = new ContractInformation(
