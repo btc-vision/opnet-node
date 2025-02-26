@@ -225,8 +225,6 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         );
 
         const results: BalanceOfOutputTransactionFromDB[] = await aggregatedDocument.toArray();
-        console.log(results);
-        
         const balance: Decimal128 = results?.[0]?.balance ?? Decimal128.fromString('0');
 
         return DataConverter.fromDecimal128(balance);
