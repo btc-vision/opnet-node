@@ -314,7 +314,9 @@ export class P2PConfigurations extends OPNetPathFinder {
                 return;
             }
 
-            console.log(e);
+            if (Config.DEV_MODE) {
+                console.error(e);
+            }
         }
 
         return;
