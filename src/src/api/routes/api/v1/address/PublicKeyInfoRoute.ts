@@ -25,8 +25,9 @@ export class PublicKeyInfoRoute extends Route<
             throw new Error('Storage not initialized');
         }
 
-        const parameters = this.parseParameters(params);
         try {
+            const parameters = this.parseParameters(params);
+
             return await this.storage.getAddressOrPublicKeysInformation(parameters);
         } catch (e) {
             throw new Error(
@@ -106,6 +107,10 @@ export class PublicKeyInfoRoute extends Route<
             }
 
             const addresses = params[0];
+            if (addresses.length > 1000) {
+                throw new Error('Too many addresses specified. Maximum is 1000.');
+            }
+
             for (let i = 0; i < addresses.length; i++) {
                 const address = addresses[i];
                 if (typeof address !== 'string' || !address) {

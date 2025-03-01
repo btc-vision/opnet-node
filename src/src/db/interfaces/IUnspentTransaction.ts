@@ -9,8 +9,6 @@ export interface ShortScriptPubKey {
 export interface IUnspentTransaction {
     blockHeight: Long;
 
-    //raw: Binary;
-
     readonly transactionId: Binary | Buffer;
     readonly outputIndex: number;
     value: Long;

@@ -18,12 +18,12 @@ export const MainnetTrustedKeys001: NetworkAuthorityConfiguration = {
         [TrustedEntities.OPNet]: {
             keys: [
                 {
-                    opnet: 'R8rFyD9W6iwxf51GpRYKBZnSLgkc6tqGJq9GPtVT83o',
-                    publicKey: 'Ag6KUX5yvHdpL8xvQ5Uj9xOR1+XdwOU0jnJZkqJLUAA2',
+                    opnet: 'Ij2/yNdetF582GddzSkDDueON/Gi9pIj2wcuXoMUt7c=',
+                    publicKey: 'A3ILPQLqsszby9ktoDTqKyQnFfyk3tSvSU5F8yxO4LeR',
                     signature:
-                        '1B5GJ2aTIkWfvXZjVqrdYeBsbHlyPC6MM9bVDOKbX2Dd6+EFlDQb0uxDUzwkebqss96f4TsZhj5LCcYfovCzBg==',
+                        'D00IOIJl/xayGSD8WbZVTY9PTxVnPANlj7qgexXBsmIyzQTZdHH8NXj+YmKrfb51BJ8eE5rwhI+EagK0jHsnBQ==',
                     walletPubKey:
-                        '0x020e8a517e72bc77692fcc6f439523f71391d7e5ddc0e5348e725992a24b500036',
+                        '0x03720b3d02eab2ccdbcbd92da034ea2b242715fca4ded4af494e45f32c4ee0b791',
                 },
             ],
         },

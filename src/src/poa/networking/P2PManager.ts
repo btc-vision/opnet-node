@@ -66,6 +66,7 @@ import { autoNAT } from '@libp2p/autonat';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import { FastBigIntSet } from '../../utils/fast/FastBigIntSet.js';
 import { ReusableStreamManager } from './stream/ReusableStreamManager.js';
+import { Config } from '../../config/Config.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -264,7 +265,8 @@ export class P2PManager extends Logger {
         // Apply shuffle to the peers list, way to not be "predictable" and re-identified by the same peers.
         shuffleArray(peers);
 
-        return peers;
+        // Ensure that we never send more than 100 peers at once.
+        return peers.slice(0, 100);
     }
 
     private purgeOldBlacklistedPeers(): void {
@@ -489,6 +491,7 @@ export class P2PManager extends Logger {
 
         const identifier =
             verifiedTransaction.identifier || xxHash.hash(Buffer.from(tx.transaction));
+
         const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction
             ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64')
             : tx.transaction;
@@ -497,11 +500,13 @@ export class P2PManager extends Logger {
 
         /** Already broadcasted. */
         if (this.knownMempoolIdentifiers.has(identifier)) {
-            //this.info(`Transaction ${identifier} already known.`);
             return;
         }
 
-        this.info(`Transaction ${identifier} entered mempool.`);
+        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            this.info(`Transaction ${identifier} entered mempool.`);
+        }
+
         this.knownMempoolIdentifiers.add(identifier);
 
         const broadcastData: OPNetBroadcastData = {
@@ -538,6 +543,11 @@ export class P2PManager extends Logger {
 
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
+
+        // Prevent flooding.
+        if (peers && peers.length > 100) {
+            peers = peers.slice(0, 100);
+        }
 
         const discovered: string[] = [];
         const peersToTry: PeerInfo[] = [];
@@ -586,7 +596,9 @@ export class P2PManager extends Logger {
 
                 peersToTry.push(peerData);
             } catch (e) {
-                this.error(`Error while adding peer to try: ${(e as Error).message}`);
+                if (Config.DEV_MODE) {
+                    this.error(`Error while adding peer to try: ${(e as Error).message}`);
+                }
             }
         }
 
@@ -737,16 +749,7 @@ export class P2PManager extends Logger {
         this[type](`${prefix}${artVal}${suffix.join('\n')}`);
     }
 
-    private allowConnection(
-        peerId: PeerId,
-        agent: string | undefined,
-        version: string | undefined,
-    ): boolean {
-        if (agent === undefined || version === undefined) {
-            return false;
-        }
-
-        // TODO: Implement logic to allow or deny connection based on agent and version
+    private allowConnection(peerId: PeerId): boolean {
         const id: string = peerId.toString();
         const info = this.blackListedPeerIds.get(id);
         if (info) {
@@ -854,7 +857,7 @@ export class P2PManager extends Logger {
         const agent = `OPNet`;
         const version = `1.0.0`;
 
-        if (!this.allowConnection(peerId, agent, version)) {
+        if (!this.allowConnection(peerId)) {
             this.warn(`Dropping connection to peer: ${peerIdStr} due to agent or version mismatch`);
 
             await this.blackListPeerId(peerId, DisconnectionCode.BAD_VERSION);
@@ -865,23 +868,33 @@ export class P2PManager extends Logger {
             this.info(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
         }
 
-        await this.identifyPeer(peerId);
-        await this.createPeer(
-            {
-                agentVersion: agent,
-                protocolVersion: version,
-                peerId: peerId,
-            },
-            peerIdStr,
-        );
+        const identified = await this.identifyPeer(peerId);
+        if (identified) {
+            await this.createPeer(
+                {
+                    agentVersion: agent,
+                    protocolVersion: version,
+                    peerId: peerId,
+                },
+                peerIdStr,
+            );
+        } else {
+            await this.disconnectPeer(peerId, DisconnectionCode.BAD_VERSION, 'Bad version.');
+        }
     }
 
-    private async identifyPeer(peerId: PeerId): Promise<void> {
+    private async identifyPeer(peerId: PeerId): Promise<boolean> {
         if (!this.node) throw new Error('Node not initialized');
 
-        const connection = this.getInboundConnectionForPeer(peerId);
-        if (connection) {
-            await this.node.services.identify.identify(connection).catch(() => {});
+        try {
+            const connection = this.getInboundConnectionForPeer(peerId);
+            if (connection) {
+                await this.node.services.identify.identify(connection);
+            }
+
+            return true;
+        } catch {
+            return false;
         }
     }
 
@@ -924,8 +937,8 @@ export class P2PManager extends Logger {
                 this.streamManager.handleInboundStream(incoming);
             },
             {
-                maxInboundStreams: 1000,
-                maxOutboundStreams: 1000,
+                maxInboundStreams: 500,
+                maxOutboundStreams: 500,
             },
         );
     }

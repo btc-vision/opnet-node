@@ -76,8 +76,7 @@ export class ContractEvaluator extends Logger {
     ): Promise<
         | {
               contractAddress: Address;
-              tweakedPublicKey: Buffer;
-              bytecodeLength: bigint;
+              bytecodeLength: number;
           }
         | undefined
     > {
@@ -273,9 +272,8 @@ export class ContractEvaluator extends Logger {
         }
 
         const response = new BinaryWriter();
-        response.writeBytes(deployResult.tweakedPublicKey);
         response.writeAddress(deployResult.contractAddress);
-        response.writeU64(deployResult.bytecodeLength);
+        response.writeU32(deployResult.bytecodeLength);
 
         return response.getBuffer();
     }
