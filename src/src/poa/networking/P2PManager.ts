@@ -402,6 +402,13 @@ export class P2PManager extends Logger {
         this.node.addEventListener('peer:update', this.onPeerUpdate.bind(this));
         this.node.addEventListener('peer:connect', this.onPeerConnect.bind(this));
         this.node.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
+        this.node.addEventListener('peer:reconnect-failure', this.onReconnectFailure.bind(this));
+    }
+
+    private onReconnectFailure(evt: CustomEvent<PeerId>): void {
+        const peerId = evt.detail.toString();
+
+        this.warn(`Failed to reconnect to peer ${peerId}.`);
     }
 
     private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
@@ -871,6 +878,7 @@ export class P2PManager extends Logger {
 
         const identified = await this.identifyPeer(peerId);
         if (identified) {
+            this.success(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
             await this.createPeer(
                 {
                     agentVersion: agent,
