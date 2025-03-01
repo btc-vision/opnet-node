@@ -177,7 +177,7 @@ export class ReusableStream {
                 if (this.opts.isInbound && this.onInboundData) {
                     await this.onInboundData(chunk.subarray(), this);
                 } else {
-                    console.log('outbound -> Received data:', chunk);
+                    //console.log('outbound -> Received data:', chunk);
                 }
             }
         } catch (err) {

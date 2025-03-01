@@ -46,7 +46,6 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         if (!this.selfIdentity) throw new Error('(login) Self identity not found.');
 
         try {
-            console.log(`Attempting to authenticate with peer ${this.peerId}.`);
             await this.attemptAuth(this.selfIdentity.authKey);
         } catch (e) {
             this.error(
@@ -66,8 +65,6 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
      * @description Triggered when the client must be destroyed.
      */
     public destroy(): void {
-        console.log('Destroying client peer networking.');
-
         if (this.destroyed) return;
         this.destroyed = true;
 

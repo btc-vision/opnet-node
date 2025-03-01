@@ -160,8 +160,6 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
             return;
         }
 
-        console.log('Attempting auth with key:', key);
-
         await this.setupKey(key);
 
         if (!this.#OPNetAuthKey) {
