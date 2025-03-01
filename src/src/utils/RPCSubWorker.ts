@@ -206,7 +206,7 @@ class RPCManager extends Logger {
             const currentBlock = await this.bitcoinRPC.getBlockHeight();
             this.onBlockChange(BigInt(currentBlock?.blockHeight || 0) + 1n);
         } catch (e) {
-            this.error(`Failed to get current block height. ${e}`);
+            this.error(`(Invalid RPC node) Failed to get current block height. ${e}`);
         }
     }
 
