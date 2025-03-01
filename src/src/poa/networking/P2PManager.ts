@@ -937,8 +937,8 @@ export class P2PManager extends Logger {
                 this.streamManager.handleInboundStream(incoming);
             },
             {
-                maxInboundStreams: 1000,
-                maxOutboundStreams: 1000,
+                maxInboundStreams: 500,
+                maxOutboundStreams: 500,
             },
         );
     }
