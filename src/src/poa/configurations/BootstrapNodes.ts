@@ -18,7 +18,7 @@ export const BootstrapNodes: BootstrapNodes = {
 
         [BitcoinNetwork.regtest]: [
             '/ip4/192.168.50.193/tcp/9800/p2p/12D3KooWLtuynNCXkRB7YzC8SQnR8b8GSHFBqt4DcZnNHd6rJjyy',
-            '/ip4/192.168.0.43/tcp/9800/p2p/12D3KooWLP65ASuVhHmoaLYnYgB62GwmZBEBZRVquXb4ZKGTbS99',
+            '/ip4/192.168.0.161/tcp/9800/p2p/12D3KooWSRT2Gk4PfDmRnYjh7tC6nJXAHqU1hkC95f1j49eje9gr',
             '/dns/bootstrap.opnet.org/tcp/9800/p2p/12D3KooWKEgattxUEYW793mCFnaZKJ54tC3Xrnq1gUmwcExNpSAo',
             '/dns/bootstrap.opnet.org/tcp/9800/p2p/12D3KooWHyhNfZzufdVnoQUSJiDtZW1oQwuQMiHjZA2gsxr4eb7Z',
             '/dns/bootstrap2.opnet.org/tcp/9800/p2p/12D3KooWGboCARYNFCHWgR6Yp5UYcBfkBg4FRegfFR8B2jj6HCX3',
