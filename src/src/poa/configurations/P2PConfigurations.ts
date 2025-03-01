@@ -214,7 +214,6 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get identifyConfiguration(): IdentifyInit {
         return {
-            agentVersion: P2PMajorVersion,
             protocolPrefix: P2PConfigurations.protocolName,
             timeout: 3000,
             maxInboundStreams: 3,
