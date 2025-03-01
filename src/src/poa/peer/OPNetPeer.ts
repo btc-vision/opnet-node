@@ -139,7 +139,7 @@ export class OPNetPeer extends Logger {
 
     public async init(): Promise<void> {
         // We wait just a bit to ensure that the connection is established.
-        //await this.sleep(1500);
+        await this.sleep(1500);
 
         await this.authenticate();
     }
