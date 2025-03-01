@@ -15,6 +15,8 @@
 
 ## ⚠️ Important Notice ⚠️
 
+Main is the dev branch. Use releases for production.
+
 This repository is currently under development and is not yet ready for production use. We are actively working on
 implementing the features and functionalities outlined in this document. Please check back regularly for updates and
 progress reports.
