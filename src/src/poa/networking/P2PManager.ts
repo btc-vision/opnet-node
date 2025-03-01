@@ -794,7 +794,6 @@ export class P2PManager extends Logger {
 
             info.attempts += 1;
 
-            console.trace('hm');
             this.info(`Peer ${peerStr} disconnected. Reason: ${code}. Attempts: ${info.attempts}`);
 
             this.blackListedPeerIds.set(peerStr, info);
@@ -870,6 +869,7 @@ export class P2PManager extends Logger {
         }
 
         const identified = await this.identifyPeer(peerId);
+        console.log(identified);
         if (identified) {
             await this.createPeer(
                 {
