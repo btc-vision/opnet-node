@@ -774,6 +774,8 @@ export class P2PManager extends Logger {
         code: DisconnectionCode = DisconnectionCode.RECONNECT,
         _reason?: string,
     ): Promise<void> {
+        console.log(`Disconnecting peer ${peerId.toString()}`);
+
         if (this.node === undefined) {
             throw new Error('Node not initialized');
         }
@@ -869,7 +871,6 @@ export class P2PManager extends Logger {
         }
 
         const identified = await this.identifyPeer(peerId);
-        console.log(identified);
         if (identified) {
             await this.createPeer(
                 {

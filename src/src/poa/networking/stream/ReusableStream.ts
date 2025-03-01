@@ -182,7 +182,7 @@ export class ReusableStream {
             }
         } catch (err) {
             //if (!this.isClosed) {
-            //console.log(`Error reading data for ${this.peerIdStr}:`, err);
+            console.log(`Error reading data for ${this.peerIdStr}:`, err);
             //}
         } finally {
             if (!this.isClosed) {
