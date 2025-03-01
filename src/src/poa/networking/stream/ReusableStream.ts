@@ -87,6 +87,7 @@ export class ReusableStream {
      * Enqueues a message to send. We do a FIFO queue to avoid concurrency issues.
      */
     public sendMessage(data: Uint8Array): Promise<void> {
+        console.log('outbound -> Sending message:', data);
         if (this.isClosed) {
             return Promise.reject(new Error(`Stream to peer ${this.peerIdStr} is closed.`));
         }
@@ -182,7 +183,7 @@ export class ReusableStream {
             }
         } catch (err) {
             //if (!this.isClosed) {
-            console.log(`Error reading data for ${this.peerIdStr}:`, err);
+            //console.log(`Error reading data for ${this.peerIdStr}:`, err);
             //}
         } finally {
             if (!this.isClosed) {
