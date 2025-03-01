@@ -179,6 +179,7 @@ export class P2PManager extends Logger {
         this.streamManager = new ReusableStreamManager(
             this.node,
             async (peerIdStr: PeerId, data: Uint8Array) => {
+                console.log('Received data from peer:', peerIdStr, data);
                 await this.onPeerMessage(peerIdStr, data);
             },
         );
