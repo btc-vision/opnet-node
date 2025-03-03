@@ -23,6 +23,7 @@ import { ContractParameters, RustContract } from '../isolated/RustContract.js';
 import { Blockchain } from '../Blockchain.js';
 import { Config } from '../../config/Config.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
+import { ExitDataResponse } from '@btc-vision/op-vm';
 
 export class ContractEvaluator extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -189,6 +190,7 @@ export class ContractEvaluator extends Logger {
     /** Call a contract */
     private async call(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
         const reader = new BinaryReader(data);
+        const gasUsed: bigint = reader.readU64();
         const contractAddress: Address = reader.readAddress();
 
         if (evaluation.contractAddress.equals(contractAddress)) {
@@ -198,7 +200,8 @@ export class ContractEvaluator extends Logger {
         const calldata: Uint8Array = reader.readBytesWithLength();
         evaluation.incrementCallDepth();
 
-        const gasUsed: bigint = evaluation.gasTracker.gasUsed;
+        console.log(evaluation.gasTracker.gasUsed, gasUsed);
+
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
             contractAddressStr: contractAddress.p2tr(this.network),
@@ -319,6 +322,7 @@ export class ContractEvaluator extends Logger {
             network: NetworkConverter.networkToBitcoinNetwork(this.network),
             gasLimit: difference, //OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
             gasCallback: evaluation.onGasUsed,
+            isDebugMode: false,
             load: async (data: Buffer) => {
                 return await this.load(data, evaluation);
             },
@@ -389,10 +393,9 @@ export class ContractEvaluator extends Logger {
     }
 
     private async evaluate(evaluation: ContractEvaluation): Promise<void> {
-        let result: Uint8Array | undefined | null;
+        let result: ExitDataResponse | undefined | null;
         let error: Error | undefined;
 
-        // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
         try {
             result = await this.contractInstance.execute(evaluation.calldata);
         } catch (e) {
@@ -422,7 +425,6 @@ export class ContractEvaluator extends Logger {
     private async onDeploy(evaluation: ContractEvaluation): Promise<void> {
         let error: Error | undefined;
 
-        // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
         try {
             await this.contractInstance.onDeploy(evaluation.calldata);
         } catch (e) {
@@ -441,24 +443,39 @@ export class ContractEvaluator extends Logger {
             return;
         }
 
-        await this.processResult(new Uint8Array(1).fill(1), error, evaluation);
+        await this.processResult(
+            {
+                data: Buffer.from([0x00]),
+                status: 0,
+            },
+            error,
+            evaluation,
+        );
     }
 
     private async processResult(
-        result: Uint8Array,
+        result: ExitDataResponse,
         error: Error | undefined,
         evaluation: ContractEvaluation,
     ): Promise<void> {
-        if (result.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
-            evaluation.revert = new Error('OP_NET: Maximum receipt length exceeded.');
+        if (!this._contractInstance) {
+            throw new Error('Contract not initialized');
+        }
 
+        const data = result.data;
+        if (data.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
+            evaluation.revert = new Error('OP_NET: Maximum receipt length exceeded.');
             return;
         }
 
-        // Check if result only contains zeros or is false.
-        const isSuccess: boolean = result.length > 0;
+        // Check if data only contains zeros or is false.
+        const isSuccess: boolean = result.status === 0;
         if (!isSuccess) {
-            evaluation.revert = new Error('OP_NET: Contract execution failed.');
+            try {
+                evaluation.revert = this._contractInstance.decodeRevertData(result.data);
+            } catch {
+                evaluation.revert = new Error('OP_NET: An unknown error occurred');
+            }
             return;
         }
 
@@ -476,7 +493,7 @@ export class ContractEvaluator extends Logger {
                 await Promise.safeAll(deploymentPromises);
             }
 
-            evaluation.setResult(result);
+            evaluation.setResult(result.data);
         }
 
         if (evaluation.revert) {
