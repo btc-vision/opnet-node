@@ -207,7 +207,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         if (
-            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_DECOMPRESSED <
+            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_COMPRESSED <
             calldata.byteLength
         ) {
             throw new Error(`OP_NET: Calldata length exceeds maximum allowed size.`);

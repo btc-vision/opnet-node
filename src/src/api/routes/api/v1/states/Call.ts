@@ -426,9 +426,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
         if (!calldata || calldata.length < 1) throw new Error(`Invalid calldata specified.`);
 
-        if (
-            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_DECOMPRESSED < calldata.length
-        ) {
+        if (OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_COMPRESSED < calldata.length) {
             throw new Error(`Calldata exceeds maximum size reached.`);
         }
 

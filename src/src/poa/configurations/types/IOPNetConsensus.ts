@@ -33,10 +33,10 @@ export interface IOPNetConsensus<T extends Consensus> {
     /** Contracts related rules */
     readonly CONTRACTS: {
         /** The maximum size of a calldata in bytes. */
-        readonly MAXIMUM_CONTRACT_SIZE_DECOMPRESSED: number;
+        readonly MAXIMUM_CONTRACT_SIZE_COMPRESSED: number;
 
         /** The maximum size of calldata in bytes. */
-        readonly MAXIMUM_CALLDATA_SIZE_DECOMPRESSED: number;
+        readonly MAXIMUM_CALLDATA_SIZE_COMPRESSED: number;
     };
 
     readonly COMPRESSION: {
@@ -45,9 +45,6 @@ export interface IOPNetConsensus<T extends Consensus> {
 
     /** Transactions related properties */
     readonly GAS: {
-        /** List of CA that are prioritized over other transactions */
-        readonly GAS_EXCEPTION_WHITELIST: string[];
-
         /** How many sat of gas is equal to 1 sat of priority */
         readonly GAS_PENALTY_FACTOR: bigint;
 

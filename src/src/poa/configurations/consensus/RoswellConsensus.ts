@@ -30,26 +30,24 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     CONTRACTS: {
         /** The maximum size of a calldata in bytes. */
-        MAXIMUM_CONTRACT_SIZE_DECOMPRESSED: 128 * 1024,
+        MAXIMUM_CONTRACT_SIZE_COMPRESSED: 128 * 1024, // max is 128KO compressed.
 
         /** The maximum size of calldata in bytes. */
-        MAXIMUM_CALLDATA_SIZE_DECOMPRESSED: 1024 * 1024,
+        MAXIMUM_CALLDATA_SIZE_COMPRESSED: 380 * 1024, // max is 380KO compressed.
     },
 
     COMPRESSION: {
-        MAX_DECOMPRESSED_SIZE: Math.ceil(1024 * 1024 * 1.5),
+        MAX_DECOMPRESSED_SIZE: Math.ceil(1024 * 1024 * 1.5), // max is 1.5MB decompressed.
     },
 
     NETWORK: {
         /** Networking */
-        MAXIMUM_TRANSACTION_BROADCAST_SIZE: 440_000, // Cap to 800k bytes.
+        MAXIMUM_TRANSACTION_BROADCAST_SIZE: 400_000, // Cap to 400KO.
 
-        PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 1_000_000, // Cap to 1M bytes.
+        PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 0, // Disabled.
     },
 
     GAS: {
-        GAS_EXCEPTION_WHITELIST: [],
-
         /** How many sat of gas is equal to 1 sat of priority */
         GAS_PENALTY_FACTOR: 1n,
 
