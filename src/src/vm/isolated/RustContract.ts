@@ -1,9 +1,4 @@
-import {
-    BitcoinNetworkRequest,
-    CallResponse,
-    ContractManager,
-    ExitDataResponse,
-} from '@btc-vision/op-vm';
+import { BitcoinNetworkRequest, ContractManager, ExitDataResponse } from '@btc-vision/op-vm';
 import { Blockchain } from '../Blockchain.js';
 import { RustContractBinding } from './RustContractBindings.js';
 
@@ -126,7 +121,7 @@ export class RustContract {
             const strErr = (deadlock as Error).message;
 
             if (strErr.includes('mutex')) {
-                throw new Error('OPNET: REENTRANCY DETECTED');
+                throw new Error('OP_NET: REENTRANCY DETECTED');
             }
         }
     }
@@ -167,22 +162,16 @@ export class RustContract {
         }
     }
 
-    public async onDeploy(buffer: Uint8Array | Buffer): Promise<CallResponse> {
+    public async onDeploy(buffer: Uint8Array | Buffer): Promise<ExitDataResponse> {
         if (this.enableDebug) console.log('Setting onDeployment', buffer);
 
         try {
-            const data = await this.__lowerTypedArray(13, 0, buffer);
-            if (data == null) throw new Error('Data cannot be null');
-
-            const resp = await this.contractManager.call(this.id, 'onDeploy', [data]);
+            const resp = await this.contractManager.onDeploy(this.id, Buffer.from(buffer));
             const gasUsed = this.contractManager.getUsedGas(this.id);
 
             this.gasCallback(gasUsed, 'onDeploy');
 
-            return {
-                result: resp.filter((n) => n !== undefined),
-                gasUsed: gasUsed,
-            };
+            return resp;
         } catch (e) {
             if (this.enableDebug) console.log('Error in onDeployment', e);
 

@@ -23,7 +23,6 @@ export interface InternalContractCallParameters {
 
     readonly blockHeight: bigint;
     readonly blockMedian: bigint;
-    readonly safeU64: bigint;
 
     readonly contractDeployDepth: number;
     readonly callDepth: number;
@@ -59,7 +58,6 @@ export interface ExecutionParameters {
 
     readonly blockNumber: bigint;
     readonly blockMedian: bigint;
-    readonly safeU64: bigint;
 
     readonly maxGas: bigint;
     readonly gasUsed: bigint;

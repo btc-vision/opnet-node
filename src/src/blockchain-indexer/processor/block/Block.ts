@@ -177,10 +177,6 @@ export class Block extends Logger {
         return BigInt(this.header.medianTime.getTime());
     }
 
-    public get safeU64(): bigint {
-        return this.header.safeU64;
-    }
-
     public get previousBlockChecksum(): string {
         if (!this.#_previousBlockChecksum) {
             throw new Error('Previous block checksum not found');
@@ -541,7 +537,7 @@ export class Block extends Logger {
     protected async executeInteractionTransaction(
         transaction: InteractionTransaction,
         vmManager: VMManager,
-        unlimitedGas: boolean = false,
+        isSimulation: boolean = false,
     ): Promise<void> {
         const start = Date.now();
         try {
@@ -557,9 +553,8 @@ export class Block extends Logger {
                 this.height,
                 this.median,
                 this.prevBaseGas,
-                this.safeU64,
                 transaction,
-                unlimitedGas,
+                isSimulation,
             );
 
             this.blockUsedGas += evaluation.gasUsed;
@@ -607,7 +602,6 @@ export class Block extends Logger {
                 this.height,
                 this.median,
                 this.prevBaseGas,
-                this.safeU64,
                 transaction,
             );
 

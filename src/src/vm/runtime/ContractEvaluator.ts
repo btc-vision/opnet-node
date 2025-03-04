@@ -30,7 +30,7 @@ export class ContractEvaluator extends Logger {
 
     private isProcessing: boolean = false;
 
-    private contractOwner: Address | undefined;
+    private deployerAddress: Address | undefined;
     private contractAddress: Address | undefined;
 
     private bytecode: Buffer | undefined;
@@ -86,7 +86,7 @@ export class ContractEvaluator extends Logger {
 
     public setContractInformation(contractInformation: ContractInformation): void {
         // We use pub the pub key as the deployer address.
-        this.contractOwner = contractInformation.deployerAddress;
+        this.deployerAddress = contractInformation.deployerAddress;
         this.contractAddress = contractInformation.contractTweakedPublicKey;
         this.bytecode = contractInformation.bytecode;
     }
@@ -218,7 +218,6 @@ export class ContractEvaluator extends Logger {
 
             blockHeight: evaluation.blockNumber,
             blockMedian: evaluation.blockMedian,
-            safeU64: evaluation.safeU64,
 
             // data
             calldata: Buffer.from(calldata),
@@ -257,7 +256,6 @@ export class ContractEvaluator extends Logger {
         return writer.getBuffer();
     }
 
-    // TODO: Implement this
     private async deployContractFromAddressRaw(
         data: Buffer,
         evaluation: ContractEvaluation,
@@ -393,7 +391,7 @@ export class ContractEvaluator extends Logger {
     }
 
     private async evaluate(evaluation: ContractEvaluation): Promise<void> {
-        let result: ExitDataResponse | undefined | null;
+        let result: ExitDataResponse | undefined;
         let error: Error | undefined;
 
         try {
@@ -402,6 +400,27 @@ export class ContractEvaluator extends Logger {
             error = (await e) as Error;
         }
 
+        await this.onExecutionResult(evaluation, result, error);
+    }
+
+    private async onDeploy(evaluation: ContractEvaluation): Promise<void> {
+        let error: Error | undefined;
+        let result: ExitDataResponse | undefined;
+
+        try {
+            result = await this.contractInstance.onDeploy(evaluation.calldata);
+        } catch (e) {
+            error = (await e) as Error;
+        }
+
+        await this.onExecutionResult(evaluation, result, error);
+    }
+
+    private async onExecutionResult(
+        evaluation: ContractEvaluation,
+        result: ExitDataResponse | undefined,
+        error: Error | undefined,
+    ): Promise<void> {
         if (error) {
             try {
                 evaluation.setGas(this.contractInstance.getUsedGas());
@@ -415,42 +434,11 @@ export class ContractEvaluator extends Logger {
         }
 
         if (!result) {
-            evaluation.revert = new Error('No result returned');
+            evaluation.revert = new Error('OP_NET: No result returned');
             return;
         }
 
         await this.processResult(result, error, evaluation);
-    }
-
-    private async onDeploy(evaluation: ContractEvaluation): Promise<void> {
-        let error: Error | undefined;
-
-        try {
-            await this.contractInstance.onDeploy(evaluation.calldata);
-        } catch (e) {
-            error = (await e) as Error;
-        }
-
-        if (error) {
-            try {
-                evaluation.setGas(this.contractInstance.getUsedGas());
-            } catch {}
-
-            if (!evaluation.revert) {
-                evaluation.revert = error.message;
-            }
-
-            return;
-        }
-
-        await this.processResult(
-            {
-                data: Buffer.from([0x00]),
-                status: 0,
-            },
-            error,
-            evaluation,
-        );
     }
 
     private async processResult(
@@ -504,7 +492,7 @@ export class ContractEvaluator extends Logger {
     }
 
     private async setEnvironment(evaluation: ContractEvaluation): Promise<void> {
-        if (!this.contractOwner || !this.contractAddress) {
+        if (!this.deployerAddress || !this.contractAddress) {
             throw new Error('OP_NET: Contract not initialized');
         }
 
@@ -515,11 +503,10 @@ export class ContractEvaluator extends Logger {
         writer.writeBytes(evaluation.transactionId); // "transaction id"
 
         writer.writeU256(evaluation.blockNumber);
-        writer.writeAddress(this.contractOwner);
+        writer.writeAddress(this.deployerAddress);
         writer.writeAddress(this.contractAddress);
 
         writer.writeU64(evaluation.blockMedian);
-        writer.writeU64(evaluation.safeU64);
 
         await this.contractInstance.setEnvironment(writer.getBuffer());
     }

@@ -205,7 +205,6 @@ export class VMManager extends Logger {
 
                 blockHeight: currentHeight,
                 blockMedian: BigInt(Date.now()), // add support for this
-                safeU64: currentHeight >> 1n,
 
                 storage: new AddressMap(),
 
@@ -242,9 +241,8 @@ export class VMManager extends Logger {
         blockHeight: bigint,
         blockMedian: bigint,
         baseGas: bigint,
-        safeU64: bigint,
         interactionTransaction: InteractionTransaction,
-        unlimitedGas: boolean = false,
+        isSimulation: boolean = false,
     ): Promise<ContractEvaluation> {
         if (this.isProcessing) {
             throw new Error('Concurrency detected. (executeTransaction)');
@@ -277,7 +275,7 @@ export class VMManager extends Logger {
             }
 
             // Trace the execution time
-            const maxGas: bigint = this.calculateMaxGas(unlimitedGas, feeBitcoin, baseGas);
+            const maxGas: bigint = this.calculateMaxGas(isSimulation, feeBitcoin, baseGas);
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
@@ -293,7 +291,6 @@ export class VMManager extends Logger {
 
                 blockHeight: blockHeight,
                 blockMedian: blockMedian,
-                safeU64: safeU64,
 
                 transactionId: interactionTransaction.transactionId,
                 transactionHash: interactionTransaction.hash,
@@ -326,7 +323,6 @@ export class VMManager extends Logger {
         blockHeight: bigint,
         median: bigint,
         baseGas: bigint,
-        safeU64: bigint,
         contractDeploymentTransaction: DeploymentTransaction,
     ): Promise<ContractEvaluation> {
         if (this.vmBitcoinBlock.height !== blockHeight) {
@@ -385,7 +381,6 @@ export class VMManager extends Logger {
 
                 blockNumber: blockHeight,
                 blockMedian: median,
-                safeU64: safeU64,
 
                 transactionId: contractDeploymentTransaction.transactionId,
                 transactionHash: contractDeploymentTransaction.hash,
@@ -521,11 +516,11 @@ export class VMManager extends Logger {
     }
 
     private calculateMaxGas(
-        unlimitedGas: boolean,
+        isSimulation: boolean,
         burnedBitcoins: bigint,
         baseGas: bigint,
     ): bigint {
-        const gas: bigint = unlimitedGas
+        const gas: bigint = isSimulation
             ? OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS
             : GasTracker.convertSatToGas(
                   burnedBitcoins,
@@ -625,7 +620,6 @@ export class VMManager extends Logger {
             storage: params.storage,
             callStack: params.callStack || [],
             isConstructor: false,
-            safeU64: params.safeU64,
 
             inputs: params.inputs,
             outputs: params.outputs,
