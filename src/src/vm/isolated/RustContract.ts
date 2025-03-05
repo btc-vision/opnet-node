@@ -1,6 +1,11 @@
-import { BitcoinNetworkRequest, ContractManager, ExitDataResponse } from '@btc-vision/op-vm';
-import { Blockchain } from '../Blockchain.js';
+import {
+    BitcoinNetworkRequest,
+    ContractManager,
+    EnvironmentVariablesRequest,
+    ExitDataResponse,
+} from '@btc-vision/op-vm';
 import { RustContractBinding } from './RustContractBindings.js';
+import { Blockchain } from '../Blockchain.js';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -121,7 +126,7 @@ export class RustContract {
             const strErr = (deadlock as Error).message;
 
             if (strErr.includes('mutex')) {
-                throw new Error('OP_NET: REENTRANCY DETECTED');
+                throw new Error('OPNET: REENTRANCY DETECTED');
             }
         }
     }
@@ -143,17 +148,11 @@ export class RustContract {
         }
     }
 
-    public async setEnvironment(buffer: Uint8Array | Buffer): Promise<void> {
-        if (this.enableDebug) console.log('Setting environment', buffer);
+    public setEnvironment(environmentVariables: EnvironmentVariablesRequest): void {
+        if (this.enableDebug) console.log('Setting environment', environmentVariables);
 
         try {
-            const data = await this.__lowerTypedArray(13, 0, buffer);
-            if (data == null) throw new Error('Data cannot be null');
-
-            await this.contractManager.call(this.id, 'setEnvironment', [data]);
-            const gasUsed = this.contractManager.getUsedGas(this.id);
-
-            this.gasCallback(gasUsed, 'setEnvironment');
+            this.contractManager.setEnvironmentVariables(this.id, environmentVariables);
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
 
@@ -162,11 +161,11 @@ export class RustContract {
         }
     }
 
-    public async onDeploy(buffer: Uint8Array | Buffer): Promise<ExitDataResponse> {
-        if (this.enableDebug) console.log('Setting onDeployment', buffer);
+    public async onDeploy(calldata: Uint8Array | Buffer): Promise<ExitDataResponse> {
+        if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
-            const resp = await this.contractManager.onDeploy(this.id, Buffer.from(buffer));
+            const resp = await this.contractManager.onDeploy(this.id, Buffer.from(calldata));
             const gasUsed = this.contractManager.getUsedGas(this.id);
 
             this.gasCallback(gasUsed, 'onDeploy');
@@ -204,7 +203,13 @@ export class RustContract {
             return new Error(`Execution reverted`);
         } else {
             const revertDataBytes = Uint8Array.from(revertData);
-            return this.decodeRevertData(revertDataBytes);
+            if (this.startsWithErrorSelector(revertDataBytes)) {
+                const decoder = new TextDecoder();
+                const revertMessage = decoder.decode(revertDataBytes.slice(6));
+                return new Error(`Execution reverted: ${revertMessage}`);
+            } else {
+                return new Error(`Execution reverted: 0x${this.bytesToHexString(revertDataBytes)}`);
+            }
         }
     }
 
@@ -216,38 +221,6 @@ export class RustContract {
         } else {
             return new Error(`Execution reverted: 0x${this.bytesToHexString(revertDataBytes)}`);
         }
-    }
-
-    private async __lowerTypedArray(
-        id: number,
-        align: number,
-        values: Uint8Array | Buffer,
-    ): Promise<number> {
-        if (this.enableDebug) console.log('Lowering typed array', id, align, values);
-
-        if (values == null) return 0;
-
-        const length = values.length;
-        const bufferSize = length << align;
-
-        // Allocate memory for the array
-        const newPointer = await this.__new(bufferSize, 1);
-        const buffer = newPointer >>> 0;
-        const header = (await this.__new(12, id)) >>> 0;
-
-        // Set the buffer and length in the header
-        const headerBuffer = Buffer.alloc(12);
-        const headerView = new DataView(headerBuffer.buffer);
-        headerView.setUint32(0, buffer, true);
-        headerView.setUint32(4, buffer, true);
-        headerView.setUint32(8, bufferSize, true);
-        this.contractManager.writeMemory(this.id, BigInt(header), headerBuffer);
-
-        // Write the values into the buffer
-        const valuesBuffer = Buffer.from(values.buffer, values.byteOffset, values.byteLength);
-        this.contractManager.writeMemory(this.id, BigInt(buffer), valuesBuffer);
-
-        return header;
     }
 
     private gasCallback(gas: bigint, method: string): void {
@@ -289,27 +262,5 @@ export class RustContract {
         return Array.from(byteArray, function (byte) {
             return ('0' + (byte & 0xff).toString(16)).slice(-2);
         }).join('');
-    }
-
-    private async __new(size: number, align: number): Promise<number> {
-        if (this.enableDebug) console.log('Creating new', size, align);
-
-        let finalResult;
-        try {
-            const resp = await this.contractManager.call(this.id, '__new', [size, align]);
-            const gasUsed = this.contractManager.getUsedGas(this.id);
-
-            this.gasCallback(gasUsed, '__new');
-
-            const result = resp.filter((n) => n !== undefined);
-            finalResult = result[0];
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in __new', e);
-
-            const error = e as Error;
-            throw this.getError(error);
-        }
-
-        return finalResult;
     }
 }

@@ -116,7 +116,7 @@ export class ContractEvaluator extends Logger {
                 const errored = this.loadContractFromBytecode(evaluation);
                 if (errored) throw new Error('Invalid contract bytecode');
 
-                await this.setEnvironment(evaluation);
+                this.setEnvironment(evaluation);
 
                 // We execute the method.
                 if (params.isConstructor) {
@@ -222,6 +222,7 @@ export class ContractEvaluator extends Logger {
             // data
             calldata: Buffer.from(calldata),
 
+            blockHash: evaluation.blockHash,
             transactionId: evaluation.transactionId,
             transactionHash: evaluation.transactionHash,
 
@@ -491,24 +492,21 @@ export class ContractEvaluator extends Logger {
         }
     }
 
-    private async setEnvironment(evaluation: ContractEvaluation): Promise<void> {
+    private setEnvironment(evaluation: ContractEvaluation): void {
         if (!this.deployerAddress || !this.contractAddress) {
             throw new Error('OP_NET: Contract not initialized');
         }
 
-        const writer = new BinaryWriter();
-
-        writer.writeAddress(evaluation.msgSender);
-        writer.writeAddress(evaluation.txOrigin); // "leftmost thing in the call chain"
-        writer.writeBytes(evaluation.transactionId); // "transaction id"
-
-        writer.writeU256(evaluation.blockNumber);
-        writer.writeAddress(this.deployerAddress);
-        writer.writeAddress(this.contractAddress);
-
-        writer.writeU64(evaluation.blockMedian);
-
-        await this.contractInstance.setEnvironment(writer.getBuffer());
+        this.contractInstance.setEnvironment({
+            blockHash: evaluation.blockHash,
+            blockNumber: evaluation.blockNumber,
+            blockMedianTime: evaluation.blockMedian,
+            txHash: evaluation.transactionHash,
+            contractAddress: this.contractAddress,
+            contractDeployer: this.deployerAddress,
+            caller: evaluation.msgSender,
+            origin: evaluation.txOrigin, // "leftmost thing in the call chain"
+        });
     }
 
     private async getStorageState(

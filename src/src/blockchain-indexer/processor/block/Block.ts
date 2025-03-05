@@ -105,6 +105,8 @@ export class Block extends Logger {
     private blockUsedGas: bigint = 0n;
     private readonly processEverythingAsGeneric: boolean = false;
 
+    private readonly _blockHashBuffer: Buffer;
+
     constructor(params: RawBlockParam | DeserializedBlock) {
         super();
 
@@ -121,6 +123,7 @@ export class Block extends Logger {
 
         this.signal = this.abortController.signal;
         this.header = new BlockHeader(params.header);
+        this._blockHashBuffer = Buffer.from(this.header.hash, 'hex');
 
         this.allowedPreimages = params.allowedPreimages;
 
@@ -167,6 +170,10 @@ export class Block extends Logger {
     /** Block Getters */
     public get hash(): string {
         return this.header.hash;
+    }
+
+    public get blockHashBuffer(): Buffer {
+        return this._blockHashBuffer;
     }
 
     public get height(): bigint {
@@ -550,6 +557,7 @@ export class Block extends Logger {
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.executeTransaction(
+                this.blockHashBuffer,
                 this.height,
                 this.median,
                 this.prevBaseGas,
@@ -599,6 +607,7 @@ export class Block extends Logger {
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.deployContract(
+                this.blockHashBuffer,
                 this.height,
                 this.median,
                 this.prevBaseGas,

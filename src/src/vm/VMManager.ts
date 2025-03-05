@@ -20,7 +20,7 @@ import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transacti
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
-import { BlockHeaderDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
+import { BlockHeader, BlockHeaderDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../db/interfaces/ITransactionDocument.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
@@ -50,6 +50,8 @@ import { AccessList } from '../api/json-rpc/types/interfaces/results/states/Call
 
 Globals.register();
 
+const EMPTY_BUFFER = Buffer.alloc(32);
+
 export class VMManager extends Logger {
     public initiated: boolean = false;
 
@@ -64,7 +66,7 @@ export class VMManager extends Logger {
 
     private vmEvaluators: AddressMap<Promise<ContractEvaluator | null>> = new AddressMap();
     private contractAddressCache: FastStringMap<Address> = new FastStringMap();
-    private cachedLastBlockHeight: Promise<bigint> | undefined;
+    private cachedLastBlockHeight: Promise<BlockHeader> | undefined;
     private isProcessing: boolean = false;
 
     private readonly _blockHeaderValidator: BlockHeaderValidator;
@@ -192,7 +194,7 @@ export class VMManager extends Logger {
                 throw new Error('Contract not found');
             }
 
-            const currentHeight: bigint = height || 1n + (await this.fetchCachedBlockHeight());
+            const currentHeight: BlockHeader = await this.getChainCurrentBlockHeight();
 
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
@@ -203,7 +205,7 @@ export class VMManager extends Logger {
                 maxGas: OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
                 calldata: calldata,
 
-                blockHeight: currentHeight,
+                blockHeight: currentHeight.height + 1n,
                 blockMedian: BigInt(Date.now()), // add support for this
 
                 storage: new AddressMap(),
@@ -213,8 +215,10 @@ export class VMManager extends Logger {
                 gasUsed: 0n,
                 callDepth: 0,
                 contractDeployDepth: 0,
-                transactionId: null,
-                transactionHash: null,
+
+                blockHash: EMPTY_BUFFER,
+                transactionId: EMPTY_BUFFER,
+                transactionHash: EMPTY_BUFFER,
 
                 inputs: transaction ? transaction.inputs : [],
                 outputs: transaction ? transaction.outputs : [],
@@ -238,6 +242,7 @@ export class VMManager extends Logger {
     }
 
     public async executeTransaction(
+        blockHash: Buffer,
         blockHeight: bigint,
         blockMedian: bigint,
         baseGas: bigint,
@@ -289,11 +294,13 @@ export class VMManager extends Logger {
                 maxGas: maxGas,
                 calldata: interactionTransaction.calldata,
 
+                blockHash: blockHash,
                 blockHeight: blockHeight,
                 blockMedian: blockMedian,
 
                 transactionId: interactionTransaction.transactionId,
                 transactionHash: interactionTransaction.hash,
+
                 storage: new AddressMap(),
 
                 allowCached: true,
@@ -320,6 +327,7 @@ export class VMManager extends Logger {
     }
 
     public async deployContract(
+        blockHash: Buffer,
         blockHeight: bigint,
         median: bigint,
         baseGas: bigint,
@@ -379,6 +387,7 @@ export class VMManager extends Logger {
                 maxGas: maxGas,
                 calldata: contractDeploymentTransaction.calldata,
 
+                blockHash: blockHash,
                 blockNumber: blockHeight,
                 blockMedian: median,
 
@@ -611,12 +620,17 @@ export class VMManager extends Logger {
             maxGas: params.maxGas,
             gasUsed: params.gasUsed,
             externalCall: params.externalCall,
+
+            blockHash: params.blockHash,
             blockNumber: params.blockHeight,
             blockMedian: params.blockMedian,
-            contractDeployDepth: params.contractDeployDepth,
-            callDepth: params.callDepth,
+
             transactionId: params.transactionId,
             transactionHash: params.transactionHash,
+
+            contractDeployDepth: params.contractDeployDepth,
+            callDepth: params.callDepth,
+
             storage: params.storage,
             callStack: params.callStack || [],
             isConstructor: false,
@@ -654,7 +668,7 @@ export class VMManager extends Logger {
         return address;
     }
 
-    private async getChainCurrentBlockHeight(): Promise<bigint> {
+    private async getChainCurrentBlockHeight(): Promise<BlockHeader> {
         const block = await this.vmStorage.getLatestBlock();
         if (!block) {
             throw new Error('Block not found');
@@ -664,10 +678,14 @@ export class VMManager extends Logger {
             this.cachedLastBlockHeight = undefined;
         }, 2000);
 
-        return BigInt(block.height);
+        return {
+            ...block,
+            hash: Buffer.from(block.hash, 'hex'),
+            height: BigInt(block.height),
+        };
     }
 
-    private async fetchCachedBlockHeight(): Promise<bigint> {
+    private async fetchCachedBlockHeight(): Promise<BlockHeader> {
         if (this.cachedLastBlockHeight === undefined) {
             this.cachedLastBlockHeight = this.getChainCurrentBlockHeight();
         }

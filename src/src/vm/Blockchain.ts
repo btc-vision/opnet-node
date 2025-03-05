@@ -88,7 +88,6 @@ class BlockchainBase {
             const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
             const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
             if (!c) {
                 throw new Error('Binding not found');
             }
@@ -133,14 +132,6 @@ class BlockchainBase {
         return c.outputs();
     };
 
-    // For future use?
-    /*public cleanUp(): void {
-        this.contractManager.destroyAll();
-        this.contractManager.destroy();
-
-        delete this._contractManager;
-    }*/
-
     private loadJsFunction: (
         _: never,
         result: ThreadSafeJsImportResponse,
@@ -152,8 +143,8 @@ class BlockchainBase {
 
         const u = new Uint8Array(value.buffer);
         const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
 
+        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
             throw new Error('Binding not found (load)');
         }
@@ -174,7 +165,6 @@ class BlockchainBase {
         const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
         if (!c) {
             throw new Error('Binding not found (store)');
         }
@@ -195,7 +185,6 @@ class BlockchainBase {
         const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
         if (!c) {
             throw new Error('Binding not found (call)');
         }
@@ -216,7 +205,6 @@ class BlockchainBase {
         const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
 
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-
         if (!c) {
             throw new Error('Binding not found (deploy)');
         }
