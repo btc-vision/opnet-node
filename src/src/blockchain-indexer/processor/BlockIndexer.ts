@@ -152,7 +152,11 @@ export class BlockIndexer extends Logger {
         // Purge.
         const originalHeight = this.chainObserver.pendingBlockHeight;
         await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
+        this.log(`Setting new height... ${purgeFromBlock}`);
+
         await this.chainObserver.setNewHeight(purgeFromBlock);
+
+        this.log(`Starting watchdog...`);
 
         await this.reorgWatchdog.init(originalHeight);
 
@@ -341,6 +345,8 @@ export class BlockIndexer extends Logger {
     private startTasks(): void {
         // Check if the chain is reorged.
         if (this.chainReorged) return;
+
+        this.info(`Starting tasks...`);
 
         // Calculate the number of tasks to start.
         const currentIndexingLength =
