@@ -247,7 +247,7 @@ export class ContractEvaluator extends Logger {
 
         const writer = new BinaryWriter();
         writer.writeU64(response.gasUsed);
-        writer.writeU32(response.revert ? 0 : 1);
+        writer.writeU32(response.revert ? 1 : 0);
         writer.writeBytes(response.result || new Uint8Array(0));
 
         return writer.getBuffer();
