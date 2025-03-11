@@ -35,7 +35,6 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public readonly blockNumber: bigint;
     public readonly blockMedian: bigint;
-    public readonly safeU64: bigint;
 
     public readonly externalCall: boolean;
 
@@ -49,8 +48,9 @@ export class ContractEvaluation implements ExecutionParameters {
     public contractDeployDepth: number;
     public callDepth: number;
 
+    public readonly blockHash: Buffer;
     public readonly transactionId: Buffer;
-    public readonly transactionHash: Buffer | null;
+    public readonly transactionHash: Buffer;
 
     public readonly storage: AddressMap<PointerStorage>;
     public readonly deployedContracts: ContractInformation[];
@@ -81,9 +81,9 @@ export class ContractEvaluation implements ExecutionParameters {
         this.contractDeployDepth = params.contractDeployDepth;
         this.deployedContracts = params.deployedContracts || [];
         this.isConstructor = params.isConstructor || false;
-        this.safeU64 = params.safeU64;
 
-        this.transactionId = params.transactionId || Buffer.alloc(32);
+        this.blockHash = params.blockHash;
+        this.transactionId = params.transactionId;
         this.transactionHash = params.transactionHash;
 
         this.gasTracker = new GasTracker(params.maxGas);
@@ -350,7 +350,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     private checkReentrancy(callStack: Address[]): void {
         if (callStack.includes(this.contractAddress)) {
-            throw new Error('OPNET: REENTRANCY');
+            throw new Error('OP_NET: REENTRANCY');
         }
     }
 

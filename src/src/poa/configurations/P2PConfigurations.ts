@@ -9,7 +9,6 @@ import { MulticastDNSInit } from '@libp2p/mdns/dist/src/mdns.js';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { TCPOptions } from '@libp2p/tcp';
 import { UPnPNATInit } from '@libp2p/upnp-nat';
-import { WebSocketsInit } from '@libp2p/websockets';
 import { LevelDatastore } from 'datastore-level';
 import fs from 'fs';
 import { AddressManagerInit } from 'libp2p/address-manager/index.js';
@@ -53,7 +52,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             outboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
 
             maxConnections: this.config.P2P.MAXIMUM_PEERS,
-            socketCloseTimeout: 2000,
+            socketCloseTimeout: 5000,
             backlog: 100,
             closeServerOnMaxConnections: {
                 closeAbove: this.config.P2P.MAXIMUM_PEERS,
@@ -62,22 +61,22 @@ export class P2PConfigurations extends OPNetPathFinder {
         };
     }
 
-    public get websocketConfiguration(): WebSocketsInit {
+    /*public get websocketConfiguration(): WebSocketsInit {
         return {
             websocket: {
                 handshakeTimeout: 10000,
                 maxPayload: P2PConfigurations.maxMessageSize,
             },
         };
-    }
+    }*/
 
     public get autoNATConfiguration(): AutoNATServiceInit {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
             timeout: 10000,
-            maxInboundStreams: 3,
-            maxOutboundStreams: 3,
-            startupDelay: 3000,
+            maxInboundStreams: 5,
+            maxOutboundStreams: 5,
+            startupDelay: 4000,
         };
     }
 
@@ -137,7 +136,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get bootstrapConfiguration(): BootstrapInit {
         return {
-            timeout: 1000,
+            timeout: 5000,
             tagValue: 50,
             tagTTL: 120000,
             list: this.getBootstrapPeers(),
@@ -215,9 +214,9 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get identifyConfiguration(): IdentifyInit {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
-            timeout: 3000,
-            maxInboundStreams: 3,
-            maxOutboundStreams: 3,
+            timeout: 5000,
+            maxInboundStreams: 5,
+            maxOutboundStreams: 5,
             maxObservedAddresses: 1,
             runOnConnectionOpen: false,
         };

@@ -18,18 +18,18 @@ import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { Network } from '@btc-vision/bitcoin';
-import assert from 'node:assert';
 import { ContractParameters, RustContract } from '../isolated/RustContract.js';
 import { Blockchain } from '../Blockchain.js';
 import { Config } from '../../config/Config.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
+import { ExitDataResponse } from '@btc-vision/op-vm';
 
 export class ContractEvaluator extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private isProcessing: boolean = false;
 
-    private contractOwner: Address | undefined;
+    private deployerAddress: Address | undefined;
     private contractAddress: Address | undefined;
 
     private bytecode: Buffer | undefined;
@@ -85,7 +85,7 @@ export class ContractEvaluator extends Logger {
 
     public setContractInformation(contractInformation: ContractInformation): void {
         // We use pub the pub key as the deployer address.
-        this.contractOwner = contractInformation.deployerAddress;
+        this.deployerAddress = contractInformation.deployerAddress;
         this.contractAddress = contractInformation.contractTweakedPublicKey;
         this.bytecode = contractInformation.bytecode;
     }
@@ -115,7 +115,7 @@ export class ContractEvaluator extends Logger {
                 const errored = this.loadContractFromBytecode(evaluation);
                 if (errored) throw new Error('Invalid contract bytecode');
 
-                await this.setEnvironment(evaluation);
+                this.setEnvironment(evaluation);
 
                 // We execute the method.
                 if (params.isConstructor) {
@@ -189,6 +189,7 @@ export class ContractEvaluator extends Logger {
     /** Call a contract */
     private async call(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
         const reader = new BinaryReader(data);
+        const gasUsed: bigint = reader.readU64();
         const contractAddress: Address = reader.readAddress();
 
         if (evaluation.contractAddress.equals(contractAddress)) {
@@ -198,7 +199,6 @@ export class ContractEvaluator extends Logger {
         const calldata: Uint8Array = reader.readBytesWithLength();
         evaluation.incrementCallDepth();
 
-        const gasUsed: bigint = evaluation.gasTracker.gasUsed;
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
             contractAddressStr: contractAddress.p2tr(this.network),
@@ -215,11 +215,11 @@ export class ContractEvaluator extends Logger {
 
             blockHeight: evaluation.blockNumber,
             blockMedian: evaluation.blockMedian,
-            safeU64: evaluation.safeU64,
 
             // data
             calldata: Buffer.from(calldata),
 
+            blockHash: evaluation.blockHash,
             transactionId: evaluation.transactionId,
             transactionHash: evaluation.transactionHash,
 
@@ -240,21 +240,16 @@ export class ContractEvaluator extends Logger {
         const response = await this.callExternal(externalCallParams);
         evaluation.merge(response);
 
-        assert(!response.revert, 'execution reverted (call)');
-
-        const result = response.result;
-        if (!result) {
-            throw new Error('No result');
-        }
+        //assert(!response.revert, 'execution reverted (call)');
 
         const writer = new BinaryWriter();
         writer.writeU64(response.gasUsed);
-        writer.writeBytes(result);
+        writer.writeU32(response.revert ? 1 : 0);
+        writer.writeBytes(response.result || new Uint8Array(0));
 
         return writer.getBuffer();
     }
 
-    // TODO: Implement this
     private async deployContractFromAddressRaw(
         data: Buffer,
         evaluation: ContractEvaluation,
@@ -319,6 +314,7 @@ export class ContractEvaluator extends Logger {
             network: NetworkConverter.networkToBitcoinNetwork(this.network),
             gasLimit: difference, //OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
             gasCallback: evaluation.onGasUsed,
+            isDebugMode: false,
             load: async (data: Buffer) => {
                 return await this.load(data, evaluation);
             },
@@ -388,17 +384,37 @@ export class ContractEvaluator extends Logger {
         return this.getStorage(address, pointer, defaultValueBuffer, canInitialize, blockNumber);
     }
 
-    private async evaluate(evaluation: ContractEvaluation): Promise<void> {
-        let result: Uint8Array | undefined | null;
+    private async evaluate(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
+        let result: ExitDataResponse | undefined;
         let error: Error | undefined;
 
-        // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
         try {
             result = await this.contractInstance.execute(evaluation.calldata);
         } catch (e) {
             error = (await e) as Error;
         }
 
+        return await this.onExecutionResult(evaluation, result, error);
+    }
+
+    private async onDeploy(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
+        let error: Error | undefined;
+        let result: ExitDataResponse | undefined;
+
+        try {
+            result = await this.contractInstance.onDeploy(evaluation.calldata);
+        } catch (e) {
+            error = (await e) as Error;
+        }
+
+        return await this.onExecutionResult(evaluation, result, error);
+    }
+
+    private async onExecutionResult(
+        evaluation: ContractEvaluation,
+        result: ExitDataResponse | undefined,
+        error: Error | undefined,
+    ): Promise<ExitDataResponse | undefined> {
         if (error) {
             try {
                 evaluation.setGas(this.contractInstance.getUsedGas());
@@ -412,53 +428,38 @@ export class ContractEvaluator extends Logger {
         }
 
         if (!result) {
-            evaluation.revert = new Error('No result returned');
+            evaluation.revert = new Error('OP_NET: No result returned');
             return;
         }
 
         await this.processResult(result, error, evaluation);
-    }
 
-    private async onDeploy(evaluation: ContractEvaluation): Promise<void> {
-        let error: Error | undefined;
-
-        // TODO: Check the pointer header when getting the result so we dont have to reconstruct the buffer in ram.
-        try {
-            await this.contractInstance.onDeploy(evaluation.calldata);
-        } catch (e) {
-            error = (await e) as Error;
-        }
-
-        if (error) {
-            try {
-                evaluation.setGas(this.contractInstance.getUsedGas());
-            } catch {}
-
-            if (!evaluation.revert) {
-                evaluation.revert = error.message;
-            }
-
-            return;
-        }
-
-        await this.processResult(new Uint8Array(1).fill(1), error, evaluation);
+        return result;
     }
 
     private async processResult(
-        result: Uint8Array,
+        result: ExitDataResponse,
         error: Error | undefined,
         evaluation: ContractEvaluation,
     ): Promise<void> {
-        if (result.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
-            evaluation.revert = new Error('OP_NET: Maximum receipt length exceeded.');
+        if (!this._contractInstance) {
+            throw new Error('Contract not initialized');
+        }
 
+        const data = result.data;
+        if (data.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
+            evaluation.revert = new Error('OP_NET: Maximum receipt length exceeded.');
             return;
         }
 
-        // Check if result only contains zeros or is false.
-        const isSuccess: boolean = result.length > 0;
+        // Check if data only contains zeros or is false.
+        const isSuccess: boolean = result.status === 0;
         if (!isSuccess) {
-            evaluation.revert = new Error('OP_NET: Contract execution failed.');
+            try {
+                evaluation.revert = this._contractInstance.decodeRevertData(result.data);
+            } catch {
+                evaluation.revert = new Error('OP_NET: An unknown error occurred');
+            }
             return;
         }
 
@@ -476,7 +477,7 @@ export class ContractEvaluator extends Logger {
                 await Promise.safeAll(deploymentPromises);
             }
 
-            evaluation.setResult(result);
+            evaluation.setResult(result.data);
         }
 
         if (evaluation.revert) {
@@ -486,25 +487,21 @@ export class ContractEvaluator extends Logger {
         }
     }
 
-    private async setEnvironment(evaluation: ContractEvaluation): Promise<void> {
-        if (!this.contractOwner || !this.contractAddress) {
+    private setEnvironment(evaluation: ContractEvaluation): void {
+        if (!this.deployerAddress || !this.contractAddress) {
             throw new Error('OP_NET: Contract not initialized');
         }
 
-        const writer = new BinaryWriter();
-
-        writer.writeAddress(evaluation.msgSender);
-        writer.writeAddress(evaluation.txOrigin); // "leftmost thing in the call chain"
-        writer.writeBytes(evaluation.transactionId); // "transaction id"
-
-        writer.writeU256(evaluation.blockNumber);
-        writer.writeAddress(this.contractOwner);
-        writer.writeAddress(this.contractAddress);
-
-        writer.writeU64(evaluation.blockMedian);
-        writer.writeU64(evaluation.safeU64);
-
-        await this.contractInstance.setEnvironment(writer.getBuffer());
+        this.contractInstance.setEnvironment({
+            blockHash: evaluation.blockHash,
+            blockNumber: evaluation.blockNumber,
+            blockMedianTime: evaluation.blockMedian,
+            txHash: evaluation.transactionHash,
+            contractAddress: this.contractAddress,
+            contractDeployer: this.deployerAddress,
+            caller: evaluation.msgSender,
+            origin: evaluation.txOrigin, // "leftmost thing in the call chain"
+        });
     }
 
     private async getStorageState(

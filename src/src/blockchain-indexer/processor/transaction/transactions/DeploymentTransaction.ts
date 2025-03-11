@@ -426,7 +426,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
 
         if (
             calldata &&
-            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_DECOMPRESSED <
+            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CALLDATA_SIZE_COMPRESSED <
                 calldata.byteLength
         ) {
             throw new Error(`OP_NET: Calldata length exceeds maximum allowed size.`);
@@ -444,7 +444,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         }
 
         if (
-            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CONTRACT_SIZE_DECOMPRESSED <
+            OPNetConsensus.consensus.CONTRACTS.MAXIMUM_CONTRACT_SIZE_COMPRESSED <
             contractBytecode.byteLength
         ) {
             throw new Error(`OP_NET: Contract length exceeds maximum allowed size.`);

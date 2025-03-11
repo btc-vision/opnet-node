@@ -1,7 +1,11 @@
-import { BitcoinNetworkRequest, CallResponse, ContractManager } from '@btc-vision/op-vm';
+import {
+    BitcoinNetworkRequest,
+    ContractManager,
+    EnvironmentVariablesRequest,
+    ExitDataResponse,
+} from '@btc-vision/op-vm';
 import { RustContractBinding } from './RustContractBindings.js';
 import { Blockchain } from '../Blockchain.js';
-import { FastNumberMap } from '../../utils/fast/FastNumberMap.js';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -9,14 +13,13 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly bytecode: Buffer;
     readonly gasLimit: bigint;
     readonly network: BitcoinNetworkRequest;
+    readonly isDebugMode: boolean;
     readonly gasCallback: (gas: bigint, method: string) => void;
 
     readonly contractManager: ContractManager;
 }
 
 export class RustContract {
-    private refCounts: FastNumberMap<number> = new FastNumberMap<number>();
-
     private readonly enableDebug: boolean = false;
     private readonly enableDisposeLog: boolean = false;
 
@@ -51,15 +54,7 @@ export class RustContract {
                 outputs: this.params.outputs,
             });
 
-            this.contractManager.instantiate(
-                this._id,
-                this.params.address,
-                this.params.bytecode,
-                this.params.gasLimit,
-                this.params.network,
-            );
-
-            this._instantiated = true;
+            this.instantiate();
         }
 
         return this._id;
@@ -87,6 +82,22 @@ export class RustContract {
         return this._params;
     }
 
+    public instantiate(): void {
+        if (this._id == null) throw new Error('Contract is not instantiated');
+        if (this._instantiated) return;
+
+        this.contractManager.instantiate(
+            this._id,
+            this.params.address,
+            this.params.bytecode,
+            this.params.gasLimit,
+            this.params.network,
+            this.params.isDebugMode,
+        );
+
+        this._instantiated = true;
+    }
+
     public dispose(): void {
         if (!this.instantiated) return;
 
@@ -105,8 +116,6 @@ export class RustContract {
 
         delete this._params;
 
-        this.refCounts.clear();
-
         if (this.disposed) return;
         this._disposed = true;
 
@@ -122,23 +131,15 @@ export class RustContract {
         }
     }
 
-    public async execute(buffer: Uint8Array | Buffer): Promise<Uint8Array> {
-        if (this.enableDebug) console.log('execute', buffer);
+    public async execute(calldata: Uint8Array | Buffer): Promise<ExitDataResponse> {
+        if (this.enableDebug) console.log('execute', calldata);
 
         try {
-            const pointer = await this.__lowerTypedArray(13, 0, buffer);
-            const data = await this.__retain(pointer);
-
-            const resp = await this.contractManager.call(this.id, 'execute', [data]);
+            const response = await this.contractManager.execute(this.id, Buffer.from(calldata));
             const gasUsed = this.contractManager.getUsedGas(this.id);
             this.gasCallback(gasUsed, 'execute');
 
-            const result = resp.filter((n) => n !== undefined);
-            const finalResult = this.__liftTypedArray(result[0] >>> 0);
-
-            await this.__release(data);
-
-            return finalResult;
+            return response;
         } catch (e) {
             if (this.enableDebug) console.log('Error in execute', e);
 
@@ -147,17 +148,11 @@ export class RustContract {
         }
     }
 
-    public async setEnvironment(buffer: Uint8Array | Buffer): Promise<void> {
-        if (this.enableDebug) console.log('Setting environment', buffer);
+    public setEnvironment(environmentVariables: EnvironmentVariablesRequest): void {
+        if (this.enableDebug) console.log('Setting environment', environmentVariables);
 
         try {
-            const data = await this.__lowerTypedArray(13, 0, buffer);
-            if (data == null) throw new Error('Data cannot be null');
-
-            await this.contractManager.call(this.id, 'setEnvironment', [data]);
-            const gasUsed = this.contractManager.getUsedGas(this.id);
-
-            this.gasCallback(gasUsed, 'setEnvironment');
+            this.contractManager.setEnvironmentVariables(this.id, environmentVariables);
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
 
@@ -166,34 +161,19 @@ export class RustContract {
         }
     }
 
-    public async onDeploy(buffer: Uint8Array | Buffer): Promise<CallResponse> {
-        if (this.enableDebug) console.log('Setting onDeployment', buffer);
+    public async onDeploy(calldata: Uint8Array | Buffer): Promise<ExitDataResponse> {
+        if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
-            const data = await this.__lowerTypedArray(13, 0, buffer);
-            if (data == null) throw new Error('Data cannot be null');
-
-            const resp = await this.contractManager.call(this.id, 'onDeploy', [data]);
+            const resp = await this.contractManager.onDeploy(this.id, Buffer.from(calldata));
             const gasUsed = this.contractManager.getUsedGas(this.id);
 
             this.gasCallback(gasUsed, 'onDeploy');
 
-            return {
-                result: resp.filter((n) => n !== undefined),
-                gasUsed: gasUsed,
-            };
+            return resp;
         } catch (e) {
             if (this.enableDebug) console.log('Error in onDeployment', e);
 
-            const error = e as Error;
-            throw this.getError(error);
-        }
-    }
-
-    public setUsedGas(gas: bigint): void {
-        try {
-            this.contractManager.setUsedGas(this.id, gas);
-        } catch (e) {
             const error = e as Error;
             throw this.getError(error);
         }
@@ -212,153 +192,29 @@ export class RustContract {
         }
     }
 
-    public useGas(amount: bigint): void {
+    public getRevertError(): Error {
+        const revertData = this.contractManager.getExitData(this.id).data;
+
         try {
-            return this.contractManager.useGas(this.id, amount);
-        } catch (e) {
-            const error = e as Error;
-            throw this.getError(error);
+            this.dispose();
+        } catch {}
+
+        if (revertData.length === 0) {
+            return new Error(`Execution reverted`);
+        } else {
+            const revertDataBytes = Uint8Array.from(revertData);
+            return this.decodeRevertData(revertDataBytes);
         }
     }
 
-    public getRemainingGas(): bigint {
-        try {
-            return this.contractManager.getRemainingGas(this.id);
-        } catch (e) {
-            const error = e as Error;
-            throw this.getError(error);
+    public decodeRevertData(revertDataBytes: Uint8Array): Error {
+        if (this.startsWithErrorSelector(revertDataBytes)) {
+            const decoder = new TextDecoder();
+            const revertMessage = decoder.decode(revertDataBytes.slice(6));
+            return new Error(`Execution reverted: ${revertMessage}`);
+        } else {
+            return new Error(`Execution reverted: 0x${this.bytesToHexString(revertDataBytes)}`);
         }
-    }
-
-    public setRemainingGas(gas: bigint): void {
-        try {
-            this.contractManager.setRemainingGas(this.id, gas);
-        } catch (e) {
-            const error = e as Error;
-            throw this.getError(error);
-        }
-    }
-
-    private async __retain(pointer: number): Promise<number> {
-        if (this.enableDebug) console.log('Retaining pointer', pointer);
-
-        if (pointer) {
-            const refcount = this.refCounts.get(pointer);
-            if (refcount) {
-                this.refCounts.set(pointer, refcount + 1);
-            } else {
-                const pinned = await this.__pin(pointer);
-                this.refCounts.set(pinned, 1);
-            }
-        }
-
-        return pointer;
-    }
-
-    private async __release(pointer: number): Promise<void> {
-        if (this.enableDebug) console.log('Releasing pointer', pointer);
-
-        if (pointer) {
-            const refcount = this.refCounts.get(pointer);
-            if (refcount === 1) {
-                await this.__unpin(pointer);
-                this.refCounts.delete(pointer);
-            } else if (refcount) {
-                this.refCounts.set(pointer, refcount - 1);
-            } else {
-                throw Error(`invalid refcount '${refcount}' for reference '${pointer}'`);
-            }
-        }
-    }
-
-    private __liftString(pointer: number): string | null {
-        if (this.enableDebug) console.log('Lifting string', pointer);
-
-        if (!pointer) return null;
-
-        // Read the length of the string
-        const lengthPointer = pointer - 4;
-        const lengthBuffer = this.contractManager.readMemory(this.id, BigInt(lengthPointer), 4n);
-        const length = new Uint32Array(lengthBuffer.buffer)[0];
-
-        const end = (pointer + length) >>> 1;
-        const stringParts: Array<string> = [];
-        let start = pointer >>> 1;
-
-        while (end - start > 1024) {
-            const chunkBuffer = this.contractManager.readMemory(this.id, BigInt(start * 2), 2048n);
-            const memoryU16 = new Uint16Array(chunkBuffer.buffer);
-            stringParts.push(String.fromCharCode(...memoryU16));
-            start += 1024;
-        }
-
-        const remainingBuffer = this.contractManager.readMemory(
-            this.id,
-            BigInt(start * 2),
-            BigInt((end - start) * 2),
-        );
-
-        const remainingU16 = new Uint16Array(remainingBuffer.buffer);
-        stringParts.push(String.fromCharCode(...remainingU16));
-
-        return stringParts.join('');
-    }
-
-    private __liftTypedArray(pointer: number): Uint8Array {
-        if (this.enableDebug) console.log('Lifting typed array', pointer);
-
-        if (!pointer) throw new Error('Pointer cannot be null');
-
-        // Read the data offset and length
-        const buffer = this.contractManager.readMemory(this.id, BigInt(pointer + 4), 8n);
-
-        const dataView = new DataView(buffer.buffer);
-        const dataOffset = dataView.getUint32(0, true);
-        const length = dataView.getUint32(4, true) / Uint8Array.BYTES_PER_ELEMENT;
-
-        // Read the actual data
-        const dataBuffer = this.contractManager.readMemory(
-            this.id,
-            BigInt(dataOffset),
-            BigInt(length * Uint8Array.BYTES_PER_ELEMENT),
-        );
-
-        // Create the typed array and return its slice
-        const typedArray = new Uint8Array(dataBuffer.buffer);
-        return typedArray.slice();
-    }
-
-    private async __lowerTypedArray(
-        id: number,
-        align: number,
-        values: Uint8Array | Buffer,
-    ): Promise<number> {
-        if (this.enableDebug) console.log('Lowering typed array', id, align, values);
-
-        if (values == null) return 0;
-
-        const length = values.length;
-        const bufferSize = length << align;
-
-        // Allocate memory for the array
-        const newPointer = await this.__new(bufferSize, 1);
-        const buffer = (await this.__pin(newPointer)) >>> 0;
-        const header = (await this.__new(12, id)) >>> 0;
-
-        // Set the buffer and length in the header
-        const headerBuffer = Buffer.alloc(12);
-        const headerView = new DataView(headerBuffer.buffer);
-        headerView.setUint32(0, buffer, true);
-        headerView.setUint32(4, buffer, true);
-        headerView.setUint32(8, bufferSize, true);
-        this.contractManager.writeMemory(this.id, BigInt(header), headerBuffer);
-
-        // Write the values into the buffer
-        const valuesBuffer = Buffer.from(values.buffer, values.byteOffset, values.byteLength);
-        this.contractManager.writeMemory(this.id, BigInt(buffer), valuesBuffer);
-
-        await this.__unpin(buffer);
-        return header;
     }
 
     private gasCallback(gas: bigint, method: string): void {
@@ -369,90 +225,36 @@ export class RustContract {
         if (this.enableDebug) console.log('Getting error', err);
 
         const msg = err.message;
-        if (msg.includes('Execution aborted') && !msg.includes('Execution aborted:')) {
-            return this.abort();
+        if (msg.includes('Execution reverted') && !msg.includes('Execution reverted:')) {
+            return this.getRevertError();
         } else {
             return err;
         }
     }
 
-    private abort(): Error {
-        const abortData = this.contractManager.getAbortData(this.id);
-        const message = this.__liftString(abortData.message);
-        const fileName = this.__liftString(abortData.fileName);
-        const line = abortData.line;
-        const column = abortData.column;
-
-        try {
-            this.dispose();
-        } catch {}
-
-        return new Error(`Execution aborted: ${message} at ${fileName}:${line}:${column}`);
+    private startsWithErrorSelector(revertDataBytes: Uint8Array) {
+        const errorSelectorBytes = Uint8Array.from([0x63, 0x73, 0x9d, 0x5c]);
+        return (
+            revertDataBytes.length >= 4 &&
+            this.areBytesEqual(revertDataBytes.slice(0, 4), errorSelectorBytes)
+        );
     }
 
-    private async __pin(pointer: number): Promise<number> {
-        if (this.enableDebug) console.log('Pinning pointer', pointer);
+    private areBytesEqual(a: Uint8Array, b: Uint8Array) {
+        if (a.length !== b.length) return false;
 
-        let finalResult: number;
-        try {
-            const resp = await this.contractManager.call(this.id, '__pin', [pointer]);
-            const gasUsed = this.contractManager.getUsedGas(this.id);
-
-            this.gasCallback(gasUsed, '__pin');
-
-            const result = resp.filter((n) => n !== undefined);
-            finalResult = result[0];
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in __pin', e);
-
-            const error = e as Error;
-            throw this.getError(error);
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) {
+                return false;
+            }
         }
 
-        return finalResult;
+        return true;
     }
 
-    private async __unpin(pointer: number): Promise<number> {
-        if (this.enableDebug) console.log('Unpinning pointer', pointer);
-
-        let finalResult: number;
-        try {
-            const resp = await this.contractManager.call(this.id, '__unpin', [pointer]);
-            const gasUsed = this.contractManager.getUsedGas(this.id);
-
-            this.gasCallback(gasUsed, '__unpin');
-
-            const result = resp.filter((n) => n !== undefined);
-            finalResult = result[0];
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in __unpin', e);
-
-            const error = e as Error;
-            throw this.getError(error);
-        }
-
-        return finalResult;
-    }
-
-    private async __new(size: number, align: number): Promise<number> {
-        if (this.enableDebug) console.log('Creating new', size, align);
-
-        let finalResult;
-        try {
-            const resp = await this.contractManager.call(this.id, '__new', [size, align]);
-            const gasUsed = this.contractManager.getUsedGas(this.id);
-
-            this.gasCallback(gasUsed, '__new');
-
-            const result = resp.filter((n) => n !== undefined);
-            finalResult = result[0];
-        } catch (e) {
-            if (this.enableDebug) console.log('Error in __new', e);
-
-            const error = e as Error;
-            throw this.getError(error);
-        }
-
-        return finalResult;
+    private bytesToHexString(byteArray: Uint8Array): string {
+        return Array.from(byteArray, function (byte) {
+            return ('0' + (byte & 0xff).toString(16)).slice(-2);
+        }).join('');
     }
 }

@@ -105,6 +105,8 @@ export class Block extends Logger {
     private blockUsedGas: bigint = 0n;
     private readonly processEverythingAsGeneric: boolean = false;
 
+    private readonly _blockHashBuffer: Buffer;
+
     constructor(params: RawBlockParam | DeserializedBlock) {
         super();
 
@@ -121,6 +123,7 @@ export class Block extends Logger {
 
         this.signal = this.abortController.signal;
         this.header = new BlockHeader(params.header);
+        this._blockHashBuffer = Buffer.from(this.header.hash, 'hex');
 
         this.allowedPreimages = params.allowedPreimages;
 
@@ -169,16 +172,16 @@ export class Block extends Logger {
         return this.header.hash;
     }
 
+    public get blockHashBuffer(): Buffer {
+        return this._blockHashBuffer;
+    }
+
     public get height(): bigint {
         return this.header.height;
     }
 
     public get median(): bigint {
         return BigInt(this.header.medianTime.getTime());
-    }
-
-    public get safeU64(): bigint {
-        return this.header.safeU64;
     }
 
     public get previousBlockChecksum(): string {
@@ -541,7 +544,7 @@ export class Block extends Logger {
     protected async executeInteractionTransaction(
         transaction: InteractionTransaction,
         vmManager: VMManager,
-        unlimitedGas: boolean = false,
+        isSimulation: boolean = false,
     ): Promise<void> {
         const start = Date.now();
         try {
@@ -554,12 +557,12 @@ export class Block extends Logger {
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.executeTransaction(
+                this.blockHashBuffer,
                 this.height,
                 this.median,
                 this.prevBaseGas,
-                this.safeU64,
                 transaction,
-                unlimitedGas,
+                isSimulation,
             );
 
             this.blockUsedGas += evaluation.gasUsed;
@@ -604,10 +607,10 @@ export class Block extends Logger {
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.deployContract(
+                this.blockHashBuffer,
                 this.height,
                 this.median,
                 this.prevBaseGas,
-                this.safeU64,
                 transaction,
             );
 
