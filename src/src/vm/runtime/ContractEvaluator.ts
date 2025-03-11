@@ -200,7 +200,7 @@ export class ContractEvaluator extends Logger {
         const calldata: Uint8Array = reader.readBytesWithLength();
         evaluation.incrementCallDepth();
 
-        console.log(evaluation.gasTracker.gasUsed, gasUsed);
+        console.log('call', evaluation.gasTracker.gasUsed, gasUsed);
 
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
@@ -245,14 +245,10 @@ export class ContractEvaluator extends Logger {
 
         assert(!response.revert, 'execution reverted (call)');
 
-        const result = response.result;
-        if (!result) {
-            throw new Error('No result');
-        }
-
         const writer = new BinaryWriter();
         writer.writeU64(response.gasUsed);
-        writer.writeBytes(result);
+        writer.writeU32(response.revert ? 0 : 1);
+        writer.writeBytes(response.result || new Uint8Array(0));
 
         return writer.getBuffer();
     }
@@ -391,7 +387,7 @@ export class ContractEvaluator extends Logger {
         return this.getStorage(address, pointer, defaultValueBuffer, canInitialize, blockNumber);
     }
 
-    private async evaluate(evaluation: ContractEvaluation): Promise<void> {
+    private async evaluate(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
         let result: ExitDataResponse | undefined;
         let error: Error | undefined;
 
@@ -401,10 +397,10 @@ export class ContractEvaluator extends Logger {
             error = (await e) as Error;
         }
 
-        await this.onExecutionResult(evaluation, result, error);
+        return await this.onExecutionResult(evaluation, result, error);
     }
 
-    private async onDeploy(evaluation: ContractEvaluation): Promise<void> {
+    private async onDeploy(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
         let error: Error | undefined;
         let result: ExitDataResponse | undefined;
 
@@ -414,14 +410,14 @@ export class ContractEvaluator extends Logger {
             error = (await e) as Error;
         }
 
-        await this.onExecutionResult(evaluation, result, error);
+        return await this.onExecutionResult(evaluation, result, error);
     }
 
     private async onExecutionResult(
         evaluation: ContractEvaluation,
         result: ExitDataResponse | undefined,
         error: Error | undefined,
-    ): Promise<void> {
+    ): Promise<ExitDataResponse | undefined> {
         if (error) {
             try {
                 evaluation.setGas(this.contractInstance.getUsedGas());
@@ -440,6 +436,8 @@ export class ContractEvaluator extends Logger {
         }
 
         await this.processResult(result, error, evaluation);
+
+        return result;
     }
 
     private async processResult(
