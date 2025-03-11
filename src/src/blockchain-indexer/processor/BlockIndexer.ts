@@ -346,8 +346,6 @@ export class BlockIndexer extends Logger {
         // Check if the chain is reorged.
         if (this.chainReorged) return;
 
-        this.info(`Starting tasks...`);
-
         // Calculate the number of tasks to start.
         const currentIndexingLength =
             this.indexingConfigs.prefetchQueueSize - this.indexingTasks.length;
