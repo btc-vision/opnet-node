@@ -18,7 +18,6 @@ import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { Network } from '@btc-vision/bitcoin';
-import assert from 'node:assert';
 import { ContractParameters, RustContract } from '../isolated/RustContract.js';
 import { Blockchain } from '../Blockchain.js';
 import { Config } from '../../config/Config.js';
@@ -200,8 +199,6 @@ export class ContractEvaluator extends Logger {
         const calldata: Uint8Array = reader.readBytesWithLength();
         evaluation.incrementCallDepth();
 
-        console.log('call', evaluation.gasTracker.gasUsed, gasUsed);
-
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
             contractAddressStr: contractAddress.p2tr(this.network),
@@ -243,7 +240,7 @@ export class ContractEvaluator extends Logger {
         const response = await this.callExternal(externalCallParams);
         evaluation.merge(response);
 
-        assert(!response.revert, 'execution reverted (call)');
+        //assert(!response.revert, 'execution reverted (call)');
 
         const writer = new BinaryWriter();
         writer.writeU64(response.gasUsed);
