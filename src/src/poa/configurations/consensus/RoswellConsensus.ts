@@ -104,7 +104,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         },
 
         /** The maximum size of a receipt in bytes */
-        MAXIMUM_RECEIPT_LENGTH: 128,
+        MAXIMUM_RECEIPT_LENGTH: 512,
 
         /** The maximum amount of contract a transaction can deploy */
         MAXIMUM_DEPLOYMENT_DEPTH: 2,

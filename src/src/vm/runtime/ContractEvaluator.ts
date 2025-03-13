@@ -448,7 +448,9 @@ export class ContractEvaluator extends Logger {
 
         const data = result.data;
         if (data.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
-            evaluation.revert = new Error('OP_NET: Maximum receipt length exceeded.');
+            evaluation.revert = new Error(
+                `OP_NET: Maximum receipt length exceeded. ${data.length} > ${OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH}`,
+            );
             return;
         }
 
