@@ -198,6 +198,7 @@ export class ContractEvaluator extends Logger {
 
         const calldata: Uint8Array = reader.readBytesWithLength();
         evaluation.incrementCallDepth();
+        evaluation.gasTracker.setGas(gasUsed);
 
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
@@ -239,6 +240,7 @@ export class ContractEvaluator extends Logger {
 
         const response = await this.callExternal(externalCallParams);
         evaluation.merge(response);
+        evaluation.gasTracker.setGas(response.gasUsed);
 
         //assert(!response.revert, 'execution reverted (call)');
 
@@ -312,14 +314,13 @@ export class ContractEvaluator extends Logger {
             address: evaluation.contractAddressStr,
             bytecode: this.bytecode,
             network: NetworkConverter.networkToBitcoinNetwork(this.network),
-            gasLimit: difference, //OPNetConsensus.consensus.TRANSACTIONS.MAX_GAS,
+            gasLimit: difference,
             gasCallback: evaluation.onGasUsed,
             isDebugMode: false,
             load: async (data: Buffer) => {
                 return await this.load(data, evaluation);
             },
             store: (data: Buffer) => {
-                // TODO: Remove the promise
                 return new Promise<Buffer | Uint8Array>((resolve) => {
                     const resp = this.store(data, evaluation);
 
