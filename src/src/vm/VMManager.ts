@@ -228,7 +228,7 @@ export class VMManager extends Logger {
                 maxGas: OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
                 calldata: calldata,
 
-                blockHeight: currentHeight.height + 1n,
+                blockHeight: height == undefined ? currentHeight.height + 1n : currentHeight.height,
                 blockMedian: median, // add support for this
 
                 storage: new AddressMap(),
