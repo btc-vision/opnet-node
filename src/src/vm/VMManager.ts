@@ -20,7 +20,11 @@ import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transacti
 import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
 import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
-import { BlockHeader, BlockHeaderDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
+import {
+    BlockHeader,
+    BlockHeaderAPIBlockDocument,
+    BlockHeaderDocument,
+} from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocument } from '../db/interfaces/ITransactionDocument.js';
 import { EvaluatedResult } from './evaluated/EvaluatedResult.js';
 import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
@@ -194,7 +198,26 @@ export class VMManager extends Logger {
                 throw new Error('Contract not found');
             }
 
-            const currentHeight: BlockHeader = await this.getChainCurrentBlockHeight();
+            let blockHash: Buffer;
+            let currentHeight: BlockHeader;
+            let median: bigint;
+            if (height != undefined) {
+                const tempBlock = await this.vmStorage.getBlockHeader(height);
+                if (!tempBlock) {
+                    throw new Error('Invalid block height');
+                }
+
+                currentHeight = this.convertAPIBlockHeaderToBlockHeader(
+                    this.vmStorage.convertBlockHeaderToBlockHeaderDocument(tempBlock),
+                );
+
+                median = BigInt(currentHeight.medianTime);
+                blockHash = currentHeight.hash;
+            } else {
+                currentHeight = await this.fetchCachedBlockHeight();
+                median = BigInt(Date.now());
+                blockHash = EMPTY_BUFFER;
+            }
 
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
@@ -206,7 +229,7 @@ export class VMManager extends Logger {
                 calldata: calldata,
 
                 blockHeight: currentHeight.height + 1n,
-                blockMedian: BigInt(Date.now()), // add support for this
+                blockMedian: median, // add support for this
 
                 storage: new AddressMap(),
 
@@ -216,7 +239,7 @@ export class VMManager extends Logger {
                 callDepth: 0,
                 contractDeployDepth: 0,
 
-                blockHash: EMPTY_BUFFER,
+                blockHash: blockHash,
                 transactionId: EMPTY_BUFFER,
                 transactionHash: EMPTY_BUFFER,
 
@@ -668,6 +691,14 @@ export class VMManager extends Logger {
         return address;
     }
 
+    private convertAPIBlockHeaderToBlockHeader(block: BlockHeaderAPIBlockDocument): BlockHeader {
+        return {
+            ...block,
+            hash: Buffer.from(block.hash, 'hex'),
+            height: BigInt(block.height),
+        };
+    }
+
     private async getChainCurrentBlockHeight(): Promise<BlockHeader> {
         const block = await this.vmStorage.getLatestBlock();
         if (!block) {
@@ -678,11 +709,7 @@ export class VMManager extends Logger {
             this.cachedLastBlockHeight = undefined;
         }, 2000);
 
-        return {
-            ...block,
-            hash: Buffer.from(block.hash, 'hex'),
-            height: BigInt(block.height),
-        };
+        return this.convertAPIBlockHeaderToBlockHeader(block);
     }
 
     private async fetchCachedBlockHeight(): Promise<BlockHeader> {
