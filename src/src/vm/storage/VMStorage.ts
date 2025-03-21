@@ -23,6 +23,34 @@ export abstract class VMStorage extends Logger {
         super();
     }
 
+    public convertBlockHeaderToBlockHeaderDocument(
+        blockHeader: BlockHeaderDocument,
+    ): BlockHeaderAPIBlockDocument {
+        return {
+            hash: blockHeader.hash,
+            height: blockHeader.height.toString(),
+            time: blockHeader.time.getTime(),
+            version: blockHeader.version,
+            bits: blockHeader.bits,
+            nonce: blockHeader.nonce,
+            previousBlockHash: blockHeader.previousBlockHash,
+            merkleRoot: blockHeader.merkleRoot,
+            txCount: blockHeader.txCount,
+            size: blockHeader.size,
+            weight: blockHeader.weight,
+            strippedSize: blockHeader.strippedSize,
+            storageRoot: blockHeader.storageRoot,
+            receiptRoot: blockHeader.receiptRoot,
+            checksumProofs: blockHeader.checksumProofs,
+            medianTime: blockHeader.medianTime.getTime(),
+            previousBlockChecksum: blockHeader.previousBlockChecksum,
+            checksumRoot: blockHeader.checksumRoot,
+            ema: blockHeader.ema.toString(),
+            baseGas: blockHeader.baseGas.toString(),
+            gasUsed: blockHeader.gasUsed.toString(),
+        };
+    }
+
     public abstract get blockchainRepository(): BlockchainInfoRepository;
 
     public abstract revertDataUntilBlock(height: bigint): Promise<void>;

@@ -636,34 +636,6 @@ export class VMMongoStorage extends VMStorage {
         await Promise.safeAll(promises);
     }
 
-    public convertBlockHeaderToBlockHeaderDocument(
-        blockHeader: BlockHeaderDocument,
-    ): BlockHeaderAPIBlockDocument {
-        return {
-            hash: blockHeader.hash,
-            height: blockHeader.height.toString(),
-            time: blockHeader.time.getTime(),
-            version: blockHeader.version,
-            bits: blockHeader.bits,
-            nonce: blockHeader.nonce,
-            previousBlockHash: blockHeader.previousBlockHash,
-            merkleRoot: blockHeader.merkleRoot,
-            txCount: blockHeader.txCount,
-            size: blockHeader.size,
-            weight: blockHeader.weight,
-            strippedSize: blockHeader.strippedSize,
-            storageRoot: blockHeader.storageRoot,
-            receiptRoot: blockHeader.receiptRoot,
-            checksumProofs: blockHeader.checksumProofs,
-            medianTime: blockHeader.medianTime.getTime(),
-            previousBlockChecksum: blockHeader.previousBlockChecksum,
-            checksumRoot: blockHeader.checksumRoot,
-            ema: blockHeader.ema.toString(),
-            baseGas: blockHeader.baseGas.toString(),
-            gasUsed: blockHeader.gasUsed.toString(),
-        };
-    }
-
     private async waitForAllSessionsCommitted(pollInterval: number = 100): Promise<void> {
         return new Promise<void>(async (resolve, reject) => {
             const checkWrites = async (): Promise<boolean> => {

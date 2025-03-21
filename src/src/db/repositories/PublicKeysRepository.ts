@@ -53,21 +53,36 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
             if ('error' in result) {
                 key = key.replace('0x', '');
-                if (AddressVerificator.isValidPublicKey(key, this.network)) {
+
+                const isValid = AddressVerificator.isValidPublicKey(key, this.network);
+                if (isValid) {
+                    const bufferKey = Buffer.from(key, 'hex');
                     if (key.length === 64) {
                         pubKeyData[key] = {
                             tweakedPubkey: key,
 
-                            p2tr: this.tweakedPubKeyToAddress(
-                                Buffer.from(key, 'hex'),
-                                this.network,
-                            ),
+                            p2tr: this.tweakedPubKeyToAddress(bufferKey, this.network),
                         } as PublicKeyInfo;
                     } else if (key.length === 66) {
-                        // TODO: Implement
-                        //pubKeyData[key] = {
-                        //    originalPubKey: key,
-                        //} as PublicKeyInfo;
+                        const tweaked = this.tweakPublicKey(Buffer.from(key, 'hex'));
+
+                        const ecKeyPair = EcKeyPair.fromPublicKey(bufferKey, this.network);
+                        const p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
+                        const p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(
+                            ecKeyPair,
+                            this.network,
+                        );
+                        const p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
+
+                        pubKeyData[key] = {
+                            originalPubKey: key,
+                            tweakedPubkey: tweaked.toString('hex'),
+                            p2tr: this.tweakedPubKeyToAddress(tweaked, this.network),
+                            p2pkh,
+                            p2shp2wpkh,
+                            p2wpkh,
+                            lowByte: tweaked[0],
+                        } as PublicKeyInfo;
                     }
                 }
 
