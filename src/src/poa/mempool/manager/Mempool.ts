@@ -358,7 +358,6 @@ export class Mempool extends Logger {
             const broadcastResult = result[1] as BroadcastTransactionResult | undefined;
 
             if (broadcastResult?.success) {
-                console.log('broadcastResult.result', broadcastResult.result, finalTransaction.id);
                 finalTransaction.id = broadcastResult.result;
 
                 parseAndStoreInputOutputs(txBuffer, transaction);
@@ -417,23 +416,6 @@ export class Mempool extends Logger {
             };
         }
     }
-
-    /*private async requestWBTCBalanceOf(requester: Address): Promise<BroadcastResponse | undefined> {
-        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.WBTC_BALANCE_OF> = {
-            type: MessageType.RPC_METHOD,
-            data: {
-                rpcMethod: BitcoinRPCThreadMessageType.WBTC_BALANCE_OF,
-                data: {
-                    address: requester,
-                    blockHeight: OPNetConsensus.getBlockHeight(),
-                },
-            } as WBTCBalanceRequest,
-        };
-
-        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
-            | BroadcastResponse
-            | undefined;
-    }*/
 
     private async broadcastBitcoinTransaction(
         data: string,
