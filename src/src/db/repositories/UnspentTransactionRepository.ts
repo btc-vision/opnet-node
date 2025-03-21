@@ -215,6 +215,8 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             filterOrdinals,
         );
 
+        console.log('aggregation', aggregation);
+
         const collection = this.getCollection();
         const options: AggregateOptions = this.getOptions(currentSession) as AggregateOptions;
         options.allowDiskUse = true;
@@ -223,6 +225,8 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             aggregation,
             options,
         );
+
+        console.log('hi');
 
         const results: BalanceOfOutputTransactionFromDB[] = await aggregatedDocument.toArray();
         console.log(JSON.stringify(aggregation, null, 4), results);

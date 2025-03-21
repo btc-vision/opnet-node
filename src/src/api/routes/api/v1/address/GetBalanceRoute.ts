@@ -30,6 +30,7 @@ export class GetBalanceRoute extends Route<
         const filterOrdinals: boolean = this.getFilterOrdinals(params);
 
         const balanceOf: bigint = (await this.storage.getBalanceOf(address, filterOrdinals)) || 0n;
+        console.log(`Balance of ${address} is ${balanceOf}`);
         return `0x${balanceOf.toString(16)}`;
     }
 
