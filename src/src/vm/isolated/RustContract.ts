@@ -211,6 +211,7 @@ export class RustContract {
         if (this.startsWithErrorSelector(revertDataBytes)) {
             const decoder = new TextDecoder();
             const revertMessage = decoder.decode(revertDataBytes.slice(6));
+
             return new Error(`Execution reverted: ${revertMessage}`);
         } else {
             return new Error(`Execution reverted: 0x${this.bytesToHexString(revertDataBytes)}`);

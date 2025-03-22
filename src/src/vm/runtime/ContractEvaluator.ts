@@ -242,9 +242,8 @@ export class ContractEvaluator extends Logger {
         evaluation.merge(response);
         evaluation.gasTracker.setGas(response.gasUsed);
 
-        //assert(!response.revert, 'execution reverted (call)');
-
         const writer = new BinaryWriter();
+        writer.writeBoolean(!!evaluation.storage.get(contractAddress));
         writer.writeU64(response.gasUsed);
         writer.writeU32(response.revert ? 1 : 0);
         writer.writeBytes(response.result || new Uint8Array(0));
