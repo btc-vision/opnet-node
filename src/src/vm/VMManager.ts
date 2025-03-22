@@ -547,21 +547,17 @@ export class VMManager extends Logger {
         this.vmEvaluators.clear();
     }
 
-    private calculateMaxGas(
-        isSimulation: boolean,
-        burnedBitcoins: bigint,
-        baseGas: bigint,
-    ): bigint {
+    private calculateMaxGas(isSimulation: boolean, gasInSat: bigint, baseGas: bigint): bigint {
         const gas: bigint = isSimulation
             ? OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS
             : GasTracker.convertSatToGas(
-                  burnedBitcoins,
+                  gasInSat,
                   OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS,
                   OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO,
               );
 
         const gasToScale = BlockGasPredictor.toBaseBigInt(gas);
-        return gasToScale / baseGas + 1n; // Round up.
+        return gasToScale / baseGas; // Round down.
     }
 
     private async callExternal(
