@@ -30,8 +30,7 @@ export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInfo
 
         const gasPerSat: bigint =
             (OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO * baseGas) /
-                BlockGasPredictor.scalingFactor +
-            1n;
+            BlockGasPredictor.scalingFactor;
 
         return {
             blockNumber: this.bigIntToHex(BigInt(latestBlock.height)),

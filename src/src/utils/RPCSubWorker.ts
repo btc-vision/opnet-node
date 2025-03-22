@@ -246,9 +246,14 @@ class RPCManager extends Logger {
             outputs: [
                 ...[
                     {
-                        value: 0n,
+                        value: 10000000n,
                         index: 0,
-                        to: 'dead',
+                        to: 'burned',
+                    },
+                    {
+                        value: 10000000n,
+                        index: 1,
+                        to: 'minable_challenge',
                     },
                 ],
                 ...transaction.outputs.map((output) => {
