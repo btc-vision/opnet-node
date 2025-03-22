@@ -242,10 +242,6 @@ export class ContractEvaluator extends Logger {
         evaluation.merge(response);
         evaluation.gasTracker.setGas(response.gasUsed);
 
-        //assert(!response.revert, 'execution reverted (call)');
-
-        console.log('is cold', evaluation.storage.get(contractAddress));
-
         const writer = new BinaryWriter();
         writer.writeBoolean(!!evaluation.storage.get(contractAddress));
         writer.writeU64(response.gasUsed);
