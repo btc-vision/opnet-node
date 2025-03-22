@@ -317,12 +317,12 @@ export class ContractEvaluation implements ExecutionParameters {
         );
 
         const writer = new BinaryWriter();
-        writer.writeU8(maxInputs);
+        writer.writeU16(maxInputs);
 
         for (let i = 0; i < maxInputs; i++) {
             const input = this.inputs[i];
             writer.writeBytes(input.txId);
-            writer.writeU8(input.outputIndex);
+            writer.writeU16(input.outputIndex);
             writer.writeBytesWithLength(input.scriptSig);
         }
 
@@ -336,11 +336,11 @@ export class ContractEvaluation implements ExecutionParameters {
         );
 
         const writer = new BinaryWriter();
-        writer.writeU8(maxOutputs);
+        writer.writeU16(maxOutputs);
 
         for (let i = 0; i < maxOutputs; i++) {
             const output = this.outputs[i];
-            writer.writeU8(output.index);
+            writer.writeU16(output.index);
             writer.writeStringWithLength(output.to);
             writer.writeU64(output.value);
         }

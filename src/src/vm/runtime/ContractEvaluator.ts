@@ -244,7 +244,10 @@ export class ContractEvaluator extends Logger {
 
         //assert(!response.revert, 'execution reverted (call)');
 
+        console.log('is cold', evaluation.storage.get(contractAddress));
+
         const writer = new BinaryWriter();
+        writer.writeBoolean(!!evaluation.storage.get(contractAddress));
         writer.writeU64(response.gasUsed);
         writer.writeU32(response.revert ? 1 : 0);
         writer.writeBytes(response.result || new Uint8Array(0));
