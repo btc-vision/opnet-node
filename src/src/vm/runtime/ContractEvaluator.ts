@@ -498,6 +498,7 @@ export class ContractEvaluator extends Logger {
             blockHash: evaluation.blockHash,
             blockNumber: evaluation.blockNumber,
             blockMedianTime: evaluation.blockMedian,
+            txId: evaluation.transactionId,
             txHash: evaluation.transactionHash,
             contractAddress: this.contractAddress,
             contractDeployer: this.deployerAddress,
