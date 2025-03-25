@@ -661,7 +661,7 @@ export class Block extends Logger {
 
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             this.error(
-                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.gasUsed})`,
+                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.stack} - (gas: ${transaction.gasUsed})`,
             );
         }
 

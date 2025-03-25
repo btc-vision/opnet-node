@@ -43,7 +43,6 @@ export class ContractEvaluation implements ExecutionParameters {
     public events: EvaluatedEvents = new AddressMap();
 
     public result: Uint8Array | undefined;
-    public readonly gasTracker: GasTracker;
 
     public contractDeployDepth: number;
     public callDepth: number;
@@ -67,6 +66,9 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public readonly accessList: AccessList | undefined;
 
+    private _totalEventSize: number = 0;
+    private readonly gasTracker: GasTracker;
+
     constructor(params: ExecutionParameters) {
         this.contractAddress = params.contractAddress;
         this.contractAddressStr = params.contractAddressStr;
@@ -87,7 +89,7 @@ export class ContractEvaluation implements ExecutionParameters {
         this.transactionHash = params.transactionHash;
 
         this.gasTracker = new GasTracker(params.maxGas);
-        this.gasTracker.gasUsed = params.gasUsed;
+        this.gasTracker.setGasUsed(params.gasUsed);
 
         this.callStack = params.callStack || [];
         this.callStack.push(this.contractAddress);
@@ -104,19 +106,8 @@ export class ContractEvaluation implements ExecutionParameters {
         this.parseAccessList();
     }
 
-    public _totalEventSize: number = 0;
-
-    public get totalEventSize(): number {
-        return this._totalEventSize;
-    }
-
-    public set totalEventSize(size: number) {
-        const newSize = this._totalEventSize + size;
-        if (newSize > OPNetConsensus.consensus.TRANSACTIONS.EVENTS.MAXIMUM_TOTAL_EVENT_LENGTH) {
-            throw new Error('OP_NET: Maximum total event length exceeded.');
-        }
-
-        this._totalEventSize = newSize;
+    public get timeSpent(): bigint {
+        return this.gasTracker.timeSpent;
     }
 
     public get maxGas(): bigint {
@@ -153,8 +144,8 @@ export class ContractEvaluation implements ExecutionParameters {
         return Buffer.from(this.serializedOutputs);
     }
 
-    public setGas(gas: bigint): void {
-        this.gasTracker.setGas(gas);
+    public setGasUsed(gas: bigint): void {
+        this.gasTracker.setGasUsed(gas);
     }
 
     public incrementContractDeployDepth(): void {
@@ -197,10 +188,6 @@ export class ContractEvaluation implements ExecutionParameters {
         return current.get(pointer);
     }
 
-    public onGasUsed: (gas: bigint, method: string) => void = (gas: bigint, _method: string) => {
-        this.gasTracker.setGas(gas);
-    };
-
     public emitEvent(event: NetEvent): void {
         if (!this.events) throw new Error('Events not set');
 
@@ -219,6 +206,12 @@ export class ContractEvaluation implements ExecutionParameters {
     }
 
     public merge(extern: ContractEvaluation): void {
+        if (extern.maxGas !== this.maxGas) {
+            throw new Error('Max gas does not match');
+        }
+
+        this.gasTracker.setGasUsed(extern.gasUsed);
+
         // we must merge the storage of the external calls
         if (extern.revert) {
             this.revert = extern.revert;
@@ -260,8 +253,6 @@ export class ContractEvaluation implements ExecutionParameters {
         if (extern.deployedContracts && !(extern.revert || this.revert)) {
             this.deployedContracts.push(...extern.deployedContracts);
         }
-
-        this.gasTracker.gasUsed = extern.gasUsed;
     }
 
     public getEvaluationResult(): EvaluatedResult {
@@ -292,6 +283,15 @@ export class ContractEvaluation implements ExecutionParameters {
         this.deployedContracts.push(contract);
     }
 
+    private setTotalEventSize(size: number) {
+        const newSize = this._totalEventSize + size;
+        if (newSize > OPNetConsensus.consensus.TRANSACTIONS.EVENTS.MAXIMUM_TOTAL_EVENT_LENGTH) {
+            throw new Error('OP_NET: Maximum total event length exceeded.');
+        }
+
+        this._totalEventSize = newSize;
+    }
+
     private enforceEventLimits(event: NetEvent): void {
         // Enforce event limits
         if (event.data.length > OPNetConsensus.consensus.TRANSACTIONS.EVENTS.MAXIMUM_EVENT_LENGTH) {
@@ -299,7 +299,7 @@ export class ContractEvaluation implements ExecutionParameters {
         }
 
         // Enforce total event size limit
-        this.totalEventSize += event.data.length;
+        this.setTotalEventSize(event.data.byteLength);
 
         // Enforce event type length limit
         if (

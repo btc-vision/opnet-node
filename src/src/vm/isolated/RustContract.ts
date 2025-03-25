@@ -11,10 +11,10 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
 
     readonly bytecode: Buffer;
-    readonly gasLimit: bigint;
+    readonly gasMax: bigint;
+    readonly gasUsed: bigint;
     readonly network: BitcoinNetworkRequest;
     readonly isDebugMode: boolean;
-    readonly gasCallback: (gas: bigint, method: string) => void;
 
     readonly contractManager: ContractManager;
 }
@@ -90,7 +90,8 @@ export class RustContract {
             this._id,
             this.params.address,
             this.params.bytecode,
-            this.params.gasLimit,
+            this.params.gasUsed,
+            this.params.gasMax,
             this.params.network,
             this.params.isDebugMode,
         );
@@ -135,11 +136,7 @@ export class RustContract {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
-            const response = await this.contractManager.execute(this.id, Buffer.from(calldata));
-            const gasUsed = this.contractManager.getUsedGas(this.id);
-            this.gasCallback(gasUsed, 'execute');
-
-            return response;
+            return await this.contractManager.execute(this.id, Buffer.from(calldata));
         } catch (e) {
             if (this.enableDebug) console.log('Error in execute', e);
 
@@ -165,28 +162,10 @@ export class RustContract {
         if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
-            const resp = await this.contractManager.onDeploy(this.id, Buffer.from(calldata));
-            const gasUsed = this.contractManager.getUsedGas(this.id);
-
-            this.gasCallback(gasUsed, 'onDeploy');
-
-            return resp;
+            return await this.contractManager.onDeploy(this.id, Buffer.from(calldata));
         } catch (e) {
             if (this.enableDebug) console.log('Error in onDeployment', e);
 
-            const error = e as Error;
-            throw this.getError(error);
-        }
-    }
-
-    public getUsedGas(): bigint {
-        try {
-            if (this.disposed && this.gasUsed) {
-                return this.gasUsed;
-            }
-
-            return this.contractManager.getUsedGas(this.id);
-        } catch (e) {
             const error = e as Error;
             throw this.getError(error);
         }
@@ -218,8 +197,17 @@ export class RustContract {
         }
     }
 
-    private gasCallback(gas: bigint, method: string): void {
-        this.params.gasCallback(gas, method);
+    public getUsedGas(): bigint {
+        try {
+            if (this.disposed && this.gasUsed) {
+                return this.gasUsed;
+            }
+
+            return this.contractManager.getUsedGas(this.id);
+        } catch (e) {
+            const error = e as Error;
+            throw this.getError(error);
+        }
     }
 
     private getError(err: Error): Error {

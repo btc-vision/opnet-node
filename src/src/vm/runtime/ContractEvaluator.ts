@@ -33,7 +33,6 @@ export class ContractEvaluator extends Logger {
     private contractAddress: Address | undefined;
 
     private bytecode: Buffer | undefined;
-    private readonly enableTracing: boolean = false;
 
     constructor(private readonly network: Network) {
         super();
@@ -129,12 +128,6 @@ export class ContractEvaluator extends Logger {
 
             this.delete();
 
-            if (this.enableTracing) {
-                console.log(
-                    `EXECUTION GAS USED (execute): ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
-                );
-            }
-
             this.isProcessing = false;
 
             return evaluation;
@@ -158,10 +151,6 @@ export class ContractEvaluator extends Logger {
             pointerResponse = (await this.getStorageState(evaluation, pointer)) || 0n;
         }
 
-        if (this.enableTracing) {
-            this.debug(`Loaded pointer ${pointer} - value ${pointerResponse}`);
-        }
-
         const response: BinaryWriter = new BinaryWriter();
         response.writeU256(pointerResponse);
 
@@ -173,10 +162,6 @@ export class ContractEvaluator extends Logger {
         const reader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
         const value: bigint = reader.readU256();
-
-        if (this.enableTracing) {
-            this.debug(`Attempting to store pointer ${pointer} - value ${value}`);
-        }
 
         evaluation.setStorage(pointer, value);
 
@@ -198,7 +183,7 @@ export class ContractEvaluator extends Logger {
 
         const calldata: Uint8Array = reader.readBytesWithLength();
         evaluation.incrementCallDepth();
-        evaluation.gasTracker.setGas(gasUsed);
+        evaluation.setGasUsed(gasUsed);
 
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
@@ -209,7 +194,7 @@ export class ContractEvaluator extends Logger {
             txOrigin: evaluation.txOrigin,
             msgSender: evaluation.contractAddress,
 
-            maxGas: evaluation.gasTracker.maxGas,
+            maxGas: evaluation.maxGas,
             gasUsed: gasUsed,
 
             externalCall: true,
@@ -240,11 +225,11 @@ export class ContractEvaluator extends Logger {
 
         const response = await this.callExternal(externalCallParams);
         evaluation.merge(response);
-        evaluation.gasTracker.setGas(response.gasUsed);
 
+        const evaluationGasUsed = response.gasUsed - gasUsed;
         const writer = new BinaryWriter();
         writer.writeBoolean(!!evaluation.storage.get(contractAddress));
-        writer.writeU64(response.gasUsed);
+        writer.writeU64(evaluationGasUsed);
         writer.writeU32(response.revert ? 1 : 0);
         writer.writeBytes(response.result || new Uint8Array(0));
 
@@ -303,9 +288,9 @@ export class ContractEvaluator extends Logger {
             throw new Error('Bytecode is required');
         }
 
-        const difference = evaluation.maxGas - evaluation.gasTracker.gasUsed;
+        const difference = evaluation.maxGas - evaluation.gasUsed;
         if (difference < 0n) {
-            throw new Error('Not enough gas left.');
+            throw new Error('out of gas');
         }
 
         return {
@@ -313,8 +298,8 @@ export class ContractEvaluator extends Logger {
             address: evaluation.contractAddressStr,
             bytecode: this.bytecode,
             network: NetworkConverter.networkToBitcoinNetwork(this.network),
-            gasLimit: difference,
-            gasCallback: evaluation.onGasUsed,
+            gasUsed: evaluation.gasUsed,
+            gasMax: evaluation.maxGas,
             isDebugMode: false,
             load: async (data: Buffer) => {
                 return await this.load(data, evaluation);
@@ -380,7 +365,6 @@ export class ContractEvaluator extends Logger {
         }
 
         const canInitialize: boolean = address.equals(this.contractAddress) ? setIfNotExit : false;
-
         return this.getStorage(address, pointer, defaultValueBuffer, canInitialize, blockNumber);
     }
 
@@ -415,23 +399,24 @@ export class ContractEvaluator extends Logger {
         result: ExitDataResponse | undefined,
         error: Error | undefined,
     ): Promise<ExitDataResponse | undefined> {
-        if (error) {
+        if (!result) {
             try {
-                evaluation.setGas(this.contractInstance.getUsedGas());
+                evaluation.setGasUsed(this.contractInstance.getUsedGas());
             } catch {}
 
-            if (!evaluation.revert) {
+            if (error) {
                 evaluation.revert = error.message;
+            } else {
+                evaluation.revert = new Error('OP_NET: No result returned');
             }
 
             return;
         }
 
-        if (!result) {
-            evaluation.revert = new Error('OP_NET: No result returned');
-            return;
-        }
+        // Keep track of the gas used.
+        evaluation.setGasUsed(result.gasUsed);
 
+        // Process the result.
         await this.processResult(result, error, evaluation);
 
         return result;
@@ -493,6 +478,8 @@ export class ContractEvaluator extends Logger {
         if (!this.deployerAddress || !this.contractAddress) {
             throw new Error('OP_NET: Contract not initialized');
         }
+
+        evaluation.setGasUsed(this.contractInstance.getUsedGas());
 
         this.contractInstance.setEnvironment({
             blockHash: evaluation.blockHash,
