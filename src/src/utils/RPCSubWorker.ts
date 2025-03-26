@@ -21,8 +21,11 @@ import {
 import { Blockchain } from '../vm/Blockchain.js';
 import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
-import { Address } from '@btc-vision/transaction';
-import { CallRequestError } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
+import { Address, AddressMap, BufferHelper, PointerStorage } from '@btc-vision/transaction';
+import {
+    CallRequestError,
+    LoadedStorageList,
+} from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import {
     ParsedSimulatedTransaction,
     SimulatedTransaction,
@@ -68,6 +71,9 @@ class RPCManager extends Logger {
                         result: result.result ? Buffer.from(result.result).toString('hex') : '',
                         changedStorage: result.changedStorage
                             ? this.convertMapToArray(result.changedStorage)
+                            : [],
+                        loadedStorage: result.loadedStorage
+                            ? this.convertLoadedStorageToArray(result.loadedStorage)
                             : [],
                         events: result.events ? this.convertEventsToArray(result.events) : [],
                         deployedContracts: result.deployedContracts
@@ -164,6 +170,23 @@ class RPCManager extends Logger {
             }
 
             array.push([key.toString(), innerArray]);
+        }
+
+        return array;
+    }
+
+    private convertLoadedStorageToArray(storage: AddressMap<PointerStorage>): LoadedStorageList {
+        const array: LoadedStorageList = {};
+
+        for (const [key, value] of storage) {
+            const innerArray: string[] = [];
+            for (const innerKey of value.keys()) {
+                innerArray.push(
+                    Buffer.from(BufferHelper.pointerToUint8Array(innerKey)).toString('base64'),
+                );
+            }
+
+            array[key.toHex()] = innerArray;
         }
 
         return array;
@@ -294,6 +317,7 @@ class RPCManager extends Logger {
                 data.blockNumber,
                 parsedTransaction,
                 data.accessList,
+                data.preloadStorage,
             );
         } catch (e) {
             const error = e as Error;

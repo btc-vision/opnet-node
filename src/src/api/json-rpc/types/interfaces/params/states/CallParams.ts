@@ -8,7 +8,7 @@ import {
     StrippedTransactionOutput,
     StrippedTransactionOutputAPI,
 } from '../../../../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
-import { AccessList } from '../../results/states/CallResult.js';
+import { AccessList, LoadedStorageList } from '../../results/states/CallResult.js';
 
 export interface SimulatedTransaction {
     readonly inputs: StrippedTransactionInputAPI[];
@@ -29,6 +29,7 @@ export interface CallParamsAsObject extends JSONRpcParams<JSONRpcMethods.CALL> {
 
     readonly transaction?: Partial<SimulatedTransaction>;
     readonly accessList?: Partial<AccessList>;
+    readonly preloadStorage?: Partial<LoadedStorageList>;
 }
 
 export type CallParamsAsArray = [
@@ -38,6 +39,7 @@ export type CallParamsAsArray = [
     string?,
     Partial<SimulatedTransaction>?,
     Partial<AccessList>?,
+    Partial<LoadedStorageList>?,
 ];
 
 export type CallParams = CallParamsAsObject | CallParamsAsArray;

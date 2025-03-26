@@ -19,7 +19,9 @@ import {
 import { GasTracker } from '../GasTracker.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import {
+    StrippedTransactionOutput,
+} from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
@@ -169,10 +171,20 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
         const current: PointerStorage =
-            this.storage.get(this.contractAddress) ||
-            new DeterministicMap((a: bigint, b: bigint) => {
-                return BinaryReader.bigintCompare(a, b);
-            });
+            this.storage.get(this.contractAddress) || this.onNewStorage();
+
+        current.set(pointer, value);
+
+        this.storage.set(this.contractAddress, current);
+    }
+
+    public addToStorage(pointer: bigint, value: bigint): void {
+        const current: PointerStorage =
+            this.storage.get(this.contractAddress) || this.onNewStorage();
+
+        if (current.has(pointer)) {
+            throw new Error('OP_NET: Impossible case, storage already set.');
+        }
 
         current.set(pointer, value);
 
@@ -266,6 +278,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
         const resp: EvaluatedResult = {
             changedStorage: modifiedStorage,
+            loadedStorage: new AddressMap(), // normal
             result: result,
             events: events,
             gasUsed: this.gasUsed,
@@ -281,6 +294,12 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public addContractInformation(contract: ContractInformation): void {
         this.deployedContracts.push(contract);
+    }
+
+    private onNewStorage(): DeterministicMap<MemorySlotPointer, MemorySlotData<bigint>> {
+        return new DeterministicMap((a: bigint, b: bigint) => {
+            return BinaryReader.bigintCompare(a, b);
+        });
     }
 
     private setTotalEventSize(size: number) {

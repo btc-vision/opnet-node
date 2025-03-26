@@ -50,7 +50,10 @@ import { Config } from '../config/Config.js';
 import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasPredictor.js';
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
-import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
+import {
+    AccessList,
+    LoadedStorageList,
+} from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 
 Globals.register();
 
@@ -180,6 +183,7 @@ export class VMManager extends Logger {
         height?: bigint,
         transaction?: ParsedSimulatedTransaction,
         accessList?: AccessList,
+        _preloadList?: LoadedStorageList,
     ): Promise<EvaluatedResult> {
         if (this.isProcessing) {
             throw new Error(

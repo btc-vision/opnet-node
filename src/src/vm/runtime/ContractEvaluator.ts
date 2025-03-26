@@ -149,6 +149,8 @@ export class ContractEvaluator extends Logger {
         let pointerResponse: MemorySlotData<bigint> | undefined = evaluation.getStorage(pointer);
         if (!pointerResponse) {
             pointerResponse = (await this.getStorageState(evaluation, pointer)) || 0n;
+
+            evaluation.addToStorage(pointer, pointerResponse);
         }
 
         const response: BinaryWriter = new BinaryWriter();
