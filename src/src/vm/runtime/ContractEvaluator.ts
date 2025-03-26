@@ -257,6 +257,7 @@ export class ContractEvaluator extends Logger {
 
             deployedContracts: evaluation.deployedContracts,
             storage: evaluation.storage,
+            preloadStorage: evaluation.preloadStorage,
 
             inputs: evaluation.inputs,
             outputs: evaluation.outputs,

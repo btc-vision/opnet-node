@@ -54,6 +54,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly transactionHash: Buffer;
 
     public readonly storage: AddressMap<PointerStorage>;
+    public readonly preloadStorage: AddressMap<PointerStorage>;
     public readonly deployedContracts: ContractInformation[];
 
     public callStack: Address[];
@@ -98,6 +99,7 @@ export class ContractEvaluation implements ExecutionParameters {
         this.callStack.push(this.contractAddress);
 
         this.storage = params.storage;
+        this.preloadStorage = params.preloadStorage;
 
         this.inputs = params.inputs;
         this.outputs = params.outputs;
@@ -183,7 +185,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public addToStorage(pointer: bigint, value: bigint): void {
         const current: PointerStorage =
-            this.storage.get(this.contractAddress) || this.onNewStorage();
+            this.preloadStorage.get(this.contractAddress) || this.onNewStorage();
 
         if (current.has(pointer)) {
             throw new Error('OP_NET: Impossible case, storage already set.');
@@ -191,16 +193,27 @@ export class ContractEvaluation implements ExecutionParameters {
 
         current.set(pointer, value);
 
-        this.storage.set(this.contractAddress, current);
+        this.preloadStorage.set(this.contractAddress, current);
     }
 
     public getStorage(pointer: MemorySlotPointer): MemorySlotData<bigint> | undefined {
         const current = this.storage.get(this.contractAddress);
+        const inPreload = this.preloadStorage.get(this.contractAddress);
+
         if (!current) {
+            if (inPreload) {
+                return inPreload.get(pointer);
+            }
+
             return;
         }
 
-        return current.get(pointer);
+        const val = current.get(pointer);
+        if (val !== undefined) {
+            return val;
+        }
+
+        return inPreload?.get(pointer);
     }
 
     public emitEvent(event: NetEvent): void {
@@ -305,7 +318,7 @@ export class ContractEvaluation implements ExecutionParameters {
         }
 
         for (const [address, pointers] of storage) {
-            const current: PointerStorage = this.storage.get(address) || this.onNewStorage();
+            const current: PointerStorage = this.preloadStorage.get(address) || this.onNewStorage();
 
             for (const [key, value] of pointers) {
                 const pointerBigInt = BufferHelper.uint8ArrayToPointer(key);
@@ -316,7 +329,7 @@ export class ContractEvaluation implements ExecutionParameters {
                 current.set(pointerBigInt, pointerValueBigInt);
             }
 
-            this.storage.set(address, current);
+            this.preloadStorage.set(address, current);
         }
     }
 

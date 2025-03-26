@@ -233,6 +233,7 @@ export class VMManager extends Logger {
                 blockMedian: median, // add support for this
 
                 storage: new AddressMap(),
+                preloadStorage: new AddressMap(),
 
                 allowCached: true,
                 externalCall: false,
@@ -327,6 +328,7 @@ export class VMManager extends Logger {
                 transactionHash: interactionTransaction.hash,
 
                 storage: new AddressMap(),
+                preloadStorage: new AddressMap(),
 
                 allowCached: true,
                 externalCall: false,
@@ -421,6 +423,7 @@ export class VMManager extends Logger {
                 transactionId: contractDeploymentTransaction.transactionId,
                 transactionHash: contractDeploymentTransaction.hash,
                 storage: new AddressMap(),
+                preloadStorage: new AddressMap(),
 
                 externalCall: false,
                 gasUsed: 0n,
@@ -657,6 +660,7 @@ export class VMManager extends Logger {
             callDepth: params.callDepth,
 
             storage: params.storage,
+            preloadStorage: params.preloadStorage,
             callStack: params.callStack || [],
             isConstructor: false,
 

@@ -32,6 +32,7 @@ export interface InternalContractCallParameters {
     allowCached?: boolean;
 
     readonly storage: AddressMap<PointerStorage>;
+    readonly preloadStorage: AddressMap<PointerStorage>;
 
     readonly deployedContracts?: ContractInformation[];
     readonly callStack?: Address[];
@@ -73,6 +74,7 @@ export interface ExecutionParameters {
     readonly callStack: Address[];
 
     readonly storage: AddressMap<PointerStorage>;
+    readonly preloadStorage: AddressMap<PointerStorage>;
     readonly deployedContracts?: ContractInformation[];
 
     readonly isConstructor: boolean;
