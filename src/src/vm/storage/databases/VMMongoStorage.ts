@@ -21,7 +21,7 @@ import { ContractPointerValueRepository } from '../../../db/repositories/Contrac
 import { ContractRepository } from '../../../db/repositories/ContractRepository.js';
 import { ReorgsRepository } from '../../../db/repositories/ReorgsRepository.js';
 import { TransactionRepository } from '../../../db/repositories/TransactionRepository.js';
-import { MemoryValue, ProvenMemoryValue } from '../types/MemoryValue.js';
+import { MemoryValue, ProvenMemoryValue, ProvenPointers } from '../types/MemoryValue.js';
 import { StoragePointer } from '../types/StoragePointer.js';
 import { VMStorage } from '../VMStorage.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
@@ -409,12 +409,28 @@ export class VMMongoStorage extends VMStorage {
         await this.terminateSession();
     }
 
+    public async getStorageMultiple(
+        pointers: AddressMap<Uint8Array[]>,
+        height?: bigint,
+    ): Promise<ProvenPointers | null> {
+        if (!this.pointerRepository) {
+            throw new Error('Repository not initialized');
+        }
+
+        const values = await this.pointerRepository.getByContractsAndPointers(pointers, height);
+        if (!values) {
+            return null;
+        }
+
+        return values;
+    }
+
     public async getStorage(
         address: Address,
         pointer: StoragePointer,
         defaultValue: MemoryValue | null = null,
         setIfNotExit: boolean = false,
-        height: bigint,
+        height?: bigint,
     ): Promise<ProvenMemoryValue | null> {
         if (setIfNotExit && defaultValue === null) {
             throw new Error('Default value buffer is required');

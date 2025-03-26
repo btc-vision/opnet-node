@@ -1,5 +1,6 @@
 import {
     Address,
+    AddressMap,
     BinaryReader,
     BinaryWriter,
     BufferHelper,
@@ -7,7 +8,7 @@ import {
     MemorySlotPointer,
     NetEvent,
 } from '@btc-vision/transaction';
-import { MemoryValue } from '../storage/types/MemoryValue.js';
+import { MemoryValue, ProvenPointers } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { Logger } from '@btc-vision/bsi-common';
 import {
@@ -58,6 +59,13 @@ export class ContractEvaluator extends Logger {
         _blockNumber: bigint,
     ): Promise<MemoryValue | null> {
         throw new Error('Method not implemented. [getStorage]');
+    }
+
+    public getStorageMultiple(
+        _pointerList: AddressMap<Uint8Array[]>,
+        _blockNumber: bigint,
+    ): Promise<ProvenPointers | null> {
+        throw new Error('Method not implemented. [getStorageMultiple]');
     }
 
     public setStorage(_address: Address, _pointer: bigint, _value: bigint): void {
@@ -116,6 +124,8 @@ export class ContractEvaluator extends Logger {
 
                 this.setEnvironment(evaluation);
 
+                await this.preloadPointers(evaluation);
+
                 // We execute the method.
                 if (params.isConstructor) {
                     await this.onDeploy(evaluation);
@@ -141,20 +151,51 @@ export class ContractEvaluator extends Logger {
         }
     }
 
+    private async preloadPointers(evaluation: ContractEvaluation): Promise<void> {
+        if (!evaluation.preloadStorageList) {
+            return;
+        }
+
+        const values = evaluation.preloadStorageList.values();
+
+        let totalPointerPreload: number = 0;
+        for (const value of values) {
+            totalPointerPreload += value.length;
+        }
+
+        const gasCostPreload =
+            OPNetConsensus.consensus.GAS.COST.COLD_STORAGE_LOAD * BigInt(totalPointerPreload);
+
+        // TODO: Add gas cost to the evaluation.
+        if (gasCostPreload > evaluation.maxGas) {
+            throw new Error('OP_NET: Preloading pointers exceeds gas limit');
+        }
+
+        const pointers = await this.getStorageMultiple(
+            evaluation.preloadStorageList,
+            evaluation.blockNumber,
+        );
+
+        evaluation.preloadedStorage(pointers);
+    }
+
     /** Load a pointer */
     private async load(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
+        let wasCold: boolean = false;
         let pointerResponse: MemorySlotData<bigint> | undefined = evaluation.getStorage(pointer);
-        if (!pointerResponse) {
+        if (pointerResponse === undefined) {
             pointerResponse = (await this.getStorageState(evaluation, pointer)) || 0n;
 
             evaluation.addToStorage(pointer, pointerResponse);
+            wasCold = true;
         }
 
         const response: BinaryWriter = new BinaryWriter();
         response.writeU256(pointerResponse);
+        response.writeBoolean(wasCold);
 
         return response.getBuffer();
     }
@@ -222,7 +263,9 @@ export class ContractEvaluator extends Logger {
 
             serializedInputs: evaluation.serializedInputs,
             serializedOutputs: evaluation.serializedOutputs,
+
             accessList: evaluation.accessList,
+            preloadStorageList: undefined, // All pointers are already preloaded.
         };
 
         const response = await this.callExternal(externalCallParams);

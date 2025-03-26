@@ -563,7 +563,7 @@ export class Block extends Logger {
                 this.median,
                 this.prevBaseGas,
                 transaction,
-                isSimulation,
+                isSimulation
             );
 
             this.blockUsedGas += evaluation.gasUsed;

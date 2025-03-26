@@ -48,6 +48,10 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     GAS: {
+        COST: {
+            COLD_STORAGE_LOAD: 21_000_000n,
+        },
+
         /** How many sat of gas is equal to 1 sat of priority */
         GAS_PENALTY_FACTOR: 1n,
 

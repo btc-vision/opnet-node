@@ -43,6 +43,7 @@ export interface InternalContractCallParameters {
     readonly serializedOutputs: Uint8Array | undefined;
 
     readonly accessList?: AccessList;
+    readonly preloadStorageList?: AddressMap<Uint8Array[]>;
 }
 
 export interface ExecutionParameters {
@@ -83,4 +84,5 @@ export interface ExecutionParameters {
     readonly serializedOutputs: Uint8Array | undefined;
 
     readonly accessList?: AccessList;
+    readonly preloadStorageList?: AddressMap<Uint8Array[]>;
 }

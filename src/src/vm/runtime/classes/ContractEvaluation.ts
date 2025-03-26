@@ -4,6 +4,7 @@ import {
     AddressMap,
     BinaryReader,
     BinaryWriter,
+    BufferHelper,
     DeterministicMap,
     MemorySlotData,
     MemorySlotPointer,
@@ -19,13 +20,12 @@ import {
 import { GasTracker } from '../GasTracker.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import {
-    StrippedTransactionOutput,
-} from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { Config } from '../../../config/Config.js';
+import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -67,6 +67,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public serializedOutputs: Uint8Array | undefined;
 
     public readonly accessList: AccessList | undefined;
+    public readonly preloadStorageList: AddressMap<Uint8Array[]> | undefined;
 
     private _totalEventSize: number = 0;
     private readonly gasTracker: GasTracker;
@@ -105,6 +106,8 @@ export class ContractEvaluation implements ExecutionParameters {
         this.serializedOutputs = params.serializedOutputs;
 
         this.accessList = params.accessList;
+        this.preloadStorageList = params.preloadStorageList;
+
         this.parseAccessList();
     }
 
@@ -294,6 +297,27 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public addContractInformation(contract: ContractInformation): void {
         this.deployedContracts.push(contract);
+    }
+
+    public preloadedStorage(storage: ProvenPointers | null): void {
+        if (!storage) {
+            return;
+        }
+
+        for (const [address, pointers] of storage) {
+            const current: PointerStorage = this.storage.get(address) || this.onNewStorage();
+
+            for (const [key, value] of pointers) {
+                const pointerBigInt = BufferHelper.uint8ArrayToPointer(key);
+                const pointerValueBigInt = value
+                    ? BufferHelper.uint8ArrayToPointer(value.value)
+                    : 0n;
+
+                current.set(pointerBigInt, pointerValueBigInt);
+            }
+
+            this.storage.set(address, current);
+        }
     }
 
     private onNewStorage(): DeterministicMap<MemorySlotPointer, MemorySlotData<bigint>> {

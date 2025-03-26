@@ -381,6 +381,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             case 'witness_v1_taproot': {
                 break;
             }
+
             default: {
                 throw new Error(`OP_NET: Only P2TR interactions are supported at this time.`);
             }

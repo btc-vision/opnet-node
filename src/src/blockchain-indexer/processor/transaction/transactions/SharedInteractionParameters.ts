@@ -1,7 +1,6 @@
 import { Transaction } from '../Transaction.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { AccessListFeature, Feature, Features } from '../features/Features.js';
-import { LoadedStorageList } from '../../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { opcodes } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
@@ -12,8 +11,7 @@ export abstract class SharedInteractionParameters<
 > extends Transaction<T> {
     protected features: Feature<Features>[] = [];
 
-    protected _accessList: LoadedStorageList = {};
-
+    protected _accessList: AddressMap<Uint8Array[]> | undefined;
     protected _calldata: Buffer | undefined;
 
     public get calldata(): Buffer {
@@ -24,6 +22,10 @@ export abstract class SharedInteractionParameters<
         }
 
         return calldata;
+    }
+
+    public get preloadStorageList(): AddressMap<Uint8Array[]> {
+        return this._accessList || new AddressMap();
     }
 
     public static getDataFromScript(
@@ -145,8 +147,7 @@ export abstract class SharedInteractionParameters<
     private decodeFeature(feature: Feature<Features>): void {
         switch (feature.opcode) {
             case Features.ACCESS_LIST: {
-                this.decodeAccessList(feature as AccessListFeature);
-
+                this._accessList = this.decodeAccessList(feature as AccessListFeature);
                 break;
             }
 
@@ -174,8 +175,6 @@ export abstract class SharedInteractionParameters<
                 }
 
                 const pointerLength = binaryReader.readU32();
-                console.log(`Access list for ${contract.toString()}: ${pointerLength} pointers`);
-
                 const storage: Uint8Array[] = [];
                 for (let j = 0; j < pointerLength; j++) {
                     storage.push(binaryReader.readBytes(32));

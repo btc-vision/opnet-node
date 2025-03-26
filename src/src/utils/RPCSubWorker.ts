@@ -290,6 +290,26 @@ class RPCManager extends Logger {
         };
     }
 
+    private parseStorageList(storageList: LoadedStorageList | undefined): AddressMap<Uint8Array[]> {
+        const storageMap: AddressMap<Uint8Array[]> = new AddressMap();
+
+        if (!storageList) {
+            return storageMap;
+        }
+
+        for (const [key, value] of Object.entries(storageList)) {
+            const address = Address.fromString(key);
+
+            const innerMap: Uint8Array[] = value.map((innerValue: string) => {
+                return Buffer.from(innerValue, 'base64');
+            });
+
+            storageMap.set(address, innerMap);
+        }
+
+        return storageMap;
+    }
+
     private async onCallRequest(
         data: CallRequestData,
     ): Promise<EvaluatedResult | CallRequestError | undefined> {
@@ -317,7 +337,7 @@ class RPCManager extends Logger {
                 data.blockNumber,
                 parsedTransaction,
                 data.accessList,
-                data.preloadStorage,
+                this.parseStorageList(data.preloadStorage),
             );
         } catch (e) {
             const error = e as Error;
