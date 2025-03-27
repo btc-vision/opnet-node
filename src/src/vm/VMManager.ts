@@ -235,7 +235,7 @@ export class VMManager extends Logger {
                 storage: new AddressMap(),
                 preloadStorage: new AddressMap(),
 
-                allowCached: true,
+                allowCached: false,
                 externalCall: false,
                 gasUsed: 0n,
                 callDepth: 0,
