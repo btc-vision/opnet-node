@@ -1267,7 +1267,7 @@ export class VMManager extends Logger {
 
         const pointerBigInt: bigint = BufferHelper.uint8ArrayToPointer(pointer);
 
-        // 1) Try blockState or pointer cache
+        // Try blockState or pointer cache
         const pointerValueFromState =
             this.blockState?.getValueWithProofs(address, pointerBigInt) ||
             this.getPointerFromCache(address, pointerBigInt);
