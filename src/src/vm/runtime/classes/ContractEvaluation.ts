@@ -294,7 +294,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
         const resp: EvaluatedResult = {
             changedStorage: modifiedStorage,
-            loadedStorage: new AddressMap(), // normal
+            loadedStorage: this.preloadStorage,
             result: result,
             events: events,
             gasUsed: this.gasUsed,
