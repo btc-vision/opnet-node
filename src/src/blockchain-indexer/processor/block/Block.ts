@@ -478,7 +478,8 @@ export class Block extends Logger {
 
             try {
                 await this.revertBlock(vmManager);
-            } catch {}
+            } catch {
+            }
 
             return false;
         }
@@ -562,7 +563,7 @@ export class Block extends Logger {
                 this.median,
                 this.prevBaseGas,
                 transaction,
-                isSimulation,
+                isSimulation
             );
 
             this.blockUsedGas += evaluation.gasUsed;
@@ -768,7 +769,8 @@ export class Block extends Logger {
                     await vmManager
                         .getVMStorage()
                         .addTweakedPublicKey(deploymentTransaction.contractTweakedPublicKey);
-                } catch {}
+                } catch {
+                }
 
                 break;
             }

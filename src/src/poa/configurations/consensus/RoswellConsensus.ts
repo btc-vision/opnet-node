@@ -48,11 +48,15 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     GAS: {
+        COST: {
+            COLD_STORAGE_LOAD: 21_000_000n,
+        },
+
         /** How many sat of gas is equal to 1 sat of priority */
         GAS_PENALTY_FACTOR: 1n,
 
         /** Target block gas limit, a transaction can not pass this limit. */
-        TARGET_GAS: 4_000_000_000_000n, // 0.04 BTC.
+        TARGET_GAS: 10_000_000_000_000n, // 0.1 BTC.
 
         /** Smooth out gas increase when equal to gas target. */
         SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
@@ -61,13 +65,13 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
          */
-        MAX_THEORETICAL_GAS: 50_000_000_000_000n, // 0.5 BTC.
+        MAX_THEORETICAL_GAS: 1_000_000_000_000_000n, // 10 BTC.
 
         /** Max gas per transactions */
-        TRANSACTION_MAX_GAS: 350_000_000_000n,
+        TRANSACTION_MAX_GAS: 50_000_000_000_000n, // 0.2 BTC.
 
         /** btc_call maximum gas */
-        EMULATION_MAX_GAS: 350_000_000_000n,
+        EMULATION_MAX_GAS: 50_000_000_000_000n, // 0.2 BTC.
 
         /** Panic gas cost */
         PANIC_GAS_COST: 1_000_000n,
@@ -131,27 +135,4 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     PSBT: {
         MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT: 5n,
     },
-
-    /*VAULTS: {
-        VAULT_MINIMAL_FEE_ADDITION_VB_PER_SAT: 10n,
-
-        // Defines the minimum amount that can be consolidated in a single transaction.
-        VAULT_MINIMUM_AMOUNT: 200_000n,
-
-        // Defines the requested minimum acceptance for joining UTXOs when an unwrap is being done.
-        // If the consolidate output going back to the vault is lower than this amount, the transaction will be rejected.
-        // User must pay for the consolidation, this help the network by having fewer UTXOs.
-        VAULT_NETWORK_CONSOLIDATION_ACCEPTANCE: 200_000n * 2n,
-
-        // Everytime a user wrap bitcoin, he prepays the fees for the consolidation at a maximum fee rate of the following determined value.
-        // If the fees are lower, the user will be refunded the difference.
-        // If the fees are higher, the user must pay the difference.
-        UNWRAP_CONSOLIDATION_PREPAID_FEES: 250n,
-
-        // Equivalent to 56500 satoshis, calculated from UNWRAP_CONSOLIDATION_PREPAID_FEES.
-        UNWRAP_CONSOLIDATION_PREPAID_FEES_SAT: 56_500n,
-
-        // The maximum number of UTXOs that can be consolidated in a single transaction.
-        MAXIMUM_CONSOLIDATION_UTXOS: 4,
-    },*/
 };

@@ -6,27 +6,16 @@ export class GasTracker {
 
     #startedAt: number = Date.now();
 
-    constructor(private readonly MAX_GAS: bigint) {
-        this.maxGas = MAX_GAS;
+    constructor(maxGas: bigint) {
+        this.setMaxGas(maxGas);
     }
 
     public get gasUsed(): bigint {
         return this.#gasUsed;
     }
 
-    public set gasUsed(gasUsed: bigint) {
-        this.#gasUsed = gasUsed;
-    }
-
     public get maxGas(): bigint {
         return this.#maxGas;
-    }
-
-    public set maxGas(maxGas: bigint) {
-        this.#maxGas =
-            maxGas < OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS
-                ? maxGas
-                : OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS;
     }
 
     public get timeSpent(): bigint {
@@ -38,17 +27,20 @@ export class GasTracker {
         return gas < maxGas ? gas : maxGas;
     }
 
-    public setGas(gas: bigint) {
+    public setMaxGas(maxGas: bigint) {
+        this.#maxGas =
+            maxGas < OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS
+                ? maxGas
+                : OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS;
+    }
+
+    public setGasUsed(gas: bigint) {
         if (gas < 0n) {
             throw new Error('Gas used cannot be negative.');
         }
 
         if (gas > this.#maxGas) {
             throw new Error(`out of gas ${gas} > ${this.#maxGas}`);
-        }
-
-        if (gas > this.MAX_GAS) {
-            throw new Error(`out of gas ${gas} > ${this.MAX_GAS} (max)`);
         }
 
         this.#gasUsed = gas;

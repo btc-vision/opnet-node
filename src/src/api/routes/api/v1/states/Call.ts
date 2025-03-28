@@ -23,6 +23,7 @@ import {
     AccessListItem,
     CallResult,
     ContractEvents,
+    LoadedStorageList,
 } from '../../../../json-rpc/types/interfaces/results/states/CallResult.js';
 import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
@@ -44,6 +45,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         blockNumber?: bigint,
         transaction?: SimulatedTransaction,
         accessList?: AccessList,
+        preloadStorage?: LoadedStorageList,
     ): Promise<CallRequestResponse> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
             type: MessageType.RPC_METHOD,
@@ -56,6 +58,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     blockNumber: blockNumber,
                     transaction,
                     accessList,
+                    preloadStorage,
                 },
             } as CallRequest,
         };
@@ -80,7 +83,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw new Error('Storage not initialized');
             }
 
-            const [to, calldata, from, blockNumber, transaction, accessList] =
+            const [to, calldata, from, blockNumber, transaction, accessList, preloadStorage] =
                 this.getDecodedParams(params);
 
             const res: CallRequestResponse = await Call.requestThreadExecution(
@@ -90,6 +93,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 blockNumber,
                 this.verifyPartialTransaction(transaction),
                 accessList as AccessList,
+                preloadStorage as LoadedStorageList,
             );
 
             if (!res) {
@@ -224,10 +228,13 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             ? this.getAccessList(data.changedStorage)
             : {};
 
+        const loadedStorage = data.loadedStorage;
+
         const response: CallResult = {
             result: result,
             events: this.convertEventToResult(data.events),
             accessList,
+            loadedStorage,
             estimatedGas: '0x' + (data.gasUsed || 0).toString(16),
         };
 
@@ -389,6 +396,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         bigint | undefined,
         Partial<SimulatedTransaction> | undefined,
         Partial<AccessList> | undefined,
+        Partial<LoadedStorageList> | undefined,
     ] {
         let address: string | undefined;
         let calldata: string | undefined;
@@ -396,6 +404,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         let blockNumber: bigint | undefined;
         let transaction: Partial<SimulatedTransaction> | undefined;
         let accessList: Partial<AccessList> | undefined;
+        let preloadStorage: Partial<LoadedStorageList> | undefined;
 
         if (Array.isArray(params)) {
             address = params.shift() as string | undefined;
@@ -407,6 +416,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
 
             transaction = params.shift() as Partial<SimulatedTransaction> | undefined;
             accessList = params.shift() as Partial<AccessList> | undefined;
+            preloadStorage = params.shift() as Partial<LoadedStorageList> | undefined;
         } else {
             address = params.to;
             calldata = params.calldata;
@@ -414,6 +424,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             blockNumber = params.blockNumber ? BigInt(params.blockNumber) : undefined;
             transaction = params.transaction;
             accessList = params.accessList;
+            preloadStorage = params.preloadStorage;
         }
 
         if (!address) {
@@ -458,6 +469,35 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             }
         }
 
-        return [address, calldata, from, blockNumber, transaction, accessList];
+        if (preloadStorage) {
+            if (Object.keys(preloadStorage).length > 6) {
+                throw new Error(`Can not provide preload storage for more than 6 contracts.`);
+            }
+
+            for (const contract in preloadStorage) {
+                if (!AddressVerificator.isValidPublicKey(contract, this.network)) {
+                    throw new Error('Contract address must be a valid public key.');
+                }
+
+                const storage = preloadStorage[contract];
+                if (storage && storage.length > 20_000) {
+                    throw new Error(`Storage exceeds maximum size reached.`);
+                }
+
+                if (!storage) {
+                    continue;
+                }
+
+                for (let i = 0; i < storage.length; i++) {
+                    const key = storage[i];
+
+                    if (key.length > 60) {
+                        throw new Error(`Key exceeds maximum size reached.`);
+                    }
+                }
+            }
+        }
+
+        return [address, calldata, from, blockNumber, transaction, accessList, preloadStorage];
     }
 }

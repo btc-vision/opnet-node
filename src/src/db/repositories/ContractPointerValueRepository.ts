@@ -10,7 +10,11 @@ import {
     Filter,
     UpdateFilter,
 } from 'mongodb';
-import { MemoryValue } from '../../vm/storage/types/MemoryValue.js';
+import {
+    MemoryValue,
+    ProvenMemoryValue,
+    ProvenPointers,
+} from '../../vm/storage/types/MemoryValue.js';
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
 import { MerkleTree } from '../../blockchain-indexer/processor/block/merkle/MerkleTree.js';
@@ -40,11 +44,102 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         await this.delete(criteria, currentSession);
     }
 
+    public async getByContractsAndPointers(
+        pointers: AddressMap<Uint8Array[]>,
+        height?: bigint,
+    ): Promise<ProvenPointers | null> {
+        // If no pointers requested, return null immediately
+        if (pointers.size === 0) {
+            return null;
+        }
+
+        // Build a big OR clause for all (contractAddress, pointer) pairs
+        const orArray: Record<string, unknown>[] = [];
+        for (const [contractAddress, pointerList] of pointers) {
+            const pointerBinaries = pointerList.map((ptr) => new Binary(ptr));
+            const clause: Record<string, unknown> = {
+                contractAddress: contractAddress,
+                pointer: { $in: pointerBinaries },
+            };
+
+            if (typeof height !== 'undefined') {
+                clause.lastSeenAt = { $lt: height };
+            }
+
+            orArray.push(clause);
+        }
+
+        // Combine them into one $match. If there's only one clause, just use it directly.
+        const matchStage: Record<string, unknown> =
+            orArray.length === 1 ? orArray[0] : { $or: orArray };
+
+        // Build the aggregation pipeline
+        //  - Match our criteria
+        //  - Sort descending by lastSeenAt so the first doc per group is the most recent
+        //  - Group by contractAddress & pointer, picking the top doc for each
+        const pipeline = [
+            { $match: matchStage },
+            { $sort: { lastSeenAt: -1 } },
+            {
+                $group: {
+                    _id: {
+                        contractAddress: '$contractAddress',
+                        pointer: '$pointer',
+                    },
+                    doc: { $first: '$$ROOT' },
+                },
+            },
+        ];
+
+        // Execute the pipeline
+        const aggResults = await this.getCollection().aggregate(pipeline).toArray();
+
+        // Initialize ProvenPointers with all requested pointers = null by default
+        //         so that anything not found in the DB is explicitly null
+        // (Adjust the exact shape of 'ProvenPointers' if your type signature differs.)
+        const provenPointers: AddressMap<Map<Uint8Array, ProvenMemoryValue | null>> =
+            new AddressMap();
+
+        for (const [contractAddress, pointerList] of pointers) {
+            // Initialize a fresh map for each contract
+            const pointerMap = new Map<Uint8Array, ProvenMemoryValue | null>();
+            for (const ptrU8 of pointerList) {
+                pointerMap.set(ptrU8, null); // default to null unless found
+            }
+
+            provenPointers.set(contractAddress, pointerMap);
+        }
+
+        // Overwrite nulls with actual data for each doc found
+        for (const result of aggResults) {
+            const doc: IContractPointerValueDocument = (
+                result as { doc: IContractPointerValueDocument }
+            ).doc;
+
+            const addressUint8Array = (doc.contractAddress as Binary).value();
+            const addressObj = new Address(addressUint8Array);
+            const pointerU8 = BufferHelper.bufferToUint8Array(doc.pointer.value());
+            const valueU8 = BufferHelper.bufferToUint8Array(doc.value.value());
+
+            // If we already have a map for this contract, update the pointer’s entry
+            // (it should already be initialized to null)
+            const pointerMap = provenPointers.get(addressObj);
+            if (pointerMap) {
+                pointerMap.set(pointerU8, {
+                    value: valueU8,
+                    proofs: doc.proofs,
+                    lastSeenAt: BigInt(doc.lastSeenAt.toString()),
+                });
+            }
+        }
+
+        return provenPointers;
+    }
+
     public async getByContractAndPointer(
         contractAddress: Address,
         pointer: StoragePointer,
         height?: bigint,
-        currentSession?: ClientSession,
     ): Promise<IContractPointerValue | null> {
         const pointerToBinary = new Binary(pointer);
         const criteria: Partial<Filter<IContractPointerValueDocument>> = {
@@ -60,7 +155,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         /** Sorting is VERY important. */
         const results: IContractPointerValueDocument | null = await this.queryOne(
             criteria,
-            currentSession,
+            undefined,
             { lastSeenAt: -1 },
         );
 
@@ -69,8 +164,8 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
         }
 
         if (!results.pointer || !results.value || !results.proofs || !results.lastSeenAt) {
-            this.error(`[DATABASE CORRUPTION.] Invalid pointer value.`);
-            throw new Error(`[DATABASE CORRUPTION.] Invalid pointer value.`);
+            this.error(`[DATABASE CORRUPTION] Invalid pointer value.`);
+            throw new Error(`[DATABASE CORRUPTION] Invalid pointer value.`);
         }
 
         return {

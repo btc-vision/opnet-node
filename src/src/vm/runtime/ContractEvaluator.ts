@@ -1,5 +1,6 @@
 import {
     Address,
+    AddressMap,
     BinaryReader,
     BinaryWriter,
     BufferHelper,
@@ -7,7 +8,7 @@ import {
     MemorySlotPointer,
     NetEvent,
 } from '@btc-vision/transaction';
-import { MemoryValue } from '../storage/types/MemoryValue.js';
+import { MemoryValue, ProvenPointers } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { Logger } from '@btc-vision/bsi-common';
 import {
@@ -33,7 +34,6 @@ export class ContractEvaluator extends Logger {
     private contractAddress: Address | undefined;
 
     private bytecode: Buffer | undefined;
-    private readonly enableTracing: boolean = false;
 
     constructor(private readonly network: Network) {
         super();
@@ -59,6 +59,13 @@ export class ContractEvaluator extends Logger {
         _blockNumber: bigint,
     ): Promise<MemoryValue | null> {
         throw new Error('Method not implemented. [getStorage]');
+    }
+
+    public getStorageMultiple(
+        _pointerList: AddressMap<Uint8Array[]>,
+        _blockNumber: bigint,
+    ): Promise<ProvenPointers | null> {
+        throw new Error('Method not implemented. [getStorageMultiple]');
     }
 
     public setStorage(_address: Address, _pointer: bigint, _value: bigint): void {
@@ -117,6 +124,8 @@ export class ContractEvaluator extends Logger {
 
                 this.setEnvironment(evaluation);
 
+                await this.preloadPointers(evaluation);
+
                 // We execute the method.
                 if (params.isConstructor) {
                     await this.onDeploy(evaluation);
@@ -128,12 +137,6 @@ export class ContractEvaluator extends Logger {
             }
 
             this.delete();
-
-            if (this.enableTracing) {
-                console.log(
-                    `EXECUTION GAS USED (execute): ${evaluation.gasTracker.gasUsed} - TRANSACTION FINAL GAS: ${evaluation.gasUsed} - TOOK ${evaluation.gasTracker.timeSpent}ms`,
-                );
-            }
 
             this.isProcessing = false;
 
@@ -148,22 +151,51 @@ export class ContractEvaluator extends Logger {
         }
     }
 
+    private async preloadPointers(evaluation: ContractEvaluation): Promise<void> {
+        if (!evaluation.preloadStorageList) {
+            return;
+        }
+
+        const values = evaluation.preloadStorageList.values();
+
+        let totalPointerPreload: number = 0;
+        for (const value of values) {
+            totalPointerPreload += value.length;
+        }
+
+        const gasCostPreload =
+            OPNetConsensus.consensus.GAS.COST.COLD_STORAGE_LOAD * BigInt(totalPointerPreload);
+
+        // TODO: Add gas cost to the evaluation.
+        if (gasCostPreload > evaluation.maxGas) {
+            throw new Error('OP_NET: Preloading pointers exceeds gas limit');
+        }
+
+        const pointers = await this.getStorageMultiple(
+            evaluation.preloadStorageList,
+            evaluation.blockNumber,
+        );
+
+        evaluation.preloadedStorage(pointers);
+    }
+
     /** Load a pointer */
     private async load(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
+        let wasCold: boolean = false;
         let pointerResponse: MemorySlotData<bigint> | undefined = evaluation.getStorage(pointer);
-        if (!pointerResponse) {
+        if (pointerResponse === undefined) {
             pointerResponse = (await this.getStorageState(evaluation, pointer)) || 0n;
-        }
 
-        if (this.enableTracing) {
-            this.debug(`Loaded pointer ${pointer} - value ${pointerResponse}`);
+            evaluation.addToStorage(pointer, pointerResponse);
+            wasCold = true;
         }
 
         const response: BinaryWriter = new BinaryWriter();
         response.writeU256(pointerResponse);
+        response.writeBoolean(wasCold);
 
         return response.getBuffer();
     }
@@ -173,10 +205,6 @@ export class ContractEvaluator extends Logger {
         const reader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
         const value: bigint = reader.readU256();
-
-        if (this.enableTracing) {
-            this.debug(`Attempting to store pointer ${pointer} - value ${value}`);
-        }
 
         evaluation.setStorage(pointer, value);
 
@@ -198,7 +226,7 @@ export class ContractEvaluator extends Logger {
 
         const calldata: Uint8Array = reader.readBytesWithLength();
         evaluation.incrementCallDepth();
-        evaluation.gasTracker.setGas(gasUsed);
+        evaluation.setGasUsed(gasUsed);
 
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
@@ -209,7 +237,7 @@ export class ContractEvaluator extends Logger {
             txOrigin: evaluation.txOrigin,
             msgSender: evaluation.contractAddress,
 
-            maxGas: evaluation.gasTracker.maxGas,
+            maxGas: evaluation.maxGas,
             gasUsed: gasUsed,
 
             externalCall: true,
@@ -229,22 +257,25 @@ export class ContractEvaluator extends Logger {
 
             deployedContracts: evaluation.deployedContracts,
             storage: evaluation.storage,
+            preloadStorage: evaluation.preloadStorage,
 
             inputs: evaluation.inputs,
             outputs: evaluation.outputs,
 
             serializedInputs: evaluation.serializedInputs,
             serializedOutputs: evaluation.serializedOutputs,
+
             accessList: evaluation.accessList,
+            preloadStorageList: undefined, // All pointers are already preloaded.
         };
 
         const response = await this.callExternal(externalCallParams);
         evaluation.merge(response);
-        evaluation.gasTracker.setGas(response.gasUsed);
 
+        const evaluationGasUsed = response.gasUsed - gasUsed;
         const writer = new BinaryWriter();
         writer.writeBoolean(!!evaluation.storage.get(contractAddress));
-        writer.writeU64(response.gasUsed);
+        writer.writeU64(evaluationGasUsed);
         writer.writeU32(response.revert ? 1 : 0);
         writer.writeBytes(response.result || new Uint8Array(0));
 
@@ -303,9 +334,9 @@ export class ContractEvaluator extends Logger {
             throw new Error('Bytecode is required');
         }
 
-        const difference = evaluation.maxGas - evaluation.gasTracker.gasUsed;
+        const difference = evaluation.maxGas - evaluation.gasUsed;
         if (difference < 0n) {
-            throw new Error('Not enough gas left.');
+            throw new Error('out of gas');
         }
 
         return {
@@ -313,8 +344,8 @@ export class ContractEvaluator extends Logger {
             address: evaluation.contractAddressStr,
             bytecode: this.bytecode,
             network: NetworkConverter.networkToBitcoinNetwork(this.network),
-            gasLimit: difference,
-            gasCallback: evaluation.onGasUsed,
+            gasUsed: evaluation.gasUsed,
+            gasMax: evaluation.maxGas,
             isDebugMode: false,
             load: async (data: Buffer) => {
                 return await this.load(data, evaluation);
@@ -380,7 +411,6 @@ export class ContractEvaluator extends Logger {
         }
 
         const canInitialize: boolean = address.equals(this.contractAddress) ? setIfNotExit : false;
-
         return this.getStorage(address, pointer, defaultValueBuffer, canInitialize, blockNumber);
     }
 
@@ -415,23 +445,24 @@ export class ContractEvaluator extends Logger {
         result: ExitDataResponse | undefined,
         error: Error | undefined,
     ): Promise<ExitDataResponse | undefined> {
-        if (error) {
+        if (!result) {
             try {
-                evaluation.setGas(this.contractInstance.getUsedGas());
+                evaluation.setGasUsed(this.contractInstance.getUsedGas());
             } catch {}
 
-            if (!evaluation.revert) {
+            if (error) {
                 evaluation.revert = error.message;
+            } else {
+                evaluation.revert = new Error('OP_NET: No result returned');
             }
 
             return;
         }
 
-        if (!result) {
-            evaluation.revert = new Error('OP_NET: No result returned');
-            return;
-        }
+        // Keep track of the gas used.
+        evaluation.setGasUsed(result.gasUsed);
 
+        // Process the result.
         await this.processResult(result, error, evaluation);
 
         return result;
@@ -493,6 +524,8 @@ export class ContractEvaluator extends Logger {
         if (!this.deployerAddress || !this.contractAddress) {
             throw new Error('OP_NET: Contract not initialized');
         }
+
+        evaluation.setGasUsed(this.contractInstance.getUsedGas());
 
         this.contractInstance.setEnvironment({
             blockHash: evaluation.blockHash,

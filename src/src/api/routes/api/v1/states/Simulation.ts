@@ -215,10 +215,13 @@ export class Simulation extends Route<
             ? this.getAccessList(data.changedStorage)
             : {};
 
+        const loadedStorage = data.loadedStorage;
+
         const response: CallResult = {
             result: result,
             events: this.convertEventToResult(data.events),
             accessList,
+            loadedStorage,
             estimatedGas: '0x' + (data.gasUsed || 0).toString(16),
         };
 

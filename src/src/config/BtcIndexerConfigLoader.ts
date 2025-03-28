@@ -835,6 +835,12 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
         }
 
+        if (parsedConfig.DATABASE?.AUTH) {
+            parsedConfig.DATABASE.AUTH.PASSWORD = encodeURIComponent(
+                parsedConfig.DATABASE.AUTH.PASSWORD,
+            );
+        }
+
         if (parsedConfig.BASE58) {
             this.verifyBase58Configs(parsedConfig.BASE58);
         }

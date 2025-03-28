@@ -30,7 +30,7 @@ export class RPCSubWorkerManager extends Logger {
                 timeout: setTimeout(() => {
                     this.tasks.delete(taskId);
                     resolve(undefined);
-                }, 30000),
+                }, 120_000),
             });
 
             this.requestToWorker(JSON.stringify({ type, taskId, data }));
@@ -59,6 +59,8 @@ export class RPCSubWorkerManager extends Logger {
                 clearTimeout(task.timeout);
                 task.resolve(message.data);
                 this.tasks.delete(message.taskId);
+            } else {
+                this.error(`Task not found: ${message.taskId}`);
             }
         } catch (e) {
             this.error(`Failed to process message. ${e}`);

@@ -31,12 +31,7 @@ export class UTXOsRoute extends Route<
         }
 
         const optimize: boolean = this.getOptimizeParameterAsBoolean(params);
-        const start = Date.now();
-        const resp = await this.storage.getUTXOs(address, optimize);
-
-        this.info(`UTXOs for address ${address} fetched in ${Date.now() - start}ms`);
-
-        return resp;
+        return await this.storage.getUTXOs(address, optimize);
     }
 
     public async getDataRPC(params: UTXOsByAddressParams): Promise<UTXOsOutputResult | undefined> {

@@ -30,6 +30,7 @@ import { PointerStorageMap } from '../../../vm/evaluated/EvaluatedResult.js';
 import { NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
 import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
+import { LoadedStorageList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
@@ -89,6 +90,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             | {
                   result: string | Uint8Array;
                   changedStorage: [string, [string, string][]][] | null;
+                  loadedStorage: LoadedStorageList;
                   gasUsed: string | null;
                   events: [string, [string, string][]][];
               }
@@ -107,6 +109,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                 changedStorage: response.changedStorage
                     ? this.convertArrayToMap(response.changedStorage)
                     : undefined,
+                loadedStorage: response.loadedStorage || {},
                 gasUsed: response.gasUsed ? BigInt(response.gasUsed) : 0n,
                 events: response.events
                     ? this.convertArrayEventsToEvents(response.events)

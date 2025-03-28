@@ -31,7 +31,7 @@ import { EvaluatedStates } from './evaluated/EvaluatedStates.js';
 import { ContractEvaluator } from './runtime/ContractEvaluator.js';
 import { VMMongoStorage } from './storage/databases/VMMongoStorage.js';
 import { IndexerStorageType } from './storage/types/IndexerStorageType.js';
-import { MemoryValue, ProvenMemoryValue } from './storage/types/MemoryValue.js';
+import { MemoryValue, ProvenMemoryValue, ProvenPointers } from './storage/types/MemoryValue.js';
 import { StoragePointer } from './storage/types/StoragePointer.js';
 import { VMStorage } from './storage/VMStorage.js';
 import { VMBitcoinBlock } from './VMBitcoinBlock.js';
@@ -180,6 +180,7 @@ export class VMManager extends Logger {
         height?: bigint,
         transaction?: ParsedSimulatedTransaction,
         accessList?: AccessList,
+        preloadList?: AddressMap<Uint8Array[]>,
     ): Promise<EvaluatedResult> {
         if (this.isProcessing) {
             throw new Error(
@@ -232,8 +233,9 @@ export class VMManager extends Logger {
                 blockMedian: median, // add support for this
 
                 storage: new AddressMap(),
+                preloadStorage: new AddressMap(),
 
-                allowCached: true,
+                allowCached: false,
                 externalCall: false,
                 gasUsed: 0n,
                 callDepth: 0,
@@ -250,6 +252,7 @@ export class VMManager extends Logger {
                 serializedOutputs: undefined,
 
                 accessList: accessList,
+                preloadStorageList: preloadList,
             };
 
             // Execute the function
@@ -325,6 +328,7 @@ export class VMManager extends Logger {
                 transactionHash: interactionTransaction.hash,
 
                 storage: new AddressMap(),
+                preloadStorage: new AddressMap(),
 
                 allowCached: true,
                 externalCall: false,
@@ -337,6 +341,8 @@ export class VMManager extends Logger {
 
                 serializedInputs: undefined,
                 serializedOutputs: undefined,
+
+                preloadStorageList: interactionTransaction.preloadStorageList,
             };
 
             const result: ContractEvaluation = await this.executeCallInternal(params);
@@ -417,6 +423,7 @@ export class VMManager extends Logger {
                 transactionId: contractDeploymentTransaction.transactionId,
                 transactionHash: contractDeploymentTransaction.hash,
                 storage: new AddressMap(),
+                preloadStorage: new AddressMap(),
 
                 externalCall: false,
                 gasUsed: 0n,
@@ -430,6 +437,8 @@ export class VMManager extends Logger {
 
                 serializedInputs: undefined,
                 serializedOutputs: undefined,
+
+                preloadStorageList: contractDeploymentTransaction.preloadStorageList,
             };
 
             const execution = await vmEvaluator.execute(params);
@@ -651,6 +660,7 @@ export class VMManager extends Logger {
             callDepth: params.callDepth,
 
             storage: params.storage,
+            preloadStorage: params.preloadStorage,
             callStack: params.callStack || [],
             isConstructor: false,
 
@@ -659,7 +669,9 @@ export class VMManager extends Logger {
 
             serializedInputs: params.serializedInputs,
             serializedOutputs: params.serializedOutputs,
+
             accessList: params.accessList,
+            preloadStorageList: params.preloadStorageList,
         };
 
         // Execute the function
@@ -832,6 +844,7 @@ export class VMManager extends Logger {
 
         const vmEvaluator = new ContractEvaluator(this.network);
         vmEvaluator.getStorage = this.getStorage.bind(this);
+        vmEvaluator.getStorageMultiple = this.getStorageMultiple.bind(this);
         vmEvaluator.setStorage = this.setStorage.bind(this);
         vmEvaluator.callExternal = this.callExternal.bind(this);
         vmEvaluator.deployContractAtAddress = this.deployContractAtAddress.bind(this);
@@ -1037,6 +1050,209 @@ export class VMManager extends Logger {
         addressCache.set(pointer, value);
     }
 
+    private async processMemoryValue(
+        address: Address,
+        pointer: Uint8Array,
+        provenMemoryValue: ProvenMemoryValue | null,
+        blockNumber: bigint,
+    ): Promise<ProvenMemoryValue | null> {
+        // If the pointer is null, we set the value to 0 (new Uint8Array(32))
+        //    with no proofs. In single-pointer getStorage, a null indicates “not found”,
+        //    but here the requirement says “If a pointer is null, we set it to 0.”
+        if (!provenMemoryValue) {
+            return {
+                value: new Uint8Array(32),
+                proofs: [],
+                lastSeenAt: blockNumber,
+            };
+        }
+
+        // If we skip proof validation in certain cases:
+        if (
+            OPNetConsensus.consensus.TRANSACTIONS
+                .SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION
+        ) {
+            // If skipping, just return as is.
+            // Notice that in getStorage we returned just the .value, but here
+            // we do want the full ProvenMemoryValue structure for multiple pointers.
+            return provenMemoryValue;
+        }
+
+        // If proofs array is empty => data corruption
+        if (provenMemoryValue.proofs.length === 0) {
+            throw new Error(
+                `[DATA CORRUPTED] Proofs not found for pointer ${pointer} at address ${address}.`,
+            );
+        }
+
+        // Store in local cache
+        const pointerBigInt = BufferHelper.uint8ArrayToPointer(pointer);
+        this.storePointerInCache(address, pointerBigInt, [
+            provenMemoryValue.value,
+            provenMemoryValue.proofs,
+        ]);
+
+        // Verify proofs
+        const isValid: boolean = await this.verifyProofs(
+            pointer,
+            provenMemoryValue.value,
+            provenMemoryValue.proofs,
+            provenMemoryValue.lastSeenAt,
+        );
+
+        if (!isValid) {
+            this.error(
+                `[DATA CORRUPTED] Proofs not valid for pointer ${pointer} at address ${address}. Data corrupted. Please reindex your indexer from scratch.`,
+            );
+            throw new Error(
+                `[DATA CORRUPTED] Proofs not valid for pointer ${pointer} at address ${address}. MUST REINDEX FROM SCRATCH.`,
+            );
+        }
+
+        return provenMemoryValue;
+    }
+
+    /**
+     * Shared logic for:
+     *  - Setting a pointer to zero if null (multi-pointer requirement)
+     *  - Validating proofs (unless skipping)
+     *  - Storing in the pointer cache
+     */
+    private async finalizeProvenMemoryValue(
+        address: Address,
+        pointer: Uint8Array,
+        provenMemoryValue: ProvenMemoryValue | null,
+        blockNumber: bigint,
+        treatNullAsZero: boolean,
+    ): Promise<ProvenMemoryValue | null> {
+        // If pointer is null and we do NOT treat null as zero => just return null
+        if (!provenMemoryValue && !treatNullAsZero) {
+            return null;
+        }
+
+        // If pointer is null but we treat null as zero => build a default value
+        const realValue: ProvenMemoryValue = provenMemoryValue || {
+            value: new Uint8Array(32),
+            proofs: [],
+            lastSeenAt: blockNumber,
+        };
+
+        // If skipping proof validation => just return as is
+        if (
+            OPNetConsensus.consensus.TRANSACTIONS
+                .SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION
+        ) {
+            return realValue;
+        }
+
+        // If proof array is empty => data corrupted
+        if (realValue.proofs.length === 0) {
+            throw new Error(
+                `[DATA CORRUPTED] Proofs not found for pointer ${pointer} at address ${address}.`,
+            );
+        }
+
+        // Store in local cache
+        const pointerBigInt = BufferHelper.uint8ArrayToPointer(pointer);
+        this.storePointerInCache(address, pointerBigInt, [realValue.value, realValue.proofs]);
+
+        // Verify proofs
+        const isValid: boolean = await this.verifyProofs(
+            pointer,
+            realValue.value,
+            realValue.proofs,
+            realValue.lastSeenAt,
+        );
+        if (!isValid) {
+            this.error(
+                `[DATA CORRUPTED] Proofs not valid for pointer ${pointer} at address ${address}. ` +
+                    `Data corrupted. Please reindex your indexer from scratch.`,
+            );
+            throw new Error(
+                `[DATA CORRUPTED] Proofs not valid for pointer ${pointer} at address ${address}. ` +
+                    `MUST REINDEX FROM SCRATCH.`,
+            );
+        }
+
+        return realValue;
+    }
+
+    private async getStorageMultiple(
+        pointerList: AddressMap<Uint8Array[]>,
+        blockNumber: bigint,
+    ): Promise<ProvenPointers | null> {
+        if (!this.blockState && !this.isExecutor) {
+            throw new Error('Block state not found');
+        }
+
+        const pointersResult: ProvenPointers = new AddressMap();
+        const realList: AddressMap<Uint8Array[]> = new AddressMap();
+
+        // Preload from blockState/cache
+        for (const [address, pointers] of pointerList.entries()) {
+            const map = new Map<StoragePointer, ProvenMemoryValue | null>();
+            const array: Uint8Array[] = [];
+
+            for (const pointer of pointers) {
+                const pointerBigInt = BufferHelper.uint8ArrayToPointer(pointer);
+                const pointerValueFromState =
+                    this.blockState?.getValueWithProofs(address, pointerBigInt) ||
+                    this.getPointerFromCache(address, pointerBigInt);
+
+                // We simply store "null" if it's not found. We'll fix that up to zero later,
+                // inside finalizeProvenMemoryValue(treatNullAsZero = true).
+                if (pointerValueFromState === null) {
+                    map.set(pointer, null);
+                } else if (pointerValueFromState !== undefined) {
+                    // Convert [value, proofs] => a ProvenMemoryValue
+                    map.set(pointer, {
+                        value: pointerValueFromState[0],
+                        proofs: pointerValueFromState[1],
+                        lastSeenAt: this.vmBitcoinBlock.height,
+                    });
+                } else {
+                    // pointerValueFromState === undefined => we will fetch from DB
+                    array.push(pointer);
+                }
+            }
+
+            pointersResult.set(address, map);
+            realList.set(address, array);
+        }
+
+        const fetchedFromDB = await this.vmStorage.getStorageMultiple(realList, blockNumber);
+        if (!fetchedFromDB) {
+            return null;
+        }
+
+        for (const [addrFetched, pointerMap] of fetchedFromDB.entries()) {
+            const existingMap =
+                pointersResult.get(addrFetched) ||
+                new Map<StoragePointer, ProvenMemoryValue | null>();
+
+            for (const [ptrKey, provenVal] of pointerMap.entries()) {
+                existingMap.set(ptrKey, provenVal);
+            }
+        }
+
+        // Now finalize (verify proofs + store in cache + treatNullAsZero)
+        for (const [address, pointerMap] of pointersResult.entries()) {
+            for (const [pointerKey, provenVal] of pointerMap.entries()) {
+                const verified = await this.finalizeProvenMemoryValue(
+                    address,
+                    pointerKey,
+                    provenVal,
+                    blockNumber,
+                    false,
+                );
+
+                pointerMap.set(pointerKey, verified);
+            }
+        }
+
+        return pointersResult;
+    }
+
     /** We must verify that the storage is correct */
     private async getStorage(
         address: Address,
@@ -1045,22 +1261,24 @@ export class VMManager extends Logger {
         setIfNotExit: boolean = true,
         blockNumber: bigint,
     ): Promise<MemoryValue | null> {
-        /** We must check if we have the value in the current block state */
         if (!this.blockState && !this.isExecutor) {
             throw new Error('Block state not found');
         }
 
         const pointerBigInt: bigint = BufferHelper.uint8ArrayToPointer(pointer);
-        const valueBigInt =
+
+        // Try blockState or pointer cache
+        const pointerValueFromState =
             this.blockState?.getValueWithProofs(address, pointerBigInt) ||
             this.getPointerFromCache(address, pointerBigInt);
 
-        if (valueBigInt === null) {
-            return null;
-        }
+        let provenMemoryValue: ProvenMemoryValue | null = null;
 
-        let memoryValue: ProvenMemoryValue | null;
-        if (valueBigInt === undefined) {
+        if (pointerValueFromState === null) {
+            // Means we explicitly know "pointer not found"
+            provenMemoryValue = null;
+        } else if (pointerValueFromState === undefined) {
+            // Means we don't know => must load from DB
             const result = await this.getStorageFromDB(
                 address,
                 pointer,
@@ -1068,53 +1286,52 @@ export class VMManager extends Logger {
                 setIfNotExit,
                 blockNumber,
             );
-            if (!result) return null;
-            if (result.memory) return result.memory;
 
+            if (!result) {
+                return null; // not found
+            }
+
+            if (result.memory) {
+                // Direct memory found => skip proof checks, just return
+                return result.memory;
+            }
+
+            // Otherwise, we have provenMemoryValue from DB
             if (result.proven) {
-                memoryValue = result.proven;
+                provenMemoryValue = result.proven;
             } else {
                 throw new Error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
             }
-        } else if (
-            OPNetConsensus.consensus.TRANSACTIONS
-                .SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION
-        ) {
-            return valueBigInt[0];
         } else {
-            memoryValue = {
-                value: valueBigInt[0],
-                proofs: valueBigInt[1],
+            // pointerValueFromState is a 2‐tuple [value, proofs]
+            if (
+                OPNetConsensus.consensus.TRANSACTIONS
+                    .SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION
+            ) {
+                return pointerValueFromState[0];
+            }
+            provenMemoryValue = {
+                value: pointerValueFromState[0],
+                proofs: pointerValueFromState[1],
                 lastSeenAt: this.vmBitcoinBlock.height,
             };
         }
 
-        if (memoryValue.proofs.length === 0) {
-            throw new Error(`[DATA CORRUPTED] Proofs not found for ${pointer} at ${address}.`);
-        }
-
-        this.storePointerInCache(address, pointerBigInt, [memoryValue.value, memoryValue.proofs]);
-
-        // We must verify the proofs.
-        const isValid: boolean = await this.verifyProofs(
+        // Pass provenMemoryValue (which might be null) into finalizeProvenMemoryValue
+        const verified = await this.finalizeProvenMemoryValue(
+            address,
             pointer,
-            memoryValue.value,
-            memoryValue.proofs,
-            memoryValue.lastSeenAt,
+            provenMemoryValue,
+            blockNumber,
+            false,
         );
 
-        /** TODO: Add auto repair */
-        if (!isValid) {
-            this.error(
-                `[DATA CORRUPTED] Proofs not valid for ${pointer} at ${address}. Data corrupted. Please reindex your indexer from scratch.`,
-            );
-
-            throw new Error(
-                `[DATA CORRUPTED] Proofs not valid for ${pointer} at ${address}. MUST REINDEX FROM SCRATCH.`,
-            );
+        // If finalizeProvenMemoryValue returned null => pointer is truly not found
+        if (!verified) {
+            return null;
         }
 
-        return memoryValue?.value || null;
+        return verified.value;
     }
 
     private async verifyProofs(

@@ -258,37 +258,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return { out: buffer, compressed: false };
     }
 
-    public static getDataFromScript(
-        scriptData: Array<number | Buffer>,
-        breakWhenReachOpcode: number = opcodes.OP_ELSE,
-    ): Buffer | undefined {
-        let data: Buffer | undefined;
-
-        // Keep reading until we see the break opcode or run out of script data.
-        while (scriptData.length > 0) {
-            const currentItem = scriptData[0];
-
-            // If this matches our break opcode, stop but do NOT consume it:
-            // The caller may wish to explicitly check/shift that next.
-            if (currentItem === breakWhenReachOpcode) {
-                break;
-            }
-
-            // Remove the item from the front:
-            scriptData.shift();
-
-            // Validate it should be a Buffer; if not, it's invalid bytecode.
-            if (!Buffer.isBuffer(currentItem)) {
-                throw new Error(`Invalid contract bytecode found in transaction script.`);
-            }
-
-            // Accumulate the data
-            data = data ? Buffer.concat([data, currentItem]) : currentItem;
-        }
-
-        return data;
-    }
-
     protected static _is(data: TransactionData, typeChecksum: Buffer): number {
         let isCorrectType: number = -1;
 
@@ -352,33 +321,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             }
         }
         return Buffer.from(checksum);
-    }
-
-    protected static decodeOPNetHeader(
-        scriptData: Array<number | Buffer>,
-    ): OPNetHeader | undefined {
-        const header = scriptData.shift();
-        if (!Buffer.isBuffer(header) || header.length !== OPNetHeader.EXPECTED_HEADER_LENGTH) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
-            return;
-        }
-
-        const preimage = scriptData.shift();
-        if (
-            !Buffer.isBuffer(preimage) ||
-            preimage.length !== OPNetConsensus.consensus.POW.PREIMAGE_LENGTH
-        ) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
-            return;
-        }
-
-        return new OPNetHeader(header, preimage);
     }
 
     public verifyPreImage: (preimage: Buffer) => void = (_preimage: Buffer) => {
@@ -518,14 +460,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             }
         }
         return netEvents;
-    }
-
-    protected decompressData(buffer: Buffer): Buffer {
-        const decompressed = Transaction.decompressBuffer(buffer);
-        if (decompressed.compressed) {
-            this.wasCompressed = true;
-        }
-        return decompressed.out;
     }
 
     protected setBurnedFee(witnessOutput: TransactionOutput): void {

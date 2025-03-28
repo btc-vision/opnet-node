@@ -6,7 +6,7 @@ import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
-import { OPNet_MAGIC, Transaction } from '../Transaction.js';
+import { OPNet_MAGIC } from '../Transaction.js';
 import crypto from 'crypto';
 
 import {
@@ -20,6 +20,8 @@ import { Binary } from 'mongodb';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
+import { SharedInteractionParameters } from './SharedInteractionParameters.js';
+import { Feature, Features } from '../features/Features.js';
 
 interface DeploymentWitnessData {
     readonly header: OPNetHeader;
@@ -32,9 +34,10 @@ interface DeploymentWitnessData {
 
     readonly bytecode: Buffer;
     readonly calldata?: Buffer;
+    readonly features: Feature<Features>[];
 }
 
-export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Deployment> {
+export class DeploymentTransaction extends SharedInteractionParameters<OPNetTransactionTypes.Deployment> {
     public static LEGACY_DEPLOYMENT_SCRIPT: Buffer = Buffer.from([
         opcodes.OP_TOALTSTACK,
         opcodes.OP_TOALTSTACK, // PREIMAGE
@@ -105,18 +108,6 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
     public get address(): Address {
         if (!this._contractAddress) throw new Error('OP_NET: Contract address not found');
         return this._contractAddress;
-    }
-
-    protected _calldata: Buffer | undefined;
-
-    public get calldata(): Buffer {
-        const calldata = Buffer.alloc(this._calldata?.length || 0);
-
-        if (this._calldata) {
-            this._calldata.copy(calldata);
-        }
-
-        return calldata;
     }
 
     public static is(data: TransactionData): TransactionInformation | undefined {
@@ -190,6 +181,8 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
         if (!deploymentWitnessData) {
             throw new Error(`OP_NET: No deployment witness data.`);
         }
+
+        this.parseFeatures(deploymentWitnessData.features);
 
         /** We must verify the contract address */
         const inputTxId = this.inputs[this.vInputIndex].originalTransactionId;
@@ -414,6 +407,8 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             return;
         }
 
+        const features = SharedInteractionParameters.decodeFeatures(header, scriptData);
+
         // Calldata flag
         if (scriptData.shift() !== opcodes.OP_0) {
             return;
@@ -458,6 +453,7 @@ export class DeploymentTransaction extends Transaction<OPNetTransactionTypes.Dep
             contractSaltHash,
             bytecode: contractBytecode,
             calldata: calldata,
+            features: features,
         };
     }
 
