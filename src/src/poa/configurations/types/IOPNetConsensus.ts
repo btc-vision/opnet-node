@@ -45,6 +45,10 @@ export interface IOPNetConsensus<T extends Consensus> {
 
     /** Transactions related properties */
     readonly GAS: {
+        readonly COST: {
+            readonly COLD_STORAGE_LOAD: bigint;
+        }
+
         /** How many sat of gas is equal to 1 sat of priority */
         readonly GAS_PENALTY_FACTOR: bigint;
 

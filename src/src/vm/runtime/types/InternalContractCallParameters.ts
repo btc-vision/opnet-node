@@ -32,6 +32,7 @@ export interface InternalContractCallParameters {
     allowCached?: boolean;
 
     readonly storage: AddressMap<PointerStorage>;
+    readonly preloadStorage: AddressMap<PointerStorage>;
 
     readonly deployedContracts?: ContractInformation[];
     readonly callStack?: Address[];
@@ -43,6 +44,7 @@ export interface InternalContractCallParameters {
     readonly serializedOutputs: Uint8Array | undefined;
 
     readonly accessList?: AccessList;
+    readonly preloadStorageList?: AddressMap<Uint8Array[]>;
 }
 
 export interface ExecutionParameters {
@@ -72,6 +74,7 @@ export interface ExecutionParameters {
     readonly callStack: Address[];
 
     readonly storage: AddressMap<PointerStorage>;
+    readonly preloadStorage: AddressMap<PointerStorage>;
     readonly deployedContracts?: ContractInformation[];
 
     readonly isConstructor: boolean;
@@ -83,4 +86,5 @@ export interface ExecutionParameters {
     readonly serializedOutputs: Uint8Array | undefined;
 
     readonly accessList?: AccessList;
+    readonly preloadStorageList?: AddressMap<Uint8Array[]>;
 }

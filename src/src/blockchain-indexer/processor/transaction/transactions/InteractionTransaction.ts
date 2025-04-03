@@ -11,12 +11,14 @@ import {
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOpNetTransactions.js';
-import { OPNet_MAGIC, Transaction } from '../Transaction.js';
+import { OPNet_MAGIC } from '../Transaction.js';
 import { Address, AddressVerificator } from '@btc-vision/transaction';
 import * as ecc from 'tiny-secp256k1';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import crypto from 'crypto';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
+import { SharedInteractionParameters } from './SharedInteractionParameters.js';
+import { Feature, Features } from '../features/Features.js';
 
 export interface InteractionWitnessData {
     senderPubKey: Buffer;
@@ -26,11 +28,12 @@ export interface InteractionWitnessData {
     calldata: Buffer;
 
     readonly header: OPNetHeader;
+    readonly features: Feature<Features>[];
 }
 
 initEccLib(ecc);
 
-export class InteractionTransaction extends Transaction<InteractionTransactionType> {
+export class InteractionTransaction extends SharedInteractionParameters<InteractionTransactionType> {
     public static LEGACY_INTERACTION: Buffer = Buffer.from([
         opcodes.OP_TOALTSTACK,
         opcodes.OP_TOALTSTACK, // preimage
@@ -74,15 +77,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         network: networks.Network,
     ) {
         super(rawTransactionData, vIndexIn, blockHash, blockHeight, network);
-    }
-
-    protected _calldata: Buffer | undefined;
-
-    public get calldata(): Buffer {
-        if (!this._calldata) {
-            throw new Error(`No calldata found for transaction ${this.txidHex}`);
-        }
-        return Buffer.from(this._calldata);
     }
 
     protected _contractAddress: Address | undefined;
@@ -158,7 +152,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         }
 
         if (scriptData.shift() !== opcodes.OP_CHECKSIGVERIFY) return;
-
         if (scriptData.shift() !== opcodes.OP_HASH160) return;
 
         const contractSaltHash160 = scriptData.shift();
@@ -180,12 +173,18 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             return;
         }
 
+        const features = SharedInteractionParameters.decodeFeatures(header, scriptData);
+        if (scriptData.shift() !== opcodes.OP_1NEGATE) {
+            return;
+        }
+
         return {
             header,
             senderPubKey,
             interactionSaltPubKey,
             hashedSenderPubKey,
             contractSecretHash160: contractSaltHash160,
+            features,
         };
     }
 
@@ -194,10 +193,6 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
     ): InteractionWitnessData | undefined {
         const tx = this.getInteractionWitnessDataHeader(scriptData);
         if (!tx) {
-            return;
-        }
-
-        if (scriptData.shift() !== opcodes.OP_1NEGATE) {
             return;
         }
 
@@ -219,6 +214,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             interactionSaltPubKey: tx.interactionSaltPubKey,
             hashedSenderPubKey: tx.hashedSenderPubKey,
             contractSecretHash160: tx.contractSecretHash160,
+            features: tx.features,
             calldata,
         };
     }
@@ -292,6 +288,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             throw new Error(`OP_NET: Failed to parse interaction witness data.`);
         }
 
+        this.parseFeatures(this.interactionWitnessData.features);
         this._calldata = this.interactionWitnessData.calldata;
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
@@ -384,6 +381,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
             case 'witness_v1_taproot': {
                 break;
             }
+
             default: {
                 throw new Error(`OP_NET: Only P2TR interactions are supported at this time.`);
             }
@@ -417,6 +415,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
                 throw new Error(`OP_NET: Invalid contract address prefix specified.`);
             }
         }
+
         if (contractSecret.length === 65) {
             if (
                 contractSecret[0] !== 0x04 &&
@@ -438,6 +437,7 @@ export class InteractionTransaction extends Transaction<InteractionTransactionTy
         if (!this._calldata) {
             throw new Error(`Calldata not specified in transaction.`);
         }
+
         this._calldata = this.decompressData(this._calldata);
     }
 

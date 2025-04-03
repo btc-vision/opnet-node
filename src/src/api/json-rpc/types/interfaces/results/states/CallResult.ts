@@ -14,6 +14,10 @@ export interface AccessList {
     [key: string]: AccessListItem;
 }
 
+export interface LoadedStorageList {
+    [key: string]: string[];
+}
+
 export interface ContractEvents {
     [key: string]: EventReceiptDataForAPI[];
 }
@@ -23,6 +27,7 @@ export interface CallResultData {
     readonly events: ContractEvents;
     revert?: string;
     readonly accessList: AccessList;
+    readonly loadedStorage: LoadedStorageList;
     readonly estimatedGas: string;
 }
 

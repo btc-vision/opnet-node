@@ -10,7 +10,7 @@ import {
 import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
 import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocument.js';
-import { MemoryValue, ProvenMemoryValue } from './types/MemoryValue.js';
+import { MemoryValue, ProvenMemoryValue, ProvenPointers } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
 import { BlockchainInfoRepository } from '../../db/repositories/BlockchainInfoRepository.js';
 import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
@@ -22,6 +22,8 @@ export abstract class VMStorage extends Logger {
     protected constructor() {
         super();
     }
+
+    public abstract get blockchainRepository(): BlockchainInfoRepository;
 
     public convertBlockHeaderToBlockHeaderDocument(
         blockHeader: BlockHeaderDocument,
@@ -51,8 +53,6 @@ export abstract class VMStorage extends Logger {
         };
     }
 
-    public abstract get blockchainRepository(): BlockchainInfoRepository;
-
     public abstract revertDataUntilBlock(height: bigint): Promise<void>;
 
     public abstract getAddressOrPublicKeysInformation(
@@ -73,6 +73,11 @@ export abstract class VMStorage extends Logger {
         setIfNotExit: boolean,
         height?: bigint,
     ): Promise<ProvenMemoryValue | null>;
+
+    public abstract getStorageMultiple(
+        pointers: AddressMap<Uint8Array[]>,
+        height?: bigint,
+    ): Promise<ProvenPointers | null>;
 
     public abstract setStorage(
         address: Address,

@@ -4,6 +4,7 @@ import {
     AddressMap,
     BinaryReader,
     BinaryWriter,
+    BufferHelper,
     DeterministicMap,
     MemorySlotData,
     MemorySlotPointer,
@@ -24,6 +25,7 @@ import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/
 import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { Config } from '../../../config/Config.js';
+import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -43,7 +45,6 @@ export class ContractEvaluation implements ExecutionParameters {
     public events: EvaluatedEvents = new AddressMap();
 
     public result: Uint8Array | undefined;
-    public readonly gasTracker: GasTracker;
 
     public contractDeployDepth: number;
     public callDepth: number;
@@ -53,6 +54,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly transactionHash: Buffer;
 
     public readonly storage: AddressMap<PointerStorage>;
+    public readonly preloadStorage: AddressMap<PointerStorage>;
     public readonly deployedContracts: ContractInformation[];
 
     public callStack: Address[];
@@ -66,6 +68,10 @@ export class ContractEvaluation implements ExecutionParameters {
     public serializedOutputs: Uint8Array | undefined;
 
     public readonly accessList: AccessList | undefined;
+    public readonly preloadStorageList: AddressMap<Uint8Array[]> | undefined;
+
+    private _totalEventSize: number = 0;
+    private readonly gasTracker: GasTracker;
 
     constructor(params: ExecutionParameters) {
         this.contractAddress = params.contractAddress;
@@ -87,12 +93,13 @@ export class ContractEvaluation implements ExecutionParameters {
         this.transactionHash = params.transactionHash;
 
         this.gasTracker = new GasTracker(params.maxGas);
-        this.gasTracker.gasUsed = params.gasUsed;
+        this.gasTracker.setGasUsed(params.gasUsed);
 
         this.callStack = params.callStack || [];
         this.callStack.push(this.contractAddress);
 
         this.storage = params.storage;
+        this.preloadStorage = params.preloadStorage;
 
         this.inputs = params.inputs;
         this.outputs = params.outputs;
@@ -101,22 +108,13 @@ export class ContractEvaluation implements ExecutionParameters {
         this.serializedOutputs = params.serializedOutputs;
 
         this.accessList = params.accessList;
+        this.preloadStorageList = params.preloadStorageList;
+
         this.parseAccessList();
     }
 
-    public _totalEventSize: number = 0;
-
-    public get totalEventSize(): number {
-        return this._totalEventSize;
-    }
-
-    public set totalEventSize(size: number) {
-        const newSize = this._totalEventSize + size;
-        if (newSize > OPNetConsensus.consensus.TRANSACTIONS.EVENTS.MAXIMUM_TOTAL_EVENT_LENGTH) {
-            throw new Error('OP_NET: Maximum total event length exceeded.');
-        }
-
-        this._totalEventSize = newSize;
+    public get timeSpent(): bigint {
+        return this.gasTracker.timeSpent;
     }
 
     public get maxGas(): bigint {
@@ -153,8 +151,8 @@ export class ContractEvaluation implements ExecutionParameters {
         return Buffer.from(this.serializedOutputs);
     }
 
-    public setGas(gas: bigint): void {
-        this.gasTracker.setGas(gas);
+    public setGasUsed(gas: bigint): void {
+        this.gasTracker.setGasUsed(gas);
     }
 
     public incrementContractDeployDepth(): void {
@@ -178,28 +176,45 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
         const current: PointerStorage =
-            this.storage.get(this.contractAddress) ||
-            new DeterministicMap((a: bigint, b: bigint) => {
-                return BinaryReader.bigintCompare(a, b);
-            });
+            this.storage.get(this.contractAddress) || this.onNewStorage();
 
         current.set(pointer, value);
 
         this.storage.set(this.contractAddress, current);
     }
 
+    public addToStorage(pointer: bigint, value: bigint): void {
+        const current: PointerStorage =
+            this.preloadStorage.get(this.contractAddress) || this.onNewStorage();
+
+        if (current.has(pointer)) {
+            throw new Error('OP_NET: Impossible case, storage already set.');
+        }
+
+        current.set(pointer, value);
+
+        this.preloadStorage.set(this.contractAddress, current);
+    }
+
     public getStorage(pointer: MemorySlotPointer): MemorySlotData<bigint> | undefined {
         const current = this.storage.get(this.contractAddress);
+        const inPreload = this.preloadStorage.get(this.contractAddress);
+
         if (!current) {
+            if (inPreload) {
+                return inPreload.get(pointer);
+            }
+
             return;
         }
 
-        return current.get(pointer);
-    }
+        const val = current.get(pointer);
+        if (val !== undefined) {
+            return val;
+        }
 
-    public onGasUsed: (gas: bigint, method: string) => void = (gas: bigint, _method: string) => {
-        this.gasTracker.setGas(gas);
-    };
+        return inPreload?.get(pointer);
+    }
 
     public emitEvent(event: NetEvent): void {
         if (!this.events) throw new Error('Events not set');
@@ -219,6 +234,12 @@ export class ContractEvaluation implements ExecutionParameters {
     }
 
     public merge(extern: ContractEvaluation): void {
+        if (extern.maxGas !== this.maxGas) {
+            throw new Error('Max gas does not match');
+        }
+
+        this.gasTracker.setGasUsed(extern.gasUsed);
+
         // we must merge the storage of the external calls
         if (extern.revert) {
             this.revert = extern.revert;
@@ -260,8 +281,6 @@ export class ContractEvaluation implements ExecutionParameters {
         if (extern.deployedContracts && !(extern.revert || this.revert)) {
             this.deployedContracts.push(...extern.deployedContracts);
         }
-
-        this.gasTracker.gasUsed = extern.gasUsed;
     }
 
     public getEvaluationResult(): EvaluatedResult {
@@ -275,6 +294,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
         const resp: EvaluatedResult = {
             changedStorage: modifiedStorage,
+            loadedStorage: this.preloadStorage,
             result: result,
             events: events,
             gasUsed: this.gasUsed,
@@ -292,6 +312,42 @@ export class ContractEvaluation implements ExecutionParameters {
         this.deployedContracts.push(contract);
     }
 
+    public preloadedStorage(storage: ProvenPointers | null): void {
+        if (!storage) {
+            return;
+        }
+
+        for (const [address, pointers] of storage) {
+            const current: PointerStorage = this.preloadStorage.get(address) || this.onNewStorage();
+
+            for (const [key, value] of pointers) {
+                const pointerBigInt = BufferHelper.uint8ArrayToPointer(key);
+                const pointerValueBigInt = value
+                    ? BufferHelper.uint8ArrayToPointer(value.value)
+                    : 0n;
+
+                current.set(pointerBigInt, pointerValueBigInt);
+            }
+
+            this.preloadStorage.set(address, current);
+        }
+    }
+
+    private onNewStorage(): DeterministicMap<MemorySlotPointer, MemorySlotData<bigint>> {
+        return new DeterministicMap((a: bigint, b: bigint) => {
+            return BinaryReader.bigintCompare(a, b);
+        });
+    }
+
+    private setTotalEventSize(size: number) {
+        const newSize = this._totalEventSize + size;
+        if (newSize > OPNetConsensus.consensus.TRANSACTIONS.EVENTS.MAXIMUM_TOTAL_EVENT_LENGTH) {
+            throw new Error('OP_NET: Maximum total event length exceeded.');
+        }
+
+        this._totalEventSize = newSize;
+    }
+
     private enforceEventLimits(event: NetEvent): void {
         // Enforce event limits
         if (event.data.length > OPNetConsensus.consensus.TRANSACTIONS.EVENTS.MAXIMUM_EVENT_LENGTH) {
@@ -299,7 +355,7 @@ export class ContractEvaluation implements ExecutionParameters {
         }
 
         // Enforce total event size limit
-        this.totalEventSize += event.data.length;
+        this.setTotalEventSize(event.data.byteLength);
 
         // Enforce event type length limit
         if (
