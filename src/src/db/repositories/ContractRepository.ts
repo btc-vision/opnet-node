@@ -5,6 +5,7 @@ import {
     ClientSession,
     Collection,
     Db,
+    Decimal128,
     Document,
     Filter,
     FindOptions,
@@ -32,6 +33,27 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         };
 
         await this.delete(criteria, currentSession);
+    }
+
+    public async getContractsDeployedAtHeight(blockHeight: Decimal128): Promise<string[]> {
+        const criteria: Filter<Document> = {
+            blockHeight: { $gt: blockHeight },
+        };
+
+        const projection = {
+            contractAddress: 1,
+        };
+
+        const collection = this.getCollection();
+        const data = await collection.find(criteria, { projection }).toArray();
+
+        const contractAddresses = data.map((doc) =>
+            typeof doc.contractTweakedPublicKey === 'string'
+                ? new Address(Buffer.from(doc.contractTweakedPublicKey, 'base64'))
+                : new Address(doc.contractTweakedPublicKey.buffer),
+        );
+
+        return contractAddresses.map((address) => address.toHex());
     }
 
     public async getContract(

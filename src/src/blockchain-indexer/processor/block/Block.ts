@@ -1,4 +1,4 @@
-import { AddressMap } from '@btc-vision/transaction';
+import { Address, AddressMap } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -33,6 +33,7 @@ import { BlockGasPredictor, CalculatedBlockGas } from '../gas/BlockGasPredictor.
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { Long } from 'mongodb';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
+import { ContractEvaluation } from '../../../vm/runtime/classes/ContractEvaluation.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
@@ -478,8 +479,7 @@ export class Block extends Logger {
 
             try {
                 await this.revertBlock(vmManager);
-            } catch {
-            }
+            } catch {}
 
             return false;
         }
@@ -563,7 +563,7 @@ export class Block extends Logger {
                 this.median,
                 this.prevBaseGas,
                 transaction,
-                isSimulation
+                isSimulation,
             );
 
             this.blockUsedGas += evaluation.gasUsed;
@@ -578,14 +578,7 @@ export class Block extends Logger {
                 );
             }
 
-            if (evaluation.transactionId) {
-                vmManager.updateBlockValuesFromResult(
-                    evaluation,
-                    evaluation.contractAddress,
-                    evaluation.transactionId.toString('hex'),
-                    Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
-                );
-            }
+            this.processEvaluation(evaluation, vmManager);
         } catch (e) {
             this.processTransactionFailure(transaction, e as Error, start, vmManager);
         }
@@ -626,19 +619,25 @@ export class Block extends Logger {
                 );
             }
 
-            if (evaluation.transactionId) {
-                vmManager.updateBlockValuesFromResult(
-                    evaluation,
-                    evaluation.contractAddress,
-                    evaluation.transactionId.toString('hex'),
-                    Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
-                );
-            }
+            this.processEvaluation(evaluation, vmManager);
         } catch (e) {
             this.processTransactionFailure(transaction, e as Error, start, vmManager);
         }
 
         this.verifyTransaction(transaction);
+    }
+
+    private processEvaluation(evaluation: ContractEvaluation, vmManager: VMManager): void {
+        if (!evaluation.transactionId) {
+            return;
+        }
+
+        vmManager.updateBlockValuesFromResult(
+            evaluation,
+            evaluation.contractAddress,
+            evaluation.transactionId.toString('hex'),
+            Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
+        );
     }
 
     private verifyTransaction(transaction: Transaction<OPNetTransactionTypes>): void {
@@ -769,8 +768,7 @@ export class Block extends Logger {
                     await vmManager
                         .getVMStorage()
                         .addTweakedPublicKey(deploymentTransaction.contractTweakedPublicKey);
-                } catch {
-                }
+                } catch {}
 
                 break;
             }
