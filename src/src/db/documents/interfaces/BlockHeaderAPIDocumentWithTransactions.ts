@@ -54,9 +54,11 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
 
 export interface BlockHeaderAPIDocumentWithTransactions extends BlockHeaderAPIBlockDocument {
     readonly transactions: TransactionDocumentForAPI<OPNetTransactionTypes>[];
+    readonly deployments: string[];
 }
 
 export interface BlockWithTransactions {
     readonly transactions: ITransactionDocument<OPNetTransactionTypes>[];
     readonly block: BlockHeaderAPIBlockDocument;
+    readonly deployments: string[];
 }

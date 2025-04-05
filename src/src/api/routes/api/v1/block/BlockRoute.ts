@@ -29,6 +29,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         SafeBigInt | string,
         Promise<BlockHeaderAPIDocumentWithTransactions>
     > = new AdvancedCaching();
+
     protected currentBlockData: BlockHeaderAPIDocumentWithTransactions | undefined;
 
     protected readonly deploymentTxEncoder: DeploymentTxEncoder = new DeploymentTxEncoder();
@@ -51,6 +52,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         this.currentBlockData = {
             ...blockHeader,
             transactions: [],
+            deployments: [],
         };
     }
 
@@ -145,6 +147,10 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         height: SafeBigInt | string,
         data: Promise<BlockHeaderAPIDocumentWithTransactions>,
     ) {
+        if (this.cachedBlocks.size() === 100) {
+            this.purgeCache();
+        }
+
         this.cachedBlocks.set(height, data);
     }
 
@@ -158,6 +164,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         const transactions: TransactionDocumentForAPI<OPNetTransactionTypes>[] = [];
         const blockId = BigInt(data.block.height);
 
+        let deployments: string[] = [];
         if (data.transactions) {
             for (const transaction of data.transactions) {
                 let newTx = TransactionConverterForAPI.convertTransactionToAPI(transaction);
@@ -170,11 +177,14 @@ export abstract class BlockRoute<T extends Routes> extends Route<
 
                 transactions.push(newTx);
             }
+
+            deployments = data.deployments;
         }
 
         return {
             ...data.block,
             transactions,
+            deployments,
         };
     }
 
