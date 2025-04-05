@@ -220,9 +220,9 @@ export class ContractEvaluator extends Logger {
         const gasUsed: bigint = reader.readU64();
         const contractAddress: Address = reader.readAddress();
 
-        if (evaluation.contractAddress.equals(contractAddress)) {
+        /*if (evaluation.contractAddress.equals(contractAddress)) {
             throw new Error('Cannot call itself');
-        }
+        }*/
 
         const calldata: Uint8Array = reader.readBytesWithLength();
         evaluation.incrementCallDepth();
