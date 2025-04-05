@@ -51,6 +51,7 @@ import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasP
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
+import { AddressArray } from './runtime/classes/AddressArray.js';
 
 Globals.register();
 
@@ -234,6 +235,7 @@ export class VMManager extends Logger {
 
                 storage: new AddressMap(),
                 preloadStorage: new AddressMap(),
+                callStack: new AddressArray(),
 
                 allowCached: false,
                 externalCall: false,
@@ -329,6 +331,7 @@ export class VMManager extends Logger {
 
                 storage: new AddressMap(),
                 preloadStorage: new AddressMap(),
+                callStack: new AddressArray(),
 
                 allowCached: true,
                 externalCall: false,
@@ -412,7 +415,7 @@ export class VMManager extends Logger {
                 txOrigin: contractDeploymentTransaction.from,
                 msgSender: contractDeploymentTransaction.from,
 
-                callStack: [],
+                callStack: new AddressArray(),
                 maxGas: maxGas,
                 calldata: contractDeploymentTransaction.calldata,
 
@@ -661,7 +664,7 @@ export class VMManager extends Logger {
 
             storage: params.storage,
             preloadStorage: params.preloadStorage,
-            callStack: params.callStack || [],
+            callStack: params.callStack || new AddressArray(),
             isConstructor: false,
 
             inputs: params.inputs,

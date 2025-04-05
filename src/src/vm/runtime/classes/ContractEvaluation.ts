@@ -26,6 +26,7 @@ import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { Config } from '../../../config/Config.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
+import { AddressArray } from './AddressArray.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -57,7 +58,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly preloadStorage: AddressMap<PointerStorage>;
     public readonly deployedContracts: ContractInformation[];
 
-    public callStack: Address[];
+    public callStack: AddressArray;
 
     public isConstructor: boolean = false;
 
@@ -95,7 +96,7 @@ export class ContractEvaluation implements ExecutionParameters {
         this.gasTracker = new GasTracker(params.maxGas);
         this.gasTracker.setGasUsed(params.gasUsed);
 
-        this.callStack = params.callStack || [];
+        this.callStack = params.callStack || new AddressArray();
         this.callStack.push(this.contractAddress);
 
         this.storage = params.storage;
