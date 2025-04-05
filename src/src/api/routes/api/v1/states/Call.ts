@@ -239,7 +239,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         };
 
         if (data.revert) {
-            response.revert = data.revert.toString();
+            response.revert = data.revert;
         }
 
         return response;

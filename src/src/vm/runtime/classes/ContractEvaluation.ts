@@ -27,6 +27,8 @@ import { AccessList } from '../../../api/json-rpc/types/interfaces/results/state
 import { Config } from '../../../config/Config.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 import { AddressArray } from './AddressArray.js';
+import { ExitDataResponse } from '@btc-vision/op-vm';
+import { RustContract } from '../../isolated/RustContract.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -122,14 +124,14 @@ export class ContractEvaluation implements ExecutionParameters {
         return this.gasTracker.maxGas;
     }
 
-    private _revert: Error | string | undefined;
+    public _revert: Uint8Array | undefined;
 
-    public get revert(): Error | string | undefined {
+    public get revert(): Uint8Array | undefined {
         return this._revert;
     }
 
     public set revert(error: Error | string) {
-        this._revert = error;
+        this._revert = this.getErrorAsBuffer(error);
     }
 
     public get gasUsed(): bigint {
@@ -167,12 +169,14 @@ export class ContractEvaluation implements ExecutionParameters {
         this.contractDeployDepth++;
     }
 
-    public incrementCallDepth(): void {
+    public verifyCallDepth(): boolean {
         if (this.callDepth >= OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_CALL_DEPTH) {
-            throw new Error('Call depth exceeded');
+            return false;
         }
 
         this.callDepth++;
+
+        return true;
     }
 
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
@@ -234,6 +238,16 @@ export class ContractEvaluation implements ExecutionParameters {
         this.setModifiedStorage();
     }
 
+    private getErrorAsBuffer(error: Error | string | undefined): Uint8Array {
+        const errorWriter = new BinaryWriter();
+        errorWriter.writeSelector(0x63739d5c);
+        errorWriter.writeStringWithLength(
+            typeof error === 'string' ? error : error?.message || 'Unknown error',
+        );
+
+        return errorWriter.getBuffer();
+    }
+
     public merge(extern: ContractEvaluation): void {
         if (extern.maxGas !== this.maxGas) {
             throw new Error('Max gas does not match');
@@ -243,13 +257,9 @@ export class ContractEvaluation implements ExecutionParameters {
 
         // we must merge the storage of the external calls
         if (extern.revert) {
-            this.revert = extern.revert;
+            this._revert = extern.revert;
 
-            throw new Error('execution reverted (merge)');
-        }
-
-        if (extern.contractAddress.equals(this.contractAddress)) {
-            throw new Error('Cannot call self');
+            return;
         }
 
         this.callStack = extern.callStack;
@@ -303,7 +313,7 @@ export class ContractEvaluation implements ExecutionParameters {
         };
 
         if (this.revert) {
-            resp.revert = this.revert.toString();
+            resp.revert = Buffer.from(this.revert).toString('base64');
         }
 
         return resp;

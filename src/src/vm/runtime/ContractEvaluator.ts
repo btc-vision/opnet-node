@@ -216,68 +216,77 @@ export class ContractEvaluator extends Logger {
 
     /** Call a contract */
     private async call(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+        const writer = new BinaryWriter();
+
         const reader = new BinaryReader(data);
         const gasUsed: bigint = reader.readU64();
         const contractAddress: Address = reader.readAddress();
 
-        /*if (evaluation.contractAddress.equals(contractAddress)) {
-            throw new Error('Cannot call itself');
-        }*/
-
         const calldata: Uint8Array = reader.readBytesWithLength();
-        evaluation.incrementCallDepth();
         evaluation.setGasUsed(gasUsed);
 
-        const externalCallParams: InternalContractCallParameters = {
-            contractAddress: contractAddress,
-            contractAddressStr: contractAddress.p2tr(this.network),
+        let evaluationGasUsed: bigint = 0n;
+        let status: number;
+        let result: Uint8Array;
 
-            from: evaluation.msgSender,
+        if (evaluation.verifyCallDepth()) {
+            const externalCallParams: InternalContractCallParameters = {
+                contractAddress: contractAddress,
+                contractAddressStr: contractAddress.p2tr(this.network),
 
-            txOrigin: evaluation.txOrigin,
-            msgSender: evaluation.contractAddress,
+                from: evaluation.msgSender,
 
-            maxGas: evaluation.maxGas,
-            gasUsed: gasUsed,
+                txOrigin: evaluation.txOrigin,
+                msgSender: evaluation.contractAddress,
 
-            externalCall: true,
+                maxGas: evaluation.maxGas,
+                gasUsed: gasUsed,
 
-            blockHeight: evaluation.blockNumber,
-            blockMedian: evaluation.blockMedian,
+                externalCall: true,
 
-            // data
-            calldata: Buffer.from(calldata),
+                blockHeight: evaluation.blockNumber,
+                blockMedian: evaluation.blockMedian,
 
-            blockHash: evaluation.blockHash,
-            transactionId: evaluation.transactionId,
-            transactionHash: evaluation.transactionHash,
+                // data
+                calldata: Buffer.from(calldata),
 
-            contractDeployDepth: evaluation.contractDeployDepth,
-            callDepth: evaluation.callDepth,
+                blockHash: evaluation.blockHash,
+                transactionId: evaluation.transactionId,
+                transactionHash: evaluation.transactionHash,
 
-            deployedContracts: evaluation.deployedContracts,
-            storage: evaluation.storage,
-            preloadStorage: evaluation.preloadStorage,
+                contractDeployDepth: evaluation.contractDeployDepth,
+                callDepth: evaluation.callDepth,
 
-            inputs: evaluation.inputs,
-            outputs: evaluation.outputs,
+                deployedContracts: evaluation.deployedContracts,
+                storage: evaluation.storage,
+                preloadStorage: evaluation.preloadStorage,
 
-            serializedInputs: evaluation.serializedInputs,
-            serializedOutputs: evaluation.serializedOutputs,
+                inputs: evaluation.inputs,
+                outputs: evaluation.outputs,
 
-            accessList: evaluation.accessList,
-            preloadStorageList: undefined, // All pointers are already preloaded.
-        };
+                serializedInputs: evaluation.serializedInputs,
+                serializedOutputs: evaluation.serializedOutputs,
 
-        const response = await this.callExternal(externalCallParams);
-        evaluation.merge(response);
+                accessList: evaluation.accessList,
+                preloadStorageList: undefined, // All pointers are already preloaded.
+            };
 
-        const evaluationGasUsed = response.gasUsed - gasUsed;
-        const writer = new BinaryWriter();
+            const response = await this.callExternal(externalCallParams);
+            evaluation.merge(response);
+            status = response.revert ? 1 : 0;
+            result = (status ? response.revert : response.result) || Buffer.alloc(0);
+
+            evaluationGasUsed = response.gasUsed - gasUsed;
+        } else {
+            evaluation.revert = new Error('OP_NET: Call depth exceeded');
+            status = 1;
+            result = evaluation.revert ? evaluation.revert : Buffer.alloc(0);
+        }
+
         writer.writeBoolean(!!evaluation.storage.get(contractAddress));
         writer.writeU64(evaluationGasUsed);
-        writer.writeU32(response.revert ? 1 : 0);
-        writer.writeBytes(response.result || new Uint8Array(0));
+        writer.writeU32(status);
+        writer.writeBytes(result);
 
         return writer.getBuffer();
     }
@@ -489,7 +498,7 @@ export class ContractEvaluator extends Logger {
         const isSuccess: boolean = result.status === 0;
         if (!isSuccess) {
             try {
-                evaluation.revert = this._contractInstance.decodeRevertData(result.data);
+                evaluation._revert = result.data;
             } catch {
                 evaluation.revert = new Error('OP_NET: An unknown error occurred');
             }

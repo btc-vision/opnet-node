@@ -577,12 +577,7 @@ export class VMManager extends Logger {
     ): Promise<ContractEvaluation> {
         params.allowCached = !this.isExecutor;
 
-        const result = await this.executeCallInternal(params);
-        if (!result.result) {
-            throw new Error(`execution reverted (external call: ${result.revert})`);
-        }
-
-        return result;
+        return await this.executeCallInternal(params);
     }
 
     private async getVMEvaluatorFromParams(
