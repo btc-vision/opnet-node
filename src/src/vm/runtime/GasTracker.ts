@@ -4,8 +4,6 @@ export class GasTracker {
     #gasUsed: bigint = 0n;
     #maxGas: bigint = 0n;
 
-    #startedAt: number = Date.now();
-
     constructor(maxGas: bigint) {
         this.setMaxGas(maxGas);
     }
@@ -16,10 +14,6 @@ export class GasTracker {
 
     public get maxGas(): bigint {
         return this.#maxGas;
-    }
-
-    public get timeSpent(): bigint {
-        return BigInt(Date.now() - this.#startedAt);
     }
 
     public static convertSatToGas(sat: bigint, maxGas: bigint, ratio: bigint): bigint {

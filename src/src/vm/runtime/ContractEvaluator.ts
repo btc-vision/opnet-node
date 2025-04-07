@@ -225,11 +225,13 @@ export class ContractEvaluator extends Logger {
         const calldata: Uint8Array = reader.readBytesWithLength();
         evaluation.setGasUsed(gasUsed);
 
-        let evaluationGasUsed: bigint = 0n;
+        // if we don't do gasMax here and the execution actually used some gas, the user is getting free gas on partial
+        // reverts, otherwise rust need to return the real used gas.
+        let evaluationGasUsed: bigint = evaluation.maxGas - 1n;
         let status: number;
         let result: Uint8Array;
 
-        if (evaluation.verifyCallDepth()) {
+        if (!evaluation.isCallStackTooDeep()) {
             const externalCallParams: InternalContractCallParameters = {
                 contractAddress: contractAddress,
                 contractAddressStr: contractAddress.p2tr(this.network),
@@ -247,7 +249,6 @@ export class ContractEvaluator extends Logger {
                 blockHeight: evaluation.blockNumber,
                 blockMedian: evaluation.blockMedian,
 
-                // data
                 calldata: Buffer.from(calldata),
 
                 blockHash: evaluation.blockHash,
@@ -255,7 +256,6 @@ export class ContractEvaluator extends Logger {
                 transactionHash: evaluation.transactionHash,
 
                 contractDeployDepth: evaluation.contractDeployDepth,
-                callDepth: evaluation.callDepth,
 
                 deployedContracts: evaluation.deployedContracts,
                 storage: evaluation.storage,

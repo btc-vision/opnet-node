@@ -3,7 +3,7 @@ import { ContractInformation } from '../../../blockchain-indexer/processor/trans
 import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
-import { AddressArray } from '../classes/AddressArray.js';
+import { AddressStack } from '../classes/AddressStack.js';
 
 export interface InternalContractCallParameters {
     contractAddress: Address;
@@ -27,7 +27,6 @@ export interface InternalContractCallParameters {
     readonly blockMedian: bigint;
 
     readonly contractDeployDepth: number;
-    readonly callDepth: number;
 
     readonly gasUsed: bigint;
     allowCached?: boolean;
@@ -36,7 +35,7 @@ export interface InternalContractCallParameters {
     readonly preloadStorage: AddressMap<PointerStorage>;
 
     readonly deployedContracts?: ContractInformation[];
-    readonly callStack?: AddressArray;
+    readonly callStack?: AddressStack;
 
     readonly inputs: StrippedTransactionInput[];
     readonly outputs: StrippedTransactionOutput[];
@@ -67,12 +66,10 @@ export interface ExecutionParameters {
     readonly maxGas: bigint;
     readonly gasUsed: bigint;
 
-    // Depth
     readonly contractDeployDepth: number;
-    readonly callDepth: number;
 
     readonly externalCall: boolean;
-    readonly callStack: AddressArray;
+    readonly callStack: AddressStack;
 
     readonly storage: AddressMap<PointerStorage>;
     readonly preloadStorage: AddressMap<PointerStorage>;

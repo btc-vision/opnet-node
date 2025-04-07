@@ -51,7 +51,7 @@ import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasP
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
-import { AddressArray } from './runtime/classes/AddressArray.js';
+import { AddressStack } from './runtime/classes/AddressStack.js';
 
 Globals.register();
 
@@ -235,12 +235,11 @@ export class VMManager extends Logger {
 
                 storage: new AddressMap(),
                 preloadStorage: new AddressMap(),
-                callStack: new AddressArray(),
+                callStack: new AddressStack(),
 
                 allowCached: false,
                 externalCall: false,
                 gasUsed: 0n,
-                callDepth: 0,
                 contractDeployDepth: 0,
 
                 blockHash: blockHash,
@@ -331,12 +330,11 @@ export class VMManager extends Logger {
 
                 storage: new AddressMap(),
                 preloadStorage: new AddressMap(),
-                callStack: new AddressArray(),
+                callStack: new AddressStack(),
 
                 allowCached: true,
                 externalCall: false,
                 gasUsed: 0n,
-                callDepth: 0,
                 contractDeployDepth: 0,
 
                 inputs: interactionTransaction.strippedInputs,
@@ -415,7 +413,7 @@ export class VMManager extends Logger {
                 txOrigin: contractDeploymentTransaction.from,
                 msgSender: contractDeploymentTransaction.from,
 
-                callStack: new AddressArray(),
+                callStack: new AddressStack(),
                 maxGas: maxGas,
                 calldata: contractDeploymentTransaction.calldata,
 
@@ -430,9 +428,9 @@ export class VMManager extends Logger {
 
                 externalCall: false,
                 gasUsed: 0n,
-                callDepth: 0,
                 contractDeployDepth: 1,
                 //deployedContracts: [contractInformation], // TODO: Understand what is going on when using this. (cause db conflicts)
+
                 isConstructor: true,
 
                 inputs: contractDeploymentTransaction.strippedInputs,
@@ -655,11 +653,10 @@ export class VMManager extends Logger {
             transactionHash: params.transactionHash,
 
             contractDeployDepth: params.contractDeployDepth,
-            callDepth: params.callDepth,
 
             storage: params.storage,
             preloadStorage: params.preloadStorage,
-            callStack: params.callStack || new AddressArray(),
+            callStack: params.callStack || new AddressStack(),
             isConstructor: false,
 
             inputs: params.inputs,
