@@ -67,6 +67,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
                 `Block hash mismatch: ${rawTransactionData.blockhash} !== ${blockHash}`,
             );
         }
+
         this.vInputIndex = vInputIndex;
 
         this.txid = Buffer.from(rawTransactionData.txid, 'hex');

@@ -5,6 +5,7 @@ import {
     ClientSession,
     Collection,
     Db,
+    Decimal128,
     Document,
     Filter,
     FindOptions,
@@ -32,6 +33,33 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         };
 
         await this.delete(criteria, currentSession);
+    }
+
+    public async getContractsDeployedAtHeight(blockHeight: Decimal128): Promise<string[]> {
+        const criteria: Filter<Document> = {
+            blockHeight: blockHeight,
+        };
+
+        const projection = {
+            contractTweakedPublicKey: 1,
+        };
+
+        const collection = this.getCollection();
+        const data = await collection.find(criteria, { projection }).toArray();
+
+        const contractAddresses = data.map((doc) => {
+            if (typeof doc.contractTweakedPublicKey === 'string') {
+                return new Address(Buffer.from(doc.contractTweakedPublicKey, 'base64'));
+            } else {
+                if (!doc.contractTweakedPublicKey) {
+                    throw new Error('Contract tweaked public key is undefined');
+                }
+
+                return new Address(doc.contractTweakedPublicKey.buffer);
+            }
+        });
+
+        return contractAddresses.map((address) => address.toHex());
     }
 
     public async getContract(

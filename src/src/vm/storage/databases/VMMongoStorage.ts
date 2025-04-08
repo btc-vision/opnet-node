@@ -292,6 +292,10 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
 
+        if (!this.contractRepository) {
+            throw new Error('Contract repository not initialized');
+        }
+
         let block: IBlockHeaderBlockDocument | undefined;
         if (hash) {
             block = await this.blockRepository.getBlockByHash(hash, this.currentSession);
@@ -306,6 +310,11 @@ export class VMMongoStorage extends VMStorage {
             return undefined;
         }
 
+        const deployments =
+            includeTransactions === true
+                ? await this.contractRepository.getContractsDeployedAtHeight(block.height)
+                : [];
+
         const transactions =
             includeTransactions === true
                 ? await this.transactionRepository.getTransactionsByBlockHash(block.height)
@@ -314,6 +323,7 @@ export class VMMongoStorage extends VMStorage {
         return {
             block: this.convertBlockHeaderToBlockHeaderDocument(block),
             transactions,
+            deployments,
         };
     }
 

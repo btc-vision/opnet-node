@@ -26,6 +26,7 @@ import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { Config } from '../../../config/Config.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
+import { AddressStack } from './AddressStack.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -47,7 +48,6 @@ export class ContractEvaluation implements ExecutionParameters {
     public result: Uint8Array | undefined;
 
     public contractDeployDepth: number;
-    public callDepth: number;
 
     public readonly blockHash: Buffer;
     public readonly transactionId: Buffer;
@@ -57,7 +57,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly preloadStorage: AddressMap<PointerStorage>;
     public readonly deployedContracts: ContractInformation[];
 
-    public callStack: Address[];
+    public callStack: AddressStack;
 
     public isConstructor: boolean = false;
 
@@ -83,7 +83,6 @@ export class ContractEvaluation implements ExecutionParameters {
         this.externalCall = params.externalCall;
         this.blockNumber = params.blockNumber;
         this.blockMedian = params.blockMedian;
-        this.callDepth = params.callDepth;
         this.contractDeployDepth = params.contractDeployDepth;
         this.deployedContracts = params.deployedContracts || [];
         this.isConstructor = params.isConstructor || false;
@@ -95,7 +94,7 @@ export class ContractEvaluation implements ExecutionParameters {
         this.gasTracker = new GasTracker(params.maxGas);
         this.gasTracker.setGasUsed(params.gasUsed);
 
-        this.callStack = params.callStack || [];
+        this.callStack = params.callStack || new AddressStack();
         this.callStack.push(this.contractAddress);
 
         this.storage = params.storage;
@@ -113,22 +112,18 @@ export class ContractEvaluation implements ExecutionParameters {
         this.parseAccessList();
     }
 
-    public get timeSpent(): bigint {
-        return this.gasTracker.timeSpent;
-    }
-
     public get maxGas(): bigint {
         return this.gasTracker.maxGas;
     }
 
-    private _revert: Error | string | undefined;
+    public _revert: Uint8Array | undefined;
 
-    public get revert(): Error | string | undefined {
+    public get revert(): Uint8Array | undefined {
         return this._revert;
     }
 
     public set revert(error: Error | string) {
-        this._revert = error;
+        this._revert = this.getErrorAsBuffer(error);
     }
 
     public get gasUsed(): bigint {
@@ -166,12 +161,8 @@ export class ContractEvaluation implements ExecutionParameters {
         this.contractDeployDepth++;
     }
 
-    public incrementCallDepth(): void {
-        if (this.callDepth >= OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_CALL_DEPTH) {
-            throw new Error('Call depth exceeded');
-        }
-
-        this.callDepth++;
+    public isCallStackTooDeep(): boolean {
+        return this.callStack.length >= OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_CALL_DEPTH;
     }
 
     public setStorage(pointer: MemorySlotPointer, value: MemorySlotData<bigint>): void {
@@ -233,6 +224,16 @@ export class ContractEvaluation implements ExecutionParameters {
         this.setModifiedStorage();
     }
 
+    private getErrorAsBuffer(error: Error | string | undefined): Uint8Array {
+        const errorWriter = new BinaryWriter();
+        errorWriter.writeSelector(0x63739d5c);
+        errorWriter.writeStringWithLength(
+            typeof error === 'string' ? error : error?.message || 'Unknown error',
+        );
+
+        return errorWriter.getBuffer();
+    }
+
     public merge(extern: ContractEvaluation): void {
         if (extern.maxGas !== this.maxGas) {
             throw new Error('Max gas does not match');
@@ -242,26 +243,17 @@ export class ContractEvaluation implements ExecutionParameters {
 
         // we must merge the storage of the external calls
         if (extern.revert) {
-            this.revert = extern.revert;
+            this._revert = extern.revert;
 
-            throw new Error('execution reverted (merge)');
-        }
-
-        if (extern.contractAddress.equals(this.contractAddress)) {
-            throw new Error('Cannot call self');
+            return;
         }
 
         this.callStack = extern.callStack;
         if (OPNetConsensus.consensus.TRANSACTIONS.REENTRANCY_GUARD) {
-            this.checkReentrancy(extern.callStack);
+            this.checkReentrancy();
         }
 
-        this.callDepth = extern.callDepth;
         this.contractDeployDepth = extern.contractDeployDepth;
-
-        if (this.callDepth > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_CALL_DEPTH) {
-            throw new Error(`Call depth exceeded`);
-        }
 
         if (
             this.contractDeployDepth >
@@ -302,7 +294,7 @@ export class ContractEvaluation implements ExecutionParameters {
         };
 
         if (this.revert) {
-            resp.revert = this.revert.toString();
+            resp.revert = Buffer.from(this.revert).toString('base64');
         }
 
         return resp;
@@ -404,8 +396,8 @@ export class ContractEvaluation implements ExecutionParameters {
         return writer.getBuffer();
     }
 
-    private checkReentrancy(callStack: Address[]): void {
-        if (callStack.includes(this.contractAddress)) {
+    private checkReentrancy(): void {
+        if (this.callStack.includes(this.contractAddress)) {
             throw new Error('OP_NET: REENTRANCY');
         }
     }
