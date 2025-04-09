@@ -51,7 +51,6 @@ import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasP
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
-import { AddressStack } from './runtime/classes/AddressStack.js';
 
 Globals.register();
 
@@ -221,13 +220,19 @@ export class VMManager extends Logger {
                 blockHash = EMPTY_BUFFER;
             }
 
+            const gasTracker = this.getGasTracker(
+                OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
+                0n,
+            );
+
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
                 contractAddressStr: contractAddress.p2tr(this.network),
                 contractAddress: contractAddress,
                 from: from,
                 txOrigin: from,
-                maxGas: OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
+
+                gasTracker,
                 calldata: calldata,
 
                 blockHeight: height == undefined ? currentHeight.height + 1n : currentHeight.height,
@@ -235,12 +240,13 @@ export class VMManager extends Logger {
 
                 storage: new AddressMap(),
                 preloadStorage: new AddressMap(),
-                callStack: new AddressStack(),
 
                 allowCached: false,
                 externalCall: false,
-                gasUsed: 0n,
-                contractDeployDepth: 0,
+                isDeployment: false,
+
+                callStack: undefined,
+                contractDeployDepth: undefined,
 
                 blockHash: blockHash,
                 transactionId: EMPTY_BUFFER,
@@ -308,6 +314,7 @@ export class VMManager extends Logger {
 
             // Trace the execution time
             const maxGas: bigint = this.calculateMaxGas(isSimulation, feeBitcoin, baseGas);
+            const gasTracker = this.getGasTracker(maxGas, 0n);
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
@@ -318,7 +325,7 @@ export class VMManager extends Logger {
                 txOrigin: interactionTransaction.txOrigin,
                 msgSender: interactionTransaction.msgSender,
 
-                maxGas: maxGas,
+                gasTracker,
                 calldata: interactionTransaction.calldata,
 
                 blockHash: blockHash,
@@ -330,11 +337,11 @@ export class VMManager extends Logger {
 
                 storage: new AddressMap(),
                 preloadStorage: new AddressMap(),
-                callStack: new AddressStack(),
+                isDeployment: false,
 
+                callStack: undefined,
                 allowCached: true,
                 externalCall: false,
-                gasUsed: 0n,
                 contractDeployDepth: 0,
 
                 inputs: interactionTransaction.strippedInputs,
@@ -407,14 +414,20 @@ export class VMManager extends Logger {
             // Trace the execution time
             const maxGas: bigint = this.calculateMaxGas(false, feeBitcoin, baseGas);
 
+            const deployedContracts: AddressMap<ContractInformation> = new AddressMap();
+            deployedContracts.set(
+                contractInformation.contractTweakedPublicKey,
+                contractInformation,
+            );
+
+            const gasTracker = this.getGasTracker(maxGas, 0n);
             const params: ExecutionParameters = {
                 contractAddressStr: contractDeploymentTransaction.contractAddress,
                 contractAddress: contractDeploymentTransaction.address,
                 txOrigin: contractDeploymentTransaction.from,
                 msgSender: contractDeploymentTransaction.from,
 
-                callStack: new AddressStack(),
-                maxGas: maxGas,
+                gasTracker,
                 calldata: contractDeploymentTransaction.calldata,
 
                 blockHash: blockHash,
@@ -427,11 +440,13 @@ export class VMManager extends Logger {
                 preloadStorage: new AddressMap(),
 
                 externalCall: false,
-                gasUsed: 0n,
+                memoryPagesUsed: 0n,
                 contractDeployDepth: 1,
-                //deployedContracts: [contractInformation], // TODO: Understand what is going on when using this. (cause db conflicts)
+                deployedContracts: deployedContracts, // TODO: Understand what is going on when using this. (cause db conflicts)
+                callStack: undefined,
+                touchedAddresses: undefined,
 
-                isConstructor: true,
+                isDeployment: true,
 
                 inputs: contractDeploymentTransaction.strippedInputs,
                 outputs: contractDeploymentTransaction.strippedOutputs,
@@ -439,10 +454,11 @@ export class VMManager extends Logger {
                 serializedInputs: undefined,
                 serializedOutputs: undefined,
 
+                accessList: undefined,
                 preloadStorageList: contractDeploymentTransaction.preloadStorageList,
             };
 
-            const execution = await vmEvaluator.execute(params);
+            const execution = await vmEvaluator.run(params);
             this.isProcessing = false;
 
             return execution;
@@ -557,6 +573,13 @@ export class VMManager extends Logger {
         this.vmEvaluators.clear();
     }
 
+    private getGasTracker(maxGas: bigint, usedGas: bigint): GasTracker {
+        const gasTracker = new GasTracker(maxGas);
+        gasTracker.setGasUsed(usedGas);
+
+        return gasTracker;
+    }
+
     private calculateMaxGas(isSimulation: boolean, gasInSat: bigint, baseGas: bigint): bigint {
         const gas: bigint = isSimulation
             ? OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS
@@ -597,22 +620,15 @@ export class VMManager extends Logger {
         let vmEvaluator: ContractEvaluator | null = null;
 
         if (params.deployedContracts) {
-            for (const contract of params.deployedContracts) {
-                if (contract.contractTweakedPublicKey.equals(params.contractAddress)) {
-                    vmEvaluator = await this.getVMEvaluatorFromParams(
-                        params.contractAddress,
-                        params.blockHeight,
-                        contract,
-                    );
-                    break;
-                }
-            }
-        }
+            const contract = params.deployedContracts.get(params.contractAddress);
 
-        // Get the function selector
-        const calldata: Buffer = params.calldata;
-        if (calldata.byteLength < 4) {
-            throw new Error('Calldata too short');
+            if (contract) {
+                vmEvaluator = await this.getVMEvaluatorFromParams(
+                    params.contractAddress,
+                    params.blockHeight,
+                    contract,
+                );
+            }
         }
 
         if (!vmEvaluator) {
@@ -628,9 +644,7 @@ export class VMManager extends Logger {
         }
 
         if (!vmEvaluator) {
-            throw new Error(
-                `[executeTransaction] Unable to initialize contract ${params.contractAddress}`,
-            );
+            throw new Error(`OP_NET: Invalid contract.`);
         }
 
         // we define the caller here.
@@ -641,8 +655,7 @@ export class VMManager extends Logger {
             calldata: params.calldata,
             msgSender: caller,
             txOrigin: params.txOrigin,
-            maxGas: params.maxGas,
-            gasUsed: params.gasUsed,
+            gasTracker: params.gasTracker,
             externalCall: params.externalCall,
 
             blockHash: params.blockHash,
@@ -654,10 +667,14 @@ export class VMManager extends Logger {
 
             contractDeployDepth: params.contractDeployDepth,
 
+            deployedContracts: params.deployedContracts,
+            memoryPagesUsed: params.memoryPagesUsed,
+            touchedAddresses: params.touchedAddresses,
+
             storage: params.storage,
             preloadStorage: params.preloadStorage,
-            callStack: params.callStack || new AddressStack(),
-            isConstructor: false,
+            callStack: params.callStack,
+            isDeployment: false,
 
             inputs: params.inputs,
             outputs: params.outputs,
@@ -670,7 +687,7 @@ export class VMManager extends Logger {
         };
 
         // Execute the function
-        const evaluation: ContractEvaluation | null = await vmEvaluator.execute(executionParams);
+        const evaluation: ContractEvaluation | null = await vmEvaluator.run(executionParams);
 
         /** Delete the contract to prevent damage on states. */
         if (!evaluation) {
@@ -736,6 +753,7 @@ export class VMManager extends Logger {
     private async deployContractAtAddress(
         address: Address,
         salt: Buffer,
+        calldata: Buffer,
         evaluation: ContractEvaluation,
     ): Promise<
         | {
