@@ -4,6 +4,7 @@ import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/
 import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { AddressStack } from '../classes/AddressStack.js';
+import { GasTracker } from '../GasTracker.js';
 
 export interface InternalContractCallParameters {
     contractAddress: Address;
@@ -14,7 +15,8 @@ export interface InternalContractCallParameters {
     readonly txOrigin: Address;
     readonly msgSender?: Address;
 
-    readonly maxGas: bigint;
+    readonly memoryPagesUsed?: bigint;
+    readonly gasTracker: GasTracker;
 
     readonly calldata: Buffer;
     readonly externalCall: boolean;
@@ -26,22 +28,24 @@ export interface InternalContractCallParameters {
     readonly blockHeight: bigint;
     readonly blockMedian: bigint;
 
-    readonly contractDeployDepth: number;
+    readonly contractDeployDepth: number | undefined;
 
-    readonly gasUsed: bigint;
+    readonly callStack: AddressStack | undefined;
     allowCached?: boolean;
 
     readonly storage: AddressMap<PointerStorage>;
     readonly preloadStorage: AddressMap<PointerStorage>;
 
-    readonly deployedContracts?: ContractInformation[];
-    readonly callStack?: AddressStack;
+    readonly deployedContracts?: AddressMap<ContractInformation>;
+    readonly touchedAddresses?: AddressMap<boolean>;
 
     readonly inputs: StrippedTransactionInput[];
     readonly outputs: StrippedTransactionOutput[];
 
     readonly serializedInputs: Uint8Array | undefined;
     readonly serializedOutputs: Uint8Array | undefined;
+
+    readonly isDeployment: boolean;
 
     readonly accessList?: AccessList;
     readonly preloadStorageList?: AddressMap<Uint8Array[]>;
@@ -63,19 +67,20 @@ export interface ExecutionParameters {
     readonly blockNumber: bigint;
     readonly blockMedian: bigint;
 
-    readonly maxGas: bigint;
-    readonly gasUsed: bigint;
+    readonly gasTracker: GasTracker;
 
-    readonly contractDeployDepth: number;
-
+    readonly contractDeployDepth: number | undefined;
     readonly externalCall: boolean;
-    readonly callStack: AddressStack;
 
     readonly storage: AddressMap<PointerStorage>;
     readonly preloadStorage: AddressMap<PointerStorage>;
-    readonly deployedContracts?: ContractInformation[];
+    readonly deployedContracts: AddressMap<ContractInformation> | undefined;
 
-    readonly isConstructor: boolean;
+    readonly touchedAddresses: AddressMap<boolean> | undefined;
+    readonly callStack: AddressStack | undefined;
+
+    readonly memoryPagesUsed: bigint | undefined;
+    readonly isDeployment: boolean;
 
     readonly inputs: StrippedTransactionInput[];
     readonly outputs: StrippedTransactionOutput[];

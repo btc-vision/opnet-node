@@ -4,8 +4,8 @@ import {
     EnvironmentVariablesRequest,
     ExitDataResponse,
 } from '@btc-vision/op-vm';
-import { RustContractBinding } from './RustContractBindings.js';
 import { Blockchain } from '../Blockchain.js';
+import { RustContractBinding } from './RustContractBindings.js';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -13,6 +13,7 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly bytecode: Buffer;
     readonly gasMax: bigint;
     readonly gasUsed: bigint;
+    readonly memoryPagesUsed: bigint;
     readonly network: BitcoinNetworkRequest;
     readonly isDebugMode: boolean;
 
@@ -52,6 +53,8 @@ export class RustContract {
                 emit: this.params.emit,
                 inputs: this.params.inputs,
                 outputs: this.params.outputs,
+                accountType: this.params.accountType,
+                blockHash: this.params.blockHash,
             });
 
             this.instantiate();
@@ -82,6 +85,43 @@ export class RustContract {
         return this._params;
     }
 
+    public static decodeRevertData(revertDataBytes: Uint8Array): Error {
+        if (RustContract.startsWithErrorSelector(revertDataBytes)) {
+            const decoder = new TextDecoder();
+            const revertMessage = decoder.decode(revertDataBytes.slice(6));
+
+            return new Error(revertMessage);
+        } else {
+            return new Error(`Execution reverted: 0x${this.bytesToHexString(revertDataBytes)}`);
+        }
+    }
+
+    private static startsWithErrorSelector(revertDataBytes: Uint8Array) {
+        const errorSelectorBytes = Uint8Array.from([0x63, 0x73, 0x9d, 0x5c]);
+        return (
+            revertDataBytes.length >= 4 &&
+            this.areBytesEqual(revertDataBytes.slice(0, 4), errorSelectorBytes)
+        );
+    }
+
+    private static areBytesEqual(a: Uint8Array, b: Uint8Array) {
+        if (a.length !== b.length) return false;
+
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bytesToHexString(byteArray: Uint8Array): string {
+        return Array.from(byteArray, function (byte) {
+            return ('0' + (byte & 0xff).toString(16)).slice(-2);
+        }).join('');
+    }
+
     public instantiate(): void {
         if (this._id == null) throw new Error('Contract is not instantiated');
         if (this._instantiated) return;
@@ -92,6 +132,7 @@ export class RustContract {
             this.params.bytecode,
             this.params.gasUsed,
             this.params.gasMax,
+            this.params.memoryPagesUsed,
             this.params.network,
             this.params.isDebugMode,
         );
@@ -127,7 +168,7 @@ export class RustContract {
             const strErr = (deadlock as Error).message;
 
             if (strErr.includes('mutex')) {
-                throw new Error('OPNET: REENTRANCY DETECTED');
+                throw new Error('OP_NET: REENTRANCY DETECTED');
             }
         }
     }
@@ -186,17 +227,6 @@ export class RustContract {
         }
     }
 
-    public static decodeRevertData(revertDataBytes: Uint8Array): Error {
-        if (RustContract.startsWithErrorSelector(revertDataBytes)) {
-            const decoder = new TextDecoder();
-            const revertMessage = decoder.decode(revertDataBytes.slice(6));
-
-            return new Error(revertMessage);
-        } else {
-            return new Error(`Execution reverted: 0x${this.bytesToHexString(revertDataBytes)}`);
-        }
-    }
-
     public getUsedGas(): bigint {
         try {
             if (this.disposed && this.gasUsed) {
@@ -219,31 +249,5 @@ export class RustContract {
         } else {
             return err;
         }
-    }
-
-    private static startsWithErrorSelector(revertDataBytes: Uint8Array) {
-        const errorSelectorBytes = Uint8Array.from([0x63, 0x73, 0x9d, 0x5c]);
-        return (
-            revertDataBytes.length >= 4 &&
-            this.areBytesEqual(revertDataBytes.slice(0, 4), errorSelectorBytes)
-        );
-    }
-
-    private static areBytesEqual(a: Uint8Array, b: Uint8Array) {
-        if (a.length !== b.length) return false;
-
-        for (let i = 0; i < a.length; i++) {
-            if (a[i] !== b[i]) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bytesToHexString(byteArray: Uint8Array): string {
-        return Array.from(byteArray, function (byte) {
-            return ('0' + (byte & 0xff).toString(16)).slice(-2);
-        }).join('');
     }
 }

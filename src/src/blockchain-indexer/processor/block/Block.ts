@@ -1,4 +1,4 @@
-import { Address, AddressMap } from '@btc-vision/transaction';
+import { AddressMap } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -34,6 +34,7 @@ import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { Long } from 'mongodb';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 import { ContractEvaluation } from '../../../vm/runtime/classes/ContractEvaluation.js';
+import { RustContract } from '../../../vm/isolated/RustContract.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
@@ -694,7 +695,9 @@ export class Block extends Logger {
         const error = transaction.receipt.revert;
 
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-            this.error(`Transaction ${transaction.txidHex} reverted with reason: ${error}`);
+            this.error(
+                `Transaction ${transaction.txidHex} reverted with reason: ${RustContract.decodeRevertData(Buffer.from(error, 'base64')).message}`,
+            );
         } else if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.error(`Transaction ${transaction.txidHex} reverted.`);
         }

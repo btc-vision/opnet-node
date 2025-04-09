@@ -23,7 +23,27 @@ import { ContractParameters, RustContract } from '../isolated/RustContract.js';
 import { Blockchain } from '../Blockchain.js';
 import { Config } from '../../config/Config.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
-import { ExitDataResponse } from '@btc-vision/op-vm';
+import {
+    AccountTypeResponse,
+    ExitDataResponse,
+    NEW_STORAGE_SLOT_GAS_COST,
+    UPDATED_STORAGE_SLOT_GAS_COST,
+} from '@btc-vision/op-vm';
+
+interface InternalCallParameters {
+    readonly evaluation: ContractEvaluation;
+    readonly calldata: Buffer;
+    readonly isDeployment: boolean;
+    readonly contractAddress: Address;
+    readonly usedGas: bigint;
+}
+
+interface InternalCallResponse {
+    readonly isWarm: boolean;
+    readonly result: Uint8Array;
+    readonly status: 0 | 1;
+    readonly gasUsed: bigint;
+}
 
 export class ContractEvaluator extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -54,9 +74,8 @@ export class ContractEvaluator extends Logger {
     public getStorage(
         _address: Address,
         _pointer: StoragePointer,
-        _defaultValue: MemoryValue | null,
-        _setIfNotExit: boolean,
         _blockNumber: bigint,
+        _doNotLoad: boolean,
     ): Promise<MemoryValue | null> {
         throw new Error('Method not implemented. [getStorage]');
     }
@@ -74,6 +93,14 @@ export class ContractEvaluator extends Logger {
 
     public callExternal(_params: InternalContractCallParameters): Promise<ContractEvaluation> {
         throw new Error('Method not implemented. [callExternal]');
+    }
+
+    public async getBlockHashForBlockNumber(_blockNumber: bigint): Promise<Buffer> {
+        throw new Error('Method not implemented. [getBlockHashForBlockNumber]');
+    }
+
+    public async isContract(_address: Address): Promise<boolean> {
+        throw new Error('Method not implemented.');
     }
 
     public deployContractAtAddress(
@@ -107,47 +134,127 @@ export class ContractEvaluator extends Logger {
         }
     }
 
-    public async execute(params: ExecutionParameters): Promise<ContractEvaluation> {
+    public async run(params: ExecutionParameters): Promise<ContractEvaluation> {
         if (this.isProcessing) {
-            throw new Error('Contract is already processing');
+            throw new Error('Impossible state: Contract is already processing');
+        }
+
+        if (this._contractInstance) {
+            throw new Error('Impossible state: Concurrency detected.');
         }
 
         this.isProcessing = true;
 
         try {
-            this.delete();
-
             const evaluation = new ContractEvaluation(params);
             try {
-                const errored = this.loadContractFromBytecode(evaluation);
-                if (errored) throw new Error('Invalid contract bytecode');
+                const loadedContract = this.loadContractFromBytecode(evaluation);
+                if (loadedContract) throw new Error('OP_NET: Invalid contract bytecode.');
 
                 this.setEnvironment(evaluation);
 
                 await this.preloadPointers(evaluation);
 
                 // We execute the method.
-                if (params.isConstructor) {
+                if (params.isDeployment) {
                     await this.onDeploy(evaluation);
                 } else {
-                    await this.evaluate(evaluation);
+                    await this.execute(evaluation);
                 }
+
+                await this.terminateEvaluation(evaluation);
             } catch (e) {
+                this.attemptToSetGasUsed(evaluation);
+
                 evaluation.revert = e as Error;
             }
 
-            this.delete();
-
-            this.isProcessing = false;
-
             return evaluation;
-        } catch (e) {
+        } finally {
             try {
                 this.delete();
             } catch {}
 
             this.isProcessing = false;
-            throw e;
+        }
+    }
+
+    private async terminateEvaluation(evaluation: ContractEvaluation): Promise<void> {
+        await Promise.resolve();
+
+        if (evaluation.externalCall || evaluation.revert) {
+            return;
+        }
+
+        // TODO: Verify and charge gas for modified storage.
+        await this.calculateGasCostStore(evaluation);
+
+        // Deploy the required contracts.
+        const deploymentPromises: Promise<void>[] = [];
+        if (evaluation.deployedContracts.size > 0) {
+            const contracts = evaluation.deployedContracts.values();
+            for (const contractInfo of contracts) {
+                deploymentPromises.push(this.deployContract(contractInfo));
+            }
+        }
+
+        // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
+        await Promise.safeAll(deploymentPromises);
+    }
+
+    private async calculateGasCostStore(evaluation: ContractEvaluation): Promise<void> {
+        if (!evaluation.modifiedStorage) {
+            return;
+        }
+
+        let totalGasCost: bigint = 0n;
+        for (const states of evaluation.modifiedStorage.values()) {
+            let cost: bigint = 0n;
+
+            for (const [key, value] of states) {
+                const currentValue = await this.getStorageState(evaluation, key, false);
+
+                if (currentValue === null) {
+                    cost += NEW_STORAGE_SLOT_GAS_COST;
+                } else if (currentValue !== value) {
+                    cost += UPDATED_STORAGE_SLOT_GAS_COST;
+                }
+
+                // Check if the gas used is less than the maximum.
+                if (evaluation.maxGas < evaluation.gasUsed + cost) {
+                    // Set the gas used to the maximum.
+                    evaluation.setGasUsed(evaluation.maxGas);
+
+                    throw new Error(`out of gas (consumed: ${evaluation.maxGas})`);
+                }
+            }
+
+            totalGasCost += cost;
+        }
+
+        evaluation.setGasUsed(evaluation.gasUsed + totalGasCost);
+    }
+
+    private attemptToSetGasUsed(evaluation: ContractEvaluation): void {
+        try {
+            const gasUsed = this.getGasUsed(evaluation);
+            if (evaluation.gasUsed > gasUsed) {
+                throw new Error('OP_NET: Gas used returned is smaller than already used gas.');
+            } else {
+                evaluation.setGasUsed(gasUsed);
+            }
+        } catch {}
+    }
+
+    private getGasUsed(evaluation: ContractEvaluation): bigint {
+        try {
+            if (this._contractInstance) {
+                return this._contractInstance.getUsedGas();
+            } else {
+                return evaluation.maxGas;
+            }
+        } catch {
+            return evaluation.maxGas;
         }
     }
 
@@ -187,7 +294,7 @@ export class ContractEvaluator extends Logger {
         let wasCold: boolean = false;
         let pointerResponse: MemorySlotData<bigint> | undefined = evaluation.getStorage(pointer);
         if (pointerResponse === undefined) {
-            pointerResponse = (await this.getStorageState(evaluation, pointer)) || 0n;
+            pointerResponse = (await this.getStorageState(evaluation, pointer, false)) || 0n;
 
             evaluation.addToStorage(pointer, pointerResponse);
             wasCold = true;
@@ -208,85 +315,129 @@ export class ContractEvaluator extends Logger {
 
         evaluation.setStorage(pointer, value);
 
-        const response: BinaryWriter = new BinaryWriter();
-        response.writeBoolean(true); // if we want to add something in the future, we can.
-
-        return response.getBuffer();
+        return new Uint8Array([1]);
     }
 
     /** Call a contract */
     private async call(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
-        const writer = new BinaryWriter();
+        let gasUsed: bigint = evaluation.gasUsed;
 
-        const reader = new BinaryReader(data);
-        const gasUsed: bigint = reader.readU64();
-        const contractAddress: Address = reader.readAddress();
+        try {
+            const reader = new BinaryReader(data);
 
-        const calldata: Uint8Array = reader.readBytesWithLength();
-        evaluation.setGasUsed(gasUsed);
+            // Update the gas used.
+            gasUsed = reader.readU64();
+            evaluation.setGasUsed(gasUsed);
 
-        // if we don't do gasMax here and the execution actually used some gas, the user is getting free gas on partial
-        // reverts, otherwise rust need to return the real used gas.
-        let evaluationGasUsed: bigint = evaluation.maxGas - 1n;
-        let status: number;
-        let result: Uint8Array;
+            // Update the memory pages used.
+            evaluation.memoryPagesUsed = BigInt(reader.readU32());
 
-        if (!evaluation.isCallStackTooDeep()) {
-            const externalCallParams: InternalContractCallParameters = {
-                contractAddress: contractAddress,
-                contractAddressStr: contractAddress.p2tr(this.network),
+            const contractAddress: Address = reader.readAddress();
+            const calldata: Uint8Array = reader.readBytesWithLength();
 
-                from: evaluation.msgSender,
+            if (evaluation.isCallStackTooDeep()) {
+                throw new Error('OP_NET: Call stack too deep.');
+            }
 
-                txOrigin: evaluation.txOrigin,
-                msgSender: evaluation.contractAddress,
-
-                maxGas: evaluation.maxGas,
-                gasUsed: gasUsed,
-
-                externalCall: true,
-
-                blockHeight: evaluation.blockNumber,
-                blockMedian: evaluation.blockMedian,
-
+            const response = await this.internalCall({
+                evaluation,
                 calldata: Buffer.from(calldata),
+                isDeployment: false,
+                contractAddress,
+                usedGas: gasUsed,
+            });
 
-                blockHash: evaluation.blockHash,
-                transactionId: evaluation.transactionId,
-                transactionHash: evaluation.transactionHash,
+            const difference: bigint = response.gasUsed - gasUsed;
+            return this.buildCallResponse(
+                response.isWarm,
+                difference,
+                response.status,
+                response.result,
+            );
+        } catch (e) {
+            // If something goes wrong, we call exit with the error.
+            evaluation.revert = e as Error;
 
-                contractDeployDepth: evaluation.contractDeployDepth,
-
-                deployedContracts: evaluation.deployedContracts,
-                storage: evaluation.storage,
-                preloadStorage: evaluation.preloadStorage,
-
-                inputs: evaluation.inputs,
-                outputs: evaluation.outputs,
-
-                serializedInputs: evaluation.serializedInputs,
-                serializedOutputs: evaluation.serializedOutputs,
-
-                accessList: evaluation.accessList,
-                preloadStorageList: undefined, // All pointers are already preloaded.
-            };
-
-            const response = await this.callExternal(externalCallParams);
-            evaluation.merge(response);
-            status = response.revert ? 1 : 0;
-            result = (status ? response.revert : response.result) || Buffer.alloc(0);
-
-            evaluationGasUsed = response.gasUsed - gasUsed;
-        } else {
-            evaluation.revert = new Error('OP_NET: Call depth exceeded');
-            status = 1;
-            result = evaluation.revert ? evaluation.revert : Buffer.alloc(0);
+            const difference = evaluation.gasUsed - gasUsed;
+            return this.buildCallResponse(false, difference, 1, evaluation.revert as Uint8Array);
         }
+    }
 
-        writer.writeBoolean(!!evaluation.storage.get(contractAddress));
-        writer.writeU64(evaluationGasUsed);
+    private async internalCall(params: InternalCallParameters): Promise<InternalCallResponse> {
+        const evaluation = params.evaluation;
+        const calldata = params.calldata;
+        const gasUsed = params.usedGas;
+        const contractAddress = params.contractAddress;
+
+        const externalCallParams: InternalContractCallParameters = {
+            contractAddress: contractAddress,
+            contractAddressStr: contractAddress.p2tr(this.network),
+
+            from: evaluation.msgSender,
+
+            txOrigin: evaluation.txOrigin,
+            msgSender: evaluation.contractAddress,
+
+            gasTracker: evaluation.gasTracker,
+            externalCall: true,
+
+            isDeployment: params.isDeployment,
+            blockHeight: evaluation.blockNumber,
+            blockMedian: evaluation.blockMedian,
+
+            calldata: calldata,
+            callStack: evaluation.callStack,
+
+            blockHash: evaluation.blockHash,
+            transactionId: evaluation.transactionId,
+            transactionHash: evaluation.transactionHash,
+
+            contractDeployDepth: evaluation.contractDeployDepth,
+            memoryPagesUsed: evaluation.memoryPagesUsed,
+
+            deployedContracts: evaluation.deployedContracts,
+            storage: evaluation.storage,
+            preloadStorage: evaluation.preloadStorage,
+
+            inputs: evaluation.inputs,
+            outputs: evaluation.outputs,
+
+            serializedInputs: evaluation.serializedInputs,
+            serializedOutputs: evaluation.serializedOutputs,
+
+            accessList: evaluation.accessList,
+            preloadStorageList: undefined, // All pointers are already preloaded.
+        };
+
+        const isWarm: boolean = !!evaluation.touchedAddresses.get(contractAddress);
+        const response = await this.callExternal(externalCallParams);
+        evaluation.merge(response);
+
+        const status = response.revert ? 1 : 0;
+        const result = (status ? response.revert : response.result) || Buffer.alloc(0);
+
+        const evaluationGasUsed = response.gasUsed - gasUsed;
+        evaluation.setGasUsed(response.gasUsed);
+
+        return {
+            isWarm,
+            result,
+            status,
+            gasUsed: evaluationGasUsed,
+        };
+    }
+
+    private buildCallResponse(
+        isAddressWarm: boolean,
+        usedGas: bigint,
+        status: 0 | 1,
+        response: Uint8Array,
+    ): Uint8Array {
+        const writer = new BinaryWriter();
+        writer.writeBoolean(isAddressWarm);
+        writer.writeU64(usedGas);
         writer.writeU32(status);
-        writer.writeBytes(result);
+        writer.writeBytes(response);
 
         return writer.getBuffer();
     }
@@ -295,23 +446,82 @@ export class ContractEvaluator extends Logger {
         data: Buffer,
         evaluation: ContractEvaluation,
     ): Promise<Buffer | Uint8Array> {
-        evaluation.incrementContractDeployDepth(); // always first.
+        let usedGas: bigint = evaluation.gasUsed;
 
-        const reader = new BinaryReader(data);
-        const address: Address = reader.readAddress();
-        const original = reader.readBytes(32);
-        const salt: Buffer = Buffer.from(original);
+        try {
+            evaluation.incrementContractDeployDepth(); // always first.
 
-        const deployResult = await this.deployContractAtAddress(address, salt, evaluation);
-        if (!deployResult) {
-            throw new Error('Unable to deploy contract');
+            // Read the data from the buffer.
+            const reader = new BinaryReader(data);
+
+            // Read the gas used and set it in the evaluation.
+            usedGas = reader.readU64();
+            evaluation.setGasUsed(usedGas);
+
+            // Read the contract address and salt.
+            const address: Address = reader.readAddress();
+            const original = reader.readBytes(32);
+            const salt: Buffer = Buffer.from(original);
+
+            // Read the calldata.
+            const calldata: Buffer = Buffer.from(reader.readBytes(reader.bytesLeft()));
+            const deployResult = await this.deployContractAtAddress(address, salt, evaluation);
+
+            if (!deployResult) {
+                throw new Error('OP_NET: Unable to deploy contract.');
+            }
+
+            if (deployResult.contractAddress.equals(Address.zero())) {
+                throw new Error('OP_NET: Deployment failed.');
+            }
+
+            // Execute the deployment.
+            const internalResult = await this.internalCall({
+                evaluation,
+                calldata,
+                isDeployment: true,
+                contractAddress: deployResult.contractAddress,
+                usedGas: usedGas,
+            });
+
+            const difference = internalResult.gasUsed - usedGas;
+            return this.buildDeployFromAddressResponse(
+                deployResult.contractAddress,
+                deployResult.bytecodeLength,
+                difference,
+                internalResult.status,
+                internalResult.result,
+            );
+        } catch (e) {
+            // If something goes wrong, we call exit with the error.
+            evaluation.revert = e as Error;
+
+            const difference = evaluation.gasUsed - usedGas;
+            return this.buildDeployFromAddressResponse(
+                Address.zero(),
+                0,
+                difference,
+                1,
+                evaluation.revert as Uint8Array,
+            );
         }
+    }
 
-        const response = new BinaryWriter();
-        response.writeAddress(deployResult.contractAddress);
-        response.writeU32(deployResult.bytecodeLength);
+    private buildDeployFromAddressResponse(
+        contractAddress: Address,
+        bytecodeLength: number,
+        usedGas: bigint,
+        status: 0 | 1,
+        response: Uint8Array,
+    ): Uint8Array {
+        const writer = new BinaryWriter();
+        writer.writeAddress(contractAddress);
+        writer.writeU32(bytecodeLength);
+        writer.writeU64(usedGas);
+        writer.writeU32(status);
+        writer.writeBytes(response);
 
-        return response.getBuffer();
+        return writer.getBuffer();
     }
 
     private onDebug(buffer: Buffer): void {
@@ -338,6 +548,39 @@ export class ContractEvaluator extends Logger {
         return Promise.resolve(evaluation.getSerializeOutputUTXOs());
     }
 
+    private async getAccountType(
+        data: Buffer,
+        evaluation: ContractEvaluation,
+    ): Promise<AccountTypeResponse> {
+        const reader = new BinaryReader(data);
+        const targetAddress = reader.readAddress();
+        const isAddressWarm = evaluation.touchedAddress(targetAddress);
+
+        let accountType: number;
+        if (isAddressWarm === undefined) {
+            const isContract = await this.isContract(targetAddress);
+            evaluation.touchAddress(targetAddress, isContract);
+
+            accountType = isContract ? 1 : 0;
+        } else {
+            accountType = isAddressWarm ? 1 : 0;
+        }
+
+        return {
+            accountType,
+            isAddressWarm: isAddressWarm === undefined ? false : isAddressWarm,
+        };
+    }
+
+    private async getBlockHashImport(blockNumber: bigint): Promise<Buffer> {
+        const blockHash = await this.getBlockHashForBlockNumber(blockNumber);
+        if (!blockHash) {
+            throw new Error('OP_NET: Unable to get block hash');
+        }
+
+        return blockHash;
+    }
+
     private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {
         if (!this.bytecode) {
             throw new Error('Bytecode is required');
@@ -355,7 +598,14 @@ export class ContractEvaluator extends Logger {
             network: NetworkConverter.networkToBitcoinNetwork(this.network),
             gasUsed: evaluation.gasUsed,
             gasMax: evaluation.maxGas,
+            memoryPagesUsed: evaluation.memoryPagesUsed,
             isDebugMode: false,
+            accountType: async (data: Buffer): Promise<AccountTypeResponse> => {
+                return await this.getAccountType(data, evaluation);
+            },
+            blockHash: async (blockNumber: bigint): Promise<Buffer> => {
+                return await this.getBlockHashImport(blockNumber);
+            },
             load: async (data: Buffer) => {
                 return await this.load(data, evaluation);
             },
@@ -407,23 +657,17 @@ export class ContractEvaluator extends Logger {
     private async internalGetStorage(
         address: Address,
         pointer: StoragePointer,
-        defaultValueBuffer: MemoryValue | null,
-        setIfNotExit: boolean = false,
         blockNumber: bigint,
+        doNotLoad: boolean,
     ): Promise<MemoryValue | null> {
         if (!this.contractAddress) {
             throw new Error('Contract not initialized');
         }
 
-        if (setIfNotExit && defaultValueBuffer === null) {
-            throw new Error('Default value buffer is required');
-        }
-
-        const canInitialize: boolean = address.equals(this.contractAddress) ? setIfNotExit : false;
-        return this.getStorage(address, pointer, defaultValueBuffer, canInitialize, blockNumber);
+        return this.getStorage(address, pointer, blockNumber, doNotLoad);
     }
 
-    private async evaluate(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
+    private async execute(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
         let result: ExitDataResponse | undefined;
         let error: Error | undefined;
 
@@ -457,7 +701,10 @@ export class ContractEvaluator extends Logger {
         if (!result) {
             try {
                 evaluation.setGasUsed(this.contractInstance.getUsedGas());
-            } catch {}
+            } catch {
+                // Fatal error
+                evaluation.setGasUsed(evaluation.maxGas);
+            }
 
             if (error) {
                 evaluation.revert = error.message;
@@ -487,9 +734,9 @@ export class ContractEvaluator extends Logger {
         }
 
         const data = result.data;
-        if (data.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH) {
+        if (OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH < data.length) {
             evaluation.revert = new Error(
-                `OP_NET: Maximum receipt length exceeded. ${data.length} > ${OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH}`,
+                `OP_NET: Maximum receipt length exceeded. (${data.length} > ${OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_RECEIPT_LENGTH})`,
             );
             return;
         }
@@ -500,32 +747,13 @@ export class ContractEvaluator extends Logger {
             try {
                 evaluation._revert = result.data;
             } catch {
-                evaluation.revert = new Error('OP_NET: An unknown error occurred');
+                evaluation.revert = new Error('OP_NET: An unknown error occurred.');
             }
             return;
         }
 
         if (!evaluation.revert && !error) {
-            if (!evaluation.externalCall) {
-                const deploymentPromises: Promise<void>[] = [];
-                if (evaluation.deployedContracts.length > 0) {
-                    for (let i = 0; i < evaluation.deployedContracts.length; i++) {
-                        const contract = evaluation.deployedContracts[i];
-                        deploymentPromises.push(this.deployContract(contract));
-                    }
-                }
-
-                // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
-                await Promise.safeAll(deploymentPromises);
-            }
-
             evaluation.setResult(result.data);
-        }
-
-        if (evaluation.revert) {
-            try {
-                this.delete();
-            } catch {}
         }
     }
 
@@ -552,14 +780,14 @@ export class ContractEvaluator extends Logger {
     private async getStorageState(
         evaluation: ContractEvaluation,
         pointer: MemorySlotPointer,
+        doNotLoad: boolean,
     ): Promise<bigint | null> {
         const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
         const value: MemoryValue | null = await this.internalGetStorage(
             evaluation.contractAddress,
             rawData,
-            null,
-            false,
             evaluation.blockNumber,
+            doNotLoad,
         );
 
         return value ? BufferHelper.uint8ArrayToValue(value) : null;

@@ -43,23 +43,25 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public modifiedStorage: BlockchainStorageMap | undefined;
 
+    public memoryPagesUsed: bigint;
     public events: EvaluatedEvents = new AddressMap();
 
     public result: Uint8Array | undefined;
-
     public contractDeployDepth: number;
 
     public readonly blockHash: Buffer;
     public readonly transactionId: Buffer;
     public readonly transactionHash: Buffer;
 
+    public readonly gasTracker: GasTracker;
+
     public readonly storage: AddressMap<PointerStorage>;
     public readonly preloadStorage: AddressMap<PointerStorage>;
-    public readonly deployedContracts: ContractInformation[];
+    public readonly deployedContracts: AddressMap<ContractInformation>;
+    public readonly touchedAddresses: AddressMap<boolean>;
 
     public callStack: AddressStack;
-
-    public isConstructor: boolean = false;
+    public isDeployment: boolean = false;
 
     public readonly inputs: StrippedTransactionInput[] = [];
     public readonly outputs: StrippedTransactionOutput[] = [];
@@ -71,7 +73,6 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly preloadStorageList: AddressMap<Uint8Array[]> | undefined;
 
     private _totalEventSize: number = 0;
-    private readonly gasTracker: GasTracker;
 
     constructor(params: ExecutionParameters) {
         this.contractAddress = params.contractAddress;
@@ -83,17 +84,22 @@ export class ContractEvaluation implements ExecutionParameters {
         this.externalCall = params.externalCall;
         this.blockNumber = params.blockNumber;
         this.blockMedian = params.blockMedian;
-        this.contractDeployDepth = params.contractDeployDepth;
-        this.deployedContracts = params.deployedContracts || [];
-        this.isConstructor = params.isConstructor || false;
+        this.deployedContracts = params.deployedContracts || new AddressMap();
+        this.isDeployment = params.isDeployment || false;
+        this.memoryPagesUsed = params.memoryPagesUsed || 0n;
+
+        this.contractDeployDepth = params.contractDeployDepth || 0;
+
+        if (this.isDeployment) {
+            this.incrementContractDeployDepth();
+        }
 
         this.blockHash = params.blockHash;
         this.transactionId = params.transactionId;
         this.transactionHash = params.transactionHash;
+        this.gasTracker = params.gasTracker;
 
-        this.gasTracker = new GasTracker(params.maxGas);
-        this.gasTracker.setGasUsed(params.gasUsed);
-
+        // Push the contract address to the call stack
         this.callStack = params.callStack || new AddressStack();
         this.callStack.push(this.contractAddress);
 
@@ -108,6 +114,10 @@ export class ContractEvaluation implements ExecutionParameters {
 
         this.accessList = params.accessList;
         this.preloadStorageList = params.preloadStorageList;
+
+        // Mark the contract address as touched
+        this.touchedAddresses = params.touchedAddresses || new AddressMap();
+        this.touchedAddresses.set(this.contractAddress, true);
 
         this.parseAccessList();
     }
@@ -128,6 +138,14 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public get gasUsed(): bigint {
         return this.gasTracker.gasUsed;
+    }
+
+    public touchAddress(address: Address, isContract: boolean): void {
+        this.touchedAddresses.set(address, isContract);
+    }
+
+    public touchedAddress(address: Address): boolean | undefined {
+        return this.touchedAddresses.get(address);
     }
 
     public getSerializeInputUTXOs(): Buffer {
@@ -155,7 +173,7 @@ export class ContractEvaluation implements ExecutionParameters {
             this.contractDeployDepth >=
             OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_DEPLOYMENT_DEPTH
         ) {
-            throw new Error('Contract deployment depth exceeded');
+            throw new Error('OP_NET: Contract deployment depth exceeded.');
         }
 
         this.contractDeployDepth++;
@@ -224,19 +242,9 @@ export class ContractEvaluation implements ExecutionParameters {
         this.setModifiedStorage();
     }
 
-    private getErrorAsBuffer(error: Error | string | undefined): Uint8Array {
-        const errorWriter = new BinaryWriter();
-        errorWriter.writeSelector(0x63739d5c);
-        errorWriter.writeStringWithLength(
-            typeof error === 'string' ? error : error?.message || 'Unknown error',
-        );
-
-        return errorWriter.getBuffer();
-    }
-
     public merge(extern: ContractEvaluation): void {
         if (extern.maxGas !== this.maxGas) {
-            throw new Error('Max gas does not match');
+            throw new Error('OP_NET: Impossible state. (max gas does not match)');
         }
 
         this.gasTracker.setGasUsed(extern.gasUsed);
@@ -255,13 +263,6 @@ export class ContractEvaluation implements ExecutionParameters {
 
         this.contractDeployDepth = extern.contractDeployDepth;
 
-        if (
-            this.contractDeployDepth >
-            OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_DEPLOYMENT_DEPTH
-        ) {
-            throw new Error('Contract deployment depth exceeded');
-        }
-
         if (extern.modifiedStorage) {
             this.mergeStorage(extern.modifiedStorage);
         }
@@ -271,7 +272,7 @@ export class ContractEvaluation implements ExecutionParameters {
         }
 
         if (extern.deployedContracts && !(extern.revert || this.revert)) {
-            this.deployedContracts.push(...extern.deployedContracts);
+            this.mergeDeployedContracts(extern.deployedContracts);
         }
     }
 
@@ -290,7 +291,7 @@ export class ContractEvaluation implements ExecutionParameters {
             result: result,
             events: events,
             gasUsed: this.gasUsed,
-            deployedContracts: deployedContracts,
+            deployedContracts: Array.from(deployedContracts.values()),
         };
 
         if (this.revert) {
@@ -301,7 +302,11 @@ export class ContractEvaluation implements ExecutionParameters {
     }
 
     public addContractInformation(contract: ContractInformation): void {
-        this.deployedContracts.push(contract);
+        if (this.deployedContracts.has(contract.contractTweakedPublicKey)) {
+            throw new Error('OP_NET: Contract already deployed.');
+        }
+
+        this.deployedContracts.set(contract.contractTweakedPublicKey, contract);
     }
 
     public preloadedStorage(storage: ProvenPointers | null): void {
@@ -325,6 +330,22 @@ export class ContractEvaluation implements ExecutionParameters {
         }
     }
 
+    private mergeDeployedContracts(contracts: AddressMap<ContractInformation>): void {
+        for (const value of contracts.values()) {
+            this.addContractInformation(value);
+        }
+    }
+
+    private getErrorAsBuffer(error: Error | string | undefined): Uint8Array {
+        const errorWriter = new BinaryWriter();
+        errorWriter.writeSelector(0x63739d5c);
+        errorWriter.writeStringWithLength(
+            typeof error === 'string' ? error : error?.message || 'Unknown error',
+        );
+
+        return errorWriter.getBuffer();
+    }
+
     private onNewStorage(): DeterministicMap<MemorySlotPointer, MemorySlotData<bigint>> {
         return new DeterministicMap((a: bigint, b: bigint) => {
             return BinaryReader.bigintCompare(a, b);
@@ -332,7 +353,7 @@ export class ContractEvaluation implements ExecutionParameters {
     }
 
     private setTotalEventSize(size: number) {
-        const newSize = this._totalEventSize + size;
+        const newSize: number = this._totalEventSize + size;
         if (newSize > OPNetConsensus.consensus.TRANSACTIONS.EVENTS.MAXIMUM_TOTAL_EVENT_LENGTH) {
             throw new Error('OP_NET: Maximum total event length exceeded.');
         }
@@ -346,9 +367,6 @@ export class ContractEvaluation implements ExecutionParameters {
             throw new Error('OP_NET: Maximum event length exceeded.');
         }
 
-        // Enforce total event size limit
-        this.setTotalEventSize(event.data.byteLength);
-
         // Enforce event type length limit
         if (
             event.type.length >
@@ -356,6 +374,9 @@ export class ContractEvaluation implements ExecutionParameters {
         ) {
             throw new Error('OP_NET: Maximum event type length exceeded.');
         }
+
+        // Enforce total event size limit
+        this.setTotalEventSize(event.data.byteLength);
     }
 
     private computeInputUTXOs(): Uint8Array {
@@ -398,7 +419,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     private checkReentrancy(): void {
         if (this.callStack.includes(this.contractAddress)) {
-            throw new Error('OP_NET: REENTRANCY');
+            throw new Error('OP_NET: Reentrancy detected.');
         }
     }
 
@@ -444,7 +465,7 @@ export class ContractEvaluation implements ExecutionParameters {
                     const valueBuf = Buffer.from(value, 'base64');
 
                     if (bigIntBuf.length !== 32 || valueBuf.length !== 32) {
-                        throw new Error(`Invalid access list key or value.`);
+                        throw new Error(`OP_NET: Invalid access list key or value.`);
                     }
 
                     const pointerKey = BigInt('0x' + bigIntBuf.toString('hex'));
@@ -459,7 +480,7 @@ export class ContractEvaluation implements ExecutionParameters {
                 console.log(`Error parsing access list: ${e}`);
             }
 
-            throw new Error(`Can not parse access list.`);
+            throw new Error(`OP_NET: Cannot parse access list.`);
         }
     }
 

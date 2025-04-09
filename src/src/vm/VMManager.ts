@@ -51,7 +51,6 @@ import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasP
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
-import { AddressStack } from './runtime/classes/AddressStack.js';
 
 Globals.register();
 
@@ -78,7 +77,7 @@ export class VMManager extends Logger {
 
     private readonly network: Network;
 
-    private pointerCache: AddressMap<Map<MemorySlotData<bigint>, [Uint8Array, string[]] | null>> =
+    private pointerCache: AddressMap<Map<MemorySlotData<bigint>, ProvenMemoryValue | null>> =
         new AddressMap();
 
     constructor(
@@ -221,13 +220,19 @@ export class VMManager extends Logger {
                 blockHash = EMPTY_BUFFER;
             }
 
+            const gasTracker = this.getGasTracker(
+                OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
+                0n,
+            );
+
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
                 contractAddressStr: contractAddress.p2tr(this.network),
                 contractAddress: contractAddress,
                 from: from,
                 txOrigin: from,
-                maxGas: OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
+
+                gasTracker,
                 calldata: calldata,
 
                 blockHeight: height == undefined ? currentHeight.height + 1n : currentHeight.height,
@@ -235,12 +240,13 @@ export class VMManager extends Logger {
 
                 storage: new AddressMap(),
                 preloadStorage: new AddressMap(),
-                callStack: new AddressStack(),
 
                 allowCached: false,
                 externalCall: false,
-                gasUsed: 0n,
-                contractDeployDepth: 0,
+                isDeployment: false,
+
+                callStack: undefined,
+                contractDeployDepth: undefined,
 
                 blockHash: blockHash,
                 transactionId: EMPTY_BUFFER,
@@ -308,6 +314,7 @@ export class VMManager extends Logger {
 
             // Trace the execution time
             const maxGas: bigint = this.calculateMaxGas(isSimulation, feeBitcoin, baseGas);
+            const gasTracker = this.getGasTracker(maxGas, 0n);
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
@@ -318,7 +325,7 @@ export class VMManager extends Logger {
                 txOrigin: interactionTransaction.txOrigin,
                 msgSender: interactionTransaction.msgSender,
 
-                maxGas: maxGas,
+                gasTracker,
                 calldata: interactionTransaction.calldata,
 
                 blockHash: blockHash,
@@ -330,11 +337,11 @@ export class VMManager extends Logger {
 
                 storage: new AddressMap(),
                 preloadStorage: new AddressMap(),
-                callStack: new AddressStack(),
+                isDeployment: false,
 
+                callStack: undefined,
                 allowCached: true,
                 externalCall: false,
-                gasUsed: 0n,
                 contractDeployDepth: 0,
 
                 inputs: interactionTransaction.strippedInputs,
@@ -385,9 +392,6 @@ export class VMManager extends Logger {
         try {
             this.isProcessing = true;
 
-            // We must save the contract information
-            await this.setContractAt(contractInformation);
-
             const vmEvaluator = await this.getVMEvaluatorFromParams(
                 contractDeploymentTransaction.address,
                 contractDeploymentTransaction.blockHeight,
@@ -407,14 +411,20 @@ export class VMManager extends Logger {
             // Trace the execution time
             const maxGas: bigint = this.calculateMaxGas(false, feeBitcoin, baseGas);
 
+            const deployedContracts: AddressMap<ContractInformation> = new AddressMap();
+            deployedContracts.set(
+                contractInformation.contractTweakedPublicKey,
+                contractInformation,
+            );
+
+            const gasTracker = this.getGasTracker(maxGas, 0n);
             const params: ExecutionParameters = {
                 contractAddressStr: contractDeploymentTransaction.contractAddress,
                 contractAddress: contractDeploymentTransaction.address,
                 txOrigin: contractDeploymentTransaction.from,
                 msgSender: contractDeploymentTransaction.from,
 
-                callStack: new AddressStack(),
-                maxGas: maxGas,
+                gasTracker,
                 calldata: contractDeploymentTransaction.calldata,
 
                 blockHash: blockHash,
@@ -427,11 +437,13 @@ export class VMManager extends Logger {
                 preloadStorage: new AddressMap(),
 
                 externalCall: false,
-                gasUsed: 0n,
+                memoryPagesUsed: 0n,
                 contractDeployDepth: 1,
-                //deployedContracts: [contractInformation], // TODO: Understand what is going on when using this. (cause db conflicts)
+                deployedContracts: deployedContracts,
+                callStack: undefined,
+                touchedAddresses: undefined,
 
-                isConstructor: true,
+                isDeployment: true,
 
                 inputs: contractDeploymentTransaction.strippedInputs,
                 outputs: contractDeploymentTransaction.strippedOutputs,
@@ -439,10 +451,11 @@ export class VMManager extends Logger {
                 serializedInputs: undefined,
                 serializedOutputs: undefined,
 
+                accessList: undefined,
                 preloadStorageList: contractDeploymentTransaction.preloadStorageList,
             };
 
-            const execution = await vmEvaluator.execute(params);
+            const execution = await vmEvaluator.run(params);
             this.isProcessing = false;
 
             return execution;
@@ -557,6 +570,13 @@ export class VMManager extends Logger {
         this.vmEvaluators.clear();
     }
 
+    private getGasTracker(maxGas: bigint, usedGas: bigint): GasTracker {
+        const gasTracker = new GasTracker(maxGas);
+        gasTracker.setGasUsed(usedGas);
+
+        return gasTracker;
+    }
+
     private calculateMaxGas(isSimulation: boolean, gasInSat: bigint, baseGas: bigint): bigint {
         const gas: bigint = isSimulation
             ? OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS
@@ -597,22 +617,15 @@ export class VMManager extends Logger {
         let vmEvaluator: ContractEvaluator | null = null;
 
         if (params.deployedContracts) {
-            for (const contract of params.deployedContracts) {
-                if (contract.contractTweakedPublicKey.equals(params.contractAddress)) {
-                    vmEvaluator = await this.getVMEvaluatorFromParams(
-                        params.contractAddress,
-                        params.blockHeight,
-                        contract,
-                    );
-                    break;
-                }
-            }
-        }
+            const contract = params.deployedContracts.get(params.contractAddress);
 
-        // Get the function selector
-        const calldata: Buffer = params.calldata;
-        if (calldata.byteLength < 4) {
-            throw new Error('Calldata too short');
+            if (contract) {
+                vmEvaluator = await this.getVMEvaluatorFromParams(
+                    params.contractAddress,
+                    params.blockHeight,
+                    contract,
+                );
+            }
         }
 
         if (!vmEvaluator) {
@@ -628,9 +641,7 @@ export class VMManager extends Logger {
         }
 
         if (!vmEvaluator) {
-            throw new Error(
-                `[executeTransaction] Unable to initialize contract ${params.contractAddress}`,
-            );
+            throw new Error(`OP_NET: Invalid contract.`);
         }
 
         // we define the caller here.
@@ -641,8 +652,7 @@ export class VMManager extends Logger {
             calldata: params.calldata,
             msgSender: caller,
             txOrigin: params.txOrigin,
-            maxGas: params.maxGas,
-            gasUsed: params.gasUsed,
+            gasTracker: params.gasTracker,
             externalCall: params.externalCall,
 
             blockHash: params.blockHash,
@@ -654,10 +664,14 @@ export class VMManager extends Logger {
 
             contractDeployDepth: params.contractDeployDepth,
 
+            deployedContracts: params.deployedContracts,
+            memoryPagesUsed: params.memoryPagesUsed,
+            touchedAddresses: params.touchedAddresses,
+
             storage: params.storage,
             preloadStorage: params.preloadStorage,
-            callStack: params.callStack || new AddressStack(),
-            isConstructor: false,
+            callStack: params.callStack,
+            isDeployment: false,
 
             inputs: params.inputs,
             outputs: params.outputs,
@@ -670,7 +684,7 @@ export class VMManager extends Logger {
         };
 
         // Execute the function
-        const evaluation: ContractEvaluation | null = await vmEvaluator.execute(executionParams);
+        const evaluation: ContractEvaluation | null = await vmEvaluator.run(executionParams);
 
         /** Delete the contract to prevent damage on states. */
         if (!evaluation) {
@@ -990,17 +1004,11 @@ export class VMManager extends Logger {
     private async getStorageFromDB(
         address: Address,
         pointer: StoragePointer,
-        defaultValue: MemoryValue | null = null,
-        setIfNotExit: boolean = true,
+        pointerBigInt: bigint,
         blockNumber: bigint,
     ): Promise<{ memory?: MemoryValue; proven?: ProvenMemoryValue } | null> {
-        const valueFromDB = await this.vmStorage.getStorage(
-            address,
-            pointer,
-            defaultValue,
-            setIfNotExit,
-            blockNumber,
-        );
+        const valueFromDB = await this.vmStorage.getStorage(address, pointer, blockNumber);
+        this.storePointerInCache(address, pointerBigInt, valueFromDB);
 
         if (valueFromDB == undefined) {
             return null;
@@ -1024,7 +1032,7 @@ export class VMManager extends Logger {
     private getPointerFromCache(
         address: Address,
         pointer: MemorySlotData<bigint>,
-    ): [Uint8Array, string[]] | undefined | null {
+    ): ProvenMemoryValue | undefined | null {
         const addressCache = this.pointerCache.get(address);
         if (addressCache === undefined) return undefined;
 
@@ -1034,7 +1042,7 @@ export class VMManager extends Logger {
     private storePointerInCache(
         address: Address,
         pointer: bigint,
-        value: [Uint8Array, string[]] | null,
+        value: ProvenMemoryValue | null,
     ): void {
         let addressCache = this.pointerCache.get(address);
         if (!addressCache) {
@@ -1043,68 +1051,6 @@ export class VMManager extends Logger {
         }
 
         addressCache.set(pointer, value);
-    }
-
-    private async processMemoryValue(
-        address: Address,
-        pointer: Uint8Array,
-        provenMemoryValue: ProvenMemoryValue | null,
-        blockNumber: bigint,
-    ): Promise<ProvenMemoryValue | null> {
-        // If the pointer is null, we set the value to 0 (new Uint8Array(32))
-        //    with no proofs. In single-pointer getStorage, a null indicates “not found”,
-        //    but here the requirement says “If a pointer is null, we set it to 0.”
-        if (!provenMemoryValue) {
-            return {
-                value: new Uint8Array(32),
-                proofs: [],
-                lastSeenAt: blockNumber,
-            };
-        }
-
-        // If we skip proof validation in certain cases:
-        if (
-            OPNetConsensus.consensus.TRANSACTIONS
-                .SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION
-        ) {
-            // If skipping, just return as is.
-            // Notice that in getStorage we returned just the .value, but here
-            // we do want the full ProvenMemoryValue structure for multiple pointers.
-            return provenMemoryValue;
-        }
-
-        // If proofs array is empty => data corruption
-        if (provenMemoryValue.proofs.length === 0) {
-            throw new Error(
-                `[DATA CORRUPTED] Proofs not found for pointer ${pointer} at address ${address}.`,
-            );
-        }
-
-        // Store in local cache
-        const pointerBigInt = BufferHelper.uint8ArrayToPointer(pointer);
-        this.storePointerInCache(address, pointerBigInt, [
-            provenMemoryValue.value,
-            provenMemoryValue.proofs,
-        ]);
-
-        // Verify proofs
-        const isValid: boolean = await this.verifyProofs(
-            pointer,
-            provenMemoryValue.value,
-            provenMemoryValue.proofs,
-            provenMemoryValue.lastSeenAt,
-        );
-
-        if (!isValid) {
-            this.error(
-                `[DATA CORRUPTED] Proofs not valid for pointer ${pointer} at address ${address}. Data corrupted. Please reindex your indexer from scratch.`,
-            );
-            throw new Error(
-                `[DATA CORRUPTED] Proofs not valid for pointer ${pointer} at address ${address}. MUST REINDEX FROM SCRATCH.`,
-            );
-        }
-
-        return provenMemoryValue;
     }
 
     /**
@@ -1132,6 +1078,10 @@ export class VMManager extends Logger {
             lastSeenAt: blockNumber,
         };
 
+        // Store in local cache
+        const pointerBigInt = BufferHelper.uint8ArrayToPointer(pointer);
+        this.storePointerInCache(address, pointerBigInt, realValue);
+
         // If skipping proof validation => just return as is
         if (
             OPNetConsensus.consensus.TRANSACTIONS
@@ -1147,10 +1097,6 @@ export class VMManager extends Logger {
             );
         }
 
-        // Store in local cache
-        const pointerBigInt = BufferHelper.uint8ArrayToPointer(pointer);
-        this.storePointerInCache(address, pointerBigInt, [realValue.value, realValue.proofs]);
-
         // Verify proofs
         const isValid: boolean = await this.verifyProofs(
             pointer,
@@ -1158,6 +1104,7 @@ export class VMManager extends Logger {
             realValue.proofs,
             realValue.lastSeenAt,
         );
+
         if (!isValid) {
             this.error(
                 `[DATA CORRUPTED] Proofs not valid for pointer ${pointer} at address ${address}. ` +
@@ -1190,9 +1137,8 @@ export class VMManager extends Logger {
 
             for (const pointer of pointers) {
                 const pointerBigInt = BufferHelper.uint8ArrayToPointer(pointer);
-                const pointerValueFromState =
-                    this.blockState?.getValueWithProofs(address, pointerBigInt) ||
-                    this.getPointerFromCache(address, pointerBigInt);
+                const pointerValueFromState: [Uint8Array, string[]] | undefined | null =
+                    this.getFromInternalCache(address, pointerBigInt);
 
                 // We simply store "null" if it's not found. We'll fix that up to zero later,
                 // inside finalizeProvenMemoryValue(treatNullAsZero = true).
@@ -1248,37 +1194,56 @@ export class VMManager extends Logger {
         return pointersResult;
     }
 
+    private getFromInternalCache(
+        address: Address,
+        pointerBigInt: bigint,
+    ): [Uint8Array, string[]] | undefined | null {
+        // Try blockState or pointer cache
+        let pointerValueFromState: [Uint8Array, string[]] | undefined | null =
+            this.blockState?.getValueWithProofs(address, pointerBigInt);
+
+        if (!pointerValueFromState) {
+            const fromInternalCache = this.getPointerFromCache(address, pointerBigInt);
+
+            if (fromInternalCache) {
+                pointerValueFromState = [fromInternalCache.value, fromInternalCache.proofs];
+            } else {
+                pointerValueFromState = fromInternalCache;
+            }
+        }
+
+        return pointerValueFromState;
+    }
+
     /** We must verify that the storage is correct */
     private async getStorage(
         address: Address,
         pointer: StoragePointer,
-        defaultValue: MemoryValue | null = null,
-        setIfNotExit: boolean = true,
         blockNumber: bigint,
+        doNotLoad: boolean = false,
     ): Promise<MemoryValue | null> {
         if (!this.blockState && !this.isExecutor) {
             throw new Error('Block state not found');
         }
 
         const pointerBigInt: bigint = BufferHelper.uint8ArrayToPointer(pointer);
-
-        // Try blockState or pointer cache
-        const pointerValueFromState =
-            this.blockState?.getValueWithProofs(address, pointerBigInt) ||
-            this.getPointerFromCache(address, pointerBigInt);
+        const pointerValueFromState: [Uint8Array, string[]] | undefined | null =
+            this.getFromInternalCache(address, pointerBigInt);
 
         let provenMemoryValue: ProvenMemoryValue | null = null;
-
         if (pointerValueFromState === null) {
             // Means we explicitly know "pointer not found"
             provenMemoryValue = null;
         } else if (pointerValueFromState === undefined) {
+            if (doNotLoad) {
+                return null;
+            }
+
             // Means we don't know => must load from DB
             const result = await this.getStorageFromDB(
                 address,
                 pointer,
-                defaultValue,
-                setIfNotExit,
+                pointerBigInt,
                 blockNumber,
             );
 
