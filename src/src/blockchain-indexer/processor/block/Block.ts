@@ -1,4 +1,4 @@
-import { Address, AddressMap } from '@btc-vision/transaction';
+import { AddressMap } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -696,7 +696,7 @@ export class Block extends Logger {
 
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             this.error(
-                `Transaction ${transaction.txidHex} reverted with reason: ${RustContract.decodeRevertData(Buffer.from(error, 'base64'))}`,
+                `Transaction ${transaction.txidHex} reverted with reason: ${RustContract.decodeRevertData(Buffer.from(error, 'base64')).message}`,
             );
         } else if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.error(`Transaction ${transaction.txidHex} reverted.`);
