@@ -208,7 +208,7 @@ export class ContractEvaluator extends Logger {
         }
 
         let totalGasCost: bigint = 0n;
-        for (const [contract, states] of evaluation.modifiedStorage.entries()) {
+        for (const states of evaluation.modifiedStorage.values()) {
             let cost: bigint = 0n;
 
             for (const [key, value] of states) {
@@ -216,10 +216,8 @@ export class ContractEvaluator extends Logger {
 
                 if (currentValue === null) {
                     cost += NEW_STORAGE_SLOT_GAS_COST;
-                    console.log(`New storage slot ${key.toString()} on ${contract.toString()}`);
                 } else if (currentValue !== value) {
                     cost += UPDATED_STORAGE_SLOT_GAS_COST;
-                    console.log(`Updated storage slot ${key.toString()} on ${contract.toString()}`);
                 }
 
                 // Check if the gas used is less than the maximum.
@@ -232,8 +230,6 @@ export class ContractEvaluator extends Logger {
             }
 
             totalGasCost += cost;
-
-            console.log(`Spent ${cost} gas on ${contract.toString()}`);
         }
 
         evaluation.setGasUsed(evaluation.gasUsed + totalGasCost);
