@@ -392,9 +392,6 @@ export class VMManager extends Logger {
         try {
             this.isProcessing = true;
 
-            // We must save the contract information
-            // await this.setContractAt(contractInformation);
-
             const vmEvaluator = await this.getVMEvaluatorFromParams(
                 contractDeploymentTransaction.address,
                 contractDeploymentTransaction.blockHeight,
@@ -442,7 +439,7 @@ export class VMManager extends Logger {
                 externalCall: false,
                 memoryPagesUsed: 0n,
                 contractDeployDepth: 1,
-                deployedContracts: deployedContracts, // TODO: Understand what is going on when using this. (cause db conflicts)
+                deployedContracts: deployedContracts,
                 callStack: undefined,
                 touchedAddresses: undefined,
 
