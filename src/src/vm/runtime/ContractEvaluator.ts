@@ -266,12 +266,13 @@ export class ContractEvaluator extends Logger {
 
         try {
             const reader = new BinaryReader(data);
+
+            // Update the gas used.
             gasUsed = reader.readU64();
+            evaluation.setGasUsed(gasUsed);
 
             const contractAddress: Address = reader.readAddress();
-
             const calldata: Uint8Array = reader.readBytesWithLength();
-            evaluation.setGasUsed(gasUsed);
 
             if (evaluation.isCallStackTooDeep()) {
                 throw new Error('OP_NET: Call stack too deep.');
@@ -285,9 +286,10 @@ export class ContractEvaluator extends Logger {
                 usedGas: gasUsed,
             });
 
+            const difference: bigint = response.gasUsed - gasUsed;
             return this.buildCallResponse(
                 response.isWarm,
-                response.gasUsed,
+                difference,
                 response.status,
                 response.result,
             );
@@ -425,10 +427,11 @@ export class ContractEvaluator extends Logger {
                 usedGas: usedGas,
             });
 
+            const difference = internalResult.gasUsed - usedGas;
             return this.buildDeployFromAddressResponse(
                 deployResult.contractAddress,
                 deployResult.bytecodeLength,
-                internalResult.gasUsed,
+                difference,
                 internalResult.status,
                 internalResult.result,
             );
