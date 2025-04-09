@@ -253,11 +253,8 @@ export class ContractEvaluator extends Logger {
         const value: bigint = reader.readU256();
 
         evaluation.setStorage(pointer, value);
-
-        const response: BinaryWriter = new BinaryWriter();
-        response.writeBoolean(true); // if we want to add something in the future, we can.
-
-        return response.getBuffer();
+        
+        return new Uint8Array([1]);
     }
 
     /** Call a contract */
