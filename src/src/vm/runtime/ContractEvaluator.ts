@@ -133,7 +133,11 @@ export class ContractEvaluator extends Logger {
 
     public async run(params: ExecutionParameters): Promise<ContractEvaluation> {
         if (this.isProcessing) {
-            throw new Error('Contract is already processing');
+            throw new Error('Impossible state: Contract is already processing');
+        }
+
+        if (this._contractInstance) {
+            throw new Error('Impossible state: Concurrency detected.');
         }
 
         this.isProcessing = true;
