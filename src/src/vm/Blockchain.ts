@@ -1,5 +1,10 @@
 import { RustContractBinding } from './isolated/RustContractBindings.js';
-import { ContractManager, ThreadSafeJsImportResponse } from '@btc-vision/op-vm';
+import {
+    AccountTypeResponse,
+    BlockHashRequest,
+    ContractManager,
+    ThreadSafeJsImportResponse,
+} from '@btc-vision/op-vm';
 import { Config } from '../config/Config.js';
 
 class BlockchainBase {
@@ -35,6 +40,8 @@ class BlockchainBase {
             this.emitJSFunction,
             this.inputsJSFunction,
             this.outputsJSFunction,
+            this.accountTypeJSFunction,
+            this.blockHashJSFunction,
         );
     }
 
@@ -55,6 +62,45 @@ class BlockchainBase {
 
         this.bindings.clear();
     }
+
+    private blockHashJSFunction: (
+        _: never,
+        result: BlockHashRequest,
+    ) => Promise<Buffer | Uint8Array> = (
+        _: never,
+        value: BlockHashRequest,
+    ): Promise<Buffer | Uint8Array> => {
+        if (this.enableDebug) console.log('BLOCK HASH', value.blockNumber);
+
+        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+
+        if (!c) {
+            throw new Error('Binding not found');
+        }
+
+        return c.blockHash(value.blockNumber);
+    };
+
+    private accountTypeJSFunction: (
+        _: never,
+        result: ThreadSafeJsImportResponse,
+    ) => Promise<AccountTypeResponse> = (
+        _: never,
+        value: ThreadSafeJsImportResponse,
+    ): Promise<AccountTypeResponse> => {
+        if (this.enableDebug) console.log('ACCOUNT TYPE', value.buffer);
+
+        const u = new Uint8Array(value.buffer);
+        const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+
+        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+
+        if (!c) {
+            throw new Error('Binding not found');
+        }
+
+        return c.accountType(buf);
+    };
 
     private logJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
         _: never,
