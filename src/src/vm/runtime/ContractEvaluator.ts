@@ -212,7 +212,7 @@ export class ContractEvaluator extends Logger {
             let cost: bigint = 0n;
 
             for (const [key, value] of states) {
-                const currentValue = await this.getStorageState(evaluation, key, true);
+                const currentValue = await this.getStorageState(evaluation, key, false);
 
                 if (currentValue === null) {
                     cost += NEW_STORAGE_SLOT_GAS_COST;
