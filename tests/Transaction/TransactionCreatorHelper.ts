@@ -5,6 +5,7 @@ import { createHash, Hash, randomBytes } from 'crypto';
 import { OPNetTransactionTypes } from '../../src/src/blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../../src/src/blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
 import { Transaction } from '../../src/src/blockchain-indexer/processor/transaction/Transaction.js';
+import { vitest } from 'vitest';
 
 export function createFakeAddress(network: Network): string {
     const wallet: {
@@ -84,12 +85,12 @@ export function CreateFakeTransaction(
         [],
     );
 
-    jest.spyOn(transaction, 'burnedFee', 'get').mockReturnValue(fees);
+    vitest.spyOn(transaction, 'burnedFee', 'get').mockReturnValue(fees);
     // @ts-ignore
-    jest.spyOn(transaction, 'from', 'get').mockReturnValue('');
+    vitest.spyOn(transaction, 'from', 'get').mockReturnValue('');
 
     if (computedHash !== null) {
-        jest.spyOn(transaction, 'computedIndexingHash', 'get').mockReturnValue(computedHash);
+        vitest.spyOn(transaction, 'computedIndexingHash', 'get').mockReturnValue(computedHash);
     }
 
     return transaction;

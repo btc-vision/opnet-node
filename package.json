@@ -8,7 +8,7 @@
     "watch": "gulp watch",
     "start": "cd build && node --optimize_for_size index",
     "build": "gulp",
-    "test": "jest --runInBand",
+    "test": "vitest",
     "setup": "npm i && npm run build"
   },
   "engines": {
@@ -103,6 +103,7 @@
     "gulp-clean": "^0.4.0",
     "gulp-eslint-new": "^2.4.0",
     "gulp-typescript": "^6.0.0-alpha.1",
-    "prettier": "3.5.3"
+    "prettier": "3.5.3",
+    "vitest": "^3.1.1"
   }
 }

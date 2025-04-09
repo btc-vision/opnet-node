@@ -1,9 +1,9 @@
-import 'jest';
 import { networks } from '@btc-vision/bitcoin';
 import { OPNetTransactionTypes } from '../../src/src/blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { TransactionGroupFeesSorter } from '../../src/src/blockchain-indexer/processor/transaction/transaction-sorter/TransactionGroupFeesSorter.js';
 import { Transaction } from '../../src/src/blockchain-indexer/processor/transaction/Transaction.js';
 import { CreateFakeTransaction } from './TransactionCreatorHelper.js';
+import { beforeEach, describe, test } from 'vitest';
 
 describe('TransactionGroupFeesSorter', () => {
     let sorter: TransactionGroupFeesSorter;
