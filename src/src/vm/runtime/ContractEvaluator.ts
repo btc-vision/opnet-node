@@ -23,7 +23,12 @@ import { ContractParameters, RustContract } from '../isolated/RustContract.js';
 import { Blockchain } from '../Blockchain.js';
 import { Config } from '../../config/Config.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
-import { AccountTypeResponse, ExitDataResponse } from '@btc-vision/op-vm';
+import {
+    AccountTypeResponse,
+    ExitDataResponse,
+    NEW_STORAGE_SLOT_GAS_COST,
+    UPDATED_STORAGE_SLOT_GAS_COST,
+} from '@btc-vision/op-vm';
 
 interface InternalCallParameters {
     readonly evaluation: ContractEvaluation;
@@ -69,9 +74,8 @@ export class ContractEvaluator extends Logger {
     public getStorage(
         _address: Address,
         _pointer: StoragePointer,
-        _defaultValue: MemoryValue | null,
-        _setIfNotExit: boolean,
         _blockNumber: bigint,
+        _doNotLoad: boolean,
     ): Promise<MemoryValue | null> {
         throw new Error('Method not implemented. [getStorage]');
     }
@@ -102,7 +106,6 @@ export class ContractEvaluator extends Logger {
     public deployContractAtAddress(
         _address: Address,
         _salt: Buffer,
-        _calldata: Buffer,
         _evaluation: ContractEvaluation,
     ): Promise<
         | {
@@ -158,6 +161,8 @@ export class ContractEvaluator extends Logger {
                 } else {
                     await this.execute(evaluation);
                 }
+
+                await this.terminateEvaluation(evaluation);
             } catch (e) {
                 this.attemptToSetGasUsed(evaluation);
 
@@ -172,6 +177,66 @@ export class ContractEvaluator extends Logger {
 
             this.isProcessing = false;
         }
+    }
+
+    private async terminateEvaluation(evaluation: ContractEvaluation): Promise<void> {
+        await Promise.resolve();
+
+        if (evaluation.externalCall || evaluation.revert) {
+            return;
+        }
+
+        // TODO: Verify and charge gas for modified storage.
+        await this.calculateGasCostStore(evaluation);
+
+        // Deploy the required contracts.
+        const deploymentPromises: Promise<void>[] = [];
+        if (evaluation.deployedContracts.size > 0) {
+            const contracts = evaluation.deployedContracts.values();
+            for (const contractInfo of contracts) {
+                deploymentPromises.push(this.deployContract(contractInfo));
+            }
+        }
+
+        // We deploy contract at the end of the transaction. This is on purpose, so we can revert more easily.
+        await Promise.safeAll(deploymentPromises);
+    }
+
+    private async calculateGasCostStore(evaluation: ContractEvaluation): Promise<void> {
+        if (!evaluation.modifiedStorage) {
+            return;
+        }
+
+        let totalGasCost: bigint = 0n;
+        for (const [contract, states] of evaluation.modifiedStorage.entries()) {
+            let cost: bigint = 0n;
+
+            for (const [key, value] of states) {
+                const currentValue = await this.getStorageState(evaluation, key, true);
+
+                if (currentValue === null) {
+                    cost += NEW_STORAGE_SLOT_GAS_COST;
+                    console.log(`New storage slot ${key.toString()} on ${contract.toString()}`);
+                } else if (currentValue !== value) {
+                    cost += UPDATED_STORAGE_SLOT_GAS_COST;
+                    console.log(`Updated storage slot ${key.toString()} on ${contract.toString()}`);
+                }
+
+                // Check if the gas used is less than the maximum.
+                if (evaluation.maxGas < evaluation.gasUsed + cost) {
+                    // Set the gas used to the maximum.
+                    evaluation.setGasUsed(evaluation.maxGas);
+
+                    throw new Error(`out of gas (consumed: ${evaluation.maxGas})`);
+                }
+            }
+
+            totalGasCost += cost;
+
+            console.log(`Spent ${cost} gas on ${contract.toString()}`);
+        }
+
+        evaluation.setGasUsed(evaluation.gasUsed + totalGasCost);
     }
 
     private attemptToSetGasUsed(evaluation: ContractEvaluation): void {
@@ -233,7 +298,7 @@ export class ContractEvaluator extends Logger {
         let wasCold: boolean = false;
         let pointerResponse: MemorySlotData<bigint> | undefined = evaluation.getStorage(pointer);
         if (pointerResponse === undefined) {
-            pointerResponse = (await this.getStorageState(evaluation, pointer)) || 0n;
+            pointerResponse = (await this.getStorageState(evaluation, pointer, false)) || 0n;
 
             evaluation.addToStorage(pointer, pointerResponse);
             wasCold = true;
@@ -253,7 +318,7 @@ export class ContractEvaluator extends Logger {
         const value: bigint = reader.readU256();
 
         evaluation.setStorage(pointer, value);
-        
+
         return new Uint8Array([1]);
     }
 
@@ -267,6 +332,9 @@ export class ContractEvaluator extends Logger {
             // Update the gas used.
             gasUsed = reader.readU64();
             evaluation.setGasUsed(gasUsed);
+
+            // Update the memory pages used.
+            evaluation.memoryPagesUsed = BigInt(reader.readU32());
 
             const contractAddress: Address = reader.readAddress();
             const calldata: Uint8Array = reader.readBytesWithLength();
@@ -329,6 +397,7 @@ export class ContractEvaluator extends Logger {
             transactionHash: evaluation.transactionHash,
 
             contractDeployDepth: evaluation.contractDeployDepth,
+            memoryPagesUsed: evaluation.memoryPagesUsed,
 
             deployedContracts: evaluation.deployedContracts,
             storage: evaluation.storage,
@@ -400,12 +469,7 @@ export class ContractEvaluator extends Logger {
 
             // Read the calldata.
             const calldata: Buffer = Buffer.from(reader.readBytes(reader.bytesLeft()));
-            const deployResult = await this.deployContractAtAddress(
-                address,
-                salt,
-                calldata,
-                evaluation,
-            );
+            const deployResult = await this.deployContractAtAddress(address, salt, evaluation);
 
             if (!deployResult) {
                 throw new Error('OP_NET: Unable to deploy contract.');
@@ -597,20 +661,14 @@ export class ContractEvaluator extends Logger {
     private async internalGetStorage(
         address: Address,
         pointer: StoragePointer,
-        defaultValueBuffer: MemoryValue | null,
-        setIfNotExit: boolean = false,
         blockNumber: bigint,
+        doNotLoad: boolean,
     ): Promise<MemoryValue | null> {
         if (!this.contractAddress) {
             throw new Error('Contract not initialized');
         }
 
-        if (setIfNotExit && defaultValueBuffer === null) {
-            throw new Error('Default value buffer is required');
-        }
-
-        const canInitialize: boolean = address.equals(this.contractAddress) ? setIfNotExit : false;
-        return this.getStorage(address, pointer, defaultValueBuffer, canInitialize, blockNumber);
+        return this.getStorage(address, pointer, blockNumber, doNotLoad);
     }
 
     private async execute(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
@@ -726,14 +784,14 @@ export class ContractEvaluator extends Logger {
     private async getStorageState(
         evaluation: ContractEvaluation,
         pointer: MemorySlotPointer,
+        doNotLoad: boolean,
     ): Promise<bigint | null> {
         const rawData: MemoryValue = BufferHelper.pointerToUint8Array(pointer);
         const value: MemoryValue | null = await this.internalGetStorage(
             evaluation.contractAddress,
             rawData,
-            null,
-            false,
             evaluation.blockNumber,
+            doNotLoad,
         );
 
         return value ? BufferHelper.uint8ArrayToValue(value) : null;

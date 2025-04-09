@@ -438,14 +438,8 @@ export class VMMongoStorage extends VMStorage {
     public async getStorage(
         address: Address,
         pointer: StoragePointer,
-        defaultValue: MemoryValue | null = null,
-        setIfNotExit: boolean = false,
         height?: bigint,
     ): Promise<ProvenMemoryValue | null> {
-        if (setIfNotExit && defaultValue === null) {
-            throw new Error('Default value buffer is required');
-        }
-
         if (!this.pointerRepository) {
             throw new Error('Repository not initialized');
         }
@@ -458,14 +452,6 @@ export class VMMongoStorage extends VMStorage {
 
         if (Buffer.isBuffer(value)) {
             throw new Error('The value returned was not an Uint8Array!');
-        }
-
-        if (setIfNotExit && !value && defaultValue) {
-            return {
-                value: this.addBytes(defaultValue),
-                proofs: [],
-                lastSeenAt: BigInt(0),
-            };
         }
 
         if (!value) {

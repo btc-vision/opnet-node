@@ -69,8 +69,6 @@ export abstract class VMStorage extends Logger {
     public abstract getStorage(
         address: Address,
         pointer: StoragePointer,
-        defaultValue: MemoryValue | null,
-        setIfNotExit: boolean,
         height?: bigint,
     ): Promise<ProvenMemoryValue | null>;
 
