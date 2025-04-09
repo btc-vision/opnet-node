@@ -207,6 +207,7 @@ export class ContractEvaluator extends Logger {
             return;
         }
 
+        // TODO: Optimize using getStorageMultiple.
         let totalGasCost: bigint = 0n;
         for (const states of evaluation.modifiedStorage.values()) {
             let cost: bigint = 0n;
