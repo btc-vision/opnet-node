@@ -41,7 +41,7 @@ export class RustContract {
         }
 
         if (this._id == null) {
-            this._id = this.contractManager.reserveId();
+            this._id = BigInt(this.contractManager.reserveId().toString());
 
             Blockchain.registerBinding({
                 id: this._id,
@@ -177,7 +177,12 @@ export class RustContract {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
-            return await this.contractManager.execute(this.id, Buffer.from(calldata));
+            const result = await this.contractManager.execute(this.id, Buffer.from(calldata));
+            return {
+                status: Number(result.status),
+                data: Buffer.copyBytesFrom(result.data),
+                gasUsed: BigInt(result.gasUsed.toString()),
+            };
         } catch (e) {
             if (this.enableDebug) console.log('Error in execute', e);
 
@@ -203,7 +208,13 @@ export class RustContract {
         if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
-            return await this.contractManager.onDeploy(this.id, Buffer.from(calldata));
+            const result = await this.contractManager.onDeploy(this.id, Buffer.from(calldata));
+
+            return {
+                status: Number(result.status),
+                data: Buffer.copyBytesFrom(result.data),
+                gasUsed: BigInt(result.gasUsed.toString()),
+            };
         } catch (e) {
             if (this.enableDebug) console.log('Error in onDeployment', e);
 
@@ -213,7 +224,8 @@ export class RustContract {
     }
 
     public getRevertError(): Error {
-        const revertData = this.contractManager.getExitData(this.id).data;
+        const revertInfo = this.contractManager.getExitData(this.id);
+        const revertData = Buffer.copyBytesFrom(revertInfo.data);
 
         try {
             this.dispose();
@@ -233,7 +245,7 @@ export class RustContract {
                 return this.gasUsed;
             }
 
-            return this.contractManager.getUsedGas(this.id);
+            return BigInt(this.contractManager.getUsedGas(this.id).toString());
         } catch (e) {
             const error = e as Error;
             throw this.getError(error);
