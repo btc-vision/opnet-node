@@ -1,5 +1,10 @@
 import { RustContractBinding } from './isolated/RustContractBindings.js';
-import { ContractManager, ThreadSafeJsImportResponse } from '@btc-vision/op-vm';
+import {
+    AccountTypeResponse,
+    BlockHashRequest,
+    ContractManager,
+    ThreadSafeJsImportResponse,
+} from '@btc-vision/op-vm';
 import { Config } from '../config/Config.js';
 
 class BlockchainBase {
@@ -35,6 +40,8 @@ class BlockchainBase {
             this.emitJSFunction,
             this.inputsJSFunction,
             this.outputsJSFunction,
+            this.accountTypeJsFunction,
+            this.blockHashJsFunction,
         );
     }
 
@@ -55,6 +62,26 @@ class BlockchainBase {
 
         this.bindings.clear();
     }
+
+    private accountTypeJsFunction: (
+        _: never,
+        result: ThreadSafeJsImportResponse,
+    ) => Promise<AccountTypeResponse> = (
+        _: never,
+        _value: ThreadSafeJsImportResponse,
+    ): Promise<AccountTypeResponse> => {
+        throw new Error('Not implemented');
+    };
+
+    private blockHashJsFunction: (
+        _: never,
+        result: BlockHashRequest,
+    ) => Promise<Buffer | Uint8Array> = (
+        _: never,
+        _value: BlockHashRequest,
+    ): Promise<Buffer | Uint8Array> => {
+        throw new Error('Not implemented');
+    };
 
     private logJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
         _: never,
