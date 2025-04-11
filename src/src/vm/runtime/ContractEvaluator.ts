@@ -331,7 +331,7 @@ export class ContractEvaluator extends Logger {
             evaluation.setGasUsed(gasUsed);
 
             // Update the memory pages used.
-            evaluation.memoryPagesUsed = BigInt(reader.readU32());
+            evaluation.memoryPagesUsed = 0n; //BigInt(reader.readU32());
 
             const contractAddress: Address = reader.readAddress();
             const calldata: Uint8Array = reader.readBytesWithLength();

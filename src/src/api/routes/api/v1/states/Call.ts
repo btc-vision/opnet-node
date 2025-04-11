@@ -112,6 +112,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw `Something went wrong while simulating call (Database error)`;
             }
 
+            console.log(e);
+
             throw `Something went wrong while simulating call (${e})`;
         }
     }
