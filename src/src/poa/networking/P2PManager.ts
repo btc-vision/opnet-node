@@ -67,6 +67,8 @@ import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import { FastBigIntSet } from '../../utils/fast/FastBigIntSet.js';
 import { ReusableStreamManager } from './stream/ReusableStreamManager.js';
 import { Config } from '../../config/Config.js';
+import { ping } from '@libp2p/ping';
+import { Ping } from '@libp2p/ping/src';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -84,9 +86,10 @@ interface BlacklistedPeerInfo {
 
 type Libp2pInstance = Libp2p<{
     nat: unknown;
-    kadDHT: KadDHT;
+    aminoDHT: KadDHT;
     identify: Identify;
     identifyPush: IdentifyPush;
+    ping: Ping;
 }>;
 
 export class P2PManager extends Logger {
@@ -425,7 +428,7 @@ export class P2PManager extends Logger {
     private async refreshRouting(): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
-        await this.node.services.kadDHT.refreshRoutingTable();
+        await this.node.services.aminoDHT.refreshRoutingTable();
     }
 
     private onPeerDiscovery(evt: CustomEvent<PeerInfo>): void {
@@ -1113,7 +1116,8 @@ export class P2PManager extends Logger {
                 identify: identify(this.p2pConfigurations.identifyConfiguration),
                 identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
                 nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),
-                kadDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
+                ping: ping(),
+                aminoDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
             },
         });
     }
