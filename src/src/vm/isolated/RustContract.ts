@@ -60,7 +60,7 @@ export class RustContract {
             this.instantiate();
         }
 
-        return this._id;
+        return BigInt(this._id.toString());
     }
 
     private _instantiated: boolean = false;
@@ -85,7 +85,7 @@ export class RustContract {
         return this._params;
     }
 
-    public static decodeRevertData(revertDataBytes: Uint8Array): Error {
+    public static decodeRevertData(revertDataBytes: Uint8Array | Buffer): Error {
         if (RustContract.startsWithErrorSelector(revertDataBytes)) {
             const decoder = new TextDecoder();
             const revertMessage = decoder.decode(revertDataBytes.slice(6));
@@ -127,14 +127,14 @@ export class RustContract {
         if (this._instantiated) return;
 
         this.contractManager.instantiate(
-            this._id,
-            this.params.address,
-            this.params.bytecode,
-            this.params.gasUsed,
-            this.params.gasMax,
-            this.params.memoryPagesUsed,
-            this.params.network,
-            this.params.isDebugMode,
+            BigInt(this._id.toString()),
+            String(this.params.address),
+            Buffer.copyBytesFrom(this.params.bytecode),
+            BigInt(this.params.gasUsed.toString()),
+            BigInt(this.params.gasMax.toString()),
+            BigInt(this.params.memoryPagesUsed.toString()),
+            Number(this.params.network),
+            Boolean(this.params.isDebugMode),
         );
 
         this._instantiated = true;
@@ -181,7 +181,11 @@ export class RustContract {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
-            const result = await this.contractManager.execute(this.id, Buffer.from(calldata));
+            const result = await this.contractManager.execute(
+                this.id,
+                Buffer.copyBytesFrom(calldata),
+            );
+
             const response = {
                 status: Number(result.status),
                 data: Buffer.copyBytesFrom(result.data),
@@ -205,7 +209,17 @@ export class RustContract {
         if (this.enableDebug) console.log('Setting environment', environmentVariables);
 
         try {
-            this.contractManager.setEnvironmentVariables(this.id, environmentVariables);
+            this.contractManager.setEnvironmentVariables(this.id, {
+                blockNumber: BigInt(environmentVariables.blockNumber.toString()),
+                blockMedianTime: BigInt(environmentVariables.blockMedianTime.toString()),
+                blockHash: Buffer.copyBytesFrom(environmentVariables.blockHash),
+                txId: Buffer.copyBytesFrom(environmentVariables.txId),
+                txHash: Buffer.copyBytesFrom(environmentVariables.txHash),
+                contractAddress: Buffer.copyBytesFrom(environmentVariables.contractAddress),
+                contractDeployer: Buffer.copyBytesFrom(environmentVariables.contractDeployer),
+                caller: Buffer.copyBytesFrom(environmentVariables.caller),
+                origin: Buffer.copyBytesFrom(environmentVariables.origin),
+            });
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
 
@@ -218,7 +232,11 @@ export class RustContract {
         if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
-            const result = await this.contractManager.onDeploy(this.id, Buffer.from(calldata));
+            const result = await this.contractManager.onDeploy(
+                this.id,
+                Buffer.copyBytesFrom(calldata),
+            );
+
             const response = {
                 status: Number(result.status),
                 data: Buffer.copyBytesFrom(result.data),
@@ -249,8 +267,7 @@ export class RustContract {
         if (revertData.length === 0) {
             return new Error(`Execution reverted`);
         } else {
-            const revertDataBytes = Uint8Array.from(revertData);
-            return RustContract.decodeRevertData(revertDataBytes);
+            return RustContract.decodeRevertData(revertData);
         }
     }
 
