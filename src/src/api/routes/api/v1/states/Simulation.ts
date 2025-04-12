@@ -206,11 +206,9 @@ export class Simulation extends Route<
             return data;
         }
 
-        if (!data.result) {
-            throw new Error(`Could not execute the given calldata at the requested contract.`);
-        }
+        const result: string = data.result ? Buffer.from(data.result).toString('base64') : '';
+        const revert: string = data.revert ? Buffer.from(data.revert).toString('base64') : '';
 
-        const result: string = Buffer.from(data.result).toString('base64');
         const accessList: AccessList = data.changedStorage
             ? this.getAccessList(data.changedStorage)
             : {};
@@ -226,7 +224,7 @@ export class Simulation extends Route<
         };
 
         if (data.revert) {
-            response.revert = data.revert.toString();
+            response.revert = revert;
         }
 
         return response;

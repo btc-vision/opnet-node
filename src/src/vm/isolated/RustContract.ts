@@ -6,6 +6,7 @@ import {
 } from '@btc-vision/op-vm';
 import { Blockchain } from '../Blockchain.js';
 import { RustContractBinding } from './RustContractBindings.js';
+import { BinaryWriter } from '@btc-vision/transaction';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -83,6 +84,16 @@ export class RustContract {
         }
 
         return this._params;
+    }
+
+    public static getErrorAsBuffer(error: Error | string | undefined): Uint8Array {
+        const errorWriter = new BinaryWriter();
+        errorWriter.writeSelector(0x63739d5c);
+        errorWriter.writeStringWithLength(
+            typeof error === 'string' ? error : error?.message || 'Unknown error',
+        );
+
+        return errorWriter.getBuffer();
     }
 
     public static decodeRevertData(revertDataBytes: Uint8Array | Buffer): Error {

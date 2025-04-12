@@ -89,6 +89,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         const response = (await this.rpcSubWorkerManager.resolve(data, 'call')) as
             | {
                   result: string | Uint8Array;
+                  revert?: string | Uint8Array;
                   changedStorage: [string, [string, string][]][] | null;
                   loadedStorage: LoadedStorageList;
                   gasUsed: string | null;
@@ -104,6 +105,15 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         }
 
         if (!('error' in response)) {
+            let revertData: Uint8Array | undefined;
+
+            if (response.revert) {
+                revertData =
+                    typeof response.revert === 'string'
+                        ? Uint8Array.from(Buffer.from(response.revert, 'hex'))
+                        : response.revert;
+            }
+
             return {
                 ...response,
                 changedStorage: response.changedStorage
@@ -118,6 +128,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                     typeof response.result === 'string'
                         ? Uint8Array.from(Buffer.from(response.result, 'hex'))
                         : response.result,
+                revert: revertData,
                 deployedContracts: [],
             };
         } else {

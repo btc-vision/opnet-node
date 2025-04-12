@@ -666,7 +666,7 @@ export class Block extends Logger {
             );
         }
 
-        transaction.revert = error;
+        transaction.revert = RustContract.getErrorAsBuffer(error);
 
         vmManager.updateBlockValuesFromResult(
             null,
@@ -693,16 +693,15 @@ export class Block extends Logger {
         }
 
         const error = transaction.receipt.revert;
-
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             this.error(
-                `Transaction ${transaction.txidHex} reverted with reason: ${RustContract.decodeRevertData(Buffer.from(error, 'base64')).message}`,
+                `Transaction ${transaction.txidHex} reverted with reason: ${RustContract.decodeRevertData(error).message}`,
             );
         } else if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.error(`Transaction ${transaction.txidHex} reverted.`);
         }
 
-        transaction.revert = new Error(error);
+        transaction.revert = error;
     }
 
     private defineGeneric(): void {
