@@ -186,11 +186,15 @@ export class RustContract {
                 Buffer.copyBytesFrom(calldata),
             );
 
-            const response = {
-                status: Number(result.status),
-                data: Buffer.copyBytesFrom(result.data),
-                gasUsed: BigInt(result.gasUsed.toString()),
-            };
+            const response = Object.preventExtensions(
+                Object.freeze(
+                    Object.seal({
+                        status: Number(result.status),
+                        data: Buffer.copyBytesFrom(result.data),
+                        gasUsed: BigInt(result.gasUsed.toString()),
+                    }),
+                ),
+            );
 
             if (global.gc) {
                 global.gc();
@@ -209,17 +213,30 @@ export class RustContract {
         if (this.enableDebug) console.log('Setting environment', environmentVariables);
 
         try {
-            this.contractManager.setEnvironmentVariables(this.id, {
-                blockNumber: BigInt(environmentVariables.blockNumber.toString()),
-                blockMedianTime: BigInt(environmentVariables.blockMedianTime.toString()),
-                blockHash: Buffer.copyBytesFrom(environmentVariables.blockHash),
-                txId: Buffer.copyBytesFrom(environmentVariables.txId),
-                txHash: Buffer.copyBytesFrom(environmentVariables.txHash),
-                contractAddress: Buffer.copyBytesFrom(environmentVariables.contractAddress),
-                contractDeployer: Buffer.copyBytesFrom(environmentVariables.contractDeployer),
-                caller: Buffer.copyBytesFrom(environmentVariables.caller),
-                origin: Buffer.copyBytesFrom(environmentVariables.origin),
-            });
+            this.contractManager.setEnvironmentVariables(
+                this.id,
+                Object.preventExtensions(
+                    Object.freeze(
+                        Object.seal({
+                            blockNumber: BigInt(environmentVariables.blockNumber.toString()),
+                            blockMedianTime: BigInt(
+                                environmentVariables.blockMedianTime.toString(),
+                            ),
+                            blockHash: Buffer.copyBytesFrom(environmentVariables.blockHash),
+                            txId: Buffer.copyBytesFrom(environmentVariables.txId),
+                            txHash: Buffer.copyBytesFrom(environmentVariables.txHash),
+                            contractAddress: Buffer.copyBytesFrom(
+                                environmentVariables.contractAddress,
+                            ),
+                            contractDeployer: Buffer.copyBytesFrom(
+                                environmentVariables.contractDeployer,
+                            ),
+                            caller: Buffer.copyBytesFrom(environmentVariables.caller),
+                            origin: Buffer.copyBytesFrom(environmentVariables.origin),
+                        }),
+                    ),
+                ),
+            );
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
 
@@ -237,11 +254,15 @@ export class RustContract {
                 Buffer.copyBytesFrom(calldata),
             );
 
-            const response = {
-                status: Number(result.status),
-                data: Buffer.copyBytesFrom(result.data),
-                gasUsed: BigInt(result.gasUsed.toString()),
-            };
+            const response = Object.preventExtensions(
+                Object.freeze(
+                    Object.seal({
+                        status: Number(result.status),
+                        data: Buffer.copyBytesFrom(result.data),
+                        gasUsed: BigInt(result.gasUsed.toString()),
+                    }),
+                ),
+            );
 
             if (global.gc) {
                 global.gc();
