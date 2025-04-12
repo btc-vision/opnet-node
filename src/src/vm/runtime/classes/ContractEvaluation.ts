@@ -153,7 +153,7 @@ export class ContractEvaluation implements ExecutionParameters {
             this.serializedInputs = this.computeInputUTXOs();
         }
 
-        return Buffer.from(this.serializedInputs);
+        return Buffer.copyBytesFrom(this.serializedInputs);
     }
 
     public getSerializeOutputUTXOs(): Buffer {
@@ -161,7 +161,7 @@ export class ContractEvaluation implements ExecutionParameters {
             this.serializedOutputs = this.computeOutputUTXOs();
         }
 
-        return Buffer.from(this.serializedOutputs);
+        return Buffer.copyBytesFrom(this.serializedOutputs);
     }
 
     public setGasUsed(gas: bigint): void {
