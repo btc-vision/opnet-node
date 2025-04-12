@@ -4,7 +4,7 @@ import { IdentifyInit } from '@libp2p/identify';
 
 import { NodeInfo, PeerId, PrivateKey } from '@libp2p/interface';
 import { FaultTolerance } from '@libp2p/interface-transport';
-import { KadDHTInit } from '@libp2p/kad-dht';
+import { KadDHTInit, removePrivateAddressesMapper } from '@libp2p/kad-dht';
 import { MulticastDNSInit } from '@libp2p/mdns/dist/src/mdns.js';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { TCPOptions } from '@libp2p/tcp';
@@ -208,6 +208,10 @@ export class P2PConfigurations extends OPNetPathFinder {
             kBucketSize: 30,
             clientMode: this.config.P2P.CLIENT_MODE,
             protocol: this.protocol,
+            peerInfoMapper: removePrivateAddressesMapper,
+            logPrefix: 'libp2p:dht-amino',
+            datastorePrefix: '/dht-amino',
+            metricsPrefix: 'libp2p_dht_amino',
         };
     }
 

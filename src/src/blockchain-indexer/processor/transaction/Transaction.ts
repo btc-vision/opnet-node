@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { Network, opcodes, script, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
+import { Network, script, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
 import crypto from 'crypto';
 import { Binary, Long } from 'mongodb';
 import * as zlib from 'zlib';
@@ -123,26 +123,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this._computedIndexingHash;
     }
 
-    protected _revert: Error | undefined;
+    protected _revert: Uint8Array | undefined;
 
-    public get revert(): Error | undefined {
+    public get revert(): Uint8Array | undefined {
         return this._revert;
     }
 
-    public set revert(error: Error) {
+    public set revert(error: Uint8Array | undefined) {
         this._revert = error;
-    }
-
-    public get revertBuffer(): Uint8Array | undefined {
-        if (!this._revert) return;
-        const finalMsg: string =
-            this._revert.message.length > 512
-                ? this._revert.message.slice(0, 512)
-                : this._revert.message;
-
-        const writer = new BinaryWriter(finalMsg.length);
-        writer.writeString(finalMsg);
-        return writer.getBuffer();
     }
 
     protected _receipt: EvaluatedResult | undefined;
@@ -346,7 +334,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     public toDocument(): TransactionDocument<T> {
-        const revertData: Uint8Array | undefined = this.revertBuffer;
+        const revertData: Uint8Array | undefined = this.revert;
         const inputDocs = this.inputs.map((inp) => inp.toDocument());
         const outputDocs = this.outputs.map((out) => out.toDocument());
 

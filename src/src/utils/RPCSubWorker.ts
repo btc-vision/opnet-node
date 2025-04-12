@@ -69,6 +69,7 @@ class RPCManager extends Logger {
                 if (result && !('error' in result)) {
                     result = Object.assign(result, {
                         result: result.result ? Buffer.from(result.result).toString('hex') : '',
+                        revert: result.revert ? Buffer.from(result.revert).toString('hex') : '',
                         changedStorage: result.changedStorage
                             ? this.convertMapToArray(result.changedStorage)
                             : [],

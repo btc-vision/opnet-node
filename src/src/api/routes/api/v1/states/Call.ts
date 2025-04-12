@@ -112,6 +112,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw `Something went wrong while simulating call (Database error)`;
             }
 
+            console.log(e);
+
             throw `Something went wrong while simulating call (${e})`;
         }
     }
@@ -219,11 +221,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             return data;
         }
 
-        if (!data.result) {
-            throw new Error(`Could not execute the given calldata at the requested contract.`);
-        }
+        const result: string = data.result ? Buffer.from(data.result).toString('base64') : '';
+        const revert: string = data.revert ? Buffer.from(data.revert).toString('base64') : '';
 
-        const result: string = Buffer.from(data.result).toString('base64');
         const accessList: AccessList = data.changedStorage
             ? this.getAccessList(data.changedStorage)
             : {};
@@ -239,7 +239,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         };
 
         if (data.revert) {
-            response.revert = data.revert;
+            response.revert = revert;
         }
 
         return response;

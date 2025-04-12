@@ -27,6 +27,7 @@ import { AccessList } from '../../../api/json-rpc/types/interfaces/results/state
 import { Config } from '../../../config/Config.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 import { AddressStack } from './AddressStack.js';
+import { RustContract } from '../../isolated/RustContract.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -133,7 +134,11 @@ export class ContractEvaluation implements ExecutionParameters {
     }
 
     public set revert(error: Error | string) {
-        this._revert = this.getErrorAsBuffer(error);
+        this._revert = RustContract.getErrorAsBuffer(error);
+
+        if (this._revert.byteLength > 4096) {
+            this._revert = RustContract.getErrorAsBuffer('OP_NET: Revert error too long.');
+        }
     }
 
     public get gasUsed(): bigint {
@@ -153,7 +158,7 @@ export class ContractEvaluation implements ExecutionParameters {
             this.serializedInputs = this.computeInputUTXOs();
         }
 
-        return Buffer.from(this.serializedInputs);
+        return Buffer.copyBytesFrom(this.serializedInputs);
     }
 
     public getSerializeOutputUTXOs(): Buffer {
@@ -161,7 +166,7 @@ export class ContractEvaluation implements ExecutionParameters {
             this.serializedOutputs = this.computeOutputUTXOs();
         }
 
-        return Buffer.from(this.serializedOutputs);
+        return Buffer.copyBytesFrom(this.serializedOutputs);
     }
 
     public setGasUsed(gas: bigint): void {
@@ -294,8 +299,8 @@ export class ContractEvaluation implements ExecutionParameters {
             deployedContracts: Array.from(deployedContracts.values()),
         };
 
-        if (this.revert) {
-            resp.revert = Buffer.from(this.revert).toString('base64');
+        if (this._revert) {
+            resp.revert = this._revert;
         }
 
         return resp;
@@ -334,16 +339,6 @@ export class ContractEvaluation implements ExecutionParameters {
         for (const value of contracts.values()) {
             this.addContractInformation(value);
         }
-    }
-
-    private getErrorAsBuffer(error: Error | string | undefined): Uint8Array {
-        const errorWriter = new BinaryWriter();
-        errorWriter.writeSelector(0x63739d5c);
-        errorWriter.writeStringWithLength(
-            typeof error === 'string' ? error : error?.message || 'Unknown error',
-        );
-
-        return errorWriter.getBuffer();
     }
 
     private onNewStorage(): DeterministicMap<MemorySlotPointer, MemorySlotData<bigint>> {

@@ -51,8 +51,11 @@ import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasP
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
+import { init } from '@btc-vision/op-vm';
 
 Globals.register();
+
+init();
 
 const EMPTY_BUFFER = Buffer.alloc(32);
 

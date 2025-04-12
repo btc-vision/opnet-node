@@ -26,14 +26,7 @@ export class GetStorageAt extends Route<
         const [address, pointer, sendProofs, height] = this.getDecodedParams(params);
         const pointerAsUint8Array = BufferHelper.bufferToUint8Array(pointer.buffer);
 
-        const data = await this.storage.getStorage(
-            address,
-            pointerAsUint8Array,
-            null,
-            false,
-            height,
-        );
-
+        const data = await this.storage.getStorage(address, pointerAsUint8Array, height);
         if (!data) return;
 
         return {

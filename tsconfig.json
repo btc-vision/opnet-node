@@ -34,6 +34,7 @@
     "allowSyntheticDefaultImports": true,
     "outDir": "build",
     "typeRoots": [
+      "src/src/g.d.ts",
       "node_modules/@types"
     ]
   },
