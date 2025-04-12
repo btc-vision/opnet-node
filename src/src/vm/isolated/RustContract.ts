@@ -171,6 +171,10 @@ export class RustContract {
                 throw new Error('OP_NET: REENTRANCY DETECTED');
             }
         }
+
+        if (global.gc) {
+            global.gc();
+        }
     }
 
     public async execute(calldata: Uint8Array | Buffer): Promise<ExitDataResponse> {
@@ -178,11 +182,17 @@ export class RustContract {
 
         try {
             const result = await this.contractManager.execute(this.id, Buffer.from(calldata));
-            return {
+            const response = {
                 status: Number(result.status),
                 data: Buffer.copyBytesFrom(result.data),
                 gasUsed: BigInt(result.gasUsed.toString()),
             };
+
+            if (global.gc) {
+                global.gc();
+            }
+
+            return response;
         } catch (e) {
             if (this.enableDebug) console.log('Error in execute', e);
 
@@ -209,12 +219,17 @@ export class RustContract {
 
         try {
             const result = await this.contractManager.onDeploy(this.id, Buffer.from(calldata));
-
-            return {
+            const response = {
                 status: Number(result.status),
                 data: Buffer.copyBytesFrom(result.data),
                 gasUsed: BigInt(result.gasUsed.toString()),
             };
+
+            if (global.gc) {
+                global.gc();
+            }
+
+            return response;
         } catch (e) {
             if (this.enableDebug) console.log('Error in onDeployment', e);
 

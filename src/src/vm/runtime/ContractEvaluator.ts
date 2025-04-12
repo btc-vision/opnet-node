@@ -30,6 +30,12 @@ import {
     UPDATED_STORAGE_SLOT_GAS_COST,
 } from '@btc-vision/op-vm';
 
+import v8 from 'v8';
+
+// enabling trace-gc
+v8.setFlagsFromString('--trace-gc');
+v8.setFlagsFromString('--expose_gc');
+
 interface InternalCallParameters {
     readonly evaluation: ContractEvaluation;
     readonly calldata: Buffer;
@@ -167,6 +173,11 @@ export class ContractEvaluator extends Logger {
                 this.attemptToSetGasUsed(evaluation);
 
                 evaluation.revert = e as Error;
+            }
+
+            if (global.gc) {
+                console.log('Running garbage collector');
+                global.gc();
             }
 
             return evaluation;
