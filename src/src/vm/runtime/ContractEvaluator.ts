@@ -351,16 +351,15 @@ export class ContractEvaluator extends Logger {
 
             const response = await this.internalCall({
                 evaluation,
-                calldata: Buffer.from(calldata),
+                calldata: Buffer.copyBytesFrom(calldata),
                 isDeployment: false,
                 contractAddress,
                 usedGas: gasUsed,
             });
 
-            const difference: bigint = response.gasUsed - gasUsed;
             return this.buildCallResponse(
                 response.isWarm,
-                difference,
+                response.gasUsed,
                 response.status,
                 response.result,
             );
@@ -427,8 +426,6 @@ export class ContractEvaluator extends Logger {
         const result = (status ? response.revert : response.result) || Buffer.alloc(0);
 
         const evaluationGasUsed = response.gasUsed - gasUsed;
-        evaluation.setGasUsed(response.gasUsed);
-
         return {
             isWarm,
             result,
@@ -494,11 +491,10 @@ export class ContractEvaluator extends Logger {
                 usedGas: usedGas,
             });
 
-            const difference = internalResult.gasUsed - usedGas;
             return this.buildDeployFromAddressResponse(
                 deployResult.contractAddress,
                 deployResult.bytecodeLength,
-                difference,
+                internalResult.gasUsed,
                 internalResult.status,
                 internalResult.result,
             );
