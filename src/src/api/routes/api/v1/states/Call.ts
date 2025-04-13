@@ -412,7 +412,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             from = params.shift() as string | undefined;
 
             const temp: string | undefined = params.shift() as string | undefined;
-            if (typeof temp !== 'string') {
+            if (temp && typeof temp !== 'string') {
                 throw new Error('Invalid block number');
             }
 
