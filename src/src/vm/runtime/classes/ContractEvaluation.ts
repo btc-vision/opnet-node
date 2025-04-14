@@ -275,10 +275,6 @@ export class ContractEvaluation implements ExecutionParameters {
         if (extern.events) {
             this.mergeEvents(extern.events);
         }
-
-        if (extern.deployedContracts && !(extern.revert || this.revert)) {
-            this.mergeDeployedContracts(extern.deployedContracts);
-        }
     }
 
     public getEvaluationResult(): EvaluatedResult {
@@ -332,12 +328,6 @@ export class ContractEvaluation implements ExecutionParameters {
             }
 
             this.preloadStorage.set(address, current);
-        }
-    }
-
-    private mergeDeployedContracts(contracts: AddressMap<ContractInformation>): void {
-        for (const value of contracts.values()) {
-            this.addContractInformation(value);
         }
     }
 

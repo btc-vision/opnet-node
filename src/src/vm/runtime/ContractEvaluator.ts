@@ -49,7 +49,7 @@ interface InternalCallParameters {
 
 interface InternalCallResponse {
     readonly isWarm: boolean;
-    readonly result: Uint8Array;
+    readonly result: Buffer;
     readonly status: 0 | 1;
     readonly gasUsed: bigint;
 }
@@ -357,6 +357,12 @@ export class ContractEvaluator extends Logger {
                 usedGas: gasUsed,
             });
 
+            /*if (response.status === 1 && Config.DEV_MODE) {
+                this.error(
+                    `Call reverted with status 1 - ${RustContract.decodeRevertData(response.result)}`,
+                );
+            }*/
+
             return this.buildCallResponse(
                 response.isWarm,
                 response.gasUsed,
@@ -428,7 +434,7 @@ export class ContractEvaluator extends Logger {
         const evaluationGasUsed = response.gasUsed - gasUsed;
         return {
             isWarm,
-            result,
+            result: Buffer.from(result.buffer, result.byteOffset, result.byteLength),
             status,
             gasUsed: evaluationGasUsed,
         };
@@ -683,7 +689,7 @@ export class ContractEvaluator extends Logger {
             error = (await e) as Error;
         }
 
-        return await this.onExecutionResult(evaluation, result, error);
+        return this.onExecutionResult(evaluation, result, error);
     }
 
     private async onDeploy(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
@@ -696,14 +702,14 @@ export class ContractEvaluator extends Logger {
             error = (await e) as Error;
         }
 
-        return await this.onExecutionResult(evaluation, result, error);
+        return this.onExecutionResult(evaluation, result, error);
     }
 
-    private async onExecutionResult(
+    private onExecutionResult(
         evaluation: ContractEvaluation,
         result: ExitDataResponse | undefined,
         error: Error | undefined,
-    ): Promise<ExitDataResponse | undefined> {
+    ): ExitDataResponse | undefined {
         if (!result) {
             try {
                 evaluation.setGasUsed(this.contractInstance.getUsedGas());
@@ -725,16 +731,16 @@ export class ContractEvaluator extends Logger {
         evaluation.setGasUsed(result.gasUsed);
 
         // Process the result.
-        await this.processResult(result, error, evaluation);
+        this.processResult(result, error, evaluation);
 
         return result;
     }
 
-    private async processResult(
+    private processResult(
         result: ExitDataResponse,
         error: Error | undefined,
         evaluation: ContractEvaluation,
-    ): Promise<void> {
+    ): void {
         if (!this._contractInstance) {
             throw new Error('Contract not initialized');
         }
