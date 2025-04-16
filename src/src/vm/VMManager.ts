@@ -674,7 +674,7 @@ export class VMManager extends Logger {
             storage: params.storage,
             preloadStorage: params.preloadStorage,
             callStack: params.callStack,
-            isDeployment: false,
+            isDeployment: params.isDeployment || false,
 
             inputs: params.inputs,
             outputs: params.outputs,

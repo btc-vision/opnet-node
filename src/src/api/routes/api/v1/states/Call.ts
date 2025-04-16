@@ -412,7 +412,15 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             from = params.shift() as string | undefined;
 
             const temp: string | undefined = params.shift() as string | undefined;
-            blockNumber = temp ? BigInt(temp) : undefined;
+            if (temp && typeof temp !== 'string') {
+                throw new Error('Invalid block number');
+            }
+
+            try {
+                blockNumber = temp ? BigInt(temp) : undefined;
+            } catch {
+                throw new Error(`Invalid block number ${temp}`);
+            }
 
             transaction = params.shift() as Partial<SimulatedTransaction> | undefined;
             accessList = params.shift() as Partial<AccessList> | undefined;
