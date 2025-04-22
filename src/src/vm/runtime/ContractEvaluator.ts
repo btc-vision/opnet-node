@@ -357,11 +357,11 @@ export class ContractEvaluator extends Logger {
                 usedGas: gasUsed,
             });
 
-            /*if (response.status === 1 && Config.DEV_MODE) {
+            if (response.status === 1 && Config.DEV_MODE) {
                 this.error(
                     `Call reverted with status 1 - ${RustContract.decodeRevertData(response.result)}`,
                 );
-            }*/
+            }
 
             return this.buildCallResponse(
                 response.isWarm,
