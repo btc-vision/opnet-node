@@ -18,7 +18,7 @@ import {
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import { Network } from '@btc-vision/bitcoin';
+import { Network, networks } from '@btc-vision/bitcoin';
 import { ContractParameters, RustContract } from '../isolated/RustContract.js';
 import { Blockchain } from '../Blockchain.js';
 import { Config } from '../../config/Config.js';
@@ -538,7 +538,7 @@ export class ContractEvaluator extends Logger {
 
     private onDebug(buffer: Buffer): void {
         const reader = new BinaryReader(buffer);
-        const logData = reader.readStringWithLength();
+        const logData = reader.readString(buffer.byteLength);
 
         this.warn(`Contract log: ${logData}`);
     }
@@ -603,6 +603,11 @@ export class ContractEvaluator extends Logger {
             throw new Error('out of gas');
         }
 
+        const enableDebug =
+            this.network.bech32 !== networks.bitcoin.bech32
+                ? Config.DEV.ENABLE_CONTRACT_DEBUG
+                : false;
+
         return {
             contractManager: Blockchain.contractManager,
             address: evaluation.contractAddressStr,
@@ -611,7 +616,7 @@ export class ContractEvaluator extends Logger {
             gasUsed: evaluation.gasUsed,
             gasMax: evaluation.maxGas,
             memoryPagesUsed: evaluation.memoryPagesUsed,
-            isDebugMode: false,
+            isDebugMode: enableDebug,
             accountType: async (data: Buffer): Promise<AccountTypeResponse> => {
                 return await this.getAccountType(data, evaluation);
             },
