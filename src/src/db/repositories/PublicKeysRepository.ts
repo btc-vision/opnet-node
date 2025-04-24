@@ -15,6 +15,7 @@ import {
 } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 import fs from 'fs';
 import { Config } from '../../config/Config.js';
+import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
 
 const mod = (a: bigint, b: bigint): bigint => {
     const result = a % b;
@@ -226,6 +227,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return this._db.collection(OPNetCollections.PublicKeys);
     }
 
+    private getContractCollection(): Collection<IContractDocument> {
+        return this._db.collection(OPNetCollections.Contracts);
+    }
+
     private convertToPublicKeysInfo(publicKey: PublicKeyDocument): PublicKeyInfo {
         return {
             lowByte: publicKey.lowByte,
@@ -238,24 +243,62 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         };
     }
 
+    private async getKeyInfoFromContracts(
+        key: string,
+    ): Promise<PublicKeyDocument | IPubKeyNotFoundError> {
+        try {
+            const filter: Filter<IContractDocument> = {
+                $or: [
+                    { contractAddress: key },
+                    { contractTweakedPublicKey: new Binary(Buffer.from(key, 'hex')) },
+                ],
+            };
+
+            const resp = await this.getContractCollection().findOne(filter, {
+                projection: {
+                    contractAddress: 1,
+                    contractTweakedPublicKey: 1,
+                },
+            });
+
+            if (!resp) {
+                throw new Error('Public key not found');
+            }
+
+            return this.convertContractObjectToPublicKeyDocument(resp);
+        } catch {
+            return {
+                error: 'Public key not found',
+            };
+        }
+    }
+
+    private convertContractObjectToPublicKeyDocument(
+        contract: IContractDocument,
+    ): PublicKeyDocument {
+        return {
+            p2tr: contract.contractAddress,
+            tweakedPublicKey: contract.contractTweakedPublicKey as Binary,
+        };
+    }
+
     private async getKeyInfo(key: string): Promise<PublicKeyDocument | IPubKeyNotFoundError> {
         try {
+            const keyBuffer = new Binary(Buffer.from(key, 'hex'));
             const filter: Filter<PublicKeyDocument> = {
                 $or: [
                     { p2tr: key },
                     { p2pkh: key },
                     { p2shp2wpkh: key },
                     { p2wpkh: key },
-                    { tweakedPublicKey: new Binary(Buffer.from(key, 'hex')) },
-                    { publicKey: new Binary(Buffer.from(key, 'hex')) },
+                    { tweakedPublicKey: keyBuffer },
+                    { publicKey: keyBuffer },
                 ],
             };
 
             return await this.getOne(filter);
         } catch {
-            return {
-                error: 'Public key not found',
-            };
+            return await this.getKeyInfoFromContracts(key);
         }
     }
 
