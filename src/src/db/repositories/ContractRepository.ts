@@ -16,6 +16,7 @@ import {
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
 import { Address } from '@btc-vision/transaction';
+import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 
 export class ContractRepository extends BaseRepository<IContractDocument> {
     public readonly logColor: string = '#afeeee';
@@ -176,7 +177,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
     }
 
     protected override getCollection(): Collection<IContractDocument> {
-        return this._db.collection('Contracts');
+        return this._db.collection(OPNetCollections.Contracts);
     }
 
     private async getContractFromTweakedHybridPubKey(
