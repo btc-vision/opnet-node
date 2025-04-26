@@ -1,9 +1,6 @@
 import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import {
-    PublicKeyDocument,
-    PublicKeyDocumentNotReadonly,
-} from '../interfaces/PublicKeyDocument.js';
+import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
 import { CURVE, ProjectivePoint as Point } from '@noble/secp256k1';
@@ -19,7 +16,6 @@ import {
 import fs from 'fs';
 import { Config } from '../../config/Config.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
-import { FastStringSet } from '../../utils/fast/FastStringSet.js';
 
 const mod = (a: bigint, b: bigint): bigint => {
     const result = a % b;
@@ -30,7 +26,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     public readonly logColor: string = '#afeeee';
 
     private readonly network: Network = NetworkConverter.getNetwork();
-    private readonly cache: FastStringSet = new FastStringSet();
+    private readonly cache: Set<string> = new Set();
     private readonly MAX_CACHE_SIZE: number = 200_000;
 
     public constructor(db: Db) {
@@ -202,39 +198,11 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                     tweakedPublicKey: document.tweakedPublicKey,
                 };
 
-                const finalObject: Partial<PublicKeyDocumentNotReadonly> = {
-                    tweakedPublicKey: document.tweakedPublicKey,
-                };
-
-                if (document.p2tr) {
-                    finalObject.p2tr = document.p2tr;
-                }
-
-                if (document.publicKey) {
-                    finalObject.publicKey = document.publicKey;
-                }
-
-                if (document.lowByte) {
-                    finalObject.lowByte = document.lowByte;
-                }
-
-                if (document.p2pkh) {
-                    finalObject.p2pkh = document.p2pkh;
-                }
-
-                if (document.p2shp2wpkh) {
-                    finalObject.p2shp2wpkh = document.p2shp2wpkh;
-                }
-
-                if (document.p2wpkh) {
-                    finalObject.p2wpkh = document.p2wpkh;
-                }
-
                 return {
                     updateOne: {
                         filter: filter,
                         update: {
-                            $set: finalObject,
+                            $set: document,
                         },
                         upsert: true,
                         hint: 'tweakedPublicKey_1',
@@ -245,7 +213,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
         this.log(`Saving ${documents.length} public keys`);
 
-        const chunks = this.chunkArray(bulkWriteOperations, 500);
+        const chunks = this.chunkArray(bulkWriteOperations, 5000);
         const promises = [];
         for (const chunk of chunks) {
             promises.push(this.bulkWrite(chunk));

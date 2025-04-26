@@ -49,13 +49,14 @@ export class TransactionRepository extends BaseRepository<
      */
     public async bulkWrite(
         operations: AnyBulkWriteOperation<ITransactionDocument<OPNetTransactionTypes>>[],
-        currentSession?: ClientSession,
     ): Promise<void> {
         try {
             const collection = this.getCollection();
-            const options: BulkWriteOptions = this.getOptions(currentSession);
-            options.ordered = false;
+            const options: BulkWriteOptions = this.getOptions();
+            options.ordered = true;
             options.writeConcern = { w: 1 };
+            options.maxTimeMS = 512_000;
+            options.timeoutMS = 512_000;
 
             const result: BulkWriteResult = await collection.bulkWrite(operations, options);
 
@@ -86,7 +87,6 @@ export class TransactionRepository extends BaseRepository<
      */
     public async saveTransactions(
         transactions: ITransactionDocument<OPNetTransactionTypes>[],
-        currentSession?: ClientSession,
     ): Promise<void> {
         const bulkWriteOperations = transactions.map((transaction) => {
             return {
@@ -103,7 +103,7 @@ export class TransactionRepository extends BaseRepository<
             };
         });
 
-        await this.bulkWrite(bulkWriteOperations, currentSession);
+        await this.bulkWrite(bulkWriteOperations);
     }
 
     /**

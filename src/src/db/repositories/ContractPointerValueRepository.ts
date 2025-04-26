@@ -18,6 +18,7 @@ import {
 import { StoragePointer } from '../../vm/storage/types/StoragePointer.js';
 import { IContractPointerValueDocument } from '../documents/interfaces/IContractPointerValueDocument.js';
 import { MerkleTree } from '../../blockchain-indexer/processor/block/merkle/MerkleTree.js';
+import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 
 export interface IContractPointerValue {
     pointer: StoragePointer;
@@ -179,12 +180,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
     public async setStoragePointers(
         storage: AddressMap<Map<StoragePointer, [MemoryValue, string[]]>>,
         lastSeenAt: bigint,
-        currentSession?: ClientSession,
     ): Promise<void> {
-        if (!currentSession) {
-            throw new Error('Current session is required.');
-        }
-
         const MAX_OPERATIONS_PER_BATCH = 1000;
         const promises: Promise<void>[] = [];
 
@@ -225,56 +221,27 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
 
                 // Execute in batches
                 if (operations.length >= MAX_OPERATIONS_PER_BATCH) {
-                    promises.push(this.executeBulkWrite(operations, currentSession));
+                    promises.push(this.executeBulkWrite(operations));
                     operations = [];
                 }
             }
         }
 
         if (operations.length > 0) {
-            promises.push(this.executeBulkWrite(operations, currentSession));
+            promises.push(this.executeBulkWrite(operations));
         }
 
         await Promise.safeAll(promises);
     }
 
-    public async setByContractAndPointer(
-        contractAddress: Address,
-        bufPointer: StoragePointer,
-        bufValue: MemoryValue,
-        proofs: string[],
-        lastSeenAt: bigint,
-        currentSession?: ClientSession,
-    ): Promise<void> {
-        const pointerToBinary = new Binary(bufPointer);
-        const valueToBinary = new Binary(bufValue);
-
-        const criteria: Partial<Filter<IContractPointerValueDocument>> = {
-            contractAddress: contractAddress,
-            pointer: pointerToBinary,
-            lastSeenAt: lastSeenAt,
-        };
-
-        const update: Partial<IContractPointerValueDocument> = {
-            contractAddress: contractAddress,
-            pointer: pointerToBinary,
-            value: valueToBinary,
-            proofs: proofs,
-            lastSeenAt: lastSeenAt,
-        };
-
-        await this.updatePartial(criteria, update, currentSession);
-    }
-
     protected override getCollection(): Collection<IContractPointerValueDocument> {
-        return this._db.collection('InternalPointers');
+        return this._db.collection(OPNetCollections.InternalPointers);
     }
 
     private async executeBulkWrite(
         operations: ReadonlyArray<AnyBulkWriteOperation<IContractPointerValueDocument>>,
-        currentSession: ClientSession,
     ): Promise<void> {
-        const options: BulkWriteOptions = this.getOptions(currentSession);
+        const options: BulkWriteOptions = this.getOptions();
         options.ordered = true;
 
         const response = await this.getCollection().bulkWrite(operations, options);

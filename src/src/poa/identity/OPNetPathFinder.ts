@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { Config } from '../../config/Config.js';
 
 export class OPNetPathFinder {
     private readonly baseKey: Uint8Array = new Uint8Array([
@@ -16,7 +17,11 @@ export class OPNetPathFinder {
     }
 
     protected getBinPath(): string {
-        return path.join(__dirname, '../../', 'bin');
+        return path.join(
+            __dirname,
+            '../../',
+            `bin-${Config.BITCOIN.NETWORK}-${Config.BITCOIN.CHAIN_ID}`,
+        );
     }
 
     protected encrypt(dataJson: string): Uint8Array {

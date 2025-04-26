@@ -65,6 +65,8 @@ export abstract class ExtendedBaseRepository<T extends IBaseDocument> extends Ba
             const options: BulkWriteOptions = this.getOptions(currentSession);
             options.ordered = true;
             options.writeConcern = { w: 1 };
+            options.maxTimeMS = 512_000;
+            options.timeoutMS = 512_000;
 
             const result: BulkWriteResult = await collection.bulkWrite(operations, options);
 

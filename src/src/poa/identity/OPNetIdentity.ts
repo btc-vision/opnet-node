@@ -11,7 +11,6 @@ import { OPNetPathFinder } from './OPNetPathFinder.js';
 import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { EcKeyPair } from '@btc-vision/transaction';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
-import { Config } from '../../config/Config.js';
 
 export class OPNetIdentity extends OPNetPathFinder {
     public readonly network: Network = NetworkConverter.getNetwork();
@@ -59,7 +58,7 @@ export class OPNetIdentity extends OPNetPathFinder {
             case OPNetIndexerMode.LIGHT:
                 return 2;
             default:
-                throw new Error('Invalid OPNet mode');
+                throw new Error(`Invalid indexer mode: ${mode}`);
         }
     }
 
@@ -206,11 +205,11 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     private getOPNetAuthKeysPath(): string {
-        return path.join(this.getBinPath(), `opnet${Config.BITCOIN.CHAIN_ID}.bin`);
+        return path.join(this.getBinPath(), `opnet.bin`);
     }
 
     private getOPNetWalletPath(): string {
-        return path.join(this.getBinPath(), `wallet${Config.BITCOIN.CHAIN_ID}.bin`);
+        return path.join(this.getBinPath(), `wallet.bin`);
     }
 
     private loadOPNetAuthKeys(): Buffer {

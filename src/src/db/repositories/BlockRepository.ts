@@ -1,7 +1,6 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { ClientSession, Collection, Db, Filter } from 'mongodb';
-import { BlockRootStates } from '../interfaces/BlockRootStates.js';
 import {
     BlockHeaderDocument,
     IBlockHeaderBlockDocument,
@@ -47,18 +46,12 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         return result;
     }
 
-    public async getBlockByHash(
-        hash: string,
-        currentSession?: ClientSession,
-    ): Promise<IBlockHeaderBlockDocument | undefined> {
+    public async getBlockByHash(hash: string): Promise<IBlockHeaderBlockDocument | undefined> {
         const criteria: Partial<BlockHeaderDocument> = {
             hash: hash,
         };
 
-        const result: IBlockHeaderBlockDocument | null = await this.queryOne(
-            criteria,
-            currentSession,
-        );
+        const result: IBlockHeaderBlockDocument | null = await this.queryOne(criteria);
 
         if (result === null) {
             return;
@@ -67,19 +60,12 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         return result;
     }
 
-    public async getBlockHeader(
-        height: bigint,
-        currentSession?: ClientSession,
-    ): Promise<IBlockHeaderBlockDocument | undefined> {
+    public async getBlockHeader(height: bigint): Promise<IBlockHeaderBlockDocument | undefined> {
         const criteria: Partial<Filter<IBlockHeaderBlockDocument>> = {
             height: DataConverter.toDecimal128(height),
         };
 
-        const result: IBlockHeaderBlockDocument | null = await this.queryOne(
-            criteria,
-            currentSession,
-        );
-
+        const result: IBlockHeaderBlockDocument | null = await this.queryOne(criteria);
         if (result === null) {
             return;
         }
@@ -121,22 +107,6 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         });
 
         return result.map((block) => block.hash);
-    }
-
-    /** Add projection to not fetch the whole document */
-    public async getBlockRootStates(
-        height: bigint,
-        currentSession?: ClientSession,
-    ): Promise<BlockRootStates | undefined> {
-        const blockHeader = await this.getBlockHeader(height, currentSession);
-        if (!blockHeader) {
-            return;
-        }
-
-        return {
-            storageRoot: blockHeader.storageRoot,
-            receiptRoot: blockHeader.receiptRoot,
-        };
     }
 
     /** Save block headers */

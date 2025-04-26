@@ -59,6 +59,8 @@ export abstract class VMStorage extends Logger {
         publicKeys: string[],
     ): Promise<IPublicKeyInfoResult>;
 
+    public abstract close(): Promise<void>;
+
     public abstract getWitnesses(
         height: bigint | -1,
         trusted?: boolean,
@@ -76,14 +78,6 @@ export abstract class VMStorage extends Logger {
         pointers: AddressMap<Uint8Array[]>,
         height?: bigint,
     ): Promise<ProvenPointers | null>;
-
-    public abstract setStorage(
-        address: Address,
-        pointer: StoragePointer,
-        value: MemoryValue,
-        proofs: string[],
-        lastSeenAt: bigint,
-    ): Promise<void>;
 
     public abstract setStoragePointers(
         storage: AddressMap<Map<StoragePointer, [MemoryValue, string[]]>>,
@@ -118,15 +112,7 @@ export abstract class VMStorage extends Logger {
 
     public abstract setContractAt(contractData: ContractInformation): Promise<void>;
 
-    public abstract prepareNewBlock(blockId: bigint): Promise<void>;
-
-    public abstract terminateBlock(blockId: bigint): Promise<void>;
-
-    public abstract revertChanges(blockId: bigint): Promise<void>;
-
     public abstract init(): Promise<void>;
-
-    public abstract close(): Promise<void>;
 
     public abstract getLatestBlock(): Promise<BlockHeaderAPIBlockDocument | undefined>;
 
@@ -158,8 +144,6 @@ export abstract class VMStorage extends Logger {
     public abstract killAllPendingWrites(): Promise<void>;
 
     public abstract deleteTransactionsById(transactions: string[]): Promise<void>;
-
-    public abstract purgePointers(block: bigint): Promise<void>;
 
     public abstract getPreimage(blockHeight: bigint): Promise<string>;
 }

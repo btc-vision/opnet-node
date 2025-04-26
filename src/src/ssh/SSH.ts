@@ -110,13 +110,17 @@ export class SSH extends Logger {
             throw new Error('Host key not generated');
         }
 
-        fs.writeFileSync('./bin/host.bin', this.hostKey, { encoding: 'utf-8' });
+        fs.writeFileSync(`./${this.binFolder}/host.bin`, this.hostKey, { encoding: 'utf-8' });
+    }
+
+    private get binFolder(): string {
+        return `./bin-${Config.BITCOIN.NETWORK}-${Config.BITCOIN.CHAIN_ID}`;
     }
 
     private generateHostKey(): void {
-        if (fs.existsSync('./bin/host.bin')) {
+        if (fs.existsSync(`./${this.binFolder}/host.bin`)) {
             try {
-                this.hostKey = fs.readFileSync('./bin/host.bin', { encoding: 'utf-8' });
+                this.hostKey = fs.readFileSync(`./${this.binFolder}/host.bin`, { encoding: 'utf-8' });
             } catch {
                 this.panic(`Failed to read host key. Aborting...`);
             }

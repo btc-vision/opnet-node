@@ -227,5 +227,6 @@ fabric.properties
 
 # OP_NET
 src/config/btc.conf
+src/config/btc.regtest.conf
 src/config/doge.conf
 src/config/ltc.conf
