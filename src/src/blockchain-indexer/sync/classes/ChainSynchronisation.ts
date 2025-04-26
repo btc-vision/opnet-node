@@ -33,7 +33,7 @@ export class ChainSynchronisation extends Logger {
     private abortControllers: Map<bigint, AbortController> = new Map();
     private pendingSave: Promise<void> | undefined;
 
-    private readonly AWAIT_UTXO_WRITE_IF_QUEUE_SIZE: number = 500_000;
+    private readonly AWAIT_UTXO_WRITE_IF_QUEUE_SIZE: number = 200_000;
 
     public constructor() {
         super();

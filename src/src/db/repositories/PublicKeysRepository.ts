@@ -28,7 +28,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
     private readonly network: Network = NetworkConverter.getNetwork();
     private readonly cache: FastStringSet = new FastStringSet();
-    private readonly MAX_CACHE_SIZE: number = 100_000;
+    private readonly MAX_CACHE_SIZE: number = 200_000;
 
     public constructor(db: Db) {
         super(db);
