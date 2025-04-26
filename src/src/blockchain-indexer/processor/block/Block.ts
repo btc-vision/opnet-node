@@ -497,6 +497,12 @@ export class Block extends Logger {
         await vmManager.revertBlock();
     }
 
+    public verifyIfBlockAborted(): void {
+        if (this.signal.aborted) {
+            throw new Error(`Block #${this.height} aborted for "${this.signal.reason}"`);
+        }
+    }
+
     protected async onEmptyBlock(vmManager: VMManager): Promise<void> {
         this.#_storageRoot = ZERO_HASH;
         this.#_receiptRoot = ZERO_HASH;
@@ -715,12 +721,6 @@ export class Block extends Logger {
             Config.OP_NET.ENABLED_AT_BLOCK === 0 ||
             this.height >= BigInt(Config.OP_NET.ENABLED_AT_BLOCK)
         );
-    }
-
-    private verifyIfBlockAborted(): void {
-        if (this.signal.aborted) {
-            throw new Error(`Block #${this.height} aborted for "${this.signal.reason}"`);
-        }
     }
 
     private async executeSpecialTransactions(specialManager: SpecialManager): Promise<void> {

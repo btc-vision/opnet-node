@@ -28,6 +28,37 @@ export class RPCBlockFetcher extends BlockFetcher {
         this.rpc = config.rpc;
     }
 
+    public async watchBlockChanges(isFirst: boolean): Promise<void> {
+        try {
+            const currentBlockHeight = await this.rpc.getBlockHeight();
+            if (!currentBlockHeight) {
+                throw new Error('Error fetching block height.');
+            }
+
+            const blockHeader = await this.rpc.getBlockHeader(currentBlockHeight.blockHash);
+            if (!blockHeader) {
+                throw new Error(
+                    `Error fetching block header (hash: ${currentBlockHeight.blockHash}).`,
+                );
+            }
+
+            if (this.syncBlockHash !== blockHeader.hash) {
+                this.syncBlockHash = blockHeader.hash;
+                this.notifyBlockChangesSubscribers(blockHeader);
+            } else if (isFirst) {
+                this.notifyBlockChangesSubscribers(blockHeader);
+            }
+        } catch (e) {
+            const error = e as Error;
+
+            this.fail(`Error fetching block height: ${error.message}`);
+        }
+
+        setTimeout(async () => {
+            await this.watchBlockChanges(false);
+        }, Config.INDEXER.BLOCK_QUERY_INTERVAL);
+    }
+
     protected async queryBlock(blockHeight: bigint): Promise<BlockDataWithTransactionData | null> {
         const blockHash: string | null = await this.getBlockHashAndRetryIfNull(blockHeight);
         if (blockHash == null) {
@@ -73,35 +104,6 @@ export class RPCBlockFetcher extends BlockFetcher {
         }
 
         return finalResp;
-    }
-
-    protected async watchBlockChanges(): Promise<void> {
-        try {
-            const currentBlockHeight = await this.rpc.getBlockHeight();
-            if (!currentBlockHeight) {
-                throw new Error('Error fetching block height.');
-            }
-
-            const blockHeader = await this.rpc.getBlockHeader(currentBlockHeight.blockHash);
-            if (!blockHeader) {
-                throw new Error(
-                    `Error fetching block header (hash: ${currentBlockHeight.blockHash}).`,
-                );
-            }
-
-            if (this.syncBlockHash !== blockHeader.hash) {
-                this.syncBlockHash = blockHeader.hash;
-                this.notifyBlockChangesSubscribers(blockHeader);
-            }
-        } catch (e) {
-            const error = e as Error;
-
-            this.fail(`Error fetching block height: ${error.message}`);
-        }
-
-        setTimeout(async () => {
-            await this.watchBlockChanges();
-        }, Config.INDEXER.BLOCK_QUERY_INTERVAL);
     }
 
     protected async queryBlockHeight(): Promise<bigint> {

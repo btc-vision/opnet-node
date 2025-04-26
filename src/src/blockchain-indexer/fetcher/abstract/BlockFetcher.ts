@@ -18,10 +18,6 @@ export abstract class BlockFetcher extends Logger {
     }
 
     public subscribeToBlockChanges(cb: (newHeight: BlockHeaderInfo) => void): void {
-        if (!this.blockChangesSubscribers.length) {
-            void this.watchBlockChanges();
-        }
-
         this.blockChangesSubscribers.push(cb);
     }
 
@@ -135,13 +131,13 @@ export abstract class BlockFetcher extends Logger {
         this.lastBlockHash = null;
     }
 
+    public abstract watchBlockChanges(isFirst: boolean): Promise<void>;
+
     protected notifyBlockChangesSubscribers(blockHeight: BlockHeaderInfo): void {
         this.blockChangesSubscribers.forEach((cb) => cb(blockHeight));
     }
 
     protected abstract queryBlockHeight(): Promise<bigint>;
-
-    protected abstract watchBlockChanges(): Promise<void>;
 
     protected abstract queryBlock(
         blockHeightInProgress: bigint,
