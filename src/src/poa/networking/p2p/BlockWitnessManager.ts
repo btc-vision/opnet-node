@@ -245,7 +245,7 @@ export class BlockWitnessManager extends Logger {
         await Promise.safeAll(promises);
     }
 
-    private async getBlockDataAtHeight(
+    private async validateBlockHeaderAtHeight(
         blockNumber: bigint,
         blockHeader: IBlockHeaderWitness,
     ): Promise<ValidatedBlockHeader | undefined> {
@@ -295,7 +295,7 @@ export class BlockWitnessManager extends Logger {
             return;
         }
 
-        const blockDataAtHeight = await this.getBlockDataAtHeight(
+        const blockDataAtHeight = await this.validateBlockHeaderAtHeight(
             blockNumber,
             filteredBlockWitnesses,
         );

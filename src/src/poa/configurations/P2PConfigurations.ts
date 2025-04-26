@@ -330,7 +330,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     private peerFilePath(): string {
-        return path.join(this.getBinPath(), `identity${Config.BITCOIN.CHAIN_ID}.bin`);
+        return path.join(this.getBinPath(), `identity.bin`);
     }
 
     private uint8ArrayToString(uint8Array: Uint8Array): string {
