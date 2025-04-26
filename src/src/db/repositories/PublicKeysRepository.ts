@@ -213,7 +213,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
         this.log(`Saving ${documents.length} public keys`);
 
-        const chunks = this.chunkArray(bulkWriteOperations, 500);
+        const chunks = this.chunkArray(bulkWriteOperations, 5000);
         const promises = [];
         for (const chunk of chunks) {
             promises.push(this.bulkWrite(chunk));
