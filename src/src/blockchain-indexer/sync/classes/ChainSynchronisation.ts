@@ -33,7 +33,7 @@ export class ChainSynchronisation extends Logger {
     private abortControllers: Map<bigint, AbortController> = new Map();
     private pendingSave: Promise<void> | undefined;
 
-    private readonly AWAIT_UTXO_WRITE_IF_QUEUE_SIZE: number = 100_000;
+    private readonly AWAIT_UTXO_WRITE_IF_QUEUE_SIZE: number = 500_000;
 
     public constructor() {
         super();
@@ -204,7 +204,7 @@ export class ChainSynchronisation extends Logger {
         this.warn('Awaiting UTXO writes to complete... May take a while.');
 
         while (this.isProcessing) {
-            await new Promise((r) => setTimeout(r, 50));
+            await new Promise((r) => setTimeout(r, 100));
         }
     }
 

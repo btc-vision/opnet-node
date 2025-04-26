@@ -16,6 +16,7 @@ import {
 import fs from 'fs';
 import { Config } from '../../config/Config.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
+import { FastStringSet } from '../../utils/fast/FastStringSet.js';
 
 const mod = (a: bigint, b: bigint): bigint => {
     const result = a % b;
@@ -26,7 +27,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     public readonly logColor: string = '#afeeee';
 
     private readonly network: Network = NetworkConverter.getNetwork();
-    private readonly cache: Set<string> = new Set();
+    private readonly cache: FastStringSet = new FastStringSet();
     private readonly MAX_CACHE_SIZE: number = 100_000;
 
     public constructor(db: Db) {
@@ -344,15 +345,18 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 return;
             }
 
+            if (tweakedPublicKeyStr !== str) {
+                this.cache.add(tweakedPublicKeyStr);
+            }
+
+            this.cache.add(str);
+
             const p2tr = this.tweakedPubKeyToAddress(tweakedPublicKey, this.network);
             const ecKeyPair = EcKeyPair.fromPublicKey(publicKey, this.network);
 
             const p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
             const p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(ecKeyPair, this.network);
             const p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
-
-            this.cache.add(str);
-            this.cache.add(tweakedPublicKeyStr);
 
             publicKeys.push({
                 publicKey: new Binary(publicKey),
