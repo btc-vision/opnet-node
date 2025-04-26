@@ -575,6 +575,7 @@ install_and_configure_mongodb() {
 
     # Step 5: Start MongoDB Services
     echo -e "${BLUE}Starting MongoDB services...${NC}"
+
     sudo systemctl start configdb
     sudo systemctl start shard1
 
@@ -619,6 +620,9 @@ install_and_configure_mongodb() {
         for ((i=1; i<=retries; i++)); do
             mongosh --host "$host" --port "$port" $auth_args --eval "$mongo_command" && break
             echo -e "${YELLOW}Retrying MongoDB command... (${i}/${retries})${NC}"
+            echo -e "${RED}Command: $mongo_command${NC}"
+            echo -e "${RED}Host: $host, Port: $port${NC}"
+            echo -e "${RED}Auth Args: $auth_args${NC}"
             sleep "$wait"
         done
 
