@@ -55,6 +55,8 @@ export class TransactionRepository extends BaseRepository<
             const options: BulkWriteOptions = this.getOptions();
             options.ordered = true;
             options.writeConcern = { w: 1 };
+            options.maxTimeMS = 512_000;
+            options.timeoutMS = 512_000;
 
             const result: BulkWriteResult = await collection.bulkWrite(operations, options);
 
