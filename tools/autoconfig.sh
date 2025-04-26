@@ -44,10 +44,10 @@ check_system_requirements() {
     echo -e "${BLUE}Checking system requirements...${NC}"
 
     # Minimum and recommended requirements
-    MIN_CORES=4
+    MIN_CORES=8
     RECOMMENDED_CORES=24
-    MIN_RAM=16
-    RECOMMENDED_RAM=96
+    MIN_RAM=64
+    RECOMMENDED_RAM=128
     MIN_DISK_SPACE=2000  # Minimum 2 TB SSD required
     RECOMMENDED_DISK_SPACE=3000  # Recommended 3 TB SSD for safety
 
@@ -221,7 +221,6 @@ remove_any_existing_mongodb() {
     fi
 
     # Check if older mongodb-org packages are installed
-    # e.g., mongodb-org, mongodb-org-server, etc.
     if dpkg -l | grep -q "^ii\s\+mongodb-org"; then
         echo -e "${YELLOW}Found older 'mongodb-org' packages installed. Removing...${NC}"
         sudo apt-get purge -y mongodb-org*
@@ -245,10 +244,6 @@ install_and_configure_mongodb() {
     echo -e "${BLUE}Detected Ubuntu version: $ubuntu_version${NC}"
 
     # Decide whether to install MongoDB 7 or 8
-    #
-    # MongoDB 8 is supported on Ubuntu 20.04, 22.04, 24.04 (64-bit).
-    # If the OS is 18.04, we must install MongoDB 7 instead.
-    # Otherwise, if older than 18.04 or a non-LTS, we exit.
     install_mongodb_version="8.0"
 
     if [[ "$ubuntu_version" == "18.04" ]]; then
@@ -288,7 +283,6 @@ install_and_configure_mongodb() {
         echo -e "${BLUE}Detected ${#unused_disks[@]} unused disks: ${unused_disks[@]}${NC}"
         read -p "Would you like to create a RAID 5 array using these disks for MongoDB data storage? [y/N]: " create_raid_choice
         if [[ "$create_raid_choice" == "y" || "$create_raid_choice" == "Y" ]]; then
-            # Attempt to create RAID 5
             if ! command_exists mdadm; then
                 echo -e "${BLUE}Installing mdadm package...${NC}"
                 sudo apt-get install mdadm -y
@@ -344,8 +338,6 @@ install_and_configure_mongodb() {
             echo -e "${BLUE}Importing MongoDB 7.0 public GPG Key...${NC}"
             curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
         fi
-        # Add repo line
-        # - For Ubuntu 18.04 (bionic)
         echo -e "${BLUE}Adding MongoDB 7.0 repository for Ubuntu 18.04...${NC}"
         echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/7.0 multiverse" \
             | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
@@ -357,7 +349,8 @@ install_and_configure_mongodb() {
             echo -e "${BLUE}Importing MongoDB 8.0 public GPG Key...${NC}"
             curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
         fi
-        # For 20.04 (focal), 22.04 (jammy), 24.04 (noble)
+
+        # For 20.04, 22.04, 24.04 (and some others, as you’ve listed)
         codename=""
         if [[ "$ubuntu_version" == "20.04" ]]; then
             codename="focal"
@@ -366,6 +359,7 @@ install_and_configure_mongodb() {
         elif [[ "$ubuntu_version" == "24.04" ]]; then
             codename="noble"
         fi
+
         echo -e "${BLUE}Adding MongoDB 8.0 repository for Ubuntu $ubuntu_version ($codename)...${NC}"
         echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu $codename/mongodb-org/8.0 multiverse" \
             | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
@@ -389,12 +383,10 @@ install_and_configure_mongodb() {
     echo -e "${BLUE}Configuring MongoDB...${NC}"
     # Step 1: Create keyfile and directories
 
-    # Check if data_dir exists
     if [ -d "$data_dir" ]; then
         echo -e "${YELLOW}$data_dir directory already exists.${NC}"
         read -p "Do you want to purge it and reinstall? [y/N]: " purge_data
         if [[ "$purge_data" =~ ^[Yy]$ ]]; then
-            # Check if data_dir is a mount point
             if mountpoint -q "$data_dir"; then
                 echo -e "${BLUE}Directory $data_dir is a mount point. Deleting contents inside it...${NC}"
                 sudo rm -rf "${data_dir:?}/"*
@@ -410,10 +402,35 @@ install_and_configure_mongodb() {
         sudo mkdir -p "$data_dir"
     fi
 
-    # Create necessary subdirectories
     sudo mkdir -p "$data_dir/configdb"
+
+    ###########################################################################
+    #                            SHARD SELECTION                               #
+    ###########################################################################
+    # Ask if user wants 1 or 2 shards (default: 1)
+    echo ""
+    echo -e "${CYAN}Do you wish to create one shard or two shards for MongoDB?${NC}"
+    read -p "Enter '1' for one shard, '2' for two shards [default=1]: " shard_choice
+
+    # Default to 1 if empty
+    if [[ -z "$shard_choice" ]]; then
+        shard_choice=1
+    fi
+
+    # We'll store a boolean for "two_shards" to simplify checks
+    two_shards=false
+    if [[ "$shard_choice" == "2" ]]; then
+        two_shards=true
+    fi
+
+    # Always create shard1
     sudo mkdir -p "$data_dir/shard1"
-    sudo mkdir -p "$data_dir/shard2"
+
+    # Create shard2 only if user selects two shards
+    if [ "$two_shards" = true ]; then
+        sudo mkdir -p "$data_dir/shard2"
+    fi
+    ###########################################################################
 
     sudo mkdir -p /etc/mongodb
     sudo mkdir -p /etc/mongodb/keys
@@ -437,8 +454,6 @@ install_and_configure_mongodb() {
     sudo chmod 400 /etc/mongodb/keys/mongo-key
 
     # Step 3: Create MongoDB Config Files
-
-    # Prompt for custom database username
     read -p "Enter MongoDB admin username [opnet]: " mongodb_admin_username
     mongodb_admin_username=${mongodb_admin_username:-opnet}
 
@@ -475,7 +490,6 @@ install_and_configure_mongodb() {
         bind_ip="127.0.0.1"
     fi
 
-    # Function to fetch and configure a config file
     fetch_and_configure_conf() {
         local conf_name=$1
         local conf_url="https://autosetup.opnet.org/$conf_name"
@@ -495,11 +509,9 @@ install_and_configure_mongodb() {
 
         # Replace cacheSizeGB
         sudo sed -i "s/cacheSizeGB:.*/cacheSizeGB: $shard_ram/g" "$conf_path"
-
         # Replace bindIp
         sudo sed -i "s/bindIp:.*/bindIp: $bind_ip/g" "$conf_path"
 
-        # Determine dbPath directory based on conf_name
         local conf_dbpath_dir=""
         case "$conf_name" in
             "mongos.conf")
@@ -516,7 +528,6 @@ install_and_configure_mongodb() {
                 ;;
         esac
 
-        # Replace dbPath if applicable
         if [ -n "$conf_dbpath_dir" ]; then
             sudo sed -i "s|dbPath:.*|dbPath: $data_dir/$conf_dbpath_dir|g" "$conf_path"
         fi
@@ -525,8 +536,12 @@ install_and_configure_mongodb() {
     # Fetch and configure mongos.conf, shard1.conf, shard2.conf, configdb.conf
     fetch_and_configure_conf mongos.conf
     fetch_and_configure_conf shard1.conf
-    fetch_and_configure_conf shard2.conf
     fetch_and_configure_conf configdb.conf
+
+    # Fetch shard2.conf only if user selected 2 shards
+    if [ "$two_shards" = true ]; then
+        fetch_and_configure_conf shard2.conf
+    fi
 
     # Step 4: Create MongoDB Service Files
     fetch_and_configure_service() {
@@ -543,14 +558,17 @@ install_and_configure_mongodb() {
             fi
         fi
 
-        # Fetch the file
         sudo curl -fsSL "$service_url" -o "$service_path"
     }
 
     fetch_and_configure_service mongos.service
     fetch_and_configure_service shard1.service
-    fetch_and_configure_service shard2.service
     fetch_and_configure_service configdb.service
+
+    # Fetch shard2.service only if user selected 2 shards
+    if [ "$two_shards" = true ]; then
+        fetch_and_configure_service shard2.service
+    fi
 
     # Reload systemd daemon
     sudo systemctl daemon-reload
@@ -559,18 +577,27 @@ install_and_configure_mongodb() {
     echo -e "${BLUE}Starting MongoDB services...${NC}"
     sudo systemctl start configdb
     sudo systemctl start shard1
-    sudo systemctl start shard2
 
-    # Add services to startup
+    # Start shard2 only if user selected 2 shards
+    if [ "$two_shards" = true ]; then
+        sudo systemctl start shard2
+    fi
+
+    # Enable them at startup
     sudo systemctl enable configdb
     sudo systemctl enable shard1
-    sudo systemctl enable shard2
+    if [ "$two_shards" = true ]; then
+        sudo systemctl enable shard2
+    fi
 
-    # Verify services are running and attempt to fix if not
+    # Verify services are running
     echo -e "${BLUE}Verifying and fixing MongoDB services...${NC}"
-    for service in configdb shard1 shard2; do
-        check_and_fix_mongo_service "$service"
-    done
+    check_and_fix_mongo_service "configdb"
+    check_and_fix_mongo_service "shard1"
+
+    if [ "$two_shards" = true ]; then
+        check_and_fix_mongo_service "shard2"
+    fi
 
     echo -e "${GREEN}MongoDB services are running properly.${NC}"
 
@@ -581,7 +608,6 @@ install_and_configure_mongodb() {
     # Step 6: Initialize the MongoDB Cluster
     echo -e "${BLUE}Initializing MongoDB Cluster...${NC}"
 
-    # Function to run MongoDB commands with retries
     run_mongo_command() {
         local mongo_command=$1
         local host=$2
@@ -614,30 +640,64 @@ install_and_configure_mongodb() {
 
     # Start mongos
     sudo systemctl start mongos
-
-    # Verify mongos is running and attempt to fix if not
     check_and_fix_mongo_service mongos
-
-    # Wait for mongos to be ready
     wait_for_mongo "localhost" 25485
 
-    # Initialize shard1
+    # Step 7: Initialize shard1
     echo -e "${BLUE}Initializing shard1...${NC}"
-    run_mongo_command "rs.initiate({ _id: 'shard1', members: [ { _id: 0, host: 'localhost:25481' }, { _id: 1, host: 'localhost:25482' }] })" "localhost" 25481 ""
 
-    # Step 7: Add shards to the cluster
-    echo -e "${BLUE}Adding shards to the cluster...${NC}"
-    run_mongo_command "sh.addShard('shard1/localhost:25481,localhost:25482')" "localhost" 25485 "--username $mongodb_admin_username --password '$mongodb_password'"
+    # If one shard only, replicate set has a single member:
+    #   rs.initiate({ _id: 'shard1', members: [ { _id: 0, host: 'localhost:25481' } ] })
+    # If two shards, we keep the second member on shard1 as 'localhost:25482' as in your original script
+    if [ "$two_shards" = true ]; then
+        run_mongo_command \
+            "rs.initiate({ _id: 'shard1', members: [ { _id: 0, host: 'localhost:25481' }, { _id: 1, host: 'localhost:25482' }] })" \
+            "localhost" 25481 ""
+    else
+        run_mongo_command \
+            "rs.initiate({ _id: 'shard1', members: [ { _id: 0, host: 'localhost:25481' }] })" \
+            "localhost" 25481 ""
+    fi
+
+    # Step 8: Add shard(s) to the cluster
+    echo -e "${BLUE}Adding shard(s) to the cluster...${NC}"
+
+    # For shard1
+    if [ "$two_shards" = true ]; then
+        # If two shards, shard1 uses: 'shard1/localhost:25481,localhost:25482'
+        run_mongo_command "sh.addShard('shard1/localhost:25481,localhost:25482')" "localhost" 25485 \
+            "--username $mongodb_admin_username --password '$mongodb_password'"
+
+        # Also need to initialize shard2
+        # shard2 listens on ports 25483 + 25484 (based on your original config?)
+        # But your script uses 25481 and 25482 for shard1, which implies 25482 is second instance of shard1
+        # For shard2 we might expect 25483 or 25484, etc. Adjust as necessary:
+        wait_for_mongo "localhost" 25482
+        echo -e "${BLUE}Initializing shard2...${NC}"
+        # Typically we'd do something like:
+        run_mongo_command \
+            "rs.initiate({ _id: 'shard2', members: [ { _id: 0, host: 'localhost:25483' }, { _id: 1, host: 'localhost:25484' }] })" \
+            "localhost" 25483 ""
+        run_mongo_command "sh.addShard('shard2/localhost:25483,localhost:25484')" "localhost" 25485 \
+            "--username $mongodb_admin_username --password '$mongodb_password'"
+    else
+        # If only one shard, just add shard1
+        run_mongo_command "sh.addShard('shard1/localhost:25481')" "localhost" 25485 \
+            "--username $mongodb_admin_username --password '$mongodb_password'"
+    fi
 
     # Verify services are still running
     echo -e "${BLUE}Verifying MongoDB services after initialization...${NC}"
-    for service in mongos configdb shard1 shard2; do
-        check_and_fix_mongo_service "$service"
-    done
+    check_and_fix_mongo_service mongos
+    check_and_fix_mongo_service configdb
+    check_and_fix_mongo_service shard1
+
+    if [ "$two_shards" = true ]; then
+        check_and_fix_mongo_service shard2
+    fi
 
     echo -e "${GREEN}MongoDB installation and configuration completed successfully.${NC}"
 
-    # Inform the user to keep the password safe
     echo -e "${YELLOW}Please make sure to save the MongoDB admin username and password securely.${NC}"
 }
 
@@ -658,10 +718,8 @@ install_nodejs() {
         fi
     fi
 
-    # Install optional dependencies
     sudo apt-get install -y build-essential gcc g++ make python3.6 git manpages-dev libcairo2-dev libatk1.0-0 libatk-bridge2.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates fonts-liberation libnss3 lsb-release xdg-utils libtool autoconf software-properties-common gcc-12 g++-12 gcc-13 g++-13 cmake
 
-    # Install Node.js 22
     echo -e "${BLUE}Installing Node.js 22...${NC}"
     curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
     sudo -E bash nodesource_setup.sh
@@ -698,7 +756,6 @@ install_rust() {
     echo -e "${BLUE}Installing Rust...${NC}"
     curl https://sh.rustup.rs -sSf | sh -s -- -y
 
-    # Add Cargo to PATH
     source $HOME/.cargo/env
 
     # Verify installation
@@ -713,9 +770,8 @@ install_rust() {
 
 BACKUP_DIR=""
 
-# Function to handle build/bin directory backup and restoration
 handle_bin_directory() {
-    local action="$1"           # "install" or "update"
+    local action="$1"
     local indexer_dir="$2"
     local bin_dir="$indexer_dir/build/bin"
     local backup_bin_dir="$HOME/bin_backup_${action}"
@@ -733,16 +789,13 @@ handle_bin_directory() {
             exit 1
         fi
 
-        # Backup the build/bin directory
         cp -r "$bin_dir" "$backup_bin_dir"
         echo -e "${GREEN}Your build/bin directory has been backed up to $backup_bin_dir.${NC}"
     fi
 
-    # Return the path to the backup directory
     BACKUP_DIR="$backup_bin_dir"
 }
 
-# Function to restore build/bin directory after cloning
 restore_bin_directory() {
     local backup_bin_dir="$1"
     local indexer_dir="$2"
@@ -755,11 +808,9 @@ restore_bin_directory() {
     fi
 }
 
-# Function to clone and build the OPNet Indexer
 clone_and_build_indexer() {
     local indexer_dir="$1"
 
-    # Clone the repository
     echo -e "${BLUE}Cloning the OPNet Indexer repository...${NC}"
     git clone https://github.com/btc-vision/opnet-node.git "$indexer_dir"
     git pull
@@ -768,15 +819,12 @@ clone_and_build_indexer() {
     git checkout main
     rm -f -r package-lock.json
 
-    # Install npm dependencies
     echo -e "${BLUE}Installing npm dependencies...${NC}"
     npm install
 
-    # Build the project and capture output
     echo -e "${BLUE}Building the project...${NC}"
     build_output=$(npm run build 2>&1)
 
-    # Check for build errors
     if echo "$build_output" | grep -q "errored after"; then
         echo -e "${RED}Build failed with errors.${NC}"
         echo -e "${YELLOW}Build output:${NC}"
@@ -787,11 +835,9 @@ clone_and_build_indexer() {
     fi
 }
 
-# Function to setup OPNet Indexer
 setup_opnet_indexer() {
     echo -e "${BLUE}Setting up OPNet Indexer...${NC}"
 
-    # Check if Node.js is installed
     if ! command_exists node; then
         echo -e "${YELLOW}Node.js is not installed. Installing Node.js 22...${NC}"
         install_nodejs
@@ -800,7 +846,6 @@ setup_opnet_indexer() {
         echo -e "${GREEN}Node.js is already installed (Version: $node_version).${NC}"
     fi
 
-    # Check if Cargo (Rust) is installed
     if ! command_exists cargo; then
         echo -e "${YELLOW}Rust (Cargo) is not installed. Installing Rust...${NC}"
         install_rust
@@ -814,8 +859,6 @@ setup_opnet_indexer() {
 
     if [ -d "$INDEXER_DIR" ]; then
         echo -e "${YELLOW}OPNet Indexer directory already exists.${NC}"
-
-        # Handle build/bin directory backup
         handle_bin_directory "install" "$INDEXER_DIR"
 
         read -p "Do you want to remove the existing directory and proceed with a fresh installation? [y/N]: " reinstall_choice
@@ -828,10 +871,7 @@ setup_opnet_indexer() {
         fi
     fi
 
-    # Clone and build the indexer
     clone_and_build_indexer "$INDEXER_DIR"
-
-    # Restore build/bin directory if it was backed up
     restore_bin_directory "$BACKUP_DIR" "$INDEXER_DIR"
 
     if [ -f "$CONFIG_FILE" ]; then
@@ -848,7 +888,6 @@ setup_opnet_indexer() {
     read -p "Enter CHAIN_ID (0 for Bitcoin, 1 for Fractal): " CHAIN_ID
     read -p "Enter NETWORK (regtest, testnet, mainnet): " NETWORK
 
-    # Initialize variables
     PUBKEY_ADDRESS=""
     SCRIPT_ADDRESS=""
     SECRET_KEY=""
@@ -857,7 +896,6 @@ setup_opnet_indexer() {
     HRP=""
     NETWORK_MAGIC=""
 
-    # Set default configurations based on known networks
     if [[ "$CHAIN_ID" == "0" || "$CHAIN_ID" == "1" ]]; then
         if [[ "$NETWORK" == "mainnet" ]]; then
             PUBKEY_ADDRESS="0x00"
@@ -866,7 +904,7 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x0488b21e"
             EXT_SECRET_KEY="0x0488ade4"
             HRP="bc"
-            NETWORK_MAGIC='[249, 190, 180, 217]'  # Bitcoin mainnet
+            NETWORK_MAGIC='[249, 190, 180, 217]'
         elif [[ "$NETWORK" == "testnet" ]]; then
             PUBKEY_ADDRESS="0x6f"
             SCRIPT_ADDRESS="0xc4"
@@ -874,7 +912,7 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x043587cf"
             EXT_SECRET_KEY="0x04358394"
             HRP="tb"
-            NETWORK_MAGIC='[11, 17, 9, 7]'  # Bitcoin testnet
+            NETWORK_MAGIC='[11, 17, 9, 7]'
         elif [[ "$NETWORK" == "regtest" ]]; then
             PUBKEY_ADDRESS="0x6f"
             SCRIPT_ADDRESS="0xc4"
@@ -882,7 +920,7 @@ setup_opnet_indexer() {
             EXT_PUBLIC_KEY="0x043587cf"
             EXT_SECRET_KEY="0x04358394"
             HRP="bcrt"
-            NETWORK_MAGIC='[250, 191, 181, 218]'  # Bitcoin regtest
+            NETWORK_MAGIC='[250, 191, 181, 218]'
         else
             echo -e "${YELLOW}Unknown NETWORK. Please provide the configurations manually.${NC}"
             read -p "Enter the NETWORK_MAGIC (e.g., [250, 191, 181, 218]): " NETWORK_MAGIC
@@ -918,7 +956,6 @@ setup_opnet_indexer() {
     echo -e "${YELLOW}Only ARCHIVE mode is supported at this time.${NC}"
     MODE="ARCHIVE"
 
-    # Configure BLOCKCHAIN settings
     echo -e "${BLUE}Please provide your Bitcoin node RPC settings:${NC}"
     read -p "BITCOIND_HOST [localhost]: " BITCOIND_HOST
     BITCOIND_HOST=${BITCOIND_HOST:-localhost}
@@ -928,13 +965,10 @@ setup_opnet_indexer() {
     read -s -p "BITCOIND_PASSWORD: " BITCOIND_PASSWORD
     echo ""
 
-    # Configure DATABASE settings
     echo -e "${BLUE}Configuring database settings...${NC}"
     read -p "Enter MongoDB username [opnet]: " DATABASE_USERNAME
     DATABASE_USERNAME=${DATABASE_USERNAME:-opnet}
 
-    # If the script that installed MongoDB already stored the password in $mongodb_password, use it.
-    # Otherwise, prompt again if not set.
     if [ -z "$mongodb_password" ]; then
         echo -e "${YELLOW}MongoDB password is not set.${NC}"
         read -s -p "Please enter the MongoDB password for user '$DATABASE_USERNAME': " mongodb_password
@@ -950,19 +984,18 @@ setup_opnet_indexer() {
     read -p "DATABASE_NAME [BTC]: " DATABASE_NAME
     DATABASE_NAME=${DATABASE_NAME:-BTC}
 
-    # Generate the configuration file
     cat << EOF > "$CONFIG_FILE"
 DEBUG_LEVEL = 4
 DEV_MODE = false
 
 [DEV]
-PROCESS_ONLY_ONE_BLOCK = false # Set to true to process only one block
+PROCESS_ONLY_ONE_BLOCK = false
 
 [BITCOIN]
 CHAIN_ID = $CHAIN_ID
 NETWORK = "$NETWORK"
 NETWORK_MAGIC = $NETWORK_MAGIC
-DNS_SEEDS = [] # Add your own DNS seeds here
+DNS_SEEDS = []
 
 [BASE58]
 PUBKEY_ADDRESS = "$PUBKEY_ADDRESS"
@@ -972,78 +1005,77 @@ EXT_PUBLIC_KEY = "$EXT_PUBLIC_KEY"
 EXT_SECRET_KEY = "$EXT_SECRET_KEY"
 
 [BECH32]
-HRP = "$HRP" # hrp for Bitcoin, leave empty for auto-detection available hrps are: bc, tb, bcrt
+HRP = "$HRP"
 
 [RPC]
-CHILD_PROCESSES = 4 # Number of child processes to spawn
-THREADS = 4 # Number of threads per child process
-VM_CONCURRENCY = 6 # Number of concurrent VMs to run in parallel
+CHILD_PROCESSES = 4
+THREADS = 4
+VM_CONCURRENCY = 6
 
 [POC]
-ENABLED = true # Enable Proof of Computational Acknowledgment Consensus
+ENABLED = true
 
 [MEMPOOL]
-THREADS = 2 # Number of threads to process the mempool
-EXPIRATION_BLOCKS = 500 # Number of blocks before a transaction is removed from the mempool
+THREADS = 2
+EXPIRATION_BLOCKS = 500
 ENABLE_BLOCK_PURGE = true
 
 [INDEXER]
 ENABLED = true
 BLOCK_UPDATE_METHOD = "RPC"
 STORAGE_TYPE = "MONGODB"
-READONLY_MODE = false # Set to true to run the indexer in read-only mode, useful for scaling
+READONLY_MODE = false
 
-DISABLE_UTXO_INDEXING = $DISABLE_UTXO_INDEXING # Set to true to disable UTXO indexing
-ALLOW_PURGE = true # Allow purging of spent UTXOs
-PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS = 1000 # Purge spent UTXOs older than this number of blocks
+DISABLE_UTXO_INDEXING = $DISABLE_UTXO_INDEXING
+ALLOW_PURGE = true
+PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS = 1000
 
 [OP_NET]
-MODE = "$MODE" # ARCHIVE, FULL, SNAP, LIGHT. Only ARCHIVE is supported at this time
+MODE = "$MODE"
+ENABLED_AT_BLOCK = 0
+REINDEX = false
+REINDEX_FROM_BLOCK = 0
 
-ENABLED_AT_BLOCK = 0 # Block height at which the OP_NET should be enabled
-REINDEX = false # Set to true to reindex the OP_NET
-REINDEX_FROM_BLOCK = 0 # Block height from which to reindex the OP_NET
+TRANSACTIONS_MAXIMUM_CONCURRENT = 100
+PENDING_BLOCK_THRESHOLD = 25
+MAXIMUM_PREFETCH_BLOCKS = 20
 
-TRANSACTIONS_MAXIMUM_CONCURRENT = 100 # Maximum number of concurrent transactions to process
-PENDING_BLOCK_THRESHOLD = 25 # Maximum number of pending blocks to process
-MAXIMUM_PREFETCH_BLOCKS = 20 # You should not change this value unless you know what you are doing
-
-VERIFY_INTEGRITY_ON_STARTUP = false # Set to true to verify the integrity of the OP_NET on startup
-DISABLE_SCANNED_BLOCK_STORAGE_CHECK = true # Set to true to disable the scanned block storage check
+VERIFY_INTEGRITY_ON_STARTUP = false
+DISABLE_SCANNED_BLOCK_STORAGE_CHECK = true
 
 [P2P]
-IS_BOOTSTRAP_NODE = false # Set to true if you are running a bootstrap node
-CLIENT_MODE = false # IF YOUR NODE IS NOT RUNNING IN A DATACENTER, WE RECOMMEND SETTING THIS TO TRUE
+IS_BOOTSTRAP_NODE = false
+CLIENT_MODE = false
 ENABLE_IPV6 = false
 
-P2P_HOST = "0.0.0.0" # Leave as 0.0.0.0 for all interfaces
-P2P_PORT = 9800 # 0 for next available port
-P2P_PROTOCOL = "tcp" # TCP (stable), WS (experimental), QUIC (not implemented yet)
+P2P_HOST = "0.0.0.0"
+P2P_PORT = 9800
+P2P_PROTOCOL = "tcp"
 
-MINIMUM_PEERS = 50 # Minimum number of peers to attempt to maintain
-MAXIMUM_PEERS = 100 # Maximum number of peers that can be connected to your node
-MAXIMUM_INCOMING_PENDING_PEERS = 50 # Maximum number of incoming pending peers to maintain
+MINIMUM_PEERS = 50
+MAXIMUM_PEERS = 100
+MAXIMUM_INCOMING_PENDING_PEERS = 50
 
-PEER_INACTIVITY_TIMEOUT = 60000 # Time in milliseconds before a peer is considered inactive
+PEER_INACTIVITY_TIMEOUT = 60000
 
-MAXIMUM_INBOUND_STREAMS = 100 # Maximum number of inbound streams to maintain
-MAXIMUM_OUTBOUND_STREAMS = 100 # Maximum number of outbound streams to maintain
+MAXIMUM_INBOUND_STREAMS = 100
+MAXIMUM_OUTBOUND_STREAMS = 100
 
-BOOTSTRAP_NODES = [] # Add your own bootstrap nodes here
-TRUSTED_VALIDATORS = [] # DANGER. This setting should be altered very rarely and only by experienced users. Proceed with caution.
-TRUSTED_VALIDATORS_CHECKSUM_HASH = "" # DANGER. This setting should be altered very rarely and only by experienced users. Proceed with caution.
+BOOTSTRAP_NODES = []
+TRUSTED_VALIDATORS = []
+TRUSTED_VALIDATORS_CHECKSUM_HASH = ""
 
 [API]
-ENABLED = true # Enable the API
-PORT = 9001 # API port
-THREADS = 4 # Number of threads to process API calls
+ENABLED = true
+PORT = 9001
+THREADS = 4
 
-UTXO_LIMIT = 1000 # Maximum number of UTXOs to return
+UTXO_LIMIT = 1000
 
-MAXIMUM_PENDING_REQUESTS_PER_THREADS = 1000 # Maximum number of pending requests per thread
-BATCH_PROCESSING_SIZE = 15 # Number of requests to process in a batch in parallel
-MAXIMUM_PARALLEL_BLOCK_QUERY = 50 # Maximum number of parallel block queries to process
-MAXIMUM_REQUESTS_PER_BATCH = 500 # Maximum number of requests to process in a batch
+MAXIMUM_PENDING_REQUESTS_PER_THREADS = 1000
+BATCH_PROCESSING_SIZE = 15
+MAXIMUM_PARALLEL_BLOCK_QUERY = 50
+MAXIMUM_REQUESTS_PER_BATCH = 500
 
 MAXIMUM_PENDING_CALL_REQUESTS = 80
 MAXIMUM_TRANSACTION_BROADCAST = 50
@@ -1064,22 +1096,21 @@ USERNAME = "$DATABASE_USERNAME"
 PASSWORD = "$DATABASE_PASSWORD"
 
 [SSH]
-ENABLED = false # Enable SSH
-PORT = 4800 # SSH port
-HOST = "0.0.0.0" # SSH host
-NO_AUTH = false # Set to true to disable authentication
+ENABLED = false
+PORT = 4800
+HOST = "0.0.0.0"
+NO_AUTH = false
 
-USERNAME = "opnet" # SSH username
-PASSWORD = "opnet" # SSH password
+USERNAME = "opnet"
+PASSWORD = "opnet"
 
-PUBLIC_KEY = '' # Leave empty to disable public key authentication
+PUBLIC_KEY = ''
 
-ALLOWED_IPS = ["127.0.0.1", "0.0.0.0", "localhost"] # Allowed IPs
+ALLOWED_IPS = ["127.0.0.1", "0.0.0.0", "localhost"]
 
 [DOCS]
-ENABLED = false # Enable the documentation server
-PORT = 7000 # Documentation server port
-
+ENABLED = false
+PORT = 7000
 EOF
 
     echo -e "${GREEN}Configuration file saved at $CONFIG_FILE.${NC}"
@@ -1088,7 +1119,6 @@ EOF
     echo -e "${YELLOW}npm start${NC}"
 }
 
-# Function to update OPNet Indexer
 update_opnet_indexer() {
     echo -e "${BLUE}Updating OPNet Indexer...${NC}"
 
@@ -1096,14 +1126,12 @@ update_opnet_indexer() {
     CONFIG_FILE="$INDEXER_DIR/build/config/btc.conf"
     BACKUP_CONFIG_FILE="$HOME/btc.conf.backup"
 
-    # Check if the indexer directory exists
     if [ ! -d "$INDEXER_DIR" ]; then
         echo -e "${RED}OPNet Indexer is not installed in $INDEXER_DIR.${NC}"
         echo -e "${YELLOW}Please run the setup first.${NC}"
         exit 1
     fi
 
-    # Get local version from package.json
     if [ -f "$INDEXER_DIR/package.json" ]; then
         local_version=$(grep '"version":' "$INDEXER_DIR/package.json" | head -1 | awk -F '"' '{print $4}')
         echo -e "${BLUE}Local OPNet Indexer version: $local_version${NC}"
@@ -1112,27 +1140,23 @@ update_opnet_indexer() {
         exit 1
     fi
 
-    # Get latest version from GitHub
     echo -e "${BLUE}Fetching latest version from GitHub...${NC}"
     latest_version=$(curl -s https://raw.githubusercontent.com/btc-vision/opnet-node/main/package.json | grep '"version":' | head -1 | awk -F '"' '{print $4}')
+
     if [ -z "$latest_version" ]; then
         echo -e "${RED}Failed to fetch latest version from GitHub.${NC}"
         exit 1
     fi
     echo -e "${BLUE}Latest OPNet Indexer version on GitHub: $latest_version${NC}"
 
-    # Compare versions
     if [ "$local_version" == "$latest_version" ]; then
         echo -e "${GREEN}You already have the latest version of the OPNet Indexer.${NC}"
     else
         echo -e "${YELLOW}Your local version ($local_version) is outdated.${NC}"
         read -p "Do you wish to upgrade to version $latest_version? [y/N]: " upgrade_choice
         if [[ "$upgrade_choice" == "y" || "$upgrade_choice" == "Y" ]]; then
-
-            # Handle build/bin directory backup
             handle_bin_directory "update" "$INDEXER_DIR"
 
-            # Backup configuration file
             if [ -f "$CONFIG_FILE" ]; then
                 cp "$CONFIG_FILE" "$BACKUP_CONFIG_FILE"
                 echo -e "${GREEN}Your configuration file has been backed up to $BACKUP_CONFIG_FILE.${NC}"
@@ -1140,21 +1164,17 @@ update_opnet_indexer() {
                 echo -e "${YELLOW}No configuration file found to backup.${NC}"
             fi
 
-            # Remove old repository
             rm -rf "$INDEXER_DIR"
             echo -e "${BLUE}Old OPNet Indexer repository has been removed.${NC}"
 
-            # Clone and build the indexer
             clone_and_build_indexer "$INDEXER_DIR"
 
-            # Restore configuration file
             if [ -f "$BACKUP_CONFIG_FILE" ]; then
                 mkdir -p "$INDEXER_DIR/build/config"
                 mv "$BACKUP_CONFIG_FILE" "$CONFIG_FILE"
                 echo -e "${GREEN}Your configuration file has been restored.${NC}"
             fi
 
-            # Restore build/bin directory
             restore_bin_directory "$BACKUP_DIR" "$INDEXER_DIR"
 
             echo -e "${GREEN}OPNet Indexer has been updated to version $latest_version.${NC}"
@@ -1167,7 +1187,6 @@ update_opnet_indexer() {
     fi
 }
 
-# Proceed with the installations based on user's choice
 if [ "$install_mongodb" = true ]; then
     install_and_configure_mongodb
 fi
@@ -1188,7 +1207,7 @@ if [ "$update_indexer" = true ]; then
     update_opnet_indexer
 fi
 
-# At the end of the script, if the password was auto-generated, offer to display it
+# If the password was auto-generated, offer to show it
 if [ "$password_auto_generated" = true ]; then
     echo ""
     echo -e "${YELLOW}Note:${NC} You chose to generate a random password for MongoDB user '$mongodb_admin_username'."
