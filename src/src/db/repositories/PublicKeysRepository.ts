@@ -1,6 +1,9 @@
 import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
+import {
+    PublicKeyDocument,
+    PublicKeyDocumentNotReadonly,
+} from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
 import { CURVE, ProjectivePoint as Point } from '@noble/secp256k1';
@@ -197,14 +200,41 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             (document) => {
                 const filter: Filter<PublicKeyDocument> = {
                     tweakedPublicKey: document.tweakedPublicKey,
-                    p2tr: document.p2tr,
                 };
+
+                const finalObject: Partial<PublicKeyDocumentNotReadonly> = {
+                    tweakedPublicKey: document.tweakedPublicKey,
+                };
+
+                if (document.p2tr) {
+                    finalObject.p2tr = document.p2tr;
+                }
+
+                if (document.publicKey) {
+                    finalObject.publicKey = document.publicKey;
+                }
+
+                if (document.lowByte) {
+                    finalObject.lowByte = document.lowByte;
+                }
+
+                if (document.p2pkh) {
+                    finalObject.p2pkh = document.p2pkh;
+                }
+
+                if (document.p2shp2wpkh) {
+                    finalObject.p2shp2wpkh = document.p2shp2wpkh;
+                }
+
+                if (document.p2wpkh) {
+                    finalObject.p2wpkh = document.p2wpkh;
+                }
 
                 return {
                     updateOne: {
                         filter: filter,
                         update: {
-                            $set: document,
+                            $set: finalObject,
                         },
                         upsert: true,
                         hint: 'tweakedPublicKey_1',
