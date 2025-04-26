@@ -16,7 +16,7 @@ export class VMBitcoinBlock extends Logger {
         return this.blockId;
     }
 
-    public async prepare(blockId: bigint): Promise<void> {
+    public prepare(blockId: bigint): void {
         if (this.isPrepared) {
             throw new Error(`The block ${this.blockId} is already prepared`);
         }
@@ -30,7 +30,7 @@ export class VMBitcoinBlock extends Logger {
         this.isPrepared = true;
     }
 
-    public async revert(): Promise<void> {
+    public revert(): void {
         if (!this.isPrepared) {
             throw new Error(`[REVERT] Block ${this.blockId} is not prepared`);
         }
@@ -41,7 +41,7 @@ export class VMBitcoinBlock extends Logger {
         this.reset();
     }
 
-    public async terminate(): Promise<void> {
+    public terminate(): void {
         if (!this.isPrepared) {
             throw new Error(`[TERMINATE] Block ${this.blockId} is not prepared`);
         }

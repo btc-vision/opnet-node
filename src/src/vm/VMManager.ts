@@ -132,14 +132,14 @@ export class VMManager extends Logger {
         }
     }
 
-    public async prepareBlock(blockId: bigint): Promise<void> {
+    public prepareBlock(blockId: bigint): void {
         this.purgeAllContractInstances();
 
         if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Preparing block ${blockId}...`);
         }
 
-        await this.vmBitcoinBlock.prepare(blockId);
+        this.vmBitcoinBlock.prepare(blockId);
 
         this.blockState = new StateMerkleTree();
         this.receiptState = new ReceiptMerkleTree();
@@ -150,7 +150,7 @@ export class VMManager extends Logger {
             this.debug(`Reverting block ${this.vmBitcoinBlock.height}...`);
         }
 
-        await this.vmBitcoinBlock.revert();
+        this.vmBitcoinBlock.revert();
         await this.clear();
     }
 
@@ -160,7 +160,7 @@ export class VMManager extends Logger {
         }
 
         try {
-            await this.vmBitcoinBlock.terminate();
+            this.vmBitcoinBlock.terminate();
             await this.clear();
         } catch (e) {
             this.error(`Error terminating block: ${(e as Error).stack}`);
