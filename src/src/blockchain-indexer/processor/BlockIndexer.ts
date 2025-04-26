@@ -175,18 +175,13 @@ export class BlockIndexer extends Logger {
                 'database-corrupted',
                 false,
             );
-        } else {
-            this.startTasks();
         }
 
-        this.registerEvents();
-        this.started = true;
+        await this.registerEvents();
     }
 
-    private registerEvents(): void {
+    private async registerEvents(): Promise<void> {
         this.blockFetcher.subscribeToBlockChanges((header: BlockHeaderInfo) => {
-            if (!this.started) return;
-
             this.onBlockChange(header);
         });
 
@@ -195,13 +190,20 @@ export class BlockIndexer extends Logger {
                 await this.revertChain(fromHeight, toHeight, newBest, true);
             },
         );
+
+        await this.blockFetcher.watchBlockChanges(true);
     }
 
     private onBlockChange(header: BlockHeaderInfo): void {
         this.reorgWatchdog.onBlockChange(header);
         this.chainObserver.onBlockChange(header);
 
-        if (this.taskInProgress && this.indexingTasks.length !== 0) {
+        if (!this.started) {
+            this.startTasks();
+            this.started = true;
+
+            return;
+        } else if (this.taskInProgress && this.indexingTasks.length !== 0) {
             return;
         }
 

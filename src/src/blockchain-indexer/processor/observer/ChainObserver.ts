@@ -159,7 +159,7 @@ export class ChainObserver extends Logger {
 
         // TODO: Verify this.
         this.blockchainRepository.watchBlockChanges(async (blockHeight: bigint) => {
-            this.info(`Block change detected: ${blockHeight}`);
+            this.info(`(from db) Block change detected: ${blockHeight}`);
 
             if (this.consensusTracker.setConsensusBlockHeight(blockHeight)) {
                 throw new Error('Consensus block height not set.');

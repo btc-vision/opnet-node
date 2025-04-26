@@ -19,6 +19,7 @@ import { DBManagerInstance } from '../../../db/DBManager.js';
 import { IChainReorg } from '../../../threading/interfaces/thread-messages/messages/indexer/IChainReorg.js';
 import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
+import { BasicBlockInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/BasicBlockInfo.js';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -28,12 +29,14 @@ export class ChainSynchronisation extends Logger {
 
     private unspentTransactionOutputs: ProcessUnspentTransactionList = [];
     private amountOfUTXOs: number = 0;
-    private isProcessing: boolean = false;
 
     private abortControllers: Map<bigint, AbortController> = new Map();
     private pendingSave: Promise<void> | undefined;
 
-    private readonly AWAIT_UTXO_WRITE_IF_QUEUE_SIZE: number = 100_000;
+    private readonly AWAIT_UTXO_WRITE_IF_QUEUE_SIZE: number = 200_000;
+
+    private currentBlock: BasicBlockInfo | null = null;
+    private bestTip: bigint = 0n;
 
     public constructor() {
         super();
@@ -124,6 +127,10 @@ export class ChainSynchronisation extends Logger {
         return resp ?? null;
     }
 
+    private canSaveAfterBlock(): boolean {
+        return this.bestTip > BigInt(this.currentBlock?.blockHeight || 0) - 3n;
+    }
+
     private async onReorg(reorg: IChainReorg): Promise<ThreadData> {
         this.panic(`CHAIN_REORG message received. Cancelling all tasks.`);
 
@@ -131,7 +138,7 @@ export class ChainSynchronisation extends Logger {
         this.abortAllControllers();
         this.purgeUTXOs(reorg.fromHeight);
 
-        if (this.isProcessing) {
+        if (this.pendingSave) {
             await this.awaitUTXOWrites();
         }
 
@@ -139,7 +146,9 @@ export class ChainSynchronisation extends Logger {
     }
 
     private async startSaveLoop(): Promise<void> {
-        if (this.unspentTransactionOutputs.length) {
+        this.currentBlock = await this.rpcClient.getBlockHeight();
+
+        if (this.unspentTransactionOutputs.length && !this.canSaveAfterBlock()) {
             await this.saveUTXOs();
         }
 
@@ -170,11 +179,9 @@ export class ChainSynchronisation extends Logger {
         if (this.pendingSave) {
             await this.pendingSave;
         } else {
-            this.isProcessing = true;
             this.pendingSave = this._saveUTXOs();
             await this.pendingSave;
             this.pendingSave = undefined;
-            this.isProcessing = false;
         }
     }
 
@@ -199,12 +206,12 @@ export class ChainSynchronisation extends Logger {
     }
 
     private async awaitUTXOWrites(): Promise<void> {
-        await this.saveUTXOs();
-
         this.warn('Awaiting UTXO writes to complete... May take a while.');
 
-        while (this.isProcessing) {
-            await new Promise((r) => setTimeout(r, 50));
+        await this.saveUTXOs();
+
+        while (this.pendingSave !== undefined) {
+            await new Promise((r) => setTimeout(r, 100));
         }
     }
 
@@ -265,6 +272,8 @@ export class ChainSynchronisation extends Logger {
 
     // TODO: Move fetching to an other thread.
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
+        this.bestTip = blockNumber;
+
         const [blockData, allowedPreimages] = await Promise.safeAll([
             this.blockFetcher.getBlock(blockNumber),
             this.getPreimages(blockNumber),
@@ -294,9 +303,7 @@ export class ChainSynchronisation extends Logger {
         // Deserialize the block
         this.queryUTXOs(block, blockData.tx);
 
-        this.abortControllers.delete(blockNumber);
-
-        if (this.amountOfUTXOs > this.AWAIT_UTXO_WRITE_IF_QUEUE_SIZE) {
+        if (this.amountOfUTXOs > this.AWAIT_UTXO_WRITE_IF_QUEUE_SIZE || this.canSaveAfterBlock()) {
             await this.awaitUTXOWrites();
         }
 
@@ -352,9 +359,9 @@ export class ChainSynchronisation extends Logger {
     }*/
 
     private async deserializeBlock(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
-        try {
-            const startBlock = m.data as bigint;
+        const startBlock = m.data as bigint;
 
+        try {
             //if (Config.OP_NET.ENABLE_BATCH_PROCESSING) {
             //    return await this.deserializeBlockBatch(startBlock);
             //} else {
@@ -362,6 +369,8 @@ export class ChainSynchronisation extends Logger {
             //}
         } catch (e) {
             return { error: e };
+        } finally {
+            this.abortControllers.delete(startBlock);
         }
     }
 }

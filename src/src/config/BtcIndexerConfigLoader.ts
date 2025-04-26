@@ -52,7 +52,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             /** UTXOs */
             DISABLE_UTXO_INDEXING: false,
             PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
-            UTXO_SAVE_INTERVAL: 5000,
+            UTXO_SAVE_INTERVAL: 30000,
         },
 
         DEV: {

@@ -142,7 +142,10 @@ export class IndexingTask extends Logger {
             });
 
             this.prefetchPromise = null;
-            if (response) throw response;
+            if (response) {
+                this.error(`Error while prefetching block ${this.tip}: ${response.stack}`);
+                throw response;
+            }
 
             // 2. Process block
             await this.processBlock();
@@ -161,6 +164,8 @@ export class IndexingTask extends Logger {
             ]);
 
             this.finalizeEnd = Date.now();
+
+            this.block.verifyIfBlockAborted();
 
             if (this.aborted) {
                 return;
@@ -373,6 +378,8 @@ export class IndexingTask extends Logger {
             this.prefetchEnd = Date.now();
             this.prefetchResolver();
         } catch (e) {
+            this.error(`${e}`);
+
             if (this.prefetchResolver) {
                 const error = e as Error;
                 this.prefetchResolver(error);
