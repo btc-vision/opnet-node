@@ -265,7 +265,7 @@ export class IndexingTask extends Logger {
         }
 
         try {
-            await this.vmManager.prepareBlock(this.tip);
+            this.vmManager.prepareBlock(this.tip);
 
             // Save generic transactions
             this.block.insertPartialTransactions(this.vmManager);
