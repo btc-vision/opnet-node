@@ -128,7 +128,7 @@ export class ChainSynchronisation extends Logger {
     }
 
     private canSaveAfterBlock(): boolean {
-        return this.bestTip > BigInt(this.currentBlock?.blockHeight || 0) - 10n;
+        return this.bestTip > BigInt(this.currentBlock?.blockHeight || 0) - 3n;
     }
 
     private async onReorg(reorg: IChainReorg): Promise<ThreadData> {
