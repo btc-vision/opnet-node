@@ -59,11 +59,8 @@ export class BroadcastTransaction extends Route<
             }
 
             const parsedDataAsBuf = Buffer.from(data, 'hex');
-
             const tx = Transaction.fromBuffer(parsedDataAsBuf);
             const txHash = tx.getId();
-
-            console.log('txHash', txHash);
 
             let parsedData: Uint8Array = Uint8Array.from(parsedDataAsBuf);
             const verification: BroadcastResponse | undefined = await this.verifyOPNetTransaction(
@@ -121,8 +118,6 @@ export class BroadcastTransaction extends Route<
 
             return verification;
         } catch (e) {
-            console.log(e);
-
             this.decrementPendingRequests();
 
             return {
