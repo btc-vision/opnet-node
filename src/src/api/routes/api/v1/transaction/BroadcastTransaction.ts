@@ -122,6 +122,8 @@ export class BroadcastTransaction extends Route<
 
             return verification;
         } catch (e) {
+            console.log(e);
+
             this.decrementPendingRequests();
 
             return {
