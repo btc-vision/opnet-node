@@ -196,6 +196,14 @@ export class Mempool extends Logger {
         const psbt: boolean = data.psbt;
         const id = data.id;
 
+        if (psbt) {
+            return {
+                success: false,
+                result: 'PSBT transactions are not supported yet.',
+                id: id,
+            };
+        }
+
         if (!id) {
             return {
                 success: false,
@@ -223,15 +231,8 @@ export class Mempool extends Logger {
                 outputs: [],
             };
 
-            if (psbt) {
-                throw new Error(`PSBTs support is current disabled.`);
-                //return await this.decodePSBTAndProcess(transaction);
-            } else {
-                return await this.decodeTransactionAndProcess(transaction);
-            }
+            return await this.decodeTransactionAndProcess(transaction);
         } catch (e) {
-            console.log(`Error processing transaction: ${(e as Error).stack}`);
-
             if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.error(`Error processing transaction: ${(e as Error).stack}`);
             }
@@ -268,8 +269,6 @@ export class Mempool extends Logger {
 
             await this.mempoolRepository.storeTransaction(transaction);
         }
-
-        console.log(broadcast);
 
         return (
             broadcast || {
