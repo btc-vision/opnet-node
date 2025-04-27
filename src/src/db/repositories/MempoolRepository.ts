@@ -29,19 +29,10 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         super(db);
     }
 
-    public async getTransactionByIdentifier(
-        transactionIdentifier: bigint,
-        psbt: boolean,
-        id?: string | null,
-    ): Promise<IMempoolTransactionObj | undefined> {
+    public async getTransactionById(id: string): Promise<IMempoolTransactionObj | undefined> {
         const criteria: Filter<IMempoolTransaction> = {
-            identifier: this.bigIntToBinary(transactionIdentifier),
-            psbt: psbt,
+            id: id,
         };
-
-        if (id) {
-            criteria.id = id;
-        }
 
         const result = await this.queryOne(criteria);
         if (!result) {
@@ -85,11 +76,8 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         }
     }
 
-    public async hasTransactionByIdentifier(
-        transactionIdentifier: bigint,
-        psbt: boolean,
-    ): Promise<boolean> {
-        const result = await this.getTransactionByIdentifier(transactionIdentifier, psbt);
+    public async hasTransactionById(id: string): Promise<boolean> {
+        const result = await this.getTransactionById(id);
 
         return !!result;
     }
@@ -108,10 +96,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     }
 
     public async storeIfNotExists(transaction: IMempoolTransactionObj): Promise<boolean> {
-        const exists = await this.getTransactionByIdentifier(
-            transaction.identifier,
-            transaction.psbt,
-        );
+        const exists = await this.getTransactionById(transaction.id);
 
         if (!exists) {
             await this.storeTransaction(transaction);
@@ -131,13 +116,9 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         await this.delete(criteria);
     }
 
-    public async deleteTransactionByIdentifier(
-        transactionIdentifier: bigint,
-        psbt: boolean,
-    ): Promise<boolean> {
+    public async deleteTransactionByIdentifier(id: string, psbt: boolean): Promise<boolean> {
         const filter: Filter<IMempoolTransaction> = {
-            identifier: this.bigIntToBinary(transactionIdentifier),
-            psbt: psbt,
+            id: id,
         };
 
         try {
@@ -175,8 +156,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     public async storeTransaction(transaction: IMempoolTransactionObj): Promise<boolean> {
         const data: IMempoolTransaction = this.convertToDb(transaction);
         const filter: Filter<IMempoolTransaction> = {
-            identifier: data.identifier,
-            psbt: data.psbt,
+            id: data.id,
         };
 
         try {
@@ -282,26 +262,9 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         return this._db.collection(OPNetCollections.Mempool);
     }
 
-    private bigintToBuffer(bigInt: bigint): Buffer {
-        return Buffer.from(bigInt.toString(16), 'hex');
-    }
-
-    private bigIntToBinary(bigInt: bigint): Binary {
-        return new Binary(this.bigintToBuffer(bigInt));
-    }
-
-    private bufferToBigInt(buffer: Buffer): bigint {
-        return BigInt(`0x${buffer.toString('hex')}`);
-    }
-
-    private binaryToBigInt(binary: Binary): bigint {
-        return this.bufferToBigInt(Buffer.from(binary.buffer));
-    }
-
     private convertToDb(data: IMempoolTransactionObj): IMempoolTransaction {
         return {
             ...data,
-            identifier: this.bigIntToBinary(data.identifier),
             data: new Binary(data.data),
             blockHeight: DataConverter.toDecimal128(data.blockHeight),
             inputs: data.inputs.map((input) => {
@@ -324,7 +287,6 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     private convertToObj(data: IMempoolTransaction): IMempoolTransactionObj {
         return {
             ...data,
-            identifier: this.binaryToBigInt(data.identifier),
             data: data.data.buffer,
             blockHeight: DataConverter.fromDecimal128(data.blockHeight),
             inputs: data.inputs.map((input) => {

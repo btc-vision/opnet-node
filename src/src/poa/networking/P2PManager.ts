@@ -57,19 +57,18 @@ import { RPCMessage } from '../../threading/interfaces/thread-messages/messages/
 import { BitcoinRPCThreadMessageType } from '../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { shuffleArray, TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../configurations/manager/AuthorityManager.js';
-import { xxHash } from '../hashing/xxhash.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { Components } from 'libp2p/components.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { CID } from 'multiformats/cid';
 import { autoNAT } from '@libp2p/autonat';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
-import { FastBigIntSet } from '../../utils/fast/FastBigIntSet.js';
 import { ReusableStreamManager } from './stream/ReusableStreamManager.js';
 import { Config } from '../../config/Config.js';
 import { ping } from '@libp2p/ping';
 import { Ping } from '@libp2p/ping/src';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
+import { FastStringSet } from '../../utils/fast/FastStringSet.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -107,8 +106,8 @@ export class P2PManager extends Logger {
     private blackListedPeerIds: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
     private blackListedPeerIps: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
 
-    private knownMempoolIdentifiers: FastBigIntSet = new FastBigIntSet();
-    private broadcastIdentifiers: FastBigIntSet = new FastBigIntSet();
+    private knownMempoolIdentifiers: FastStringSet = new FastStringSet();
+    private broadcastIdentifiers: FastStringSet = new FastStringSet();
 
     private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 30_000;
 
@@ -205,7 +204,7 @@ export class P2PManager extends Logger {
     }
 
     public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
-        if (this.broadcastIdentifiers.has(data.identifier) && data.identifier) {
+        if (this.broadcastIdentifiers.has(data.id) && data.id) {
             this.warn(`Transaction already broadcast.`);
 
             return {
@@ -213,13 +212,13 @@ export class P2PManager extends Logger {
             };
         }
 
-        if (data.identifier) this.broadcastIdentifiers.add(data.identifier);
+        if (data.id) this.broadcastIdentifiers.add(data.id);
 
         return {
             peers: await this.broadcastMempoolTransaction({
                 transaction: data.raw,
                 psbt: data.psbt,
-                identifier: data.identifier,
+                id: Buffer.from(data.id, 'hex'),
             }),
         };
     }
@@ -329,11 +328,7 @@ export class P2PManager extends Logger {
         });
     }
 
-    private async broadcastMempoolTransaction(
-        transaction: ITransactionPacket & {
-            identifier: bigint;
-        },
-    ): Promise<number> {
+    private async broadcastMempoolTransaction(transaction: ITransactionPacket): Promise<number> {
         const broadcastPromises: Promise<void>[] = [];
         for (const peer of this.peers.values()) {
             if (!peer.isAuthenticated) continue;
@@ -489,12 +484,15 @@ export class P2PManager extends Logger {
     }
 
     private async onBroadcastTransaction(tx: ITransactionPacket): Promise<void> {
+        if (tx.id.byteLength !== 32) {
+            return;
+        }
+
+        const idHash = Buffer.from(tx.id).toString('hex');
         const verifiedTransaction = await this.verifyOPNetTransaction(
             tx.transaction,
             tx.psbt,
-            xxHash.hash(
-                Buffer.isBuffer(tx.transaction) ? tx.transaction : Buffer.from(tx.transaction),
-            ),
+            idHash,
         );
 
         if (!verifiedTransaction || !verifiedTransaction.success) {
@@ -507,8 +505,7 @@ export class P2PManager extends Logger {
             return;
         }
 
-        const identifier =
-            verifiedTransaction.identifier || xxHash.hash(Buffer.from(tx.transaction));
+        const id = verifiedTransaction.id;
 
         const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction
             ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64')
@@ -517,20 +514,20 @@ export class P2PManager extends Logger {
         const isPsbt: boolean = tx.psbt ? !verifiedTransaction.finalizedTransaction : false;
 
         /** Already broadcasted. */
-        if (this.knownMempoolIdentifiers.has(identifier)) {
+        if (this.knownMempoolIdentifiers.has(id)) {
             return;
         }
 
         if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            this.info(`Transaction ${identifier} entered mempool.`);
+            this.info(`Transaction ${id} entered mempool.`);
         }
 
-        this.knownMempoolIdentifiers.add(identifier);
+        this.knownMempoolIdentifiers.add(id);
 
         const broadcastData: OPNetBroadcastData = {
             raw: modifiedTransaction,
             psbt: isPsbt,
-            identifier: identifier,
+            id: id,
         };
 
         await this.broadcastTransaction(broadcastData);
@@ -539,7 +536,7 @@ export class P2PManager extends Logger {
     private async verifyOPNetTransaction(
         data: Uint8Array,
         psbt: boolean,
-        identifier: bigint,
+        id: string,
     ): Promise<BroadcastResponse | undefined> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
             {
@@ -549,7 +546,7 @@ export class P2PManager extends Logger {
                     data: {
                         raw: data,
                         psbt,
-                        identifier,
+                        id,
                     },
                 } as BroadcastOPNetRequest,
             };

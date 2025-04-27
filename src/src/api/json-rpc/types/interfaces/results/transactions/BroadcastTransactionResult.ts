@@ -4,7 +4,8 @@ interface IBroadcastTransactionResult {
     error?: string;
     peers?: number;
 
-    identifier: bigint;
+    id: string;
+    identifier?: bigint;
     modifiedTransaction?: string;
     finalizedTransaction?: boolean;
 }

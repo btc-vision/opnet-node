@@ -17,9 +17,9 @@ import { ServerThread } from '../../../../ServerThread.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
 import { BroadcastResponse } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
-import { xxHash } from '../../../../../poa/hashing/xxhash.js';
 import { TransactionSizeValidator } from '../../../../../poa/mempool/data-validator/TransactionSizeValidator.js';
 import { Config } from '../../../../../config/Config.js';
+import { Psbt } from '@btc-vision/bitcoin';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,
@@ -54,17 +54,22 @@ export class BroadcastTransaction extends Route<
                 return {
                     success: false,
                     result: 'Transaction too large',
-                    identifier: 0n,
+                    id: '',
                 };
             }
 
             const parsedDataAsBuf = Buffer.from(data, 'hex');
             let parsedData: Uint8Array = Uint8Array.from(parsedDataAsBuf);
 
-            const identifier = xxHash.hash(parsedDataAsBuf);
+            const tx = Psbt.fromHex(data);
+            const transaction = tx.extractTransaction();
+            const txHash = transaction.getHash(false).toString('hex');
+
+            console.log('txHash', txHash);
+
             const verification: BroadcastResponse | undefined = await this.verifyOPNetTransaction(
                 parsedData,
-                identifier,
+                txHash,
                 psbt ?? false,
             );
 
@@ -74,7 +79,7 @@ export class BroadcastTransaction extends Route<
                 return {
                     success: false,
                     error: 'Could not broadcast transaction',
-                    identifier: identifier,
+                    id: txHash,
                 };
             }
 
@@ -96,14 +101,14 @@ export class BroadcastTransaction extends Route<
                 const result: BroadcastResponse | undefined = await this.broadcastOPNetTransaction(
                     parsedData,
                     isPsbt,
-                    verification.identifier,
+                    verification.id,
                 );
 
                 if (!result) {
                     return {
                         success: false,
                         error: 'Could not broadcast transaction',
-                        identifier: 0n,
+                        id: txHash,
                     };
                 }
 
@@ -122,7 +127,7 @@ export class BroadcastTransaction extends Route<
             return {
                 success: false,
                 error: 'Could not broadcast transaction',
-                identifier: 0n,
+                id: '',
             };
         }
     }
@@ -215,7 +220,7 @@ export class BroadcastTransaction extends Route<
     private async broadcastOPNetTransaction(
         data: Uint8Array,
         psbt: boolean,
-        identifier: bigint,
+        id: string,
     ): Promise<BroadcastResponse | undefined> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
             {
@@ -225,7 +230,7 @@ export class BroadcastTransaction extends Route<
                     data: {
                         raw: data,
                         psbt,
-                        identifier,
+                        id,
                     },
                 } as BroadcastOPNetRequest,
             };
@@ -237,7 +242,7 @@ export class BroadcastTransaction extends Route<
 
     private async verifyOPNetTransaction(
         raw: Uint8Array,
-        identifier: bigint,
+        id: string,
         psbt: boolean,
     ): Promise<BroadcastResponse | undefined> {
         const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET> =
@@ -246,7 +251,7 @@ export class BroadcastTransaction extends Route<
                 data: {
                     rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_OPNET,
                     data: {
-                        identifier,
+                        id,
                         raw: raw,
                         psbt,
                     },
