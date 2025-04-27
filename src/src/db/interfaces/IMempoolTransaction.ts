@@ -1,8 +1,7 @@
 import { Binary, Decimal128, Long } from 'mongodb';
 
 export interface IMempoolTransaction {
-    readonly identifier: Binary;
-    id?: string | null;
+    id: string;
 
     readonly data: Binary;
 
@@ -26,11 +25,7 @@ export interface IMempoolTransaction {
 }
 
 export interface IMempoolTransactionObj
-    extends Omit<
-        IMempoolTransaction,
-        'identifier' | 'data' | 'blockHeight' | 'outputs' | 'inputs'
-    > {
-    readonly identifier: bigint;
+    extends Omit<IMempoolTransaction, 'data' | 'blockHeight' | 'outputs' | 'inputs'> {
     readonly data: Buffer | Uint8Array;
     readonly blockHeight: bigint;
 

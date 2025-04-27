@@ -9,7 +9,6 @@ import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { BitcoinRawTransactionParams } from '@btc-vision/bitcoin-rpc/src/rpc/types/BitcoinRawTransaction.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
-import { xxHash } from '../../hashing/xxhash.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';
 import fs from 'fs';
@@ -181,7 +180,6 @@ export class MempoolManager extends Logger {
         const data = Buffer.from(txData.hex, 'hex');
         const resp: IMempoolTransactionObj = {
             id: txData.txid,
-            identifier: xxHash.hash(data),
             psbt: false,
             data: data,
             firstSeen: new Date(),

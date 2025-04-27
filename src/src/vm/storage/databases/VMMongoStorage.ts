@@ -455,8 +455,10 @@ export class VMMongoStorage extends VMStorage {
         ]);
 
         const confirmed = utxos[0];
-        const spentTransactions =
-            await this.mempoolRepository.fetchSpentUnspentTransactions(confirmed);
+        const spentTransactions = await this.mempoolRepository.fetchSpentUnspentTransactions([
+            ...utxos[0],
+            ...utxos[1],
+        ]);
 
         return {
             pending: utxos[1],

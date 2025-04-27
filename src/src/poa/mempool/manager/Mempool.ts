@@ -23,12 +23,10 @@ import { Network } from '@btc-vision/bitcoin';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../configurations/manager/AuthorityManager.js';
-import { xxHash } from '../../hashing/xxhash.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
-import { BroadcastTransactionResult } from '../../../api/json-rpc/types/interfaces/results/transactions/BroadcastTransactionResult.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';
 
 export class Mempool extends Logger {
@@ -190,19 +188,27 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: 'Consensus not reached',
-                identifier: data.identifier,
+                id: data.id,
             };
         }
 
         const raw: Uint8Array = data.raw;
         const psbt: boolean = data.psbt;
-        const identifier = data.identifier;
+        const id = data.id;
 
-        if (!identifier) {
+        if (psbt) {
             return {
                 success: false,
-                result: 'No identifier provided',
-                identifier: identifier,
+                result: 'PSBT transactions are not supported yet.',
+                id: id,
+            };
+        }
+
+        if (!id) {
+            return {
+                success: false,
+                result: 'No transaction hash provided',
+                id: id,
             };
         }
 
@@ -210,13 +216,13 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: 'Transaction too large',
-                identifier: identifier,
+                id: id,
             };
         }
 
         try {
             const transaction: IMempoolTransactionObj = {
-                identifier: identifier,
+                id: id,
                 psbt: psbt,
                 data: raw,
                 firstSeen: new Date(),
@@ -225,15 +231,8 @@ export class Mempool extends Logger {
                 outputs: [],
             };
 
-            if (psbt) {
-                throw new Error(`PSBTs support is current disabled.`);
-                //return await this.decodePSBTAndProcess(transaction);
-            } else {
-                return await this.decodeTransactionAndProcess(transaction);
-            }
+            return await this.decodeTransactionAndProcess(transaction);
         } catch (e) {
-            console.log(`Error processing transaction: ${(e as Error).stack}`);
-
             if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.error(`Error processing transaction: ${(e as Error).stack}`);
             }
@@ -241,7 +240,7 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: `Bad transaction.`,
-                identifier: identifier,
+                id: id,
             };
         }
     }
@@ -249,16 +248,13 @@ export class Mempool extends Logger {
     private async decodeTransactionAndProcess(
         transaction: IMempoolTransactionObj,
     ): Promise<BroadcastResponse> {
-        const exist = await this.mempoolRepository.hasTransactionByIdentifier(
-            transaction.identifier,
-            transaction.psbt,
-        );
+        const exist = await this.mempoolRepository.hasTransactionById(transaction.id);
 
         if (exist) {
             return {
                 success: false,
                 result: 'Transaction already in mempool',
-                identifier: transaction.identifier,
+                id: transaction.id,
             };
         }
 
@@ -266,7 +262,7 @@ export class Mempool extends Logger {
         const rawHex: string = buf.toString('hex');
 
         const broadcast = await this.broadcastBitcoinTransaction(rawHex);
-        if (broadcast && broadcast.success && broadcast.result) {
+        if (broadcast && broadcast.result) {
             transaction.id = broadcast.result;
 
             parseAndStoreInputOutputs(buf, transaction);
@@ -278,12 +274,12 @@ export class Mempool extends Logger {
             broadcast || {
                 success: false,
                 result: 'Could not broadcast transaction to the network.',
-                identifier: transaction.identifier,
+                id: transaction.id,
             }
         );
     }
 
-    private async decodePSBTAndProcess(
+    /*private async decodePSBTAndProcess(
         transaction: IMempoolTransactionObj,
     ): Promise<BroadcastResponse> {
         const decodedPsbt = await this.psbtVerifier.verify(transaction.data);
@@ -291,7 +287,7 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: 'Could not decode PSBT',
-                identifier: transaction.identifier,
+                id: transaction.id,
             };
         }
 
@@ -303,7 +299,7 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: 'Fee too low',
-                identifier: transaction.identifier,
+                id: transaction.id,
             };
         }
 
@@ -314,7 +310,7 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: 'PSBT already in mempool',
-                identifier: transaction.identifier,
+                id: transaction.id,
             };
         }
 
@@ -322,7 +318,6 @@ export class Mempool extends Logger {
         if (processed.finalized) {
             const finalized = processed.psbt.extractTransaction();
             const finalizedHex: string = finalized.toHex();
-            const newIdentifier: bigint = xxHash.hash(finalized.toBuffer());
 
             const txBuffer = finalized.toBuffer();
             const finalTransaction: IMempoolTransactionObj = {
@@ -330,7 +325,6 @@ export class Mempool extends Logger {
                 previousPsbtId:
                     transaction.previousPsbtId || decodedPsbt.data.hash || transaction.id,
 
-                identifier: newIdentifier,
                 data: txBuffer,
 
                 psbt: false,
@@ -340,24 +334,24 @@ export class Mempool extends Logger {
                 outputs: [],
             };
 
-            if (transaction.identifier === finalTransaction.identifier) {
+            if (transaction.id === finalTransaction.id) {
                 this.error('Transaction and PSBT identifier are the same.');
                 return {
                     success: false,
                     result: 'Transaction and PSBT identifier are the same.',
-                    identifier: finalTransaction.identifier,
+                    id: finalTransaction.id,
                 };
             }
 
             const submitData: Promise<unknown>[] = [
-                this.mempoolRepository.deleteTransactionByIdentifier(transaction.identifier, true),
+                this.mempoolRepository.deleteTransactionByIdentifier(transaction.id, true),
                 this.broadcastBitcoinTransaction(finalizedHex),
             ];
 
             const result = await Promise.safeAll(submitData);
             const broadcastResult = result[1] as BroadcastTransactionResult | undefined;
 
-            if (broadcastResult?.success) {
+            if (broadcastResult?.success && broadcastResult.result) {
                 finalTransaction.id = broadcastResult.result;
 
                 parseAndStoreInputOutputs(txBuffer, transaction);
@@ -366,7 +360,7 @@ export class Mempool extends Logger {
 
                 return {
                     ...broadcastResult,
-                    identifier: finalTransaction.identifier,
+                    id: finalTransaction.id,
                     modifiedTransaction: Buffer.from(finalTransaction.data).toString('base64'),
                     finalizedTransaction: true,
                 };
@@ -374,7 +368,7 @@ export class Mempool extends Logger {
                 return {
                     ...broadcastResult,
                     success: false,
-                    identifier: finalTransaction.identifier,
+                    id: finalTransaction.id,
                     finalizedTransaction: true,
                 };
             }
@@ -386,9 +380,7 @@ export class Mempool extends Logger {
                 ? buffer
                 : Buffer.concat([header, buffer]);
 
-            const newIdentifier = xxHash.hash(modifiedTransaction);
             const newTransaction: IMempoolTransactionObj = {
-                identifier: newIdentifier,
                 data: modifiedTransaction,
                 psbt: true,
                 firstSeen: transaction.firstSeen,
@@ -403,7 +395,7 @@ export class Mempool extends Logger {
             return {
                 success: true,
                 result: 'PSBT decoded successfully',
-                identifier: newTransaction.identifier,
+                id: newTransaction.id,
                 modifiedTransaction: modifiedTransaction.toString('base64'),
                 finalizedTransaction: processed.finalized ?? false,
             };
@@ -411,11 +403,11 @@ export class Mempool extends Logger {
             return {
                 success: true,
                 result: 'PSBT unchanged',
-                identifier: transaction.identifier,
+                id: transaction.id,
                 finalizedTransaction: false,
             };
         }
-    }
+    }*/
 
     private async broadcastBitcoinTransaction(
         data: string,
