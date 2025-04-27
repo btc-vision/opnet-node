@@ -44,21 +44,31 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     public async sendMessageToThread(
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
+        i: number = 0,
     ): Promise<ThreadData | null> {
-        const relation = this.threadRelations[threadType];
-        if (relation) {
-            const port = this.getNextAvailableThread(threadType);
+        return new Promise(async (resolve, reject) => {
+            const relation = this.threadRelations[threadType];
+            if (relation) {
+                const port = this.getNextAvailableThread(threadType);
 
-            if (!port) {
-                this.error(`Thread not found. {ThreadType: ${threadType}}`);
+                if (!port) {
+                    this.error(`Thread not found. {ThreadType: ${threadType}}`);
 
-                return null;
+                    return null;
+                }
+
+                const d = await this.sendMessage(m, port);
+                resolve(d);
+            } else if (i !== 10) {
+                setTimeout(async () => {
+                    const v = await this.sendMessageToThread(threadType, m, i + 1);
+
+                    resolve(v);
+                }, 500);
+            } else {
+                throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
             }
-
-            return await this.sendMessage(m, port);
-        } else {
-            throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
-        }
+        });
     }
 
     public async sendMessageToAllThreads(
