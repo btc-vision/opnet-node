@@ -69,6 +69,7 @@ import { ReusableStreamManager } from './stream/ReusableStreamManager.js';
 import { Config } from '../../config/Config.js';
 import { ping } from '@libp2p/ping';
 import { Ping } from '@libp2p/ping/src';
+import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -164,11 +165,13 @@ export class P2PManager extends Logger {
         await this.blockWitnessManager.generateBlockHeaderProof(data, isSelf);
 
         // Request block witnesses from peers.
-        if (data.blockNumber - 1n > 0n) {
-            await this.requestBlockWitnessesFromPeer(data.blockNumber - 1n);
-        }
+        if (Config.OP_NET.MODE !== OPNetIndexerMode.LIGHT) {
+            if (data.blockNumber - 1n > 0n) {
+                await this.requestBlockWitnessesFromPeer(data.blockNumber - 1n);
+            }
 
-        await this.requestBlockWitnessesFromPeer(data.blockNumber);
+            await this.requestBlockWitnessesFromPeer(data.blockNumber);
+        }
     }
 
     public async init(): Promise<void> {
@@ -347,6 +350,11 @@ export class P2PManager extends Logger {
         const promises: Promise<void>[] = [];
         for (const [_peerId, peer] of this.peers) {
             if (!peer.isAuthenticated) continue;
+
+            // We skip asking proofs to light nodes, this is in TODO.
+            // TODO: Handle correct proof validations for light nodes.
+            const peerMode = peer.peerMode();
+            if (peerMode === undefined || peerMode === OPNetIndexerMode.LIGHT) continue;
 
             promises.push(peer.requestBlockWitnessesFromPeer(blockNumber));
         }

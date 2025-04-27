@@ -1,4 +1,5 @@
 import { Consensus } from '../consensus/Consensus.js';
+import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 
 export interface IOPNetConsensus<T extends Consensus> {
     /** Information about the consensus */
@@ -7,6 +8,14 @@ export interface IOPNetConsensus<T extends Consensus> {
 
     // The consensus name.
     readonly CONSENSUS_NAME: string;
+
+    readonly OPNET_ENABLED: {
+        // The consensus is enabled for this network.
+        readonly [key in BitcoinNetwork]: {
+            readonly ENABLED: boolean;
+            readonly BLOCK: bigint;
+        };
+    };
 
     readonly GENERIC: {
         /** General consensus properties */

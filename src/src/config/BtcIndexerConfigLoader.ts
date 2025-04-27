@@ -157,7 +157,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             TRANSACTIONS_MAXIMUM_CONCURRENT: 100,
             MAXIMUM_PREFETCH_BLOCKS: 10,
 
-            ENABLED_AT_BLOCK: 0,
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
             ENABLE_BATCH_PROCESSING: true,
@@ -166,6 +165,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             DISABLE_SCANNED_BLOCK_STORAGE_CHECK: true,
 
             MODE: OPNetIndexerMode.ARCHIVE,
+
+            /* LIGHT MODE */
+            LIGHT_MODE_FROM_BLOCK: 10000,
         },
     };
     private verifiedConfig: boolean = false;
@@ -331,13 +333,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         if (parsedConfig.OP_NET) {
             if (
-                parsedConfig.OP_NET.ENABLED_AT_BLOCK === undefined ||
-                typeof parsedConfig.OP_NET.ENABLED_AT_BLOCK !== 'number'
-            ) {
-                throw new Error(`Oops the property OP_NET.ENABLED_AT_BLOCK is not a number.`);
-            }
-
-            if (
                 parsedConfig.OP_NET.MAXIMUM_PREFETCH_BLOCKS !== undefined &&
                 typeof parsedConfig.OP_NET.MAXIMUM_PREFETCH_BLOCKS !== 'number'
             ) {
@@ -383,6 +378,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.OP_NET.MODE !== 'string'
             ) {
                 throw new Error(`Oops the property OP_NET.MODE is not a string.`);
+            }
+
+            if (
+                parsedConfig.OP_NET.LIGHT_MODE_FROM_BLOCK !== undefined &&
+                typeof parsedConfig.OP_NET.LIGHT_MODE_FROM_BLOCK !== 'number'
+            ) {
+                throw new Error(`Oops the property OP_NET.LIGHT_MODE_FROM_BLOCK is not a number.`);
             }
 
             if (!(parsedConfig.OP_NET.MODE in OPNetIndexerMode)) {

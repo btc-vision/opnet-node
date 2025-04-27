@@ -9,7 +9,7 @@ import { CurrentIndexerBlockResponseData } from '../../threading/interfaces/thre
 import { ChainObserver } from './observer/ChainObserver.js';
 import { IndexingTask } from './tasks/IndexingTask.js';
 import { BlockFetcher } from '../fetcher/abstract/BlockFetcher.js';
-import { BitcoinRPC, BlockHeaderInfo } from '@btc-vision/bitcoin-rpc';
+import { BitcoinRPC, BlockDataWithTransactionData, BlockHeaderInfo } from '@btc-vision/bitcoin-rpc';
 import { ConsensusTracker } from './consensus/ConsensusTracker.js';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { IndexerStorageType } from '../../vm/storage/types/IndexerStorageType.js';
@@ -24,6 +24,9 @@ import { ReorgWatchdog } from './reorg/ReorgWatchdog.js';
 import { IReorgData } from '../../db/interfaces/IReorgDocument.js';
 import { VMManager } from '../../vm/VMManager.js';
 import { SpecialManager } from './special-transaction/SpecialManager.js';
+import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
+import { Block } from './block/Block.js';
+import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -81,6 +84,10 @@ export class BlockIndexer extends Logger {
         }
 
         return this._blockFetcher;
+    }
+
+    private get isLightNode(): boolean {
+        return Config.OP_NET.MODE === OPNetIndexerMode.LIGHT;
     }
 
     public sendMessageToAllThreads: (
@@ -177,7 +184,106 @@ export class BlockIndexer extends Logger {
             );
         }
 
+        try {
+            await this.verifyMode();
+        } catch (e) {
+            this.fail(`Failed to create light node last block: ${e}`);
+
+            return;
+        }
+
         await this.registerEvents();
+    }
+
+    private async verifyMode(): Promise<void> {
+        if (!this.isLightNode) {
+            this.info(`Node need the full blockchain to work. Starting full node...`);
+            return;
+        }
+
+        this.info(
+            `---- Your node is running in light mode. This means your node will only know a limited set of the blockchain. Some api routes might return incomplete data. ----`,
+        );
+
+        this.info(`Chain height: ${this.chainObserver.targetBlockHeight}`);
+        this.info(`Node sync target block ${this.nodeSyncLightTargetBlock()}`);
+
+        await this.createLightNodeLastBlock(this.nodeSyncLightTargetBlock());
+    }
+
+    private async createLightNodeLastBlock(tip: bigint): Promise<void> {
+        const opnetEnabledAtBlock = OPNetConsensus.consensus.OPNET_ENABLED[Config.BITCOIN.NETWORK];
+        if (opnetEnabledAtBlock.BLOCK && BigInt(opnetEnabledAtBlock.BLOCK) < tip) {
+            this.fail(
+                `OPNet states will be invalid, your light node will be missing critical states in other for smart contracts to work correctly.`,
+            );
+
+            this.fail(`Please reindex from block ${opnetEnabledAtBlock.BLOCK}.`);
+
+            throw new Error(`Cannot sync light mode from that height.`);
+        }
+
+        const blockHeader = await this.chainObserver.getBlockHeader(tip - 2n);
+        if (!blockHeader) {
+            return await this.createBlockHeader(tip);
+        }
+
+        this.success(`----- Light node ready. -----`);
+    }
+
+    private async createBlockHeader(tip: bigint): Promise<void> {
+        this.chainObserver.nextBestTip = tip;
+
+        const [firstBlock, secondBlock] = await Promise.safeAll([
+            this.blockFetcher.getBlock(tip - 2n),
+            this.blockFetcher.getBlock(tip - 1n),
+        ]);
+
+        if (!firstBlock || !secondBlock) {
+            throw new Error(`Unable to fetch block header for ${tip}.`);
+        }
+
+        const proofFirstBlock = await this.processLightBlock(firstBlock);
+        if (!proofFirstBlock) {
+            throw new Error(`Unable to process block header for ${tip - 2n}.`);
+        }
+
+        const proofSecondBlock = await this.processLightBlock(secondBlock);
+        if (!proofSecondBlock) {
+            throw new Error(`Unable to process block header for ${tip - 1n}.`);
+        }
+
+        const blockHeader = await this.chainObserver.getBlockHeader(tip - 2n);
+        if (!blockHeader) {
+            throw new Error(`Failed to generate light block headers for ${tip - 2n}.`);
+        }
+
+        this.success(`Block header ready.`);
+    }
+
+    private async processLightBlock(data: BlockDataWithTransactionData): Promise<boolean> {
+        // TODO: Finish this.
+        const abortController = new AbortController();
+        const block = new Block({
+            network: this.network,
+            abortController: abortController,
+            header: data,
+            processEverythingAsGeneric: true,
+            allowedPreimages: [],
+        });
+
+        block.deserialize(false);
+
+        this.info(`Light mode -> Loaded block: ${block.height} - ${block.hash}`);
+
+        this.vmManager.prepareBlock(block.height);
+
+        await block.onEmptyBlock(this.vmManager);
+        return await block.finalizeBlock(this.vmManager);
+    }
+
+    private nodeSyncLightTargetBlock(): bigint {
+        return this.chainObserver.targetBlockHeight - BigInt(Config.OP_NET.LIGHT_MODE_FROM_BLOCK);
     }
 
     private async registerEvents(): Promise<void> {

@@ -9,6 +9,9 @@ import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { BufferHelper } from '@btc-vision/transaction';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import { OPNetIndexerMode } from '../config/interfaces/OPNetIndexerMode.js';
+import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
+import { Config } from '../config/Config.js';
 
 export class BlockHeaderValidator extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -52,7 +55,9 @@ export class BlockHeaderValidator extends Logger {
 
     public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string> {
         const newHeight: bigint = height - 1n;
-        if (newHeight < BigInt(this.config.OP_NET.ENABLED_AT_BLOCK)) {
+        const opnetEnabledAtBlock = OPNetConsensus.consensus.OPNET_ENABLED[Config.BITCOIN.NETWORK];
+
+        if (newHeight < BigInt(opnetEnabledAtBlock.BLOCK)) {
             return ZERO_HASH;
         }
 
@@ -60,6 +65,11 @@ export class BlockHeaderValidator extends Logger {
             await this.getBlockHeader(newHeight);
 
         if (!blockRootStates || !blockRootStates.checksumRoot) {
+            // TODO: Add proper light mode validations.
+            if (this.config.OP_NET.MODE === OPNetIndexerMode.LIGHT) {
+                return ZERO_HASH;
+            }
+
             throw new Error('Invalid previous block checksum. Block not found.');
         }
 

@@ -286,7 +286,9 @@ export class IndexingTask extends Logger {
             if (this.chainReorged) {
                 return;
             }
+
             await this.revertBlock(e as Error);
+
             this.specialTransactionManager.reset();
             throw e;
         }
