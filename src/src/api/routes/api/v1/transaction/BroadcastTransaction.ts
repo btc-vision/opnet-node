@@ -19,7 +19,7 @@ import { BroadcastResponse } from '../../../../../threading/interfaces/thread-me
 import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { TransactionSizeValidator } from '../../../../../poa/mempool/data-validator/TransactionSizeValidator.js';
 import { Config } from '../../../../../config/Config.js';
-import { Psbt, Transaction } from '@btc-vision/bitcoin';
+import { Transaction } from '@btc-vision/bitcoin';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,
@@ -60,20 +60,8 @@ export class BroadcastTransaction extends Route<
 
             const parsedDataAsBuf = Buffer.from(data, 'hex');
 
-            console.log(this.network);
-
-            const tx2 = Transaction.fromBuffer(parsedDataAsBuf);
-
-            console.log('tx2', tx2);
-
-            const tx = Psbt.fromBuffer(parsedDataAsBuf, {
-                network: this.network,
-            });
-
-            console.log(tx);
-
-            const transaction = tx.extractTransaction(true, true);
-            const txHash = transaction.getHash(false).toString('hex');
+            const tx = Transaction.fromBuffer(parsedDataAsBuf);
+            const txHash = tx.getId();
 
             console.log('txHash', txHash);
 
