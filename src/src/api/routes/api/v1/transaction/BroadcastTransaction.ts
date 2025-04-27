@@ -61,8 +61,11 @@ export class BroadcastTransaction extends Route<
             const parsedDataAsBuf = Buffer.from(data, 'hex');
             let parsedData: Uint8Array = Uint8Array.from(parsedDataAsBuf);
 
-            const tx = Psbt.fromHex(data);
-            const transaction = tx.extractTransaction();
+            const tx = Psbt.fromHex(data, {
+                network: this.network,
+            });
+
+            const transaction = tx.extractTransaction(true, true);
             const txHash = transaction.getHash(false).toString('hex');
 
             console.log('txHash', txHash);
