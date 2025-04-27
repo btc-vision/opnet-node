@@ -276,7 +276,7 @@ export class BlockIndexer extends Logger {
 
         this.info(`Light mode -> Loaded block: ${block.height} - ${block.hash}`);
 
-        this.vmManager.prepareBlock(block.height);
+        await this.vmManager.prepareBlock(block.height);
 
         await block.onEmptyBlock(this.vmManager);
         return await block.finalizeBlock(this.vmManager);
