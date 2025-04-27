@@ -97,7 +97,6 @@ message Discover {
 message BroadcastTransaction {
   bytes transaction = 1;
   bool psbt = 2;
-  bytes id = 3;
 }
 
 /* BLOCKS */

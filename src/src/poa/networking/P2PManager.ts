@@ -69,6 +69,7 @@ import { ping } from '@libp2p/ping';
 import { Ping } from '@libp2p/ping/src';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { FastStringSet } from '../../utils/fast/FastStringSet.js';
+import { Transaction } from '@btc-vision/bitcoin';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -218,7 +219,6 @@ export class P2PManager extends Logger {
             peers: await this.broadcastMempoolTransaction({
                 transaction: data.raw,
                 psbt: data.psbt,
-                id: Buffer.from(data.id, 'hex'),
             }),
         };
     }
@@ -484,53 +484,61 @@ export class P2PManager extends Logger {
     }
 
     private async onBroadcastTransaction(tx: ITransactionPacket): Promise<void> {
-        if (tx.id.byteLength !== 32) {
-            return;
+        try {
+            const txRegenerated = Transaction.fromBuffer(Buffer.from(tx.transaction));
+            const txHash = txRegenerated.getId();
+
+            const verifiedTransaction = await this.verifyOPNetTransaction(
+                tx.transaction,
+                tx.psbt,
+                txHash,
+            );
+
+            if (!verifiedTransaction || !verifiedTransaction.success) {
+                // Failed to verify transaction.
+                return;
+            }
+
+            if (verifiedTransaction.peers) {
+                // Already broadcasted via the verification process.
+                return;
+            }
+
+            const id = verifiedTransaction.id;
+            if (id !== txHash) {
+                // Transaction ID mismatch.
+                return;
+            }
+
+            const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction
+                ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64')
+                : tx.transaction;
+
+            const isPsbt: boolean = tx.psbt ? !verifiedTransaction.finalizedTransaction : false;
+
+            /** Already broadcasted. */
+            if (this.knownMempoolIdentifiers.has(id)) {
+                return;
+            }
+
+            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.info(`Transaction ${id} entered mempool.`);
+            }
+
+            this.knownMempoolIdentifiers.add(id);
+
+            const broadcastData: OPNetBroadcastData = {
+                raw: modifiedTransaction,
+                psbt: isPsbt,
+                id: id,
+            };
+
+            await this.broadcastTransaction(broadcastData);
+        } catch (e) {
+            if (Config.DEV_MODE) {
+                this.error(`Error while broadcasting transaction: ${(e as Error).message}`);
+            }
         }
-
-        const idHash = Buffer.from(tx.id).toString('hex');
-        const verifiedTransaction = await this.verifyOPNetTransaction(
-            tx.transaction,
-            tx.psbt,
-            idHash,
-        );
-
-        if (!verifiedTransaction || !verifiedTransaction.success) {
-            // Failed to verify transaction.
-            return;
-        }
-
-        if (verifiedTransaction.peers) {
-            // Already broadcasted via the verification process.
-            return;
-        }
-
-        const id = verifiedTransaction.id;
-
-        const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction
-            ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64')
-            : tx.transaction;
-
-        const isPsbt: boolean = tx.psbt ? !verifiedTransaction.finalizedTransaction : false;
-
-        /** Already broadcasted. */
-        if (this.knownMempoolIdentifiers.has(id)) {
-            return;
-        }
-
-        if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            this.info(`Transaction ${id} entered mempool.`);
-        }
-
-        this.knownMempoolIdentifiers.add(id);
-
-        const broadcastData: OPNetBroadcastData = {
-            raw: modifiedTransaction,
-            psbt: isPsbt,
-            id: id,
-        };
-
-        await this.broadcastTransaction(broadcastData);
     }
 
     private async verifyOPNetTransaction(
