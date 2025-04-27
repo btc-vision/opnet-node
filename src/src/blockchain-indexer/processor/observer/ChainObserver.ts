@@ -9,6 +9,8 @@ import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 import { SynchronisationStatus } from '../interfaces/SynchronisationStatus.js';
 import { Db } from 'mongodb';
 import { Config } from '../../../config/Config.js';
+import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
+import { IBlockHeaderBlockDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 
 export class ChainObserver extends Logger {
     public readonly logColor: string = '#5eff00';
@@ -89,6 +91,16 @@ export class ChainObserver extends Logger {
         return this._blockchainRepository;
     }
 
+    private _blocks: BlockRepository | undefined;
+
+    private get blocks(): BlockRepository {
+        if (!this._blocks) {
+            throw new Error('BlockRepository not initialized.');
+        }
+
+        return this._blocks;
+    }
+
     private get db(): Db {
         if (!this.database.db) {
             throw new Error('Database not set.');
@@ -97,8 +109,13 @@ export class ChainObserver extends Logger {
         return this.database.db;
     }
 
+    public async getBlockHeader(tip: bigint): Promise<IBlockHeaderBlockDocument | undefined> {
+        return await this.blocks.getBlockHeader(tip);
+    }
+
     public async init(): Promise<void> {
         this._blockchainRepository = new BlockchainInfoRepository(this.db);
+        this._blocks = new BlockRepository(this.db);
 
         await this.sync();
 

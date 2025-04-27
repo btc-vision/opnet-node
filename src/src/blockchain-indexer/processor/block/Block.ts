@@ -503,7 +503,7 @@ export class Block extends Logger {
         }
     }
 
-    protected async onEmptyBlock(vmManager: VMManager): Promise<void> {
+    public async onEmptyBlock(vmManager: VMManager): Promise<void> {
         this.#_storageRoot = ZERO_HASH;
         this.#_receiptRoot = ZERO_HASH;
 
@@ -717,10 +717,9 @@ export class Block extends Logger {
     }
 
     private isOPNetEnabled(): boolean {
-        return (
-            Config.OP_NET.ENABLED_AT_BLOCK === 0 ||
-            this.height >= BigInt(Config.OP_NET.ENABLED_AT_BLOCK)
-        );
+        const opnetEnabledAtBlock = OPNetConsensus.consensus.OPNET_ENABLED[Config.BITCOIN.NETWORK];
+
+        return opnetEnabledAtBlock.ENABLED && this.height >= BigInt(opnetEnabledAtBlock.BLOCK);
     }
 
     private async executeSpecialTransactions(specialManager: SpecialManager): Promise<void> {
@@ -792,7 +791,7 @@ export class Block extends Logger {
 
     private assignReceiptProofsToTransactions(): void {
         if (!this.#_receiptProofs) {
-            throw new Error('Receipt proofs not found');
+            return;
         }
 
         for (const transaction of this.transactions) {

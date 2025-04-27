@@ -34,16 +34,17 @@ export interface OPNetConfig {
     readonly PENDING_BLOCK_THRESHOLD: number;
     readonly MAXIMUM_PREFETCH_BLOCKS: number;
 
-    readonly ENABLED_AT_BLOCK: number;
     readonly ENABLE_BATCH_PROCESSING: boolean;
 
     REINDEX: boolean;
+
     readonly REINDEX_FROM_BLOCK: number;
 
     readonly DISABLE_SCANNED_BLOCK_STORAGE_CHECK: boolean;
     readonly VERIFY_INTEGRITY_ON_STARTUP: boolean;
 
     readonly MODE: OPNetIndexerMode;
+    readonly LIGHT_MODE_FROM_BLOCK: number;
 }
 
 export interface PoC {

@@ -31,6 +31,7 @@ import { NetEvent } from '@btc-vision/transaction';
 import { BlockHeaderValidator } from '../../../vm/BlockHeaderValidator.js';
 import { VMMongoStorage } from '../../../vm/storage/databases/VMMongoStorage.js';
 import { LoadedStorageList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
+import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 
 export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     public readonly threadType: ThreadTypes.RPC = ThreadTypes.RPC;
@@ -44,6 +45,8 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     constructor() {
         super();
+
+        OPNetConsensus.setBlockHeight(0n, false);
 
         this.vmStorage = new VMMongoStorage(Config);
         this.blockHeaderValidator = new BlockHeaderValidator(Config, this.vmStorage);

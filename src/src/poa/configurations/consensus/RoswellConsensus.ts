@@ -1,10 +1,34 @@
 import { IOPNetConsensus } from '../types/IOPNetConsensus.js';
 import { Consensus } from './Consensus.js';
+import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 
 export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     /** Information about the consensus */
     CONSENSUS: Consensus.Roswell,
     CONSENSUS_NAME: 'Roswell',
+
+    OPNET_ENABLED: {
+        [BitcoinNetwork.mainnet]: {
+            ENABLED: false,
+            BLOCK: 0n,
+        },
+        [BitcoinNetwork.testnet]: {
+            ENABLED: true,
+            BLOCK: 4_200_000n,
+        },
+        [BitcoinNetwork.regtest]: {
+            ENABLED: true,
+            BLOCK: 0n,
+        },
+        [BitcoinNetwork.signet]: {
+            ENABLED: false,
+            BLOCK: 0n,
+        },
+        [BitcoinNetwork.custom]: {
+            ENABLED: false,
+            BLOCK: 0n,
+        },
+    },
 
     GENERIC: {
         /** General consensus properties */

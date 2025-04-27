@@ -327,7 +327,7 @@ install_and_configure_mongodb() {
     fi
 
     echo -e "${BLUE}Installing required tools (gnupg, curl, etc.)...${NC}"
-    sudo apt-get install gnupg curl -y
+    sudo apt-get install gnupg curl bc -y
 
     # Import GPG key and add repository, depending on version
     if [[ "$install_mongodb_version" == "7.0" ]]; then

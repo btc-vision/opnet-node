@@ -17,6 +17,7 @@ import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockch
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
+import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 
 const PEER_DISCOVERY_TIMEOUT = 1000 * 60 * 2; // 2 minutes
 
@@ -135,6 +136,24 @@ export class OPNetPeer extends Logger {
 
     public async requestBlockWitnessesFromPeer(blockNumber: bigint): Promise<void> {
         return this.serverNetworkingManager.requestBlockWitnessesFromPeer(blockNumber);
+    }
+
+    public peerMode(): OPNetIndexerMode | undefined {
+        const peerType = this.clientIndexerMode;
+        if (peerType === undefined) {
+            return undefined;
+        }
+
+        switch (peerType) {
+            case 0:
+                return OPNetIndexerMode.ARCHIVE;
+            case 1:
+                return OPNetIndexerMode.FULL;
+            case 2:
+                return OPNetIndexerMode.LIGHT;
+            default:
+                return undefined;
+        }
     }
 
     public async init(): Promise<void> {
