@@ -263,7 +263,12 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
 
         for (const result of results) {
             for (const input of result.inputs) {
-                const tx = txs.find((tx) => tx.transactionId === input.transactionId);
+                const tx = txs.find(
+                    (tx) =>
+                        tx.transactionId === input.transactionId &&
+                        tx.outputIndex === input.outputIndex,
+                );
+
                 if (!tx) continue;
 
                 utxos.push(tx);
