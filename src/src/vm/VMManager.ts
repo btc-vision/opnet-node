@@ -132,7 +132,9 @@ export class VMManager extends Logger {
         }
     }
 
-    public prepareBlock(blockId: bigint): void {
+    public async prepareBlock(blockId: bigint): Promise<void> {
+        await this.clear();
+
         this.purgeAllContractInstances();
 
         if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
@@ -161,13 +163,12 @@ export class VMManager extends Logger {
 
         try {
             this.vmBitcoinBlock.terminate();
-            await this.clear();
         } catch (e) {
             this.error(`Error terminating block: ${(e as Error).stack}`);
 
-            await this.clear();
-
             throw e;
+        } finally {
+            await this.clear();
         }
     }
 
