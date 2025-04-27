@@ -27,7 +27,6 @@ import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransacti
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
-import { BroadcastTransactionResult } from '../../../api/json-rpc/types/interfaces/results/transactions/BroadcastTransactionResult.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';
 
 export class Mempool extends Logger {
@@ -270,6 +269,8 @@ export class Mempool extends Logger {
             await this.mempoolRepository.storeTransaction(transaction);
         }
 
+        console.log(broadcast);
+
         return (
             broadcast || {
                 success: false,
@@ -279,7 +280,7 @@ export class Mempool extends Logger {
         );
     }
 
-    private async decodePSBTAndProcess(
+    /*private async decodePSBTAndProcess(
         transaction: IMempoolTransactionObj,
     ): Promise<BroadcastResponse> {
         const decodedPsbt = await this.psbtVerifier.verify(transaction.data);
@@ -407,7 +408,7 @@ export class Mempool extends Logger {
                 finalizedTransaction: false,
             };
         }
-    }
+    }*/
 
     private async broadcastBitcoinTransaction(
         data: string,
