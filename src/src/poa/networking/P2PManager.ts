@@ -494,6 +494,8 @@ export class P2PManager extends Logger {
                 txHash,
             );
 
+            console.log(verifiedTransaction);
+
             if (!verifiedTransaction || !verifiedTransaction.success) {
                 // Failed to verify transaction.
                 return;
@@ -537,6 +539,8 @@ export class P2PManager extends Logger {
 
             await this.broadcastTransaction(broadcastData);
         } catch (e) {
+            console.log(e);
+
             if (Config.DEV_MODE) {
                 this.error(`Error while broadcasting transaction: ${(e as Error).message}`);
             }
