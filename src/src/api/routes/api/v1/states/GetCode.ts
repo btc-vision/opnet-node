@@ -55,6 +55,7 @@ export class GetCode extends Route<
                 bytecode: contract.bytecode.toString('base64'),
 
                 wasCompressed: document.wasCompressed,
+                deployerAddress: contract.deployerAddress.toHex(),
             };
         }
 
