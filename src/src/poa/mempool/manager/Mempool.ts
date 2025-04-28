@@ -264,6 +264,7 @@ export class Mempool extends Logger {
         const broadcast = await this.broadcastBitcoinTransaction(rawHex);
         if (broadcast && broadcast.result) {
             transaction.id = broadcast.result;
+            broadcast.id = broadcast.result;
 
             parseAndStoreInputOutputs(buf, transaction);
 
