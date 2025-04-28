@@ -22,7 +22,6 @@ export interface IContractAPIDocument
     readonly contractSaltHash: string;
     readonly deployedTransactionId: string;
     readonly deployedTransactionHash: string;
-    readonly deployerAddress: string;
 }
 
 export interface IContractDocument extends IContractDocumentBase {

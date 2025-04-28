@@ -85,7 +85,6 @@ export class DeploymentTxEncoder {
             contractSeed: data.contractSeed.toString('base64'),
             contractSaltHash: data.contractSaltHash.toString('hex'),
             wasCompressed: data.wasCompressed,
-            deployerAddress: data.deployerAddress.toHex(),
         };
     }
 }
