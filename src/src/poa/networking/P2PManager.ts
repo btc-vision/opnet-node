@@ -494,9 +494,13 @@ export class P2PManager extends Logger {
                 txHash,
             );
 
-            console.log(verifiedTransaction);
+            if (
+                !verifiedTransaction ||
+                (!verifiedTransaction.success &&
+                    !verifiedTransaction.result?.includes('Transaction already in mempool'))
+            ) {
+                console.log(verifiedTransaction);
 
-            if (!verifiedTransaction || !verifiedTransaction.success) {
                 // Failed to verify transaction.
                 return;
             }
