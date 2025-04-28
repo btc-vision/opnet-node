@@ -229,7 +229,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
                 },
             },
             {
-                $limit: 100,
+                $limit: 1000,
             },
         ];
 
