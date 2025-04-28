@@ -222,29 +222,43 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
 
     private async broadcastTransaction(
         transactionData: BroadcastRequest,
+        tries: number = 0,
     ): Promise<BroadcastResponse> {
-        const response: BroadcastResponse = {
-            success: false,
-            id: '',
-        };
+        return new Promise(async (resolve, reject) => {
+            const response: BroadcastResponse = {
+                success: false,
+                id: '',
+            };
 
-        if (!transactionData.data.rawTransaction) {
-            throw new Error('No raw transaction data provided');
-        }
+            if (!transactionData.data.rawTransaction) {
+                return reject(new Error('No raw transaction data provided'));
+            }
 
-        const result: string | null = await this.bitcoinRPC
-            .sendRawTransaction({ hexstring: transactionData.data.rawTransaction })
-            .catch((e: unknown) => {
-                const error = e as Error;
-                response.error = error.message || 'Unknown error';
+            const result: string | null = await this.bitcoinRPC
+                .sendRawTransaction({ hexstring: transactionData.data.rawTransaction })
+                .catch((e: unknown) => {
+                    const error = e as Error;
+                    response.error = error.message || 'Unknown error';
 
-                return null;
-            });
+                    return null;
+                });
 
-        response.success = result !== null;
-        if (result) response.result = result;
+            if (result && result.includes('bad-txns-inputs-missingorspent')) {
+                // try again
+                if (tries < 3) {
+                    return setTimeout(async () => {
+                        const resp = await this.broadcastTransaction(transactionData, tries + 1);
 
-        return response;
+                        resolve(resp);
+                    }, 500);
+                }
+            }
+
+            response.success = result !== null;
+            if (result) response.result = result;
+
+            resolve(response);
+        });
     }
 
     private getChecksumProofs(rawProofs: ChecksumProof[]): BlockHeaderChecksumProof {
