@@ -506,6 +506,7 @@ export class P2PManager extends Logger {
 
             const id = verifiedTransaction.id;
             if (id !== txHash) {
+                console.log(`Transaction ID mismatch. Expected ${id}, got ${txHash}`);
                 // Transaction ID mismatch.
                 return;
             }
@@ -518,6 +519,7 @@ export class P2PManager extends Logger {
 
             /** Already broadcasted. */
             if (this.knownMempoolIdentifiers.has(id)) {
+                console.log(`Transaction ${id} already broadcasted.`);
                 return;
             }
 
