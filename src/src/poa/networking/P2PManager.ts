@@ -484,8 +484,6 @@ export class P2PManager extends Logger {
     }
 
     private async onBroadcastTransaction(tx: ITransactionPacket): Promise<void> {
-        console.log(tx);
-
         try {
             const txRegenerated = Transaction.fromBuffer(Buffer.from(tx.transaction));
             const txHash = txRegenerated.getId();
