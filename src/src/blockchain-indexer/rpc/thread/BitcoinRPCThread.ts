@@ -49,7 +49,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
         OPNetConsensus.setBlockHeight(0n, false);
 
         this.vmStorage = new VMMongoStorage(Config);
-        this.blockHeaderValidator = new BlockHeaderValidator(Config, this.vmStorage);
+        this.blockHeaderValidator = new BlockHeaderValidator(Config, this.vmStorage, false);
 
         void this.init();
     }
