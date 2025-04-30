@@ -42,7 +42,7 @@ export class ReusableStreamManager {
         const key = this.makeKey(peerId.toString(), this.defaultProtocol);
         let streamObj = this.outboundMap.get(key);
 
-        // If we don’t have an outbound stream for this peer+protocol, dial once
+        // If we don't have an outbound stream for this peer+protocol, dial once
         if (!streamObj) {
             const conn = await this.node.dialProtocol(peerId, this.defaultProtocol, {
                 maxOutboundStreams: MAX_OUTBOUND_STREAMS_PER_PEER,

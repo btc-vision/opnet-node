@@ -27,7 +27,7 @@ export interface TransactionParser<T extends OPNetTransactionTypes> {
     ): TransactionInformation | undefined;
 }
 
-export const PossibleOpNetTransactions: {
+export const PossibleOPNetTransactions: {
     [key in OPNetTransactionTypes]: TransactionParser<key>;
 } = {
     [OPNetTransactionTypes.Generic]: {

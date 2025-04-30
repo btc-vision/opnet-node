@@ -103,7 +103,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
             // 5. The size of the initial receive window for each stream.
             //    This can be raised if you expect large data bursts and have
-            //    ample memory available. But do keep it below your system’s
+            //    ample memory available. But do keep it below your system's
             //    memory constraints.
             initialStreamWindowSize: 256 * 1024, // 256 KB
 

@@ -1,7 +1,7 @@
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { networks } from '@btc-vision/bitcoin';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
-import { TransactionInformation } from '../PossibleOpNetTransactions.js';
+import { TransactionInformation } from '../PossibleOPNetTransactions.js';
 import { Transaction } from '../Transaction.js';
 
 export class GenericTransaction extends Transaction<OPNetTransactionTypes.Generic> {

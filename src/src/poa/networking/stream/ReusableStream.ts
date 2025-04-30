@@ -21,7 +21,7 @@ interface ReusableStreamOptions {
  * A single stream that can handle both inbound and outbound operations.
  *
  * - All reading is done in a single `readLoop()`.
- * - If we see `[0x01]`, it’s an ack for an outbound message -> we resolve the next ack waiter.
+ * - If we see `[0x01]`, it's an ack for an outbound message -> we resolve the next ack waiter.
  * - Otherwise, we always send an ack ourselves, and if `isInbound=true`, call `onInboundData()`.
  */
 export class ReusableStream {
