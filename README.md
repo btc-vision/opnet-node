@@ -179,7 +179,8 @@ OPNet utilizes a dual-layer consensus mechanism to maintain network security and
 ### Proof of Validation (PoV)
 
 - **Role of Bootstrap Nodes**: Bootstrap nodes act as trusted verifiers, serving as PoV nodes. They perform independent
-  recalculations and validate results against official network entries.
+  recalculations and validate results against official network entries. Please note that your nodes take these witnesses
+  as informal.
 - **Canonical Outputs**: PoV allows nodes to reference canonical outputs from trusted entities like the OPNet
   Foundation.
 - **Enhanced Security**: This layer enhances error detection and defends against manipulation without altering

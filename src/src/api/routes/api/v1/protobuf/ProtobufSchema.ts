@@ -30,7 +30,7 @@ export class ProtobufSchema extends Route<
      * GET /api/v1/protobuf/schema
      * @tag Websocket
      * @summary Get the protocol schema
-     * @description Get the protocol schema for the OpNet packets and messages in protobuf format.
+     * @description Get the protocol schema for the OPNet packets and messages in protobuf format.
      * @response 200 - Return the protocol schema
      * @response 404 - Schema not found
      * @response 500 - Something went wrong

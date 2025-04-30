@@ -122,7 +122,7 @@ export class ContractPointerValueRepository extends BaseRepository<IContractPoin
             const pointerU8 = BufferHelper.bufferToUint8Array(doc.pointer.value());
             const valueU8 = BufferHelper.bufferToUint8Array(doc.value.value());
 
-            // If we already have a map for this contract, update the pointer’s entry
+            // If we already have a map for this contract, update the pointer's entry
             // (it should already be initialized to null)
             const pointerMap = provenPointers.get(addressObj);
             if (pointerMap) {

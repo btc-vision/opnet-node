@@ -10,7 +10,7 @@ import {
 } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
-import { TransactionInformation } from '../PossibleOpNetTransactions.js';
+import { TransactionInformation } from '../PossibleOPNetTransactions.js';
 import { OPNet_MAGIC } from '../Transaction.js';
 import { Address, AddressVerificator } from '@btc-vision/transaction';
 import * as ecc from 'tiny-secp256k1';

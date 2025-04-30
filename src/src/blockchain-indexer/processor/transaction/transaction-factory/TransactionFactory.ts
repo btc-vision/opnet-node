@@ -1,7 +1,7 @@
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { networks } from '@btc-vision/bitcoin';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
-import { PossibleOpNetTransactions, TransactionInformation } from '../PossibleOpNetTransactions.js';
+import { PossibleOPNetTransactions, TransactionInformation } from '../PossibleOPNetTransactions.js';
 import { Transaction } from '../Transaction.js';
 
 export class TransactionFactory {
@@ -20,7 +20,7 @@ export class TransactionFactory {
         }
 
         const parser: TransactionInformation = this.getTransactionType(data);
-        const transactionObj = PossibleOpNetTransactions[parser.type];
+        const transactionObj = PossibleOPNetTransactions[parser.type];
 
         const tx = transactionObj.parse(data, parser.vInIndex, blockHash, blockHeight, network);
         tx.verifyPreImage = (preimage: Buffer) => {
@@ -39,7 +39,7 @@ export class TransactionFactory {
     }
 
     protected getTransactionType(data: TransactionData): TransactionInformation {
-        for (const _transactionType in PossibleOpNetTransactions) {
+        for (const _transactionType in PossibleOPNetTransactions) {
             const transactionType = _transactionType as OPNetTransactionTypes;
 
             // We filter out the generic transaction type
@@ -47,7 +47,7 @@ export class TransactionFactory {
                 continue;
             }
 
-            const transactionObj = PossibleOpNetTransactions[transactionType];
+            const transactionObj = PossibleOPNetTransactions[transactionType];
             const isTransactionOfType = transactionObj.isTransaction(data);
             if (!isTransactionOfType) {
                 continue;

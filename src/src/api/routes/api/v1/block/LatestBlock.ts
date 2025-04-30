@@ -38,8 +38,8 @@ export class LatestBlock extends Route<
     /**
      * GET /api/v1/block/latest
      * @tag Block
-     * @summary Get the current heap block of OpNet
-     * @description Get the current heap block of OpNet (the block that is currently being processed)
+     * @summary Get the current heap block of OPNet
+     * @description Get the current heap block of OPNet (the block that is currently being processed)
      * @response 200 - Return the current heap block of the Bitcoin blockchain.
      * @response 400 - Something went wrong.
      * @response default - Unexpected error
