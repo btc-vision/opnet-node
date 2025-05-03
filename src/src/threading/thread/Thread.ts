@@ -50,10 +50,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
             const relation = this.threadRelations[threadType];
             if (relation) {
                 const port = this.getNextAvailableThread(threadType);
-
                 if (!port) {
-                    this.error(`Thread not found. {ThreadType: ${threadType}}`);
-
                     return null;
                 }
 

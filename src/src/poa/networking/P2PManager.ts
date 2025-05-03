@@ -488,6 +488,12 @@ export class P2PManager extends Logger {
             const txRegenerated = Transaction.fromBuffer(Buffer.from(tx.transaction));
             const txHash = txRegenerated.getId();
 
+            /** Already broadcasted. */
+            if (this.knownMempoolIdentifiers.has(txHash)) {
+                this.info(`Transaction ${txHash} already broadcasted.`);
+                return;
+            }
+
             const verifiedTransaction = await this.verifyOPNetTransaction(
                 tx.transaction,
                 tx.psbt,
@@ -504,8 +510,10 @@ export class P2PManager extends Logger {
                 return;
             }
 
-            const id = verifiedTransaction.id;
+            const id = verifiedTransaction.result;
             if (id !== txHash) {
+                this.warn(`Transaction ID mismatch. Expected ${id} but got ${txHash}.`);
+
                 // Transaction ID mismatch.
                 return;
             }
@@ -518,6 +526,7 @@ export class P2PManager extends Logger {
 
             /** Already broadcasted. */
             if (this.knownMempoolIdentifiers.has(id)) {
+                this.info(`Transaction ${id} already broadcasted.`);
                 return;
             }
 
