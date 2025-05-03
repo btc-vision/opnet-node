@@ -494,6 +494,8 @@ export class P2PManager extends Logger {
                 return;
             }
 
+            this.knownMempoolIdentifiers.add(txHash);
+
             const verifiedTransaction = await this.verifyOPNetTransaction(
                 tx.transaction,
                 tx.psbt,
@@ -518,24 +520,15 @@ export class P2PManager extends Logger {
                 return;
             }
 
+            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.info(`Transaction ${id} entered mempool.`);
+            }
+
             const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction
                 ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64')
                 : tx.transaction;
 
             const isPsbt: boolean = tx.psbt ? !verifiedTransaction.finalizedTransaction : false;
-
-            /** Already broadcasted. */
-            if (this.knownMempoolIdentifiers.has(id)) {
-                this.info(`Transaction ${id} already broadcasted.`);
-                return;
-            }
-
-            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.info(`Transaction ${id} entered mempool.`);
-            }
-
-            this.knownMempoolIdentifiers.add(id);
-
             const broadcastData: OPNetBroadcastData = {
                 raw: modifiedTransaction,
                 psbt: isPsbt,
