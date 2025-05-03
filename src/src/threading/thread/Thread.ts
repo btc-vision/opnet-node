@@ -57,7 +57,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
                     const d = await this.sendMessage(m, port);
                     resolve(d);
-                } else if (i !== 10) {
+                } else if (i !== 5) {
                     setTimeout(async () => {
                         const v = await this.sendMessageToThread(threadType, m, i + 1);
 
