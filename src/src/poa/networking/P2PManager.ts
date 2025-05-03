@@ -485,8 +485,6 @@ export class P2PManager extends Logger {
 
     private async onBroadcastTransaction(tx: ITransactionPacket): Promise<void> {
         try {
-            console.log(`Broadcasting transaction.`);
-
             const txRegenerated = Transaction.fromBuffer(Buffer.from(tx.transaction));
             const txHash = txRegenerated.getId();
 
@@ -508,7 +506,7 @@ export class P2PManager extends Logger {
                 return;
             }
 
-            const id = verifiedTransaction.id;
+            const id = verifiedTransaction.result;
             if (id !== txHash) {
                 console.log(`Transaction ID mismatch. ${id} != ${txHash}`);
 
