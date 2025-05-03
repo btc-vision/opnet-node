@@ -488,6 +488,12 @@ export class P2PManager extends Logger {
             const txRegenerated = Transaction.fromBuffer(Buffer.from(tx.transaction));
             const txHash = txRegenerated.getId();
 
+            /** Already broadcasted. */
+            if (this.knownMempoolIdentifiers.has(txHash)) {
+                this.info(`Transaction ${txHash} already broadcasted.`);
+                return;
+            }
+
             const verifiedTransaction = await this.verifyOPNetTransaction(
                 tx.transaction,
                 tx.psbt,
@@ -495,20 +501,18 @@ export class P2PManager extends Logger {
             );
 
             if (!verifiedTransaction || !verifiedTransaction.success) {
-                console.log(`Failed to verify transaction.`);
                 // Failed to verify transaction.
                 return;
             }
 
             if (verifiedTransaction.peers) {
-                console.log(`Transaction already broadcasted via verification process.`);
                 // Already broadcasted via the verification process.
                 return;
             }
 
             const id = verifiedTransaction.result;
             if (id !== txHash) {
-                console.log(`Transaction ID mismatch. ${id} != ${txHash}`);
+                this.warn(`Transaction ID mismatch. Expected ${id} but got ${txHash}.`);
 
                 // Transaction ID mismatch.
                 return;
@@ -526,9 +530,9 @@ export class P2PManager extends Logger {
                 return;
             }
 
-            //if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-            this.info(`Transaction ${id} entered mempool.`);
-            //}
+            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.info(`Transaction ${id} entered mempool.`);
+            }
 
             this.knownMempoolIdentifiers.add(id);
 
@@ -540,9 +544,9 @@ export class P2PManager extends Logger {
 
             await this.broadcastTransaction(broadcastData);
         } catch (e) {
-            //if (Config.DEV_MODE) {
-            this.error(`Error while broadcasting transaction: ${(e as Error).message}`);
-            //}
+            if (Config.DEV_MODE) {
+                this.error(`Error while broadcasting transaction: ${(e as Error).message}`);
+            }
         }
     }
 

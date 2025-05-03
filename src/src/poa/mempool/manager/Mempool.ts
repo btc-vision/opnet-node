@@ -188,7 +188,6 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: 'Consensus not reached',
-                id: data.id,
             };
         }
 
@@ -200,7 +199,6 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: 'PSBT transactions are not supported yet.',
-                id: id,
             };
         }
 
@@ -208,7 +206,6 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: 'No transaction hash provided',
-                id: id,
             };
         }
 
@@ -216,7 +213,6 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: 'Transaction too large',
-                id: id,
             };
         }
 
@@ -240,7 +236,6 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: `Bad transaction.`,
-                id: id,
             };
         }
     }
@@ -254,7 +249,6 @@ export class Mempool extends Logger {
             return {
                 success: false,
                 result: 'Transaction already in mempool',
-                id: transaction.id,
             };
         }
 
@@ -274,7 +268,6 @@ export class Mempool extends Logger {
             broadcast || {
                 success: false,
                 result: 'Could not broadcast transaction to the network.',
-                id: transaction.id,
             }
         );
     }

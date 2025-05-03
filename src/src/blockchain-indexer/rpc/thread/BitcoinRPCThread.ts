@@ -225,7 +225,6 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
     ): Promise<BroadcastResponse> {
         const response: BroadcastResponse = {
             success: false,
-            id: '',
         };
 
         if (!transactionData.data.rawTransaction) {
@@ -242,7 +241,10 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
             });
 
         response.success = result !== null;
-        if (result) response.result = result;
+
+        if (result) {
+            response.result = result;
+        }
 
         return response;
     }

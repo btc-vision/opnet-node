@@ -54,7 +54,6 @@ export class BroadcastTransaction extends Route<
                 return {
                     success: false,
                     result: 'Transaction too large',
-                    id: '',
                 };
             }
 
@@ -75,7 +74,6 @@ export class BroadcastTransaction extends Route<
                 return {
                     success: false,
                     error: 'Could not broadcast transaction',
-                    id: txHash,
                 };
             }
 
@@ -87,7 +85,7 @@ export class BroadcastTransaction extends Route<
                 ? !verification.modifiedTransaction
                 : !!psbt;
 
-            if (verification.success) {
+            if (verification.success && verification.result) {
                 if (!parsedData) {
                     throw new Error('Could not parse data');
                 }
@@ -97,14 +95,13 @@ export class BroadcastTransaction extends Route<
                 const result: BroadcastResponse | undefined = await this.broadcastOPNetTransaction(
                     parsedData,
                     isPsbt,
-                    verification.id,
+                    verification.result,
                 );
 
                 if (!result) {
                     return {
                         success: false,
                         error: 'Could not broadcast transaction',
-                        id: txHash,
                     };
                 }
 
@@ -123,7 +120,6 @@ export class BroadcastTransaction extends Route<
             return {
                 success: false,
                 error: 'Could not broadcast transaction',
-                id: '',
             };
         }
     }
