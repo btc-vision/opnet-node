@@ -18,7 +18,7 @@ export class UTXOsAggregationV2 extends Aggregation {
         optimize: boolean = false,
         pushRawTxs: boolean = true,
     ): Document[] {
-        const minValue: number = optimize ? 20000 : 330;
+        const minValue: number = optimize ? 9999 : 330;
 
         const aggregation: Document[] = [
             {
@@ -28,6 +28,11 @@ export class UTXOsAggregationV2 extends Aggregation {
                         $gte: Long.fromValue(minValue),
                     },
                     deletedAtBlock: null,
+                },
+            },
+            {
+                $sort: {
+                    value: -1,
                 },
             },
         ];
