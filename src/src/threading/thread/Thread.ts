@@ -47,23 +47,27 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         i: number = 0,
     ): Promise<ThreadData | null> {
         return new Promise(async (resolve, reject) => {
-            const relation = this.threadRelations[threadType];
-            if (relation) {
-                const port = this.getNextAvailableThread(threadType);
-                if (!port) {
-                    return null;
+            try {
+                const relation = this.threadRelations[threadType];
+                if (relation) {
+                    const port = this.getNextAvailableThread(threadType);
+                    if (!port) {
+                        return null;
+                    }
+
+                    const d = await this.sendMessage(m, port);
+                    resolve(d);
+                } else if (i !== 10) {
+                    setTimeout(async () => {
+                        const v = await this.sendMessageToThread(threadType, m, i + 1);
+
+                        resolve(v);
+                    }, 500);
+                } else {
+                    throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
                 }
-
-                const d = await this.sendMessage(m, port);
-                resolve(d);
-            } else if (i !== 10) {
-                setTimeout(async () => {
-                    const v = await this.sendMessageToThread(threadType, m, i + 1);
-
-                    resolve(v);
-                }, 500);
-            } else {
-                throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
+            } catch (e) {
+                reject(e as Error);
             }
         });
     }
@@ -71,18 +75,32 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     public async sendMessageToAllThreads(
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
+        i: number = 0,
     ): Promise<void> {
-        const relation = this.threadRelationsArray[threadType];
-        if (relation) {
-            const promises: Promise<ThreadData | null>[] = [];
-            for (const port of relation) {
-                promises.push(this.sendMessage({ ...m }, port));
-            }
+        return new Promise(async (resolve, reject) => {
+            try {
+                const relation = this.threadRelationsArray[threadType];
+                if (relation) {
+                    const promises: Promise<ThreadData | null>[] = [];
+                    for (const port of relation) {
+                        promises.push(this.sendMessage({ ...m }, port));
+                    }
 
-            await Promise.safeAll(promises);
-        } else {
-            throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
-        }
+                    await Promise.safeAll(promises);
+                    resolve();
+                } else if (i !== 5) {
+                    setTimeout(async () => {
+                        const v = await this.sendMessageToAllThreads(threadType, m, i + 1);
+
+                        resolve(v);
+                    }, 500);
+                } else {
+                    reject(new Error(`Thread relation not found. {ThreadType: ${threadType}}`));
+                }
+            } catch (e) {
+                reject(e as Error);
+            }
+        });
     }
 
     protected async sendMessage(
@@ -155,10 +173,10 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
         m: ThreadMessageBase<MessageType>,
     ): Promise<ThreadData | undefined>;
 
-    private getNextAvailableThread(threadType: ThreadTypes): MessagePort {
+    private getNextAvailableThread(threadType: ThreadTypes): MessagePort | null {
         const relation = this.threadRelationsArray[threadType];
         if (!relation) {
-            throw new Error(`Thread relation not found. {ThreadType: ${threadType}}`);
+            return null;
         }
 
         const currentIndex = this.availableThreads[threadType] || 0;
