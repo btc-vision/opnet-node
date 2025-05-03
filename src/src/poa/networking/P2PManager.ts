@@ -510,7 +510,7 @@ export class P2PManager extends Logger {
 
             const id = verifiedTransaction.id;
             if (id !== txHash) {
-                console.log(`Transaction ID mismatch.`);
+                console.log(`Transaction ID mismatch. ${id} != ${txHash}`);
 
                 // Transaction ID mismatch.
                 return;
