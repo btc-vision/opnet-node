@@ -503,12 +503,15 @@ export class P2PManager extends Logger {
             }
 
             if (verifiedTransaction.peers) {
+                console.log(`Transaction already broadcasted via verification process.`);
                 // Already broadcasted via the verification process.
                 return;
             }
 
             const id = verifiedTransaction.id;
             if (id !== txHash) {
+                console.log(`Transaction ID mismatch.`);
+
                 // Transaction ID mismatch.
                 return;
             }
@@ -525,9 +528,9 @@ export class P2PManager extends Logger {
                 return;
             }
 
-            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.info(`Transaction ${id} entered mempool.`);
-            }
+            //if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+            this.info(`Transaction ${id} entered mempool.`);
+            //}
 
             this.knownMempoolIdentifiers.add(id);
 
@@ -539,9 +542,9 @@ export class P2PManager extends Logger {
 
             await this.broadcastTransaction(broadcastData);
         } catch (e) {
-            if (Config.DEV_MODE) {
-                this.error(`Error while broadcasting transaction: ${(e as Error).message}`);
-            }
+            //if (Config.DEV_MODE) {
+            this.error(`Error while broadcasting transaction: ${(e as Error).message}`);
+            //}
         }
     }
 
