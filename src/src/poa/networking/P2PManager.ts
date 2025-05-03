@@ -485,6 +485,8 @@ export class P2PManager extends Logger {
 
     private async onBroadcastTransaction(tx: ITransactionPacket): Promise<void> {
         try {
+            console.log(`Broadcasting transaction.`);
+
             const txRegenerated = Transaction.fromBuffer(Buffer.from(tx.transaction));
             const txHash = txRegenerated.getId();
 
@@ -495,6 +497,7 @@ export class P2PManager extends Logger {
             );
 
             if (!verifiedTransaction || !verifiedTransaction.success) {
+                console.log(`Failed to verify transaction.`);
                 // Failed to verify transaction.
                 return;
             }
@@ -518,6 +521,7 @@ export class P2PManager extends Logger {
 
             /** Already broadcasted. */
             if (this.knownMempoolIdentifiers.has(id)) {
+                this.info(`Transaction ${id} already broadcasted.`);
                 return;
             }
 
