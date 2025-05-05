@@ -58,6 +58,15 @@ Globals.register();
 init();
 
 const EMPTY_BUFFER = Buffer.alloc(32);
+const SIMULATION_TRANSACTION_ID = Buffer.from(
+    '61e1ca05754b6990c56d8f0f06c33da411f086c5abae59572e63549361c8f5fc',
+    'hex',
+);
+
+const SIMULATION_TRANSACTION_HASH = Buffer.from(
+    '947d267bb393648af57e3a498b4cfa30f50e7b3263223b8077416f342133ec9c',
+    'hex',
+);
 
 export class VMManager extends Logger {
     public initiated: boolean = false;
@@ -229,11 +238,26 @@ export class VMManager extends Logger {
                 0n,
             );
 
+            const inputs = transaction ? transaction.inputs : [];
+            if (!inputs.length) {
+                // always add an input.
+                inputs.push({
+                    txId: Buffer.from(
+                        '61e1ca05754b6990c56d8f0f06c33da411f086c5abae59572e63549361c8f5fc',
+                        'hex',
+                    ),
+                    outputIndex: 0,
+                    scriptSig: Buffer.alloc(0),
+                });
+            }
+
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
                 contractAddressStr: contractAddress.p2tr(this.network),
                 contractAddress: contractAddress,
+
                 from: from,
+                msgSender: undefined,
                 txOrigin: from,
 
                 gasTracker,
@@ -250,13 +274,13 @@ export class VMManager extends Logger {
                 isDeployment: false,
 
                 callStack: undefined,
-                contractDeployDepth: undefined,
+                contractDeployDepth: 0,
 
                 blockHash: blockHash,
-                transactionId: EMPTY_BUFFER,
-                transactionHash: EMPTY_BUFFER,
+                transactionId: SIMULATION_TRANSACTION_ID,
+                transactionHash: SIMULATION_TRANSACTION_HASH,
 
-                inputs: transaction ? transaction.inputs : [],
+                inputs: inputs,
                 outputs: transaction ? transaction.outputs : [],
 
                 serializedInputs: undefined,
@@ -344,7 +368,7 @@ export class VMManager extends Logger {
                 isDeployment: false,
 
                 callStack: undefined,
-                allowCached: true,
+                allowCached: false,
                 externalCall: false,
                 contractDeployDepth: 0,
 
@@ -597,7 +621,7 @@ export class VMManager extends Logger {
     private async callExternal(
         params: InternalContractCallParameters,
     ): Promise<ContractEvaluation> {
-        params.allowCached = !this.isExecutor;
+        params.allowCached = false; //!this.isExecutor;
 
         return await this.executeCallInternal(params);
     }

@@ -272,12 +272,12 @@ class RPCManager extends Logger {
                     {
                         value: 10000000n,
                         index: 0,
-                        to: 'burned',
+                        to: 'tb1pff6z2u3jvy0c206nkwsxm2d7xzuuyfq337w6dxgrgmgt3my2ayzsquka3w',
                     },
                     {
                         value: 10000000n,
                         index: 1,
-                        to: 'minable_challenge',
+                        to: '2N3boRkKs7YUXgzsKC9THBMDU622dWNn7T3',
                     },
                 ],
                 ...transaction.outputs.map((output) => {
