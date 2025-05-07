@@ -253,6 +253,10 @@ export class JSONRpc2Manager extends Logger {
         if (!_result) {
             _result = this.router.requestResponse(method, params);
             this.putToCache(cacheKey, _result);
+
+            res.setHeader(`OPNet-Cache`, 'MISS');
+        } else {
+            res.setHeader(`OPNet-Cache`, 'HIT');
         }
 
         const result = await _result;
