@@ -87,9 +87,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             const [to, calldata, from, blockNumber, transaction, accessList, preloadStorage] =
                 this.getDecodedParams(params);
 
-            this.debugBright(
+            /*this.debugBright(
                 `Requested simulation for ${to} - pending requests: ${this.pendingRequests}`,
-            );
+            );*/
 
             const res: CallRequestResponse = await Call.requestThreadExecution(
                 to,
