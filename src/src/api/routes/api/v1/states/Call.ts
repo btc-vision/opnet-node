@@ -47,7 +47,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         accessList?: AccessList,
         preloadStorage?: LoadedStorageList,
     ): Promise<CallRequestResponse> {
-        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
+        const simulationMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
             type: MessageType.RPC_METHOD,
             data: {
                 rpcMethod: BitcoinRPCThreadMessageType.CALL,
@@ -63,16 +63,16 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             } as CallRequest,
         };
 
-        const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
+        const simulation: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
             ThreadTypes.RPC,
-            currentBlockMsg,
+            simulationMsg,
         )) as CallRequestResponse | null;
 
-        if (!currentBlock) {
-            throw new Error(`Failed to execute the given calldata at the requested contract.`);
+        if (!simulation) {
+            throw new Error(`Failed to execute the contract. No response from thread.`);
         }
 
-        return currentBlock;
+        return simulation;
     }
 
     public async getData(params: CallParams): Promise<CallResult | undefined> {
@@ -86,6 +86,10 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             const [to, calldata, from, blockNumber, transaction, accessList, preloadStorage] =
                 this.getDecodedParams(params);
 
+            this.debugBright(
+                `Requested simulation for ${to} - pending requests: ${this.pendingRequests}`,
+            );
+
             const res: CallRequestResponse = await Call.requestThreadExecution(
                 to,
                 calldata,
@@ -95,10 +99,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 accessList as AccessList,
                 preloadStorage as LoadedStorageList,
             );
-
-            if (!res) {
-                throw new Error(`Failed to execute the given calldata at the requested contract.`);
-            }
 
             this.decrementPendingRequests();
             return this.convertDataToResult(res);
