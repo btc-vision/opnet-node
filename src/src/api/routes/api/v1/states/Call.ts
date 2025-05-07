@@ -66,6 +66,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         const simulation: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
             ThreadTypes.RPC,
             simulationMsg,
+            false,
         )) as CallRequestResponse | null;
 
         if (!simulation) {

@@ -44,6 +44,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     public async sendMessageToThread(
         threadType: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
+        allowRetries: boolean = true,
         i: number = 0,
     ): Promise<ThreadData | null> {
         return new Promise(async (resolve, reject) => {
@@ -57,9 +58,14 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
 
                     const d = await this.sendMessage(m, port);
                     resolve(d);
-                } else if (i !== 5) {
+                } else if (i !== 5 && allowRetries) {
                     setTimeout(async () => {
-                        const v = await this.sendMessageToThread(threadType, m, i + 1);
+                        const v = await this.sendMessageToThread(
+                            threadType,
+                            m,
+                            allowRetries,
+                            i + 1,
+                        );
 
                         resolve(v);
                     }, 500);
