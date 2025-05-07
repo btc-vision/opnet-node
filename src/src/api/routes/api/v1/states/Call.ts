@@ -113,7 +113,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw `Something went wrong while simulating call (Database error)`;
             }
 
-            console.log(e);
+            if (Config.DEV_MODE) {
+                this.error(`Something went wrong while simulating call (${(e as Error).stack})`);
+            }
 
             throw `Something went wrong while simulating call (${e})`;
         }
@@ -165,11 +167,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw new Error('Invalid params.');
             }
 
-            const userAgent = req.headers['User-Agent'];
-            this.log(`User-Agent: ${userAgent}`);
-
             const data = await this.getData(params);
-
             if (data) {
                 res.status(200);
                 res.json(data);

@@ -64,6 +64,7 @@ export class Simulation extends Route<
         const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
             ThreadTypes.RPC,
             currentBlockMsg,
+            false,
         )) as CallRequestResponse | null;
 
         if (!currentBlock) {
