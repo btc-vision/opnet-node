@@ -165,6 +165,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw new Error('Invalid params.');
             }
 
+            const userAgent = req.headers['User-Agent'];
+            this.log(`User-Agent: ${userAgent}`);
+
             const data = await this.getData(params);
 
             if (data) {
