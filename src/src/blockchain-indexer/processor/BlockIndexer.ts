@@ -508,6 +508,10 @@ export class BlockIndexer extends Logger {
         // Update height.
         await this.chainObserver.setNewHeight(task.tip);
 
+        if (!this.taskInProgress) {
+            throw new Error('Database corrupted. Two tasks are running at the same time.');
+        }
+
         // Notify PoC
         void this.notifyBlockProcessed({
             blockNumber: processedBlock.height,
@@ -537,10 +541,6 @@ export class BlockIndexer extends Logger {
         // Release task.
         this.currentTask = undefined;
 
-        if (!this.taskInProgress) {
-            throw new Error('Database corrupted. Two tasks are running at the same time.');
-        }
-
         if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
             this.processedBlocks++;
 
@@ -561,6 +561,11 @@ export class BlockIndexer extends Logger {
     }
 
     private async processNextTask(): Promise<void> {
+        if (this.taskInProgress) {
+            this.panic(`Task in progress. Waiting for completion.`);
+            return;
+        }
+
         this.currentTask = this.indexingTasks.shift();
         if (!this.currentTask) {
             return;
