@@ -70,7 +70,7 @@ export class BlockHeaderValidator extends Logger {
                 return ZERO_HASH;
             }
 
-            throw new Error('Invalid previous block checksum. Block not found.');
+            throw new Error(`Invalid previous block checksum. Block ${newHeight} not found.`);
         }
 
         return blockRootStates.checksumRoot;
