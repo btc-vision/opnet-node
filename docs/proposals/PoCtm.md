@@ -19,10 +19,10 @@ but, **it's just Bitcoin**.
     - Provide quick settlement *within* OP_NET while **awaiting** the next Bitcoin block for final anchoring.
 
 3. **PoCtm (Proof of Continuum) & VDF (Verifiable Delay Function)**:
-    - A **VDF** ensures sub-blocks *cannot be produced instantly*, so no single node can “speed-run” the ephemeral
+    - A **VDF** ensures sub-blocks *cannot be produced instantly*, so no single node can  "speed-run" the ephemeral
       chain.
-    - **PoCtm** is the sequential output of that VDF, anchoring sub-block progression in a *deterministic* “longest
-      chain” model.
+    - **PoCtm** is the sequential output of that VDF, anchoring sub-block progression in a *deterministic*  "longest
+      chain" model.
 
 4. **Mineable UTXOs**:
     - Hold user prepaid BTC (for gas/fees) in a **puzzle** on Bitcoin via a **SHA1 collision** script.

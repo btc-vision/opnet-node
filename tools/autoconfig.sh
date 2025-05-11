@@ -350,7 +350,7 @@ install_and_configure_mongodb() {
             curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-8.0.gpg --dearmor
         fi
 
-        # For 20.04, 22.04, 24.04 (and some others, as you’ve listed)
+        # For 20.04, 22.04, 24.04 (and some others, as you've listed)
         codename=""
         if [[ "$ubuntu_version" == "20.04" ]]; then
             codename="focal"
