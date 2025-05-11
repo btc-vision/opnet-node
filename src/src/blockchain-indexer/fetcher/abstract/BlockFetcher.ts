@@ -1,6 +1,7 @@
 import { BlockDataWithTransactionData, BlockHeaderInfo } from '@btc-vision/bitcoin-rpc';
 import { Logger } from '@btc-vision/bsi-common';
 import { Config } from '../../../config/Config.js';
+import { ZERO_HASH } from '../../processor/block/types/ZeroValue.js';
 
 export interface BlockFetcherConfiguration {
     readonly maximumPrefetchBlocks: number;
@@ -49,6 +50,15 @@ export abstract class BlockFetcher extends Logger {
                 throw new Error('Random error');
             }
 
+            if (
+                block &&
+                Math.random() < 0.5 &&
+                expectedBlockId > 1n &&
+                Config.DEV.ENABLE_REORG_NIGHTMARE
+            ) {
+                block.hash = ZERO_HASH;
+            }
+
             return block;
         } catch (e: unknown) {
             const error = e as Error;
@@ -62,7 +72,8 @@ export abstract class BlockFetcher extends Logger {
      * New method to fetch multiple blocks in a batch.
      * This wraps the abstract queryBlocks(...) method.
      */
-    public async getBlocks(
+
+    /*public async getBlocks(
         startHeight: bigint,
         batchSize = 10,
     ): Promise<BlockDataWithTransactionData[]> {
@@ -125,7 +136,7 @@ export abstract class BlockFetcher extends Logger {
             );
             throw err;
         }
-    }
+    }*/
 
     public onReorg(): void {
         this.lastBlockHash = null;

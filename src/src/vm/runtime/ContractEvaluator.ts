@@ -189,8 +189,6 @@ export class ContractEvaluator extends Logger {
     }
 
     private async terminateEvaluation(evaluation: ContractEvaluation): Promise<void> {
-        await Promise.resolve();
-
         if (evaluation.externalCall || evaluation.revert) {
             return;
         }

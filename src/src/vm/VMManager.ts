@@ -141,10 +141,12 @@ export class VMManager extends Logger {
         }
     }
 
-    public async prepareBlock(blockId: bigint): Promise<void> {
-        await this.clear();
-
-        this.purgeAllContractInstances();
+    public prepareBlock(blockId: bigint): void {
+        if (this.blockState !== undefined) {
+            throw new Error(
+                `VM already processing an other block. (attempted to prepare: ${blockId})`,
+            );
+        }
 
         if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Preparing block ${blockId}...`);
@@ -157,12 +159,15 @@ export class VMManager extends Logger {
     }
 
     public async revertBlock(): Promise<void> {
-        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.debug(`Reverting block ${this.vmBitcoinBlock.height}...`);
-        }
+        try {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                this.debug(`Reverting block ${this.vmBitcoinBlock.height}...`);
+            }
 
-        this.vmBitcoinBlock.revert();
-        await this.clear();
+            this.vmBitcoinBlock.revert();
+        } finally {
+            await this.onBlockCompleted();
+        }
     }
 
     public async terminateBlock(): Promise<void> {
@@ -177,7 +182,7 @@ export class VMManager extends Logger {
 
             throw e;
         } finally {
-            await this.clear();
+            await this.onBlockCompleted();
         }
     }
 
@@ -596,6 +601,12 @@ export class VMManager extends Logger {
         }
 
         this.vmEvaluators.clear();
+    }
+
+    private async onBlockCompleted(): Promise<void> {
+        this.purgeAllContractInstances();
+
+        await this.clear();
     }
 
     private getGasTracker(maxGas: bigint, usedGas: bigint): GasTracker {

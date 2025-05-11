@@ -181,6 +181,7 @@ export class IndexingTask extends Logger {
         } catch (e) {
             // Destroy task
             this.destroy();
+
             throw e;
         }
 
@@ -265,32 +266,24 @@ export class IndexingTask extends Logger {
         }
 
         try {
-            await this.vmManager.prepareBlock(this.tip);
+            this.vmManager.prepareBlock(this.tip);
 
             // Save generic transactions
             this.block.insertPartialTransactions(this.vmManager);
 
             // Process the block
-            const success = await this.block.execute(
-                this.vmManager,
-                this.specialTransactionManager,
-            );
-
-            if (!success) {
-                throw new Error('Block execution failed');
-            }
-
-            // Reset
-            this.specialTransactionManager.reset();
+            await this.block.execute(this.vmManager, this.specialTransactionManager);
         } catch (e) {
-            if (this.chainReorged) {
-                return;
-            }
+            //if (this.chainReorged) {
+            //    return;
+            //}
 
             await this.revertBlock(e as Error);
 
-            this.specialTransactionManager.reset();
             throw e;
+        } finally {
+            // Reset
+            this.specialTransactionManager.reset();
         }
 
         if (!this.chainReorged) {
@@ -380,8 +373,6 @@ export class IndexingTask extends Logger {
             this.prefetchEnd = Date.now();
             this.prefetchResolver();
         } catch (e) {
-            this.error(`${e}`);
-
             if (this.prefetchResolver) {
                 const error = e as Error;
                 this.prefetchResolver(error);

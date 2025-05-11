@@ -400,64 +400,52 @@ export class Block extends Logger {
     }
 
     /** Block Execution */
-    public async execute(vmManager: VMManager, specialManager: SpecialManager): Promise<boolean> {
+    public async execute(vmManager: VMManager, specialManager: SpecialManager): Promise<void> {
         // Free up some memory, we don't need the raw transaction data anymore
         this.rawTransactionData = [];
 
         this.ensureNotExecuted();
 
-        try {
-            const timeBeforeExecution = Date.now();
+        const timeBeforeExecution = Date.now();
 
-            /** We must fetch the previous block checksum */
-            const previousBlockHeaders: BlockHeaderDocument | null | undefined =
-                await vmManager.blockHeaderValidator.getBlockHeader(this.height - 1n);
+        /** We must fetch the previous block checksum */
+        const previousBlockHeaders: BlockHeaderDocument | null | undefined =
+            await vmManager.blockHeaderValidator.getBlockHeader(this.height - 1n);
 
-            // Calculate next block base gas
-            this.setGasParameters(previousBlockHeaders || null);
+        // Calculate next block base gas
+        this.setGasParameters(previousBlockHeaders || null);
 
-            // Execute each transaction of the block.
-            await this.executeTransactions(vmManager, specialManager);
+        // Execute each transaction of the block.
+        await this.executeTransactions(vmManager, specialManager);
 
-            this.specialExecutionPromise = this.executeSpecialTransactions(specialManager);
+        this.specialExecutionPromise = this.executeSpecialTransactions(specialManager);
 
-            const timeAfterExecution = Date.now();
-            this.timeForTransactionExecution = timeAfterExecution - timeBeforeExecution;
+        const timeAfterExecution = Date.now();
+        this.timeForTransactionExecution = timeAfterExecution - timeBeforeExecution;
 
-            /** We must update the evaluated states, if there were no changes, then we mark the block as empty. */
-            const states: EvaluatedStates = await vmManager.updateEvaluatedStates();
-            const updatedStatesAfterExecution = Date.now();
-            this.timeForStateUpdate = updatedStatesAfterExecution - timeAfterExecution;
+        /** We must update the evaluated states, if there were no changes, then we mark the block as empty. */
+        const states: EvaluatedStates = await vmManager.updateEvaluatedStates();
+        const updatedStatesAfterExecution = Date.now();
+        this.timeForStateUpdate = updatedStatesAfterExecution - timeAfterExecution;
 
-            this.verifyIfBlockAborted();
+        this.verifyIfBlockAborted();
 
-            if (states && states.receipts && states.receipts.size()) {
-                await this.processBlockStates(states, vmManager);
-            } else {
-                await this.onEmptyBlock(vmManager);
-            }
-
-            this.verifyIfBlockAborted();
-
-            const timeAfterBlockProcessing = Date.now();
-            this.timeForBlockProcessing = timeAfterBlockProcessing - updatedStatesAfterExecution;
-
-            const timeAfterGenericTransactions = Date.now();
-            this.timeForGenericTransactions =
-                timeAfterGenericTransactions - timeAfterBlockProcessing;
-
-            // We must process opnet transactions
-            this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
-
-            return true;
-        } catch (e) {
-            const error: Error = e as Error;
-            this.panic(
-                `[execute] Something went wrong while executing the block: ${Config.DEV_MODE ? error.stack : error.message}`,
-            );
-
-            return false;
+        if (states && states.receipts && states.receipts.size()) {
+            await this.processBlockStates(states, vmManager);
+        } else {
+            await this.onEmptyBlock(vmManager);
         }
+
+        this.verifyIfBlockAborted();
+
+        const timeAfterBlockProcessing = Date.now();
+        this.timeForBlockProcessing = timeAfterBlockProcessing - updatedStatesAfterExecution;
+
+        const timeAfterGenericTransactions = Date.now();
+        this.timeForGenericTransactions = timeAfterGenericTransactions - timeAfterBlockProcessing;
+
+        // We must process opnet transactions
+        this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
     }
 
     public async finalizeBlock(vmManager: VMManager): Promise<boolean> {

@@ -67,6 +67,8 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             DEBUG_VALID_TRANSACTIONS: false,
             DEBUG_API_ERRORS: false,
             ENABLE_CONTRACT_DEBUG: false,
+            ALWAYS_ENABLE_REORG_VERIFICATION: false,
+            ENABLE_REORG_NIGHTMARE: false,
         },
 
         BASE58: {},
@@ -806,6 +808,22 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.DEV.ENABLE_CONTRACT_DEBUG !== 'boolean'
             ) {
                 throw new Error(`Oops the property DEV.ENABLE_CONTRACT_DEBUG is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.DEV.ALWAYS_ENABLE_REORG_VERIFICATION !== undefined &&
+                typeof parsedConfig.DEV.ALWAYS_ENABLE_REORG_VERIFICATION !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property DEV.ALWAYS_ENABLE_REORG_VERIFICATION is not a boolean.`,
+                );
+            }
+
+            if (
+                parsedConfig.DEV.ENABLE_REORG_NIGHTMARE !== undefined &&
+                typeof parsedConfig.DEV.ENABLE_REORG_NIGHTMARE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.ENABLE_REORG_NIGHTMARE is not a boolean.`);
             }
 
             if (
