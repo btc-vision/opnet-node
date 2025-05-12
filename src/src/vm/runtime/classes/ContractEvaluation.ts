@@ -394,7 +394,6 @@ export class ContractEvaluation implements ExecutionParameters {
         writer.writeU16(maxOutputs);
 
         const flagsEnabled = OPNetConsensus.consensus.VM.UTXOS.OUTPUTS.WRITE_FLAGS;
-
         for (let i = 0; i < maxOutputs; i++) {
             const output = this.outputs[i];
             if (flagsEnabled) {
