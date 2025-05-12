@@ -471,7 +471,10 @@ export class BlockIndexer extends Logger {
             }
         }
 
-        void this.processNextTask();
+        if (this.indexingTasks.length) {
+            // If we have tasks, we start processing them.
+            void this.processNextTask();
+        }
     }
 
     private nextTask(): IndexingTask {
