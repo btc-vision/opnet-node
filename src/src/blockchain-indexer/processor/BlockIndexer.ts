@@ -27,6 +27,7 @@ import { SpecialManager } from './special-transaction/SpecialManager.js';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { Block } from './block/Block.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import fs from 'fs';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -69,6 +70,7 @@ export class BlockIndexer extends Logger {
     private taskInProgress: boolean = false;
 
     private processedBlocks: number = 0;
+    private lastSyncErrored: boolean = false;
 
     constructor() {
         super();
@@ -386,17 +388,6 @@ export class BlockIndexer extends Logger {
         }
     }
 
-    private async restartTasks(): Promise<void> {
-        if (this.taskInProgress) {
-            this.warn(`Task in progress. Waiting for completion.`);
-
-            await this.awaitTaskCompletion();
-        }
-
-        // Start tasks.
-        this.startTasks();
-    }
-
     private async reorgFromHeight(fromHeight: bigint, toBlock: bigint): Promise<void> {
         const reorgData: IReorgData = {
             fromBlock: fromHeight,
@@ -552,12 +543,6 @@ export class BlockIndexer extends Logger {
         }
     }
 
-    private async awaitTaskCompletion(): Promise<void> {
-        while (this.taskInProgress) {
-            await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-    }
-
     private async processNextTask(): Promise<void> {
         if (this.taskInProgress) return;
         this.taskInProgress = true;
@@ -568,6 +553,8 @@ export class BlockIndexer extends Logger {
             if (!this.currentTask) return;
 
             await this.currentTask.process();
+
+            this.lastSyncErrored = false;
         } catch (e) {
             if (this.chainReorged || !this.currentTask || this.currentTask.chainReorged) {
                 this.warn(`Processing error: ${e}`);
@@ -581,6 +568,8 @@ export class BlockIndexer extends Logger {
                     Config.DEV_MODE ? err.stack : err.message
                 }`,
             );
+
+            this.addErrorToLog(err);
 
             const newHeight = this.chainObserver.pendingBlockHeight - 1n;
             if (newHeight > 0n) {
@@ -596,6 +585,17 @@ export class BlockIndexer extends Logger {
         } finally {
             this.releaseLockAndCallNextTask(mayRestartTask);
         }
+    }
+
+    private addErrorToLog(error: Error): void {
+        if (this.lastSyncErrored) return; // Prevent multiple writes of a loop.
+        this.lastSyncErrored = true;
+
+        if (!fs.existsSync('error.log')) {
+            fs.writeFileSync('error.log', '');
+        }
+
+        fs.appendFileSync('error.log', `${new Date().toISOString()} - ${error.stack}\n`);
     }
 
     private releaseLockAndCallNextTask(mayRestartTask: boolean): void {
