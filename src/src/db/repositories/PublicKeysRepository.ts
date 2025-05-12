@@ -3,11 +3,10 @@ import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { ProcessUnspentTransactionList } from './UnspentTransactionRepository.js';
-import { CURVE, ProjectivePoint as Point } from '@noble/secp256k1';
-import { Network, payments, taggedHash, toXOnly } from '@btc-vision/bitcoin';
+import { Network, networks, payments, toXOnly } from '@btc-vision/bitcoin';
 import { TransactionOutput } from '../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
-import { AddressVerificator, EcKeyPair } from '@btc-vision/transaction';
+import { Address, AddressVerificator, EcKeyPair } from '@btc-vision/transaction';
 import {
     IPubKeyNotFoundError,
     IPublicKeyInfoResult,
@@ -16,11 +15,6 @@ import {
 import fs from 'fs';
 import { Config } from '../../config/Config.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
-
-const mod = (a: bigint, b: bigint): bigint => {
-    const result = a % b;
-    return result >= 0n ? result : result + b;
-};
 
 export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocument> {
     public readonly logColor: string = '#afeeee';
@@ -167,28 +161,12 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return address;
     }
 
-    protected tweakPublicKey(compressedPubKeyHex: Buffer): Buffer {
-        // Convert the compressed public key hex string to a Point on the curve
-        let P = Point.fromHex(compressedPubKeyHex.toString('hex'));
-
-        // Ensure the point has an even y-coordinate
-        if ((P.y & 1n) !== 0n) {
-            // Negate the point to get an even y-coordinate
-            P = P.negate();
+    protected tweakPublicKey(publicKey: Buffer): Buffer {
+        if (publicKey.length === 65) {
+            publicKey = EcKeyPair.fromPublicKey(publicKey).publicKey;
         }
 
-        // Get the x-coordinate (32 bytes) of the point
-        const x = P.toRawBytes(true).slice(1); // Remove the prefix byte
-
-        // Compute the tweak t = H_tapTweak(x)
-        const tHash = taggedHash('TapTweak', Buffer.from(x));
-        const t = mod(BigInt('0x' + Buffer.from(tHash).toString('hex')), CURVE.n);
-
-        // Compute Q = P + t*G (where G is the generator point)
-        const Q = P.add(Point.BASE.mul(t));
-
-        // Return the tweaked public key in compressed form (hex string)
-        return Buffer.from(Q.toHex(true), 'hex');
+        return EcKeyPair.tweakPublicKey(publicKey);
     }
 
     protected async addPubKeys(documents: PublicKeyDocument[]): Promise<void> {
@@ -236,6 +214,8 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             originalPubKey: publicKey.publicKey?.toString('hex'),
             tweakedPubkey: publicKey.tweakedPublicKey.toString('hex'),
             p2pkh: publicKey.p2pkh,
+            p2pkhUncompressed: publicKey.p2pkhUncompressed,
+            p2pkhHybrid: publicKey.p2pkhHybrid,
             p2shp2wpkh: publicKey.p2shp2wpkh,
             p2tr: publicKey.p2tr,
             p2wpkh: publicKey.p2wpkh,
@@ -287,11 +267,13 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             const filter: Filter<PublicKeyDocument> = {
                 $or: [
                     { p2tr: key },
+                    { tweakedPublicKey: keyBuffer },
+                    { publicKey: keyBuffer },
                     { p2pkh: key },
                     { p2shp2wpkh: key },
                     { p2wpkh: key },
-                    { tweakedPublicKey: keyBuffer },
-                    { publicKey: keyBuffer },
+                    { p2pkhUncompressed: key },
+                    { p2pkhHybrid: key },
                 ],
             };
 
@@ -350,11 +332,15 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             this.cache.add(str);
 
             const p2tr = this.tweakedPubKeyToAddress(tweakedPublicKey, this.network);
-            const ecKeyPair = EcKeyPair.fromPublicKey(publicKey, this.network);
+            const address = new Address(publicKey);
 
-            const p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
-            const p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(ecKeyPair, this.network);
-            const p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
+            const p2pkh = this.getP2PKH(publicKey, this.network);
+            const p2pkhHybrid = this.getP2PKH(address.toHybridPublicKeyBuffer(), this.network);
+
+            const p2pkhUncompressed = this.getP2PKH(address.toUncompressedBuffer(), this.network);
+
+            const p2shp2wpkh = address.p2shp2wpkh(this.network);
+            const p2wpkh = address.p2wpkh(this.network);
 
             publicKeys.push({
                 publicKey: new Binary(publicKey),
@@ -362,6 +348,8 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 lowByte: tweakedPublicKey[0],
                 p2tr: p2tr,
                 p2pkh: p2pkh,
+                p2pkhUncompressed: p2pkhUncompressed,
+                p2pkhHybrid: p2pkhHybrid,
                 p2shp2wpkh: p2shp2wpkh,
                 p2wpkh: p2wpkh,
             });
@@ -373,6 +361,15 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 txId.toString('hex'),
             );
         }
+    }
+
+    private getP2PKH(publicKey: Buffer | Uint8Array, network: Network = networks.bitcoin): string {
+        const wallet = payments.p2pkh({ pubkey: Buffer.from(publicKey), network: network });
+        if (!wallet.address) {
+            throw new Error('Failed to generate wallet');
+        }
+
+        return wallet.address;
     }
 
     private reportNonStandardScript(type: string, script: string, txId: Buffer): void {

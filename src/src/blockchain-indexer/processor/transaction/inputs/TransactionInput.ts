@@ -61,8 +61,6 @@ export class TransactionInput implements TransactionInputBase {
 
             scriptSignature: this.scriptSignature?.hex ? this.scriptSignature : undefined,
             sequenceId: this.sequenceId,
-
-            //transactionInWitness: this.transactionInWitness,
         };
     }
 
@@ -74,18 +72,26 @@ export class TransactionInput implements TransactionInputBase {
         };
     }
 
-    // decode public key for P2PK and SegWit (P2WPKH)
+    // Decode public key for P2PK, SegWit (P2WPKH), and P2PKH
     private decodePubKey(): Buffer | null {
-        // Decode from SegWit witness (P2WPKH)
-        if (this.transactionInWitness.length === 2 && this.transactionInWitness[1].length === 66) {
+        const secondWitnessLength = this.transactionInWitness[1]?.length || 0;
+
+        // Decode from SegWit witness (P2WPKH) or P2PKH
+        if (
+            this.transactionInWitness.length === 2 &&
+            (secondWitnessLength === 66 || secondWitnessLength === 130)
+        ) {
             return Buffer.from(this.transactionInWitness[1], 'hex'); // Return the public key in hex format
         }
 
         // Decode from scriptSig (P2PK)
         if (this.scriptSignature && this.scriptSignature.asm) {
             const parts = this.scriptSignature.asm.split(' ');
-            if (parts.length === 2 && parts[1].length === 66) {
-                return Buffer.from(parts[1], 'hex'); // Return the public key in hex format
+            const secondPart = parts[1];
+
+            // Check for P2PK with compressed public key
+            if (parts.length === 2 && (secondPart.length === 66 || secondPart.length === 130)) {
+                return Buffer.from(secondPart, 'hex'); // Return the public key in hex format
             }
         }
 

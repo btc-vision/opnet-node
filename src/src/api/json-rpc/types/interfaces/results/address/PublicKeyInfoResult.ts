@@ -10,6 +10,9 @@ export interface PublicKeyInfo {
     readonly lowByte?: number;
 
     readonly p2pkh?: string;
+    readonly p2pkhUncompressed?: string;
+    readonly p2pkhHybrid?: string;
+
     readonly p2shp2wpkh?: string;
     readonly p2wpkh?: string;
 }
