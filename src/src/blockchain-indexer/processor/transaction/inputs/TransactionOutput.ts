@@ -2,6 +2,8 @@ import { ScriptPubKey, VOut } from '@btc-vision/bitcoin-rpc';
 import BigNumber from 'bignumber.js';
 import { opcodes, script } from '@btc-vision/bitcoin';
 import { Decimal128 } from 'mongodb';
+import { TransactionOutputFlags } from '../../../../poa/configurations/types/IOPNetConsensus.js';
+import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
 export interface ITransactionOutputBase {
     readonly value: Decimal128 | string;
@@ -30,7 +32,9 @@ export interface APIDocumentOutput extends ITransactionOutputBase {
 export interface StrippedTransactionOutput {
     readonly value: bigint;
     readonly index: number;
-    readonly to: string;
+    readonly flags: number;
+    readonly scriptPubKey: Uint8Array;
+    readonly to: string | undefined;
 }
 
 export interface StrippedTransactionOutputAPI {
@@ -45,6 +49,7 @@ export class TransactionOutput {
 
     public readonly scriptPubKey: ScriptPubKey;
     public readonly script: Array<number | Buffer> | null;
+    public readonly scriptPubKeyBuffer: Buffer;
 
     // New properties to hold the decoded public key or hash
     public readonly decodedPubKeyHash: Buffer | null;
@@ -63,7 +68,8 @@ export class TransactionOutput {
                 ? (this.scriptPubKey.addresses || [])[0]
                 : undefined);
 
-        this.script = script.decompile(Buffer.from(this.scriptPubKey.hex, 'hex'));
+        this.scriptPubKeyBuffer = Buffer.from(this.scriptPubKey.hex, 'hex');
+        this.script = script.decompile(this.scriptPubKeyBuffer);
 
         // Decode the public key hash or public keys based on the script type
         this.decodedPubKeyHash = this.decodePubKeyHash();
@@ -84,14 +90,46 @@ export class TransactionOutput {
     }
 
     public toStripped(): StrippedTransactionOutput | null {
-        const to = this.scriptPubKey.address || this.scriptPubKey.hex;
-        if (!to) {
-            return null;
+        let flags: number = 0;
+        if (!this.scriptPubKey.address) {
+            flags |= TransactionOutputFlags.hasTo;
+        }
+
+        if (
+            this.scriptPubKeyBuffer &&
+            OPNetConsensus.consensus.VM.UTXOS.OUTPUTS.WRITE_SCRIPT_PUB_KEY
+        ) {
+            flags |= TransactionOutputFlags.hasScriptPubKey;
+        }
+
+        // TODO: remove this for mainnet.
+        let to: string | undefined = this.scriptPubKey.address;
+        if (!OPNetConsensus.consensus.VM.UTXOS.OUTPUTS.WRITE_FLAGS && !to) {
+            to = this.scriptPubKey.hex;
+        }
+
+        // Handle OP_RETURN
+        if (this.scriptPubKey.type === 'nulldata') {
+            if (!OPNetConsensus.consensus.VM.UTXOS.OP_RETURN.ENABLED) {
+                throw new Error('OP_RETURN is not enabled');
+            }
+
+            flags |= TransactionOutputFlags.OP_RETURN;
+
+            // Check if the script is too large
+            const scriptSize = this.scriptPubKeyBuffer.length;
+            if (scriptSize > OPNetConsensus.consensus.VM.UTXOS.OP_RETURN.MAXIMUM_SIZE) {
+                throw new Error(
+                    `OP_RETURN script size exceeds maximum size of ${OPNetConsensus.consensus.VM.UTXOS.OP_RETURN.MAXIMUM_SIZE} bytes`,
+                );
+            }
         }
 
         return {
             value: this.value,
             index: this.index,
+            flags: flags,
+            scriptPubKey: this.scriptPubKeyBuffer,
             to: to,
         };
     }

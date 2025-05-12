@@ -1,6 +1,16 @@
 import { Consensus } from '../consensus/Consensus.js';
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 
+export enum TransactionInputFlags {
+    isCoinbase = 0b00000001,
+}
+
+export enum TransactionOutputFlags {
+    hasTo = 0b00000001,
+    hasScriptPubKey = 0b00000010,
+    OP_RETURN = 0b00000100,
+}
+
 export interface IOPNetConsensus<T extends Consensus> {
     /** Information about the consensus */
     // The consensus type.
@@ -125,17 +135,33 @@ export interface IOPNetConsensus<T extends Consensus> {
         /** The cost of a byte in gas */
         readonly STORAGE_COST_PER_BYTE: bigint;
 
-        /** The maximum inputs utxos to forward to a contract */
-        readonly MAXIMUM_INPUTS: number;
-
         /** Check for reentrancy */
         readonly REENTRANCY_GUARD: boolean;
 
-        /** The maximum outputs utxos to forward to a contract */
-        readonly MAXIMUM_OUTPUTS: number;
-
         /** Skip proof validation for execution before transaction */
         readonly SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: boolean;
+    };
+
+    readonly VM: {
+        readonly UTXOS: {
+            /** The maximum inputs utxos to forward to a contract */
+            readonly MAXIMUM_INPUTS: number;
+
+            /** The maximum outputs utxos to forward to a contract */
+            readonly MAXIMUM_OUTPUTS: number;
+
+            readonly INPUTS: {};
+
+            readonly OUTPUTS: {
+                readonly WRITE_FLAGS: boolean;
+                readonly WRITE_SCRIPT_PUB_KEY: boolean;
+            };
+
+            readonly OP_RETURN: {
+                readonly ENABLED: boolean;
+                readonly MAXIMUM_SIZE: number;
+            };
+        };
     };
 
     readonly NETWORK: {

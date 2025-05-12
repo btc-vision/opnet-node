@@ -146,14 +146,30 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         /** The cost of a byte in gas */
         STORAGE_COST_PER_BYTE: 10_000n,
 
-        /** The maximum inputs utxos to forward to a contract */
-        MAXIMUM_INPUTS: 250,
-
-        /** The maximum outputs utxos to forward to a contract */
-        MAXIMUM_OUTPUTS: 250,
-
         /** Skip proof validation for execution before transaction */
         SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: true,
+    },
+
+    VM: {
+        UTXOS: {
+            /** The maximum inputs utxos to forward to a contract */
+            MAXIMUM_INPUTS: 250,
+
+            /** The maximum outputs utxos to forward to a contract */
+            MAXIMUM_OUTPUTS: 250,
+
+            INPUTS: {},
+
+            OUTPUTS: {
+                WRITE_FLAGS: false,
+                WRITE_SCRIPT_PUB_KEY: false,
+            },
+
+            OP_RETURN: {
+                ENABLED: true,
+                MAXIMUM_SIZE: 80,
+            },
+        },
     },
 
     PSBT: {

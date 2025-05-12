@@ -108,14 +108,15 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public get strippedInputs(): StrippedTransactionInput[] {
         return this.inputs
-            .slice(0, OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS)
+            .slice(0, OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_INPUTS)
             .map((input) => input.toStripped());
     }
 
     public get strippedOutputs(): StrippedTransactionOutput[] {
         const outputs = this.outputs
-            .slice(0, OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_OUTPUTS)
+            .slice(0, OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_OUTPUTS)
             .map((output) => output.toStripped());
+
         return outputs.filter((output): output is StrippedTransactionOutput => !!output);
     }
 

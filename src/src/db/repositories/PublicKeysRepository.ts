@@ -256,8 +256,8 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         contract: IContractDocument,
     ): PublicKeyDocument {
         return {
-            p2tr: contract.contractAddress,
             tweakedPublicKey: contract.contractTweakedPublicKey as Binary,
+            p2tr: contract.contractAddress,
         };
     }
 

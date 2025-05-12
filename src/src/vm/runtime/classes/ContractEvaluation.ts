@@ -28,6 +28,7 @@ import { Config } from '../../../config/Config.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 import { AddressStack } from './AddressStack.js';
 import { RustContract } from '../../isolated/RustContract.js';
+import { TransactionOutputFlags } from '../../../poa/configurations/types/IOPNetConsensus.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -366,7 +367,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     private computeInputUTXOs(): Uint8Array {
         const maxInputs = Math.min(
-            OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS,
+            OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_INPUTS,
             this.inputs.length,
         );
 
@@ -385,17 +386,42 @@ export class ContractEvaluation implements ExecutionParameters {
 
     private computeOutputUTXOs(): Uint8Array {
         const maxOutputs = Math.min(
-            OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_OUTPUTS,
+            OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_OUTPUTS,
             this.outputs.length,
         );
 
         const writer = new BinaryWriter();
         writer.writeU16(maxOutputs);
 
+        const flagsEnabled = OPNetConsensus.consensus.VM.UTXOS.OUTPUTS.WRITE_FLAGS;
+
         for (let i = 0; i < maxOutputs; i++) {
             const output = this.outputs[i];
+            if (flagsEnabled) {
+                writer.writeU8(output.flags);
+            }
+
             writer.writeU16(output.index);
-            writer.writeStringWithLength(output.to);
+
+            if (flagsEnabled && output.flags & TransactionOutputFlags.hasScriptPubKey) {
+                writer.writeBytesWithLength(output.scriptPubKey);
+            }
+
+            // TODO: Clean this up for mainnet.
+            if (output.flags & TransactionOutputFlags.hasTo) {
+                if (!output.to) {
+                    throw new Error('OP_NET: Impossible case, output.to is undefined.');
+                }
+
+                writer.writeStringWithLength(output.to);
+            } else if (!flagsEnabled) {
+                if (!output.to) {
+                    throw new Error('OP_NET: Impossible case, output.to is undefined.');
+                }
+
+                writer.writeStringWithLength(output.to);
+            }
+
             writer.writeU64(output.value);
         }
 
