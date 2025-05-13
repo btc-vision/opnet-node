@@ -418,10 +418,26 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                         throw new Error('Invalid flags');
                     }
 
+                    const hasOPReturn: boolean =
+                        (output.flags & TransactionOutputFlags.OP_RETURN) !== 0;
+
+                    const hasScriptPubKey: boolean =
+                        (output.flags & TransactionOutputFlags.hasScriptPubKey) !== 0;
+
+                    const hasTo: boolean = (output.flags & TransactionOutputFlags.hasTo) !== 0;
+
                     // verify op_return
-                    if ((output.flags & TransactionOutputFlags.OP_RETURN) !== 0) {
-                        if ((output.flags & TransactionOutputFlags.hasScriptPubKey) !== 0) {
-                            throw new Error('OP_RETURN and hasScriptPubKey are mutually exclusive');
+                    if (hasOPReturn) {
+                        if (!hasScriptPubKey) {
+                            throw new Error(
+                                'Flag error: OP_RETURN and hasScriptPubKey are mutually inclusive',
+                            );
+                        }
+
+                        if (hasTo) {
+                            throw new Error(
+                                'Flag error: OP_RETURN and hasTo are mutually exclusive',
+                            );
                         }
 
                         if (!output.scriptPubKey) {
@@ -430,14 +446,26 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     }
 
                     // Verify hasTo
-                    if ((output.flags & TransactionOutputFlags.hasTo) !== 0) {
+                    if (hasTo) {
                         if (!output.to) {
                             throw new Error('Flag error: hasTo is set but to is missing');
                         }
-                    } else if ((output.flags & TransactionOutputFlags.hasScriptPubKey) !== 0) {
+
+                        if (hasScriptPubKey) {
+                            throw new Error(
+                                'Flag error: hasTo and hasScriptPubKey are mutually exclusive',
+                            );
+                        }
+                    } else if (hasScriptPubKey) {
                         if (!output.scriptPubKey) {
                             throw new Error(
                                 'Flag error: hasScriptPubKey is set but scriptPubKey is missing',
+                            );
+                        }
+
+                        if (hasTo) {
+                            throw new Error(
+                                'Flag error: hasTo and hasScriptPubKey are mutually exclusive',
                             );
                         }
                     } else {
