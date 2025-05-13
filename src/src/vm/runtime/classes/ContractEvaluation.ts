@@ -420,6 +420,10 @@ export class ContractEvaluation implements ExecutionParameters {
             writer.writeU16(output.index);
 
             if (flagsEnabled && output.flags & TransactionOutputFlags.hasScriptPubKey) {
+                if (!output.scriptPubKey) {
+                    throw new Error('OP_NET: Impossible case, output.scriptPubKey is undefined.');
+                }
+                
                 writer.writeBytesWithLength(output.scriptPubKey);
             }
 

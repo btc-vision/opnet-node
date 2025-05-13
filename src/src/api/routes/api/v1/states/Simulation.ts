@@ -75,7 +75,9 @@ export class Simulation extends Route<
     }
 
     public async getData(_params: CallParams): Promise<CallResult | undefined> {
-        this.incrementPendingRequests();
+        throw new Error('Not implemented');
+
+        /*this.incrementPendingRequests();
 
         try {
             if (!this.storage) {
@@ -101,7 +103,7 @@ export class Simulation extends Route<
             this.decrementPendingRequests();
 
             throw `Something went wrong while simulating call.`;
-        }
+        }*/
     }
 
     public async getDataRPC(params: CallParams): Promise<CallResult | undefined> {

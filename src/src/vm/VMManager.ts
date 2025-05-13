@@ -253,6 +253,8 @@ export class VMManager extends Logger {
                     ),
                     outputIndex: 0,
                     scriptSig: Buffer.alloc(0),
+                    coinbase: undefined,
+                    flags: 0,
                 });
             }
 

@@ -33,14 +33,16 @@ export interface StrippedTransactionOutput {
     readonly value: bigint;
     readonly index: number;
     readonly flags: number;
-    readonly scriptPubKey: Uint8Array;
+    readonly scriptPubKey: Uint8Array | undefined;
     readonly to: string | undefined;
 }
 
 export interface StrippedTransactionOutputAPI {
     readonly value: string;
     readonly index: number;
-    readonly to: string;
+    readonly to: string | undefined;
+    readonly flags: number;
+    readonly scriptPubKey: string | undefined;
 }
 
 export class TransactionOutput {

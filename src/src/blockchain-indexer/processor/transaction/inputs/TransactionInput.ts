@@ -24,13 +24,16 @@ export interface StrippedTransactionInput {
     readonly scriptSig: Uint8Array | Buffer;
 
     readonly flags: number;
-    readonly coinbase: Buffer | null;
+    readonly coinbase: Buffer | undefined;
 }
 
 export interface StrippedTransactionInputAPI {
     readonly txId: string;
     readonly outputIndex: number;
     readonly scriptSig: string;
+
+    readonly coinbase: string | undefined;
+    readonly flags: number;
 }
 
 export class TransactionInput implements TransactionInputBase {
@@ -46,7 +49,7 @@ export class TransactionInput implements TransactionInputBase {
     public readonly decodedPubKey: Buffer | null;
     public readonly decodedPubKeyHash: Buffer | null;
 
-    private readonly coinbase: Buffer | null = null;
+    private readonly coinbase: Buffer | undefined = undefined;
 
     constructor(data: VIn) {
         this.originalTransactionId = Buffer.from(data.txid || '', 'hex') || Buffer.alloc(32);

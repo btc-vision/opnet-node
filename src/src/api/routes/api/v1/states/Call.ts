@@ -30,6 +30,12 @@ import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
 import { FastStringMap } from '../../../../../utils/fast/FastStringMap.js';
+import {
+    TransactionInputFlags,
+    TransactionOutputFlags,
+} from '../../../../../poa/configurations/types/IOPNetConsensus.js';
+import { StrippedTransactionInputAPI } from '../../../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
+import { StrippedTransactionOutputAPI } from '../../../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private pendingRequests: number = 0;
@@ -315,10 +321,13 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             throw new Error('Invalid transaction');
         }
 
+        const finalInputs: StrippedTransactionInputAPI[] = [];
+        const finalOutput: StrippedTransactionOutputAPI[] = [];
+
         if (Array.isArray(partial.inputs) && Array.isArray(partial.outputs)) {
             if (
-                partial.inputs.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS ||
-                partial.outputs.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_OUTPUTS
+                partial.inputs.length > OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_INPUTS ||
+                partial.outputs.length > OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_OUTPUTS
             ) {
                 throw new Error('Too many inputs/outputs');
             }
@@ -351,6 +360,28 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 if (typeof input.scriptSig !== 'string') {
                     throw new Error('Invalid scriptSig');
                 }
+
+                if (input.coinbase && typeof input.coinbase !== 'string') {
+                    if ((input.flags & TransactionInputFlags.hasCoinbase) === 0) {
+                        throw new Error('Missing coinbase flag. Is this an error?');
+                    }
+
+                    throw new Error('Invalid coinbase script');
+                }
+
+                if (typeof input.flags !== 'undefined') {
+                    if (typeof input.flags !== 'number') {
+                        throw new Error('Field flags must be a number');
+                    }
+                }
+
+                finalInputs.push({
+                    flags: input.flags,
+                    scriptSig: input.scriptSig,
+                    txId: input.txId,
+                    outputIndex: input.outputIndex,
+                    coinbase: input.coinbase,
+                } as StrippedTransactionInputAPI);
             }
 
             for (const output of partial.outputs) {
@@ -378,15 +409,62 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     throw new Error('Invalid value');
                 }
 
-                if (typeof output.to !== 'string') {
-                    throw new Error('Invalid to');
+                if (output.scriptPubKey && typeof output.scriptPubKey !== 'string') {
+                    throw new Error('Invalid scriptPubKey');
                 }
+
+                if (typeof output.flags !== 'undefined') {
+                    if (typeof output.flags !== 'number') {
+                        throw new Error('Invalid flags');
+                    }
+
+                    // verify op_return
+                    if ((output.flags & TransactionOutputFlags.OP_RETURN) !== 0) {
+                        if ((output.flags & TransactionOutputFlags.hasScriptPubKey) !== 0) {
+                            throw new Error('OP_RETURN and hasScriptPubKey are mutually exclusive');
+                        }
+
+                        if (!output.scriptPubKey) {
+                            throw new Error('Missing scriptPubKey for OP_RETURN');
+                        }
+                    }
+
+                    // Verify hasTo
+                    if ((output.flags & TransactionOutputFlags.hasTo) !== 0) {
+                        if (!output.to) {
+                            throw new Error('Flag error: hasTo is set but to is missing');
+                        }
+                    } else if ((output.flags & TransactionOutputFlags.hasScriptPubKey) !== 0) {
+                        if (!output.scriptPubKey) {
+                            throw new Error(
+                                'Flag error: hasScriptPubKey is set but scriptPubKey is missing',
+                            );
+                        }
+                    } else {
+                        throw new Error(
+                            `Invalid flags for output ${output.index}. Please upgrade your opnet library.`,
+                        );
+                    }
+                } else if (typeof output.to !== 'string') {
+                    throw new Error('Invalid to. Must be a string.');
+                }
+
+                finalOutput.push({
+                    index: output.index,
+                    flags: output.flags,
+                    scriptPubKey: output.scriptPubKey,
+                    to: output.to,
+                    value: output.value,
+                } as StrippedTransactionOutputAPI);
             }
         } else {
             throw new Error('Invalid transaction inputs/outputs');
         }
 
-        return partial as SimulatedTransaction;
+        return {
+            inputs: finalInputs,
+            outputs: finalOutput,
+        } as SimulatedTransaction;
     }
 
     private getDecodedParams(
