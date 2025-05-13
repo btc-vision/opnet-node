@@ -376,7 +376,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 }
 
                 finalInputs.push({
-                    flags: input.flags,
+                    flags: input.flags || 0,
                     scriptSig: input.scriptSig,
                     txId: input.txId,
                     outputIndex: input.outputIndex,
