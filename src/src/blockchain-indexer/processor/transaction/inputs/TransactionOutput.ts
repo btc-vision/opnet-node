@@ -97,7 +97,8 @@ export class TransactionOutput {
 
         if (
             this.scriptPubKeyBuffer &&
-            OPNetConsensus.consensus.VM.UTXOS.OUTPUTS.WRITE_SCRIPT_PUB_KEY
+            OPNetConsensus.consensus.VM.UTXOS.OUTPUTS.WRITE_SCRIPT_PUB_KEY &&
+            !this.scriptPubKey.address
         ) {
             flags |= TransactionOutputFlags.hasScriptPubKey;
         }
