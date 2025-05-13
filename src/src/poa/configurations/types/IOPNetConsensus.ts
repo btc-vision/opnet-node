@@ -150,19 +150,24 @@ export interface IOPNetConsensus<T extends Consensus> {
             /** The maximum outputs utxos to forward to a contract */
             readonly MAXIMUM_OUTPUTS: number;
 
-            // Write input and output flags to the transaction.
+            /** Write input and output flags to the transaction. */
             readonly WRITE_FLAGS: boolean;
 
             readonly INPUTS: {
+                /** Write coinbase to the transaction. */
                 readonly WRITE_COINBASE: boolean;
             };
 
             readonly OUTPUTS: {
+                /** Write scriptPubKey to the transaction. */
                 readonly WRITE_SCRIPT_PUB_KEY: boolean;
             };
-
+            
             readonly OP_RETURN: {
+                /** Enable OP_RETURN outputs */
                 readonly ENABLED: boolean;
+
+                /** The maximum size of an OP_RETURN output in bytes */
                 readonly MAXIMUM_SIZE: number;
             };
         };

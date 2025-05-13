@@ -439,6 +439,10 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                         if (!output.scriptPubKey) {
                             throw new Error('Missing scriptPubKey for OP_RETURN');
                         }
+
+                        if (output.value !== '0') {
+                            throw new Error('OP_RETURN value must be 0');
+                        }
                     }
 
                     // Verify hasTo
