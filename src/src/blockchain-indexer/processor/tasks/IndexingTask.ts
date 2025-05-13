@@ -274,10 +274,6 @@ export class IndexingTask extends Logger {
             // Process the block
             await this.block.execute(this.vmManager, this.specialTransactionManager);
         } catch (e) {
-            //if (this.chainReorged) {
-            //    return;
-            //}
-
             await this.revertBlock(e as Error);
 
             throw e;

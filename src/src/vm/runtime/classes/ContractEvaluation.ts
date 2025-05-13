@@ -28,7 +28,10 @@ import { Config } from '../../../config/Config.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 import { AddressStack } from './AddressStack.js';
 import { RustContract } from '../../isolated/RustContract.js';
-import { TransactionOutputFlags } from '../../../poa/configurations/types/IOPNetConsensus.js';
+import {
+    TransactionInputFlags,
+    TransactionOutputFlags,
+} from '../../../poa/configurations/types/IOPNetConsensus.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -374,11 +377,25 @@ export class ContractEvaluation implements ExecutionParameters {
         const writer = new BinaryWriter();
         writer.writeU16(maxInputs);
 
+        const flagsEnabled = OPNetConsensus.consensus.VM.UTXOS.WRITE_FLAGS;
         for (let i = 0; i < maxInputs; i++) {
             const input = this.inputs[i];
+
+            if (flagsEnabled) {
+                writer.writeU8(input.flags);
+            }
+
             writer.writeBytes(input.txId);
             writer.writeU16(input.outputIndex);
             writer.writeBytesWithLength(input.scriptSig);
+
+            if (flagsEnabled && input.flags & TransactionInputFlags.hasCoinbase) {
+                if (!input.coinbase) {
+                    throw new Error('OP_NET: Impossible case, input.coinbase is undefined.');
+                }
+
+                writer.writeBytesWithLength(input.coinbase);
+            }
         }
 
         return writer.getBuffer();
@@ -393,7 +410,7 @@ export class ContractEvaluation implements ExecutionParameters {
         const writer = new BinaryWriter();
         writer.writeU16(maxOutputs);
 
-        const flagsEnabled = OPNetConsensus.consensus.VM.UTXOS.OUTPUTS.WRITE_FLAGS;
+        const flagsEnabled = OPNetConsensus.consensus.VM.UTXOS.WRITE_FLAGS;
         for (let i = 0; i < maxOutputs; i++) {
             const output = this.outputs[i];
             if (flagsEnabled) {

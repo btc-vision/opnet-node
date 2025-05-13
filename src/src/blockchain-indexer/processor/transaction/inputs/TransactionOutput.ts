@@ -105,7 +105,7 @@ export class TransactionOutput {
 
         // TODO: remove this for mainnet.
         let to: string | undefined = this.scriptPubKey.address;
-        if (!OPNetConsensus.consensus.VM.UTXOS.OUTPUTS.WRITE_FLAGS && !to) {
+        if (!OPNetConsensus.consensus.VM.UTXOS.WRITE_FLAGS && !to) {
             to = this.scriptPubKey.hex;
         }
 

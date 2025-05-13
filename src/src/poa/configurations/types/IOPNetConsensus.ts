@@ -2,7 +2,7 @@ import { Consensus } from '../consensus/Consensus.js';
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 
 export enum TransactionInputFlags {
-    isCoinbase = 0b00000001,
+    hasCoinbase = 0b00000001,
 }
 
 export enum TransactionOutputFlags {
@@ -150,10 +150,14 @@ export interface IOPNetConsensus<T extends Consensus> {
             /** The maximum outputs utxos to forward to a contract */
             readonly MAXIMUM_OUTPUTS: number;
 
-            readonly INPUTS: {};
+            // Write input and output flags to the transaction.
+            readonly WRITE_FLAGS: boolean;
+
+            readonly INPUTS: {
+                readonly WRITE_COINBASE: boolean;
+            };
 
             readonly OUTPUTS: {
-                readonly WRITE_FLAGS: boolean;
                 readonly WRITE_SCRIPT_PUB_KEY: boolean;
             };
 

@@ -1,4 +1,6 @@
 import { ScriptSig, VIn } from '@btc-vision/bitcoin-rpc';
+import { TransactionInputFlags } from '../../../../poa/configurations/types/IOPNetConsensus.js';
+import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
 export interface TransactionInputBase {
     readonly originalTransactionId: Buffer | undefined;
@@ -20,6 +22,9 @@ export interface StrippedTransactionInput {
     readonly txId: Uint8Array | Buffer;
     readonly outputIndex: number;
     readonly scriptSig: Uint8Array | Buffer;
+
+    readonly flags: number;
+    readonly coinbase: Buffer | null;
 }
 
 export interface StrippedTransactionInputAPI {
@@ -41,6 +46,8 @@ export class TransactionInput implements TransactionInputBase {
     public readonly decodedPubKey: Buffer | null;
     public readonly decodedPubKeyHash: Buffer | null;
 
+    private readonly coinbase: Buffer | null = null;
+
     constructor(data: VIn) {
         this.originalTransactionId = Buffer.from(data.txid || '', 'hex') || Buffer.alloc(32);
         this.outputTransactionIndex = data.vout;
@@ -52,6 +59,11 @@ export class TransactionInput implements TransactionInputBase {
         // for P2PK, P2WPKH, and P2PKH
         this.decodedPubKey = this.decodePubKey();
         this.decodedPubKeyHash = this.decodePubKeyHash();
+
+        // for coinbase
+        if (data.coinbase) {
+            this.coinbase = Buffer.from(data.coinbase, 'hex');
+        }
     }
 
     public toDocument(): ITransactionInput {
@@ -65,10 +77,20 @@ export class TransactionInput implements TransactionInputBase {
     }
 
     public toStripped(): StrippedTransactionInput {
+        let flags: number = 0;
+
+        if (OPNetConsensus.consensus.VM.UTXOS.WRITE_FLAGS) {
+            if (OPNetConsensus.consensus.VM.UTXOS.INPUTS.WRITE_COINBASE && this.coinbase) {
+                flags |= TransactionInputFlags.hasCoinbase;
+            }
+        }
+
         return {
             txId: this.originalTransactionId,
             outputIndex: this.outputTransactionIndex || 0,
             scriptSig: Buffer.from(this.scriptSignature?.hex || '', 'hex'),
+            flags: flags,
+            coinbase: this.coinbase,
         };
     }
 
