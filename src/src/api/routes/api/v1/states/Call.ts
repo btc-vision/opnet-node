@@ -93,10 +93,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             const [to, calldata, from, blockNumber, transaction, accessList, preloadStorage] =
                 this.getDecodedParams(params);
 
-            /*this.debugBright(
-                `Requested simulation for ${to} - pending requests: ${this.pendingRequests}`,
-            );*/
-
             const res: CallRequestResponse = await Call.requestThreadExecution(
                 to,
                 calldata,
@@ -454,6 +450,12 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                         if (hasScriptPubKey) {
                             throw new Error(
                                 'Flag error: hasTo and hasScriptPubKey are mutually exclusive',
+                            );
+                        }
+
+                        if (output.to.startsWith('0x')) {
+                            throw new Error(
+                                'Flag error: public keys outputs should be scriptPubKey and not to.',
                             );
                         }
                     } else if (hasScriptPubKey) {

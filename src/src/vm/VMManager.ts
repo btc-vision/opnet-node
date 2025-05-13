@@ -52,6 +52,7 @@ import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/par
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { init } from '@btc-vision/op-vm';
+import { StrippedTransactionInput } from '../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 
 Globals.register();
 
@@ -67,6 +68,19 @@ const SIMULATION_TRANSACTION_HASH = Buffer.from(
     '947d267bb393648af57e3a498b4cfa30f50e7b3263223b8077416f342133ec9c',
     'hex',
 );
+
+const SIMULATION_DEFAULT_INPUT_TX_HASH = Buffer.from(
+    '61e1ca05754b6990c56d8f0f06c33da411f086c5abae59572e63549361c8f5fc',
+    'hex',
+);
+
+const SIMULATION_DEFAULT_INPUT: StrippedTransactionInput = {
+    txId: SIMULATION_DEFAULT_INPUT_TX_HASH,
+    outputIndex: 0,
+    scriptSig: Buffer.alloc(0),
+    coinbase: undefined,
+    flags: 0,
+};
 
 export class VMManager extends Logger {
     public initiated: boolean = false;
@@ -246,16 +260,7 @@ export class VMManager extends Logger {
             const inputs = transaction ? transaction.inputs : [];
             if (!inputs.length) {
                 // always add an input.
-                inputs.push({
-                    txId: Buffer.from(
-                        '61e1ca05754b6990c56d8f0f06c33da411f086c5abae59572e63549361c8f5fc',
-                        'hex',
-                    ),
-                    outputIndex: 0,
-                    scriptSig: Buffer.alloc(0),
-                    coinbase: undefined,
-                    flags: 0,
-                });
+                inputs.push(SIMULATION_DEFAULT_INPUT);
             }
 
             // Get the contract evaluator
