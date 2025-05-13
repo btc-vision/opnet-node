@@ -158,6 +158,10 @@ export abstract class SharedInteractionParameters<
     }
 
     private decodeAccessList(feature: AccessListFeature): AddressMap<Uint8Array[]> {
+        if (!OPNetConsensus.consensus.TRANSACTIONS.ENABLE_ACCESS_LIST) {
+            throw new Error(`OP_NET: Access list feature is not enabled.`);
+        }
+
         if (!feature.data.length) {
             return new AddressMap();
         }

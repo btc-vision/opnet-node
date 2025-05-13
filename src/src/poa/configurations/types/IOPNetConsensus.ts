@@ -140,6 +140,9 @@ export interface IOPNetConsensus<T extends Consensus> {
 
         /** Skip proof validation for execution before transaction */
         readonly SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: boolean;
+
+        /** Is the access list feature enabled? */
+        readonly ENABLE_ACCESS_LIST: boolean;
     };
 
     readonly VM: {
@@ -162,7 +165,7 @@ export interface IOPNetConsensus<T extends Consensus> {
                 /** Write scriptPubKey to the transaction. */
                 readonly WRITE_SCRIPT_PUB_KEY: boolean;
             };
-            
+
             readonly OP_RETURN: {
                 /** Enable OP_RETURN outputs */
                 readonly ENABLED: boolean;
