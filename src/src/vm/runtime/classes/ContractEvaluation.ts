@@ -444,7 +444,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
             writer.writeU64(output.value);
         }
-        
+
         return writer.getBuffer();
     }
 
