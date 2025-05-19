@@ -295,7 +295,7 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Load a pointer */
-    private async load(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private async load(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer> {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
@@ -312,22 +312,22 @@ export class ContractEvaluator extends Logger {
         response.writeU256(pointerResponse);
         response.writeBoolean(wasCold);
 
-        return response.getBuffer();
+        return Buffer.from(response.getBuffer());
     }
 
     /** Store a pointer */
-    private store(data: Buffer, evaluation: ContractEvaluation): Buffer | Uint8Array {
+    private store(data: Buffer, evaluation: ContractEvaluation): Buffer {
         const reader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
         const value: bigint = reader.readU256();
 
         evaluation.setStorage(pointer, value);
 
-        return new Uint8Array([1]);
+        return Buffer.from(new Uint8Array([1]));
     }
 
     /** Call a contract */
-    private async call(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private async call(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer> {
         let gasUsed: bigint = evaluation.gasUsed;
 
         try {
@@ -361,18 +361,22 @@ export class ContractEvaluator extends Logger {
                 );
             }
 
-            return this.buildCallResponse(
-                response.isWarm,
-                response.gasUsed,
-                response.status,
-                response.result,
+            return Buffer.from(
+                this.buildCallResponse(
+                    response.isWarm,
+                    response.gasUsed,
+                    response.status,
+                    response.result,
+                ),
             );
         } catch (e) {
             // If something goes wrong, we call exit with the error.
             evaluation.revert = e as Error;
 
             const difference = evaluation.gasUsed - gasUsed;
-            return this.buildCallResponse(false, difference, 1, evaluation.revert as Uint8Array);
+            return Buffer.from(
+                this.buildCallResponse(false, difference, 1, evaluation.revert as Uint8Array),
+            );
         }
     }
 
@@ -456,7 +460,7 @@ export class ContractEvaluator extends Logger {
     private async deployContractFromAddressRaw(
         data: Buffer,
         evaluation: ContractEvaluation,
-    ): Promise<Buffer | Uint8Array> {
+    ): Promise<Buffer> {
         let usedGas: bigint = evaluation.gasUsed;
 
         try {
@@ -495,24 +499,28 @@ export class ContractEvaluator extends Logger {
                 usedGas: usedGas,
             });
 
-            return this.buildDeployFromAddressResponse(
-                deployResult.contractAddress,
-                deployResult.bytecodeLength,
-                internalResult.gasUsed,
-                internalResult.status,
-                internalResult.result,
+            return Buffer.from(
+                this.buildDeployFromAddressResponse(
+                    deployResult.contractAddress,
+                    deployResult.bytecodeLength,
+                    internalResult.gasUsed,
+                    internalResult.status,
+                    internalResult.result,
+                ),
             );
         } catch (e) {
             // If something goes wrong, we call exit with the error.
             evaluation.revert = e as Error;
 
             const difference = evaluation.gasUsed - usedGas;
-            return this.buildDeployFromAddressResponse(
-                Address.zero(),
-                0,
-                difference,
-                1,
-                evaluation.revert as Uint8Array,
+            return Buffer.from(
+                this.buildDeployFromAddressResponse(
+                    Address.zero(),
+                    0,
+                    difference,
+                    1,
+                    evaluation.revert as Uint8Array,
+                ),
             );
         }
     }
@@ -550,12 +558,12 @@ export class ContractEvaluator extends Logger {
         evaluation.emitEvent(event);
     }
 
-    private onInputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
-        return Promise.resolve(evaluation.getSerializeInputUTXOs());
+    private onInputsRequested(evaluation: ContractEvaluation): Promise<Buffer> {
+        return Promise.resolve(Buffer.from(evaluation.getSerializeInputUTXOs()));
     }
 
-    private onOutputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
-        return Promise.resolve(evaluation.getSerializeOutputUTXOs());
+    private onOutputsRequested(evaluation: ContractEvaluation): Promise<Buffer> {
+        return Promise.resolve(Buffer.from(evaluation.getSerializeOutputUTXOs()));
     }
 
     private async getAccountType(
@@ -625,7 +633,7 @@ export class ContractEvaluator extends Logger {
                 return await this.load(data, evaluation);
             },
             store: (data: Buffer) => {
-                return new Promise<Buffer | Uint8Array>((resolve) => {
+                return new Promise<Buffer>((resolve) => {
                     const resp = this.store(data, evaluation);
 
                     resolve(resp);

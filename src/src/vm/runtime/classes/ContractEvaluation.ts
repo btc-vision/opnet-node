@@ -423,7 +423,7 @@ export class ContractEvaluation implements ExecutionParameters {
                 if (!output.scriptPubKey) {
                     throw new Error('OP_NET: Impossible case, output.scriptPubKey is undefined.');
                 }
-                
+
                 writer.writeBytesWithLength(output.scriptPubKey);
             }
 
@@ -444,7 +444,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
             writer.writeU64(output.value);
         }
-
+        
         return writer.getBuffer();
     }
 

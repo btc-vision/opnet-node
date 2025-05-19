@@ -146,6 +146,7 @@ export class RustContract {
             BigInt(this.params.memoryPagesUsed.toString()),
             Number(this.params.network),
             Boolean(this.params.isDebugMode),
+            false,
         );
 
         this._instantiated = true;
@@ -184,7 +185,7 @@ export class RustContract {
         }
     }
 
-    public async execute(calldata: Uint8Array | Buffer): Promise<ExitDataResponse> {
+    public async execute(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponse>> {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
@@ -199,6 +200,12 @@ export class RustContract {
                         status: Number(result.status),
                         data: Buffer.copyBytesFrom(result.data),
                         gasUsed: BigInt(result.gasUsed.toString()),
+                        proofs: result.proofs.map((proof) => {
+                            return {
+                                proof: proof.proof,
+                                vk: proof.vk,
+                            };
+                        }),
                     }),
                 ),
             );
@@ -246,7 +253,7 @@ export class RustContract {
         }
     }
 
-    public async onDeploy(calldata: Uint8Array | Buffer): Promise<ExitDataResponse> {
+    public async onDeploy(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponse>> {
         if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
@@ -261,6 +268,12 @@ export class RustContract {
                         status: Number(result.status),
                         data: Buffer.copyBytesFrom(result.data),
                         gasUsed: BigInt(result.gasUsed.toString()),
+                        proofs: result.proofs.map((proof) => {
+                            return {
+                                proof: proof.proof,
+                                vk: proof.vk,
+                            };
+                        }),
                     }),
                 ),
             );
