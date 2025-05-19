@@ -146,6 +146,7 @@ export class RustContract {
             BigInt(this.params.memoryPagesUsed.toString()),
             Number(this.params.network),
             Boolean(this.params.isDebugMode),
+            false,
         );
 
         this._instantiated = true;
@@ -184,7 +185,7 @@ export class RustContract {
         }
     }
 
-    public async execute(calldata: Uint8Array | Buffer): Promise<ExitDataResponse> {
+    public async execute(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponse>> {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
@@ -193,15 +194,7 @@ export class RustContract {
                 Buffer.copyBytesFrom(calldata),
             );
 
-            return Object.preventExtensions(
-                Object.freeze(
-                    Object.seal({
-                        status: Number(result.status),
-                        data: Buffer.copyBytesFrom(result.data),
-                        gasUsed: BigInt(result.gasUsed.toString()),
-                    }),
-                ),
-            );
+            return this.toReadonlyObject(result);
         } catch (e) {
             if (this.enableDebug) console.log('Error in execute', e);
 
@@ -246,7 +239,7 @@ export class RustContract {
         }
     }
 
-    public async onDeploy(calldata: Uint8Array | Buffer): Promise<ExitDataResponse> {
+    public async onDeploy(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponse>> {
         if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
@@ -255,15 +248,7 @@ export class RustContract {
                 Buffer.copyBytesFrom(calldata),
             );
 
-            return Object.preventExtensions(
-                Object.freeze(
-                    Object.seal({
-                        status: Number(result.status),
-                        data: Buffer.copyBytesFrom(result.data),
-                        gasUsed: BigInt(result.gasUsed.toString()),
-                    }),
-                ),
-            );
+            return this.toReadonlyObject(result);
         } catch (e) {
             if (this.enableDebug) console.log('Error in onDeployment', e);
 
@@ -298,6 +283,24 @@ export class RustContract {
             const error = e as Error;
             throw this.getError(error);
         }
+    }
+
+    private toReadonlyObject(result: ExitDataResponse): Readonly<ExitDataResponse> {
+        return Object.preventExtensions(
+            Object.freeze(
+                Object.seal({
+                    status: Number(result.status),
+                    data: Buffer.copyBytesFrom(result.data),
+                    gasUsed: BigInt(result.gasUsed.toString()),
+                    proofs: result.proofs.map((proof) => {
+                        return {
+                            proof: Buffer.copyBytesFrom(proof.proof),
+                            vk: Buffer.copyBytesFrom(proof.vk),
+                        };
+                    }),
+                }),
+            ),
+        );
     }
 
     private getError(err: Error): Error {
