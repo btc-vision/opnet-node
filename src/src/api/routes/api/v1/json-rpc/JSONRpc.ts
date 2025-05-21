@@ -22,9 +22,7 @@ export class JSONRpc extends Route<
         return undefined;
     }
 
-    public onBlockChange(_blockNumber: bigint): void {
-        this.rpcManager.clearCache();
-    }
+    public onBlockChange(_blockNumber: bigint): void {}
 
     protected initialize(): void {}
 

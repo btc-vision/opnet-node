@@ -2,7 +2,7 @@ import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import { JSONRpcRouter, RequestRpcResponse } from './JSONRpcRouter.js';
+import { JSONRpcRouter } from './JSONRpcRouter.js';
 import { JSONRPCErrorCode, JSONRPCErrorHttpCodes } from './types/enums/JSONRPCErrorCode.js';
 import { JSONRpcMethods } from './types/enums/JSONRpcMethods.js';
 import {
@@ -16,30 +16,17 @@ import {
 } from './types/interfaces/JSONRpc2Result.js';
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
-import { FastStringMap } from '../../utils/fast/FastStringMap.js';
-import { xxHash } from '../../poa/hashing/xxhash.js';
 
 export class JSONRpc2Manager extends Logger {
     public static readonly RPC_VERSION = '2.0';
 
     public readonly logColor: string = '#afeeee';
     private readonly router: JSONRpcRouter = new JSONRpcRouter();
-    private readonly cache: FastStringMap<RequestRpcResponse<JSONRpcMethods> | undefined> =
-        new FastStringMap();
 
-    private readonly MAXIMUM_CACHE_SIZE: number = 1000;
     private pendingRequests: number = 0;
 
     public constructor() {
         super();
-
-        setInterval(() => {
-            this.cache.clear();
-        }, 6_000);
-    }
-
-    public clearCache(): void {
-        this.cache.clear();
     }
 
     public hasMethod(method: string): boolean {
@@ -149,25 +136,6 @@ export class JSONRpc2Manager extends Logger {
         this.pendingRequests -= requestSize;
     }
 
-    private generateCacheKey(request: JSONRpc2Request<JSONRpcMethods>): string {
-        return xxHash
-            .hash(Buffer.from(`${request.method}-${JSON.stringify(request.params)}`))
-            .toString();
-    }
-
-    private putToCache(key: string, value: RequestRpcResponse<JSONRpcMethods> | undefined): void {
-        if (this.cache.size >= this.MAXIMUM_CACHE_SIZE) {
-            const oldestKey = this.cache.keys().next().value;
-            this.cache.delete(oldestKey as string);
-        }
-
-        this.cache.set(key, value);
-    }
-
-    private getFromCache(key: string): RequestRpcResponse<JSONRpcMethods> | undefined {
-        return this.cache.get(key);
-    }
-
     private sendError(
         msg: string,
         type: JSONRPCErrorHttpCodes,
@@ -247,20 +215,7 @@ export class JSONRpc2Manager extends Logger {
         }*/
 
         const method: JSONRpcMethods = requestData.method as JSONRpcMethods;
-        const cacheKey = this.generateCacheKey(requestData as JSONRpc2Request<JSONRpcMethods>);
-
-        let _result: RequestRpcResponse<JSONRpcMethods> | undefined = this.getFromCache(cacheKey);
-        if (!_result) {
-            _result = this.router.requestResponse(method, params);
-            this.putToCache(cacheKey, _result);
-
-            res.setHeader(`OPNet-Cache`, 'MISS');
-        } else {
-            res.setHeader(`OPNet-Cache`, 'HIT');
-        }
-
-        const result = await _result;
-
+        const result = await this.router.requestResponse(method, params);
         if (typeof result === 'undefined') {
             this.sendInternalError(res);
             return;
