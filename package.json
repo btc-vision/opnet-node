@@ -68,7 +68,7 @@
         "bip174": "^2.1.1",
         "cors": "^2.8.5",
         "datastore-level": "^11.0.1",
-        "ecpair": "^2.1.0",
+        "ecpair": "^3.0.0",
         "eslint-plugin-openapi": "^0.0.4",
         "figlet": "^1.8.0",
         "gulp-logger-new": "^1.0.1",
