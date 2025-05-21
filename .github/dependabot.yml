@@ -26,19 +26,3 @@ updates:
     labels:
       - "dependencies"
       - "npm"
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "08:00"
-      timezone: "America/Toronto"
-    commit-message:
-      prefix: "⬆️"
-      include: scope
-    reviewers:
-      - "BlobMaster41"
-    labels:
-      - "dependencies"
-      - "github-actions"
