@@ -1,8 +1,13 @@
-import { IOPNetConsensus, IOPNetConsensusObj } from './types/IOPNetConsensus.js';
+import {
+    IOPNetConsensus,
+    IOPNetConsensusObj,
+    OPNetEnabledConfigs,
+} from './types/IOPNetConsensus.js';
 import { Consensus } from './consensus/Consensus.js';
 import { RoswellConsensus } from './consensus/RoswellConsensus.js';
 import { Logger } from '@btc-vision/bsi-common';
 import { Config } from '../../config/Config.js';
+import { SpecialContract } from './types/SpecialContracts.js';
 
 class OPNetConsensusConfiguration extends Logger {
     private blockHeight: bigint = 0n;
@@ -27,6 +32,26 @@ class OPNetConsensusConfiguration extends Logger {
         return this.#consensus;
     }
 
+    public get opnetEnabled(): OPNetEnabledConfigs {
+        const chain = this.consensus.OPNET_ENABLED[Config.BITCOIN.CHAIN_ID];
+        if (!chain) {
+            return {
+                ENABLED: false,
+                BLOCK: 0n,
+            };
+        }
+
+        const network = chain[Config.BITCOIN.NETWORK];
+        if (!network) {
+            return {
+                ENABLED: false,
+                BLOCK: 0n,
+            };
+        }
+
+        return network;
+    }
+
     public addConsensusUpgradeCallback(
         callback: (consensus: string, isReady: boolean) => void,
     ): void {
@@ -38,6 +63,20 @@ class OPNetConsensusConfiguration extends Logger {
             this.consensus.GENERIC.NEXT_CONSENSUS_BLOCK - this.blockHeight <=
             this.imminentConsensusBlockDifference
         );
+    }
+
+    public specialContract(address: string): SpecialContract | undefined {
+        const chain = this.consensus.CONTRACTS.SPECIAL_CONTRACTS[Config.BITCOIN.CHAIN_ID];
+        if (!chain) {
+            return;
+        }
+
+        const network = chain[Config.BITCOIN.NETWORK];
+        if (!network) {
+            return;
+        }
+
+        return network[address];
     }
 
     public isConsensusBlock(): boolean {

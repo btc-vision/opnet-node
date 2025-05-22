@@ -32,6 +32,7 @@ import {
     TransactionInputFlags,
     TransactionOutputFlags,
 } from '../../../poa/configurations/types/IOPNetConsensus.js';
+import { SpecialContract } from '../../../poa/configurations/types/SpecialContracts.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -77,6 +78,8 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly accessList: AccessList | undefined;
     public readonly preloadStorageList: AddressMap<Uint8Array[]> | undefined;
 
+    public readonly specialContract: SpecialContract | undefined;
+
     private _totalEventSize: number = 0;
 
     constructor(params: ExecutionParameters) {
@@ -119,6 +122,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
         this.accessList = params.accessList;
         this.preloadStorageList = params.preloadStorageList;
+        this.specialContract = params.specialContract;
 
         // Mark the contract address as touched
         this.touchedAddresses = params.touchedAddresses || new AddressMap();
@@ -129,6 +133,23 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public get maxGas(): bigint {
         return this.gasTracker.maxGas;
+    }
+
+    /**
+     * Returns the maximum gas that can be paid for the transaction.
+     * If external, it returns the maximum gas that can be paid for the external call.
+     * If not external, it returns the maximum gas that can be paid for the contract.
+     */
+    public get combinedGas(): bigint {
+        return this.gasTracker.combinedGas(this.externalCall);
+    }
+
+    public get paidMaximum(): bigint {
+        return this.gasTracker.paidMaximum;
+    }
+
+    public get maxGasVM(): bigint {
+        return this.gasTracker.maxGasVM(this.externalCall);
     }
 
     public _revert: Uint8Array | undefined;
@@ -145,8 +166,16 @@ export class ContractEvaluation implements ExecutionParameters {
         }
     }
 
+    public get specialGasUsed(): bigint {
+        return this.gasTracker.specialGasUsed;
+    }
+
     public get gasUsed(): bigint {
         return this.gasTracker.gasUsed;
+    }
+
+    public get totalGasUsed(): bigint {
+        return this.gasUsed + this.specialGasUsed;
     }
 
     public touchAddress(address: Address, isContract: boolean): void {
@@ -173,8 +202,12 @@ export class ContractEvaluation implements ExecutionParameters {
         return Buffer.copyBytesFrom(this.serializedOutputs);
     }
 
-    public setGasUsed(gas: bigint): void {
-        this.gasTracker.setGasUsed(gas);
+    public setGasUsed(gas: bigint, specialGas: bigint = 0n): void {
+        this.gasTracker.setGasUsed(gas, specialGas, this.externalCall, this.contractAddress);
+    }
+
+    public setFinalGasUsed(gas: bigint, specialGas: bigint = 0n): void {
+        this.gasTracker.setFinalGasUsed(gas, specialGas);
     }
 
     public incrementContractDeployDepth(): void {
@@ -256,7 +289,7 @@ export class ContractEvaluation implements ExecutionParameters {
             throw new Error('OP_NET: Impossible state. (max gas does not match)');
         }
 
-        this.gasTracker.setGasUsed(extern.gasUsed);
+        this.gasTracker.setGasUsed(extern.gasUsed, 0n, true, this.contractAddress);
 
         // we must merge the storage of the external calls
         if (extern.revert) {
@@ -296,6 +329,7 @@ export class ContractEvaluation implements ExecutionParameters {
             result: result,
             events: events,
             gasUsed: this.gasUsed,
+            specialGasUsed: this.specialGasUsed,
             deployedContracts: Array.from(deployedContracts.values()),
         };
 
@@ -423,7 +457,7 @@ export class ContractEvaluation implements ExecutionParameters {
                 if (!output.scriptPubKey) {
                     throw new Error('OP_NET: Impossible case, output.scriptPubKey is undefined.');
                 }
-                
+
                 writer.writeBytesWithLength(output.scriptPubKey);
             }
 
@@ -507,10 +541,6 @@ export class ContractEvaluation implements ExecutionParameters {
                 this.storage.set(contract, current);
             }
         } catch (e) {
-            if (Config.DEV_MODE) {
-                console.log(`Error parsing access list: ${e}`);
-            }
-
             throw new Error(`OP_NET: Cannot parse access list.`);
         }
     }

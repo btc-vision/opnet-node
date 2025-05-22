@@ -35,6 +35,7 @@ import { Long } from 'mongodb';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 import { ContractEvaluation } from '../../../vm/runtime/classes/ContractEvaluation.js';
 import { RustContract } from '../../../vm/isolated/RustContract.js';
+import { SharedInteractionParameters } from '../transaction/transactions/SharedInteractionParameters.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
@@ -544,7 +545,7 @@ export class Block extends Logger {
     ): Promise<void> {
         const start = Date.now();
         try {
-            this.checkConstraintsBlock();
+            this.checkConstraintsBlock(transaction);
 
             // Verify that tx is not coinbase.
             if (!transaction.inputs[0]?.originalTransactionId) {
@@ -561,7 +562,7 @@ export class Block extends Logger {
                 isSimulation,
             );
 
-            this.blockUsedGas += evaluation.gasUsed;
+            this.blockUsedGas += evaluation.totalGasUsed;
 
             transaction.receipt = evaluation.getEvaluationResult();
 
@@ -569,7 +570,7 @@ export class Block extends Logger {
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
                 this.debug(
-                    `Executed transaction ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                    `Executed transaction ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${transaction.totalGasUsed} gas used)`,
                 );
             }
 
@@ -588,7 +589,7 @@ export class Block extends Logger {
     ): Promise<void> {
         const start = Date.now();
         try {
-            this.checkConstraintsBlock();
+            this.checkConstraintsBlock(transaction);
 
             if (!transaction.inputs[0]?.originalTransactionId) {
                 throw new Error('Coinbase transactions are not allowed');
@@ -603,14 +604,14 @@ export class Block extends Logger {
                 transaction,
             );
 
-            this.blockUsedGas += evaluation.gasUsed;
+            this.blockUsedGas += evaluation.totalGasUsed;
             transaction.receipt = evaluation.getEvaluationResult();
 
             this.processRevertedTx(transaction);
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
                 this.debug(
-                    `Executed transaction (deployment) ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                    `Executed transaction (deployment) ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.totalGasUsed} gas used)`,
                 );
             }
 
@@ -656,7 +657,7 @@ export class Block extends Logger {
 
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             this.error(
-                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.gasUsed})`,
+                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.totalGasUsed})`,
             );
         }
 
@@ -670,9 +671,15 @@ export class Block extends Logger {
         );
     }
 
-    private checkConstraintsBlock(): void {
+    private checkConstraintsBlock(
+        transaction: SharedInteractionParameters<OPNetTransactionTypes>,
+    ): void {
         if (!this.isOPNetEnabled()) {
             throw new Error('OPNet is not enabled');
+        }
+
+        if (transaction.specialSettings && transaction.specialSettings.bypassBlockLimit) {
+            return;
         }
 
         // Verify if the block is out of gas, this can overflow. This is an expected behavior.
@@ -705,7 +712,7 @@ export class Block extends Logger {
     }
 
     private isOPNetEnabled(): boolean {
-        const opnetEnabledAtBlock = OPNetConsensus.consensus.OPNET_ENABLED[Config.BITCOIN.NETWORK];
+        const opnetEnabledAtBlock = OPNetConsensus.opnetEnabled;
 
         return opnetEnabledAtBlock.ENABLED && this.height >= BigInt(opnetEnabledAtBlock.BLOCK);
     }

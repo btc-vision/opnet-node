@@ -209,9 +209,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return this.transactionHash;
     }
 
-    public get gasUsed(): bigint {
+    public get totalGasUsed(): bigint {
         if (!this._receipt) return 0n;
-        return this._receipt.gasUsed || 0n;
+
+        return (this._receipt.gasUsed || 0n) + (this._receipt.specialGasUsed || 0n);
     }
 
     // Simple check for presence of OPNet magic
@@ -343,12 +344,19 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             id: this.transactionId,
             hash: this.hash,
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
+
             raw: this.raw,
             index: this.index,
+
             burnedBitcoin: DataConverter.toDecimal128(this._burnedFee),
             priorityFee: DataConverter.toDecimal128(this._priorityFee),
             reward: new Long(this._reward),
+
             gasUsed: DataConverter.toDecimal128(this.receipt ? this.receipt.gasUsed : 0n),
+            specialGasUsed: DataConverter.toDecimal128(
+                this.receipt ? this.receipt.specialGasUsed : 0n,
+            ),
+
             inputs: inputDocs,
             outputs: outputDocs,
             OPNetType: this.transactionType,

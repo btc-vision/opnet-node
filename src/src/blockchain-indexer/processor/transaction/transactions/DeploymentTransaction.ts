@@ -15,7 +15,6 @@ import {
     EcKeyPair,
     TapscriptVerificator,
 } from '@btc-vision/transaction';
-import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
@@ -151,8 +150,6 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             preimage: new Binary(this.preimage),
 
             receiptProofs: receiptProofs,
-
-            gasUsed: DataConverter.toDecimal128(this.gasUsed),
 
             receipt: receipt ? new Binary(receipt) : undefined,
             events: this.convertEvents(events),

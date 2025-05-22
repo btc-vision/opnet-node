@@ -96,6 +96,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                   changedStorage: [string, [string, string][]][] | null;
                   loadedStorage: LoadedStorageList;
                   gasUsed: string | null;
+                  specialGasUsed: string | null;
                   events: [string, [string, string][]][];
               }
             | {
@@ -124,6 +125,7 @@ export class BitcoinRPCThread extends Thread<ThreadTypes.RPC> {
                     : undefined,
                 loadedStorage: response.loadedStorage || {},
                 gasUsed: response.gasUsed ? BigInt(response.gasUsed) : 0n,
+                specialGasUsed: response.specialGasUsed ? BigInt(response.specialGasUsed) : 0n,
                 events: response.events
                     ? this.convertArrayEventsToEvents(response.events)
                     : undefined,

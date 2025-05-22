@@ -224,6 +224,7 @@ export class Simulation extends Route<
             accessList,
             loadedStorage,
             estimatedGas: '0x' + (data.gasUsed || 0).toString(16),
+            estimatedSpecialGas: '0x' + (data.specialGasUsed || 0).toString(16),
         };
 
         if (data.revert) {

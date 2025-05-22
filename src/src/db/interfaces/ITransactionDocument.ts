@@ -45,6 +45,7 @@ export interface TransactionDocument<T extends OPNetTransactionTypes>
     readonly burnedBitcoin: Decimal128;
     readonly reward: Long;
     readonly gasUsed: Decimal128;
+    readonly specialGasUsed: Decimal128;
     readonly priorityFee: Decimal128;
 
     readonly inputs: ITransactionInput[];

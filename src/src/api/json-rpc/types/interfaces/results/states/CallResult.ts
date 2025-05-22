@@ -29,6 +29,7 @@ export interface CallResultData {
     readonly accessList: AccessList;
     readonly loadedStorage: LoadedStorageList;
     readonly estimatedGas: string;
+    readonly estimatedSpecialGas: string;
 }
 
 export type CallResult = JSONRpc2ResultData<JSONRpcMethods.CALL> &

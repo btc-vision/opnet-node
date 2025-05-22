@@ -222,8 +222,12 @@ export class BlockIndexer extends Logger {
     }
 
     private async createLightNodeLastBlock(tip: bigint): Promise<void> {
-        const opnetEnabledAtBlock = OPNetConsensus.consensus.OPNET_ENABLED[Config.BITCOIN.NETWORK];
-        if (opnetEnabledAtBlock.BLOCK && BigInt(opnetEnabledAtBlock.BLOCK) < tip) {
+        const opnetEnabledAtBlock = OPNetConsensus.opnetEnabled;
+        if (
+            opnetEnabledAtBlock.ENABLED &&
+            opnetEnabledAtBlock.BLOCK &&
+            BigInt(opnetEnabledAtBlock.BLOCK) < tip
+        ) {
             this.fail(
                 `OPNet states will be invalid, your light node will be missing critical states in other for smart contracts to work correctly.`,
             );

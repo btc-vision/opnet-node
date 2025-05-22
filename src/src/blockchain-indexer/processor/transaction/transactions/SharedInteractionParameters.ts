@@ -5,10 +5,13 @@ import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { opcodes } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import { AddressMap, BinaryReader } from '@btc-vision/transaction';
+import { SpecialContract } from '../../../../poa/configurations/types/SpecialContracts.js';
 
 export abstract class SharedInteractionParameters<
     T extends OPNetTransactionTypes,
 > extends Transaction<T> {
+    public specialSettings: SpecialContract | undefined;
+
     protected features: Feature<Features>[] = [];
 
     protected _accessList: AddressMap<Uint8Array[]> | undefined;

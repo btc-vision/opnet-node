@@ -1,5 +1,7 @@
 import { Consensus } from '../consensus/Consensus.js';
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
+import { SpecialContracts } from './SpecialContracts.js';
+import { ChainIds } from '../../../config/enums/ChainIds.js';
 
 export enum TransactionInputFlags {
     hasCoinbase = 0b00000001,
@@ -9,6 +11,11 @@ export enum TransactionOutputFlags {
     hasTo = 0b00000001,
     hasScriptPubKey = 0b00000010,
     OP_RETURN = 0b00000100,
+}
+
+export interface OPNetEnabledConfigs {
+    readonly ENABLED: boolean;
+    readonly BLOCK: bigint;
 }
 
 export interface IOPNetConsensus<T extends Consensus> {
@@ -21,9 +28,8 @@ export interface IOPNetConsensus<T extends Consensus> {
 
     readonly OPNET_ENABLED: {
         // The consensus is enabled for this network.
-        readonly [key in BitcoinNetwork]: {
-            readonly ENABLED: boolean;
-            readonly BLOCK: bigint;
+        readonly [key in ChainIds]?: {
+            readonly [key in BitcoinNetwork]?: OPNetEnabledConfigs;
         };
     };
 
@@ -56,6 +62,14 @@ export interface IOPNetConsensus<T extends Consensus> {
 
         /** The maximum size of calldata in bytes. */
         readonly MAXIMUM_CALLDATA_SIZE_COMPRESSED: number;
+
+        /** Special contracts */
+        readonly SPECIAL_CONTRACTS: {
+            // The consensus is enabled for this network.
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: SpecialContracts;
+            };
+        };
     };
 
     readonly COMPRESSION: {
