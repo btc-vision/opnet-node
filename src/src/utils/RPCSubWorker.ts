@@ -30,6 +30,7 @@ import {
     ParsedSimulatedTransaction,
     SimulatedTransaction,
 } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
+import { TransactionOutputFlags } from '../poa/configurations/types/IOPNetConsensus.js';
 
 class RPCManager extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -265,6 +266,8 @@ class RPCManager extends Logger {
                     txId: Buffer.from(input.txId, 'base64'),
                     outputIndex: input.outputIndex,
                     scriptSig: Buffer.from(input.scriptSig, 'base64'),
+                    coinbase: input.coinbase ? Buffer.from(input.coinbase, 'base64') : undefined,
+                    flags: input.flags || 0,
                 };
             }),
             outputs: [
@@ -273,11 +276,15 @@ class RPCManager extends Logger {
                         value: 10000000n,
                         index: 0,
                         to: 'tb1pff6z2u3jvy0c206nkwsxm2d7xzuuyfq337w6dxgrgmgt3my2ayzsquka3w',
+                        flags: TransactionOutputFlags.hasTo,
+                        scriptPubKey: undefined,
                     },
                     {
                         value: 10000000n,
                         index: 1,
                         to: '2N3boRkKs7YUXgzsKC9THBMDU622dWNn7T3',
+                        flags: TransactionOutputFlags.hasTo,
+                        scriptPubKey: undefined,
                     },
                 ],
                 ...transaction.outputs.map((output) => {
@@ -285,6 +292,10 @@ class RPCManager extends Logger {
                         value: BigInt(output.value),
                         index: output.index,
                         to: output.to,
+                        flags: output.flags || 0,
+                        scriptPubKey: output.scriptPubKey
+                            ? Buffer.from(output.scriptPubKey, 'base64')
+                            : undefined,
                     };
                 }),
             ],

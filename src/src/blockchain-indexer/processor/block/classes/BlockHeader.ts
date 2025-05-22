@@ -3,7 +3,7 @@ import { BlockDataWithTransactionData } from '@btc-vision/bitcoin-rpc';
 export type BlockDataWithoutTransactionData = Omit<BlockDataWithTransactionData, 'tx'>;
 
 export class BlockHeader {
-    public readonly hash: string;
+    public hash: string;
     public readonly height: bigint;
 
     public readonly confirmations: number;

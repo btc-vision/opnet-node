@@ -61,6 +61,8 @@ export class TransactionConverterForAPI {
             burnedBitcoin:
                 '0x' + DataConverter.fromDecimal128(transaction.burnedBitcoin || 0n).toString(16),
             gasUsed: '0x' + DataConverter.fromDecimal128(transaction.gasUsed || 0n).toString(16),
+            specialGasUsed:
+                '0x' + DataConverter.fromDecimal128(transaction.specialGasUsed || 0n).toString(16),
             priorityFee:
                 '0x' + DataConverter.fromDecimal128(transaction.priorityFee || 0n).toString(16),
             _id: undefined,

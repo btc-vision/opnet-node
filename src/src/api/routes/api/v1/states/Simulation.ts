@@ -64,6 +64,7 @@ export class Simulation extends Route<
         const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
             ThreadTypes.RPC,
             currentBlockMsg,
+            false,
         )) as CallRequestResponse | null;
 
         if (!currentBlock) {
@@ -74,7 +75,9 @@ export class Simulation extends Route<
     }
 
     public async getData(_params: CallParams): Promise<CallResult | undefined> {
-        this.incrementPendingRequests();
+        throw new Error('Not implemented');
+
+        /*this.incrementPendingRequests();
 
         try {
             if (!this.storage) {
@@ -100,7 +103,7 @@ export class Simulation extends Route<
             this.decrementPendingRequests();
 
             throw `Something went wrong while simulating call.`;
-        }
+        }*/
     }
 
     public async getDataRPC(params: CallParams): Promise<CallResult | undefined> {
@@ -221,6 +224,7 @@ export class Simulation extends Route<
             accessList,
             loadedStorage,
             estimatedGas: '0x' + (data.gasUsed || 0).toString(16),
+            estimatedSpecialGas: '0x' + (data.specialGasUsed || 0).toString(16),
         };
 
         if (data.revert) {

@@ -35,6 +35,7 @@ import { Long } from 'mongodb';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 import { ContractEvaluation } from '../../../vm/runtime/classes/ContractEvaluation.js';
 import { RustContract } from '../../../vm/isolated/RustContract.js';
+import { SharedInteractionParameters } from '../transaction/transactions/SharedInteractionParameters.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
@@ -400,64 +401,52 @@ export class Block extends Logger {
     }
 
     /** Block Execution */
-    public async execute(vmManager: VMManager, specialManager: SpecialManager): Promise<boolean> {
+    public async execute(vmManager: VMManager, specialManager: SpecialManager): Promise<void> {
         // Free up some memory, we don't need the raw transaction data anymore
         this.rawTransactionData = [];
 
         this.ensureNotExecuted();
 
-        try {
-            const timeBeforeExecution = Date.now();
+        const timeBeforeExecution = Date.now();
 
-            /** We must fetch the previous block checksum */
-            const previousBlockHeaders: BlockHeaderDocument | null | undefined =
-                await vmManager.blockHeaderValidator.getBlockHeader(this.height - 1n);
+        /** We must fetch the previous block checksum */
+        const previousBlockHeaders: BlockHeaderDocument | null | undefined =
+            await vmManager.blockHeaderValidator.getBlockHeader(this.height - 1n);
 
-            // Calculate next block base gas
-            this.setGasParameters(previousBlockHeaders || null);
+        // Calculate next block base gas
+        this.setGasParameters(previousBlockHeaders || null);
 
-            // Execute each transaction of the block.
-            await this.executeTransactions(vmManager, specialManager);
+        // Execute each transaction of the block.
+        await this.executeTransactions(vmManager, specialManager);
 
-            this.specialExecutionPromise = this.executeSpecialTransactions(specialManager);
+        this.specialExecutionPromise = this.executeSpecialTransactions(specialManager);
 
-            const timeAfterExecution = Date.now();
-            this.timeForTransactionExecution = timeAfterExecution - timeBeforeExecution;
+        const timeAfterExecution = Date.now();
+        this.timeForTransactionExecution = timeAfterExecution - timeBeforeExecution;
 
-            /** We must update the evaluated states, if there were no changes, then we mark the block as empty. */
-            const states: EvaluatedStates = await vmManager.updateEvaluatedStates();
-            const updatedStatesAfterExecution = Date.now();
-            this.timeForStateUpdate = updatedStatesAfterExecution - timeAfterExecution;
+        /** We must update the evaluated states, if there were no changes, then we mark the block as empty. */
+        const states: EvaluatedStates = await vmManager.updateEvaluatedStates();
+        const updatedStatesAfterExecution = Date.now();
+        this.timeForStateUpdate = updatedStatesAfterExecution - timeAfterExecution;
 
-            this.verifyIfBlockAborted();
+        this.verifyIfBlockAborted();
 
-            if (states && states.receipts && states.receipts.size()) {
-                await this.processBlockStates(states, vmManager);
-            } else {
-                await this.onEmptyBlock(vmManager);
-            }
-
-            this.verifyIfBlockAborted();
-
-            const timeAfterBlockProcessing = Date.now();
-            this.timeForBlockProcessing = timeAfterBlockProcessing - updatedStatesAfterExecution;
-
-            const timeAfterGenericTransactions = Date.now();
-            this.timeForGenericTransactions =
-                timeAfterGenericTransactions - timeAfterBlockProcessing;
-
-            // We must process opnet transactions
-            this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
-
-            return true;
-        } catch (e) {
-            const error: Error = e as Error;
-            this.panic(
-                `[execute] Something went wrong while executing the block: ${Config.DEV_MODE ? error.stack : error.message}`,
-            );
-
-            return false;
+        if (states && states.receipts && states.receipts.size()) {
+            await this.processBlockStates(states, vmManager);
+        } else {
+            await this.onEmptyBlock(vmManager);
         }
+
+        this.verifyIfBlockAborted();
+
+        const timeAfterBlockProcessing = Date.now();
+        this.timeForBlockProcessing = timeAfterBlockProcessing - updatedStatesAfterExecution;
+
+        const timeAfterGenericTransactions = Date.now();
+        this.timeForGenericTransactions = timeAfterGenericTransactions - timeAfterBlockProcessing;
+
+        // We must process opnet transactions
+        this.saveGenericPromises.push(this.saveOPNetTransactions(vmManager));
     }
 
     public async finalizeBlock(vmManager: VMManager): Promise<boolean> {
@@ -556,7 +545,7 @@ export class Block extends Logger {
     ): Promise<void> {
         const start = Date.now();
         try {
-            this.checkConstraintsBlock();
+            this.checkConstraintsBlock(transaction);
 
             // Verify that tx is not coinbase.
             if (!transaction.inputs[0]?.originalTransactionId) {
@@ -573,7 +562,7 @@ export class Block extends Logger {
                 isSimulation,
             );
 
-            this.blockUsedGas += evaluation.gasUsed;
+            this.blockUsedGas += evaluation.totalGasUsed;
 
             transaction.receipt = evaluation.getEvaluationResult();
 
@@ -581,7 +570,7 @@ export class Block extends Logger {
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
                 this.debug(
-                    `Executed transaction ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                    `Executed transaction ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${transaction.totalGasUsed} gas used)`,
                 );
             }
 
@@ -600,7 +589,7 @@ export class Block extends Logger {
     ): Promise<void> {
         const start = Date.now();
         try {
-            this.checkConstraintsBlock();
+            this.checkConstraintsBlock(transaction);
 
             if (!transaction.inputs[0]?.originalTransactionId) {
                 throw new Error('Coinbase transactions are not allowed');
@@ -615,14 +604,14 @@ export class Block extends Logger {
                 transaction,
             );
 
-            this.blockUsedGas += evaluation.gasUsed;
+            this.blockUsedGas += evaluation.totalGasUsed;
             transaction.receipt = evaluation.getEvaluationResult();
 
             this.processRevertedTx(transaction);
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
                 this.debug(
-                    `Executed transaction (deployment) ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.gasUsed} gas used)`,
+                    `Executed transaction (deployment) ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.totalGasUsed} gas used)`,
                 );
             }
 
@@ -668,7 +657,7 @@ export class Block extends Logger {
 
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             this.error(
-                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.gasUsed})`,
+                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.totalGasUsed})`,
             );
         }
 
@@ -682,9 +671,15 @@ export class Block extends Logger {
         );
     }
 
-    private checkConstraintsBlock(): void {
+    private checkConstraintsBlock(
+        transaction: SharedInteractionParameters<OPNetTransactionTypes>,
+    ): void {
         if (!this.isOPNetEnabled()) {
             throw new Error('OPNet is not enabled');
+        }
+
+        if (transaction.specialSettings && transaction.specialSettings.bypassBlockLimit) {
+            return;
         }
 
         // Verify if the block is out of gas, this can overflow. This is an expected behavior.
@@ -717,7 +712,7 @@ export class Block extends Logger {
     }
 
     private isOPNetEnabled(): boolean {
-        const opnetEnabledAtBlock = OPNetConsensus.consensus.OPNET_ENABLED[Config.BITCOIN.NETWORK];
+        const opnetEnabledAtBlock = OPNetConsensus.opnetEnabled;
 
         return opnetEnabledAtBlock.ENABLED && this.height >= BigInt(opnetEnabledAtBlock.BLOCK);
     }

@@ -5,6 +5,7 @@ import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { AddressStack } from '../classes/AddressStack.js';
 import { GasTracker } from '../GasTracker.js';
+import { SpecialContract } from '../../../poa/configurations/types/SpecialContracts.js';
 
 export interface InternalContractCallParameters {
     contractAddress: Address;
@@ -49,6 +50,7 @@ export interface InternalContractCallParameters {
 
     readonly accessList?: AccessList;
     readonly preloadStorageList?: AddressMap<Uint8Array[]>;
+    readonly specialContract: SpecialContract | undefined;
 }
 
 export interface ExecutionParameters {
@@ -90,4 +92,5 @@ export interface ExecutionParameters {
 
     readonly accessList?: AccessList;
     readonly preloadStorageList?: AddressMap<Uint8Array[]>;
+    readonly specialContract: SpecialContract | undefined;
 }

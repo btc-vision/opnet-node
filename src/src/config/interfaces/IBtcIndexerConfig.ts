@@ -132,6 +132,8 @@ export interface DevConfig {
     readonly DEBUG_VALID_TRANSACTIONS: boolean;
     readonly DEBUG_API_ERRORS: boolean;
     readonly ENABLE_CONTRACT_DEBUG: boolean;
+    readonly ALWAYS_ENABLE_REORG_VERIFICATION: boolean;
+    readonly ENABLE_REORG_NIGHTMARE: boolean;
 }
 
 export interface Bech32Config {

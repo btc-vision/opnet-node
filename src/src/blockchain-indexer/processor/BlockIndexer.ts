@@ -27,6 +27,7 @@ import { SpecialManager } from './special-transaction/SpecialManager.js';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { Block } from './block/Block.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import fs from 'fs';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -69,6 +70,7 @@ export class BlockIndexer extends Logger {
     private taskInProgress: boolean = false;
 
     private processedBlocks: number = 0;
+    private lastSyncErrored: boolean = false;
 
     constructor() {
         super();
@@ -172,16 +174,7 @@ export class BlockIndexer extends Logger {
             this.reorgWatchdog.pendingBlockHeight !== originalHeight &&
             this.reorgWatchdog.pendingBlockHeight !== -1n
         ) {
-            this.fail(
-                `Reorg watchdog height mismatch: ${this.reorgWatchdog.pendingBlockHeight}. Reverting.`,
-            );
-
-            await this.revertChain(
-                this.reorgWatchdog.pendingBlockHeight,
-                originalHeight,
-                'database-corrupted',
-                false,
-            );
+            await this.onHeightMismatch(originalHeight);
         }
 
         try {
@@ -193,6 +186,23 @@ export class BlockIndexer extends Logger {
         }
 
         await this.registerEvents();
+    }
+
+    private async onHeightMismatch(originalHeight: bigint): Promise<void> {
+        this.fail(
+            `Reorg watchdog height mismatch: ${this.reorgWatchdog.pendingBlockHeight}. Reverting.`,
+        );
+
+        this.taskInProgress = true;
+
+        await this.revertChain(
+            this.reorgWatchdog.pendingBlockHeight,
+            originalHeight,
+            'database-corrupted',
+            false,
+        );
+
+        this.taskInProgress = false;
     }
 
     private async verifyMode(): Promise<void> {
@@ -212,8 +222,12 @@ export class BlockIndexer extends Logger {
     }
 
     private async createLightNodeLastBlock(tip: bigint): Promise<void> {
-        const opnetEnabledAtBlock = OPNetConsensus.consensus.OPNET_ENABLED[Config.BITCOIN.NETWORK];
-        if (opnetEnabledAtBlock.BLOCK && BigInt(opnetEnabledAtBlock.BLOCK) < tip) {
+        const opnetEnabledAtBlock = OPNetConsensus.opnetEnabled;
+        if (
+            opnetEnabledAtBlock.ENABLED &&
+            opnetEnabledAtBlock.BLOCK &&
+            BigInt(opnetEnabledAtBlock.BLOCK) < tip
+        ) {
             this.fail(
                 `OPNet states will be invalid, your light node will be missing critical states in other for smart contracts to work correctly.`,
             );
@@ -276,7 +290,7 @@ export class BlockIndexer extends Logger {
 
         this.info(`Light mode -> Loaded block: ${block.height} - ${block.hash}`);
 
-        await this.vmManager.prepareBlock(block.height);
+        this.vmManager.prepareBlock(block.height);
 
         await block.onEmptyBlock(this.vmManager);
         return await block.finalizeBlock(this.vmManager);
@@ -350,42 +364,32 @@ export class BlockIndexer extends Logger {
         // Lock tasks.
         this.chainReorged = true;
 
-        // Clean up cached data.
-        this.blockFetcher.onReorg();
+        try {
+            // Stop all tasks.
+            await this.stopAllTasks(reorged);
 
-        // Stop all tasks.
-        await this.stopAllTasks(reorged);
+            // Clean up cached data.
+            this.blockFetcher.onReorg();
 
-        // Notify thread.
-        await this.notifyThreadReorg(fromHeight, toHeight, newBest);
+            // Stop all tasks, if one is still running.
+            await this.stopAllTasks(reorged);
 
-        // Await all pending writes.
-        await this.vmStorage.killAllPendingWrites();
+            // Notify thread.
+            await this.notifyThreadReorg(fromHeight, toHeight, newBest);
 
-        // Revert block
-        await this.vmStorage.revertDataUntilBlock(fromHeight);
-        await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
+            // Await all pending writes.
+            await this.vmStorage.killAllPendingWrites();
 
-        // Revert data.
-        if (reorged) await this.reorgFromHeight(fromHeight, toHeight);
+            // Revert block
+            await this.vmStorage.revertDataUntilBlock(fromHeight);
+            await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
 
-        // Unlock tasks.
-        this.chainReorged = false;
-        this.taskInProgress = false;
-
-        // Start tasks.
-        await this.restartTasks();
-    }
-
-    private async restartTasks(): Promise<void> {
-        if (this.taskInProgress) {
-            this.warn(`Task in progress. Waiting for completion.`);
-
-            await this.awaitTaskCompletion();
+            // Revert data.
+            if (reorged) await this.reorgFromHeight(fromHeight, toHeight);
+        } finally {
+            // Unlock tasks.
+            this.chainReorged = false;
         }
-
-        // Start tasks.
-        this.startTasks();
     }
 
     private async reorgFromHeight(fromHeight: bigint, toBlock: bigint): Promise<void> {
@@ -471,7 +475,10 @@ export class BlockIndexer extends Logger {
             }
         }
 
-        void this.processNextTask();
+        if (this.indexingTasks.length) {
+            // If we have tasks, we start processing them.
+            void this.processNextTask();
+        }
     }
 
     private nextTask(): IndexingTask {
@@ -498,7 +505,7 @@ export class BlockIndexer extends Logger {
     }
 
     private async onCompletedTask(task: IndexingTask): Promise<void> {
-        if (task.chainReorged) return;
+        if (task.chainReorged || task.aborted) return;
 
         const processedBlock = task.block;
         if (processedBlock.compromised) {
@@ -507,6 +514,10 @@ export class BlockIndexer extends Logger {
 
         // Update height.
         await this.chainObserver.setNewHeight(task.tip);
+
+        if (!this.taskInProgress) {
+            throw new Error('Database corrupted. Two tasks are running at the same time.');
+        }
 
         // Notify PoC
         void this.notifyBlockProcessed({
@@ -534,70 +545,86 @@ export class BlockIndexer extends Logger {
             processedBlock.getBlockHeaderDocument(),
         );
 
-        // Release task.
-        this.currentTask = undefined;
-
-        if (!this.taskInProgress) {
-            throw new Error('Database corrupted. Two tasks are running at the same time.');
-        }
-
         if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
             this.processedBlocks++;
-
-            if (this.processedBlocks >= Config.DEV.PROCESS_ONLY_X_BLOCK) {
-                return;
-            }
-        }
-
-        this.taskInProgress = false;
-
-        this.startTasks();
-    }
-
-    private async awaitTaskCompletion(): Promise<void> {
-        while (this.taskInProgress) {
-            await new Promise((resolve) => setTimeout(resolve, 100));
         }
     }
 
     private async processNextTask(): Promise<void> {
-        this.currentTask = this.indexingTasks.shift();
-        if (!this.currentTask) {
-            return;
-        }
-
-        // Mark as in progress.
+        if (this.taskInProgress) return;
         this.taskInProgress = true;
 
+        let mayRestartTask: boolean = true;
         try {
-            await this.currentTask.process();
-        } catch (e) {
-            // Verify if the chain reorged.
-            if (this.chainReorged || !this.currentTask || this.currentTask.chainReorged) {
-                this.taskInProgress = false;
+            this.currentTask = this.indexingTasks.shift();
+            if (!this.currentTask) return;
 
+            await this.currentTask.process();
+
+            this.lastSyncErrored = false;
+        } catch (e) {
+            if (this.chainReorged || !this.currentTask || this.currentTask.chainReorged) {
                 this.warn(`Processing error: ${e}`);
 
                 return;
             }
 
-            const error = e as Error;
+            const err = e as Error;
             this.panic(
-                `Processing error (block: ${this.currentTask.tip}): ${Config.DEV_MODE ? error.stack : error.message}`,
+                `Processing error (block: ${this.currentTask.tip}): ${
+                    Config.DEV_MODE ? err.stack : err.message
+                }`,
             );
+
+            this.addErrorToLog(err);
 
             const newHeight = this.chainObserver.pendingBlockHeight - 1n;
-            if (newHeight <= 0n) {
-                this.panic(`Please resync the chain from scratch. Something went terribly wrong.`);
+            if (newHeight > 0n) {
+                await this.revertChain(
+                    this.chainObserver.pendingBlockHeight,
+                    newHeight,
+                    'processing-error',
+                    false,
+                );
+            } else {
+                mayRestartTask = false;
+            }
+        } finally {
+            this.releaseLockAndCallNextTask(mayRestartTask);
+        }
+    }
+
+    private addErrorToLog(error: Error): void {
+        if (this.lastSyncErrored) return; // Prevent multiple writes of a loop.
+        this.lastSyncErrored = true;
+
+        if (!fs.existsSync('error.log')) {
+            fs.writeFileSync('error.log', '');
+        }
+
+        fs.appendFileSync('error.log', `${new Date().toISOString()} - ${error.stack}\n`);
+    }
+
+    private releaseLockAndCallNextTask(mayRestartTask: boolean): void {
+        // Task completed.
+        this.taskInProgress = false;
+
+        // Release task.
+        this.currentTask = undefined;
+
+        if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
+            if (this.processedBlocks >= Config.DEV.PROCESS_ONLY_X_BLOCK) {
+                this.success(`Stopping task after ${this.processedBlocks} blocks.`);
                 return;
             }
+        }
 
-            await this.revertChain(
-                this.chainObserver.pendingBlockHeight,
-                newHeight,
-                'processing-error',
-                false,
-            );
+        if (!mayRestartTask) {
+            this.panic('Please resync the chain from scratch. Something went terribly wrong.');
+        } else if (!this.chainReorged) {
+            this.startTasks();
+        } else {
+            this.panic(`Task stopped due to chain reorg.`);
         }
     }
 

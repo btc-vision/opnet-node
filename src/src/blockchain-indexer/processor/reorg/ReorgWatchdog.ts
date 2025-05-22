@@ -5,6 +5,7 @@ import { VMManager } from '../../../vm/VMManager.js';
 import { Logger } from '@btc-vision/bsi-common';
 import { IndexingTask } from '../tasks/IndexingTask.js';
 import { BlockHeaderDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { Config } from '../../../config/Config.js';
 
 interface LastBlock {
     hash?: string;
@@ -109,7 +110,7 @@ export class ReorgWatchdog extends Logger {
 
     public async verifyChainReorgForBlock(task: IndexingTask): Promise<boolean> {
         const syncBlockDiff = this.currentHeader.blockNumber - task.tip;
-        if (syncBlockDiff >= 100) {
+        if (syncBlockDiff >= 100 && !Config.DEV.ALWAYS_ENABLE_REORG_VERIFICATION) {
             this.updateBlock(task.block);
 
             return false;

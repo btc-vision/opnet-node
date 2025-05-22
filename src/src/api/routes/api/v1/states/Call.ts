@@ -30,6 +30,12 @@ import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
 import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
 import { FastStringMap } from '../../../../../utils/fast/FastStringMap.js';
+import {
+    TransactionInputFlags,
+    TransactionOutputFlags,
+} from '../../../../../poa/configurations/types/IOPNetConsensus.js';
+import { StrippedTransactionInputAPI } from '../../../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
+import { StrippedTransactionOutputAPI } from '../../../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private pendingRequests: number = 0;
@@ -47,7 +53,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         accessList?: AccessList,
         preloadStorage?: LoadedStorageList,
     ): Promise<CallRequestResponse> {
-        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
+        const simulationMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
             type: MessageType.RPC_METHOD,
             data: {
                 rpcMethod: BitcoinRPCThreadMessageType.CALL,
@@ -63,16 +69,17 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             } as CallRequest,
         };
 
-        const currentBlock: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
+        const simulation: CallRequestResponse | null = (await ServerThread.sendMessageToThread(
             ThreadTypes.RPC,
-            currentBlockMsg,
+            simulationMsg,
+            false,
         )) as CallRequestResponse | null;
 
-        if (!currentBlock) {
-            throw new Error(`Failed to execute the given calldata at the requested contract.`);
+        if (!simulation) {
+            throw new Error(`Failed to execute the contract. No response from thread.`);
         }
 
-        return currentBlock;
+        return simulation;
     }
 
     public async getData(params: CallParams): Promise<CallResult | undefined> {
@@ -96,10 +103,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 preloadStorage as LoadedStorageList,
             );
 
-            if (!res) {
-                throw new Error(`Failed to execute the given calldata at the requested contract.`);
-            }
-
             this.decrementPendingRequests();
             return this.convertDataToResult(res);
         } catch (e) {
@@ -112,7 +115,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw `Something went wrong while simulating call (Database error)`;
             }
 
-            console.log(e);
+            if (Config.DEV_MODE) {
+                this.error(`Something went wrong while simulating call (${(e as Error).stack})`);
+            }
 
             throw `Something went wrong while simulating call (${e})`;
         }
@@ -165,7 +170,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             }
 
             const data = await this.getData(params);
-
             if (data) {
                 res.status(200);
                 res.json(data);
@@ -236,6 +240,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             accessList,
             loadedStorage,
             estimatedGas: '0x' + (data.gasUsed || 0).toString(16),
+            estimatedSpecialGas: '0x' + (data.specialGasUsed || 0).toString(16),
         };
 
         if (data.revert) {
@@ -313,10 +318,13 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             throw new Error('Invalid transaction');
         }
 
+        const finalInputs: StrippedTransactionInputAPI[] = [];
+        const finalOutput: StrippedTransactionOutputAPI[] = [];
+
         if (Array.isArray(partial.inputs) && Array.isArray(partial.outputs)) {
             if (
-                partial.inputs.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS ||
-                partial.outputs.length > OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_OUTPUTS
+                partial.inputs.length > OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_INPUTS ||
+                partial.outputs.length > OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_OUTPUTS
             ) {
                 throw new Error('Too many inputs/outputs');
             }
@@ -349,6 +357,28 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 if (typeof input.scriptSig !== 'string') {
                     throw new Error('Invalid scriptSig');
                 }
+
+                if (input.coinbase && typeof input.coinbase !== 'string') {
+                    if ((input.flags & TransactionInputFlags.hasCoinbase) === 0) {
+                        throw new Error('Missing coinbase flag. Is this an error?');
+                    }
+
+                    throw new Error('Invalid coinbase script');
+                }
+
+                if (typeof input.flags !== 'undefined') {
+                    if (typeof input.flags !== 'number') {
+                        throw new Error('Field flags must be a number');
+                    }
+                }
+
+                finalInputs.push({
+                    flags: input.flags || 0,
+                    scriptSig: input.scriptSig,
+                    txId: input.txId,
+                    outputIndex: input.outputIndex,
+                    coinbase: input.coinbase,
+                } as StrippedTransactionInputAPI);
             }
 
             for (const output of partial.outputs) {
@@ -376,15 +406,100 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     throw new Error('Invalid value');
                 }
 
-                if (typeof output.to !== 'string') {
-                    throw new Error('Invalid to');
+                if (output.scriptPubKey && typeof output.scriptPubKey !== 'string') {
+                    throw new Error('Invalid scriptPubKey');
                 }
+
+                if (typeof output.flags !== 'undefined') {
+                    if (typeof output.flags !== 'number') {
+                        throw new Error('Invalid flags');
+                    }
+
+                    const hasOPReturn: boolean =
+                        (output.flags & TransactionOutputFlags.OP_RETURN) !== 0;
+
+                    const hasScriptPubKey: boolean =
+                        (output.flags & TransactionOutputFlags.hasScriptPubKey) !== 0;
+
+                    const hasTo: boolean = (output.flags & TransactionOutputFlags.hasTo) !== 0;
+
+                    // verify op_return
+                    if (hasOPReturn) {
+                        if (!hasScriptPubKey) {
+                            throw new Error(
+                                'Flag error: OP_RETURN and hasScriptPubKey are mutually inclusive',
+                            );
+                        }
+
+                        if (hasTo) {
+                            throw new Error(
+                                'Flag error: OP_RETURN and hasTo are mutually exclusive',
+                            );
+                        }
+
+                        if (!output.scriptPubKey) {
+                            throw new Error('Missing scriptPubKey for OP_RETURN');
+                        }
+
+                        if (output.value !== '0') {
+                            throw new Error('OP_RETURN value must be 0');
+                        }
+                    }
+
+                    // Verify hasTo
+                    if (hasTo) {
+                        if (!output.to) {
+                            throw new Error('Flag error: hasTo is set but to is missing');
+                        }
+
+                        if (hasScriptPubKey) {
+                            throw new Error(
+                                'Flag error: hasTo and hasScriptPubKey are mutually exclusive',
+                            );
+                        }
+
+                        if (output.to.startsWith('0x')) {
+                            throw new Error(
+                                'Flag error: public keys outputs should be scriptPubKey and not to.',
+                            );
+                        }
+                    } else if (hasScriptPubKey) {
+                        if (!output.scriptPubKey) {
+                            throw new Error(
+                                'Flag error: hasScriptPubKey is set but scriptPubKey is missing',
+                            );
+                        }
+
+                        if (hasTo) {
+                            throw new Error(
+                                'Flag error: hasTo and hasScriptPubKey are mutually exclusive',
+                            );
+                        }
+                    } else {
+                        throw new Error(
+                            `Invalid flags for output ${output.index}. Please upgrade your opnet library.`,
+                        );
+                    }
+                } else if (typeof output.to !== 'string') {
+                    throw new Error('Invalid to. Must be a string.');
+                }
+
+                finalOutput.push({
+                    index: output.index,
+                    flags: output.flags,
+                    scriptPubKey: output.scriptPubKey,
+                    to: output.to,
+                    value: output.value,
+                } as StrippedTransactionOutputAPI);
             }
         } else {
             throw new Error('Invalid transaction inputs/outputs');
         }
 
-        return partial as SimulatedTransaction;
+        return {
+            inputs: finalInputs,
+            outputs: finalOutput,
+        } as SimulatedTransaction;
     }
 
     private getDecodedParams(

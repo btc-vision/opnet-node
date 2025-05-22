@@ -44,13 +44,12 @@ interface InternalCallParameters {
     readonly calldata: Buffer;
     readonly isDeployment: boolean;
     readonly contractAddress: Address;
-    readonly usedGas: bigint;
 }
 
 interface InternalCallResponse {
     readonly isWarm: boolean;
     readonly result: Buffer;
-    readonly status: 0 | 1;
+    readonly status: number;
     readonly gasUsed: bigint;
 }
 
@@ -189,8 +188,6 @@ export class ContractEvaluator extends Logger {
     }
 
     private async terminateEvaluation(evaluation: ContractEvaluation): Promise<void> {
-        await Promise.resolve();
-
         if (evaluation.externalCall || evaluation.revert) {
             return;
         }
@@ -203,6 +200,7 @@ export class ContractEvaluator extends Logger {
         if (evaluation.deployedContracts.size > 0) {
             const contracts = evaluation.deployedContracts.values();
             for (const contractInfo of contracts) {
+                // TODO: Undo the contracts deployed if an other deployment fail.
                 deploymentPromises.push(this.deployContract(contractInfo));
             }
         }
@@ -218,37 +216,64 @@ export class ContractEvaluator extends Logger {
 
         // TODO: Optimize using getStorageMultiple.
         let totalGasCost: bigint = 0n;
-        for (const states of evaluation.modifiedStorage.values()) {
+        let totalGasSpecial: bigint = 0n;
+        for (const [address, states] of evaluation.modifiedStorage.entries()) {
             let cost: bigint = 0n;
 
-            for (const [key, value] of states) {
-                const currentValue = await this.getStorageState(evaluation, key, false);
+            const isSpecialContract: boolean = !!(
+                !evaluation.externalCall &&
+                evaluation.specialContract &&
+                evaluation.specialContract.freeGas &&
+                evaluation.specialContract.address.equals(address)
+            );
 
-                if (currentValue === null) {
-                    cost += NEW_STORAGE_SLOT_GAS_COST;
-                } else if (currentValue !== value) {
-                    cost += UPDATED_STORAGE_SLOT_GAS_COST;
+            const gasUsed = isSpecialContract ? evaluation.specialGasUsed : evaluation.gasUsed;
+            for (const [key, value] of states) {
+                let shouldThrow: boolean = false;
+                if (
+                    !isSpecialContract &&
+                    evaluation.maxGas < gasUsed + cost + UPDATED_STORAGE_SLOT_GAS_COST
+                ) {
+                    shouldThrow = true;
+                } else {
+                    const currentValue = await this.getStorageState(evaluation, key, false);
+                    if (currentValue === null) {
+                        cost += NEW_STORAGE_SLOT_GAS_COST;
+                    } else if (currentValue !== value) {
+                        cost += UPDATED_STORAGE_SLOT_GAS_COST;
+                    }
+
+                    // Check if the gas used is less than the maximum.
+                    if (!isSpecialContract && evaluation.maxGas < gasUsed + cost) {
+                        shouldThrow = true;
+                    }
                 }
 
-                // Check if the gas used is less than the maximum.
-                if (evaluation.maxGas < evaluation.gasUsed + cost) {
+                if (shouldThrow) {
                     // Set the gas used to the maximum.
-                    evaluation.setGasUsed(evaluation.maxGas);
+                    evaluation.setGasUsed(evaluation.paidMaximum);
 
-                    throw new Error(`out of gas (consumed: ${evaluation.maxGas})`);
+                    throw new Error(`1. out of gas (consumed: ${evaluation.paidMaximum})`);
                 }
             }
 
-            totalGasCost += cost;
+            if (isSpecialContract) {
+                totalGasSpecial += cost;
+            } else {
+                totalGasCost += cost;
+            }
         }
 
-        evaluation.setGasUsed(evaluation.gasUsed + totalGasCost);
+        evaluation.setFinalGasUsed(
+            evaluation.gasUsed + totalGasCost,
+            evaluation.specialGasUsed + totalGasSpecial,
+        );
     }
 
     private attemptToSetGasUsed(evaluation: ContractEvaluation): void {
         try {
             const gasUsed = this.getGasUsed(evaluation);
-            if (evaluation.gasUsed > gasUsed) {
+            if (evaluation.totalGasUsed > gasUsed) {
                 throw new Error('OP_NET: Gas used returned is smaller than already used gas.');
             } else {
                 evaluation.setGasUsed(gasUsed);
@@ -261,10 +286,10 @@ export class ContractEvaluator extends Logger {
             if (this._contractInstance) {
                 return this._contractInstance.getUsedGas();
             } else {
-                return evaluation.maxGas;
+                return evaluation.paidMaximum;
             }
         } catch {
-            return evaluation.maxGas;
+            return evaluation.paidMaximum;
         }
     }
 
@@ -340,7 +365,7 @@ export class ContractEvaluator extends Logger {
             evaluation.setGasUsed(gasUsed);
 
             // Update the memory pages used.
-            evaluation.memoryPagesUsed = BigInt(reader.readU32()); //0n;
+            evaluation.memoryPagesUsed = BigInt(reader.readU32());
 
             const contractAddress: Address = reader.readAddress();
             const calldata: Uint8Array = reader.readBytesWithLength();
@@ -354,18 +379,24 @@ export class ContractEvaluator extends Logger {
                 calldata: Buffer.copyBytesFrom(calldata),
                 isDeployment: false,
                 contractAddress,
-                usedGas: gasUsed,
             });
 
             if (response.status === 1 && Config.DEV_MODE) {
                 this.error(
-                    `Call reverted with status 1 - ${RustContract.decodeRevertData(response.result)}`,
+                    `Call reverted with status ${response.status} - ${RustContract.decodeRevertData(response.result)}`,
                 );
+            }
+
+            let evaluationGasUsed: bigint;
+            if (evaluation.specialContract && evaluation.specialContract.freeGas) {
+                evaluationGasUsed = 0n;
+            } else {
+                evaluationGasUsed = response.gasUsed - gasUsed;
             }
 
             return this.buildCallResponse(
                 response.isWarm,
-                response.gasUsed,
+                evaluationGasUsed,
                 response.status,
                 response.result,
             );
@@ -381,7 +412,6 @@ export class ContractEvaluator extends Logger {
     private async internalCall(params: InternalCallParameters): Promise<InternalCallResponse> {
         const evaluation = params.evaluation;
         const calldata = params.calldata;
-        const gasUsed = params.usedGas;
         const contractAddress = params.contractAddress;
 
         const externalCallParams: InternalContractCallParameters = {
@@ -422,6 +452,7 @@ export class ContractEvaluator extends Logger {
 
             accessList: evaluation.accessList,
             preloadStorageList: undefined, // All pointers are already preloaded.
+            specialContract: undefined, // DO NOT FORWARD THE SETTINGS OF A SPECIAL CONTRACT TO EXTERNAL CALLS.
         };
 
         const isWarm: boolean = !!evaluation.touchedAddresses.get(contractAddress);
@@ -431,19 +462,18 @@ export class ContractEvaluator extends Logger {
         const status = response.revert ? 1 : 0;
         const result = (status ? response.revert : response.result) || Buffer.alloc(0);
 
-        const evaluationGasUsed = response.gasUsed - gasUsed;
         return {
             isWarm,
             result: Buffer.from(result.buffer, result.byteOffset, result.byteLength),
             status,
-            gasUsed: evaluationGasUsed,
+            gasUsed: response.gasUsed,
         };
     }
 
     private buildCallResponse(
         isAddressWarm: boolean,
         usedGas: bigint,
-        status: 0 | 1,
+        status: number,
         response: Uint8Array,
     ): Uint8Array {
         const writer = new BinaryWriter();
@@ -494,13 +524,19 @@ export class ContractEvaluator extends Logger {
                 calldata,
                 isDeployment: true,
                 contractAddress: deployResult.contractAddress,
-                usedGas: usedGas,
             });
+
+            let evaluationGasUsed: bigint;
+            if (evaluation.specialContract && evaluation.specialContract.freeGas) {
+                evaluationGasUsed = 0n;
+            } else {
+                evaluationGasUsed = internalResult.gasUsed - usedGas;
+            }
 
             return this.buildDeployFromAddressResponse(
                 deployResult.contractAddress,
                 deployResult.bytecodeLength,
-                internalResult.gasUsed,
+                evaluationGasUsed,
                 internalResult.status,
                 internalResult.result,
             );
@@ -523,7 +559,7 @@ export class ContractEvaluator extends Logger {
         contractAddress: Address,
         bytecodeLength: number,
         usedGas: bigint,
-        status: 0 | 1,
+        status: number,
         response: Uint8Array,
     ): Uint8Array {
         const writer = new BinaryWriter();
@@ -613,8 +649,8 @@ export class ContractEvaluator extends Logger {
             address: evaluation.contractAddressStr,
             bytecode: this.bytecode,
             network: NetworkConverter.networkToBitcoinNetwork(this.network),
-            gasUsed: evaluation.gasUsed,
-            gasMax: evaluation.maxGas,
+            gasUsed: evaluation.combinedGas,
+            gasMax: evaluation.maxGasVM,
             memoryPagesUsed: evaluation.memoryPagesUsed,
             isDebugMode: enableDebug,
             accountType: async (data: Buffer): Promise<AccountTypeResponse> => {
@@ -720,7 +756,7 @@ export class ContractEvaluator extends Logger {
                 evaluation.setGasUsed(this.contractInstance.getUsedGas());
             } catch {
                 // Fatal error
-                evaluation.setGasUsed(evaluation.maxGas);
+                evaluation.setGasUsed(evaluation.paidMaximum);
             }
 
             if (error) {

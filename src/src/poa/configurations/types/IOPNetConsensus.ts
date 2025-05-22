@@ -1,5 +1,22 @@
 import { Consensus } from '../consensus/Consensus.js';
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
+import { SpecialContracts } from './SpecialContracts.js';
+import { ChainIds } from '../../../config/enums/ChainIds.js';
+
+export enum TransactionInputFlags {
+    hasCoinbase = 0b00000001,
+}
+
+export enum TransactionOutputFlags {
+    hasTo = 0b00000001,
+    hasScriptPubKey = 0b00000010,
+    OP_RETURN = 0b00000100,
+}
+
+export interface OPNetEnabledConfigs {
+    readonly ENABLED: boolean;
+    readonly BLOCK: bigint;
+}
 
 export interface IOPNetConsensus<T extends Consensus> {
     /** Information about the consensus */
@@ -11,9 +28,8 @@ export interface IOPNetConsensus<T extends Consensus> {
 
     readonly OPNET_ENABLED: {
         // The consensus is enabled for this network.
-        readonly [key in BitcoinNetwork]: {
-            readonly ENABLED: boolean;
-            readonly BLOCK: bigint;
+        readonly [key in ChainIds]?: {
+            readonly [key in BitcoinNetwork]?: OPNetEnabledConfigs;
         };
     };
 
@@ -46,6 +62,14 @@ export interface IOPNetConsensus<T extends Consensus> {
 
         /** The maximum size of calldata in bytes. */
         readonly MAXIMUM_CALLDATA_SIZE_COMPRESSED: number;
+
+        /** Special contracts */
+        readonly SPECIAL_CONTRACTS: {
+            // The consensus is enabled for this network.
+            readonly [key in ChainIds]?: {
+                readonly [key in BitcoinNetwork]?: SpecialContracts;
+            };
+        };
     };
 
     readonly COMPRESSION: {
@@ -125,17 +149,45 @@ export interface IOPNetConsensus<T extends Consensus> {
         /** The cost of a byte in gas */
         readonly STORAGE_COST_PER_BYTE: bigint;
 
-        /** The maximum inputs utxos to forward to a contract */
-        readonly MAXIMUM_INPUTS: number;
-
         /** Check for reentrancy */
         readonly REENTRANCY_GUARD: boolean;
 
-        /** The maximum outputs utxos to forward to a contract */
-        readonly MAXIMUM_OUTPUTS: number;
-
         /** Skip proof validation for execution before transaction */
         readonly SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: boolean;
+
+        /** Is the access list feature enabled? */
+        readonly ENABLE_ACCESS_LIST: boolean;
+    };
+
+    readonly VM: {
+        readonly UTXOS: {
+            /** The maximum inputs utxos to forward to a contract */
+            readonly MAXIMUM_INPUTS: number;
+
+            /** The maximum outputs utxos to forward to a contract */
+            readonly MAXIMUM_OUTPUTS: number;
+
+            /** Write input and output flags to the transaction. */
+            readonly WRITE_FLAGS: boolean;
+
+            readonly INPUTS: {
+                /** Write coinbase to the transaction. */
+                readonly WRITE_COINBASE: boolean;
+            };
+
+            readonly OUTPUTS: {
+                /** Write scriptPubKey to the transaction. */
+                readonly WRITE_SCRIPT_PUB_KEY: boolean;
+            };
+
+            readonly OP_RETURN: {
+                /** Enable OP_RETURN outputs */
+                readonly ENABLED: boolean;
+
+                /** The maximum size of an OP_RETURN output in bytes */
+                readonly MAXIMUM_SIZE: number;
+            };
+        };
     };
 
     readonly NETWORK: {

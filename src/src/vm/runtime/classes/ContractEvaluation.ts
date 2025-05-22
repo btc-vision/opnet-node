@@ -28,6 +28,11 @@ import { Config } from '../../../config/Config.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 import { AddressStack } from './AddressStack.js';
 import { RustContract } from '../../isolated/RustContract.js';
+import {
+    TransactionInputFlags,
+    TransactionOutputFlags,
+} from '../../../poa/configurations/types/IOPNetConsensus.js';
+import { SpecialContract } from '../../../poa/configurations/types/SpecialContracts.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -73,6 +78,8 @@ export class ContractEvaluation implements ExecutionParameters {
     public readonly accessList: AccessList | undefined;
     public readonly preloadStorageList: AddressMap<Uint8Array[]> | undefined;
 
+    public readonly specialContract: SpecialContract | undefined;
+
     private _totalEventSize: number = 0;
 
     constructor(params: ExecutionParameters) {
@@ -115,6 +122,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
         this.accessList = params.accessList;
         this.preloadStorageList = params.preloadStorageList;
+        this.specialContract = params.specialContract;
 
         // Mark the contract address as touched
         this.touchedAddresses = params.touchedAddresses || new AddressMap();
@@ -125,6 +133,23 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public get maxGas(): bigint {
         return this.gasTracker.maxGas;
+    }
+
+    /**
+     * Returns the maximum gas that can be paid for the transaction.
+     * If external, it returns the maximum gas that can be paid for the external call.
+     * If not external, it returns the maximum gas that can be paid for the contract.
+     */
+    public get combinedGas(): bigint {
+        return this.gasTracker.combinedGas(this.externalCall);
+    }
+
+    public get paidMaximum(): bigint {
+        return this.gasTracker.paidMaximum;
+    }
+
+    public get maxGasVM(): bigint {
+        return this.gasTracker.maxGasVM(this.externalCall);
     }
 
     public _revert: Uint8Array | undefined;
@@ -141,8 +166,16 @@ export class ContractEvaluation implements ExecutionParameters {
         }
     }
 
+    public get specialGasUsed(): bigint {
+        return this.gasTracker.specialGasUsed;
+    }
+
     public get gasUsed(): bigint {
         return this.gasTracker.gasUsed;
+    }
+
+    public get totalGasUsed(): bigint {
+        return this.gasUsed + this.specialGasUsed;
     }
 
     public touchAddress(address: Address, isContract: boolean): void {
@@ -169,8 +202,12 @@ export class ContractEvaluation implements ExecutionParameters {
         return Buffer.copyBytesFrom(this.serializedOutputs);
     }
 
-    public setGasUsed(gas: bigint): void {
-        this.gasTracker.setGasUsed(gas);
+    public setGasUsed(gas: bigint, specialGas: bigint = 0n): void {
+        this.gasTracker.setGasUsed(gas, specialGas, this.externalCall, this.contractAddress);
+    }
+
+    public setFinalGasUsed(gas: bigint, specialGas: bigint = 0n): void {
+        this.gasTracker.setFinalGasUsed(gas, specialGas);
     }
 
     public incrementContractDeployDepth(): void {
@@ -252,7 +289,7 @@ export class ContractEvaluation implements ExecutionParameters {
             throw new Error('OP_NET: Impossible state. (max gas does not match)');
         }
 
-        this.gasTracker.setGasUsed(extern.gasUsed);
+        this.gasTracker.setGasUsed(extern.gasUsed, 0n, true, this.contractAddress);
 
         // we must merge the storage of the external calls
         if (extern.revert) {
@@ -292,6 +329,7 @@ export class ContractEvaluation implements ExecutionParameters {
             result: result,
             events: events,
             gasUsed: this.gasUsed,
+            specialGasUsed: this.specialGasUsed,
             deployedContracts: Array.from(deployedContracts.values()),
         };
 
@@ -366,18 +404,32 @@ export class ContractEvaluation implements ExecutionParameters {
 
     private computeInputUTXOs(): Uint8Array {
         const maxInputs = Math.min(
-            OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_INPUTS,
+            OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_INPUTS,
             this.inputs.length,
         );
 
         const writer = new BinaryWriter();
         writer.writeU16(maxInputs);
 
+        const flagsEnabled = OPNetConsensus.consensus.VM.UTXOS.WRITE_FLAGS;
         for (let i = 0; i < maxInputs; i++) {
             const input = this.inputs[i];
+
+            if (flagsEnabled) {
+                writer.writeU8(input.flags);
+            }
+
             writer.writeBytes(input.txId);
             writer.writeU16(input.outputIndex);
             writer.writeBytesWithLength(input.scriptSig);
+
+            if (flagsEnabled && input.flags & TransactionInputFlags.hasCoinbase) {
+                if (!input.coinbase) {
+                    throw new Error('OP_NET: Impossible case, input.coinbase is undefined.');
+                }
+
+                writer.writeBytesWithLength(input.coinbase);
+            }
         }
 
         return writer.getBuffer();
@@ -385,17 +437,45 @@ export class ContractEvaluation implements ExecutionParameters {
 
     private computeOutputUTXOs(): Uint8Array {
         const maxOutputs = Math.min(
-            OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_OUTPUTS,
+            OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_OUTPUTS,
             this.outputs.length,
         );
 
         const writer = new BinaryWriter();
         writer.writeU16(maxOutputs);
 
+        const flagsEnabled = OPNetConsensus.consensus.VM.UTXOS.WRITE_FLAGS;
         for (let i = 0; i < maxOutputs; i++) {
             const output = this.outputs[i];
+            if (flagsEnabled) {
+                writer.writeU8(output.flags);
+            }
+
             writer.writeU16(output.index);
-            writer.writeStringWithLength(output.to);
+
+            if (flagsEnabled && output.flags & TransactionOutputFlags.hasScriptPubKey) {
+                if (!output.scriptPubKey) {
+                    throw new Error('OP_NET: Impossible case, output.scriptPubKey is undefined.');
+                }
+
+                writer.writeBytesWithLength(output.scriptPubKey);
+            }
+
+            // TODO: Clean this up for mainnet.
+            if (output.flags & TransactionOutputFlags.hasTo) {
+                if (!output.to) {
+                    throw new Error('OP_NET: Impossible case, output.to is undefined.');
+                }
+
+                writer.writeStringWithLength(output.to);
+            } else if (!flagsEnabled) {
+                if (!output.to) {
+                    throw new Error('OP_NET: Impossible case, output.to is undefined.');
+                }
+
+                writer.writeStringWithLength(output.to);
+            }
+
             writer.writeU64(output.value);
         }
 
@@ -461,10 +541,6 @@ export class ContractEvaluation implements ExecutionParameters {
                 this.storage.set(contract, current);
             }
         } catch (e) {
-            if (Config.DEV_MODE) {
-                console.log(`Error parsing access list: ${e}`);
-            }
-
             throw new Error(`OP_NET: Cannot parse access list.`);
         }
     }

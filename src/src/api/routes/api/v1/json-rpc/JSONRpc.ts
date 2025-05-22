@@ -22,6 +22,8 @@ export class JSONRpc extends Route<
         return undefined;
     }
 
+    public onBlockChange(_blockNumber: bigint): void {}
+
     protected initialize(): void {}
 
     /**

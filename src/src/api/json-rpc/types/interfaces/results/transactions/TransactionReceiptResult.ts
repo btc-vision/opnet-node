@@ -9,6 +9,7 @@ export interface TransactionReceiptResultAPI {
 
     readonly revert?: string;
     readonly gasUsed: string;
+    readonly specialGasUsed: string;
 }
 
 export type TransactionReceiptResult = JSONRpc2ResultData<JSONRpcMethods.GET_TRANSACTION_RECEIPT> &

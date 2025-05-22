@@ -52,6 +52,8 @@ import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/par
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { init } from '@btc-vision/op-vm';
+import { StrippedTransactionInput } from '../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
+import { SpecialContract } from '../poa/configurations/types/SpecialContracts.js';
 
 Globals.register();
 
@@ -67,6 +69,19 @@ const SIMULATION_TRANSACTION_HASH = Buffer.from(
     '947d267bb393648af57e3a498b4cfa30f50e7b3263223b8077416f342133ec9c',
     'hex',
 );
+
+const SIMULATION_DEFAULT_INPUT_TX_HASH = Buffer.from(
+    '61e1ca05754b6990c56d8f0f06c33da411f086c5abae59572e63549361c8f5fc',
+    'hex',
+);
+
+const SIMULATION_DEFAULT_INPUT: StrippedTransactionInput = {
+    txId: SIMULATION_DEFAULT_INPUT_TX_HASH,
+    outputIndex: 0,
+    scriptSig: Buffer.alloc(0),
+    coinbase: undefined,
+    flags: 0,
+};
 
 export class VMManager extends Logger {
     public initiated: boolean = false;
@@ -141,10 +156,12 @@ export class VMManager extends Logger {
         }
     }
 
-    public async prepareBlock(blockId: bigint): Promise<void> {
-        await this.clear();
-
-        this.purgeAllContractInstances();
+    public prepareBlock(blockId: bigint): void {
+        if (this.blockState !== undefined) {
+            throw new Error(
+                `VM already processing an other block. (attempted to prepare: ${blockId})`,
+            );
+        }
 
         if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
             this.debug(`Preparing block ${blockId}...`);
@@ -157,12 +174,15 @@ export class VMManager extends Logger {
     }
 
     public async revertBlock(): Promise<void> {
-        if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.debug(`Reverting block ${this.vmBitcoinBlock.height}...`);
-        }
+        try {
+            if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                this.debug(`Reverting block ${this.vmBitcoinBlock.height}...`);
+            }
 
-        this.vmBitcoinBlock.revert();
-        await this.clear();
+            this.vmBitcoinBlock.revert();
+        } finally {
+            await this.onBlockCompleted();
+        }
     }
 
     public async terminateBlock(): Promise<void> {
@@ -177,7 +197,7 @@ export class VMManager extends Logger {
 
             throw e;
         } finally {
-            await this.clear();
+            await this.onBlockCompleted();
         }
     }
 
@@ -233,22 +253,17 @@ export class VMManager extends Logger {
                 blockHash = EMPTY_BUFFER;
             }
 
+            const specialSettings = OPNetConsensus.specialContract(contractAddress.toHex());
             const gasTracker = this.getGasTracker(
                 OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
                 0n,
+                specialSettings,
             );
 
             const inputs = transaction ? transaction.inputs : [];
             if (!inputs.length) {
                 // always add an input.
-                inputs.push({
-                    txId: Buffer.from(
-                        '61e1ca05754b6990c56d8f0f06c33da411f086c5abae59572e63549361c8f5fc',
-                        'hex',
-                    ),
-                    outputIndex: 0,
-                    scriptSig: Buffer.alloc(0),
-                });
+                inputs.push(SIMULATION_DEFAULT_INPUT);
             }
 
             // Get the contract evaluator
@@ -288,6 +303,7 @@ export class VMManager extends Logger {
 
                 accessList: accessList,
                 preloadStorageList: preloadList,
+                specialContract: specialSettings,
             };
 
             // Execute the function
@@ -342,7 +358,11 @@ export class VMManager extends Logger {
 
             // Trace the execution time
             const maxGas: bigint = this.calculateMaxGas(isSimulation, feeBitcoin, baseGas);
-            const gasTracker = this.getGasTracker(maxGas, 0n);
+            const gasTracker = this.getGasTracker(
+                maxGas,
+                0n,
+                interactionTransaction.specialSettings,
+            );
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
@@ -379,6 +399,7 @@ export class VMManager extends Logger {
                 serializedOutputs: undefined,
 
                 preloadStorageList: interactionTransaction.preloadStorageList,
+                specialContract: interactionTransaction.specialSettings,
             };
 
             const result: ContractEvaluation = await this.executeCallInternal(params);
@@ -445,7 +466,7 @@ export class VMManager extends Logger {
                 contractInformation,
             );
 
-            const gasTracker = this.getGasTracker(maxGas, 0n);
+            const gasTracker = this.getGasTracker(maxGas, 0n, undefined);
             const params: ExecutionParameters = {
                 contractAddressStr: contractDeploymentTransaction.contractAddress,
                 contractAddress: contractDeploymentTransaction.address,
@@ -481,6 +502,7 @@ export class VMManager extends Logger {
 
                 accessList: undefined,
                 preloadStorageList: contractDeploymentTransaction.preloadStorageList,
+                specialContract: undefined,
             };
 
             const execution = await vmEvaluator.run(params);
@@ -598,9 +620,19 @@ export class VMManager extends Logger {
         this.vmEvaluators.clear();
     }
 
-    private getGasTracker(maxGas: bigint, usedGas: bigint): GasTracker {
-        const gasTracker = new GasTracker(maxGas);
-        gasTracker.setGasUsed(usedGas);
+    private async onBlockCompleted(): Promise<void> {
+        this.purgeAllContractInstances();
+
+        await this.clear();
+    }
+
+    private getGasTracker(
+        maxGas: bigint,
+        usedGas: bigint,
+        specialSettings: SpecialContract | undefined,
+    ): GasTracker {
+        const gasTracker = new GasTracker(maxGas, specialSettings);
+        gasTracker.setGasUsed(usedGas, 0n, true);
 
         return gasTracker;
     }
@@ -709,6 +741,7 @@ export class VMManager extends Logger {
 
             accessList: params.accessList,
             preloadStorageList: params.preloadStorageList,
+            specialContract: params.specialContract,
         };
 
         // Execute the function

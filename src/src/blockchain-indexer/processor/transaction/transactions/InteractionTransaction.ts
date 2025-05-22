@@ -1,5 +1,4 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
-import { DataConverter } from '@btc-vision/bsi-db';
 import bitcoin, { initEccLib, networks, opcodes } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
 import { InteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
@@ -250,8 +249,6 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             wasCompressed: this.wasCompressed,
             receiptProofs: receiptProofs,
 
-            gasUsed: DataConverter.toDecimal128(this.gasUsed),
-
             receipt: receipt ? new Binary(receipt) : undefined,
             events: this.convertEvents(events),
         };
@@ -373,6 +370,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
 
         /** Decompress calldata if needed */
         this.decompressCalldata();
+        this.verifySpecialContract();
     }
 
     protected verifyContractAddress(type: string, pubKey: Buffer, contractAddress: Address): void {
@@ -431,6 +429,14 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         }
 
         return new Address(contractSecret);
+    }
+
+    private verifySpecialContract(): void {
+        if (!this._contractAddress) {
+            throw new Error(`Contract address not set for transaction ${this.txidHex}`);
+        }
+
+        this.specialSettings = OPNetConsensus.specialContract(this._contractAddress.toHex());
     }
 
     private decompressCalldata(): void {
