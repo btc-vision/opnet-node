@@ -93,7 +93,7 @@ export class TransactionOutput {
 
     public toStripped(): StrippedTransactionOutput | null {
         let flags: number = 0;
-        if (!this.scriptPubKey.address) {
+        if (this.scriptPubKey.address) {
             flags |= TransactionOutputFlags.hasTo;
         }
 
@@ -103,12 +103,6 @@ export class TransactionOutput {
             !this.scriptPubKey.address
         ) {
             flags |= TransactionOutputFlags.hasScriptPubKey;
-        }
-
-        // TODO: remove this for mainnet.
-        let to: string | undefined = this.scriptPubKey.address;
-        if (!OPNetConsensus.consensus.VM.UTXOS.WRITE_FLAGS && !to) {
-            to = this.scriptPubKey.hex;
         }
 
         // Handle OP_RETURN
@@ -133,7 +127,7 @@ export class TransactionOutput {
             index: this.index,
             flags: flags,
             scriptPubKey: this.scriptPubKeyBuffer,
-            to: to,
+            to: this.scriptPubKey.address,
         };
     }
 

@@ -169,14 +169,14 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
             /** The maximum outputs utxos to forward to a contract */
             MAXIMUM_OUTPUTS: 250,
 
-            WRITE_FLAGS: false,
+            WRITE_FLAGS: true,
 
             INPUTS: {
-                WRITE_COINBASE: false,
+                WRITE_COINBASE: true,
             },
 
             OUTPUTS: {
-                WRITE_SCRIPT_PUB_KEY: false,
+                WRITE_SCRIPT_PUB_KEY: true,
             },
 
             OP_RETURN: {
