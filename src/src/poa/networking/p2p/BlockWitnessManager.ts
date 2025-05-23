@@ -29,6 +29,7 @@ import {
 import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { ZERO_HASH } from '../../../blockchain-indexer/processor/block/types/ZeroValue.js';
+import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 
 interface ValidWitnesses {
     validTrustedWitnesses: OPNetBlockWitness[];
@@ -47,6 +48,7 @@ export class BlockWitnessManager extends Logger {
     private currentBlock: bigint = -1n;
 
     private blockWitnessRepository: BlockWitnessRepository | undefined;
+    private mempoolRepository: MempoolRepository | undefined;
     private blockHeaderRepository: BlockRepository | undefined;
     private knownTrustedWitnesses: Map<bigint, string[]> = new Map();
 
@@ -70,6 +72,15 @@ export class BlockWitnessManager extends Logger {
 
         this.blockWitnessRepository = new BlockWitnessRepository(DBManagerInstance.db);
         this.blockHeaderRepository = new BlockRepository(DBManagerInstance.db);
+        this.mempoolRepository = new MempoolRepository(DBManagerInstance.db);
+    }
+
+    public async hasTransactionInMempool(txId: string): Promise<boolean> {
+        if (!this.mempoolRepository) {
+            throw new Error('MempoolRepository not initialized.');
+        }
+
+        return await this.mempoolRepository.hasTransactionById(txId);
     }
 
     public async onBlockWitnessResponse(packet: ISyncBlockHeaderResponse): Promise<void> {

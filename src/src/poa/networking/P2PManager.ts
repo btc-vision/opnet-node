@@ -496,6 +496,12 @@ export class P2PManager extends Logger {
 
             this.knownMempoolIdentifiers.add(txHash);
 
+            const hasInDB = await this.blockWitnessManager.hasTransactionInMempool(txHash);
+            if (hasInDB) {
+                this.warn(`Transaction ${txHash} already broadcasted. (in db)`);
+                return;
+            }
+
             const verifiedTransaction = await this.verifyOPNetTransaction(
                 tx.transaction,
                 tx.psbt,
