@@ -89,7 +89,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         GAS_PENALTY_FACTOR: 1n,
 
         /** Target block gas limit, a transaction can not pass this limit. */
-        TARGET_GAS: 10_000_000_000_000n, // 0.1 BTC.
+        TARGET_GAS: 4_500_000_000_000n, // 0.025 BTC.
 
         /** Smooth out gas increase when equal to gas target. */
         SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
@@ -98,7 +98,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
          */
-        MAX_THEORETICAL_GAS: 15_000_000_000_000n, // 0.15 BTC
+        MAX_THEORETICAL_GAS: 5_000_000_000_000n, // 0.05 BTC
 
         /** Max gas per transactions */
         TRANSACTION_MAX_GAS: 2_550_000_000_000n, // 0.025 BTC.
