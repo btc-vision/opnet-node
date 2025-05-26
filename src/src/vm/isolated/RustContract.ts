@@ -1,7 +1,7 @@
 import { BitcoinNetworkRequest, ContractManager, ExitDataResponse, init } from '@btc-vision/op-vm';
 import { BinaryWriter } from '@btc-vision/transaction';
-import { RustContractBinding } from './RustContractBindings.js';
 import { Blockchain, ENABLE_BUFFER_AS_STRING } from '../Blockchain.js';
+import { RustContractBinding } from './RustContractBindings.js';
 
 init();
 
@@ -27,7 +27,7 @@ export interface EnvironmentVariablesRequestRaw {
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
 
-    readonly bytecode: Buffer;
+    readonly bytecode: Uint8Array;
     readonly gasMax: bigint;
     readonly gasUsed: bigint;
     readonly memoryPagesUsed: bigint;
@@ -156,12 +156,12 @@ export class RustContract {
         if (this._id == null) throw new Error('Contract is not instantiated');
         if (this._instantiated) return;
 
-        const bytes = Buffer.copyBytesFrom(this.params.bytecode);
-
         this.contractManager.instantiate(
             BigInt(this._id.toString()),
             String(this.params.address),
-            ENABLE_BUFFER_AS_STRING ? bytes.toString('hex') : bytes,
+            ENABLE_BUFFER_AS_STRING
+                ? Buffer.from(this.params.bytecode).toString('hex')
+                : this.params.bytecode,
             BigInt(this.params.gasUsed.toString()),
             BigInt(this.params.gasMax.toString()),
             BigInt(this.params.memoryPagesUsed.toString()),
@@ -206,13 +206,11 @@ export class RustContract {
         }
     }
 
-    public async execute(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponseRaw>> {
+    public async execute(calldata: Uint8Array): Promise<Readonly<ExitDataResponseRaw>> {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
-            const calldataAsBuf: Buffer = Buffer.copyBytesFrom(calldata);
-            const call = ENABLE_BUFFER_AS_STRING ? calldataAsBuf.toString('hex') : calldataAsBuf;
-            const result = await this.contractManager.execute(this.id, call);
+            const result = await this.contractManager.execute(this.id, calldata);
 
             return this.toReadonlyObject(result);
         } catch (e) {

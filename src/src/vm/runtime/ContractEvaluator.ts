@@ -61,7 +61,7 @@ export class ContractEvaluator extends Logger {
     private deployerAddress: Address | undefined;
     private contractAddress: Address | undefined;
 
-    private bytecode: Buffer | undefined;
+    private bytecode: Uint8Array | undefined;
 
     constructor(private readonly network: Network) {
         super();
@@ -129,7 +129,7 @@ export class ContractEvaluator extends Logger {
         // We use pub the pub key as the deployer address.
         this.deployerAddress = contractInformation.deployerAddress;
         this.contractAddress = contractInformation.contractTweakedPublicKey;
-        this.bytecode = contractInformation.bytecode;
+        this.bytecode = Uint8Array.from(contractInformation.bytecode);
     }
 
     public delete(): void {
