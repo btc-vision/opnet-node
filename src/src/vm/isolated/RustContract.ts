@@ -1,6 +1,6 @@
 import { BitcoinNetworkRequest, ContractManager, ExitDataResponse, init } from '@btc-vision/op-vm';
 import { BinaryWriter } from '@btc-vision/transaction';
-import { RustContractBinding } from './RustContractBindings';
+import { RustContractBinding } from './RustContractBindings.js';
 import { Blockchain, ENABLE_BUFFER_AS_STRING } from '../Blockchain.js';
 
 init();
@@ -236,42 +236,43 @@ export class RustContract {
                             ? Buffer.copyBytesFrom(environmentVariables.blockHash).toString('hex')
                             : Buffer.copyBytesFrom(
                                   environmentVariables.blockHash,
-                              )) as unknown as string,
+                              )) as unknown as Buffer,
                         txId: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.txId).toString('hex')
-                            : Buffer.copyBytesFrom(environmentVariables.txId)) as unknown as string,
+                            : Buffer.copyBytesFrom(environmentVariables.txId)) as unknown as Buffer,
                         txHash: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.txHash).toString('hex')
                             : Buffer.copyBytesFrom(
                                   environmentVariables.txHash,
-                              )) as unknown as string,
+                              )) as unknown as Buffer,
                         contractAddress: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.contractAddress).toString(
                                   'hex',
                               )
                             : Buffer.copyBytesFrom(
                                   environmentVariables.contractAddress,
-                              )) as unknown as string,
+                              )) as unknown as Buffer,
                         contractDeployer: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.contractDeployer).toString(
                                   'hex',
                               )
                             : Buffer.copyBytesFrom(
                                   environmentVariables.contractDeployer,
-                              )) as unknown as string,
+                              )) as unknown as Buffer,
                         caller: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.caller).toString('hex')
                             : Buffer.copyBytesFrom(
                                   environmentVariables.caller,
-                              )) as unknown as string,
+                              )) as unknown as Buffer,
                         origin: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.origin).toString('hex')
                             : Buffer.copyBytesFrom(
                                   environmentVariables.origin,
-                              )) as unknown as string,
+                              )) as unknown as Buffer,
                     }),
                 ),
             );
+
             this.contractManager.setEnvironmentVariables(this.id, params);
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);

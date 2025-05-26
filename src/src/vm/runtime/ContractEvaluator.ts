@@ -627,7 +627,7 @@ export class ContractEvaluator extends Logger {
         }
 
         return {
-            blockHash: (ENABLE_BUFFER_AS_STRING ? blockHash.toString('hex') : blockHash) as string,
+            blockHash: (ENABLE_BUFFER_AS_STRING ? blockHash.toString('hex') : blockHash) as Buffer,
             isBlockWarm: false,
         };
     }
@@ -657,10 +657,10 @@ export class ContractEvaluator extends Logger {
             memoryPagesUsed: evaluation.memoryPagesUsed,
             isDebugMode: enableDebug,
             returnProofs: false,
-            tLoad: async (data: Buffer): Promise<Buffer | string> => {
+            tLoad: async (_data: Buffer): Promise<Buffer | string> => {
                 throw new Error('OP_NET: tLoad is not supported in OP_NET');
             },
-            tStore: async (data: Buffer): Promise<Buffer | string> => {
+            tStore: async (_data: Buffer): Promise<Buffer | string> => {
                 throw new Error('OP_NET: tStore is not supported in OP_NET');
             },
             accountType: async (data: Buffer): Promise<AccountTypeResponse> => {

@@ -8,7 +8,7 @@ import {
 } from '@btc-vision/op-vm';
 
 // https://github.com/nodejs/node/issues/55706#issuecomment-2907895374
-export const ENABLE_BUFFER_AS_STRING: boolean = true;
+export const ENABLE_BUFFER_AS_STRING: boolean = false;
 
 class BlockchainBase {
     private readonly bindings: Map<bigint, RustContractBinding> = new Map<
@@ -66,7 +66,7 @@ class BlockchainBase {
         this.bindings.clear();
     }
 
-    private decodeBuffer(input: Buffer | string): Buffer {
+    private decodeBuffer(input: number[] | string): Buffer {
         if (ENABLE_BUFFER_AS_STRING) {
             if (typeof input !== 'string') {
                 throw new Error('Input is not a string');
