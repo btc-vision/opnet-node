@@ -2,10 +2,13 @@ import { RustContractBinding } from './isolated/RustContractBindings.js';
 import {
     AccountTypeResponse,
     BlockHashRequest,
+    BlockHashResponse,
     ContractManager,
     ThreadSafeJsImportResponse,
 } from '@btc-vision/op-vm';
-import { Config } from '../config/Config.js';
+
+// https://github.com/nodejs/node/issues/55706#issuecomment-2907895374
+export const ENABLE_BUFFER_AS_STRING: boolean = true;
 
 class BlockchainBase {
     private readonly bindings: Map<bigint, RustContractBinding> = new Map<
@@ -63,183 +66,200 @@ class BlockchainBase {
         this.bindings.clear();
     }
 
-    private blockHashJSFunction: (
-        _: never,
-        result: BlockHashRequest,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: BlockHashRequest,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('BLOCK HASH', value.blockNumber);
+    private decodeBuffer(input: Buffer | string): Buffer {
+        if (ENABLE_BUFFER_AS_STRING) {
+            if (typeof input !== 'string') {
+                throw new Error('Input is not a string');
+            }
 
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-        if (!c) {
-            throw new Error('Binding not found');
+            return Buffer.from(input, 'hex');
+        } else {
+            if (typeof input === 'string') {
+                throw new Error('Input is a string');
+            } else {
+                const u = new Uint8Array(input);
+                return Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+            }
         }
+    }
 
-        return c.blockHash(value.blockNumber);
-    };
-
-    private accountTypeJSFunction: (
-        _: never,
+    private loadJsFunction: (
+        err: Error,
         result: ThreadSafeJsImportResponse,
-    ) => Promise<AccountTypeResponse> = (
-        _: never,
+    ) => Promise<Buffer | string> = (
+        err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<AccountTypeResponse> => {
-        if (this.enableDebug) console.log('ACCOUNT TYPE', value.buffer);
+    ): Promise<Buffer | string> => {
+        if (err) throw new Error(`Fatal error: ${err?.message}`);
+        if (this.enableDebug) console.log('LOAD', value);
 
-        const buf = Buffer.from(Array.from(value.buffer));
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
             throw new Error('Binding not found');
         }
 
-        return c.accountType(buf);
+        return c.load(this.decodeBuffer(value.buffer));
     };
 
-    private logJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
-        _: never,
+    private storeJSFunction: (
+        err: Error,
+        result: ThreadSafeJsImportResponse,
+    ) => Promise<Buffer | string> = (
+        err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<void> => {
-        return new Promise((resolve) => {
-            if (Config.DEV.ENABLE_CONTRACT_DEBUG) {
-                const buf = Buffer.from(Array.from(value.buffer));
+    ): Promise<Buffer | string> => {
+        if (err) throw new Error(`Fatal error: ${err?.message}`);
+        if (this.enableDebug) console.log('STORE', value);
+
+        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+        if (!c) {
+            throw new Error('Binding not found');
+        }
+
+        return c.store(this.decodeBuffer(value.buffer));
+    };
+
+    private callJSFunction: (
+        err: Error,
+        result: ThreadSafeJsImportResponse,
+    ) => Promise<Buffer | string> = (
+        err: Error,
+        value: ThreadSafeJsImportResponse,
+    ): Promise<Buffer | string> => {
+        if (err) throw new Error(`Fatal error: ${err?.message}`);
+        if (this.enableDebug) console.log('CALL', value);
+
+        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+        if (!c) {
+            throw new Error('Binding not found');
+        }
+
+        return c.call(this.decodeBuffer(value.buffer));
+    };
+
+    private deployContractAtAddressJSFunction: (
+        err: Error,
+        result: ThreadSafeJsImportResponse,
+    ) => Promise<Buffer | string> = (
+        err: Error,
+        value: ThreadSafeJsImportResponse,
+    ): Promise<Buffer | string> => {
+        if (err) throw new Error(`Fatal error: ${err?.message}`);
+        if (this.enableDebug) console.log('DEPLOY', value);
+
+        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+        if (!c) {
+            throw new Error('Binding not found');
+        }
+
+        return c.deployContractAtAddress(this.decodeBuffer(value.buffer));
+    };
+
+    private logJSFunction: (err: Error, result: ThreadSafeJsImportResponse) => Promise<undefined> =
+        (err: Error, value: ThreadSafeJsImportResponse): Promise<undefined> => {
+            return new Promise((resolve) => {
+                if (this.enableDebug) console.log('LOG', value);
+                if (err) throw new Error(`Fatal error: ${err?.message}`);
+
                 const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
                 if (!c) {
                     throw new Error('Binding not found');
                 }
 
-                c.log(buf);
+                c.log(this.decodeBuffer(value.buffer));
 
-                resolve();
-            } else {
-                resolve();
-            }
-        });
-    };
+                resolve(undefined);
+            });
+        };
 
-    private emitJSFunction: (_: never, result: ThreadSafeJsImportResponse) => Promise<void> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<void> => {
-        return new Promise<void>((resolve) => {
-            const buf = Buffer.from(Array.from(value.buffer));
-            const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-            if (!c) {
-                throw new Error('Binding not found');
-            }
+    private emitJSFunction: (err: Error, result: ThreadSafeJsImportResponse) => Promise<undefined> =
+        (err: Error, value: ThreadSafeJsImportResponse): Promise<undefined> => {
+            return new Promise<undefined>((resolve) => {
+                if (this.enableDebug) console.log('EMIT', value);
+                if (err) throw new Error(`Fatal error: ${err?.message}`);
 
-            c.emit(buf);
+                const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+                if (!c) {
+                    throw new Error('Binding not found');
+                }
 
-            resolve();
-        });
-    };
+                c.emit(this.decodeBuffer(value.buffer));
+
+                resolve(undefined);
+            });
+        };
 
     private inputsJSFunction: (
-        _: never,
+        err: Error,
         result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
+    ) => Promise<Buffer | string> = (
+        err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
+    ): Promise<Buffer | string> => {
+        if (err) throw new Error(`Fatal error: ${err?.message}`);
         if (this.enableDebug) console.log('INPUTS', value);
 
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
-            throw new Error('Binding not found (inputs)');
+            throw new Error('Binding not found');
         }
 
         return c.inputs();
     };
 
     private outputsJSFunction: (
-        _: never,
+        err: Error,
         result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
+    ) => Promise<Buffer | string> = (
+        err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
+    ): Promise<Buffer | string> => {
+        if (err) throw new Error(`Fatal error: ${err?.message}`);
         if (this.enableDebug) console.log('OUTPUT', value);
 
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
-            throw new Error('Binding not found (outputs)');
+            throw new Error('Binding not found');
         }
 
         return c.outputs();
     };
 
-    private loadJsFunction: (
-        _: never,
+    private accountTypeJSFunction: (
+        err: Error,
         result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
+    ) => Promise<AccountTypeResponse> = (
+        err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('LOAD', value.buffer);
+    ): Promise<AccountTypeResponse> => {
+        if (err) throw new Error(`Fatal error: ${err?.message}`);
+        if (this.enableDebug) console.log('ACCOUNT TYPE', value);
 
-        const buf = Buffer.from(Array.from(value.buffer));
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
-            throw new Error('Binding not found (load)');
+            throw new Error('Binding not found');
         }
 
-        return c.load(buf);
+        return c.accountType(this.decodeBuffer(value.buffer));
     };
 
-    private storeJSFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('STORE', value.buffer);
+    private blockHashJSFunction: (
+        err: Error,
+        result: BlockHashRequest,
+    ) => Promise<BlockHashResponse> = (
+        err: Error,
+        value: BlockHashRequest,
+    ): Promise<BlockHashResponse> => {
+        if (err) throw new Error(`Fatal error: ${err?.message}`);
+        if (this.enableDebug) console.log('BLOCK HASH', value);
 
-        const buf = Buffer.from(Array.from(value.buffer));
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+
         if (!c) {
-            throw new Error('Binding not found (store)');
+            throw new Error('Binding not found');
         }
 
-        return c.store(buf);
-    };
-
-    private callJSFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('CALL', value.buffer);
-
-        const buf = Buffer.from(Array.from(value.buffer));
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-        if (!c) {
-            throw new Error('Binding not found (call)');
-        }
-
-        return c.call(buf);
-    };
-
-    private deployContractAtAddressJSFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('DEPLOY', value.buffer);
-
-        const buf = Buffer.from(Array.from(value.buffer));
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
-        if (!c) {
-            throw new Error('Binding not found (deploy)');
-        }
-
-        return c.deployContractAtAddress(buf);
+        return c.blockHash(value.blockNumber);
     };
 }
 

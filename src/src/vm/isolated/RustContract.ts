@@ -3,10 +3,20 @@ import {
     ContractManager,
     EnvironmentVariablesRequest,
     ExitDataResponse,
+    init,
 } from '@btc-vision/op-vm';
-import { Blockchain } from '../Blockchain.js';
-import { RustContractBinding } from './RustContractBindings.js';
 import { BinaryWriter } from '@btc-vision/transaction';
+import { RustContractBinding } from './RustContractBindings.js';
+import { Blockchain, ENABLE_BUFFER_AS_STRING } from '../Blockchain.js';
+
+init();
+
+export interface ExitDataResponseRaw {
+    status: number;
+    data: Buffer;
+    gasUsed: bigint;
+    proofs: Array<{ proof: Buffer; vk: Buffer }>;
+}
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -17,6 +27,7 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly memoryPagesUsed: bigint;
     readonly network: BitcoinNetworkRequest;
     readonly isDebugMode: boolean;
+    readonly returnProofs: boolean;
 
     readonly contractManager: ContractManager;
 }
@@ -42,12 +53,14 @@ export class RustContract {
         }
 
         if (this._id == null) {
-            this._id = BigInt(this.contractManager.reserveId().toString());
+            this._id = this.contractManager.reserveId();
 
             Blockchain.registerBinding({
                 id: this._id,
                 load: this.params.load,
                 store: this.params.store,
+                tLoad: this.params.tLoad,
+                tStore: this.params.tStore,
                 call: this.params.call,
                 deployContractAtAddress: this.params.deployContractAtAddress,
                 log: this.params.log,
@@ -61,7 +74,7 @@ export class RustContract {
             this.instantiate();
         }
 
-        return BigInt(this._id.toString());
+        return this._id;
     }
 
     private _instantiated: boolean = false;
@@ -96,7 +109,7 @@ export class RustContract {
         return errorWriter.getBuffer();
     }
 
-    public static decodeRevertData(revertDataBytes: Uint8Array | Buffer): Error {
+    public static decodeRevertData(revertDataBytes: Uint8Array): Error {
         if (RustContract.startsWithErrorSelector(revertDataBytes)) {
             const decoder = new TextDecoder();
             const revertMessage = decoder.decode(revertDataBytes.slice(6));
@@ -146,7 +159,7 @@ export class RustContract {
             BigInt(this.params.memoryPagesUsed.toString()),
             Number(this.params.network),
             Boolean(this.params.isDebugMode),
-            false,
+            this.params.returnProofs,
         );
 
         this._instantiated = true;
@@ -185,7 +198,7 @@ export class RustContract {
         }
     }
 
-    public async execute(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponse>> {
+    public async execute(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponseRaw>> {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
@@ -239,7 +252,7 @@ export class RustContract {
         }
     }
 
-    public async onDeploy(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponse>> {
+    public async onDeploy(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponseRaw>> {
         if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
@@ -259,7 +272,7 @@ export class RustContract {
 
     public getRevertError(): Error {
         const revertInfo = this.contractManager.getExitData(this.id);
-        const revertData = Buffer.copyBytesFrom(revertInfo.data);
+        const revertData = this.copyBuffer(revertInfo.data);
 
         try {
             this.dispose();
@@ -278,24 +291,30 @@ export class RustContract {
                 return this.gasUsed;
             }
 
-            return BigInt(this.contractManager.getUsedGas(this.id).toString());
+            return this.contractManager.getUsedGas(this.id);
         } catch (e) {
             const error = e as Error;
             throw this.getError(error);
         }
     }
 
-    private toReadonlyObject(result: ExitDataResponse): Readonly<ExitDataResponse> {
+    private copyBuffer(input: Buffer | string): Buffer {
+        return ENABLE_BUFFER_AS_STRING
+            ? Buffer.from(input as string, 'hex')
+            : Buffer.copyBytesFrom(input as Buffer);
+    }
+
+    private toReadonlyObject(result: ExitDataResponse): Readonly<ExitDataResponseRaw> {
         return Object.preventExtensions(
             Object.freeze(
                 Object.seal({
                     status: Number(result.status),
-                    data: Buffer.copyBytesFrom(result.data),
+                    data: this.copyBuffer(result.data),
                     gasUsed: BigInt(result.gasUsed.toString()),
                     proofs: result.proofs.map((proof) => {
                         return {
-                            proof: Buffer.copyBytesFrom(proof.proof),
-                            vk: Buffer.copyBytesFrom(proof.vk),
+                            proof: this.copyBuffer(proof.proof),
+                            vk: this.copyBuffer(proof.vk),
                         };
                     }),
                 }),
