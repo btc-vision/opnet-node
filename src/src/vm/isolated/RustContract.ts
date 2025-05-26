@@ -1,12 +1,6 @@
-import {
-    BitcoinNetworkRequest,
-    ContractManager,
-    EnvironmentVariablesRequest,
-    ExitDataResponse,
-    init,
-} from '@btc-vision/op-vm';
+import { BitcoinNetworkRequest, ContractManager, ExitDataResponse, init } from '@btc-vision/op-vm';
 import { BinaryWriter } from '@btc-vision/transaction';
-import { RustContractBinding } from './RustContractBindings.js';
+import { RustContractBinding } from './RustContractBindings';
 import { Blockchain, ENABLE_BUFFER_AS_STRING } from '../Blockchain.js';
 
 init();
@@ -16,6 +10,18 @@ export interface ExitDataResponseRaw {
     data: Buffer;
     gasUsed: bigint;
     proofs: Array<{ proof: Buffer; vk: Buffer }>;
+}
+
+export interface EnvironmentVariablesRequestRaw {
+    blockHash: Uint8Array;
+    blockNumber: bigint;
+    blockMedianTime: bigint;
+    txId: Uint8Array;
+    txHash: Uint8Array;
+    contractAddress: Uint8Array;
+    contractDeployer: Uint8Array;
+    caller: Uint8Array;
+    origin: Uint8Array;
 }
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
@@ -150,10 +156,12 @@ export class RustContract {
         if (this._id == null) throw new Error('Contract is not instantiated');
         if (this._instantiated) return;
 
+        const bytes = Buffer.copyBytesFrom(this.params.bytecode);
+
         this.contractManager.instantiate(
             BigInt(this._id.toString()),
             String(this.params.address),
-            Buffer.copyBytesFrom(this.params.bytecode),
+            ENABLE_BUFFER_AS_STRING ? bytes.toString('hex') : bytes,
             BigInt(this.params.gasUsed.toString()),
             BigInt(this.params.gasMax.toString()),
             BigInt(this.params.memoryPagesUsed.toString()),
@@ -202,10 +210,9 @@ export class RustContract {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
-            const result = await this.contractManager.execute(
-                this.id,
-                Buffer.copyBytesFrom(calldata),
-            );
+            const calldataAsBuf: Buffer = Buffer.copyBytesFrom(calldata);
+            const call = ENABLE_BUFFER_AS_STRING ? calldataAsBuf.toString('hex') : calldataAsBuf;
+            const result = await this.contractManager.execute(this.id, call);
 
             return this.toReadonlyObject(result);
         } catch (e) {
@@ -216,34 +223,56 @@ export class RustContract {
         }
     }
 
-    public setEnvironment(environmentVariables: EnvironmentVariablesRequest): void {
+    public setEnvironment(environmentVariables: EnvironmentVariablesRequestRaw): void {
         if (this.enableDebug) console.log('Setting environment', environmentVariables);
 
         try {
-            this.contractManager.setEnvironmentVariables(
-                this.id,
-                Object.preventExtensions(
-                    Object.freeze(
-                        Object.seal({
-                            blockNumber: BigInt(environmentVariables.blockNumber.toString()),
-                            blockMedianTime: BigInt(
-                                environmentVariables.blockMedianTime.toString(),
-                            ),
-                            blockHash: Buffer.copyBytesFrom(environmentVariables.blockHash),
-                            txId: Buffer.copyBytesFrom(environmentVariables.txId),
-                            txHash: Buffer.copyBytesFrom(environmentVariables.txHash),
-                            contractAddress: Buffer.copyBytesFrom(
-                                environmentVariables.contractAddress,
-                            ),
-                            contractDeployer: Buffer.copyBytesFrom(
-                                environmentVariables.contractDeployer,
-                            ),
-                            caller: Buffer.copyBytesFrom(environmentVariables.caller),
-                            origin: Buffer.copyBytesFrom(environmentVariables.origin),
-                        }),
-                    ),
+            const params = Object.preventExtensions(
+                Object.freeze(
+                    Object.seal({
+                        blockNumber: BigInt(environmentVariables.blockNumber.toString()),
+                        blockMedianTime: BigInt(environmentVariables.blockMedianTime.toString()),
+                        blockHash: (ENABLE_BUFFER_AS_STRING
+                            ? Buffer.copyBytesFrom(environmentVariables.blockHash).toString('hex')
+                            : Buffer.copyBytesFrom(
+                                  environmentVariables.blockHash,
+                              )) as unknown as string,
+                        txId: (ENABLE_BUFFER_AS_STRING
+                            ? Buffer.copyBytesFrom(environmentVariables.txId).toString('hex')
+                            : Buffer.copyBytesFrom(environmentVariables.txId)) as unknown as string,
+                        txHash: (ENABLE_BUFFER_AS_STRING
+                            ? Buffer.copyBytesFrom(environmentVariables.txHash).toString('hex')
+                            : Buffer.copyBytesFrom(
+                                  environmentVariables.txHash,
+                              )) as unknown as string,
+                        contractAddress: (ENABLE_BUFFER_AS_STRING
+                            ? Buffer.copyBytesFrom(environmentVariables.contractAddress).toString(
+                                  'hex',
+                              )
+                            : Buffer.copyBytesFrom(
+                                  environmentVariables.contractAddress,
+                              )) as unknown as string,
+                        contractDeployer: (ENABLE_BUFFER_AS_STRING
+                            ? Buffer.copyBytesFrom(environmentVariables.contractDeployer).toString(
+                                  'hex',
+                              )
+                            : Buffer.copyBytesFrom(
+                                  environmentVariables.contractDeployer,
+                              )) as unknown as string,
+                        caller: (ENABLE_BUFFER_AS_STRING
+                            ? Buffer.copyBytesFrom(environmentVariables.caller).toString('hex')
+                            : Buffer.copyBytesFrom(
+                                  environmentVariables.caller,
+                              )) as unknown as string,
+                        origin: (ENABLE_BUFFER_AS_STRING
+                            ? Buffer.copyBytesFrom(environmentVariables.origin).toString('hex')
+                            : Buffer.copyBytesFrom(
+                                  environmentVariables.origin,
+                              )) as unknown as string,
+                    }),
                 ),
             );
+            this.contractManager.setEnvironmentVariables(this.id, params);
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
 
@@ -256,10 +285,9 @@ export class RustContract {
         if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
-            const result = await this.contractManager.onDeploy(
-                this.id,
-                Buffer.copyBytesFrom(calldata),
-            );
+            const calldataAsBuf: Buffer = Buffer.copyBytesFrom(calldata);
+            const call = ENABLE_BUFFER_AS_STRING ? calldataAsBuf.toString('hex') : calldataAsBuf;
+            const result = await this.contractManager.onDeploy(this.id, call);
 
             return this.toReadonlyObject(result);
         } catch (e) {

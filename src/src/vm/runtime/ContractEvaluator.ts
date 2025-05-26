@@ -19,13 +19,13 @@ import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { Network, networks } from '@btc-vision/bitcoin';
-import { ContractParameters, RustContract } from '../isolated/RustContract.js';
-import { Blockchain } from '../Blockchain.js';
+import { ContractParameters, ExitDataResponseRaw, RustContract } from '../isolated/RustContract.js';
+import { Blockchain, ENABLE_BUFFER_AS_STRING } from '../Blockchain.js';
 import { Config } from '../../config/Config.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import {
     AccountTypeResponse,
-    ExitDataResponse,
+    BlockHashResponse,
     NEW_STORAGE_SLOT_GAS_COST,
     UPDATED_STORAGE_SLOT_GAS_COST,
 } from '@btc-vision/op-vm';
@@ -620,13 +620,16 @@ export class ContractEvaluator extends Logger {
         };
     }
 
-    private async getBlockHashImport(blockNumber: bigint): Promise<Buffer> {
+    private async getBlockHashImport(blockNumber: bigint): Promise<BlockHashResponse> {
         const blockHash = await this.getBlockHashForBlockNumber(blockNumber);
         if (!blockHash) {
             throw new Error('OP_NET: Unable to get block hash');
         }
 
-        return blockHash;
+        return {
+            blockHash: (ENABLE_BUFFER_AS_STRING ? blockHash.toString('hex') : blockHash) as string,
+            isBlockWarm: false,
+        };
     }
 
     private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {
@@ -653,27 +656,42 @@ export class ContractEvaluator extends Logger {
             gasMax: evaluation.maxGasVM,
             memoryPagesUsed: evaluation.memoryPagesUsed,
             isDebugMode: enableDebug,
+            returnProofs: false,
+            tLoad: async (data: Buffer): Promise<Buffer | string> => {
+                throw new Error('OP_NET: tLoad is not supported in OP_NET');
+            },
+            tStore: async (data: Buffer): Promise<Buffer | string> => {
+                throw new Error('OP_NET: tStore is not supported in OP_NET');
+            },
             accountType: async (data: Buffer): Promise<AccountTypeResponse> => {
                 return await this.getAccountType(data, evaluation);
             },
-            blockHash: async (blockNumber: bigint): Promise<Buffer> => {
+            blockHash: async (blockNumber: bigint): Promise<BlockHashResponse> => {
                 return await this.getBlockHashImport(blockNumber);
             },
-            load: async (data: Buffer) => {
-                return await this.load(data, evaluation);
-            },
-            store: (data: Buffer) => {
-                return new Promise<Buffer | Uint8Array>((resolve) => {
-                    const resp = this.store(data, evaluation);
+            load: async (data: Buffer): Promise<string | Buffer> => {
+                const resp = Buffer.copyBytesFrom(await this.load(data, evaluation));
 
-                    resolve(resp);
+                return ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp;
+            },
+            store: (data: Buffer): Promise<string | Buffer> => {
+                return new Promise<Buffer | string>((resolve) => {
+                    const resp = Buffer.copyBytesFrom(this.store(data, evaluation));
+
+                    resolve(ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp);
                 });
             },
             call: async (data: Buffer) => {
-                return await this.call(data, evaluation);
+                const resp = Buffer.copyBytesFrom(await this.call(data, evaluation));
+
+                return ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp;
             },
             deployContractAtAddress: async (data: Buffer) => {
-                return await this.deployContractFromAddressRaw(data, evaluation);
+                const resp = Buffer.copyBytesFrom(
+                    await this.deployContractFromAddressRaw(data, evaluation),
+                );
+
+                return ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp;
             },
             log: (buffer: Buffer) => {
                 this.onDebug(buffer);
@@ -681,11 +699,15 @@ export class ContractEvaluator extends Logger {
             emit: (buffer: Buffer) => {
                 this.onEvent(buffer, evaluation);
             },
-            inputs: () => {
-                return this.onInputsRequested(evaluation);
+            inputs: async () => {
+                const resp = Buffer.copyBytesFrom(await this.onInputsRequested(evaluation));
+
+                return ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp;
             },
-            outputs: () => {
-                return this.onOutputsRequested(evaluation);
+            outputs: async () => {
+                const resp = Buffer.copyBytesFrom(await this.onOutputsRequested(evaluation));
+
+                return ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp;
             },
         };
     }
@@ -720,8 +742,10 @@ export class ContractEvaluator extends Logger {
         return this.getStorage(address, pointer, blockNumber, doNotLoad);
     }
 
-    private async execute(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
-        let result: ExitDataResponse | undefined;
+    private async execute(
+        evaluation: ContractEvaluation,
+    ): Promise<ExitDataResponseRaw | undefined> {
+        let result: ExitDataResponseRaw | undefined;
         let error: Error | undefined;
 
         try {
@@ -733,9 +757,11 @@ export class ContractEvaluator extends Logger {
         return this.onExecutionResult(evaluation, result, error);
     }
 
-    private async onDeploy(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
+    private async onDeploy(
+        evaluation: ContractEvaluation,
+    ): Promise<ExitDataResponseRaw | undefined> {
         let error: Error | undefined;
-        let result: ExitDataResponse | undefined;
+        let result: ExitDataResponseRaw | undefined;
 
         try {
             result = await this.contractInstance.onDeploy(evaluation.calldata);
@@ -748,9 +774,9 @@ export class ContractEvaluator extends Logger {
 
     private onExecutionResult(
         evaluation: ContractEvaluation,
-        result: ExitDataResponse | undefined,
+        result: ExitDataResponseRaw | undefined,
         error: Error | undefined,
-    ): ExitDataResponse | undefined {
+    ): ExitDataResponseRaw | undefined {
         if (!result) {
             try {
                 evaluation.setGasUsed(this.contractInstance.getUsedGas());
@@ -778,7 +804,7 @@ export class ContractEvaluator extends Logger {
     }
 
     private processResult(
-        result: ExitDataResponse,
+        result: ExitDataResponseRaw,
         error: Error | undefined,
         evaluation: ContractEvaluation,
     ): void {
