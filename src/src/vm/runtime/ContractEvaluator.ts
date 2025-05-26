@@ -322,7 +322,7 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Load a pointer */
-    private async load(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private async load(data: Uint8Array, evaluation: ContractEvaluation): Promise<Uint8Array> {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
@@ -343,7 +343,7 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Store a pointer */
-    private store(data: Buffer, evaluation: ContractEvaluation): Buffer | Uint8Array {
+    private store(data: Uint8Array, evaluation: ContractEvaluation): Uint8Array {
         const reader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
         const value: bigint = reader.readU256();
@@ -354,7 +354,7 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Call a contract */
-    private async call(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private async call(data: Uint8Array, evaluation: ContractEvaluation): Promise<Uint8Array> {
         let gasUsed: bigint = evaluation.gasUsed;
 
         try {
@@ -486,9 +486,9 @@ export class ContractEvaluator extends Logger {
     }
 
     private async deployContractFromAddressRaw(
-        data: Buffer,
+        data: Uint8Array,
         evaluation: ContractEvaluation,
-    ): Promise<Buffer | Uint8Array> {
+    ): Promise<Uint8Array> {
         let usedGas: bigint = evaluation.gasUsed;
 
         try {
@@ -572,14 +572,14 @@ export class ContractEvaluator extends Logger {
         return writer.getBuffer();
     }
 
-    private onDebug(buffer: Buffer): void {
+    private onDebug(buffer: Uint8Array): void {
         const reader = new BinaryReader(buffer);
         const logData = reader.readString(buffer.byteLength);
 
         this.warn(`Contract log: ${logData}`);
     }
 
-    private onEvent(data: Buffer, evaluation: ContractEvaluation): void {
+    private onEvent(data: Uint8Array, evaluation: ContractEvaluation): void {
         const reader = new BinaryReader(data);
         const eventName = reader.readStringWithLength();
         const eventData = reader.readBytesWithLength();
@@ -588,16 +588,16 @@ export class ContractEvaluator extends Logger {
         evaluation.emitEvent(event);
     }
 
-    private onInputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private onInputsRequested(evaluation: ContractEvaluation): Promise<Uint8Array> {
         return Promise.resolve(evaluation.getSerializeInputUTXOs());
     }
 
-    private onOutputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private onOutputsRequested(evaluation: ContractEvaluation): Promise<Uint8Array> {
         return Promise.resolve(evaluation.getSerializeOutputUTXOs());
     }
 
     private async getAccountType(
-        data: Buffer,
+        data: Uint8Array,
         evaluation: ContractEvaluation,
     ): Promise<AccountTypeResponse> {
         const reader = new BinaryReader(data);
@@ -657,57 +657,55 @@ export class ContractEvaluator extends Logger {
             memoryPagesUsed: evaluation.memoryPagesUsed,
             isDebugMode: enableDebug,
             returnProofs: false,
-            tLoad: async (_data: Buffer): Promise<Buffer | string> => {
+            tLoad: async (_data: Uint8Array): Promise<Uint8Array | string> => {
                 throw new Error('OP_NET: tLoad is not supported in OP_NET');
             },
-            tStore: async (_data: Buffer): Promise<Buffer | string> => {
+            tStore: async (_data: Uint8Array): Promise<Uint8Array | string> => {
                 throw new Error('OP_NET: tStore is not supported in OP_NET');
             },
-            accountType: async (data: Buffer): Promise<AccountTypeResponse> => {
+            accountType: async (data: Uint8Array): Promise<AccountTypeResponse> => {
                 return await this.getAccountType(data, evaluation);
             },
             blockHash: async (blockNumber: bigint): Promise<BlockHashResponse> => {
                 return await this.getBlockHashImport(blockNumber);
             },
-            load: async (data: Buffer): Promise<string | Buffer> => {
-                const resp = Buffer.copyBytesFrom(await this.load(data, evaluation));
+            load: async (data: Uint8Array): Promise<string | Uint8Array> => {
+                const resp = await this.load(data, evaluation);
 
-                return ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp;
+                return ENABLE_BUFFER_AS_STRING ? Buffer.from(resp).toString('hex') : resp;
             },
-            store: (data: Buffer): Promise<string | Buffer> => {
-                return new Promise<Buffer | string>((resolve) => {
-                    const resp = Buffer.copyBytesFrom(this.store(data, evaluation));
+            store: (data: Uint8Array): Promise<string | Uint8Array> => {
+                return new Promise<Uint8Array | string>((resolve) => {
+                    const resp = this.store(data, evaluation);
 
-                    resolve(ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp);
+                    resolve(ENABLE_BUFFER_AS_STRING ? Buffer.from(resp).toString('hex') : resp);
                 });
             },
-            call: async (data: Buffer) => {
-                const resp = Buffer.copyBytesFrom(await this.call(data, evaluation));
+            call: async (data: Uint8Array) => {
+                const resp = await this.call(data, evaluation);
 
-                return ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp;
+                return ENABLE_BUFFER_AS_STRING ? Buffer.from(resp).toString('hex') : resp;
             },
-            deployContractAtAddress: async (data: Buffer) => {
-                const resp = Buffer.copyBytesFrom(
-                    await this.deployContractFromAddressRaw(data, evaluation),
-                );
+            deployContractAtAddress: async (data: Uint8Array) => {
+                const resp = await this.deployContractFromAddressRaw(data, evaluation);
 
-                return ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp;
+                return ENABLE_BUFFER_AS_STRING ? Buffer.from(resp).toString('hex') : resp;
             },
-            log: (buffer: Buffer) => {
+            log: (buffer: Uint8Array) => {
                 this.onDebug(buffer);
             },
-            emit: (buffer: Buffer) => {
+            emit: (buffer: Uint8Array) => {
                 this.onEvent(buffer, evaluation);
             },
             inputs: async () => {
-                const resp = Buffer.copyBytesFrom(await this.onInputsRequested(evaluation));
+                const resp = await this.onInputsRequested(evaluation);
 
-                return ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp;
+                return ENABLE_BUFFER_AS_STRING ? Buffer.from(resp).toString('hex') : resp;
             },
             outputs: async () => {
-                const resp = Buffer.copyBytesFrom(await this.onOutputsRequested(evaluation));
+                const resp = await this.onOutputsRequested(evaluation);
 
-                return ENABLE_BUFFER_AS_STRING ? resp.toString('hex') : resp;
+                return ENABLE_BUFFER_AS_STRING ? Buffer.from(resp).toString('hex') : resp;
             },
         };
     }

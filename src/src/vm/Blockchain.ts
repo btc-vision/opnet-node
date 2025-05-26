@@ -66,7 +66,7 @@ class BlockchainBase {
         this.bindings.clear();
     }
 
-    private decodeBuffer(input: number[] | string): Buffer {
+    private decodeBuffer(input: number[] | string): Uint8Array {
         if (ENABLE_BUFFER_AS_STRING) {
             if (typeof input !== 'string') {
                 throw new Error('Input is not a string');
@@ -77,8 +77,7 @@ class BlockchainBase {
             if (typeof input === 'string') {
                 throw new Error('Input is a string');
             } else {
-                const u = new Uint8Array(input);
-                return Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+                return new Uint8Array(input);
             }
         }
     }
@@ -86,10 +85,10 @@ class BlockchainBase {
     private loadJsFunction: (
         err: Error,
         result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | string> = (
+    ) => Promise<Uint8Array | string> = (
         err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | string> => {
+    ): Promise<Uint8Array | string> => {
         if (err) throw new Error(`Fatal error: ${err?.message}`);
         if (this.enableDebug) console.log('LOAD', value);
 
@@ -104,10 +103,10 @@ class BlockchainBase {
     private storeJSFunction: (
         err: Error,
         result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | string> = (
+    ) => Promise<Uint8Array | string> = (
         err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | string> => {
+    ): Promise<Uint8Array | string> => {
         if (err) throw new Error(`Fatal error: ${err?.message}`);
         if (this.enableDebug) console.log('STORE', value);
 
@@ -122,10 +121,10 @@ class BlockchainBase {
     private callJSFunction: (
         err: Error,
         result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | string> = (
+    ) => Promise<Uint8Array | string> = (
         err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | string> => {
+    ): Promise<Uint8Array | string> => {
         if (err) throw new Error(`Fatal error: ${err?.message}`);
         if (this.enableDebug) console.log('CALL', value);
 
@@ -140,10 +139,10 @@ class BlockchainBase {
     private deployContractAtAddressJSFunction: (
         err: Error,
         result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | string> = (
+    ) => Promise<Uint8Array | string> = (
         err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | string> => {
+    ): Promise<Uint8Array | string> => {
         if (err) throw new Error(`Fatal error: ${err?.message}`);
         if (this.enableDebug) console.log('DEPLOY', value);
 
@@ -192,10 +191,10 @@ class BlockchainBase {
     private inputsJSFunction: (
         err: Error,
         result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | string> = (
+    ) => Promise<Uint8Array | string> = (
         err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | string> => {
+    ): Promise<Uint8Array | string> => {
         if (err) throw new Error(`Fatal error: ${err?.message}`);
         if (this.enableDebug) console.log('INPUTS', value);
 
@@ -210,10 +209,10 @@ class BlockchainBase {
     private outputsJSFunction: (
         err: Error,
         result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | string> = (
+    ) => Promise<Uint8Array | string> = (
         err: Error,
         value: ThreadSafeJsImportResponse,
-    ): Promise<Buffer | string> => {
+    ): Promise<Uint8Array | string> => {
         if (err) throw new Error(`Fatal error: ${err?.message}`);
         if (this.enableDebug) console.log('OUTPUT', value);
 

@@ -7,9 +7,9 @@ init();
 
 export interface ExitDataResponseRaw {
     status: number;
-    data: Buffer;
+    data: Uint8Array;
     gasUsed: bigint;
-    proofs: Array<{ proof: Buffer; vk: Buffer }>;
+    proofs: Array<{ proof: Uint8Array; vk: Uint8Array }>;
 }
 
 export interface EnvironmentVariablesRequestRaw {
@@ -227,7 +227,7 @@ export class RustContract {
         if (this.enableDebug) console.log('Setting environment', environmentVariables);
 
         try {
-            const params = Object.preventExtensions(
+            /*const params = Object.preventExtensions(
                 Object.freeze(
                     Object.seal({
                         blockNumber: BigInt(environmentVariables.blockNumber.toString()),
@@ -235,40 +235,56 @@ export class RustContract {
                         blockHash: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.blockHash).toString('hex')
                             : Buffer.copyBytesFrom(
-                                  environmentVariables.blockHash,
-                              )) as unknown as Buffer,
+                                environmentVariables.blockHash,
+                            )) as unknown as Buffer,
                         txId: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.txId).toString('hex')
                             : Buffer.copyBytesFrom(environmentVariables.txId)) as unknown as Buffer,
                         txHash: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.txHash).toString('hex')
                             : Buffer.copyBytesFrom(
-                                  environmentVariables.txHash,
-                              )) as unknown as Buffer,
+                                environmentVariables.txHash,
+                            )) as unknown as Buffer,
                         contractAddress: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.contractAddress).toString(
-                                  'hex',
-                              )
+                                'hex',
+                            )
                             : Buffer.copyBytesFrom(
-                                  environmentVariables.contractAddress,
-                              )) as unknown as Buffer,
+                                environmentVariables.contractAddress,
+                            )) as unknown as Buffer,
                         contractDeployer: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.contractDeployer).toString(
-                                  'hex',
-                              )
+                                'hex',
+                            )
                             : Buffer.copyBytesFrom(
-                                  environmentVariables.contractDeployer,
-                              )) as unknown as Buffer,
+                                environmentVariables.contractDeployer,
+                            )) as unknown as Buffer,
                         caller: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.caller).toString('hex')
                             : Buffer.copyBytesFrom(
-                                  environmentVariables.caller,
-                              )) as unknown as Buffer,
+                                environmentVariables.caller,
+                            )) as unknown as Buffer,
                         origin: (ENABLE_BUFFER_AS_STRING
                             ? Buffer.copyBytesFrom(environmentVariables.origin).toString('hex')
                             : Buffer.copyBytesFrom(
-                                  environmentVariables.origin,
-                              )) as unknown as Buffer,
+                                environmentVariables.origin,
+                            )) as unknown as Buffer,
+                    }),
+                ),
+            );*/
+
+            const params = Object.preventExtensions(
+                Object.freeze(
+                    Object.seal({
+                        blockNumber: BigInt(environmentVariables.blockNumber.toString()),
+                        blockMedianTime: BigInt(environmentVariables.blockMedianTime.toString()),
+                        blockHash: environmentVariables.blockHash,
+                        txId: environmentVariables.txId,
+                        txHash: environmentVariables.txHash,
+                        contractAddress: environmentVariables.contractAddress,
+                        contractDeployer: environmentVariables.contractDeployer,
+                        caller: environmentVariables.caller,
+                        origin: environmentVariables.origin,
                     }),
                 ),
             );
@@ -282,13 +298,11 @@ export class RustContract {
         }
     }
 
-    public async onDeploy(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponseRaw>> {
+    public async onDeploy(calldata: Uint8Array): Promise<Readonly<ExitDataResponseRaw>> {
         if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
-            const calldataAsBuf: Buffer = Buffer.copyBytesFrom(calldata);
-            const call = ENABLE_BUFFER_AS_STRING ? calldataAsBuf.toString('hex') : calldataAsBuf;
-            const result = await this.contractManager.onDeploy(this.id, call);
+            const result = await this.contractManager.onDeploy(this.id, calldata);
 
             return this.toReadonlyObject(result);
         } catch (e) {
@@ -327,10 +341,10 @@ export class RustContract {
         }
     }
 
-    private copyBuffer(input: Buffer | string): Buffer {
+    private copyBuffer(input: Uint8Array | string): Uint8Array {
         return ENABLE_BUFFER_AS_STRING
             ? Buffer.from(input as string, 'hex')
-            : Buffer.copyBytesFrom(input as Buffer);
+            : (input as Uint8Array);
     }
 
     private toReadonlyObject(result: ExitDataResponse): Readonly<ExitDataResponseRaw> {

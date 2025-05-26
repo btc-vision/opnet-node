@@ -24,7 +24,6 @@ import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor
 import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
-import { Config } from '../../../config/Config.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 import { AddressStack } from './AddressStack.js';
 import { RustContract } from '../../isolated/RustContract.js';
@@ -86,7 +85,7 @@ export class ContractEvaluation implements ExecutionParameters {
         this.contractAddress = params.contractAddress;
         this.contractAddressStr = params.contractAddressStr;
 
-        this.calldata = params.calldata;
+        this.calldata = Uint8Array.from(params.calldata);
         this.msgSender = params.msgSender;
         this.txOrigin = params.txOrigin;
         this.externalCall = params.externalCall;
