@@ -405,7 +405,7 @@ export class ContractEvaluator extends Logger {
             evaluation.revert = e as Error;
 
             const difference = evaluation.gasUsed - gasUsed;
-            return this.buildCallResponse(false, difference, 1, evaluation.revert as Uint8Array);
+            return this.buildCallResponse(false, difference, 1, new Uint8Array(0));
         }
     }
 
