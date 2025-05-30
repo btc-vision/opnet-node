@@ -6,7 +6,7 @@ import {
 } from '@btc-vision/op-vm';
 import { Blockchain } from '../Blockchain.js';
 import { RustContractBinding } from './RustContractBindings.js';
-import { BinaryWriter } from '@btc-vision/transaction';
+import { BinaryWriter, SELECTOR_BYTE_LENGTH, U32_BYTE_LENGTH } from '@btc-vision/transaction';
 
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
@@ -99,7 +99,9 @@ export class RustContract {
     public static decodeRevertData(revertDataBytes: Uint8Array | Buffer): Error {
         if (RustContract.startsWithErrorSelector(revertDataBytes)) {
             const decoder = new TextDecoder();
-            const revertMessage = decoder.decode(revertDataBytes.slice(8));
+            const revertMessage = decoder.decode(
+                revertDataBytes.slice(SELECTOR_BYTE_LENGTH + U32_BYTE_LENGTH),
+            );
 
             return new Error(revertMessage);
         } else {
@@ -110,8 +112,8 @@ export class RustContract {
     private static startsWithErrorSelector(revertDataBytes: Uint8Array) {
         const errorSelectorBytes = Uint8Array.from([0x63, 0x73, 0x9d, 0x5c]);
         return (
-            revertDataBytes.length >= 4 &&
-            this.areBytesEqual(revertDataBytes.slice(0, 4), errorSelectorBytes)
+            revertDataBytes.length >= SELECTOR_BYTE_LENGTH + U32_BYTE_LENGTH &&
+            this.areBytesEqual(revertDataBytes.slice(0, SELECTOR_BYTE_LENGTH), errorSelectorBytes)
         );
     }
 
