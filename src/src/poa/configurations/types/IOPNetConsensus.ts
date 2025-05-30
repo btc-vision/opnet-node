@@ -160,6 +160,8 @@ export interface IOPNetConsensus<T extends Consensus> {
     };
 
     readonly VM: {
+        readonly CURRENT_DEPLOYMENT_VERSION: number;
+
         readonly UTXOS: {
             /** The maximum inputs utxos to forward to a contract */
             readonly MAXIMUM_INPUTS: number;

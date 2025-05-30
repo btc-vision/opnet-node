@@ -77,7 +77,7 @@ const txOutputs: StrippedTransactionOutput[] = [
     {
         index: 2,
         value: 10_000n,
-        to: senderAddress.p2tr(network),
+        to: senderAddress.p2op(network),
         scriptPubKey: undefined,
         flags: TransactionOutputFlags.hasTo,
     },

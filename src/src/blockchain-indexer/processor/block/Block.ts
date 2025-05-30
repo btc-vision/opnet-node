@@ -764,7 +764,11 @@ export class Block extends Logger {
                     await vmManager
                         .getVMStorage()
                         .addTweakedPublicKey(deploymentTransaction.contractTweakedPublicKey);
-                } catch {}
+                } catch (e) {
+                    this.warn(
+                        `Failed to add tweaked public key for contract ${deploymentTransaction.contractAddress}: ${e}`,
+                    );
+                }
 
                 break;
             }

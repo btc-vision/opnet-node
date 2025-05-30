@@ -268,7 +268,7 @@ export class VMManager extends Logger {
 
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
-                contractAddressStr: contractAddress.p2tr(this.network),
+                contractAddressStr: contractAddress.p2op(this.network),
                 contractAddress: contractAddress,
 
                 from: from,
@@ -856,7 +856,7 @@ export class VMManager extends Logger {
         const contractSaltHash = bitcoin.crypto.hash256(salt);
         const contractInformation: ContractInformation = new ContractInformation(
             evaluation.blockNumber,
-            deployResult.p2tr(this.network),
+            deployResult.p2op(this.network),
             deployResult,
             deployResult.toTweakedHybridPublicKeyBuffer(),
             contractInfo.bytecode,

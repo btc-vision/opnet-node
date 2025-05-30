@@ -2,10 +2,11 @@ import { Transaction } from '../Transaction.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { AccessListFeature, Feature, Features } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
-import { opcodes } from '@btc-vision/bitcoin';
+import { opcodes, payments } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import { AddressMap, BinaryReader } from '@btc-vision/transaction';
 import { SpecialContract } from '../../../../poa/configurations/types/SpecialContracts.js';
+import { TransactionOutput } from '../inputs/TransactionOutput.js';
 
 export abstract class SharedInteractionParameters<
     T extends OPNetTransactionTypes,
@@ -128,6 +129,20 @@ export abstract class SharedInteractionParameters<
         }
 
         return decodedData;
+    }
+
+    protected decodeAddress(outputWitness: TransactionOutput): string | undefined {
+        if (!outputWitness?.scriptPubKey.hex.startsWith('60')) {
+            // OP_16
+            throw new Error(`Output does not have a valid p2op address.`);
+        }
+
+        const { address } = payments.p2op({
+            output: Buffer.from(outputWitness.scriptPubKey.hex, 'hex'),
+            network: this.network,
+        });
+
+        return address;
     }
 
     protected decompressData(buffer: Buffer): Buffer {

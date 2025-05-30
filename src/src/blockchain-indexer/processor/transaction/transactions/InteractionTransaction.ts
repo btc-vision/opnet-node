@@ -67,6 +67,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
     protected contractSecret: Buffer | undefined;
     protected interactionPubKey: Buffer | undefined;
     protected interactionWitnessData: InteractionWitnessData | undefined;
+    private p2opCached: string | undefined;
 
     public constructor(
         rawTransactionData: TransactionData,
@@ -84,7 +85,12 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         if (!this._contractAddress) {
             throw new Error(`Contract address not set for transaction ${this.txidHex}`);
         }
-        return this._contractAddress.p2tr(this.network);
+
+        if (!this.p2opCached) {
+            this.p2opCached = this._contractAddress.p2op(this.network);
+        }
+
+        return this.p2opCached;
     }
 
     protected _txOrigin: Address | undefined;
@@ -105,10 +111,10 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
     }
 
     /**
-     * PATCH: We only allow P2TR. So we rely on `_is(...)` which rejects anything else.
+     * PATCH: We only allow P2OP. So we rely on `_is(...)` which rejects anything else.
      */
     public static is(data: TransactionData): TransactionInformation | undefined {
-        // Only checks for LEGACY_INTERACTION pattern, but strictly in P2TR context.
+        // Only checks for LEGACY_INTERACTION pattern, but strictly in P2OP context.
         const vIndex = this._is(data, this.LEGACY_INTERACTION);
         if (vIndex === -1) {
             return;
@@ -340,27 +346,15 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             throw new Error(`OP_NET: Interaction miss configured. No outputs found.`);
         }
 
-        const contractSecretRegenerated: Buffer =
-            outputWitness.decodedSchnorrPublicKey ||
-            outputWitness.decodedPubKeyHash ||
-            (outputWitness.decodedPublicKeys || [])[0];
-
-        if (!contractSecretRegenerated || !outputWitness.scriptPubKey.type) {
-            throw new Error(`OP_NET: Interaction miss configured. No scriptPubKey type?`);
-        }
-
         // Here, we only allow 'witness_v1_taproot'
-        if (outputWitness.scriptPubKey.type !== 'witness_v1_taproot') {
-            throw new Error(`OP_NET: Only P2TR is allowed for interactions.`);
+        if (outputWitness.scriptPubKey.type !== 'witness_unknown') {
+            throw new Error(`OP_NET: Only P2OP is allowed for interactions.`);
         }
 
         // We build an Address from the contractSecret:
         this._contractAddress = this.regenerateContractAddress(contractSecret);
-        this.verifyContractAddress(
-            outputWitness.scriptPubKey.type,
-            contractSecretRegenerated,
-            this._contractAddress,
-        );
+
+        this.verifyContractAddress(outputWitness, hashContractSalt);
 
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
@@ -373,25 +367,47 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         this.verifySpecialContract();
     }
 
-    protected verifyContractAddress(type: string, pubKey: Buffer, contractAddress: Address): void {
-        // We now only allow 'witness_v1_taproot'
-        switch (type) {
-            case 'witness_v1_taproot': {
+    protected verifyContractAddress(
+        outputWitness: TransactionOutput,
+        hashContractSalt: Buffer,
+    ): void {
+        if (!this._contractAddress) throw new Error(`Contract address not set for transaction.`);
+
+        // We now only allow 'witness_unknown'
+        switch (outputWitness.scriptPubKey.type) {
+            case 'witness_unknown': {
                 break;
             }
 
             default: {
-                throw new Error(`OP_NET: Only P2TR interactions are supported at this time.`);
+                throw new Error(`OP_NET: Only P2OP interactions are supported at this time.`);
             }
         }
 
-        // Ensure the "regenerated" public key matches the contract address
+        const decodedAddress = this.decodeAddress(outputWitness);
+        if (!decodedAddress) {
+            throw new Error(`OP_NET: Failed to decode address from output witness.`);
+        }
+
+        const contractScript = outputWitness.scriptPubKey.hex;
+        if (!contractScript.startsWith('60')) {
+            throw new Error(`OP_NET: Output does not have a valid p2op address.`);
+        }
+
+        // We only allow P2OP interactions, so we check the type of the scriptPubKey
+        const scriptBuffer = Buffer.from(contractScript, 'hex');
+        const contractKey = scriptBuffer.subarray(3); // Skip OP_16 and get the next 32 bytes
+
         if (
-            pubKey.length !== contractAddress.length ||
-            !crypto.timingSafeEqual(pubKey, contractAddress) ||
-            !pubKey.equals(contractAddress)
+            contractKey.length !== hashContractSalt.length ||
+            !crypto.timingSafeEqual(contractKey, hashContractSalt) ||
+            !contractKey.equals(hashContractSalt)
         ) {
             throw new Error(`OP_NET: Malformed UTXO output or mismatched pubKey.`);
+        }
+
+        if (this.contractAddress !== decodedAddress) {
+            throw new Error(`OP_NET: Contract address does not match output witness address.`);
         }
     }
 

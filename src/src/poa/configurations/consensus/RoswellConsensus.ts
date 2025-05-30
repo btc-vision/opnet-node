@@ -162,6 +162,8 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     VM: {
+        CURRENT_DEPLOYMENT_VERSION: 0,
+
         UTXOS: {
             /** The maximum inputs utxos to forward to a contract */
             MAXIMUM_INPUTS: 250,

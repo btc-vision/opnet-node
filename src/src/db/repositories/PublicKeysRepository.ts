@@ -57,6 +57,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                             tweakedPubkey: key,
 
                             p2tr: this.tweakedPubKeyToAddress(bufferKey, this.network),
+                            p2op: this.p2op(bufferKey, this.network),
                         } as PublicKeyInfo;
                     } else if (key.length === 66) {
                         const tweaked = this.tweakPublicKey(Buffer.from(key, 'hex'));
@@ -67,12 +68,13 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                             ecKeyPair,
                             this.network,
                         );
-                        const p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
 
+                        const p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
                         pubKeyData[key] = {
                             originalPubKey: key,
                             tweakedPubkey: tweaked.toString('hex'),
                             p2tr: this.tweakedPubKeyToAddress(tweaked, this.network),
+                            p2op: this.p2op(tweaked, this.network),
                             p2pkh,
                             p2shp2wpkh,
                             p2wpkh,
@@ -102,7 +104,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         await this.updatePartialWithFilter(
             filter,
             {
-                $set: filter,
+                $set: {
+                    ...filter,
+                    p2op: this.p2op(tweaked, this.network),
+                },
             },
             session,
         );
@@ -204,6 +209,12 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return this._db.collection(OPNetCollections.PublicKeys);
     }
 
+    private p2op(tweaked: Buffer, network: Network): string {
+        const addy = new Address(tweaked);
+
+        return addy.p2op(network);
+    }
+
     private getContractCollection(): Collection<IContractDocument> {
         return this._db.collection(OPNetCollections.Contracts);
     }
@@ -218,6 +229,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             p2pkhHybrid: publicKey.p2pkhHybrid,
             p2shp2wpkh: publicKey.p2shp2wpkh,
             p2tr: publicKey.p2tr,
+            p2op: publicKey.p2op,
             p2wpkh: publicKey.p2wpkh,
         };
     }
@@ -255,9 +267,15 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     private convertContractObjectToPublicKeyDocument(
         contract: IContractDocument,
     ): PublicKeyDocument {
+        const p2tr = this.tweakedPubKeyToAddress(
+            Buffer.from((contract.contractTweakedPublicKey as Binary).buffer),
+            this.network,
+        );
+
         return {
             tweakedPublicKey: contract.contractTweakedPublicKey as Binary,
-            p2tr: contract.contractAddress,
+            p2tr,
+            p2op: contract.contractAddress,
         };
     }
 
@@ -266,6 +284,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             const keyBuffer = new Binary(Buffer.from(key, 'hex'));
             const filter: Filter<PublicKeyDocument> = {
                 $or: [
+                    { p2op: key },
                     { p2tr: key },
                     { tweakedPublicKey: keyBuffer },
                     { publicKey: keyBuffer },
@@ -305,6 +324,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             tweakedPublicKey: new Binary(publicKey),
 
             p2tr: this.tweakedPubKeyToAddress(publicKey, this.network),
+            p2op: this.p2op(publicKey, this.network),
         });
     }
 
@@ -332,6 +352,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             this.cache.add(str);
 
             const p2tr = this.tweakedPubKeyToAddress(tweakedPublicKey, this.network);
+            const p2op = this.p2op(tweakedPublicKey, this.network);
             const address = new Address(publicKey);
 
             const p2pkh = this.getP2PKH(publicKey, this.network);
@@ -347,6 +368,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 tweakedPublicKey: new Binary(toXOnly(tweakedPublicKey)),
                 lowByte: tweakedPublicKey[0],
                 p2tr: p2tr,
+                p2op: p2op,
                 p2pkh: p2pkh,
                 p2pkhUncompressed: p2pkhUncompressed,
                 p2pkhHybrid: p2pkhHybrid,
@@ -425,6 +447,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             }
             case 'witness_mweb_hogaddr': {
                 // ignore.
+                break;
+            }
+            case 'witness_unknown': {
+                // reserved segwit for future use.
                 break;
             }
             case 'nonstandard': {

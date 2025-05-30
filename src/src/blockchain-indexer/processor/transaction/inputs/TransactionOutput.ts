@@ -17,16 +17,10 @@ export interface ITransactionOutputBase {
 
 export interface ITransactionOutput extends ITransactionOutputBase {
     readonly value: Decimal128;
-    //pubKeyHash?: Binary;
-    //pubKeys?: Binary[];
-    //schnorrPubKey?: Binary;
 }
 
 export interface APIDocumentOutput extends ITransactionOutputBase {
     readonly value: string;
-    //readonly pubKeyHash?: string;
-    //readonly pubKeys?: string[];
-    //readonly schnorrPubKey?: string;
 }
 
 export interface StrippedTransactionOutput {
