@@ -62,6 +62,7 @@ export class ContractEvaluator extends Logger {
     private contractAddress: Address | undefined;
 
     private bytecode: Buffer | undefined;
+    private version: number | undefined;
 
     constructor(private readonly network: Network) {
         super();
@@ -129,7 +130,17 @@ export class ContractEvaluator extends Logger {
         // We use pub the pub key as the deployer address.
         this.deployerAddress = contractInformation.deployerAddress;
         this.contractAddress = contractInformation.contractTweakedPublicKey;
-        this.bytecode = contractInformation.bytecode;
+        this.bytecode = contractInformation.bytecode.subarray(1);
+        this.version = contractInformation.bytecode.subarray(0, 1)[0];
+        
+        if (
+            !this.deployerAddress ||
+            !this.contractAddress ||
+            !this.bytecode ||
+            typeof this.version !== 'number'
+        ) {
+            throw new Error('OP_NET: Invalid contract information');
+        }
     }
 
     public delete(): void {
@@ -416,7 +427,7 @@ export class ContractEvaluator extends Logger {
 
         const externalCallParams: InternalContractCallParameters = {
             contractAddress: contractAddress,
-            contractAddressStr: contractAddress.p2tr(this.network),
+            contractAddressStr: contractAddress.p2op(this.network),
 
             from: evaluation.msgSender,
 

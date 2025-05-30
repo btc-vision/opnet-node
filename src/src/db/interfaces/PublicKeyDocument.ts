@@ -7,6 +7,7 @@ export interface PublicKeyDocument {
     readonly lowByte?: number;
 
     readonly p2tr: string;
+    readonly p2op?: string;
 
     readonly p2pkh?: string;
     readonly p2pkhUncompressed?: string;

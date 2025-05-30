@@ -99,7 +99,7 @@ export class RustContract {
     public static decodeRevertData(revertDataBytes: Uint8Array | Buffer): Error {
         if (RustContract.startsWithErrorSelector(revertDataBytes)) {
             const decoder = new TextDecoder();
-            const revertMessage = decoder.decode(revertDataBytes.slice(6));
+            const revertMessage = decoder.decode(revertDataBytes.slice(8));
 
             return new Error(revertMessage);
         } else {

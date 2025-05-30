@@ -84,7 +84,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         if (!this._contractAddress) {
             throw new Error(`Contract address not set for transaction ${this.txidHex}`);
         }
-        return this._contractAddress.p2tr(this.network);
+        return this._contractAddress.p2op(this.network);
     }
 
     protected _txOrigin: Address | undefined;
