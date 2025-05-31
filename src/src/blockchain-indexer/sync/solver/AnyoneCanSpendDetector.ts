@@ -252,7 +252,7 @@ export class AnyoneCanSpendDetector extends Logger {
                 : vOp >= opcodes.OP_1 && vOp <= opcodes.OP_16
                   ? vOp - opcodes.OP_1 + 1
                   : -1;
-        
+
         const len = prog.length;
         if (ver === 1 && len === 2) {
             this.log('[detectFutureWitness] matched keyless anchor (v1, len 2)');
