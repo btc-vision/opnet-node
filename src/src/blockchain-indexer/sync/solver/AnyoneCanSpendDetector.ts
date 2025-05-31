@@ -73,7 +73,7 @@ export class AnyoneCanSpendDetector extends Logger {
     public logColor = '#00ffff';
 
     private readonly truthCache = new LRUCache<string, boolean>({ max: 65_536 });
-    private readonly ENABLED_WITNESS_VERSIONS = new Set<number>([0, 1, 2]);
+    private readonly ENABLED_WITNESS_VERSIONS = new Set<number>([0, 1]);
     private readonly TRUE_SCRIPTS: Buffer[] = [
         Buffer.from([opcodes.OP_1]),
         Buffer.from([0x01, 0x01]),
@@ -246,9 +246,14 @@ export class AnyoneCanSpendDetector extends Logger {
         const [vOp, prog] = asm;
         if (typeof vOp !== 'number' || !Buffer.isBuffer(prog)) return;
 
-        const ver = vOp - opcodes.OP_0;
+        const ver =
+            vOp === opcodes.OP_0
+                ? 0
+                : vOp >= opcodes.OP_1 && vOp <= opcodes.OP_16
+                  ? vOp - opcodes.OP_1 + 1
+                  : -1;
+        
         const len = prog.length;
-
         if (ver === 1 && len === 2) {
             this.log('[detectFutureWitness] matched keyless anchor (v1, len 2)');
             return {
