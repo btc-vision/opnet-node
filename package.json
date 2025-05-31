@@ -83,7 +83,7 @@
         "openapi-comment-parser": "^1.0.0",
         "opnet": "^1.5.5",
         "protobufjs": "^7.5.3",
-        "sodium-native": "^5.0.4",
+        "sodium-native": "5.0.1",
         "ssh2": "^1.16.0",
         "swagger-ui-express": "^5.0.1",
         "tiny-secp256k1": "^2.2.3",
