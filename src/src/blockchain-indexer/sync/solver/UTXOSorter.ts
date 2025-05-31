@@ -36,6 +36,8 @@ export interface Classification {
     hit?: ReturnType<typeof detector.detect>;
     unlocking?: Uint8Array[];
     policyUnsafe?: boolean;
+    sats: number;
+    hex: string;
 }
 
 const solverCache: LRUCache<string, Uint8Array[]> = new LRUCache<string, Uint8Array[]>({
@@ -57,11 +59,22 @@ export class UtxoSorter {
 
             const hit = detector.detect(output, chain.height, chain.mtp);
             if (!hit) {
-                return { outpoint: { txid, index: output.index }, status: 'Unknown' };
+                return {
+                    outpoint: { txid, index: output.index },
+                    status: 'Unknown',
+                    sats: Number(output.value),
+                    hex: output.scriptPubKey.hex,
+                };
             }
 
             if (hit.reason === AnyoneCanSpendReason.ProvablyUnspendable) {
-                return { outpoint: { txid, index: output.index }, status: 'Unspendable', hit };
+                return {
+                    outpoint: { txid, index: output.index },
+                    status: 'Unspendable',
+                    hit,
+                    sats: Number(output.value),
+                    hex: output.scriptPubKey.hex,
+                };
             }
 
             let unlocking: Uint8Array[] = [];
@@ -78,6 +91,8 @@ export class UtxoSorter {
                 hit,
                 unlocking,
                 policyUnsafe: hit.policyUnsafe ?? false,
+                sats: Number(output.value),
+                hex: output.scriptPubKey.hex,
             };
         });
 
