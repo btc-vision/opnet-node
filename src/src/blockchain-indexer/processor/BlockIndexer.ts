@@ -318,6 +318,12 @@ export class BlockIndexer extends Logger {
         this.reorgWatchdog.onBlockChange(header);
         this.chainObserver.onBlockChange(header);
 
+        if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
+            if (this.processedBlocks >= Config.DEV.PROCESS_ONLY_X_BLOCK) {
+                return;
+            }
+        }
+
         if (!this.started) {
             this.startTasks();
             this.started = true;
@@ -614,7 +620,6 @@ export class BlockIndexer extends Logger {
 
         if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
             if (this.processedBlocks >= Config.DEV.PROCESS_ONLY_X_BLOCK) {
-                this.success(`Stopping task after ${this.processedBlocks} blocks.`);
                 return;
             }
         }
