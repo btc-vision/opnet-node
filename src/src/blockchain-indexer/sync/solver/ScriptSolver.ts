@@ -33,10 +33,17 @@ const app = (op: string, ...args: Expr[]): App => ({ tag: 'app', op, args });
 const sha256 = (e: Expr): App => app('sha256', e);
 const ripemd160 = (e: Expr): App => app('ripemd160', e);
 
+interface Branch {
+    elsePc?: number;
+    cond: Expr;
+    negate: boolean;
+}
+
 class SymState {
     stack: Expr[] = [];
     pc = 0;
     constraints: Expr[] = [];
+    branches: Branch[] = [];
 
     constructor(
         readonly code: Uint8Array,
@@ -71,7 +78,6 @@ export class ScriptSolver extends Logger {
     public logColor = '#7b00ff';
     private readonly MAX_PH = 16;
     private readonly SMT_MS = 20_000;
-
     private readonly vm = createVirtualMachineBCH();
     private z3Init: Z3Module | null = null;
 
@@ -80,26 +86,20 @@ export class ScriptSolver extends Logger {
         bruteMax: bigint = 32n,
     ): Promise<{ solved: boolean; stack?: Uint8Array[]; reason?: string }> {
         this.log(`solve() ▶ lockHex=${lockHex}, bruteMax=${bruteMax}`);
-
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
         const seed = new SymState(lock, [...Array(this.MAX_PH).keys()].map(P));
-
         this.debug('phase 1/3 – symbolic execution');
         this.symExec(seed);
         this.debug(`symbolic execution produced ${seed.constraints.length} constraint(s)`);
-
         this.debug('phase 2/3 – SMT solving');
         const z3 = await this.getZ3();
         const ctx = z3.Context('main');
         const ONE = ctx.BitVec.val(1n, 256);
         const ZERO = ctx.BitVec.val(0n, 256);
-
         const solver = new ctx.Solver();
         solver.set('timeout', this.SMT_MS);
-
         const phVars = seed.ph.map((ph) => ctx.BitVec.const(`ph${ph.i}`, 256));
         const boolToBV = (b: Bool<'main'>) => ctx.If(b, ONE, ZERO);
-
         const funCache = new Map<string, FuncDecl<'main'>>();
         const fun = (name: string) => {
             let f = funCache.get(name);
@@ -109,11 +109,9 @@ export class ScriptSolver extends Logger {
             }
             return f;
         };
-
         const enc = (e: Expr): BV256 => {
             if (e.tag === 'const') return ctx.BitVec.val(e.v, 256);
             if (e.tag === 'ph') return phVars[e.i];
-
             switch (e.op) {
                 case 'eq': {
                     const [a, b] = e.args.map(enc);
@@ -156,8 +154,8 @@ export class ScriptSolver extends Logger {
         };
 
         seed.constraints.forEach((c) => solver.add(enc(c).neq(ZERO)));
-
         this.debug('calling solver.check() …');
+
         const sat = await solver.check();
         this.debug(`SMT solver responded: ${sat}`);
 
@@ -168,7 +166,6 @@ export class ScriptSolver extends Logger {
                 ? { solved: true, stack: modelStack }
                 : { solved: false, reason: 'model failed concrete VM (bug)' };
         }
-
         if (sat === 'unknown') {
             this.warn('SMT returned unknown – entering brute-force mode');
             const brute = this.bruteHashes(lock, seed, bruteMax);
@@ -177,7 +174,6 @@ export class ScriptSolver extends Logger {
                 return brute;
             }
         }
-
         this.warn(`unsat/unknown; reason=${sat}`);
         return { solved: false, reason: sat };
     }
@@ -189,31 +185,21 @@ export class ScriptSolver extends Logger {
 
     private symExec(seed: SymState): void {
         const queue: SymState[] = [seed];
-
         const fork = (src: SymState, pcTarget: number, cond: Expr, negate: boolean): void => {
             const ns = new SymState(src.code, src.ph);
             ns.pc = pcTarget;
             ns.stack = [...src.stack];
             ns.constraints = [...src.constraints, negate ? app('eq', cond, C(0n)) : cond];
+            ns.branches = src.branches.map((b) => ({ ...b }));
             queue.push(ns);
             this.debug(`forked  → pc=${pcTarget}, negate=${negate}`);
         };
-
         const isNoop = (code: number): boolean => NOOP_SET.has(code);
         const isAlwaysFail = (code: number): boolean => ALWAYS_FAIL_SET.has(code);
-
         const execOne = (st: SymState): void => {
             const prog = decodeAuthenticationInstructions(st.code);
             if (st.pc === 0 && st.stack.length === 0) st.ph.forEach((ph) => st.stack.push(ph));
-
-            interface Branch {
-                elsePc?: number;
-                cond: Expr;
-                negate: boolean;
-            }
-
-            const branches: Branch[] = [];
-
+            const branches = st.branches;
             const pop = (): Expr => {
                 const v = st.stack.pop();
                 if (!v) throw new Error('stack underflow');
@@ -224,47 +210,34 @@ export class ScriptSolver extends Logger {
                 const a = pop();
                 return { a, b };
             };
-
             while (st.pc < prog.length) {
                 const ins = prog[st.pc];
                 const opNum = ins.opcode;
                 const op = opNum as OpcodesBCH2023;
                 st.pc += 1;
-
-                this.debug(`pc=${st.pc - 1} op=${Op[op]}`);
-
                 if (opNum <= 0x4e) {
                     const data = isPush(ins) ? ins.data : new Uint8Array();
                     const num = data.length === 0 ? 0n : BigInt(`0x${binToHex(data)}`);
                     st.stack.push(C(num));
                     continue;
                 }
-
                 if (isOpSuccessX(opNum)) {
-                    // Consensus: acts like push-true, execution ends successfully.
                     st.stack.push(C(1n));
                     break;
                 }
-
                 if (op === Op.OP_1NEGATE) {
                     st.stack.push(C(-1n));
                     continue;
                 }
-
                 if (op >= Op.OP_1 && op <= Op.OP_16) {
                     st.stack.push(C(BigInt(op - Op.OP_1 + 1)));
                     continue;
                 }
-
-                if (isNoop(opNum)) {
-                    continue;
-                }
-
+                if (isNoop(opNum)) continue;
                 if (isAlwaysFail(opNum)) {
                     st.constraints.push(C(0n));
                     break;
                 }
-
                 if (op === Op.OP_IF || op === Op.OP_NOTIF) {
                     const cond = pop();
                     branches.push({ cond, negate: op === Op.OP_NOTIF });
@@ -287,7 +260,6 @@ export class ScriptSolver extends Logger {
                     st.constraints.push(C(0n));
                     break;
                 }
-
                 if (
                     op === Op.OP_ADD ||
                     op === Op.OP_SUB ||
@@ -319,7 +291,6 @@ export class ScriptSolver extends Logger {
                     st.stack.push(app('within', a, b, c));
                     continue;
                 }
-
                 if (
                     op === Op.OP_NUMEQUAL ||
                     op === Op.OP_NUMEQUALVERIFY ||
@@ -333,7 +304,6 @@ export class ScriptSolver extends Logger {
                     else st.stack.push(eq);
                     continue;
                 }
-
                 if (op === Op.OP_DUP) {
                     const v = pop();
                     st.stack.push(v, v);
@@ -343,7 +313,6 @@ export class ScriptSolver extends Logger {
                     pop();
                     continue;
                 }
-
                 if (op === Op.OP_SHA256) {
                     st.stack.push(sha256(pop()));
                     continue;
@@ -352,12 +321,10 @@ export class ScriptSolver extends Logger {
                     st.stack.push(ripemd160(sha256(pop())));
                     continue;
                 }
-
                 if (op === Op.OP_VERIFY) {
                     st.constraints.push(pop());
                     continue;
                 }
-
                 if (
                     op === Op.OP_CHECKSIG ||
                     op === Op.OP_CHECKSIGVERIFY ||
@@ -380,30 +347,23 @@ export class ScriptSolver extends Logger {
                         pop();
                         pop();
                     }
-
                     if (op === Op.OP_CHECKSIGVERIFY || op === Op.OP_CHECKMULTISIGVERIFY)
                         st.constraints.push(C(1n));
                     else st.stack.push(C(1n));
                     continue;
                 }
-
                 this.fail(
                     `unimplemented opcode 0x${opNum.toString(16)} – treating as legacy OP_FAILURE`,
                 );
-
-                st.constraints.push(C(0n)); // stack top must be false
-                break; // cease evaluating this branch
+                st.constraints.push(C(0n));
+                break;
             }
-
             const last = st.stack.pop();
             if (last) st.constraints.push(last);
         };
-
         while (queue.length) {
             const s = queue.pop();
-
             if (!s) throw new Error('queue underflow');
-
             execOne(s);
         }
     }
@@ -429,11 +389,9 @@ export class ScriptSolver extends Logger {
             else if (e.tag === 'app') e.args.forEach(walk);
         };
         st.constraints.forEach(walk);
-
         const idx = [...ids];
         if (idx.length === 0) return null;
         const vals: bigint[] = Array<bigint>(idx.length).fill(0n);
-
         const dfs = (pos: number): Uint8Array[] | null => {
             if (pos === idx.length) {
                 const stack = idx.map((i) => this.encodeMinimal(vals[idx.indexOf(i)]));
@@ -446,7 +404,6 @@ export class ScriptSolver extends Logger {
             }
             return null;
         };
-
         const found = dfs(0);
         return found ? { solved: true, stack: found } : null;
     }
@@ -480,15 +437,12 @@ export class ScriptSolver extends Logger {
         if (n === 0n) return Uint8Array.of(0x00);
         if (n === -1n) return Uint8Array.of(0x4f);
         if (n >= 1n && n <= 16n) return Uint8Array.of(Number(n) + 0x50);
-
         const neg = n < 0n;
         let hex = (neg ? -n : n).toString(16);
         if (hex.length & 1) hex = '0' + hex;
-
         let buf = Uint8Array.from(Buffer.from(hex, 'hex')).reverse();
         if (buf[buf.length - 1] & 0x80) buf = Uint8Array.of(...buf, 0x00);
         if (neg) buf[buf.length - 1] |= 0x80;
-
         const len = buf.length;
         if (len < 0x4c) return Uint8Array.of(len, ...buf);
         if (len <= 255) return Uint8Array.of(0x4c, len, ...buf);
