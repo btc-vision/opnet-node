@@ -155,7 +155,8 @@ export class ScriptSolver extends Logger {
             throw new Error(`unhandled op ${e.op}`);
         };
 
-        seed.constraints.forEach((c) => solver.add(enc(c).eq(ONE)));
+        seed.constraints.forEach((c) => solver.add(enc(c).neq(ZERO)));
+
         this.debug('calling solver.check() …');
         const sat = await solver.check();
         this.debug(`SMT solver responded: ${sat}`);
