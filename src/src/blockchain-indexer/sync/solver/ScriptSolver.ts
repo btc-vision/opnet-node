@@ -2,7 +2,6 @@ import {
     type AuthenticationInstruction,
     type AuthenticationInstructionPush,
     AuthenticationProgramCommon,
-    binToHex,
     createVirtualMachine,
     decodeAuthenticationInstructions,
     isVmNumberError,
@@ -98,7 +97,6 @@ export class ScriptSolver extends Logger {
 
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
         const seed = new SymState(lock, [...Array(this.MAX_PH).keys()].map(P), { tapscript });
-        seed.stack.push(seed.ph[0]); // ph0 is now the top-of-stack
 
         this.debug('phase 1/3 – symbolic execution');
         this.symExec(seed);
@@ -226,6 +224,12 @@ export class ScriptSolver extends Logger {
         return this.z3Init;
     }
 
+    private bytesToUintLE(b: Uint8Array): bigint {
+        let x = 0n;
+        for (let i = b.length - 1; i >= 0; i--) x = (x << 8n) | BigInt(b[i]);
+        return x;
+    }
+
     private symExec(seed: SymState): void {
         const prog = decodeAuthenticationInstructions(seed.code);
 
@@ -271,7 +275,7 @@ export class ScriptSolver extends Logger {
                 break;
             }
 
-            let phPtr = 1;
+            let phPtr = 0;
             const pop = (): Expr => {
                 if (st.stack.length === 0) {
                     if (phPtr >= st.ph.length) throw 'placeholder exhausted';
@@ -296,19 +300,21 @@ export class ScriptSolver extends Logger {
                     let num = 0n;
 
                     if (isPush(ins) && ins.data.length) {
-                        const decoded = vmNumberToBigInt(ins.data);
-
-                        if (isVmNumberError(decoded)) {
-                            this.fail(
-                                `non-minimal or oversize VM number: ${binToHex(ins.data)} ` +
-                                    `(error: ${decoded})`,
-                            );
-
-                            st.constraints.push(C(0n));
-                            break;
+                        const d = ins.data;
+                        if (d.length <= 4) {
+                            /* try strict VM-number decoding */
+                            const decoded = vmNumberToBigInt(d);
+                            // eslint-disable-next-line max-depth
+                            if (!isVmNumberError(decoded)) {
+                                num = decoded;
+                            } else {
+                                /* fall back to raw bytes → unsigned LE int */
+                                num = this.bytesToUintLE(d);
+                            }
+                        } else {
+                            /* ≥ 5 bytes → always treat as raw data */
+                            num = this.bytesToUintLE(d);
                         }
-
-                        num = decoded;
                     }
 
                     st.stack.push(C(num));
