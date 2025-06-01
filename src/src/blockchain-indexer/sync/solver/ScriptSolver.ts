@@ -822,8 +822,7 @@ export class ScriptSolver extends Logger {
             console.dir(prog, { depth: 10 });
             console.log(result);
 
-            this.fail(`Failed to evaluate VM state: ${ok}`);
-            return false;
+            throw ok;
         }
 
         return true;
