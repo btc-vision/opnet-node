@@ -184,47 +184,81 @@ export class ScriptSolver extends Logger {
     }
 
     private symExec(seed: SymState): void {
+        const prog = decodeAuthenticationInstructions(seed.code);
+
+        const findBoundaries = (start: number) => {
+            let depth = 0,
+                elsePc: number | undefined;
+            for (let pc = start; pc < prog.length; pc++) {
+                const op = prog[pc].opcode as OpcodesBCH2023;
+
+                switch (op) {
+                    case Op.OP_IF:
+                    case Op.OP_NOTIF:
+                        depth++;
+                        break;
+
+                    case Op.OP_ENDIF:
+                        if (depth === 0) return { elsePc, endPc: pc + 1 };
+                        depth--;
+                        break;
+
+                    case Op.OP_ELSE:
+                        if (depth === 0) elsePc = pc + 1;
+                        break;
+                }
+            }
+            throw new Error('unmatched IF/ENDIF');
+        };
+
         const queue: SymState[] = [seed];
-        const fork = (src: SymState, pcTarget: number, cond: Expr, negate: boolean): void => {
+
+        const fork = (src: SymState, pcTarget: number, extraConstraint: Expr) => {
             const ns = new SymState(src.code, src.ph);
             ns.pc = pcTarget;
             ns.stack = [...src.stack];
-            ns.constraints = [...src.constraints, negate ? app('eq', cond, C(0n)) : cond];
-            ns.branches = src.branches.map((b) => ({ ...b }));
+            ns.constraints = [...src.constraints, extraConstraint];
             queue.push(ns);
-            this.debug(`forked  → pc=${pcTarget}, negate=${negate}`);
         };
-        const isNoop = (code: number): boolean => NOOP_SET.has(code);
-        const isAlwaysFail = (code: number): boolean => ALWAYS_FAIL_SET.has(code);
-        const execOne = (st: SymState): void => {
-            const prog = decodeAuthenticationInstructions(st.code);
+
+        const isNoop = (c: number) => NOOP_SET.has(c);
+        const isAlwaysFail = (c: number) => ALWAYS_FAIL_SET.has(c);
+        const isOpSuccessX = (c: number) => c >= 0xb0 && c <= 0xf7;
+
+        while (queue.length) {
+            const st = queue.pop();
+            if (!st) {
+                this.fail('queue underflow – no more states to process');
+                break;
+            }
+
             if (st.pc === 0 && st.stack.length === 0) st.ph.forEach((ph) => st.stack.push(ph));
-            const branches = st.branches;
+
             const pop = (): Expr => {
                 const v = st.stack.pop();
-                if (!v) throw new Error('stack underflow');
+                if (!v) throw 'underflow';
                 return v;
             };
-            const pop2 = () => {
-                const b = pop();
-                const a = pop();
-                return { a, b };
-            };
-            while (st.pc < prog.length) {
+            const pop2 = () => ({ b: pop(), a: pop() });
+
+            for (; st.pc < prog.length; st.pc++) {
                 const ins = prog[st.pc];
                 const opNum = ins.opcode;
                 const op = opNum as OpcodesBCH2023;
                 st.pc += 1;
+
                 if (opNum <= 0x4e) {
-                    const data = isPush(ins) ? ins.data : new Uint8Array();
-                    const num = data.length === 0 ? 0n : BigInt(`0x${binToHex(data)}`);
+                    const d = isPush(ins) ? ins.data : new Uint8Array();
+                    const num = d.length ? BigInt(`0x${binToHex(d)}`) : 0n;
                     st.stack.push(C(num));
                     continue;
                 }
+
                 if (isOpSuccessX(opNum)) {
                     st.stack.push(C(1n));
                     break;
                 }
+
                 if (op === Op.OP_1NEGATE) {
                     st.stack.push(C(-1n));
                     continue;
@@ -238,28 +272,43 @@ export class ScriptSolver extends Logger {
                     st.constraints.push(C(0n));
                     break;
                 }
+
                 if (op === Op.OP_IF || op === Op.OP_NOTIF) {
                     const cond = pop();
-                    branches.push({ cond, negate: op === Op.OP_NOTIF });
+                    const negate = op === Op.OP_NOTIF;
+                    const { elsePc, endPc } = findBoundaries(st.pc);
+
+                    const takenConst =
+                        cond.tag === 'const' ? (cond.v !== 0n) !== negate : undefined;
+
+                    const condIsTrue = negate ? app('eq', cond, C(0n)) : cond;
+                    const condIsFalse = negate ? cond : app('eq', cond, C(0n));
+
+                    if (takenConst !== undefined) {
+                        if (!takenConst) {
+                            st.pc = elsePc ?? endPc;
+                            continue;
+                        }
+
+                        if (!(cond.tag === 'const' && cond.v === 0n))
+                            st.constraints.push(condIsTrue);
+                        continue;
+                    }
+
+                    fork(st, elsePc ?? endPc, condIsFalse);
+
+                    st.constraints.push(condIsTrue);
                     continue;
                 }
+
                 if (op === Op.OP_ELSE) {
-                    const b = branches.at(-1);
-                    if (!b) throw new Error('ELSE w/o IF');
-                    b.elsePc = st.pc;
+                    const { endPc } = findBoundaries(st.pc);
+                    st.pc = endPc;
                     continue;
                 }
-                if (op === Op.OP_ENDIF) {
-                    const b = branches.pop();
-                    if (!b) throw new Error('ENDIF w/o IF');
-                    if (b.elsePc !== undefined) fork(st, b.elsePc, b.cond, !b.negate);
-                    else st.constraints.push(b.negate ? app('eq', b.cond, C(0n)) : b.cond);
-                    continue;
-                }
-                if (op === Op.OP_RETURN) {
-                    st.constraints.push(C(0n));
-                    break;
-                }
+
+                if (op === Op.OP_ENDIF) continue;
+
                 if (
                     op === Op.OP_ADD ||
                     op === Op.OP_SUB ||
@@ -284,13 +333,15 @@ export class ScriptSolver extends Logger {
                     st.stack.push(res);
                     continue;
                 }
+
                 if (op === Op.OP_WITHIN) {
-                    const c = pop();
-                    const b = pop();
-                    const a = pop();
+                    const c = pop(),
+                        b = pop(),
+                        a = pop();
                     st.stack.push(app('within', a, b, c));
                     continue;
                 }
+
                 if (
                     op === Op.OP_NUMEQUAL ||
                     op === Op.OP_NUMEQUALVERIFY ||
@@ -304,6 +355,7 @@ export class ScriptSolver extends Logger {
                     else st.stack.push(eq);
                     continue;
                 }
+
                 if (op === Op.OP_DUP) {
                     const v = pop();
                     st.stack.push(v, v);
@@ -313,6 +365,38 @@ export class ScriptSolver extends Logger {
                     pop();
                     continue;
                 }
+
+                if (op === Op.OP_PICK || op === Op.OP_ROLL) {
+                    const nExpr = pop();
+                    const depth = st.stack.length;
+                    const roll = op === Op.OP_ROLL;
+
+                    const copyElem = (idx: number, target: SymState) => {
+                        const elem = target.stack[target.stack.length - 1 - idx];
+                        if (roll) target.stack.splice(target.stack.length - 1 - idx, 1);
+                        target.stack.push(elem);
+                    };
+
+                    if (nExpr.tag === 'const') {
+                        const idx = Number(nExpr.v);
+                        if (idx < 0 || idx >= depth) {
+                            st.stack.length = 0;
+                            break;
+                        }
+                        copyElem(idx, st);
+                    } else {
+                        for (let i = 0; i < depth; i++) {
+                            const ns = new SymState(st.code, st.ph);
+                            Object.assign(ns, JSON.parse(JSON.stringify(st)));
+                            copyElem(i, ns);
+                            ns.constraints.push(app('eq', nExpr, C(BigInt(i))));
+                            queue.push(ns);
+                        }
+                        break;
+                    }
+                    continue;
+                }
+
                 if (op === Op.OP_SHA256) {
                     st.stack.push(sha256(pop()));
                     continue;
@@ -321,10 +405,12 @@ export class ScriptSolver extends Logger {
                     st.stack.push(ripemd160(sha256(pop())));
                     continue;
                 }
+
                 if (op === Op.OP_VERIFY) {
                     st.constraints.push(pop());
                     continue;
                 }
+
                 if (
                     op === Op.OP_CHECKSIG ||
                     op === Op.OP_CHECKSIGVERIFY ||
@@ -332,14 +418,20 @@ export class ScriptSolver extends Logger {
                     op === Op.OP_CHECKMULTISIGVERIFY
                 ) {
                     if (op === Op.OP_CHECKMULTISIG || op === Op.OP_CHECKMULTISIGVERIFY) {
-                        const n = pop();
-                        const m = pop();
-                        const le20 = (x: Expr) => app('within', x, C(0n), C(21n));
-                        st.constraints.push(le20(m), le20(n), app('lt', m, app('add', n, C(1n))));
-                        const popMany = (e: Expr) => {
-                            if (e.tag === 'const') for (let i = 0; i < Number(e.v); i++) pop();
-                            else st.stack.length = 0;
-                        };
+                        const n = pop(),
+                            m = pop();
+                        const within20 = (e: Expr) => app('within', e, C(0n), C(21n));
+                        st.constraints.push(
+                            within20(m),
+                            within20(n),
+                            app('lt', m, app('add', n, C(1n))),
+                        );
+
+                        const popMany = (e: Expr) =>
+                            e.tag === 'const'
+                                ? st.stack.splice(-Number(e.v), Number(e.v))
+                                : (st.stack.length = 0);
+
                         popMany(m);
                         popMany(n);
                         pop();
@@ -347,24 +439,27 @@ export class ScriptSolver extends Logger {
                         pop();
                         pop();
                     }
+
                     if (op === Op.OP_CHECKSIGVERIFY || op === Op.OP_CHECKMULTISIGVERIFY)
                         st.constraints.push(C(1n));
                     else st.stack.push(C(1n));
                     continue;
                 }
-                this.fail(
-                    `unimplemented opcode 0x${opNum.toString(16)} – treating as legacy OP_FAILURE`,
-                );
+
+                if (op === Op.OP_RETURN) {
+                    st.constraints.push(C(0n));
+                    break;
+                }
+
+                this.fail(`unimplemented opcode 0x${opNum.toString(16)} – treating as OP_FAILURE`);
                 st.constraints.push(C(0n));
                 break;
             }
+
             const last = st.stack.pop();
-            if (last) st.constraints.push(last);
-        };
-        while (queue.length) {
-            const s = queue.pop();
-            if (!s) throw new Error('queue underflow');
-            execOne(s);
+            if (last && !(last.tag === 'const' && last.v === 0n)) st.constraints.push(last);
+
+            Object.assign(seed, st);
         }
     }
 
