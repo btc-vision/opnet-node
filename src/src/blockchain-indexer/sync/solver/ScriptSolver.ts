@@ -288,11 +288,7 @@ export class ScriptSolver extends Logger {
         this.log(`solve() ▶ lockHex=${lockHex}, bruteMax=${bruteMax}`);
 
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
-        console.log(lock);
-
-        const minPH = Math.min(32, estimateMinPlaceholders(lock));
-        console.log(`estimated min placeholders: ${minPH}`, lock);
-
+        const minPH = Math.min(2, estimateMinPlaceholders(lock));
         const seed = new SymState(lock, [...Array(minPH).keys()].map(P), { tapscript });
 
         for (let i = 0; i < minPH; i++) seed.stack.push(seed.ph[i]);
