@@ -59,7 +59,7 @@ class SymState {
     ) {}
 }
 
-type BV256 = BitVec<256, 'main'>;
+type BV256 = BitVec<256>;
 type Z3Module = Z3HighLevel & Z3LowLevel;
 
 const isPush = (x: AuthenticationInstruction): x is AuthenticationInstructionPush =>
@@ -113,7 +113,15 @@ export class ScriptSolver extends Logger {
         const solver = new ctx.Solver();
         solver.set('timeout', this.SMT_MS);
 
-        const phVars = seed.ph.map((ph) => ctx.BitVec.const(`ph${ph.i}`, 256));
+        const used = new Set<number>();
+        const walk = (e: Expr): void => {
+            if (e.tag === 'ph') used.add(e.i);
+            else if (e.tag === 'app') e.args.forEach(walk);
+        };
+        seed.constraints.forEach(walk);
+
+        const phIndex: number[] = [...used].sort((a, b) => a - b); // deterministic
+        const phVars = phIndex.map((i) => ctx.BitVec.const(`ph${i}`, 256));
 
         phVars.forEach((v) => {
             solver.add(v.neq(ZERO)); // 0 is never a valid placeholder
@@ -185,7 +193,7 @@ export class ScriptSolver extends Logger {
         this.debug(`SMT solver responded: ${sat}`);
 
         if (sat === 'sat') {
-            const modelStack = this.modelToStack(solver.model(), ctx);
+            const modelStack = this.modelToStack(solver.model(), ctx, phIndex);
             const ok = this.runConcrete(lock, modelStack);
             return ok
                 ? { solved: true, stack: modelStack }
@@ -504,14 +512,15 @@ export class ScriptSolver extends Logger {
         }
     }
 
-    private modelToStack(model: Z3Model, ctx: Context): Uint8Array[] {
-        const out: Uint8Array[] = [];
-        for (let i = 0; i < this.MAX_PH; i++) {
+    private modelToStack(model: Z3Model, ctx: Context, phIndex: number[]): Uint8Array[] {
+        const pushes: Uint8Array[] = [];
+        for (const i of phIndex) {
+            // ← same index list
             const v = model.eval(ctx.BitVec.const(`ph${i}`, 256), true);
-            if (!ctx.isBitVecVal(v)) break;
-            out.push(this.encodeMinimal(v.value()));
+            // `v` is always a concrete BitVec because we asserted on it
+            pushes.push(this.encodeMinimal(v.value()));
         }
-        return out;
+        return pushes;
     }
 
     private bruteHashes(
@@ -552,7 +561,7 @@ export class ScriptSolver extends Logger {
 
     private runConcrete(lock: Uint8Array, stack: Uint8Array[]): boolean {
         const unlock = Uint8Array.from(stack.flat());
-        if (unlock.length > 50_000) return false;
+        if (unlock.length > 10_000) return false;
 
         const prog: AuthenticationProgramCommon = {
             inputIndex: 0,
