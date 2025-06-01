@@ -367,6 +367,14 @@ export class ScriptSolver extends Logger {
                     const [a, b, c] = e.args.map(enc);
                     return boolToBV(a.sge(b).and(a.slt(c)));
                 }
+                case 'min': {
+                    const [a, b] = e.args.map(enc);
+                    return ctx.If(a.slt(b), a, b); // signed min
+                }
+                case 'max': {
+                    const [a, b] = e.args.map(enc);
+                    return ctx.If(a.sgt(b), a, b); // signed max
+                }
                 case 'sha256':
                     return fun('sha256').call(enc(e.args[0])) as BV256;
                 case 'ripemd160':
@@ -493,6 +501,12 @@ export class ScriptSolver extends Logger {
                     }
 
                     st.stack.push(C(num));
+                    continue;
+                }
+
+                if (op === Op.OP_MIN || op === Op.OP_MAX) {
+                    const { a, b } = pop2();
+                    st.stack.push(app(op === Op.OP_MIN ? 'min' : 'max', a, b));
                     continue;
                 }
 
