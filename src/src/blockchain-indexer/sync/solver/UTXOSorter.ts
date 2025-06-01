@@ -113,7 +113,7 @@ export class UtxoSorter {
                 try {
                     const isTaproot = output.scriptPubKey.type === 'witness_v1_taproot';
                     const res = await solver.solve(
-                        output.scriptPubKeyBuffer.toString('hex'),
+                        '76a8202cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b982488756e935f886ea36394558867930114886851', //output.scriptPubKeyBuffer.toString('hex'),
                         bruteMax,
                         isTaproot,
                     );
