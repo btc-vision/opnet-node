@@ -548,7 +548,9 @@ export class ScriptSolver extends Logger {
             // ← same index list
             const v = model.eval(ctx.BitVec.const(`ph${i}`, 256), true);
             // `v` is always a concrete BitVec because we asserted on it
-            pushes.push(this.encodeMinimal(v.value()));
+            const val = v.value();
+            console.log(`ph${i} = ${val.toString(16)}`);
+            pushes.push(this.encodeMinimal(val));
         }
         return pushes;
     }
