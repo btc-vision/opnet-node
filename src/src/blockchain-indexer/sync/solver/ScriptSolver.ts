@@ -627,6 +627,10 @@ export class ScriptSolver extends Logger {
         const unlock = Uint8Array.from(stack.flat());
         if (unlock.length > 10_000) return false;
 
+        console.log(
+            `runConcrete() ▶ lock=${lock.toString('hex')}, unlock=${unlock.toString('hex')}`,
+        );
+
         const prog: AuthenticationProgramCommon = {
             inputIndex: 0,
             sourceOutputs: [{ lockingBytecode: lock, valueSatoshis: 0n }],
