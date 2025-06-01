@@ -85,33 +85,51 @@ const isOpReturnX = (code: number) => code >= 0xda && code <= 0xfe;
 export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
     const prog = decodeAuthenticationInstructions(bytecode);
 
-    type State = { pc: number; depth: number };
-    const work: State[] = [{ pc: 0, depth: 0 }];
-    const seen = new Map<number, number>();
-    let need = 0;
+    interface State {
+        pc: number; // program-counter
+        depth: number; // current depth (can be < 0)
+        minSeen: number; // most-negative depth so far
+    }
 
-    const add = (s: State) => {
-        const best = seen.get(s.pc);
-        if (best === undefined || s.depth < best) {
-            seen.set(s.pc, s.depth);
+    const work: State[] = [{ pc: 0, depth: 0, minSeen: 0 }];
+    const visited = new Map<number, Map<number, number>>(); // pc → depth → minSeen
+    let globalMin = 0; // most-negative overall
+
+    const enqueue = (s: State) => {
+        const byDepth = visited.get(s.pc) ?? new Map<number, number>();
+        const best = byDepth.get(s.depth);
+        if (best === undefined || s.minSeen < best) {
+            // strictly better
+            byDepth.set(s.depth, s.minSeen);
+            visited.set(s.pc, byDepth);
             work.push(s);
         }
     };
 
+    const pushState = (pc: number, depth: number, minSeen: number) => {
+        enqueue({ pc, depth, minSeen });
+        globalMin = Math.min(globalMin, minSeen);
+    };
+
     while (work.length) {
-        const { pc, depth } = work.pop() as State;
-        if (pc >= prog.length) continue;
+        const { pc, depth, minSeen } = work.pop() as State;
+        if (pc >= prog.length) continue; // end of script
 
         const ins = prog[pc];
         const opcode = ins.opcode as OpcodesBCH2023;
         const nextPC = pc + 1;
 
+        /* ---------- stack effect ------------------------------------------------ */
         let pop = 0;
         let push = 0;
 
-        if ((opcode as number) <= 0x4e || opcode === Op.OP_0) {
-            push = 1;
-        } else if (opcode === Op.OP_1NEGATE || (opcode >= Op.OP_1 && opcode <= Op.OP_16)) {
+        // (1) pushes ≤ 0x4e or OP_0, OP_1 … OP_16, OP_1NEGATE
+        if (
+            opcode <= 0x4e ||
+            opcode === Op.OP_0 ||
+            opcode === Op.OP_1NEGATE ||
+            (opcode >= Op.OP_1 && opcode <= Op.OP_16)
+        ) {
             push = 1;
         } else {
             switch (opcode) {
@@ -142,6 +160,7 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                     pop = 4;
                     push = 6;
                     break;
+
                 case Op.OP_BOOLAND:
                 case Op.OP_BOOLOR:
                 case Op.OP_NUMEQUAL:
@@ -152,6 +171,8 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 case Op.OP_SUB:
                 case Op.OP_LESSTHAN:
                 case Op.OP_GREATERTHAN:
+                case Op.OP_MIN:
+                case Op.OP_MAX:
                     pop = 2;
                     push = 1;
                     break;
@@ -173,6 +194,7 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 case Op.OP_ENDIF:
                     break;
 
+                /* Variable-pop ops: be maximally conservative (pop whole stack + 1) */
                 case Op.OP_PICK:
                 case Op.OP_ROLL:
                     pop = depth + 1;
@@ -186,30 +208,28 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 case Op.OP_CHECKSIGVERIFY:
                     pop = 2;
                     break;
+
                 case Op.OP_CHECKMULTISIG:
                 case Op.OP_CHECKMULTISIGVERIFY:
-                    pop = depth + 1;
+                    pop = depth + 1; // m/n + sigs + dummy
                     push = opcode === Op.OP_CHECKMULTISIG ? 1 : 0;
                     break;
 
                 default:
+                    /* Disabled / unknown → we stop exploring this path. */
                     continue;
             }
         }
 
-        let newDepth = depth;
-        if (pop > newDepth) {
-            const deficit = pop - newDepth;
-            need = Math.max(need, deficit);
-            newDepth = 0;
-        } else {
-            newDepth -= pop;
-        }
-
+        /* ---------- apply stack effect ----------------------------------------- */
+        let newDepth = depth - pop;
+        const newMin = Math.min(minSeen, newDepth);
         newDepth += push;
 
-        add({ pc: nextPC, depth: newDepth });
+        /* ---------- schedule next instruction ---------------------------------- */
+        pushState(nextPC, newDepth, newMin);
 
+        /* ---------- flow-control branches -------------------------------------- */
         if (opcode === Op.OP_IF || opcode === Op.OP_NOTIF) {
             let elsePC: number | undefined,
                 endPC: number | undefined,
@@ -224,13 +244,10 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                         break;
                     }
                     d--;
-                } else if (op === Op.OP_ELSE && d === 0) {
-                    elsePC = i + 1;
-                }
+                } else if (op === Op.OP_ELSE && d === 0) elsePC = i + 1;
             }
-
-            if (elsePC !== undefined) add({ pc: elsePC, depth: newDepth });
-            if (endPC !== undefined) add({ pc: endPC, depth: newDepth });
+            if (elsePC !== undefined) pushState(elsePC, newDepth, newMin);
+            if (endPC !== undefined) pushState(endPC, newDepth, newMin);
         }
 
         if (opcode === Op.OP_ELSE) {
@@ -240,7 +257,7 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 if (op === Op.OP_IF || op === Op.OP_NOTIF) d++;
                 else if (op === Op.OP_ENDIF) {
                     if (d === 0) {
-                        add({ pc: i + 1, depth });
+                        pushState(i + 1, depth, minSeen);
                         break;
                     }
                     d--;
@@ -248,7 +265,8 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
             }
         }
     }
-    return need;
+
+    return -globalMin; // e.g. min=-2 → need 2 placeholders
 };
 
 export class ScriptSolver extends Logger {
