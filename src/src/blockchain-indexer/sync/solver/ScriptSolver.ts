@@ -545,12 +545,12 @@ export class ScriptSolver extends Logger {
     private modelToStack(model: Z3Model, ctx: Context, phIndex: number[]): Uint8Array[] {
         const pushes: Uint8Array[] = [];
         for (const i of phIndex) {
-            // ← same index list
             const v = model.eval(ctx.BitVec.const(`ph${i}`, 256), true);
-            // `v` is always a concrete BitVec because we asserted on it
             const val = v.value();
-            console.log(`ph${i} = ${val.toString(16)}`);
-            pushes.push(this.encodeMinimal(val));
+            console.log(`ph${i} = ${val}`);
+            const c = this.encodeMinimal(val);
+            console.log(`c =`, c);
+            pushes.push(c);
         }
         return pushes;
     }
