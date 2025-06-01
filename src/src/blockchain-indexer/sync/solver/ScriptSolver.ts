@@ -81,9 +81,182 @@ const ALWAYS_FAIL_SET = new Set<number>([
 const isNoop = (c: number) => NOOP_SET.has(c);
 const isAlwaysFail = (c: number) => ALWAYS_FAIL_SET.has(c);
 
+export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
+    // pre-decode – we need the same thing in symExec anyway
+    const prog = decodeAuthenticationInstructions(bytecode);
+
+    type State = { pc: number; depth: number };
+    const work: State[] = [{ pc: 0, depth: 0 }];
+    const seen = new Map<number, number>(); // pc → bestDepth
+    let need = 0; // answer to return
+
+    const add = (s: State) => {
+        const best = seen.get(s.pc);
+        if (best === undefined || s.depth < best) {
+            seen.set(s.pc, s.depth);
+            work.push(s);
+        }
+    };
+
+    while (work.length) {
+        const { pc, depth } = work.pop() as State;
+        if (pc >= prog.length) continue;
+
+        const ins = prog[pc];
+        const opcode = ins.opcode as OpcodesBCH2023;
+        const nextPC = pc + 1;
+
+        // --- compute stack effect ------------------------------------------
+        let pop = 0;
+        let push = 0;
+
+        if (opcode <= 0x4e || opcode === Op.OP_0) {
+            // data-push
+            push = 1;
+        } else if (opcode === Op.OP_1NEGATE || (opcode >= Op.OP_1 && opcode <= Op.OP_16)) {
+            push = 1;
+        } else {
+            switch (opcode) {
+                case Op.OP_DUP:
+                    pop = 1;
+                    push = 2;
+                    break;
+                case Op.OP_DROP:
+                    pop = 1;
+                    break;
+                case Op.OP_NIP:
+                    pop = 2;
+                    push = 1;
+                    break;
+                case Op.OP_OVER:
+                    pop = 2;
+                    push = 3;
+                    break;
+                case Op.OP_2DUP:
+                    pop = 2;
+                    push = 4;
+                    break;
+                case Op.OP_3DUP:
+                    pop = 3;
+                    push = 6;
+                    break;
+                case Op.OP_2OVER:
+                    pop = 4;
+                    push = 6;
+                    break;
+                case Op.OP_BOOLAND:
+                case Op.OP_BOOLOR:
+                case Op.OP_NUMEQUAL:
+                case Op.OP_NUMEQUALVERIFY:
+                case Op.OP_EQUAL:
+                case Op.OP_EQUALVERIFY:
+                case Op.OP_ADD:
+                case Op.OP_SUB:
+                case Op.OP_LESSTHAN:
+                case Op.OP_GREATERTHAN:
+                    pop = 2;
+                    push = 1;
+                    break;
+
+                case Op.OP_VERIFY:
+                    pop = 1;
+                    break;
+                case Op.OP_SHA256:
+                case Op.OP_HASH160:
+                    pop = 1;
+                    push = 1;
+                    break;
+
+                // flow-control — no stack delta, but we must enqueue
+                case Op.OP_IF:
+                case Op.OP_NOTIF:
+                    pop = 1;
+                    break;
+                case Op.OP_ELSE:
+                case Op.OP_ENDIF:
+                    break;
+
+                // “roller” opcodes: variable pop, treat as
+                // “pop *everything* then push one”
+                case Op.OP_PICK:
+                case Op.OP_ROLL:
+                    pop = depth + 1;
+                    push = 1;
+                    break;
+
+                // crypto sig ops – conservative lower bound:
+                //   OP_CHECKSIG      pop = 2, push = 1
+                //   …VERIFY          pop = 2, push = 0
+                //   MULTISIG         pop >= 3 … we just
+                //                    pop = depth + 1; push = 1/0
+                case Op.OP_CHECKSIG:
+                    pop = 2;
+                    push = 1;
+                    break;
+                case Op.OP_CHECKSIGVERIFY:
+                    pop = 2;
+                    break;
+                case Op.OP_CHECKMULTISIG:
+                case Op.OP_CHECKMULTISIGVERIFY:
+                    pop = depth + 1;
+                    push = opcode === Op.OP_CHECKMULTISIG ? 1 : 0;
+                    break;
+
+                default:
+                    // Unknown / disabled / OP_RETURN → stop analysis
+                    continue;
+            }
+        }
+
+        const depthAfter = depth - pop + push;
+        if (depthAfter < -need) need = -depthAfter;
+
+        //---------------------------------------------------------------------
+
+        // ► fall-through
+        add({ pc: nextPC, depth: depthAfter });
+
+        // ► branches for IF / NOTIF / ELSE
+        if (opcode === Op.OP_IF || opcode === Op.OP_NOTIF) {
+            let elsePC: number | undefined,
+                endPC: number | undefined,
+                d = 0;
+            for (let i = pc + 1; i < prog.length; i++) {
+                const op = prog[i].opcode as OpcodesBCH2023;
+                if (op === Op.OP_IF || op === Op.OP_NOTIF) d++;
+                else if (op === Op.OP_ENDIF) {
+                    if (d === 0) {
+                        endPC = i + 1;
+                        break;
+                    }
+                    d--;
+                } else if (op === Op.OP_ELSE && d === 0) elsePC = i + 1;
+            }
+            if (elsePC !== undefined) add({ pc: elsePC, depth: depthAfter });
+            if (endPC !== undefined) add({ pc: endPC, depth: depthAfter });
+        }
+        if (opcode === Op.OP_ELSE) {
+            // skip to ENDIF
+            let d = 0;
+            for (let i = pc + 1; i < prog.length; i++) {
+                const op = prog[i].opcode as OpcodesBCH2023;
+                if (op === Op.OP_IF || op === Op.OP_NOTIF) d++;
+                else if (op === Op.OP_ENDIF) {
+                    if (d === 0) {
+                        add({ pc: i + 1, depth });
+                        break;
+                    }
+                    d--;
+                }
+            }
+        }
+    }
+    return need;
+};
+
 export class ScriptSolver extends Logger {
     public logColor = '#7b00ff';
-    private readonly MAX_PH = 16;
+    private MAX_PH: number = 16;
     private readonly SMT_MS = 20_000;
     private readonly vm = createVirtualMachine(createInstructionSetBTC(false));
     private z3Init: Z3Module | null = null;
@@ -96,8 +269,13 @@ export class ScriptSolver extends Logger {
         this.log(`solve() ▶ lockHex=${lockHex}, bruteMax=${bruteMax}`);
 
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
-        const seed = new SymState(lock, [...Array(this.MAX_PH).keys()].map(P), { tapscript });
-        seed.stack.push(seed.ph[0]);
+
+        const minPH = estimateMinPlaceholders(lock);
+        this.MAX_PH = Math.max(16, minPH);
+
+        const seed = new SymState(lock, [...Array(minPH).keys()].map(P), { tapscript });
+
+        for (let i = 0; i < minPH; i++) seed.stack.push(seed.ph[i]);
 
         this.debug('phase 1/3 – symbolic execution');
         this.symExec(seed);
