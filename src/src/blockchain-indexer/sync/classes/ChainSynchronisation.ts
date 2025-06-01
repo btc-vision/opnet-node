@@ -35,6 +35,8 @@ export class ChainSynchronisation extends Logger {
     private abortControllers: Map<bigint, AbortController> = new Map();
     private pendingSave: Promise<void> | undefined;
 
+    private utxoSorter: UtxoSorter = new UtxoSorter();
+
     private readonly AWAIT_UTXO_WRITE_IF_QUEUE_SIZE: number = 200_000;
 
     private currentBlock: BasicBlockInfo | null = null;
@@ -309,16 +311,18 @@ export class ChainSynchronisation extends Logger {
                 })
                 .flat();
 
-            void UtxoSorter.classifyBatch(
-                toSort,
-                {
-                    height: Number(block.header.height),
-                    mtp: Number(block.header.medianTime),
-                },
-                32n,
-            ).then((cls) => {
-                this.acsClassifications.push(...cls);
-            });
+            void this.utxoSorter
+                .classifyBatch(
+                    toSort,
+                    {
+                        height: Number(block.header.height),
+                        mtp: Number(block.header.medianTime),
+                    },
+                    32n,
+                )
+                .then((cls) => {
+                    this.acsClassifications.push(...cls);
+                });
         }
     }
 

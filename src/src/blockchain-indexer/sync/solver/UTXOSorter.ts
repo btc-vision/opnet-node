@@ -4,6 +4,7 @@ import { crypto as btcCrypto } from '@btc-vision/bitcoin';
 import { AnyoneCanSpendDetector, AnyoneCanSpendReason } from './AnyoneCanSpendDetector.js';
 import { ScriptSolver } from './ScriptSolver.js';
 import { TransactionOutput } from '../../processor/transaction/inputs/TransactionOutput.js';
+import { Logger } from '@btc-vision/bsi-common';
 
 export interface Utxo {
     txid: string;
@@ -32,7 +33,8 @@ const isStandardScript = (
 
 export interface Classification {
     outpoint: { txid: string; index: number };
-    status: 'Standard' | 'ACS' | 'Solved' | 'Unknown' | 'Unspendable' | 'Error';
+    status: 'Standard' | 'ACS' | 'Solved' | 'Unknown' | 'Unspendable' | 'Error' | 'InvalidScript';
+    reason?: string;
     hit?: ReturnType<typeof detector.detect>;
     unlocking?: Uint8Array[];
     policyUnsafe?: boolean;
@@ -46,8 +48,10 @@ const solverCache: LRUCache<string, Uint8Array[]> = new LRUCache<string, Uint8Ar
 
 const h256 = (u: Uint8Array) => btcCrypto.sha256(Buffer.from(u)).toString('hex');
 
-export class UtxoSorter {
-    public static async classifyBatch(
+export class UtxoSorter extends Logger {
+    public readonly logColor: string = '#ff9100'; // Bright green for UTXO sorter logs
+
+    public async classifyBatch(
         utxos: readonly Utxo[],
         chain: { height: number; mtp: number },
         bruteMax: bigint = 32n,
@@ -111,19 +115,27 @@ export class UtxoSorter {
                 }
 
                 try {
+                    const isTaproot = output.scriptPubKey.type === 'witness_v1_taproot';
                     const res = await solver.solve(
+                        // 6e9f646e938f886e9455886d51676a68
+                        // 76a8202cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b982488756e935f886ea36394558867930114886851
                         output.scriptPubKeyBuffer.toString('hex'),
                         bruteMax,
+                        isTaproot,
                     );
+
                     if (res.solved) {
                         cl.status = 'Solved';
                         cl.unlocking = res.stack;
                         solverCache.set(key, res.stack);
+                    } else {
+                        cl.status = 'Unknown';
+                        cl.reason = res.reason;
+                        cl.unlocking = [];
                     }
                 } catch (error) {
-                    console.error(
-                        `Error solving script for ${output.scriptPubKeyBuffer.toString('hex')}:`,
-                        error,
+                    this.error(
+                        `Error solving script for ${output.scriptPubKeyBuffer.toString('hex')}: ${error}`,
                     );
 
                     cl.status = 'Error';

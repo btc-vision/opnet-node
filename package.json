@@ -68,6 +68,7 @@
         "asyncapi-validator": "^5.1.1",
         "bignumber.js": "^9.3.0",
         "bip174": "^2.1.1",
+        "bip39": "^3.1.0",
         "cors": "^2.8.5",
         "datastore-level": "^11.0.3",
         "ecpair": "^2.1.0",
