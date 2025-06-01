@@ -110,7 +110,7 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
         let pop = 0;
         let push = 0;
 
-        if (opcode <= 0x4e || opcode === Op.OP_0) {
+        if ((opcode as number) <= 0x4e || opcode === Op.OP_0) {
             // data-push
             push = 1;
         } else if (opcode === Op.OP_1NEGATE || (opcode >= Op.OP_1 && opcode <= Op.OP_16)) {
