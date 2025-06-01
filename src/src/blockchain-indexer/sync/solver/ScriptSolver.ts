@@ -628,7 +628,7 @@ export class ScriptSolver extends Logger {
         if (unlock.length > 10_000) return false;
 
         console.log(
-            `runConcrete() ▶ lock=${lock.toString('hex')}, unlock=${unlock.toString('hex')}`,
+            `runConcrete() ▶ lock=${Buffer.from(lock).toString('hex')}, unlock=${Buffer.from(unlock).toString('hex')}`,
         );
 
         const prog: AuthenticationProgramCommon = {
@@ -648,6 +648,13 @@ export class ScriptSolver extends Logger {
                 locktime: 0,
             },
         };
-        return !!this.vm.stateSuccess(this.vm.evaluate(prog));
+
+        const a = this.vm.stateSuccess(this.vm.evaluate(prog));
+        if (typeof a !== 'boolean') {
+            this.error(`runConcrete() error: ${a}`);
+            return false;
+        }
+
+        return true;
     }
 }
