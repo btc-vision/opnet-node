@@ -411,6 +411,7 @@ export class ScriptSolver extends Logger {
     private runConcrete(lock: Uint8Array, stack: Uint8Array[]): boolean {
         const unlock = Uint8Array.from(stack.flat());
         if (unlock.length > 50_000) return false;
+
         const prog: AuthenticationProgramCommon = {
             inputIndex: 0,
             sourceOutputs: [{ lockingBytecode: lock, valueSatoshis: 0n }],
@@ -428,9 +429,12 @@ export class ScriptSolver extends Logger {
                 locktime: 0,
             },
         };
-        const ok = this.vm.stateSuccess(this.vm.evaluate(prog)) === true;
+
+        const ok = this.vm.stateSuccess(this.vm.evaluate(prog));
+        console.log(ok);
+
         this.debug(`concrete VM result: ${ok}`);
-        return ok;
+        return ok === true;
     }
 
     private encodeMinimal(n: bigint): Uint8Array {
