@@ -773,7 +773,8 @@ export class ScriptSolver extends Logger {
     }
 
     private runConcrete(lock: Uint8Array, stack: Uint8Array[]): boolean {
-        const unlock = Uint8Array.from(stack.flat());
+        console.log('runConcrete() ▶ lock=', lock, 'stack=', stack);
+        const unlock = Uint8Array.from(stack.reduce<number[]>((a, b) => (a.push(...b), a), []));
         if (unlock.length > 10_000) return false;
 
         const prog: AuthenticationProgramCommon = {
