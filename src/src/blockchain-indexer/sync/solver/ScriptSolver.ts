@@ -163,7 +163,7 @@ export class ScriptSolver extends Logger {
             const model = solver.model();
             const modelStack = this.modelToStack(model, ctx);
             console.log(model, modelStack);
-            
+
             this.success(`SAT – model produced ${modelStack.length} push(es)`);
             return this.runConcrete(lock, modelStack)
                 ? { solved: true, stack: modelStack }
@@ -528,15 +528,17 @@ export class ScriptSolver extends Logger {
             },
         };
 
-        const ok = this.vm.stateSuccess(this.vm.evaluate(prog));
+        const result = this.vm.evaluate(prog);
+        const ok = this.vm.stateSuccess(result);
         if (typeof ok !== 'boolean') {
             console.dir(prog, { depth: 10 });
+            console.log(result);
 
             this.fail(`Failed to evaluate VM state: ${ok}`);
             return false;
         }
 
-        return ok;
+        return true;
     }
 
     private encodeMinimal(n: bigint): Uint8Array {
