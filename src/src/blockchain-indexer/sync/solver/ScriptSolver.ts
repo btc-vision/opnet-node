@@ -297,8 +297,33 @@ export class ScriptSolver extends Logger {
                 return v;
             });
 
-        const fun = (name: string) => ctx.Function.declare(name, BV_SORT, BV_SORT);
+        const solver = new ctx.Solver();
+        solver.set('timeout', this.SMT_MS);
 
+        const IS4 = (v: BV) => LEN8(v).eq(ctx.BitVec.val(4n, 8));
+        const PAYLOAD = (v: BV) => v.extract(39, 8); // 32-bit little-endian
+        const toInt = (v: BV) => ctx.BV2Int(v, /*signed=*/ true);
+        const fromInt = (n: z3Types.Int<'main'>) =>
+            ctx
+                .Int2BV(n, 32) // 32-bit payload
+                .zeroExt(BV_BITS - 40) // high-order padding
+                .concat(ctx.BitVec.val(4n, 8)); // low-order length byte
+
+        const LEN8 = (v: BV) => v.extract(7, 0);
+        const ONE8 = ctx.BitVec.val(1n, 8);
+        const ZERO_BV = ctx.BitVec.val(0n, BV_BITS);
+        const INT_MIN = ctx.BitVec.val(-(1n << 31n), BV_BITS);
+        const INT_MAXP = ctx.BitVec.val((1n << 31n) - 1n, BV_BITS);
+
+        phVars.forEach((v) => {
+            solver.add(LEN8(v).uge(ONE8));
+            solver.add(LEN8(v).ule(ctx.BitVec.val(0x4bn, 8)));
+            solver.add(v.neq(ZERO_BV));
+            solver.add(v.sge(INT_MIN));
+            solver.add(v.sle(INT_MAXP));
+        });
+
+        const fun = (name: string) => ctx.Function.declare(name, BV_SORT, BV_SORT);
         const enc = (e: Expr): BV => {
             if (e.tag === 'ph') {
                 const a = phMap.get(e.i);
@@ -374,16 +399,6 @@ export class ScriptSolver extends Logger {
             }
             throw new Error(`unknown op ${e.op}`);
         };
-
-        const solver = new ctx.Solver();
-        solver.set('timeout', this.SMT_MS);
-
-        const LEN8 = (v: BV) => v.extract(7, 0);
-        const ONE8 = ctx.BitVec.val(1n, 8);
-        phVars.forEach((v) => {
-            solver.add(LEN8(v).uge(ONE8));
-            solver.add(LEN8(v).ule(ctx.BitVec.val(0x4bn, 8)));
-        });
 
         const pathBv = paths.map((cs) =>
             ctx.And(...cs.map((c) => enc(c).neq(ctx.BitVec.val(0n, BV_BITS)))),
@@ -494,7 +509,8 @@ export class ScriptSolver extends Logger {
                 }
 
                 if (isOpSuccessX(op)) {
-                    st.constraints.push(st.opts.tapscript ? I(1n) : I(0n));
+                    if (!st.opts.tapscript) break; // give up, never satisfiable
+                    st.constraints.push(I(1n));
                     break;
                 }
 
@@ -588,6 +604,22 @@ export class ScriptSolver extends Logger {
                     case Op.OP_EQUALVERIFY: {
                         const { a, b } = pop2();
                         st.constraints.push(A('eq', a, b));
+                        continue;
+                    }
+                    case Op.OP_PICK: {
+                        const n = pop();
+                        // over-approximate: if n is symbolic we fork
+                        const max = st.stack.length - 1;
+                        if (n.tag === 'int' && n.v >= 0n && n.v <= BigInt(max)) {
+                            st.stack.push(st.stack[max - Number(n.v)]);
+                        } else {
+                            // pessimistic: create a fresh placeholder and constrain it to equal one of the
+                            // elements that could be picked
+                            const ph = P(seed.ph.length + phPtr++);
+                            const choices = st.stack.map((e, i) => A('eq', ph, e));
+                            st.constraints.push(A('boolor', ...choices));
+                            st.stack.push(ph);
+                        }
                         continue;
                     }
                 }

@@ -25,7 +25,6 @@ const DISABLED_OPCODES: readonly number[] = [
     Op.OP_UTXOTOKENCOMMITMENT,
 ];
 
-/* ─────────────────────────  helper that marks failure  ─────────────────── */
 const opDisabled: Operation<AuthenticationProgramStateBCHCHIPs> = (state) => {
     state.error = 'disabled opcode';
     return state;
