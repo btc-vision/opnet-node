@@ -4,45 +4,34 @@ import {
     AuthenticationProgramCommon,
     createVirtualMachine,
     decodeAuthenticationInstructions,
-    isVmNumberError,
     OpcodesBCH as Op,
     type OpcodesBCH2023,
-    vmNumberToBigInt,
 } from '@bitauth/libauth';
 
-import type {
-    BitVec,
-    Bool,
-    Context,
-    FuncDecl,
-    Model as Z3Model,
-    Z3HighLevel,
-    Z3LowLevel,
-} from 'z3-solver';
+import type { BitVec, Bool, Z3HighLevel, Z3LowLevel } from 'z3-solver';
 import { init as initZ3 } from 'z3-solver';
 
 import { Logger } from '@btc-vision/bsi-common';
 import { createInstructionSetBTC } from './InstructionSet.js';
 
-type Const = { tag: 'const'; v: bigint };
+type IntConst = { tag: 'int'; v: bigint };
+type BytesConst = { tag: 'bytes'; b: Uint8Array };
+type Const = IntConst | BytesConst;
+
 type Placeholder = { tag: 'ph'; i: number };
 type App = { tag: 'app'; op: string; args: Expr[] };
 type Expr = Const | Placeholder | App;
 
-const C = (v: bigint): Const => ({ tag: 'const', v });
+const I = (v: bigint): IntConst => ({ tag: 'int', v });
+const B = (b: Uint8Array): BytesConst => ({ tag: 'bytes', b });
 const P = (i: number): Placeholder => ({ tag: 'ph', i });
-const app = (op: string, ...args: Expr[]): App => ({ tag: 'app', op, args });
-const sha256 = (e: Expr): App => app('sha256', e);
-const ripemd160 = (e: Expr): App => app('ripemd160', e);
+const A = (op: string, ...args: Expr[]): App => ({ tag: 'app', op, args });
+
+const sha256 = (e: Expr) => A('sha256', e);
+const ripemd160 = (e: Expr) => A('ripemd160', e);
 
 interface SymOpts {
     tapscript: boolean;
-}
-
-interface Frame {
-    pc: number;
-    stack: number[];
-    nextId: number;
 }
 
 class SymState {
@@ -57,16 +46,22 @@ class SymState {
     ) {}
 }
 
-type BV256 = BitVec<number, 'main'>;
-type Z3Module = Z3HighLevel & Z3LowLevel;
+function bvToPush(v: bigint): Uint8Array {
+    const len = Number(v & 0xffn);
+    let tmp = v >> 8n;
+    const data = new Uint8Array(len);
+    for (let i = 0; i < len; ++i) {
+        data[i] = Number(tmp & 0xffn);
+        tmp >>= 8n;
+    }
+    return Uint8Array.of(len, ...data);
+}
 
-const isPush = (x: AuthenticationInstruction): x is AuthenticationInstructionPush =>
-    Object.hasOwn(x, 'data');
+const isPush = (x: AuthenticationInstruction): x is AuthenticationInstructionPush => 'data' in x;
 
 const NOOP_SET = new Set<number>([Op.OP_NOP, Op.OP_CODESEPARATOR]);
-
-const isOpSuccessX = (code: number) => code >= 0xb0 && code <= 0xf7;
-
+const isNoop = (c: number) => NOOP_SET.has(c);
+const isOpSuccessX = (c: number) => c >= 0xb0 && c <= 0xf7;
 const ALWAYS_FAIL_SET = new Set<number>([
     Op.OP_RESERVED,
     Op.OP_VER,
@@ -83,79 +78,76 @@ const ALWAYS_FAIL_SET = new Set<number>([
     Op.OP_NOP9,
     Op.OP_NOP10,
 ]);
-
-const isNoop = (c: number) => NOOP_SET.has(c);
 const isAlwaysFail = (c: number) => ALWAYS_FAIL_SET.has(c);
-const isOpReturnX = (code: number) => code >= 0xda && code <= 0xfe;
+const isOpReturnX = (c: number) => c >= 0xda && c <= 0xfe;
+
+interface Frame {
+    pc: number;
+    stack: number[];
+    nextId: number;
+}
 
 export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
     const prog = decodeAuthenticationInstructions(bytecode);
-
     const work: Frame[] = [{ pc: 0, stack: [], nextId: 0 }];
     let maxId = 0;
 
-    const pushId = (stack: number[], next: number): number => {
-        stack.push(next);
-        return next + 1;
-    };
+    const pushId = (stk: number[], n: number) => (stk.push(n), n + 1);
 
     while (work.length) {
-        const elem = work.pop();
-        if (!elem) {
-            throw new Error('work queue underflow – no more frames to process');
-        }
+        const m = work.pop();
 
-        const { pc, stack, nextId } = elem;
+        if (!m) throw new Error('ScriptSolver: empty work stack');
+        const { pc, stack, nextId } = m;
+
         if (pc >= prog.length) continue;
-
         const op = prog[pc].opcode as OpcodesBCH2023;
 
         const s = [...stack];
         let id = nextId;
         const popN = (n: number) => {
-            while (n-- && s.length) s.pop();
+            for (let i = 0; i < n && s.length; ++i) s.pop();
         };
 
-        if ((op as number) <= 0x4e || op === Op.OP_0) {
-            id = pushId(s, id);
-        } else if (op === Op.OP_1NEGATE || (op >= Op.OP_1 && op <= Op.OP_16)) {
-            id = pushId(s, id);
-        } else {
+        const push = (n = 1) => {
+            for (let i = 0; i < n; ++i) id = pushId(s, id);
+        };
+        const pushScalar = () => push(1);
+
+        if ((op as number) <= 0x4e || op === Op.OP_0) pushScalar();
+        else if (op === Op.OP_1NEGATE || (op >= Op.OP_1 && op <= Op.OP_16)) pushScalar();
+        else {
             switch (op) {
                 case Op.OP_DUP:
                     popN(1);
-                    id = pushId(s, id);
-                    id = pushId(s, id);
+                    push(2);
                     break;
                 case Op.OP_IFDUP:
                     popN(1);
-                    id = pushId(s, id);
-                    id = pushId(s, id);
+                    push(2);
                     break;
                 case Op.OP_DROP:
                     popN(1);
                     break;
                 case Op.OP_NIP:
                     popN(2);
-                    id = pushId(s, id);
+                    push(1);
                     break;
                 case Op.OP_OVER:
                     popN(2);
-                    id = pushId(s, id);
-                    id = pushId(s, id);
-                    id = pushId(s, id);
+                    push(3);
                     break;
                 case Op.OP_2DUP:
                     popN(2);
-                    for (let i = 0; i < 4; ++i) id = pushId(s, id);
+                    push(4);
                     break;
                 case Op.OP_3DUP:
                     popN(3);
-                    for (let i = 0; i < 6; ++i) id = pushId(s, id);
+                    push(6);
                     break;
                 case Op.OP_2OVER:
                     popN(4);
-                    for (let i = 0; i < 6; ++i) id = pushId(s, id);
+                    push(6);
                     break;
 
                 case Op.OP_BOOLAND:
@@ -169,7 +161,7 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 case Op.OP_MIN:
                 case Op.OP_MAX:
                     popN(2);
-                    id = pushId(s, id);
+                    push(1);
                     break;
 
                 case Op.OP_NUMEQUALVERIFY:
@@ -179,13 +171,13 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
 
                 case Op.OP_WITHIN:
                     popN(3);
-                    id = pushId(s, id);
+                    push(1);
                     break;
 
                 case Op.OP_SHA256:
                 case Op.OP_HASH160:
                     popN(1);
-                    id = pushId(s, id);
+                    push(1);
                     break;
 
                 case Op.OP_VERIFY:
@@ -195,12 +187,12 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 case Op.OP_PICK:
                 case Op.OP_ROLL:
                     popN(s.length + 1);
-                    id = pushId(s, id);
+                    pushScalar();
                     break;
 
                 case Op.OP_CHECKSIG:
                     popN(2);
-                    id = pushId(s, id);
+                    push(1);
                     break;
                 case Op.OP_CHECKSIGVERIFY:
                     popN(2);
@@ -208,7 +200,7 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 case Op.OP_CHECKMULTISIG:
                 case Op.OP_CHECKMULTISIGVERIFY:
                     popN(s.length + 1);
-                    if (op === Op.OP_CHECKMULTISIG) id = pushId(s, id);
+                    if (op === Op.OP_CHECKMULTISIG) pushScalar();
                     break;
 
                 default:
@@ -218,64 +210,50 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
 
         maxId = Math.max(maxId, id);
 
-        const schedule = (newPc: number, newStack: number[], newNextId: number) =>
-            work.push({ pc: newPc, stack: newStack, nextId: newNextId });
-
-        const nextPc = pc + 1;
+        const next = pc + 1;
+        const pushFrame = (p: number, st: number[], n: number) =>
+            work.push({ pc: p, stack: st, nextId: n });
 
         if (op === Op.OP_IF || op === Op.OP_NOTIF) {
-            schedule(findMatchingElseOrEnd(prog, pc) ?? findMatchingEnd(prog, pc), [...s], id);
-            schedule(nextPc, [...s], id);
-        } else if (op === Op.OP_ELSE) {
-            schedule(findMatchingEnd(prog, pc), s, id);
-        } else if (op === Op.OP_ENDIF) {
-            schedule(nextPc, s, id);
-        } else if (isOpReturnX(op) || isAlwaysFail(op)) {
-        } else {
-            schedule(nextPc, s, id);
-        }
+            pushFrame(findElseOrEnd(prog, pc) ?? findEnd(prog, pc), [...s], id);
+            pushFrame(next, [...s], id);
+        } else if (op === Op.OP_ELSE) pushFrame(findEnd(prog, pc), s, id);
+        else if (op === Op.OP_ENDIF) pushFrame(next, s, id);
+        else if (!isOpReturnX(op) && !isAlwaysFail(op)) pushFrame(next, s, id);
     }
-
     return Math.max(1, maxId);
 };
 
-function findMatchingEnd(
-    prog: ReturnType<typeof decodeAuthenticationInstructions>,
-    start: number,
-): number {
-    let depth = 0;
-    for (let pc = start + 1; pc < prog.length; ++pc) {
-        const o = prog[pc].opcode as OpcodesBCH2023;
-        if (o === Op.OP_IF || o === Op.OP_NOTIF) depth++;
-        else if (o === Op.OP_ENDIF) {
-            if (depth === 0) return pc + 1;
-            depth--;
-        }
+const findEnd = (p: ReturnType<typeof decodeAuthenticationInstructions>, start: number) => {
+    let d = 0;
+    for (let pc = start + 1; pc < p.length; ++pc) {
+        const o = p[pc].opcode as OpcodesBCH2023;
+        if (o === Op.OP_IF || o === Op.OP_NOTIF) ++d;
+        else if (o === Op.OP_ENDIF && d-- === 0) return pc + 1;
     }
-    return prog.length;
-}
-
-function findMatchingElseOrEnd(
-    prog: ReturnType<typeof decodeAuthenticationInstructions>,
+    return p.length;
+};
+const findElseOrEnd = (
+    p: ReturnType<typeof decodeAuthenticationInstructions>,
     start: number,
-): number | undefined {
-    let depth = 0;
-    for (let pc = start + 1; pc < prog.length; ++pc) {
-        const o = prog[pc].opcode as OpcodesBCH2023;
-        if (o === Op.OP_IF || o === Op.OP_NOTIF) depth++;
-        else if (o === Op.OP_ELSE && depth === 0) return pc + 1;
-        else if (o === Op.OP_ENDIF) {
-            if (depth === 0) return pc + 1;
-            depth--;
-        }
+): number | undefined => {
+    let d = 0;
+    for (let pc = start + 1; pc < p.length; ++pc) {
+        const o = p[pc].opcode as OpcodesBCH2023;
+        if (o === Op.OP_IF || o === Op.OP_NOTIF) ++d;
+        else if (o === Op.OP_ELSE && d === 0) return pc + 1;
+        else if (o === Op.OP_ENDIF && d-- === 0) return pc + 1;
     }
     return undefined;
-}
+};
+
+const BV_BITS = 264;
+
+type Z3Module = Z3HighLevel & Z3LowLevel;
+type BV = BitVec<264, 'main'>;
 
 export class ScriptSolver extends Logger {
     public logColor = '#7b00ff';
-    private MAX_PH: number = 16;
-
     private readonly SMT_MS = 20_000;
     private readonly vm = createVirtualMachine(createInstructionSetBTC(false));
     private z3Init: Z3Module | null = null;
@@ -285,147 +263,145 @@ export class ScriptSolver extends Logger {
         bruteMax: bigint = 32n,
         tapscript = false,
     ): Promise<{ solved: boolean; stack?: Uint8Array[]; reason?: string }> {
-        this.log(`solve() ▶ lockHex=${lockHex}, bruteMax=${bruteMax}`);
+        this.log(`solve() ▶ lockHex=${lockHex}`);
 
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
-        const minPH = Math.min(2, estimateMinPlaceholders(lock));
-        console.log(`estimated min placeholders: ${minPH}`);
-        
+        const minPH = Math.min(32, estimateMinPlaceholders(lock));
+
         const seed = new SymState(lock, [...Array(minPH).keys()].map(P), { tapscript });
+        seed.stack.push(...seed.ph);
 
-        for (let i = 0; i < minPH; i++) seed.stack.push(seed.ph[i]);
+        const paths: Expr[][] = [];
+        this.symExec(seed, paths);
 
-        this.debug('phase 1/3 – symbolic execution');
-        const pathSets: Expr[][] = [];
-        this.symExec(seed, pathSets);
-
-        this.debug('phase 2/3 – SMT solving');
         const z3 = await this.getZ3();
-
         const ctx = z3.Context('main');
-        const ONE = ctx.BitVec.val(1n, 256);
-        const ZERO = ctx.BitVec.val(0n, 256);
-        const INT_MIN = ctx.BitVec.val(-(1n << 31n), 256);
-        const INT_MAXp = ctx.BitVec.val(1n << 31n, 256);
+
+        const phUsed = new Set<number>();
+        seed.constraints.forEach((c) =>
+            this.walk(c, (e) => {
+                if (e.tag === 'ph') phUsed.add(e.i);
+            }),
+        );
+
+        if (!phUsed.size) phUsed.add(0);
+
+        const BV_SORT = ctx.BitVec.sort(BV_BITS);
+
+        const phMap = new Map<number, BV>();
+        const phVars = [...phUsed]
+            .sort((a, b) => a - b)
+            .map((i) => {
+                const v = ctx.BitVec.const(`ph${i}`, BV_BITS);
+                phMap.set(i, v);
+                return v;
+            });
+
+        const fun = (name: string) => ctx.Function.declare(name, BV_SORT, BV_SORT);
+
+        const enc = (e: Expr): BV => {
+            if (e.tag === 'ph') {
+                const a = phMap.get(e.i);
+                if (!a) throw new Error(`placeholder ${e.i} not found`);
+
+                return a;
+            }
+
+            if (e.tag === 'bytes') {
+                let payload = 0n;
+                for (let i = e.b.length - 1; i >= 0; --i)
+                    payload = (payload << 8n) | BigInt(e.b[i]);
+                return ctx.BitVec.val((payload << 8n) | BigInt(e.b.length), BV_BITS);
+            }
+
+            if (e.tag === 'int') return ctx.BitVec.val(e.v, BV_BITS);
+
+            const bv = (x: Expr) => enc(x);
+            const bool = (b: Bool<'main'>) =>
+                ctx.If(b, ctx.BitVec.val(1n, BV_BITS), ctx.BitVec.val(0n, BV_BITS));
+
+            switch (e.op) {
+                case 'eq': {
+                    const [a, b] = e.args;
+                    return bool(bv(a).eq(bv(b)));
+                }
+                case 'lt': {
+                    const [a, b] = e.args;
+                    return bool(bv(a).ult(bv(b)));
+                }
+                case 'gt': {
+                    const [a, b] = e.args;
+                    return bool(bv(a).ugt(bv(b)));
+                }
+                case 'add': {
+                    const [a, b] = e.args;
+                    if (a.tag !== 'int' || b.tag !== 'int') return ctx.BitVec.val(0n, BV_BITS);
+                    return bv(a).add(bv(b));
+                }
+                case 'sub': {
+                    const [a, b] = e.args;
+                    if (a.tag !== 'int' || b.tag !== 'int') return ctx.BitVec.val(0n, BV_BITS);
+                    return bv(a).sub(bv(b));
+                }
+                case 'booland': {
+                    const [a, b] = e.args;
+                    return bool(bv(a).and(bv(b)).neq(ctx.BitVec.val(0n, BV_BITS)));
+                }
+                case 'boolor': {
+                    const [a, b] = e.args;
+                    return bool(bv(a).or(bv(b)).neq(ctx.BitVec.val(0n, BV_BITS)));
+                }
+                case 'within': {
+                    const [x, a, b] = e.args;
+                    return bool(
+                        bv(x)
+                            .uge(bv(a))
+                            .and(bv(x).ult(bv(b))),
+                    );
+                }
+                case 'min': {
+                    const [a, b] = e.args;
+                    return ctx.If(bv(a).ult(bv(b)), bv(a), bv(b));
+                }
+                case 'max': {
+                    const [a, b] = e.args;
+                    return ctx.If(bv(a).ugt(bv(b)), bv(a), bv(b));
+                }
+                case 'sha256':
+                    return fun('sha256').call(bv(e.args[0])) as BV;
+                case 'ripemd160':
+                    return fun('ripemd160').call(bv(e.args[0])) as BV;
+            }
+            throw new Error(`unknown op ${e.op}`);
+        };
 
         const solver = new ctx.Solver();
         solver.set('timeout', this.SMT_MS);
 
-        const used = new Set<number>();
-        const walk = (e: Expr): void => {
-            if (e.tag === 'ph') used.add(e.i);
-            else if (e.tag === 'app') e.args.forEach(walk);
-        };
+        const LEN8 = (v: BV) => v.extract(7, 0);
+        const LEN_LIM = ctx.BitVec.val(0x4bn, 8);
+        phVars.forEach((v) => solver.add(LEN8(v).ule(LEN_LIM)));
 
-        seed.constraints.forEach(walk);
+        const pathBv = paths.map((cs) =>
+            ctx.And(...cs.map((c) => enc(c).neq(ctx.BitVec.val(0n, BV_BITS)))),
+        );
 
-        if (used.size === 0) used.add(0);
-
-        const phIndex = [...used].sort((a, b) => a - b);
-        const phMap = new Map<number, ReturnType<typeof ctx.BitVec.const>>();
-        const phVars = phIndex.map((i) => {
-            const v = ctx.BitVec.const(`ph${i}`, 256);
-            phMap.set(i, v);
-            return v;
-        });
-
-        phVars.forEach((v) => {
-            solver.add(v.sge(INT_MIN));
-            solver.add(v.slt(INT_MAXp));
-        });
-
-        const boolToBV = (b: Bool<'main'>) => ctx.If(b, ONE, ZERO);
-        const funCache = new Map<string, FuncDecl<'main'>>();
-        const fun = (name: string) => {
-            let f = funCache.get(name);
-            if (!f) {
-                f = ctx.Function.declare(name, ctx.BitVec.sort(256), ctx.BitVec.sort(256));
-                funCache.set(name, f);
-            }
-            return f;
-        };
-
-        const enc = (e: Expr): BV256 => {
-            if (e.tag === 'const') return ctx.BitVec.val(e.v, 256);
-            if (e.tag === 'ph') {
-                const v2 = phMap.get(e.i);
-                if (!v2) throw new Error(`Placeholder ph${e.i} not found in map`);
-
-                return v2;
-            }
-            switch (e.op) {
-                case 'eq': {
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.eq(b));
-                }
-                case 'lt': {
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.slt(b));
-                }
-                case 'gt': {
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.sgt(b));
-                }
-                case 'add': {
-                    const [a, b] = e.args.map(enc);
-                    return a.add(b);
-                }
-                case 'sub': {
-                    const [a, b] = e.args.map(enc);
-                    return a.sub(b);
-                }
-                case 'booland': {
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.and(b).neq(ZERO));
-                }
-                case 'boolor': {
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.or(b).neq(ZERO));
-                }
-                case 'within': {
-                    const [a, b, c] = e.args.map(enc);
-                    return boolToBV(a.sge(b).and(a.slt(c)));
-                }
-                case 'min': {
-                    const [a, b] = e.args.map(enc);
-                    return ctx.If(a.slt(b), a, b);
-                }
-                case 'max': {
-                    const [a, b] = e.args.map(enc);
-                    return ctx.If(a.sgt(b), a, b);
-                }
-                case 'sha256':
-                    return fun('sha256').call(enc(e.args[0])) as BV256;
-                case 'ripemd160':
-                    return fun('ripemd160').call(enc(e.args[0])) as BV256;
-            }
-            throw new Error(`unhandled op ${e.op}`);
-        };
-
-        const pathBool = pathSets.map((cs) => ctx.And(...cs.map((c) => enc(c).neq(ZERO))));
-        if (pathBool.length === 0) {
-            solver.add(ctx.Bool.val(false));
-        } else {
-            solver.add(ctx.Or(...pathBool));
-        }
+        solver.add(pathBv.length ? ctx.Or(...pathBv) : ctx.Bool.val(false));
 
         const sat = await solver.check();
-        this.debug(`SMT solver responded: ${sat}`);
+        if (sat !== 'sat') return { solved: false, reason: sat };
 
-        if (sat === 'sat') {
-            const modelStack = this.modelToStack(solver.model(), ctx, phIndex);
-            const ok = this.runConcrete(lock, modelStack);
-            return ok
-                ? { solved: true, stack: modelStack }
-                : { solved: false, reason: 'model failed concrete VM (bug)' };
-        }
+        const model = solver.model();
+        const pushes = [...phUsed].map((i) => {
+            const v = phMap.get(i);
+            if (!v) throw new Error(`placeholder ${i} not found in model`);
 
-        if (sat === 'unknown') {
-            const brute = this.bruteHashes(lock, seed, bruteMax);
-            if (brute) return brute;
-        }
+            return bvToPush(model.eval(v, true).value());
+        });
 
-        return { solved: false, reason: sat };
+        return this.runConcrete(lock, pushes)
+            ? { solved: true, stack: pushes }
+            : { solved: false, reason: 'model failed VM (bug)' };
     }
 
     private async getZ3(): Promise<Z3Module> {
@@ -433,258 +409,191 @@ export class ScriptSolver extends Logger {
         return this.z3Init;
     }
 
-    private bytesToUintLE(b: Uint8Array): bigint {
-        let x = 0n;
-        for (let i = b.length - 1; i >= 0; i--) x = (x << 8n) | BigInt(b[i]);
-        return x;
+    private walk(e: Expr, f: (x: Expr) => void) {
+        f(e);
+        if (e.tag === 'app') e.args.forEach((a) => this.walk(a, f));
     }
 
     private symExec(seed: SymState, paths: Expr[][]): void {
         const prog = decodeAuthenticationInstructions(seed.code);
 
-        const findBoundaries = (start: number) => {
+        const findBlock = (start: number) => {
             let depth = 0,
                 elsePc: number | undefined;
-            for (let pc = start; pc < prog.length; pc++) {
-                const op = prog[pc].opcode as OpcodesBCH2023;
-
-                switch (op) {
-                    case Op.OP_IF:
-                    case Op.OP_NOTIF:
-                        depth++;
-                        break;
-
-                    case Op.OP_ENDIF:
-                        if (depth === 0) return { elsePc, endPc: pc + 1 };
-                        depth--;
-                        break;
-
-                    case Op.OP_ELSE:
-                        if (depth === 0) elsePc = pc + 1;
-                        break;
-                }
+            for (let pc = start + 1; pc < prog.length; ++pc) {
+                const o = prog[pc].opcode as OpcodesBCH2023;
+                if (o === Op.OP_IF || o === Op.OP_NOTIF) ++depth;
+                else if (o === Op.OP_ENDIF && depth-- === 0) return { elsePc, endPc: pc + 1 };
+                else if (o === Op.OP_ELSE && depth === 0) elsePc = pc + 1;
             }
             throw new Error('unmatched IF/ENDIF');
         };
 
         const queue: SymState[] = [seed];
 
-        const fork = (src: SymState, pcTarget: number, extraConstraint: Expr) => {
+        const fork = (src: SymState, pcTarget: number, extra: Expr) => {
             const ns = new SymState(src.code, src.ph, src.opts);
             ns.pc = pcTarget;
             ns.stack = [...src.stack];
-            ns.constraints = [...src.constraints, extraConstraint];
+            ns.constraints = [...src.constraints, extra];
             queue.push(ns);
         };
 
         while (queue.length) {
             const st = queue.pop();
             if (!st) {
-                this.fail('queue underflow – no more states to process');
-                break;
+                throw new Error('ScriptSolver: empty queue');
             }
 
             let phPtr = 0;
+
             const pop = (): Expr => {
-                if (st.stack.length === 0) {
-                    if (phPtr >= st.ph.length) throw 'placeholder exhausted';
+                if (!st.stack.length) {
+                    if (phPtr >= st.ph.length) throw new Error('placeholder exhausted');
                     st.stack.push(st.ph[phPtr++]);
                 }
 
-                const elem = st.stack.pop();
-                if (!elem) throw new Error('unhandled op');
+                const p = st.stack.pop();
+                if (!p) {
+                    throw new Error('ScriptSolver: pop from empty stack');
+                }
 
-                return elem;
+                return p;
             };
 
             const pop2 = () => ({ b: pop(), a: pop() });
 
-            for (; st.pc < prog.length; st.pc++) {
+            for (; st.pc < prog.length; ++st.pc) {
                 const ins = prog[st.pc];
                 const opNum = ins.opcode;
                 const op = opNum as OpcodesBCH2023;
                 st.pc += 1;
 
                 if (opNum <= 0x4e) {
-                    let num = 0n;
-
-                    if (isPush(ins) && ins.data.length) {
-                        const d = ins.data;
-                        if (d.length <= 4) {
-                            const decoded = vmNumberToBigInt(d);
-
-                            if (!isVmNumberError(decoded)) {
-                                num = decoded;
-                            } else {
-                                num = this.bytesToUintLE(d);
-                            }
-                        } else {
-                            num = this.bytesToUintLE(d);
-                        }
-                    }
-
-                    st.stack.push(C(num));
+                    const raw = isPush(ins) ? ins.data : new Uint8Array();
+                    st.stack.push(B(raw));
                     continue;
-                }
-
-                if (op === Op.OP_MIN || op === Op.OP_MAX) {
-                    const { a, b } = pop2();
-                    st.stack.push(app(op === Op.OP_MIN ? 'min' : 'max', a, b));
-                    continue;
-                }
-
-                if (isOpSuccessX(opNum)) {
-                    if (st.opts.tapscript) {
-                        st.constraints.push(C(1n));
-                    } else {
-                        st.constraints.push(C(0n));
-                    }
-                    break;
                 }
 
                 if (op === Op.OP_1NEGATE) {
-                    st.stack.push(C(-1n));
+                    st.stack.push(I(-1n));
                     continue;
                 }
-
                 if (op >= Op.OP_1 && op <= Op.OP_16) {
-                    st.stack.push(C(BigInt(op - Op.OP_1 + 1)));
+                    st.stack.push(I(BigInt(op - Op.OP_1 + 1)));
                     continue;
                 }
 
-                if (isNoop(opNum)) continue;
-                if (isAlwaysFail(opNum)) {
-                    st.constraints.push(C(0n));
+                if (isNoop(op)) continue;
+                if (isAlwaysFail(op)) {
+                    st.constraints.push(I(0n));
+                    break;
+                }
+
+                if (isOpSuccessX(op)) {
+                    st.constraints.push(st.opts.tapscript ? I(1n) : I(0n));
                     break;
                 }
 
                 if (op === Op.OP_IF || op === Op.OP_NOTIF) {
                     const cond = pop();
                     const negate = op === Op.OP_NOTIF;
-                    const { elsePc, endPc } = findBoundaries(st.pc);
+                    const { elsePc, endPc } = findBlock(st.pc - 1);
 
-                    const takenConst =
-                        cond.tag === 'const' ? (cond.v !== 0n) !== negate : undefined;
+                    const isConst = cond.tag === 'int';
+                    const condNZ = negate ? A('eq', cond, I(0n)) : cond;
+                    const condZ = negate ? cond : A('eq', cond, I(0n));
 
-                    const condIsTrue = negate ? app('eq', cond, C(0n)) : cond;
-                    const condIsFalse = negate ? cond : app('eq', cond, C(0n));
-
-                    if (takenConst !== undefined) {
-                        if (!takenConst) {
+                    if (isConst) {
+                        const takeTrue = cond.v !== 0n;
+                        if (takeTrue !== negate) {
+                            st.constraints.push(condNZ);
+                        } else {
                             st.pc = elsePc ?? endPc;
-                            continue;
                         }
-
-                        if (!(cond.tag === 'const' && cond.v === 0n))
-                            st.constraints.push(condIsTrue);
                         continue;
                     }
 
-                    fork(st, elsePc ?? endPc, condIsFalse);
-
-                    st.constraints.push(condIsTrue);
+                    fork(st, elsePc ?? endPc, condZ);
+                    st.constraints.push(condNZ);
                     continue;
                 }
 
                 if (op === Op.OP_ELSE) {
-                    const { endPc } = findBoundaries(st.pc);
-                    st.pc = endPc;
+                    st.pc = findBlock(st.pc - 1).endPc;
                     continue;
                 }
-
                 if (op === Op.OP_ENDIF) continue;
-
-                if (
-                    op === Op.OP_ADD ||
-                    op === Op.OP_SUB ||
-                    op === Op.OP_BOOLAND ||
-                    op === Op.OP_BOOLOR ||
-                    op === Op.OP_LESSTHAN ||
-                    op === Op.OP_GREATERTHAN
-                ) {
-                    const { a, b } = pop2();
-                    const res =
-                        op === Op.OP_ADD
-                            ? app('add', a, b)
-                            : op === Op.OP_SUB
-                              ? app('sub', a, b)
-                              : op === Op.OP_BOOLAND
-                                ? app('booland', a, b)
-                                : op === Op.OP_BOOLOR
-                                  ? app('boolor', a, b)
-                                  : op === Op.OP_LESSTHAN
-                                    ? app('lt', a, b)
-                                    : app('gt', a, b);
-                    st.stack.push(res);
-                    continue;
-                }
-
-                if (op === Op.OP_WITHIN) {
-                    const c = pop(),
-                        b = pop(),
-                        a = pop();
-                    st.stack.push(app('within', a, b, c));
-                    continue;
-                }
-
-                if (
-                    op === Op.OP_NUMEQUAL ||
-                    op === Op.OP_NUMEQUALVERIFY ||
-                    op === Op.OP_EQUAL ||
-                    op === Op.OP_EQUALVERIFY
-                ) {
-                    const { a, b } = pop2();
-                    const eq = app('eq', a, b);
-                    if (op === Op.OP_NUMEQUALVERIFY || op === Op.OP_EQUALVERIFY)
-                        st.constraints.push(eq);
-                    else st.stack.push(eq);
-                    continue;
-                }
 
                 if (op === Op.OP_DUP) {
                     const v = pop();
                     st.stack.push(v, v);
                     continue;
                 }
-
                 if (op === Op.OP_DROP) {
                     pop();
                     continue;
                 }
+                if (op === Op.OP_IFDUP) {
+                    const v = pop();
+                    st.stack.push(v);
 
-                if (op === Op.OP_RETURN || isOpReturnX(opNum)) {
-                    st.constraints.push(C(0n));
-                    break;
+                    const ns = new SymState(st.code, st.ph, st.opts);
+                    Object.assign(ns, JSON.parse(JSON.stringify(st)));
+                    ns.stack.push(v);
+                    ns.constraints.push(v);
+                    queue.push(ns);
+
+                    st.constraints.push(A('eq', v, I(0n)));
+                    continue;
                 }
 
-                if (op === Op.OP_PICK || op === Op.OP_ROLL) {
-                    const nExpr = pop();
-                    const depth = st.stack.length;
-                    const roll = op === Op.OP_ROLL;
-
-                    const copyElem = (idx: number, target: SymState) => {
-                        const elem = target.stack[target.stack.length - 1 - idx];
-                        if (roll) target.stack.splice(target.stack.length - 1 - idx, 1);
-                        target.stack.push(elem);
-                    };
-
-                    if (nExpr.tag === 'const') {
-                        const idx = Number(nExpr.v);
-                        if (idx < 0 || idx >= depth) {
-                            st.stack.length = 0;
-                            break;
-                        }
-                        copyElem(idx, st);
-                    } else {
-                        for (let i = 0; i < depth; i++) {
-                            const ns = new SymState(st.code, st.ph, st.opts);
-                            Object.assign(ns, JSON.parse(JSON.stringify(st)));
-                            copyElem(i, ns);
-                            ns.constraints.push(app('eq', nExpr, C(BigInt(i))));
-                            queue.push(ns);
-                        }
-                        break;
+                const bin = (name: string) => {
+                    const { a, b } = pop2();
+                    st.stack.push(A(name, a, b));
+                };
+                switch (op) {
+                    case Op.OP_ADD:
+                        bin('add');
+                        continue;
+                    case Op.OP_SUB:
+                        bin('sub');
+                        continue;
+                    case Op.OP_BOOLAND:
+                        bin('booland');
+                        continue;
+                    case Op.OP_BOOLOR:
+                        bin('boolor');
+                        continue;
+                    case Op.OP_LESSTHAN:
+                        bin('lt');
+                        continue;
+                    case Op.OP_GREATERTHAN:
+                        bin('gt');
+                        continue;
+                    case Op.OP_MIN:
+                        bin('min');
+                        continue;
+                    case Op.OP_MAX:
+                        bin('max');
+                        continue;
+                    case Op.OP_NUMEQUAL:
+                    case Op.OP_EQUAL:
+                        bin('eq');
+                        continue;
+                    case Op.OP_NUMEQUALVERIFY:
+                    case Op.OP_EQUALVERIFY: {
+                        const { a, b } = pop2();
+                        st.constraints.push(A('eq', a, b));
+                        continue;
                     }
+                }
+
+                if (op === Op.OP_WITHIN) {
+                    const c = pop(),
+                        b = pop(),
+                        a = pop();
+                    st.stack.push(A('within', a, b, c));
                     continue;
                 }
 
@@ -697,130 +606,25 @@ export class ScriptSolver extends Logger {
                     continue;
                 }
 
-                if (
-                    op === Op.OP_CHECKSIG ||
-                    op === Op.OP_CHECKSIGVERIFY ||
-                    op === Op.OP_CHECKMULTISIG ||
-                    op === Op.OP_CHECKMULTISIGVERIFY
-                ) {
-                    if (op === Op.OP_CHECKMULTISIG || op === Op.OP_CHECKMULTISIGVERIFY) {
-                        const n = pop(),
-                            m = pop();
-                        const within20 = (e: Expr) => app('within', e, C(0n), C(21n));
-                        st.constraints.push(
-                            within20(m),
-                            within20(n),
-                            app('lt', m, app('add', n, C(1n))),
-                        );
-
-                        const popMany = (e: Expr) =>
-                            e.tag === 'const'
-                                ? st.stack.splice(-Number(e.v), Number(e.v))
-                                : (st.stack.length = 0);
-
-                        popMany(m);
-                        popMany(n);
-                        pop();
-                    } else {
-                        pop();
-                        pop();
-                    }
-
-                    if (op === Op.OP_CHECKSIGVERIFY || op === Op.OP_CHECKMULTISIGVERIFY)
-                        st.constraints.push(C(1n));
-                    else st.stack.push(C(1n));
-                    continue;
-                }
-
-                if (op === Op.OP_IFDUP) {
-                    const v = pop();
-
-                    st.stack.push(v);
-
-                    {
-                        const ns = new SymState(st.code, st.ph, st.opts);
-                        Object.assign(ns, JSON.parse(JSON.stringify(st)));
-                        ns.stack.push(v);
-                        ns.constraints.push(v);
-                        queue.push(ns);
-                    }
-
-                    st.constraints.push(app('eq', v, C(0n)));
-                    continue;
-                }
-
                 if (op === Op.OP_VERIFY) {
                     st.constraints.push(pop());
                     continue;
                 }
 
-                this.fail(`unimplemented opcode 0x${opNum.toString(16)} – treating as OP_FAILURE`);
-                st.constraints.push(C(0n));
+                this.fail(`unimplemented opcode 0x${opNum.toString(16)}`);
+                st.constraints.push(I(0n));
                 break;
             }
 
-            if (st.stack.length === 0) {
-                st.constraints.push(C(0n));
-            } else {
-                const last = st.stack[st.stack.length - 1];
-
-                st.constraints.push(last);
-            }
+            st.constraints.push(st.stack.length ? st.stack[st.stack.length - 1] : I(0n));
 
             seed.constraints.push(...st.constraints);
             paths.push([...st.constraints]);
         }
     }
 
-    private modelToStack(model: Z3Model, ctx: Context, phIndex: number[]): Uint8Array[] {
-        const pushes: Uint8Array[] = [];
-        for (const i of phIndex) {
-            const v = model.eval(ctx.BitVec.const(`ph${i}`, 256), true);
-            const val = v.value();
-            const c = this.encodeMinimal(val);
-            pushes.push(c);
-        }
-        return pushes;
-    }
-
-    private bruteHashes(
-        lock: Uint8Array,
-        st: SymState,
-        max: bigint,
-    ): { solved: true; stack: Uint8Array[] } | null {
-        const ids = new Set<number>();
-        const walk = (e: Expr): void => {
-            if (e.tag === 'ph') ids.add(e.i);
-            else if (e.tag === 'app') e.args.forEach(walk);
-        };
-        st.constraints.forEach(walk);
-        const idx = [...ids];
-        if (idx.length === 0) return null;
-        const vals: bigint[] = Array<bigint>(idx.length).fill(0n);
-        const dfs = (pos: number): Uint8Array[] | null => {
-            if (pos === idx.length) {
-                const stack = idx.map((i) => this.encodeMinimal(vals[idx.indexOf(i)]));
-                return this.runConcrete(lock, stack) ? stack : null;
-            }
-            for (let g = 0n; g <= max; g++) {
-                vals[pos] = g;
-                const r = dfs(pos + 1);
-                if (r) return r;
-            }
-            return null;
-        };
-        const found = dfs(0);
-        return found ? { solved: true, stack: found } : null;
-    }
-
-    private encodePush256(n: bigint): Uint8Array {
-        const bytes = Uint8Array.from(Buffer.from(n.toString(16).padStart(64, '0'), 'hex'));
-        return Uint8Array.of(0x4c, 32, ...bytes);
-    }
-
     private runConcrete(lock: Uint8Array, stack: Uint8Array[]): boolean {
-        console.log('runConcrete() ▶ lock=', lock, 'stack=', stack);
-        const unlock = Uint8Array.from(stack.reduce<number[]>((a, b) => (a.push(...b), a), []));
+        const unlock = Uint8Array.from(stack.flat());
         if (unlock.length > 10_000) return false;
 
         const prog: AuthenticationProgramCommon = {
@@ -840,42 +644,6 @@ export class ScriptSolver extends Logger {
                 locktime: 0,
             },
         };
-
-        const result = this.vm.evaluate(prog);
-        const ok = this.vm.stateSuccess(result);
-        if (typeof ok !== 'boolean') {
-            console.dir(prog, { depth: 10 });
-            console.log(result);
-
-            this.error(`runConcrete() failed with non-boolean result: ${ok}`);
-
-            return false;
-        }
-
-        return true;
-    }
-
-    private encodeMinimal(n: bigint): Uint8Array {
-        if (n === 0n) return Uint8Array.of(0x00);
-        if (n === -1n) return Uint8Array.of(0x4f);
-        if (n >= 1n && n <= 16n) return Uint8Array.of(Number(n) + 0x50);
-        const neg = n < 0n;
-        let hex = (neg ? -n : n).toString(16);
-        if (hex.length & 1) hex = '0' + hex;
-        let buf = Uint8Array.from(Buffer.from(hex, 'hex')).reverse();
-        if (buf[buf.length - 1] & 0x80) buf = Uint8Array.of(...buf, 0x00);
-        if (neg) buf[buf.length - 1] |= 0x80;
-        const len = buf.length;
-        if (len < 0x4c) return Uint8Array.of(len, ...buf);
-        if (len <= 255) return Uint8Array.of(0x4c, len, ...buf);
-        if (len <= 65_535) return Uint8Array.of(0x4d, len & 0xff, len >> 8, ...buf);
-        return Uint8Array.of(
-            0x4e,
-            len & 0xff,
-            (len >> 8) & 0xff,
-            (len >> 16) & 0xff,
-            (len >> 24) & 0xff,
-            ...buf,
-        );
+        return !!this.vm.stateSuccess(this.vm.evaluate(prog));
     }
 }
