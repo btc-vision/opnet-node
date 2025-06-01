@@ -284,7 +284,7 @@ export class ScriptSolver extends Logger {
         this.log(`solve() ▶ lockHex=${lockHex}, bruteMax=${bruteMax}`);
 
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
-        const minPH = estimateMinPlaceholders(lock);
+        const minPH = Math.min(32, estimateMinPlaceholders(lock));
         console.log(`estimated min placeholders: ${minPH}`);
 
         const seed = new SymState(lock, [...Array(minPH).keys()].map(P), { tapscript });
@@ -402,10 +402,8 @@ export class ScriptSolver extends Logger {
         };
 
         //seed.constraints.forEach((c) => solver.add(enc(c).neq(ZERO)));
-        /* ---- build   (∃ path) ∧_i (ci ≠ 0)  ---------------------------- */
         const pathBool = pathSets.map((cs) => ctx.And(...cs.map((c) => enc(c).neq(ZERO))));
         if (pathBool.length === 0) {
-            // extremely defensive – should never happen
             solver.add(ctx.Bool.val(false));
         } else {
             solver.add(ctx.Or(...pathBool));
