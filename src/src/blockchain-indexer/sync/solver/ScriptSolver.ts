@@ -649,7 +649,12 @@ export class ScriptSolver extends Logger {
             },
         };
 
-        const a = this.vm.stateSuccess(this.vm.evaluate(prog));
+        console.log('prog', prog);
+
+        const e = this.vm.evaluate(prog);
+        console.log('evaluation result', e);
+
+        const a = this.vm.stateSuccess(e);
         if (typeof a !== 'boolean') {
             this.error(`runConcrete() error: ${a}`);
             return false;
