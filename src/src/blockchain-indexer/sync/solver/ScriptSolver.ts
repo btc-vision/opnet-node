@@ -3,7 +3,6 @@ import {
     type AuthenticationInstructionPush,
     AuthenticationProgramCommon,
     binToHex,
-    createInstructionSetBCHCHIPs,
     createVirtualMachine,
     decodeAuthenticationInstructions,
     isVmNumberError,
@@ -37,12 +36,6 @@ const app = (op: string, ...args: Expr[]): App => ({ tag: 'app', op, args });
 const sha256 = (e: Expr): App => app('sha256', e);
 const ripemd160 = (e: Expr): App => app('ripemd160', e);
 
-interface Branch {
-    elsePc?: number;
-    cond: Expr;
-    negate: boolean;
-}
-
 interface SymOpts {
     tapscript: boolean;
 }
@@ -51,7 +44,6 @@ class SymState {
     stack: Expr[] = [];
     pc = 0;
     constraints: Expr[] = [];
-    branches: Branch[] = [];
 
     constructor(
         readonly code: Uint8Array,
@@ -77,6 +69,14 @@ const ALWAYS_FAIL_SET = new Set<number>([
     Op.OP_VERNOTIF,
     Op.OP_RESERVED1,
     Op.OP_RESERVED2,
+    Op.OP_NOP1,
+    Op.OP_NOP4,
+    Op.OP_NOP5,
+    Op.OP_NOP6,
+    Op.OP_NOP7,
+    Op.OP_NOP8,
+    Op.OP_NOP9,
+    Op.OP_NOP10,
 ]);
 
 const isNoop = (c: number) => NOOP_SET.has(c);
@@ -326,10 +326,12 @@ export class ScriptSolver extends Logger {
                     st.stack.push(C(-1n));
                     continue;
                 }
+
                 if (op >= Op.OP_1 && op <= Op.OP_16) {
                     st.stack.push(C(BigInt(op - Op.OP_1 + 1)));
                     continue;
                 }
+
                 if (isNoop(opNum)) continue;
                 if (isAlwaysFail(opNum)) {
                     st.constraints.push(C(0n));
@@ -519,10 +521,16 @@ export class ScriptSolver extends Logger {
                 break;
             }
 
-            const last = st.stack.pop();
-            if (last && !(last.tag === 'const' && last.v === 0n)) st.constraints.push(last);
+            if (st.stack.length === 0) {
+                // an empty stack can never satisfy the script ⇒ make branch UNSAT
+                st.constraints.push(C(0n)); // constant-false
+            } else {
+                const last = st.stack[st.stack.length - 1];
+                // require the top item to be truthy (≠ 0)
+                st.constraints.push(last);
+            }
 
-            Object.assign(seed, st);
+            seed.constraints.push(...st.constraints);
         }
     }
 
