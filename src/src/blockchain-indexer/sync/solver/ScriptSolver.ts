@@ -98,6 +98,7 @@ export class ScriptSolver extends Logger {
 
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
         const seed = new SymState(lock, [...Array(this.MAX_PH).keys()].map(P), { tapscript });
+        seed.stack.push(seed.ph[0]); // ph0 is now the top-of-stack
 
         this.debug('phase 1/3 – symbolic execution');
         this.symExec(seed);
@@ -270,7 +271,7 @@ export class ScriptSolver extends Logger {
                 break;
             }
 
-            let phPtr = 0;
+            let phPtr = 1;
             const pop = (): Expr => {
                 if (st.stack.length === 0) {
                     if (phPtr >= st.ph.length) throw 'placeholder exhausted';
@@ -302,11 +303,12 @@ export class ScriptSolver extends Logger {
                                 `non-minimal or oversize VM number: ${binToHex(ins.data)} ` +
                                     `(error: ${decoded})`,
                             );
+
                             st.constraints.push(C(0n));
-                            break; // abort this execution branch
+                            break;
                         }
 
-                        num = decoded; // here it's definitely a bigint
+                        num = decoded;
                     }
 
                     st.stack.push(C(num));
