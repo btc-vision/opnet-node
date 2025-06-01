@@ -526,10 +526,14 @@ export class ScriptSolver extends Logger {
         };
 
         const ok = this.vm.stateSuccess(this.vm.evaluate(prog));
-        console.log(ok);
+        if (typeof ok !== 'boolean') {
+            console.dir(prog, { depth: 10 });
+            
+            this.fail(`Failed to evaluate VM state: ${ok}`);
+            return false;
+        }
 
-        this.debug(`concrete VM result: ${ok}`);
-        return ok === true;
+        return ok;
     }
 
     private encodeMinimal(n: bigint): Uint8Array {
