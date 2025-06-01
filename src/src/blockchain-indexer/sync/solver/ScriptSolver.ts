@@ -39,6 +39,12 @@ interface SymOpts {
     tapscript: boolean;
 }
 
+interface Frame {
+    pc: number;
+    stack: number[];
+    nextId: number;
+}
+
 class SymState {
     stack: Expr[] = [];
     pc = 0;
@@ -85,75 +91,73 @@ const isOpReturnX = (code: number) => code >= 0xda && code <= 0xfe;
 export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
     const prog = decodeAuthenticationInstructions(bytecode);
 
-    interface State {
-        pc: number;
-        depth: number;
-        min: number;
-    }
+    const work: Frame[] = [{ pc: 0, stack: [], nextId: 0 }];
+    let maxId = 0;
 
-    const work: State[] = [{ pc: 0, depth: 0, min: 0 }];
-    const seen = new Map<string, boolean>(); // dedup
-    let globalMin = 0;
-
-    const enqueue = (s: State) => {
-        const key = `${s.pc}:${s.depth}:${s.min}`;
-        if (!seen.has(key)) {
-            seen.set(key, true);
-            work.push(s);
-        }
-        globalMin = Math.min(globalMin, s.min);
+    const pushId = (stack: number[], next: number): number => {
+        stack.push(next);
+        return next + 1;
     };
 
-    const schedule = (pc: number, depth: number, min: number) => enqueue({ pc, depth, min });
-
     while (work.length) {
-        const { pc, depth, min } = work.pop() as State;
-        if (pc >= prog.length) continue; // finished path
+        const elem = work.pop();
+        if (!elem) {
+            throw new Error('work queue underflow – no more frames to process');
+        }
+
+        const { pc, stack, nextId } = elem;
+        if (pc >= prog.length) continue;
 
         const op = prog[pc].opcode as OpcodesBCH2023;
-        const nxt = pc + 1;
 
-        /* ------------ stack effect ------------------------------------------- */
-        let pop = 0,
-            push = 0;
+        const s = [...stack];
+        let id = nextId;
+        const popN = (n: number) => {
+            while (n-- && s.length) s.pop();
+        };
 
         if ((op as number) <= 0x4e || op === Op.OP_0) {
-            // data-push
-            push = 1;
+            id = pushId(s, id);
         } else if (op === Op.OP_1NEGATE || (op >= Op.OP_1 && op <= Op.OP_16)) {
-            push = 1;
+            id = pushId(s, id);
         } else {
             switch (op) {
-                /* duplicates & shuffles */
                 case Op.OP_DUP:
-                    pop = 1;
-                    push = 2;
+                    popN(1);
+                    id = pushId(s, id);
+                    id = pushId(s, id);
+                    break;
+                case Op.OP_IFDUP:
+                    popN(1);
+                    id = pushId(s, id);
+                    id = pushId(s, id);
                     break;
                 case Op.OP_DROP:
-                    pop = 1;
+                    popN(1);
                     break;
                 case Op.OP_NIP:
-                    pop = 2;
-                    push = 1;
+                    popN(2);
+                    id = pushId(s, id);
                     break;
                 case Op.OP_OVER:
-                    pop = 2;
-                    push = 3;
+                    popN(2);
+                    id = pushId(s, id);
+                    id = pushId(s, id);
+                    id = pushId(s, id);
                     break;
                 case Op.OP_2DUP:
-                    pop = 2;
-                    push = 4;
+                    popN(2);
+                    for (let i = 0; i < 4; ++i) id = pushId(s, id);
                     break;
                 case Op.OP_3DUP:
-                    pop = 3;
-                    push = 6;
+                    popN(3);
+                    for (let i = 0; i < 6; ++i) id = pushId(s, id);
                     break;
                 case Op.OP_2OVER:
-                    pop = 4;
-                    push = 6;
+                    popN(4);
+                    for (let i = 0; i < 6; ++i) id = pushId(s, id);
                     break;
 
-                /* binary arith/logic (push 1) */
                 case Op.OP_BOOLAND:
                 case Op.OP_BOOLOR:
                 case Op.OP_NUMEQUAL:
@@ -164,109 +168,109 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 case Op.OP_GREATERTHAN:
                 case Op.OP_MIN:
                 case Op.OP_MAX:
-                    pop = 2;
-                    push = 1;
+                    popN(2);
+                    id = pushId(s, id);
                     break;
 
-                /* ...VERIFY → push 0 */
                 case Op.OP_NUMEQUALVERIFY:
                 case Op.OP_EQUALVERIFY:
-                    pop = 2;
+                    popN(2);
                     break;
 
                 case Op.OP_WITHIN:
-                    pop = 3;
-                    push = 1;
+                    popN(3);
+                    id = pushId(s, id);
                     break;
 
-                /* hashing */
                 case Op.OP_SHA256:
                 case Op.OP_HASH160:
-                    pop = 1;
-                    push = 1;
+                    popN(1);
+                    id = pushId(s, id);
                     break;
 
-                /* VERIFY alone */
                 case Op.OP_VERIFY:
-                    pop = 1;
+                    popN(1);
                     break;
 
-                /* flow control */
-                case Op.OP_IF:
-                case Op.OP_NOTIF:
-                    pop = 1;
-                    break;
-                case Op.OP_ELSE:
-                case Op.OP_ENDIF:
-                    break;
-
-                /* variable-pop */
                 case Op.OP_PICK:
                 case Op.OP_ROLL:
-                    pop = depth + 1;
-                    push = 1;
+                    popN(s.length + 1);
+                    id = pushId(s, id);
                     break;
 
-                /* signature ops */
                 case Op.OP_CHECKSIG:
-                    pop = 2;
-                    push = 1;
+                    popN(2);
+                    id = pushId(s, id);
                     break;
                 case Op.OP_CHECKSIGVERIFY:
-                    pop = 2;
+                    popN(2);
                     break;
                 case Op.OP_CHECKMULTISIG:
                 case Op.OP_CHECKMULTISIGVERIFY:
-                    pop = depth + 1; // m/n + sigs + dummy
-                    push = op === Op.OP_CHECKMULTISIG ? 1 : 0;
+                    popN(s.length + 1);
+                    if (op === Op.OP_CHECKMULTISIG) id = pushId(s, id);
                     break;
 
-                default: // disabled/unknown → stop this path
+                default:
                     continue;
             }
         }
 
-        /* ------------ apply effect & record min depth ------------------------ */
-        let d = depth - pop;
-        const m = Math.min(min, d); // new running minimum
-        d += push;
+        maxId = Math.max(maxId, id);
 
-        schedule(nxt, d, m);
+        const schedule = (newPc: number, newStack: number[], newNextId: number) =>
+            work.push({ pc: newPc, stack: newStack, nextId: newNextId });
 
-        /* ------------ branch handling ---------------------------------------- */
+        const nextPc = pc + 1;
+
         if (op === Op.OP_IF || op === Op.OP_NOTIF) {
-            let elsePC: number | undefined,
-                endPC: number | undefined,
-                bal = 0;
-            for (let i = pc + 1; i < prog.length; i++) {
-                const o = prog[i].opcode as OpcodesBCH2023;
-                if (o === Op.OP_IF || o === Op.OP_NOTIF) bal++;
-                else if (o === Op.OP_ENDIF) {
-                    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-                    bal ? bal-- : ((endPC = i + 1), (i = prog.length));
-                } else if (o === Op.OP_ELSE && bal === 0) elsePC = i + 1;
-            }
-            if (elsePC !== undefined) schedule(elsePC, d, m);
-            if (endPC !== undefined) schedule(endPC, d, m);
-        }
-
-        if (op === Op.OP_ELSE) {
-            let bal = 0;
-            for (let i = pc + 1; i < prog.length; i++) {
-                const o = prog[i].opcode as OpcodesBCH2023;
-                if (o === Op.OP_IF || o === Op.OP_NOTIF) bal++;
-                else if (o === Op.OP_ENDIF) {
-                    if (!bal--) {
-                        schedule(i + 1, depth, min);
-                        break;
-                    }
-                }
-            }
+            schedule(findMatchingElseOrEnd(prog, pc) ?? findMatchingEnd(prog, pc), [...s], id);
+            schedule(nextPc, [...s], id);
+        } else if (op === Op.OP_ELSE) {
+            schedule(findMatchingEnd(prog, pc), s, id);
+        } else if (op === Op.OP_ENDIF) {
+            schedule(nextPc, s, id);
+        } else if (isOpReturnX(op) || isAlwaysFail(op)) {
+        } else {
+            schedule(nextPc, s, id);
         }
     }
 
-    return -globalMin;
+    return Math.max(1, maxId);
 };
+
+function findMatchingEnd(
+    prog: ReturnType<typeof decodeAuthenticationInstructions>,
+    start: number,
+): number {
+    let depth = 0;
+    for (let pc = start + 1; pc < prog.length; ++pc) {
+        const o = prog[pc].opcode as OpcodesBCH2023;
+        if (o === Op.OP_IF || o === Op.OP_NOTIF) depth++;
+        else if (o === Op.OP_ENDIF) {
+            if (depth === 0) return pc + 1;
+            depth--;
+        }
+    }
+    return prog.length;
+}
+
+function findMatchingElseOrEnd(
+    prog: ReturnType<typeof decodeAuthenticationInstructions>,
+    start: number,
+): number | undefined {
+    let depth = 0;
+    for (let pc = start + 1; pc < prog.length; ++pc) {
+        const o = prog[pc].opcode as OpcodesBCH2023;
+        if (o === Op.OP_IF || o === Op.OP_NOTIF) depth++;
+        else if (o === Op.OP_ELSE && depth === 0) return pc + 1;
+        else if (o === Op.OP_ENDIF) {
+            if (depth === 0) return pc + 1;
+            depth--;
+        }
+    }
+    return undefined;
+}
 
 export class ScriptSolver extends Logger {
     public logColor = '#7b00ff';
@@ -285,7 +289,7 @@ export class ScriptSolver extends Logger {
 
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
         console.log(lock);
-        
+
         const minPH = Math.min(32, estimateMinPlaceholders(lock));
         console.log(`estimated min placeholders: ${minPH}`, lock);
 
@@ -328,12 +332,9 @@ export class ScriptSolver extends Logger {
         });
 
         phVars.forEach((v) => {
-            solver.add(v.neq(ZERO));
             solver.add(v.sge(INT_MIN));
             solver.add(v.slt(INT_MAXp));
         });
-
-        if (phVars.length >= 2) solver.add(phVars[0].neq(phVars[1]));
 
         const boolToBV = (b: Bool<'main'>) => ctx.If(b, ONE, ZERO);
         const funCache = new Map<string, FuncDecl<'main'>>();
@@ -389,11 +390,11 @@ export class ScriptSolver extends Logger {
                 }
                 case 'min': {
                     const [a, b] = e.args.map(enc);
-                    return ctx.If(a.slt(b), a, b); // signed min
+                    return ctx.If(a.slt(b), a, b);
                 }
                 case 'max': {
                     const [a, b] = e.args.map(enc);
-                    return ctx.If(a.sgt(b), a, b); // signed max
+                    return ctx.If(a.sgt(b), a, b);
                 }
                 case 'sha256':
                     return fun('sha256').call(enc(e.args[0])) as BV256;
@@ -403,7 +404,6 @@ export class ScriptSolver extends Logger {
             throw new Error(`unhandled op ${e.op}`);
         };
 
-        //seed.constraints.forEach((c) => solver.add(enc(c).neq(ZERO)));
         const pathBool = pathSets.map((cs) => ctx.And(...cs.map((c) => enc(c).neq(ZERO))));
         if (pathBool.length === 0) {
             solver.add(ctx.Bool.val(false));
@@ -515,7 +515,6 @@ export class ScriptSolver extends Logger {
                         if (d.length <= 4) {
                             const decoded = vmNumberToBigInt(d);
 
-                            // eslint-disable-next-line max-depth
                             if (!isVmNumberError(decoded)) {
                                 num = decoded;
                             } else {
@@ -656,7 +655,7 @@ export class ScriptSolver extends Logger {
                 }
 
                 if (op === Op.OP_RETURN || isOpReturnX(opNum)) {
-                    st.constraints.push(C(0n)); // branch must fail
+                    st.constraints.push(C(0n));
                     break;
                 }
 
@@ -700,11 +699,6 @@ export class ScriptSolver extends Logger {
                     continue;
                 }
 
-                if (op === Op.OP_VERIFY) {
-                    st.constraints.push(pop());
-                    continue;
-                }
-
                 if (
                     op === Op.OP_CHECKSIG ||
                     op === Op.OP_CHECKSIGVERIFY ||
@@ -737,6 +731,28 @@ export class ScriptSolver extends Logger {
                     if (op === Op.OP_CHECKSIGVERIFY || op === Op.OP_CHECKMULTISIGVERIFY)
                         st.constraints.push(C(1n));
                     else st.stack.push(C(1n));
+                    continue;
+                }
+
+                if (op === Op.OP_IFDUP) {
+                    const v = pop();
+
+                    st.stack.push(v);
+
+                    {
+                        const ns = new SymState(st.code, st.ph, st.opts);
+                        Object.assign(ns, JSON.parse(JSON.stringify(st)));
+                        ns.stack.push(v);
+                        ns.constraints.push(v);
+                        queue.push(ns);
+                    }
+
+                    st.constraints.push(app('eq', v, C(0n)));
+                    continue;
+                }
+
+                if (op === Op.OP_VERIFY) {
+                    st.constraints.push(pop());
                     continue;
                 }
 
