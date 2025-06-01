@@ -242,6 +242,7 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 const o = prog[i].opcode as OpcodesBCH2023;
                 if (o === Op.OP_IF || o === Op.OP_NOTIF) bal++;
                 else if (o === Op.OP_ENDIF) {
+                    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
                     bal ? bal-- : ((endPC = i + 1), (i = prog.length));
                 } else if (o === Op.OP_ELSE && bal === 0) elsePC = i + 1;
             }
@@ -264,12 +265,13 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
         }
     }
 
-    return -globalMin; // e.g. globalMin = -2  ⇒ need 2 placeholders
+    return -globalMin;
 };
 
 export class ScriptSolver extends Logger {
     public logColor = '#7b00ff';
     private MAX_PH: number = 16;
+    
     private readonly SMT_MS = 20_000;
     private readonly vm = createVirtualMachine(createInstructionSetBTC(false));
     private z3Init: Z3Module | null = null;
@@ -282,7 +284,8 @@ export class ScriptSolver extends Logger {
         this.log(`solve() ▶ lockHex=${lockHex}, bruteMax=${bruteMax}`);
 
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
-        const minPH = Math.max(32, estimateMinPlaceholders(lock));
+        const minPH = estimateMinPlaceholders(lock);
+        console.log(`estimated min placeholders: ${minPH}`);
 
         const seed = new SymState(lock, [...Array(minPH).keys()].map(P), { tapscript });
 
