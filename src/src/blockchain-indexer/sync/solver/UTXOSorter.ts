@@ -4,6 +4,7 @@ import { crypto as btcCrypto } from '@btc-vision/bitcoin';
 import { AnyoneCanSpendDetector, AnyoneCanSpendReason } from './AnyoneCanSpendDetector.js';
 import { ScriptSolver } from './ScriptSolver.js';
 import { TransactionOutput } from '../../processor/transaction/inputs/TransactionOutput.js';
+import { Logger } from '@btc-vision/bsi-common';
 
 export interface Utxo {
     txid: string;
@@ -46,8 +47,10 @@ const solverCache: LRUCache<string, Uint8Array[]> = new LRUCache<string, Uint8Ar
 
 const h256 = (u: Uint8Array) => btcCrypto.sha256(Buffer.from(u)).toString('hex');
 
-export class UtxoSorter {
-    public static async classifyBatch(
+export class UtxoSorter extends Logger {
+    public readonly logColor: string = '#ff9100'; // Bright green for UTXO sorter logs
+
+    public async classifyBatch(
         utxos: readonly Utxo[],
         chain: { height: number; mtp: number },
         bruteMax: bigint = 32n,
@@ -129,9 +132,8 @@ export class UtxoSorter {
                         solverCache.set(key, res.stack);
                     }
                 } catch (error) {
-                    console.error(
-                        `Error solving script for ${output.scriptPubKeyBuffer.toString('hex')}:`,
-                        error,
+                    this.error(
+                        `Error solving script for ${output.scriptPubKeyBuffer.toString('hex')}: ${error}`,
                     );
 
                     cl.status = 'Error';
