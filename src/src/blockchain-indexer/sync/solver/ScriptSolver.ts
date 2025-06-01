@@ -3,7 +3,8 @@ import {
     type AuthenticationInstructionPush,
     AuthenticationProgramCommon,
     binToHex,
-    createVirtualMachineBCH,
+    createInstructionSetBCHCHIPs,
+    createVirtualMachine,
     decodeAuthenticationInstructions,
     OpcodesBCH as Op,
     type OpcodesBCH2023,
@@ -39,6 +40,10 @@ interface Branch {
     negate: boolean;
 }
 
+interface SymOpts {
+    tapscript: boolean;
+}
+
 class SymState {
     stack: Expr[] = [];
     pc = 0;
@@ -48,6 +53,7 @@ class SymState {
     constructor(
         readonly code: Uint8Array,
         readonly ph: Placeholder[],
+        readonly opts: SymOpts,
     ) {}
 }
 
@@ -74,30 +80,37 @@ const ALWAYS_FAIL_SET = new Set<number>([
     Op.OP_RESERVED2,
 ]);
 
+const isNoop = (c: number) => NOOP_SET.has(c);
+const isAlwaysFail = (c: number) => ALWAYS_FAIL_SET.has(c);
+
 export class ScriptSolver extends Logger {
     public logColor = '#7b00ff';
     private readonly MAX_PH = 16;
     private readonly SMT_MS = 20_000;
-    private readonly vm = createVirtualMachineBCH();
+    private readonly vm = createVirtualMachine(createInstructionSetBCHCHIPs(false));
     private z3Init: Z3Module | null = null;
 
     public async solve(
         lockHex: string,
         bruteMax: bigint = 32n,
+        tapscript = false,
     ): Promise<{ solved: boolean; stack?: Uint8Array[]; reason?: string }> {
         this.log(`solve() ▶ lockHex=${lockHex}, bruteMax=${bruteMax}`);
 
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
-        const seed = new SymState(lock, [...Array(this.MAX_PH).keys()].map(P));
+        const seed = new SymState(lock, [...Array(this.MAX_PH).keys()].map(P), { tapscript });
 
         this.debug('phase 1/3 – symbolic execution');
         this.symExec(seed);
 
         this.debug('phase 2/3 – SMT solving');
         const z3 = await this.getZ3();
+
         const ctx = z3.Context('main');
         const ONE = ctx.BitVec.val(1n, 256);
         const ZERO = ctx.BitVec.val(0n, 256);
+        const INT_MIN = ctx.BitVec.val(-(1n << 31n), 256);
+        const INT_MAXp = ctx.BitVec.val(1n << 31n, 256);
 
         const solver = new ctx.Solver();
         solver.set('timeout', this.SMT_MS);
@@ -106,6 +119,16 @@ export class ScriptSolver extends Logger {
 
         /* require every placeholder to be non-zero */
         phVars.forEach((v) => solver.add(v.neq(ZERO)));
+
+        phVars.forEach((v) => {
+            solver.add(v.neq(ZERO)); // 0 is never a valid placeholder
+            /* BIP-66/BIP-62: numeric opcodes only accept minimal-encoded
+   int32 values (≤ 4 bytes, sign-magnitude LE).  These two
+   inequalities guarantee v ∈ [INT_MIN, INT_MAXp).                */
+            solver.add(v.sge(INT_MIN));
+            solver.add(v.slt(INT_MAXp));
+        });
+
         /* first two placeholders should differ (sig ≠ pubkey pattern) */
         if (phVars.length >= 2) solver.add(phVars[0].neq(phVars[1]));
 
@@ -168,7 +191,7 @@ export class ScriptSolver extends Logger {
 
         const sat = await solver.check();
         this.debug(`SMT solver responded: ${sat}`);
-        
+
         if (sat === 'sat') {
             const modelStack = this.modelToStack(solver.model(), ctx);
             const ok = this.runConcrete(lock, modelStack);
@@ -219,16 +242,12 @@ export class ScriptSolver extends Logger {
         const queue: SymState[] = [seed];
 
         const fork = (src: SymState, pcTarget: number, extraConstraint: Expr) => {
-            const ns = new SymState(src.code, src.ph);
+            const ns = new SymState(src.code, src.ph, src.opts);
             ns.pc = pcTarget;
             ns.stack = [...src.stack];
             ns.constraints = [...src.constraints, extraConstraint];
             queue.push(ns);
         };
-
-        const isNoop = (c: number) => NOOP_SET.has(c);
-        const isAlwaysFail = (c: number) => ALWAYS_FAIL_SET.has(c);
-        const isOpSuccessX = (c: number) => c >= 0xb0 && c <= 0xf7;
 
         while (queue.length) {
             const st = queue.pop();
@@ -238,12 +257,20 @@ export class ScriptSolver extends Logger {
             }
 
             if (st.pc === 0 && st.stack.length === 0) st.ph.forEach((ph) => st.stack.push(ph));
+            let phPtr = 0;
 
             const pop = (): Expr => {
-                const v = st.stack.pop();
-                if (!v) throw 'underflow';
-                return v;
+                if (st.stack.length === 0) {
+                    if (phPtr >= st.ph.length) throw 'placeholder exhausted';
+                    st.stack.push(st.ph[phPtr++]);
+                }
+
+                const elem = st.stack.pop();
+                if (!elem) throw new Error('unhandled op');
+
+                return elem;
             };
+
             const pop2 = () => ({ b: pop(), a: pop() });
 
             for (; st.pc < prog.length; st.pc++) {
@@ -260,7 +287,11 @@ export class ScriptSolver extends Logger {
                 }
 
                 if (isOpSuccessX(opNum)) {
-                    st.stack.push(C(1n));
+                    if (st.opts.tapscript) {
+                        st.constraints.push(C(1n)); // force success
+                    } else {
+                        st.constraints.push(C(0n)); // force failure
+                    }
                     break;
                 }
 
@@ -391,7 +422,7 @@ export class ScriptSolver extends Logger {
                         copyElem(idx, st);
                     } else {
                         for (let i = 0; i < depth; i++) {
-                            const ns = new SymState(st.code, st.ph);
+                            const ns = new SymState(st.code, st.ph, st.opts);
                             Object.assign(ns, JSON.parse(JSON.stringify(st)));
                             copyElem(i, ns);
                             ns.constraints.push(app('eq', nExpr, C(BigInt(i))));
@@ -468,7 +499,7 @@ export class ScriptSolver extends Logger {
         }
     }
 
-    /*private modelToStack(model: Z3Model, ctx: Context): Uint8Array[] {
+    private modelToStack(model: Z3Model, ctx: Context): Uint8Array[] {
         const out: Uint8Array[] = [];
         for (let i = 0; i < this.MAX_PH; i++) {
             const v = model.eval(ctx.BitVec.const(`ph${i}`, 256), true);
@@ -476,16 +507,6 @@ export class ScriptSolver extends Logger {
             out.push(this.encodeMinimal(v.value()));
         }
         return out;
-    }*/
-
-    private modelToStack(model: Z3Model, ctx: Context): Uint8Array[] {
-        const pushes: Uint8Array[] = [];
-        for (let i = 0; i < this.MAX_PH; i++) {
-            const v = model.eval(ctx.BitVec.const(`ph${i}`, 256), true);
-            if (!ctx.isBitVecVal(v)) break;
-            pushes.push(this.encodePush256(v.value()));
-        }
-        return pushes;
     }
 
     private bruteHashes(

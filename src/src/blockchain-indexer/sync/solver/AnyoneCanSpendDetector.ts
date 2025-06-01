@@ -3,8 +3,12 @@ import { TransactionOutput } from '../../processor/transaction/inputs/Transactio
 
 import {
     AuthenticationProgramCommon,
-    createVirtualMachineBCH,
+    AuthenticationProgramStateBCHCHIPs,
+    AuthenticationVirtualMachine,
+    createInstructionSetBCHCHIPs,
+    createVirtualMachine,
     OpcodesBCH as Op,
+    ResolvedTransactionCommon,
 } from '@bitauth/libauth';
 import { LRUCache } from 'lru-cache';
 import { Logger } from '@btc-vision/bsi-common';
@@ -94,12 +98,16 @@ export class AnyoneCanSpendDetector extends Logger {
         }
     }
 
-    private _vm?: ReturnType<typeof createVirtualMachineBCH>;
+    private _vm?: AuthenticationVirtualMachine<
+        ResolvedTransactionCommon,
+        AuthenticationProgramCommon,
+        AuthenticationProgramStateBCHCHIPs
+    >;
 
     private get vm() {
         if (!this._vm) {
             this.log('[vm] creating BCH VM instance');
-            this._vm = createVirtualMachineBCH();
+            this._vm = createVirtualMachine(createInstructionSetBCHCHIPs(false));
         }
         return this._vm;
     }
