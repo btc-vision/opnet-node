@@ -6,8 +6,10 @@ import {
     createInstructionSetBCHCHIPs,
     createVirtualMachine,
     decodeAuthenticationInstructions,
+    isVmNumberError,
     OpcodesBCH as Op,
     type OpcodesBCH2023,
+    vmNumberToBigInt,
 } from '@bitauth/libauth';
 
 import type {
@@ -63,11 +65,7 @@ type Z3Module = Z3HighLevel & Z3LowLevel;
 const isPush = (x: AuthenticationInstruction): x is AuthenticationInstructionPush =>
     Object.hasOwn(x, 'data');
 
-const NOOP_SET = new Set<number>([
-    Op.OP_NOP,
-    Op.OP_CODESEPARATOR,
-    ...Array.from({ length: 10 }, (_, i) => 0xb0 + i),
-]);
+const NOOP_SET = new Set<number>([Op.OP_NOP, Op.OP_CODESEPARATOR]);
 
 const isOpSuccessX = (code: number) => code >= 0xb0 && code <= 0xf7;
 
@@ -117,14 +115,8 @@ export class ScriptSolver extends Logger {
 
         const phVars = seed.ph.map((ph) => ctx.BitVec.const(`ph${ph.i}`, 256));
 
-        /* require every placeholder to be non-zero */
-        phVars.forEach((v) => solver.add(v.neq(ZERO)));
-
         phVars.forEach((v) => {
             solver.add(v.neq(ZERO)); // 0 is never a valid placeholder
-            /* BIP-66/BIP-62: numeric opcodes only accept minimal-encoded
-   int32 values (≤ 4 bytes, sign-magnitude LE).  These two
-   inequalities guarantee v ∈ [INT_MIN, INT_MAXp).                */
             solver.add(v.sge(INT_MIN));
             solver.add(v.slt(INT_MAXp));
         });
@@ -256,9 +248,7 @@ export class ScriptSolver extends Logger {
                 break;
             }
 
-            if (st.pc === 0 && st.stack.length === 0) st.ph.forEach((ph) => st.stack.push(ph));
             let phPtr = 0;
-
             const pop = (): Expr => {
                 if (st.stack.length === 0) {
                     if (phPtr >= st.ph.length) throw 'placeholder exhausted';
@@ -280,8 +270,23 @@ export class ScriptSolver extends Logger {
                 st.pc += 1;
 
                 if (opNum <= 0x4e) {
-                    const d = isPush(ins) ? ins.data : new Uint8Array();
-                    const num = d.length ? BigInt(`0x${binToHex(d)}`) : 0n;
+                    let num = 0n;
+
+                    if (isPush(ins) && ins.data.length) {
+                        const decoded = vmNumberToBigInt(ins.data);
+
+                        if (isVmNumberError(decoded)) {
+                            this.fail(
+                                `non-minimal or oversize VM number: ${binToHex(ins.data)} ` +
+                                    `(error: ${decoded})`,
+                            );
+                            st.constraints.push(C(0n));
+                            break; // abort this execution branch
+                        }
+
+                        num = decoded; // here it's definitely a bigint
+                    }
+
                     st.stack.push(C(num));
                     continue;
                 }
