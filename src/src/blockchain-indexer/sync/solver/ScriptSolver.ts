@@ -160,7 +160,10 @@ export class ScriptSolver extends Logger {
         this.debug(`SMT solver responded: ${sat}`);
 
         if (sat === 'sat') {
-            const modelStack = this.modelToStack(solver.model(), ctx);
+            const model = solver.model();
+            const modelStack = this.modelToStack(model, ctx);
+            console.log(model, modelStack);
+            
             this.success(`SAT – model produced ${modelStack.length} push(es)`);
             return this.runConcrete(lock, modelStack)
                 ? { solved: true, stack: modelStack }
@@ -528,7 +531,7 @@ export class ScriptSolver extends Logger {
         const ok = this.vm.stateSuccess(this.vm.evaluate(prog));
         if (typeof ok !== 'boolean') {
             console.dir(prog, { depth: 10 });
-            
+
             this.fail(`Failed to evaluate VM state: ${ok}`);
             return false;
         }
