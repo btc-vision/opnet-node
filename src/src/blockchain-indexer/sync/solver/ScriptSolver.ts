@@ -379,8 +379,11 @@ export class ScriptSolver extends Logger {
         solver.set('timeout', this.SMT_MS);
 
         const LEN8 = (v: BV) => v.extract(7, 0);
-        const LEN_LIM = ctx.BitVec.val(0x4bn, 8);
-        phVars.forEach((v) => solver.add(LEN8(v).ule(LEN_LIM)));
+        const ONE8 = ctx.BitVec.val(1n, 8);
+        phVars.forEach((v) => {
+            solver.add(LEN8(v).uge(ONE8));
+            solver.add(LEN8(v).ule(ctx.BitVec.val(0x4bn, 8)));
+        });
 
         const pathBv = paths.map((cs) =>
             ctx.And(...cs.map((c) => enc(c).neq(ctx.BitVec.val(0n, BV_BITS)))),
