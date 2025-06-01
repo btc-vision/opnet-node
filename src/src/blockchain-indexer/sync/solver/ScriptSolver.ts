@@ -86,19 +86,29 @@ export class ScriptSolver extends Logger {
         bruteMax: bigint = 32n,
     ): Promise<{ solved: boolean; stack?: Uint8Array[]; reason?: string }> {
         this.log(`solve() ▶ lockHex=${lockHex}, bruteMax=${bruteMax}`);
+
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
         const seed = new SymState(lock, [...Array(this.MAX_PH).keys()].map(P));
+
         this.debug('phase 1/3 – symbolic execution');
         this.symExec(seed);
-        this.debug(`symbolic execution produced ${seed.constraints.length} constraint(s)`);
+
         this.debug('phase 2/3 – SMT solving');
         const z3 = await this.getZ3();
         const ctx = z3.Context('main');
         const ONE = ctx.BitVec.val(1n, 256);
         const ZERO = ctx.BitVec.val(0n, 256);
+
         const solver = new ctx.Solver();
         solver.set('timeout', this.SMT_MS);
+
         const phVars = seed.ph.map((ph) => ctx.BitVec.const(`ph${ph.i}`, 256));
+
+        /* require every placeholder to be non-zero */
+        phVars.forEach((v) => solver.add(v.neq(ZERO)));
+        /* first two placeholders should differ (sig ≠ pubkey pattern) */
+        if (phVars.length >= 2) solver.add(phVars[0].neq(phVars[1]));
+
         const boolToBV = (b: Bool<'main'>) => ctx.If(b, ONE, ZERO);
         const funCache = new Map<string, FuncDecl<'main'>>();
         const fun = (name: string) => {
@@ -109,6 +119,7 @@ export class ScriptSolver extends Logger {
             }
             return f;
         };
+
         const enc = (e: Expr): BV256 => {
             if (e.tag === 'const') return ctx.BitVec.val(e.v, 256);
             if (e.tag === 'ph') return phVars[e.i];
@@ -154,30 +165,21 @@ export class ScriptSolver extends Logger {
         };
 
         seed.constraints.forEach((c) => solver.add(enc(c).neq(ZERO)));
-        this.debug('calling solver.check() …');
 
         const sat = await solver.check();
         this.debug(`SMT solver responded: ${sat}`);
-
+        
         if (sat === 'sat') {
-            const model = solver.model();
-            const modelStack = this.modelToStack(model, ctx);
-            console.log(model, modelStack);
-
-            this.success(`SAT – model produced ${modelStack.length} push(es)`);
-            return this.runConcrete(lock, modelStack)
+            const modelStack = this.modelToStack(solver.model(), ctx);
+            const ok = this.runConcrete(lock, modelStack);
+            return ok
                 ? { solved: true, stack: modelStack }
                 : { solved: false, reason: 'model failed concrete VM (bug)' };
         }
         if (sat === 'unknown') {
-            this.warn('SMT returned unknown – entering brute-force mode');
             const brute = this.bruteHashes(lock, seed, bruteMax);
-            if (brute) {
-                this.success(`bruteHashes succeeded with ${brute.stack.length} push(es)`);
-                return brute;
-            }
+            if (brute) return brute;
         }
-        this.warn(`unsat/unknown; reason=${sat}`);
         return { solved: false, reason: sat };
     }
 
@@ -466,7 +468,7 @@ export class ScriptSolver extends Logger {
         }
     }
 
-    private modelToStack(model: Z3Model, ctx: Context): Uint8Array[] {
+    /*private modelToStack(model: Z3Model, ctx: Context): Uint8Array[] {
         const out: Uint8Array[] = [];
         for (let i = 0; i < this.MAX_PH; i++) {
             const v = model.eval(ctx.BitVec.const(`ph${i}`, 256), true);
@@ -474,6 +476,16 @@ export class ScriptSolver extends Logger {
             out.push(this.encodeMinimal(v.value()));
         }
         return out;
+    }*/
+
+    private modelToStack(model: Z3Model, ctx: Context): Uint8Array[] {
+        const pushes: Uint8Array[] = [];
+        for (let i = 0; i < this.MAX_PH; i++) {
+            const v = model.eval(ctx.BitVec.const(`ph${i}`, 256), true);
+            if (!ctx.isBitVecVal(v)) break;
+            pushes.push(this.encodePush256(v.value()));
+        }
+        return pushes;
     }
 
     private bruteHashes(
@@ -504,6 +516,12 @@ export class ScriptSolver extends Logger {
         };
         const found = dfs(0);
         return found ? { solved: true, stack: found } : null;
+    }
+
+    private encodePush256(n: bigint): Uint8Array {
+        /* 32-byte big-endian, PUSHDATA1 prefix */
+        const bytes = Uint8Array.from(Buffer.from(n.toString(16).padStart(64, '0'), 'hex'));
+        return Uint8Array.of(0x4c, 32, ...bytes);
     }
 
     private runConcrete(lock: Uint8Array, stack: Uint8Array[]): boolean {
