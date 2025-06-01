@@ -24,6 +24,7 @@ import type {
 import { init as initZ3 } from 'z3-solver';
 
 import { Logger } from '@btc-vision/bsi-common';
+import { createInstructionSetBTC } from './InstructionSet.js';
 
 type Const = { tag: 'const'; v: bigint };
 type Placeholder = { tag: 'ph'; i: number };
@@ -59,7 +60,7 @@ class SymState {
     ) {}
 }
 
-type BV256 = BitVec<256>;
+type BV256 = BitVec<number, 'main'>;
 type Z3Module = Z3HighLevel & Z3LowLevel;
 
 const isPush = (x: AuthenticationInstruction): x is AuthenticationInstructionPush =>
@@ -85,7 +86,7 @@ export class ScriptSolver extends Logger {
     public logColor = '#7b00ff';
     private readonly MAX_PH = 16;
     private readonly SMT_MS = 20_000;
-    private readonly vm = createVirtualMachine(createInstructionSetBCHCHIPs(false));
+    private readonly vm = createVirtualMachine(createInstructionSetBTC(false));
     private z3Init: Z3Module | null = null;
 
     public async solve(
@@ -118,10 +119,18 @@ export class ScriptSolver extends Logger {
             if (e.tag === 'ph') used.add(e.i);
             else if (e.tag === 'app') e.args.forEach(walk);
         };
+
         seed.constraints.forEach(walk);
 
-        const phIndex: number[] = [...used].sort((a, b) => a - b); // deterministic
-        const phVars = phIndex.map((i) => ctx.BitVec.const(`ph${i}`, 256));
+        if (used.size === 0) used.add(0);
+
+        const phIndex = [...used].sort((a, b) => a - b);
+        const phMap = new Map<number, ReturnType<typeof ctx.BitVec.const>>();
+        const phVars = phIndex.map((i) => {
+            const v = ctx.BitVec.const(`ph${i}`, 256);
+            phMap.set(i, v);
+            return v;
+        });
 
         phVars.forEach((v) => {
             solver.add(v.neq(ZERO)); // 0 is never a valid placeholder
@@ -145,7 +154,12 @@ export class ScriptSolver extends Logger {
 
         const enc = (e: Expr): BV256 => {
             if (e.tag === 'const') return ctx.BitVec.val(e.v, 256);
-            if (e.tag === 'ph') return phVars[e.i];
+            if (e.tag === 'ph') {
+                const v2 = phMap.get(e.i);
+                if (!v2) throw new Error(`Placeholder ph${e.i} not found in map`);
+
+                return v2; // return phVars[e.i];
+            }
             switch (e.op) {
                 case 'eq': {
                     const [a, b] = e.args.map(enc);

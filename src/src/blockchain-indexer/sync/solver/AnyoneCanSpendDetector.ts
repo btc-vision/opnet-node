@@ -5,13 +5,13 @@ import {
     AuthenticationProgramCommon,
     AuthenticationProgramStateBCHCHIPs,
     AuthenticationVirtualMachine,
-    createInstructionSetBCHCHIPs,
     createVirtualMachine,
     OpcodesBCH as Op,
     ResolvedTransactionCommon,
 } from '@bitauth/libauth';
 import { LRUCache } from 'lru-cache';
 import { Logger } from '@btc-vision/bsi-common';
+import { createInstructionSetBTC } from './InstructionSet.js';
 
 export enum AnyoneCanSpendReason {
     ConstantTrueBare = 1,
@@ -107,7 +107,7 @@ export class AnyoneCanSpendDetector extends Logger {
     private get vm() {
         if (!this._vm) {
             this.log('[vm] creating BCH VM instance');
-            this._vm = createVirtualMachine(createInstructionSetBCHCHIPs(false));
+            this._vm = createVirtualMachine(createInstructionSetBTC(false));
         }
         return this._vm;
     }
