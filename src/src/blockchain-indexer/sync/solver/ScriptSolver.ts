@@ -722,9 +722,7 @@ export class ScriptSolver extends Logger {
         for (const i of phIndex) {
             const v = model.eval(ctx.BitVec.const(`ph${i}`, 256), true);
             const val = v.value();
-            console.log(`ph${i} = ${val}`);
             const c = this.encodeMinimal(val);
-            console.log(`c =`, c);
             pushes.push(c);
         }
         return pushes;
