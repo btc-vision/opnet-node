@@ -80,15 +80,15 @@ const ALWAYS_FAIL_SET = new Set<number>([
 
 const isNoop = (c: number) => NOOP_SET.has(c);
 const isAlwaysFail = (c: number) => ALWAYS_FAIL_SET.has(c);
+const isOpReturnX = (code: number) => code >= 0xda && code <= 0xfe;
 
 export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
-    // pre-decode – we need the same thing in symExec anyway
     const prog = decodeAuthenticationInstructions(bytecode);
 
     type State = { pc: number; depth: number };
     const work: State[] = [{ pc: 0, depth: 0 }];
-    const seen = new Map<number, number>(); // pc → bestDepth
-    let need = 0; // answer to return
+    const seen = new Map<number, number>();
+    let need = 0;
 
     const add = (s: State) => {
         const best = seen.get(s.pc);
@@ -106,12 +106,10 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
         const opcode = ins.opcode as OpcodesBCH2023;
         const nextPC = pc + 1;
 
-        // --- compute stack effect ------------------------------------------
         let pop = 0;
         let push = 0;
 
         if ((opcode as number) <= 0x4e || opcode === Op.OP_0) {
-            // data-push
             push = 1;
         } else if (opcode === Op.OP_1NEGATE || (opcode >= Op.OP_1 && opcode <= Op.OP_16)) {
             push = 1;
@@ -167,7 +165,6 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                     push = 1;
                     break;
 
-                // flow-control — no stack delta, but we must enqueue
                 case Op.OP_IF:
                 case Op.OP_NOTIF:
                     pop = 1;
@@ -176,19 +173,12 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 case Op.OP_ENDIF:
                     break;
 
-                // “roller” opcodes: variable pop, treat as
-                // “pop *everything* then push one”
                 case Op.OP_PICK:
                 case Op.OP_ROLL:
                     pop = depth + 1;
                     push = 1;
                     break;
 
-                // crypto sig ops – conservative lower bound:
-                //   OP_CHECKSIG      pop = 2, push = 1
-                //   …VERIFY          pop = 2, push = 0
-                //   MULTISIG         pop >= 3 … we just
-                //                    pop = depth + 1; push = 1/0
                 case Op.OP_CHECKSIG:
                     pop = 2;
                     push = 1;
@@ -203,24 +193,28 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                     break;
 
                 default:
-                    // Unknown / disabled / OP_RETURN → stop analysis
                     continue;
             }
         }
 
-        const depthAfter = depth - pop + push;
-        if (depthAfter < -need) need = -depthAfter;
+        let newDepth = depth;
+        if (pop > newDepth) {
+            const deficit = pop - newDepth;
+            need = Math.max(need, deficit);
+            newDepth = 0;
+        } else {
+            newDepth -= pop;
+        }
 
-        //---------------------------------------------------------------------
+        newDepth += push;
 
-        // ► fall-through
-        add({ pc: nextPC, depth: depthAfter });
+        add({ pc: nextPC, depth: newDepth });
 
-        // ► branches for IF / NOTIF / ELSE
         if (opcode === Op.OP_IF || opcode === Op.OP_NOTIF) {
             let elsePC: number | undefined,
                 endPC: number | undefined,
                 d = 0;
+
             for (let i = pc + 1; i < prog.length; i++) {
                 const op = prog[i].opcode as OpcodesBCH2023;
                 if (op === Op.OP_IF || op === Op.OP_NOTIF) d++;
@@ -230,13 +224,16 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                         break;
                     }
                     d--;
-                } else if (op === Op.OP_ELSE && d === 0) elsePC = i + 1;
+                } else if (op === Op.OP_ELSE && d === 0) {
+                    elsePC = i + 1;
+                }
             }
-            if (elsePC !== undefined) add({ pc: elsePC, depth: depthAfter });
-            if (endPC !== undefined) add({ pc: endPC, depth: depthAfter });
+
+            if (elsePC !== undefined) add({ pc: elsePC, depth: newDepth });
+            if (endPC !== undefined) add({ pc: endPC, depth: newDepth });
         }
+
         if (opcode === Op.OP_ELSE) {
-            // skip to ENDIF
             let d = 0;
             for (let i = pc + 1; i < prog.length; i++) {
                 const op = prog[i].opcode as OpcodesBCH2023;
@@ -311,12 +308,11 @@ export class ScriptSolver extends Logger {
         });
 
         phVars.forEach((v) => {
-            solver.add(v.neq(ZERO)); // 0 is never a valid placeholder
+            solver.add(v.neq(ZERO));
             solver.add(v.sge(INT_MIN));
             solver.add(v.slt(INT_MAXp));
         });
 
-        /* first two placeholders should differ (sig ≠ pubkey pattern) */
         if (phVars.length >= 2) solver.add(phVars[0].neq(phVars[1]));
 
         const boolToBV = (b: Bool<'main'>) => ctx.If(b, ONE, ZERO);
@@ -336,7 +332,7 @@ export class ScriptSolver extends Logger {
                 const v2 = phMap.get(e.i);
                 if (!v2) throw new Error(`Placeholder ph${e.i} not found in map`);
 
-                return v2; // return phVars[e.i];
+                return v2;
             }
             switch (e.op) {
                 case 'eq': {
@@ -483,17 +479,15 @@ export class ScriptSolver extends Logger {
                     if (isPush(ins) && ins.data.length) {
                         const d = ins.data;
                         if (d.length <= 4) {
-                            /* try strict VM-number decoding */
                             const decoded = vmNumberToBigInt(d);
+
                             // eslint-disable-next-line max-depth
                             if (!isVmNumberError(decoded)) {
                                 num = decoded;
                             } else {
-                                /* fall back to raw bytes → unsigned LE int */
                                 num = this.bytesToUintLE(d);
                             }
                         } else {
-                            /* ≥ 5 bytes → always treat as raw data */
                             num = this.bytesToUintLE(d);
                         }
                     }
@@ -504,9 +498,9 @@ export class ScriptSolver extends Logger {
 
                 if (isOpSuccessX(opNum)) {
                     if (st.opts.tapscript) {
-                        st.constraints.push(C(1n)); // force success
+                        st.constraints.push(C(1n));
                     } else {
-                        st.constraints.push(C(0n)); // force failure
+                        st.constraints.push(C(0n));
                     }
                     break;
                 }
@@ -615,9 +609,15 @@ export class ScriptSolver extends Logger {
                     st.stack.push(v, v);
                     continue;
                 }
+
                 if (op === Op.OP_DROP) {
                     pop();
                     continue;
+                }
+
+                if (op === Op.OP_RETURN || isOpReturnX(opNum)) {
+                    st.constraints.push(C(0n)); // branch must fail
+                    break;
                 }
 
                 if (op === Op.OP_PICK || op === Op.OP_ROLL) {
@@ -711,11 +711,10 @@ export class ScriptSolver extends Logger {
             }
 
             if (st.stack.length === 0) {
-                // an empty stack can never satisfy the script ⇒ make branch UNSAT
-                st.constraints.push(C(0n)); // constant-false
+                st.constraints.push(C(0n));
             } else {
                 const last = st.stack[st.stack.length - 1];
-                // require the top item to be truthy (≠ 0)
+
                 st.constraints.push(last);
             }
 
@@ -767,7 +766,6 @@ export class ScriptSolver extends Logger {
     }
 
     private encodePush256(n: bigint): Uint8Array {
-        /* 32-byte big-endian, PUSHDATA1 prefix */
         const bytes = Uint8Array.from(Buffer.from(n.toString(16).padStart(64, '0'), 'hex'));
         return Uint8Array.of(0x4c, 32, ...bytes);
     }
