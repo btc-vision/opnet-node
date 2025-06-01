@@ -212,10 +212,12 @@ export class ScriptSolver extends Logger {
                 ? { solved: true, stack: modelStack }
                 : { solved: false, reason: 'model failed concrete VM (bug)' };
         }
+
         if (sat === 'unknown') {
             const brute = this.bruteHashes(lock, seed, bruteMax);
             if (brute) return brute;
         }
+
         return { solved: false, reason: sat };
     }
 

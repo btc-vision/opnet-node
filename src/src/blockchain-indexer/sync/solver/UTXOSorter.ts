@@ -32,7 +32,7 @@ const isStandardScript = (
 
 export interface Classification {
     outpoint: { txid: string; index: number };
-    status: 'Standard' | 'ACS' | 'Solved' | 'Unknown' | 'Unspendable' | 'Error';
+    status: 'Standard' | 'ACS' | 'Solved' | 'Unknown' | 'Unspendable' | 'Error' | 'InvalidScript';
     hit?: ReturnType<typeof detector.detect>;
     unlocking?: Uint8Array[];
     policyUnsafe?: boolean;
@@ -117,6 +117,11 @@ export class UtxoSorter {
                         bruteMax,
                         isTaproot,
                     );
+
+                    if (res.reason === 'unsat') {
+                        cl.status = 'InvalidScript';
+                        return;
+                    }
 
                     if (res.solved) {
                         cl.status = 'Solved';
