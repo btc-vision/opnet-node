@@ -271,7 +271,7 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
 export class ScriptSolver extends Logger {
     public logColor = '#7b00ff';
     private MAX_PH: number = 16;
-    
+
     private readonly SMT_MS = 20_000;
     private readonly vm = createVirtualMachine(createInstructionSetBTC(false));
     private z3Init: Z3Module | null = null;
@@ -823,7 +823,9 @@ export class ScriptSolver extends Logger {
             console.dir(prog, { depth: 10 });
             console.log(result);
 
-            throw ok;
+            this.error(`runConcrete() failed with non-boolean result: ${ok}`);
+
+            return false;
         }
 
         return true;
