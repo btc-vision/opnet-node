@@ -86,53 +86,45 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
     const prog = decodeAuthenticationInstructions(bytecode);
 
     interface State {
-        pc: number; // program-counter
-        depth: number; // current depth (can be < 0)
-        minSeen: number; // most-negative depth so far
+        pc: number;
+        depth: number;
+        min: number;
     }
 
-    const work: State[] = [{ pc: 0, depth: 0, minSeen: 0 }];
-    const visited = new Map<number, Map<number, number>>(); // pc → depth → minSeen
-    let globalMin = 0; // most-negative overall
+    const work: State[] = [{ pc: 0, depth: 0, min: 0 }];
+    const seen = new Map<string, boolean>(); // dedup
+    let globalMin = 0;
 
     const enqueue = (s: State) => {
-        const byDepth = visited.get(s.pc) ?? new Map<number, number>();
-        const best = byDepth.get(s.depth);
-        if (best === undefined || s.minSeen < best) {
-            // strictly better
-            byDepth.set(s.depth, s.minSeen);
-            visited.set(s.pc, byDepth);
+        const key = `${s.pc}:${s.depth}:${s.min}`;
+        if (!seen.has(key)) {
+            seen.set(key, true);
             work.push(s);
         }
+        globalMin = Math.min(globalMin, s.min);
     };
 
-    const pushState = (pc: number, depth: number, minSeen: number) => {
-        enqueue({ pc, depth, minSeen });
-        globalMin = Math.min(globalMin, minSeen);
-    };
+    const schedule = (pc: number, depth: number, min: number) => enqueue({ pc, depth, min });
 
     while (work.length) {
-        const { pc, depth, minSeen } = work.pop() as State;
-        if (pc >= prog.length) continue; // end of script
+        const { pc, depth, min } = work.pop() as State;
+        if (pc >= prog.length) continue; // finished path
 
-        const ins = prog[pc];
-        const opcode = ins.opcode as OpcodesBCH2023;
-        const nextPC = pc + 1;
+        const op = prog[pc].opcode as OpcodesBCH2023;
+        const nxt = pc + 1;
 
-        /* ---------- stack effect ------------------------------------------------ */
-        let pop = 0;
-        let push = 0;
+        /* ------------ stack effect ------------------------------------------- */
+        let pop = 0,
+            push = 0;
 
-        // (1) pushes ≤ 0x4e or OP_0, OP_1 … OP_16, OP_1NEGATE
-        if (
-            (opcode as number) <= 0x4e ||
-            opcode === Op.OP_0 ||
-            opcode === Op.OP_1NEGATE ||
-            (opcode >= Op.OP_1 && opcode <= Op.OP_16)
-        ) {
+        if ((op as number) <= 0x4e || op === Op.OP_0) {
+            // data-push
+            push = 1;
+        } else if (op === Op.OP_1NEGATE || (op >= Op.OP_1 && op <= Op.OP_16)) {
             push = 1;
         } else {
-            switch (opcode) {
+            switch (op) {
+                /* duplicates & shuffles */
                 case Op.OP_DUP:
                     pop = 1;
                     push = 2;
@@ -161,12 +153,11 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                     push = 6;
                     break;
 
+                /* binary arith/logic (push 1) */
                 case Op.OP_BOOLAND:
                 case Op.OP_BOOLOR:
                 case Op.OP_NUMEQUAL:
-                case Op.OP_NUMEQUALVERIFY:
                 case Op.OP_EQUAL:
-                case Op.OP_EQUALVERIFY:
                 case Op.OP_ADD:
                 case Op.OP_SUB:
                 case Op.OP_LESSTHAN:
@@ -177,15 +168,30 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                     push = 1;
                     break;
 
-                case Op.OP_VERIFY:
-                    pop = 1;
+                /* ...VERIFY → push 0 */
+                case Op.OP_NUMEQUALVERIFY:
+                case Op.OP_EQUALVERIFY:
+                    pop = 2;
                     break;
+
+                case Op.OP_WITHIN:
+                    pop = 3;
+                    push = 1;
+                    break;
+
+                /* hashing */
                 case Op.OP_SHA256:
                 case Op.OP_HASH160:
                     pop = 1;
                     push = 1;
                     break;
 
+                /* VERIFY alone */
+                case Op.OP_VERIFY:
+                    pop = 1;
+                    break;
+
+                /* flow control */
                 case Op.OP_IF:
                 case Op.OP_NOTIF:
                     pop = 1;
@@ -194,13 +200,14 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 case Op.OP_ENDIF:
                     break;
 
-                /* Variable-pop ops: be maximally conservative (pop whole stack + 1) */
+                /* variable-pop */
                 case Op.OP_PICK:
                 case Op.OP_ROLL:
                     pop = depth + 1;
                     push = 1;
                     break;
 
+                /* signature ops */
                 case Op.OP_CHECKSIG:
                     pop = 2;
                     push = 1;
@@ -208,65 +215,56 @@ export const estimateMinPlaceholders = (bytecode: Uint8Array): number => {
                 case Op.OP_CHECKSIGVERIFY:
                     pop = 2;
                     break;
-
                 case Op.OP_CHECKMULTISIG:
                 case Op.OP_CHECKMULTISIGVERIFY:
                     pop = depth + 1; // m/n + sigs + dummy
-                    push = opcode === Op.OP_CHECKMULTISIG ? 1 : 0;
+                    push = op === Op.OP_CHECKMULTISIG ? 1 : 0;
                     break;
 
-                default:
-                    /* Disabled / unknown → we stop exploring this path. */
+                default: // disabled/unknown → stop this path
                     continue;
             }
         }
 
-        /* ---------- apply stack effect ----------------------------------------- */
-        let newDepth = depth - pop;
-        const newMin = Math.min(minSeen, newDepth);
-        newDepth += push;
+        /* ------------ apply effect & record min depth ------------------------ */
+        let d = depth - pop;
+        const m = Math.min(min, d); // new running minimum
+        d += push;
 
-        /* ---------- schedule next instruction ---------------------------------- */
-        pushState(nextPC, newDepth, newMin);
+        schedule(nxt, d, m);
 
-        /* ---------- flow-control branches -------------------------------------- */
-        if (opcode === Op.OP_IF || opcode === Op.OP_NOTIF) {
+        /* ------------ branch handling ---------------------------------------- */
+        if (op === Op.OP_IF || op === Op.OP_NOTIF) {
             let elsePC: number | undefined,
                 endPC: number | undefined,
-                d = 0;
-
+                bal = 0;
             for (let i = pc + 1; i < prog.length; i++) {
-                const op = prog[i].opcode as OpcodesBCH2023;
-                if (op === Op.OP_IF || op === Op.OP_NOTIF) d++;
-                else if (op === Op.OP_ENDIF) {
-                    if (d === 0) {
-                        endPC = i + 1;
-                        break;
-                    }
-                    d--;
-                } else if (op === Op.OP_ELSE && d === 0) elsePC = i + 1;
+                const o = prog[i].opcode as OpcodesBCH2023;
+                if (o === Op.OP_IF || o === Op.OP_NOTIF) bal++;
+                else if (o === Op.OP_ENDIF) {
+                    bal ? bal-- : ((endPC = i + 1), (i = prog.length));
+                } else if (o === Op.OP_ELSE && bal === 0) elsePC = i + 1;
             }
-            if (elsePC !== undefined) pushState(elsePC, newDepth, newMin);
-            if (endPC !== undefined) pushState(endPC, newDepth, newMin);
+            if (elsePC !== undefined) schedule(elsePC, d, m);
+            if (endPC !== undefined) schedule(endPC, d, m);
         }
 
-        if (opcode === Op.OP_ELSE) {
-            let d = 0;
+        if (op === Op.OP_ELSE) {
+            let bal = 0;
             for (let i = pc + 1; i < prog.length; i++) {
-                const op = prog[i].opcode as OpcodesBCH2023;
-                if (op === Op.OP_IF || op === Op.OP_NOTIF) d++;
-                else if (op === Op.OP_ENDIF) {
-                    if (d === 0) {
-                        pushState(i + 1, depth, minSeen);
+                const o = prog[i].opcode as OpcodesBCH2023;
+                if (o === Op.OP_IF || o === Op.OP_NOTIF) bal++;
+                else if (o === Op.OP_ENDIF) {
+                    if (!bal--) {
+                        schedule(i + 1, depth, min);
                         break;
                     }
-                    d--;
                 }
             }
         }
     }
 
-    return -globalMin; // e.g. min=-2 → need 2 placeholders
+    return -globalMin; // e.g. globalMin = -2  ⇒ need 2 placeholders
 };
 
 export class ScriptSolver extends Logger {
