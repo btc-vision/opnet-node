@@ -292,7 +292,8 @@ export class ScriptSolver extends Logger {
         for (let i = 0; i < minPH; i++) seed.stack.push(seed.ph[i]);
 
         this.debug('phase 1/3 – symbolic execution');
-        this.symExec(seed);
+        const pathSets: Expr[][] = [];
+        this.symExec(seed, pathSets);
 
         this.debug('phase 2/3 – SMT solving');
         const z3 = await this.getZ3();
@@ -400,7 +401,15 @@ export class ScriptSolver extends Logger {
             throw new Error(`unhandled op ${e.op}`);
         };
 
-        seed.constraints.forEach((c) => solver.add(enc(c).neq(ZERO)));
+        //seed.constraints.forEach((c) => solver.add(enc(c).neq(ZERO)));
+        /* ---- build   (∃ path) ∧_i (ci ≠ 0)  ---------------------------- */
+        const pathBool = pathSets.map((cs) => ctx.And(...cs.map((c) => enc(c).neq(ZERO))));
+        if (pathBool.length === 0) {
+            // extremely defensive – should never happen
+            solver.add(ctx.Bool.val(false));
+        } else {
+            solver.add(ctx.Or(...pathBool));
+        }
 
         const sat = await solver.check();
         this.debug(`SMT solver responded: ${sat}`);
@@ -432,7 +441,7 @@ export class ScriptSolver extends Logger {
         return x;
     }
 
-    private symExec(seed: SymState): void {
+    private symExec(seed: SymState, paths: Expr[][]): void {
         const prog = decodeAuthenticationInstructions(seed.code);
 
         const findBoundaries = (start: number) => {
@@ -745,6 +754,7 @@ export class ScriptSolver extends Logger {
             }
 
             seed.constraints.push(...st.constraints);
+            paths.push([...st.constraints]);
         }
     }
 
