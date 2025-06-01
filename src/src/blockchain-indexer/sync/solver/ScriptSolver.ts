@@ -700,11 +700,6 @@ export class ScriptSolver extends Logger {
                     continue;
                 }
 
-                if (op === Op.OP_RETURN) {
-                    st.constraints.push(C(0n));
-                    break;
-                }
-
                 this.fail(`unimplemented opcode 0x${opNum.toString(16)} – treating as OP_FAILURE`);
                 st.constraints.push(C(0n));
                 break;
