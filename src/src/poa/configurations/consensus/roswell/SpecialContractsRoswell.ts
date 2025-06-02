@@ -2,7 +2,7 @@ import { Address } from '@btc-vision/transaction';
 import { SpecialContract, SpecialContracts } from '../../types/SpecialContracts.js';
 
 const nativeSwapRegtest: Address = Address.fromString(
-    '0xb1e15e36a7b32ddade19352856f0ff3829a47bd7f48fc79e89a960391eb46026',
+    '0x05f81680bf5a131cc6384f3c2c16392353c2e227463b2913994b5f01d5443831',
 );
 
 const nativeSwapTestnet: Address = Address.dead();
