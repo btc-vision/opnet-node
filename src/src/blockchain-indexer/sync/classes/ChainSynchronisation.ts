@@ -42,7 +42,7 @@ export class ChainSynchronisation extends Logger {
     private currentBlock: BasicBlockInfo | null = null;
     private bestTip: bigint = 0n;
 
-    private enableSolver: boolean = true;
+    private enableSolver: boolean = Config.INDEXER.SOLVE_UNKNOWN_UTXOS;
 
     private acsClassifications: Classification[] = [];
 

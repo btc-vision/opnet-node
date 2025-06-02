@@ -14,6 +14,7 @@ export interface IndexerConfig {
     readonly ALLOW_PURGE: boolean;
 
     readonly BLOCK_QUERY_INTERVAL: number;
+    readonly SOLVE_UNKNOWN_UTXOS: boolean;
 
     readonly STORAGE_TYPE: IndexerStorageType;
     readonly READONLY_MODE: boolean;
