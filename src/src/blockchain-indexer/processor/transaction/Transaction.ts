@@ -433,13 +433,17 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             return; // no reward output
         }
 
+        if (!rewardOutput.scriptPubKey.address || rewardOutput.scriptPubKey.type !== 'scripthash') {
+            return; // reward output must be a P2SH address
+        }
+
         const rewardChallenge = ChallengeGenerator.generateMineableReward(
             this.preimage,
             this.network,
         );
 
         if (rewardOutput.scriptPubKey.address !== rewardChallenge.address) {
-            throw new Error('Invalid reward output address');
+            return; // reward output does not match the challenge address, we ignore it.
         }
 
         this.setReward(rewardOutput);
