@@ -25,7 +25,6 @@ const DISABLED_OPCODES: readonly number[] = [
     Op.OP_UTXOTOKENCOMMITMENT,
 ];
 
-/* ─────────────────────────  helper that marks failure  ─────────────────── */
 const opDisabled: Operation<AuthenticationProgramStateBCHCHIPs> = (state) => {
     state.error = 'disabled opcode';
     return state;
@@ -40,10 +39,8 @@ export function createInstructionSetBTC(
 > {
     const btc = createInstructionSetBCHCHIPs(standard);
 
-    /* 1 ▪ turn BCH-only opcodes into failures */
     for (const code of DISABLED_OPCODES) btc.operations[code] = opDisabled;
 
-    /* 2 ▪ Bitcoin success rule: “stack non-empty & top item truthy” */
     btc.success = (state) => {
         if (state.error) return state.error;
         const { stack } = state;
