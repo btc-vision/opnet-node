@@ -20,11 +20,11 @@ import type {
     Z3HighLevel,
     Z3LowLevel,
 } from 'z3-solver';
-import { init as initZ3 } from 'z3-solver';
 
 import { Logger } from '@btc-vision/bsi-common';
 import { createInstructionSetBTC } from './InstructionSet.js';
 import { createHash } from 'crypto';
+import { getSolver } from './patch.js';
 //import bip39Words from 'bip39/src/wordlists/english.json' with { type: 'json' };
 
 type Const = { tag: 'const'; v: bigint };
@@ -336,7 +336,6 @@ export class ScriptSolver extends Logger {
 
     private readonly SMT_MS = 20_000;
     private readonly vm = createVirtualMachine(createInstructionSetBTC(false));
-    private z3Init: Z3Module | null = null;
 
     private enableBrute: boolean = false;
 
@@ -344,7 +343,8 @@ export class ScriptSolver extends Logger {
         lockHex: string,
         bruteMax: bigint = 32n,
         tapscript = false,
-    ): Promise<{ solved: boolean; stack?: Uint8Array[]; reason?: string }> {
+        id: string,
+    ): Promise<{ solved: boolean; stack?: Uint8Array[]; reason?: string; unlock?: Uint8Array }> {
         this.info(`solve() ▶ lockHex=${lockHex}, bruteMax=${bruteMax}`);
 
         const lock = Uint8Array.from(Buffer.from(lockHex, 'hex'));
@@ -353,7 +353,6 @@ export class ScriptSolver extends Logger {
 
         for (let i = 0; i < minPH; i++) seed.stack.push(seed.ph[i]);
 
-        this.debug('phase 1/3 – symbolic execution');
         const pathSets: Expr[][] = [];
         this.symExec(seed, pathSets);
 
@@ -369,272 +368,278 @@ export class ScriptSolver extends Logger {
 
             this.info('symbolic sha256 detected — skip SMT, use brute mode');
 
-            const brute = this.bruteHashes(lock, seed, bruteMax);
+            const brute = this.bruteHashes(lock, seed, bruteMax, id);
             return brute ?? { solved: false, reason: 'dictionary + brute failed' };
         }
 
-        this.debug('phase 2/3 – SMT solving');
-        const z3 = await this.getZ3();
+        const h = await getSolver(this.SMT_MS);
 
-        const ctx = z3.Context('main');
+        //const ctx = z3.Context('main');
+        //this.ctxPool.push(ctx);
 
-        const ONE = ctx.BitVec.val(1n, 256);
-        const ZERO = ctx.BitVec.val(0n, 256);
-        const INT_MIN = ctx.BitVec.val(-(1n << 31n), 256);
-        const INT_MAXp = ctx.BitVec.val(1n << 31n, 256);
+        try {
+            const { ctx, solver } = h;
 
-        const solver = new ctx.Solver();
-        solver.set('timeout', this.SMT_MS);
+            const ONE = ctx.BitVec.val(1n, 256);
+            const ZERO = ctx.BitVec.val(0n, 256);
+            const INT_MIN = ctx.BitVec.val(-(1n << 31n), 256);
+            const INT_MAXp = ctx.BitVec.val(1n << 31n, 256);
 
-        const used = new Set<number>();
-        const walk = (e: Expr): void => {
-            if (e.tag === 'ph') used.add(e.i);
-            else if (e.tag === 'app') e.args.forEach(walk);
-        };
+            //const solver = new ctx.Solver();
+            //solver.set('timeout', this.SMT_MS);
 
-        seed.constraints.forEach(walk);
+            const used = new Set<number>();
+            const walk = (e: Expr): void => {
+                if (e.tag === 'ph') used.add(e.i);
+                else if (e.tag === 'app') e.args.forEach(walk);
+            };
 
-        if (used.size === 0) used.add(0);
+            seed.constraints.forEach(walk);
 
-        const phIndex = [...used].sort((a, b) => a - b);
-        const phMap = new Map<number, ReturnType<typeof ctx.BitVec.const>>();
-        const phVars = phIndex.map((i) => {
-            const v = ctx.BitVec.const(`ph${i}`, 256);
-            phMap.set(i, v);
-            return v;
-        });
+            if (used.size === 0) used.add(0);
 
-        /*phVars.forEach((v) => {
-            solver.add(v.sge(INT_MIN));
-            solver.add(v.slt(INT_MAXp));
+            const phIndex = [...used].sort((a, b) => a - b);
+            const phMap = new Map<number, ReturnType<typeof ctx.BitVec.const>>();
+            const phVars = phIndex.map((i) => {
+                const v = ctx.BitVec.const(`ph${i}`, 256);
+                phMap.set(i, v);
+                return v;
+            });
 
-            const signBit = v.extract(31, 31);
-            const top224 = v.extract(255, 32);
+            /*phVars.forEach((v) => {
+                solver.add(v.sge(INT_MIN));
+                solver.add(v.slt(INT_MAXp));
 
-            solver.add(top224.eq(signBit.repeat(224)));
-            solver.add(signBit.eq(ctx.BitVec.val(0, 1)));
-        });*/
+                const signBit = v.extract(31, 31);
+                const top224 = v.extract(255, 32);
 
-        phVars.forEach((v) => {
-            solver.add(v.sge(INT_MIN));
-            solver.add(v.slt(INT_MAXp));
+                solver.add(top224.eq(signBit.repeat(224)));
+                solver.add(signBit.eq(ctx.BitVec.val(0, 1)));
+            });*/
 
-            const signBit = v.extract(31, 31); // 1-bit vector
-            const top224 = v.extract(255, 32); // 224-bit vector
+            phVars.forEach((v) => {
+                solver.add(v.sge(INT_MIN));
+                solver.add(v.slt(INT_MAXp));
 
-            solver.add(top224.eq(signBit.repeat(224))); // ordinary sign-extend
-            //solver.add(signBit.eq(ctx.BitVec.val(0, 1))); // but force it to 0
-            solver.add(v.neq(ctx.BitVec.val(INT_MIN.value(), 256)));
-        });
+                const signBit = v.extract(31, 31); // 1-bit vector
+                const top224 = v.extract(255, 32); // 224-bit vector
 
-        const boolToBV = (b: Bool<'main'>) => ctx.If(b, ONE, ZERO);
-        const funCache = new Map<string, FuncDecl<'main'>>();
-        const fun = (name: string) => {
-            let f = funCache.get(name);
-            if (!f) {
-                f = ctx.Function.declare(name, ctx.BitVec.sort(256), ctx.BitVec.sort(256));
-                funCache.set(name, f);
+                solver.add(top224.eq(signBit.repeat(224))); // ordinary sign-extend
+                //solver.add(signBit.eq(ctx.BitVec.val(0, 1))); // but force it to 0
+                solver.add(v.neq(ctx.BitVec.val(INT_MIN.value(), 256)));
+            });
+
+            const boolToBV = (b: Bool<'main'>) => ctx.If(b, ONE, ZERO);
+            const funCache = new Map<string, FuncDecl<'main'>>();
+            const fun = (name: string) => {
+                let f = funCache.get(name);
+                if (!f) {
+                    f = ctx.Function.declare(name, ctx.BitVec.sort(256), ctx.BitVec.sort(256));
+                    funCache.set(name, f);
+                }
+                return f;
+            };
+
+            const enc = (e: Expr): BV256 => {
+                if (e.tag === 'const') return ctx.BitVec.val(e.v, 256);
+                if (e.tag === 'ph') {
+                    const v2 = phMap.get(e.i);
+                    if (!v2) throw new Error(`Placeholder ph${e.i} not found in map`);
+
+                    return v2;
+                }
+                switch (e.op) {
+                    case 'neg': {
+                        // OP_NEGATE
+                        const [x] = e.args.map(enc);
+                        return x.neg(); //   0 - x
+                    }
+                    case 'abs': {
+                        // OP_ABS
+                        const [x] = e.args.map(enc);
+                        return ctx.If(x.slt(ZERO), x.neg(), x);
+                    }
+                    case 'add1': {
+                        // OP_1ADD
+                        const [x] = e.args.map(enc);
+                        return x.add(ONE);
+                    }
+                    case 'sub1': {
+                        // OP_1SUB
+                        const [x] = e.args.map(enc);
+                        return x.sub(ONE);
+                    }
+                    case 'iszero': {
+                        // OP_NOT
+                        const [x] = e.args.map(enc);
+                        return boolToBV(x.eq(ZERO)); // 1 if x==0 else 0
+                    }
+                    case 'neq0': {
+                        // OP_0NOTEQUAL
+                        const [x] = e.args.map(enc);
+                        return boolToBV(x.neq(ZERO));
+                    }
+                    case 'eq': {
+                        const [a, b] = e.args.map(enc);
+                        return boolToBV(a.eq(b));
+                    }
+                    case 'lt': {
+                        const [a, b] = e.args.map(enc);
+                        return boolToBV(a.slt(b));
+                    }
+                    case 'gt': {
+                        const [a, b] = e.args.map(enc);
+                        return boolToBV(a.sgt(b));
+                    }
+                    case 'add': {
+                        const [a, b] = e.args.map(enc);
+                        return a.add(b);
+                    }
+                    case 'sub': {
+                        const [a, b] = e.args.map(enc);
+                        return a.sub(b);
+                    }
+                    case 'booland': {
+                        const [a, b] = e.args.map(enc);
+                        return boolToBV(a.neq(ZERO).and(b.neq(ZERO)));
+                    }
+                    case 'boolor': {
+                        const [a, b] = e.args.map(enc);
+                        return boolToBV(a.neq(ZERO).or(b.neq(ZERO)));
+                    }
+                    case 'within': {
+                        const [a, b, c] = e.args.map(enc);
+                        return boolToBV(a.sge(b).and(a.slt(c)));
+                    }
+                    case 'min': {
+                        const [a, b] = e.args.map(enc);
+                        return ctx.If(a.slt(b), a, b);
+                    }
+                    case 'max': {
+                        const [a, b] = e.args.map(enc);
+                        return ctx.If(a.sgt(b), a, b);
+                    }
+                    case 'sha256': {
+                        return fun('sha256').call(enc(e.args[0])) as BV256;
+                    }
+                    case 'ripemd160':
+                        return fun('ripemd160').call(enc(e.args[0])) as BV256;
+
+                    case 'sha1':
+                        return fun('sha1').call(enc(e.args[0])) as BV256;
+                    case 'hash256':
+                        return fun('hash256').call(enc(e.args[0])) as BV256;
+                    case 'mul': {
+                        // OP_MUL
+                        const [a, b] = e.args.map(enc);
+                        return a.mul(b);
+                    }
+
+                    case 'div': {
+                        // OP_DIV – signed, trunc. toward 0
+                        const [a, b] = e.args.map(enc);
+                        return a.sdiv(b);
+                    }
+
+                    case 'mod': {
+                        // OP_MOD – signed remainder
+                        const [a, b] = e.args.map(enc);
+                        return a.srem(b);
+                    }
+
+                    case 'band': {
+                        // OP_AND
+                        const [a, b] = e.args.map(enc);
+                        return a.and(b);
+                    }
+
+                    case 'bor': {
+                        // OP_OR
+                        const [a, b] = e.args.map(enc);
+                        return a.or(b);
+                    }
+
+                    case 'bxor': {
+                        // OP_XOR
+                        const [a, b] = e.args.map(enc);
+                        return a.xor(b);
+                    }
+                    case 'lsh': {
+                        // logical left-shift  (OP_LSHIFT)
+                        const [a, b] = e.args.map(enc); // a,b : BV256
+                        // VM keeps only the low 32 bits of the shift-amount
+                        const amount = b.extract(31, 0).zeroExt(256 - 32);
+                        return a.shl(amount) as BV256;
+                    }
+
+                    case 'rsh': {
+                        // arithmetic right-shift (OP_RSHIFT)
+                        const [a, b] = e.args.map(enc); // a,b : BV256
+                        const amount = b.extract(31, 0).zeroExt(256 - 32);
+                        return a.shr(amount) as BV256; // <- use the BitVec.shr method
+                    }
+                    case 'le': {
+                        // OP_LESSTHANOREQUAL
+                        const [a, b] = e.args.map(enc);
+                        return boolToBV(a.sle(b));
+                    }
+                    case 'ge': {
+                        // OP_GREATERTHANOREQUAL
+                        const [a, b] = e.args.map(enc);
+                        return boolToBV(a.sge(b));
+                    }
+                    case 'cat':
+                    case 'splitL':
+                    case 'splitR':
+                    case 'rev':
+                    case 'n2b':
+                    case 'b2n':
+                    case 'len':
+                    case 'quot':
+                    case 'rem': {
+                        const f = fun(e.op);
+                        return f.call(...e.args.map(enc)) as BV256;
+                    }
+                }
+
+                throw new Error(`unhandled op ${e.op}`);
+            };
+
+            const pathBool = pathSets.map((cs) => ctx.And(...cs.map((c) => enc(c).neq(ZERO))));
+            if (pathBool.length === 0) {
+                solver.add(ctx.Bool.val(false));
+            } else {
+                solver.add(ctx.Or(...pathBool));
             }
-            return f;
-        };
 
-        const enc = (e: Expr): BV256 => {
-            if (e.tag === 'const') return ctx.BitVec.val(e.v, 256);
-            if (e.tag === 'ph') {
-                const v2 = phMap.get(e.i);
-                if (!v2) throw new Error(`Placeholder ph${e.i} not found in map`);
+            const sat = await solver.check();
+            this.debug(`SMT solver responded: ${sat}`);
 
-                return v2;
-            }
-            switch (e.op) {
-                case 'neg': {
-                    // OP_NEGATE
-                    const [x] = e.args.map(enc);
-                    return x.neg(); //   0 - x
-                }
-                case 'abs': {
-                    // OP_ABS
-                    const [x] = e.args.map(enc);
-                    return ctx.If(x.slt(ZERO), x.neg(), x);
-                }
-                case 'add1': {
-                    // OP_1ADD
-                    const [x] = e.args.map(enc);
-                    return x.add(ONE);
-                }
-                case 'sub1': {
-                    // OP_1SUB
-                    const [x] = e.args.map(enc);
-                    return x.sub(ONE);
-                }
-                case 'iszero': {
-                    // OP_NOT
-                    const [x] = e.args.map(enc);
-                    return boolToBV(x.eq(ZERO)); // 1 if x==0 else 0
-                }
-                case 'neq0': {
-                    // OP_0NOTEQUAL
-                    const [x] = e.args.map(enc);
-                    return boolToBV(x.neq(ZERO));
-                }
-                case 'eq': {
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.eq(b));
-                }
-                case 'lt': {
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.slt(b));
-                }
-                case 'gt': {
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.sgt(b));
-                }
-                case 'add': {
-                    const [a, b] = e.args.map(enc);
-                    return a.add(b);
-                }
-                case 'sub': {
-                    const [a, b] = e.args.map(enc);
-                    return a.sub(b);
-                }
-                case 'booland': {
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.neq(ZERO).and(b.neq(ZERO)));
-                }
-                case 'boolor': {
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.neq(ZERO).or(b.neq(ZERO)));
-                }
-                case 'within': {
-                    const [a, b, c] = e.args.map(enc);
-                    return boolToBV(a.sge(b).and(a.slt(c)));
-                }
-                case 'min': {
-                    const [a, b] = e.args.map(enc);
-                    return ctx.If(a.slt(b), a, b);
-                }
-                case 'max': {
-                    const [a, b] = e.args.map(enc);
-                    return ctx.If(a.sgt(b), a, b);
-                }
-                case 'sha256': {
-                    return fun('sha256').call(enc(e.args[0])) as BV256;
-                }
-                case 'ripemd160':
-                    return fun('ripemd160').call(enc(e.args[0])) as BV256;
+            if (sat === 'sat') {
+                const model = solver.model();
+                const modelStack = this.modelToStack(model, ctx, phIndex);
 
-                case 'sha1':
-                    return fun('sha1').call(enc(e.args[0])) as BV256;
-                case 'hash256':
-                    return fun('hash256').call(enc(e.args[0])) as BV256;
-                case 'mul': {
-                    // OP_MUL
-                    const [a, b] = e.args.map(enc);
-                    return a.mul(b);
+                if (!this.runConcrete(lock, modelStack, id)) {
+                    const brute = this.enableBrute
+                        ? this.bruteHashes(lock, seed, bruteMax, id)
+                        : null;
+                    return brute ?? { solved: false, reason: 'model failed concrete VM' };
                 }
 
-                case 'div': {
-                    // OP_DIV – signed, trunc. toward 0
-                    const [a, b] = e.args.map(enc);
-                    return a.sdiv(b);
-                }
-
-                case 'mod': {
-                    // OP_MOD – signed remainder
-                    const [a, b] = e.args.map(enc);
-                    return a.srem(b);
-                }
-
-                case 'band': {
-                    // OP_AND
-                    const [a, b] = e.args.map(enc);
-                    return a.and(b);
-                }
-
-                case 'bor': {
-                    // OP_OR
-                    const [a, b] = e.args.map(enc);
-                    return a.or(b);
-                }
-
-                case 'bxor': {
-                    // OP_XOR
-                    const [a, b] = e.args.map(enc);
-                    return a.xor(b);
-                }
-                case 'lsh': {
-                    // logical left-shift  (OP_LSHIFT)
-                    const [a, b] = e.args.map(enc); // a,b : BV256
-                    // VM keeps only the low 32 bits of the shift-amount
-                    const amount = b.extract(31, 0).zeroExt(256 - 32);
-                    return a.shl(amount) as BV256;
-                }
-
-                case 'rsh': {
-                    // arithmetic right-shift (OP_RSHIFT)
-                    const [a, b] = e.args.map(enc); // a,b : BV256
-                    const amount = b.extract(31, 0).zeroExt(256 - 32);
-                    return a.shr(amount) as BV256; // <- use the BitVec.shr method
-                }
-                case 'le': {
-                    // OP_LESSTHANOREQUAL
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.sle(b));
-                }
-                case 'ge': {
-                    // OP_GREATERTHANOREQUAL
-                    const [a, b] = e.args.map(enc);
-                    return boolToBV(a.sge(b));
-                }
-                case 'cat':
-                case 'splitL':
-                case 'splitR':
-                case 'rev':
-                case 'n2b':
-                case 'b2n':
-                case 'len':
-                case 'quot':
-                case 'rem': {
-                    const f = fun(e.op);
-                    return f.call(...e.args.map(enc)) as BV256;
-                }
+                return { solved: true, stack: modelStack };
             }
 
-            throw new Error(`unhandled op ${e.op}`);
-        };
+            if (sat === 'unknown') {
+                const brute = this.enableBrute ? this.bruteHashes(lock, seed, bruteMax, id) : null;
+                if (brute) return brute;
+            }
 
-        const pathBool = pathSets.map((cs) => ctx.And(...cs.map((c) => enc(c).neq(ZERO))));
-        if (pathBool.length === 0) {
-            solver.add(ctx.Bool.val(false));
-        } else {
-            solver.add(ctx.Or(...pathBool));
+            return { solved: false, reason: sat };
+        } catch (e) {
+            return await this.solve(lockHex, bruteMax, tapscript, id);
+        } finally {
+            //this.resetZ3();
         }
-
-        const sat = await solver.check();
-        this.debug(`SMT solver responded: ${sat}`);
-
-        if (sat === 'sat') {
-            const modelStack = this.modelToStack(solver.model(), ctx, phIndex);
-
-            if (!this.runConcrete(lock, modelStack)) {
-                const brute = this.enableBrute ? this.bruteHashes(lock, seed, bruteMax) : null;
-                return brute ?? { solved: false, reason: 'model failed concrete VM' };
-            }
-
-            return { solved: true, stack: modelStack };
-        }
-
-        if (sat === 'unknown') {
-            const brute = this.enableBrute ? this.bruteHashes(lock, seed, bruteMax) : null;
-            if (brute) return brute;
-        }
-
-        return { solved: false, reason: sat };
-    }
-
-    private async getZ3(): Promise<Z3Module> {
-        if (!this.z3Init) this.z3Init = await initZ3();
-        return this.z3Init;
     }
 
     private bytesToUintLE(b: Uint8Array): bigint {
@@ -1172,6 +1177,7 @@ export class ScriptSolver extends Logger {
         lock: Uint8Array,
         st: SymState,
         max: bigint,
+        id: string,
     ): { solved: true; stack: Uint8Array[] } | null {
         this.log(`bruteHashes() ▶ lock=${Buffer.from(lock).toString('hex')}, max=${max}`);
 
@@ -1215,7 +1221,7 @@ export class ScriptSolver extends Logger {
 
             if (pos === idx.length) {
                 const stack = idx.map((i) => this.encodeMinimal(vals[idx.indexOf(i)]));
-                return this.runConcrete(lock, stack) ? stack : null;
+                return this.runConcrete(lock, stack, id) ? stack : null;
             }
 
             for (const pre of sha256eq) {
@@ -1271,8 +1277,8 @@ export class ScriptSolver extends Logger {
         return Uint8Array.of(0x4c, 32, ...bytes);
     }
 
-    private runConcrete(lock: Uint8Array, stack: Uint8Array[]): boolean {
-        console.log('runConcrete() ▶ lock=', lock, 'stack=', stack);
+    private runConcrete(lock: Uint8Array, stack: Uint8Array[], id: string): boolean {
+        //console.log('runConcrete() ▶ lock=', lock, 'stack=', stack);
         const unlock = Uint8Array.from(stack.reduce<number[]>((a, b) => (a.push(...b), a), []));
         if (unlock.length > 10_000) return false;
 
@@ -1297,14 +1303,15 @@ export class ScriptSolver extends Logger {
         const result = this.vm.evaluate(prog);
         const ok = this.vm.stateSuccess(result);
         if (typeof ok !== 'boolean') {
-            console.dir(prog, { depth: 10 });
-            console.log(result);
+            //console.log(result);
 
-            this.error(`runConcrete() failed with non-boolean result: ${ok}`);
+            this.error(`runConcrete(${id}) failed with non-boolean result: ${ok}`);
 
             return false;
         } else {
-            this.success(`Found solution: ${Buffer.from(unlock).toString('hex')}`);
+            this.success(
+                `runConcrete(${id}) found solution: ${Buffer.from(unlock).toString('hex')}`,
+            );
         }
 
         return true;

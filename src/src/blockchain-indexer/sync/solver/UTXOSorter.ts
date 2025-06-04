@@ -3,12 +3,17 @@ import { crypto as btcCrypto } from '@btc-vision/bitcoin';
 
 import { AnyoneCanSpendDetector, AnyoneCanSpendReason } from './AnyoneCanSpendDetector.js';
 import { ScriptSolver } from './ScriptSolver.js';
-import { TransactionOutput } from '../../processor/transaction/inputs/TransactionOutput.js';
 import { Logger } from '@btc-vision/bsi-common';
+import { TransactionOutput } from '../../processor/transaction/inputs/TransactionOutput.js';
 
 export interface Utxo {
     txid: string;
     output: TransactionOutput;
+}
+
+export interface ChainContext {
+    height: number; // Current block height
+    mtp: number; // Median time past of the current block
 }
 
 const detector = new AnyoneCanSpendDetector();
@@ -36,13 +41,13 @@ export interface Classification {
     status: 'Standard' | 'ACS' | 'Solved' | 'Unknown' | 'Unspendable' | 'Error' | 'InvalidScript';
     reason?: string;
     hit?: ReturnType<typeof detector.detect>;
-    unlocking?: Uint8Array[];
+    unlocking?: Uint8Array;
     policyUnsafe?: boolean;
     sats: number;
     hex: string;
 }
 
-const solverCache: LRUCache<string, Uint8Array[]> = new LRUCache<string, Uint8Array[]>({
+const solverCache: LRUCache<string, Uint8Array> = new LRUCache<string, Uint8Array>({
     max: 65_536,
 });
 
@@ -53,7 +58,7 @@ export class UtxoSorter extends Logger {
 
     public async classifyBatch(
         utxos: readonly Utxo[],
-        chain: { height: number; mtp: number },
+        chain: ChainContext,
         bruteMax: bigint = 32n,
     ): Promise<Classification[]> {
         const prelim: (Classification | null)[] = utxos.map(({ txid, output }) => {
@@ -93,7 +98,7 @@ export class UtxoSorter extends Logger {
                 outpoint: { txid, index: output.index },
                 status: 'ACS',
                 hit,
-                unlocking,
+                unlocking: this.unlock(unlocking),
                 policyUnsafe: hit.policyUnsafe ?? false,
                 sats: Number(output.value),
                 hex: output.scriptPubKey.hex,
@@ -114,6 +119,10 @@ export class UtxoSorter extends Logger {
                     return;
                 }
 
+                if (!cl.outpoint.txid) {
+                    throw new Error(`Missing txid for output at index ${i}`);
+                }
+
                 try {
                     const isTaproot = output.scriptPubKey.type === 'witness_v1_taproot';
                     const res = await solver.solve(
@@ -122,16 +131,17 @@ export class UtxoSorter extends Logger {
                         output.scriptPubKeyBuffer.toString('hex'),
                         bruteMax,
                         isTaproot,
+                        cl.outpoint.txid,
                     );
 
                     if (res.solved) {
                         cl.status = 'Solved';
-                        cl.unlocking = res.stack;
-                        solverCache.set(key, res.stack);
+                        cl.unlocking = res.unlock;
+                        solverCache.set(key, cl.unlocking);
                     } else {
                         cl.status = 'Unknown';
                         cl.reason = res.reason;
-                        cl.unlocking = [];
+                        cl.unlocking = res.unlock ?? Uint8Array.of();
                     }
                 } catch (error) {
                     this.error(
@@ -143,15 +153,15 @@ export class UtxoSorter extends Logger {
             }),
         );
 
-        const stkHash = (s?: Uint8Array[]) => (!s ? '' : h256(Uint8Array.from(s.flat())));
-        const bucket = new Map<string, Uint8Array[]>();
+        const stkHash = (s?: Uint8Array) => (!s ? '' : h256(s));
+        const bucket = new Map<string, Uint8Array>();
 
         for (const c of prelim) {
             if (!c) continue; // skip standard outputs
             if (!c.unlocking?.length) continue; // ignore empty/undefined
 
             const h = stkHash(c.unlocking);
-            if (!bucket.has(h)) bucket.set(h, c.unlocking ?? []);
+            if (!bucket.has(h)) bucket.set(h, c.unlocking ?? Uint8Array.of());
             c.unlocking = bucket.get(h);
         }
 
@@ -163,5 +173,9 @@ export class UtxoSorter extends Logger {
 
             return true; // keep ACS, Solved, and Unknown outputs
         }) as Classification[];
+    }
+
+    private unlock(stack: Uint8Array[]): Uint8Array {
+        return Uint8Array.from(stack.reduce<number[]>((a, b) => (a.push(...b), a), []));
     }
 }
