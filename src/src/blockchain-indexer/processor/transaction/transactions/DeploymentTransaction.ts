@@ -15,7 +15,6 @@ import {
     EcKeyPair,
     TapscriptVerificator,
 } from '@btc-vision/transaction';
-import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
@@ -102,7 +101,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
     public get contractAddress(): string {
         if (!this._contractAddress) throw new Error('OP_NET: Contract address not found');
-        return this._contractAddress.p2tr(this.network);
+        return this._contractAddress.p2op(this.network);
     }
 
     public get address(): Address {
@@ -151,8 +150,6 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             preimage: new Binary(this.preimage),
 
             receiptProofs: receiptProofs,
-
-            gasUsed: DataConverter.toDecimal128(this.gasUsed),
 
             receipt: receipt ? new Binary(receipt) : undefined,
             events: this.convertEvents(events),
@@ -269,8 +266,11 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         );
 
         const outputWitness: TransactionOutput = this.outputs[0]; // SHOULD ALWAYS BE 0.
-        if (outputWitness?.scriptPubKey?.address !== this.contractAddress) {
-            throw new Error(`OP_NET: Invalid contract address.`);
+        const decodedAddress = this.decodeAddress(outputWitness);
+        if (decodedAddress !== this.contractAddress) {
+            throw new Error(
+                `OP_NET: Invalid contract address. ${outputWitness?.scriptPubKey?.address} != ${this.contractAddress}`,
+            );
         }
 
         /** We set the fee burned to the output witness */
@@ -307,11 +307,11 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         try {
             tapContractAddress = TapscriptVerificator.verifyControlBlock(params, controlBlock);
         } catch (e) {
-            throw new Error(`OP_NET: Invalid contract address. ${e}`);
+            throw new Error(`OP_NET: Invalid contract address from control block. ${e}`);
         }
 
         if (!tapContractAddress) {
-            throw new Error(`OP_NET: Invalid contract address.`);
+            throw new Error(`OP_NET: Invalid contract address from control block.`);
         }
     }
 
@@ -319,6 +319,11 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
     private decompress(): void {
         if (!this.bytecode) throw new Error('Bytecode not found');
         this.bytecode = this.decompressData(this.bytecode);
+
+        const deploymentVersion = this.bytecode[0];
+        if (OPNetConsensus.consensus.VM.CURRENT_DEPLOYMENT_VERSION < deploymentVersion) {
+            throw new Error(`Version not supported.`);
+        }
 
         if (this._calldata) this._calldata = this.decompressData(this._calldata);
     }

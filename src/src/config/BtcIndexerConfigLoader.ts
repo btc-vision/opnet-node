@@ -48,6 +48,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ALLOW_PURGE: true,
             BLOCK_QUERY_INTERVAL: 5000,
             READONLY_MODE: false,
+            SOLVE_UNKNOWN_UTXOS: false,
 
             /** UTXOs */
             DISABLE_UTXO_INDEXING: false,
@@ -307,6 +308,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.INDEXER.BLOCK_QUERY_INTERVAL !== 'number'
             ) {
                 throw new Error(`Oops the property INDEXER.BLOCK_QUERY_INTERVAL is not a number.`);
+            }
+
+            if (
+                parsedConfig.INDEXER.SOLVE_UNKNOWN_UTXOS !== undefined &&
+                typeof parsedConfig.INDEXER.SOLVE_UNKNOWN_UTXOS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property INDEXER.SOLVE_UNKNOWN_UTXOS is not a boolean.`);
             }
         }
 

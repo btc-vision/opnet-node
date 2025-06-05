@@ -33,6 +33,7 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
 
     readonly events: EventReceiptDataForAPI[];
     readonly gasUsed: string;
+    readonly specialGasUsed: string;
     readonly priorityFee: string;
 
     readonly outputs: APIDocumentOutput[];

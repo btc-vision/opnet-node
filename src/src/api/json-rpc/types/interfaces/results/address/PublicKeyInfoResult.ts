@@ -6,6 +6,7 @@ export interface PublicKeyInfo {
     readonly tweakedPubkey: string;
 
     readonly p2tr: string;
+    readonly p2op?: string;
 
     readonly lowByte?: number;
 

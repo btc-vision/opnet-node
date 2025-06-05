@@ -20,6 +20,8 @@ import { IChainReorg } from '../../../threading/interfaces/thread-messages/messa
 import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { BasicBlockInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/BasicBlockInfo.js';
+import { Classification, Utxo, UtxoSorter } from '../solver/UTXOSorter.js';
+import { AnyoneCanSpendRepository } from '../../../db/repositories/AnyoneCanSpendRepository.js';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -33,10 +35,16 @@ export class ChainSynchronisation extends Logger {
     private abortControllers: Map<bigint, AbortController> = new Map();
     private pendingSave: Promise<void> | undefined;
 
+    private utxoSorter: UtxoSorter = new UtxoSorter();
+
     private readonly AWAIT_UTXO_WRITE_IF_QUEUE_SIZE: number = 200_000;
 
     private currentBlock: BasicBlockInfo | null = null;
     private bestTip: bigint = 0n;
+
+    private enableSolver: boolean = Config.INDEXER.SOLVE_UNKNOWN_UTXOS;
+
+    private acsClassifications: Classification[] = [];
 
     public constructor() {
         super();
@@ -50,6 +58,16 @@ export class ChainSynchronisation extends Logger {
         }
 
         return this._unspentTransactionRepository;
+    }
+
+    private _anyoneCanSpend: AnyoneCanSpendRepository | undefined;
+
+    private get anyoneCanSpend(): AnyoneCanSpendRepository {
+        if (!this._anyoneCanSpend) {
+            throw new Error('AnyoneCanSpendRepository not initialized');
+        }
+
+        return this._anyoneCanSpend;
     }
 
     private _blockRepository: BlockRepository | undefined;
@@ -100,6 +118,7 @@ export class ChainSynchronisation extends Logger {
         });
 
         this._unspentTransactionRepository = new UnspentTransactionRepository(DBManagerInstance.db);
+        this._anyoneCanSpend = new AnyoneCanSpendRepository(DBManagerInstance.db);
         this._publicKeysRepository = new PublicKeysRepository(DBManagerInstance.db);
         this._blockRepository = new BlockRepository(DBManagerInstance.db);
 
@@ -185,7 +204,7 @@ export class ChainSynchronisation extends Logger {
         }
     }
 
-    private async _saveUTXOs(): Promise<void> {
+    /*private async _saveUTXOs(): Promise<void> {
         const utxos = this.unspentTransactionOutputs;
         this.purgeUTXOs();
 
@@ -203,6 +222,37 @@ export class ChainSynchronisation extends Logger {
             this.error(`${e}`);
             this.fail(`Failed to save UTXOs to database. ${(e as Error).message}`);
         }
+    }*/
+
+    private async _saveUTXOs(): Promise<void> {
+        const utxoBatch = this.unspentTransactionOutputs;
+        const acsBatch = this.acsClassifications;
+
+        this.unspentTransactionOutputs = [];
+        this.acsClassifications = [];
+        this.amountOfUTXOs = 0;
+
+        try {
+            await this.publicKeysRepository.processPublicKeys(utxoBatch);
+        } catch (e) {
+            this.error(`Public-key processing error: ${e}`);
+        }
+
+        try {
+            await this.unspentTransactionRepository.insertTransactions(utxoBatch);
+            this.success(`Saved ${utxoBatch.length} block-UTXO bundles.`);
+        } catch (e) {
+            this.fail(`Failed to save UTXOs: ${(e as Error).message}`);
+        }
+
+        if (this.enableSolver && acsBatch.length) {
+            try {
+                await this.anyoneCanSpend.tagAnyoneCanSpend(acsBatch);
+                this.success(`Tagged ${acsBatch.length} ACS outputs.`);
+            } catch (e) {
+                this.warn(`ACS tagging skipped: ${(e as Error).message}`);
+            }
+        }
     }
 
     private async awaitUTXOWrites(): Promise<void> {
@@ -215,15 +265,7 @@ export class ChainSynchronisation extends Logger {
         }
     }
 
-    private abortAllControllers(): void {
-        for (const controller of this.abortControllers.values()) {
-            controller.abort('Process cancelled');
-        }
-
-        this.abortControllers.clear();
-    }
-
-    private queryUTXOs(block: Block, txs: TransactionData[]): void {
+    /*private queryUTXOs(block: Block, txs: TransactionData[]): void {
         block.setRawTransactionData(txs);
         block.deserialize(false);
 
@@ -237,6 +279,51 @@ export class ChainSynchronisation extends Logger {
             blockHeight: block.header.height,
             transactions: utxos,
         });
+    }*/
+
+    private abortAllControllers(): void {
+        for (const controller of this.abortControllers.values()) {
+            controller.abort('Process cancelled');
+        }
+
+        this.abortControllers.clear();
+    }
+
+    private queryUTXOs(block: Block, txs: TransactionData[]): void {
+        block.setRawTransactionData(txs);
+        block.deserialize(false);
+
+        const utxos = block.getUTXOs(); // TransactionOutput[]
+        this.amountOfUTXOs += utxos.length;
+
+        this.unspentTransactionOutputs.push({
+            blockHeight: block.header.height,
+            transactions: utxos,
+        });
+
+        if (this.enableSolver) {
+            const toSort: readonly Utxo[] = utxos
+                .map((o) => {
+                    return o.outputs.map((output) => ({
+                        txid: o.id.toString('hex'),
+                        output,
+                    }));
+                })
+                .flat();
+
+            void this.utxoSorter
+                .classifyBatch(
+                    toSort,
+                    {
+                        height: Number(block.header.height),
+                        mtp: Number(block.header.medianTime),
+                    },
+                    32n,
+                )
+                .then((cls) => {
+                    this.acsClassifications.push(...cls);
+                });
+        }
     }
 
     private async getBlockHeightForEver(): Promise<bigint> {

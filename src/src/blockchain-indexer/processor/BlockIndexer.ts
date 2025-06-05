@@ -222,8 +222,12 @@ export class BlockIndexer extends Logger {
     }
 
     private async createLightNodeLastBlock(tip: bigint): Promise<void> {
-        const opnetEnabledAtBlock = OPNetConsensus.consensus.OPNET_ENABLED[Config.BITCOIN.NETWORK];
-        if (opnetEnabledAtBlock.BLOCK && BigInt(opnetEnabledAtBlock.BLOCK) < tip) {
+        const opnetEnabledAtBlock = OPNetConsensus.opnetEnabled;
+        if (
+            opnetEnabledAtBlock.ENABLED &&
+            opnetEnabledAtBlock.BLOCK &&
+            BigInt(opnetEnabledAtBlock.BLOCK) < tip
+        ) {
             this.fail(
                 `OPNet states will be invalid, your light node will be missing critical states in other for smart contracts to work correctly.`,
             );
@@ -313,6 +317,12 @@ export class BlockIndexer extends Logger {
     private onBlockChange(header: BlockHeaderInfo): void {
         this.reorgWatchdog.onBlockChange(header);
         this.chainObserver.onBlockChange(header);
+
+        if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
+            if (this.processedBlocks >= Config.DEV.PROCESS_ONLY_X_BLOCK) {
+                return;
+            }
+        }
 
         if (!this.started) {
             this.startTasks();
@@ -610,7 +620,6 @@ export class BlockIndexer extends Logger {
 
         if (Config.DEV.PROCESS_ONLY_X_BLOCK) {
             if (this.processedBlocks >= Config.DEV.PROCESS_ONLY_X_BLOCK) {
-                this.success(`Stopping task after ${this.processedBlocks} blocks.`);
                 return;
             }
         }

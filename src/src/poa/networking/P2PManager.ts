@@ -108,7 +108,6 @@ export class P2PManager extends Logger {
     private blackListedPeerIps: FastStringMap<BlacklistedPeerInfo> = new FastStringMap();
 
     private knownMempoolIdentifiers: FastStringSet = new FastStringSet();
-    private broadcastIdentifiers: FastStringSet = new FastStringSet();
 
     private readonly PURGE_BLACKLISTED_PEER_AFTER: number = 30_000;
 
@@ -132,7 +131,6 @@ export class P2PManager extends Logger {
 
         setInterval(() => {
             this.knownMempoolIdentifiers.clear();
-            this.broadcastIdentifiers.clear();
 
             this.purgeOldBlacklistedPeers();
         }, 10_000);
@@ -205,15 +203,13 @@ export class P2PManager extends Logger {
     }
 
     public async broadcastTransaction(data: OPNetBroadcastData): Promise<OPNetBroadcastResponse> {
-        if (this.broadcastIdentifiers.has(data.id) && data.id) {
-            this.warn(`Transaction already broadcast.`);
-
+        if (this.knownMempoolIdentifiers.has(data.id) && data.id) {
             return {
                 peers: 0,
             };
         }
 
-        if (data.id) this.broadcastIdentifiers.add(data.id);
+        if (data.id) this.knownMempoolIdentifiers.add(data.id);
 
         return {
             peers: await this.broadcastMempoolTransaction({
@@ -495,6 +491,12 @@ export class P2PManager extends Logger {
             }
 
             this.knownMempoolIdentifiers.add(txHash);
+
+            const hasInDB = await this.blockWitnessManager.hasTransactionInMempool(txHash);
+            if (hasInDB) {
+                this.warn(`Transaction ${txHash} already broadcasted. (in db)`);
+                return;
+            }
 
             const verifiedTransaction = await this.verifyOPNetTransaction(
                 tx.transaction,

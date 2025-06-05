@@ -107,12 +107,17 @@ export class TransactionReceipt extends Route<
             ? DataConverter.fromDecimal128(interaction.gasUsed)
             : 0n;
 
+        const specialGasUsed: bigint = interaction.specialGasUsed
+            ? DataConverter.fromDecimal128(interaction.specialGasUsed)
+            : 0n;
+
         return {
             receipt: interaction.receipt?.toString('base64') ?? null,
             receiptProofs: interaction.receiptProofs || [],
             events: this.restoreEvents(interaction.events),
             revert: interaction.revert ? interaction.revert.toString('base64') : undefined,
             gasUsed: '0x' + gasUsed.toString(16),
+            specialGasUsed: '0x' + specialGasUsed.toString(16),
         };
     }
 
@@ -132,6 +137,7 @@ export class TransactionReceipt extends Route<
             receiptProofs: [],
             events: [],
             gasUsed: '0x0',
+            specialGasUsed: '0x0',
         };
     }
 

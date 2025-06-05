@@ -53,6 +53,7 @@ import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { init } from '@btc-vision/op-vm';
 import { StrippedTransactionInput } from '../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
+import { SpecialContract } from '../poa/configurations/types/SpecialContracts.js';
 
 Globals.register();
 
@@ -252,9 +253,11 @@ export class VMManager extends Logger {
                 blockHash = EMPTY_BUFFER;
             }
 
+            const specialSettings = OPNetConsensus.specialContract(contractAddress.toHex());
             const gasTracker = this.getGasTracker(
                 OPNetConsensus.consensus.GAS.EMULATION_MAX_GAS,
                 0n,
+                specialSettings,
             );
 
             const inputs = transaction ? transaction.inputs : [];
@@ -265,7 +268,7 @@ export class VMManager extends Logger {
 
             // Get the contract evaluator
             const params: InternalContractCallParameters = {
-                contractAddressStr: contractAddress.p2tr(this.network),
+                contractAddressStr: contractAddress.p2op(this.network),
                 contractAddress: contractAddress,
 
                 from: from,
@@ -300,6 +303,7 @@ export class VMManager extends Logger {
 
                 accessList: accessList,
                 preloadStorageList: preloadList,
+                specialContract: specialSettings,
             };
 
             // Execute the function
@@ -354,7 +358,11 @@ export class VMManager extends Logger {
 
             // Trace the execution time
             const maxGas: bigint = this.calculateMaxGas(isSimulation, feeBitcoin, baseGas);
-            const gasTracker = this.getGasTracker(maxGas, 0n);
+            const gasTracker = this.getGasTracker(
+                maxGas,
+                0n,
+                interactionTransaction.specialSettings,
+            );
 
             // Define the parameters for the internal call.
             const params: InternalContractCallParameters = {
@@ -391,6 +399,7 @@ export class VMManager extends Logger {
                 serializedOutputs: undefined,
 
                 preloadStorageList: interactionTransaction.preloadStorageList,
+                specialContract: interactionTransaction.specialSettings,
             };
 
             const result: ContractEvaluation = await this.executeCallInternal(params);
@@ -457,7 +466,7 @@ export class VMManager extends Logger {
                 contractInformation,
             );
 
-            const gasTracker = this.getGasTracker(maxGas, 0n);
+            const gasTracker = this.getGasTracker(maxGas, 0n, undefined);
             const params: ExecutionParameters = {
                 contractAddressStr: contractDeploymentTransaction.contractAddress,
                 contractAddress: contractDeploymentTransaction.address,
@@ -493,6 +502,7 @@ export class VMManager extends Logger {
 
                 accessList: undefined,
                 preloadStorageList: contractDeploymentTransaction.preloadStorageList,
+                specialContract: undefined,
             };
 
             const execution = await vmEvaluator.run(params);
@@ -616,9 +626,13 @@ export class VMManager extends Logger {
         await this.clear();
     }
 
-    private getGasTracker(maxGas: bigint, usedGas: bigint): GasTracker {
-        const gasTracker = new GasTracker(maxGas);
-        gasTracker.setGasUsed(usedGas);
+    private getGasTracker(
+        maxGas: bigint,
+        usedGas: bigint,
+        specialSettings: SpecialContract | undefined,
+    ): GasTracker {
+        const gasTracker = new GasTracker(maxGas, specialSettings);
+        gasTracker.setGasUsed(usedGas, 0n, true);
 
         return gasTracker;
     }
@@ -727,6 +741,7 @@ export class VMManager extends Logger {
 
             accessList: params.accessList,
             preloadStorageList: params.preloadStorageList,
+            specialContract: params.specialContract,
         };
 
         // Execute the function
@@ -816,7 +831,7 @@ export class VMManager extends Logger {
         const deployResult = this.generateAddress(
             salt,
             evaluation.contractAddress,
-            contractInfo.bytecode,
+            contractInfo.bytecode.subarray(1), // WE DROP THE VERSION BYTE.
         );
 
         if (this.contractCache.has(deployResult)) {
@@ -841,7 +856,7 @@ export class VMManager extends Logger {
         const contractSaltHash = bitcoin.crypto.hash256(salt);
         const contractInformation: ContractInformation = new ContractInformation(
             evaluation.blockNumber,
-            deployResult.p2tr(this.network),
+            deployResult.p2op(this.network),
             deployResult,
             deployResult.toTweakedHybridPublicKeyBuffer(),
             contractInfo.bytecode,
