@@ -91,8 +91,7 @@
         "toml": "^3.0.0",
         "typescript": "^5.8.3",
         "typescript-eslint": "^8.33.0",
-        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.51.0",
-        "z3-solver": "^4.15.0"
+        "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.51.0"
     },
     "devDependencies": {
         "@types/cors": "^2.8.18",

@@ -2,7 +2,6 @@ import { LRUCache } from 'lru-cache';
 import { crypto as btcCrypto } from '@btc-vision/bitcoin';
 
 import { AnyoneCanSpendDetector, AnyoneCanSpendReason } from './AnyoneCanSpendDetector.js';
-import { ScriptSolver } from './ScriptSolver.js';
 import { Logger } from '@btc-vision/bsi-common';
 import { TransactionOutput } from '../../processor/transaction/inputs/TransactionOutput.js';
 
@@ -17,8 +16,6 @@ export interface ChainContext {
 }
 
 const detector = new AnyoneCanSpendDetector();
-const solver = new ScriptSolver();
-
 type ScriptType = NonNullable<TransactionOutput['scriptPubKey']['type']>;
 
 const STANDARD_TYPES = new Set<ScriptType>([
@@ -106,7 +103,7 @@ export class UtxoSorter extends Logger {
         });
 
         await Promise.all(
-            prelim.map(async (cl, i) => {
+            prelim.map((cl, i) => {
                 if (!cl) return; // skip standard outputs
                 if (cl.status !== 'Unknown') return;
 
@@ -123,33 +120,12 @@ export class UtxoSorter extends Logger {
                     throw new Error(`Missing txid for output at index ${i}`);
                 }
 
-                try {
-                    const isTaproot = output.scriptPubKey.type === 'witness_v1_taproot';
-                    const res = await solver.solve(
-                        // 6e9f646e938f886e9455886d51676a68
-                        // 76a8202cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b982488756e935f886ea36394558867930114886851
-                        output.scriptPubKeyBuffer.toString('hex'),
-                        bruteMax,
-                        isTaproot,
-                        cl.outpoint.txid,
-                    );
-
-                    if (res.solved) {
-                        cl.status = 'Solved';
-                        cl.unlocking = res.unlock;
-                        solverCache.set(key, cl.unlocking);
-                    } else {
-                        cl.status = 'Unknown';
-                        cl.reason = res.reason;
-                        cl.unlocking = res.unlock ?? Uint8Array.of();
-                    }
-                } catch (error) {
-                    this.error(
-                        `Error solving script for ${output.scriptPubKeyBuffer.toString('hex')}: ${error}`,
-                    );
-
-                    cl.status = 'Error';
-                }
+                return {
+                    status: 'Unknown',
+                    outpoint: cl.outpoint,
+                    sats: cl.sats,
+                    hex: cl.hex,
+                };
             }),
         );
 
