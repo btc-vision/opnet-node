@@ -831,7 +831,7 @@ export class VMManager extends Logger {
         const deployResult = this.generateAddress(
             salt,
             evaluation.contractAddress,
-            contractInfo.bytecode,
+            contractInfo.bytecode.subarray(1), // WE DROP THE VERSION BYTE.
         );
 
         if (this.contractCache.has(deployResult)) {

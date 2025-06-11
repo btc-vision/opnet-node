@@ -378,9 +378,8 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         } catch (err) {
             const e = err as Error;
             this.error(
-                `error in tx (${e.message})`,
+                `error in tx (${txId.toString('hex')}) (${e.message})`,
                 publicKey.toString('hex'),
-                txId.toString('hex'),
             );
         }
     }

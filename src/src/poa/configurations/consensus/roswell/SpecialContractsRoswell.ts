@@ -2,10 +2,20 @@ import { Address } from '@btc-vision/transaction';
 import { SpecialContract, SpecialContracts } from '../../types/SpecialContracts.js';
 
 const nativeSwapRegtest: Address = Address.fromString(
-    '0xb1e15e36a7b32ddade19352856f0ff3829a47bd7f48fc79e89a960391eb46026',
+    '0x05f81680bf5a131cc6384f3c2c16392353c2e227463b2913994b5f01d5443831',
 );
 
-const nativeSwapTestnet: Address = Address.dead();
+const nativeSwapRegtest2: Address = Address.fromString(
+    `0xe7554ec1349ccc520395dff594c58086ad81bdb97e2057cdd87cff21168c51bc`,
+);
+
+const nativeSwapTestnet: Address = Address.fromString(
+    '0xeee1f46e105c62ece22ee947d6890501b98edc01f7118694ede235942e7d3c21',
+);
+
+const nativeSwapTestnet2: Address = Address.fromString(
+    '0xe9d1826f360eef9c5d827e29ef8c64205d709d9e93f9315c3decc21331b57baf',
+);
 
 const nativeSwapMainnet: Address = Address.dead();
 
@@ -22,6 +32,12 @@ export const SPECIAL_CONTRACTS_ROSWELL_REGTEST: SpecialContracts = {
 
         address: nativeSwapRegtest,
     },
+
+    [nativeSwapRegtest2.toHex()]: {
+        ...nativeSwapContractSettings,
+
+        address: nativeSwapRegtest2,
+    },
 };
 
 export const SPECIAL_CONTRACTS_ROSWELL_TESTNET: SpecialContracts = {
@@ -29,6 +45,12 @@ export const SPECIAL_CONTRACTS_ROSWELL_TESTNET: SpecialContracts = {
         ...nativeSwapContractSettings,
 
         address: nativeSwapTestnet,
+    },
+
+    [nativeSwapTestnet2.toHex()]: {
+        ...nativeSwapContractSettings,
+
+        address: nativeSwapTestnet2,
     },
 };
 

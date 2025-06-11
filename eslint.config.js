@@ -30,8 +30,9 @@ export default tseslint.config(
             'prefer-spread': 'off',
             '@typescript-eslint/no-empty-object-type': 'off',
             '@typescript-eslint/related-getter-setter-pairs': 'off',
-            'max-depth': ['error', 5],
+            'max-depth': ['error', 8],
             '@typescript-eslint/require-await': 'warn',
+            '@typescript-eslint/no-unnecessary-type-arguments': 'off'
         },
     },
     {

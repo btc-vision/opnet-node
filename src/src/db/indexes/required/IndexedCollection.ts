@@ -4,6 +4,7 @@ export enum OPNetCollections {
     Blocks = 'Blocks',
     Transactions = 'Transactions',
     UnspentTransactions = 'UnspentTransactions',
+    AnyoneCanSpend = 'AnyoneCanSpend',
     BlockWitnesses = 'BlockWitnesses',
     Contracts = 'Contracts',
     InternalPointers = 'InternalPointers',
