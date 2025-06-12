@@ -28,7 +28,7 @@ export const RachelConsensus: IOPNetConsensus<Consensus.Rachel> = {
         NEXT_CONSENSUS_BLOCK: 4506091n, //1008n,
 
         // Is this node updated to the next consensus?
-        IS_READY_FOR_NEXT_CONSENSUS: false,
+        IS_READY_FOR_NEXT_CONSENSUS: true,
 
         // Allow legacy? Hybrid contract address are supported in this version.
         ALLOW_LEGACY: false,
