@@ -7,42 +7,28 @@ import {
     SPECIAL_CONTRACTS_ROSWELL_TESTNET,
 } from './roswell/SpecialContractsRoswell.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
+import { RoswellConsensus } from './RoswellConsensus.js';
 
-export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
+export const RachelConsensus: IOPNetConsensus<Consensus.Rachel> = {
+    ...RoswellConsensus,
+
     /** Information about the consensus */
-    CONSENSUS: Consensus.Roswell,
-    CONSENSUS_NAME: 'Roswell',
-
-    OPNET_ENABLED: {
-        [ChainIds.Bitcoin]: {
-            [BitcoinNetwork.mainnet]: {
-                ENABLED: true,
-                BLOCK: 0n,
-            },
-            [BitcoinNetwork.testnet]: {
-                ENABLED: true,
-                BLOCK: 0n,
-            },
-            [BitcoinNetwork.regtest]: {
-                ENABLED: true,
-                BLOCK: 0n,
-            },
-        },
-    },
+    CONSENSUS: Consensus.Rachel,
+    CONSENSUS_NAME: 'Rachel',
 
     GENERIC: {
         /** General consensus properties */
         // The block height at which this consensus was enabled.
-        ENABLED_AT_BLOCK: -1n,
+        ENABLED_AT_BLOCK: 4_506_083n,
 
         // The next consensus.
-        NEXT_CONSENSUS: Consensus.Rachel,
+        NEXT_CONSENSUS: Consensus.Kecksburg,
 
         // The block height at which the next consensus will be enabled.
-        NEXT_CONSENSUS_BLOCK: 4_506_083n,
+        NEXT_CONSENSUS_BLOCK: 100_000_000_000n, //1008n,
 
         // Is this node updated to the next consensus?
-        IS_READY_FOR_NEXT_CONSENSUS: true,
+        IS_READY_FOR_NEXT_CONSENSUS: false,
 
         // Allow legacy? Hybrid contract address are supported in this version.
         ALLOW_LEGACY: false,
@@ -98,7 +84,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
          */
-        MAX_THEORETICAL_GAS: 5_000_000_000_000n, // 0.06 BTC
+        MAX_THEORETICAL_GAS: 6_000_000_000_000n, // 0.06 BTC
 
         /** Max gas per transactions */
         TRANSACTION_MAX_GAS: 2_550_000_000_000n, // 0.025 BTC.
