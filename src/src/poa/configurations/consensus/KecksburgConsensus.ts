@@ -7,25 +7,25 @@ import {
     SPECIAL_CONTRACTS_ROSWELL_TESTNET,
 } from './roswell/SpecialContractsRoswell.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
-import { RoswellConsensus } from './RoswellConsensus.js';
+import { RachelConsensus } from './RachelConsensus.js';
 
-export const RachelConsensus: IOPNetConsensus<Consensus.Rachel> = {
-    ...RoswellConsensus,
+export const KecksburgConsensus: IOPNetConsensus<Consensus.Kecksburg> = {
+    ...RachelConsensus,
 
     /** Information about the consensus */
-    CONSENSUS: Consensus.Rachel,
-    CONSENSUS_NAME: 'Rachel',
+    CONSENSUS: Consensus.Kecksburg,
+    CONSENSUS_NAME: 'Kecksburg',
 
     GENERIC: {
         /** General consensus properties */
         // The block height at which this consensus was enabled.
-        ENABLED_AT_BLOCK: 4_506_083n,
+        ENABLED_AT_BLOCK: 4506091n,
 
         // The next consensus.
-        NEXT_CONSENSUS: Consensus.Kecksburg,
+        NEXT_CONSENSUS: Consensus.Phoenix,
 
         // The block height at which the next consensus will be enabled.
-        NEXT_CONSENSUS_BLOCK: 4506091n, //1008n,
+        NEXT_CONSENSUS_BLOCK: 100_000_000_000n, //1008n,
 
         // Is this node updated to the next consensus?
         IS_READY_FOR_NEXT_CONSENSUS: false,
@@ -75,7 +75,7 @@ export const RachelConsensus: IOPNetConsensus<Consensus.Rachel> = {
         GAS_PENALTY_FACTOR: 1n,
 
         /** Target block gas limit, a transaction can not pass this limit. */
-        TARGET_GAS: 4_500_000_000_000n, // 0.025 BTC.
+        TARGET_GAS: 4_000_000_000_000n, // 0.025 BTC.
 
         /** Smooth out gas increase when equal to gas target. */
         SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
@@ -84,7 +84,7 @@ export const RachelConsensus: IOPNetConsensus<Consensus.Rachel> = {
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
          */
-        MAX_THEORETICAL_GAS: 6_000_000_000_000n, // 0.06 BTC
+        MAX_THEORETICAL_GAS: 6_500_000_000_000n, // 0.06 BTC
 
         /** Max gas per transactions */
         TRANSACTION_MAX_GAS: 2_550_000_000_000n, // 0.025 BTC.
