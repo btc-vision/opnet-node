@@ -42,7 +42,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         NEXT_CONSENSUS_BLOCK: 4_506_083n,
 
         // Is this node updated to the next consensus?
-        IS_READY_FOR_NEXT_CONSENSUS: true,
+        IS_READY_FOR_NEXT_CONSENSUS: false,
 
         // Allow legacy? Hybrid contract address are supported in this version.
         ALLOW_LEGACY: false,
