@@ -26,7 +26,7 @@ export interface IMempoolTransaction {
 
 export interface IMempoolTransactionObj
     extends Omit<IMempoolTransaction, 'data' | 'blockHeight' | 'outputs' | 'inputs'> {
-    readonly data: Buffer | Uint8Array;
+    readonly data: Buffer;
     readonly blockHeight: bigint;
 
     readonly inputs: {
@@ -35,7 +35,7 @@ export interface IMempoolTransactionObj
     }[];
 
     readonly outputs: {
-        readonly data: Buffer | Uint8Array;
+        readonly data: Buffer;
         readonly address: string | null;
         readonly outputIndex: number;
         value: Long;

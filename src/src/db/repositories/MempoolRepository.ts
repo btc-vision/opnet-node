@@ -287,7 +287,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     private convertToObj(data: IMempoolTransaction): IMempoolTransactionObj {
         return {
             ...data,
-            data: data.data.buffer,
+            data: Buffer.from(data.data.buffer),
             blockHeight: DataConverter.fromDecimal128(data.blockHeight),
             inputs: data.inputs.map((input) => {
                 return {
@@ -297,7 +297,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             }),
             outputs: data.outputs.map((output) => {
                 return {
-                    data: output.data.buffer,
+                    data: Buffer.from(output.data.buffer),
                     outputIndex: output.outputIndex,
                     value:
                         output.value instanceof Long ? output.value : Long.fromNumber(output.value),

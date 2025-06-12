@@ -60,13 +60,13 @@ export class MempoolManager extends Logger {
 
     public async handleRequest(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
         switch (m.type) {
-            case MessageType.RPC_METHOD: {
+            /*case MessageType.RPC_METHOD: {
                 await new Promise<void>((resolve) => {
                     setTimeout(resolve, 1000);
                 });
 
                 return;
-            }
+            }*/
 
             default: {
                 throw new Error(

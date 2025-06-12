@@ -1,14 +1,14 @@
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
-import { PSBTTypes } from '../psbt/PSBTTypes.js';
+import { TransactionTypes } from '../transaction/TransactionTypes.js';
 import { Network, networks, Psbt, Transaction } from '@btc-vision/bitcoin';
-import { KnownPSBTObject } from '../psbt/PSBTTransactionVerifier.js';
+import { IKnownTransaction } from '../transaction/TransactionVerifierManager.js';
 import { PsbtInput } from 'bip174/src/lib/interfaces.js';
 import { TransactionBuilder, TweakedTransaction } from '@btc-vision/transaction';
 import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../configurations/manager/AuthorityManager.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 
-export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
+export abstract class TransactionVerifier<T extends TransactionTypes> extends Logger {
     public abstract readonly type: T;
 
     public readonly logColor: string = '#e0e0e0';
@@ -22,9 +22,9 @@ export abstract class PSBTVerificator<T extends PSBTTypes> extends Logger {
         super();
     }
 
-    public abstract createRepositories(): void;
+    public abstract createRepositories(): void | Promise<void>;
 
-    public abstract verify(data: Psbt, version: number): Promise<KnownPSBTObject | false>;
+    public abstract verify(data: Psbt | Transaction): Promise<IKnownTransaction | false>;
 
     protected getInOutAmounts(inputs: PsbtInput[], tx: Transaction): { in: bigint; out: bigint } {
         let inputAmount: bigint = 0n;

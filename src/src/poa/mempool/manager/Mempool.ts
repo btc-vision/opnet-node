@@ -13,12 +13,11 @@ import {
 } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
-import { PSBTTransactionVerifier } from '../psbt/PSBTTransactionVerifier.js';
+import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
 import { BitcoinRPC, FeeEstimation } from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
-import { PSBTProcessorManager } from '../PSBTProcessorManager.js';
 import { Network } from '@btc-vision/bitcoin';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.js';
@@ -33,11 +32,10 @@ export class Mempool extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
-    private readonly psbtVerifier: PSBTTransactionVerifier;
-    private readonly psbtProcessorManager: PSBTProcessorManager;
+    private readonly transactionVerifier: TransactionVerifierManager;
     private readonly transactionSizeValidator: TransactionSizeValidator =
         new TransactionSizeValidator();
-
+    
     private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
@@ -56,12 +54,7 @@ export class Mempool extends Logger {
     constructor() {
         super();
 
-        this.psbtVerifier = new PSBTTransactionVerifier(this.db, this.network);
-        this.psbtProcessorManager = new PSBTProcessorManager(
-            this.opnetIdentity,
-            this.db,
-            this.network,
-        );
+        this.transactionVerifier = new TransactionVerifierManager(this.db, this.network);
     }
 
     private get mempoolRepository(): MempoolRepository {
@@ -115,8 +108,7 @@ export class Mempool extends Logger {
         await Promise.safeAll([
             this.watchBlockchain(),
             this.estimateFees(),
-            this.psbtProcessorManager.createRepositories(this.bitcoinRPC),
-            this.psbtVerifier.createRepositories(),
+            this.transactionVerifier.createRepositories(),
         ]);
     }
 
@@ -220,7 +212,7 @@ export class Mempool extends Logger {
             const transaction: IMempoolTransactionObj = {
                 id: id,
                 psbt: psbt,
-                data: raw,
+                data: Buffer.from(raw),
                 firstSeen: new Date(),
                 blockHeight: OPNetConsensus.getBlockHeight(),
                 inputs: [],
@@ -244,11 +236,24 @@ export class Mempool extends Logger {
         transaction: IMempoolTransactionObj,
     ): Promise<BroadcastResponse> {
         const exist = await this.mempoolRepository.hasTransactionById(transaction.id);
-
         if (exist) {
             return {
                 success: false,
                 result: 'Transaction already in mempool',
+            };
+        }
+
+        const decodedTransaction = await this.transactionVerifier.verify(
+            transaction.data,
+            transaction.psbt,
+        );
+
+        console.log(decodedTransaction, transaction.data);
+
+        if (!decodedTransaction) {
+            return {
+                success: false,
+                result: 'Could not decode transaction.',
             };
         }
 
@@ -275,7 +280,7 @@ export class Mempool extends Logger {
     /*private async decodePSBTAndProcess(
         transaction: IMempoolTransactionObj,
     ): Promise<BroadcastResponse> {
-        const decodedPsbt = await this.psbtVerifier.verify(transaction.data);
+        const decodedPsbt = await this.transactionVerifier.verify(transaction.data);
         if (!decodedPsbt) {
             return {
                 success: false,
