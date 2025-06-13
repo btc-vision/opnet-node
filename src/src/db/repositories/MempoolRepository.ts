@@ -267,8 +267,8 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             ...data,
             data: new Binary(data.data),
             blockHeight: DataConverter.toDecimal128(data.blockHeight),
-            theoreticalGasLimit: data.theoreticalGasLimit.toString(),
-            priorityFee: data.priorityFee.toString(),
+            theoreticalGasLimit: Long.fromBigInt(data.theoreticalGasLimit),
+            priorityFee: Long.fromBigInt(data.priorityFee),
             inputs: data.inputs.map((input) => {
                 return {
                     transactionId: input.transactionId,
@@ -291,8 +291,10 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             ...data,
             data: Buffer.from(data.data.buffer),
             blockHeight: DataConverter.fromDecimal128(data.blockHeight),
-            theoreticalGasLimit: BigInt(data.theoreticalGasLimit || '0'),
-            priorityFee: BigInt(data.priorityFee || '0'),
+            theoreticalGasLimit: data.theoreticalGasLimit
+                ? data.theoreticalGasLimit.toBigInt()
+                : BigInt(0),
+            priorityFee: data.priorityFee ? data.priorityFee.toBigInt() : BigInt(0),
             inputs: data.inputs.map((input) => {
                 return {
                     transactionId: input.transactionId,

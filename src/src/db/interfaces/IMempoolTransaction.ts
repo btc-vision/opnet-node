@@ -9,8 +9,8 @@ export interface IMempoolTransaction {
     readonly previousPsbtId?: string | null;
 
     readonly blockHeight: Decimal128;
-    readonly theoreticalGasLimit: string;
-    readonly priorityFee: string;
+    readonly theoreticalGasLimit: Long;
+    readonly priorityFee: Long;
     readonly firstSeen: Date | undefined;
 
     readonly inputs: {
