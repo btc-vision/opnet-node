@@ -19,9 +19,6 @@ import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { Network } from '@btc-vision/bitcoin';
-import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
-import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.js';
-import { AuthorityManager } from '../../configurations/manager/AuthorityManager.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
@@ -41,11 +38,11 @@ export class Mempool extends Logger {
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
     #mempoolRepository: MempoolRepository | undefined;
 
-    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
-    private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
-        Config,
-        this.currentAuthority,
-    );
+    //private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
+    //private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
+    //    Config,
+    //    this.currentAuthority,
+    //);
 
     private readonly network: Network = NetworkConverter.getNetwork();
 
@@ -114,19 +111,44 @@ export class Mempool extends Logger {
             this.estimateFees(),
             this.transactionVerifier.createRepositories(),
         ]);
+
+        await this.verifyBlockHeight();
+    }
+
+    private async verifyBlockHeight(): Promise<void> {
+        try {
+            const currentBlockHeight = await this.bitcoinRPC.getBlockHeight();
+            if (!currentBlockHeight) {
+                return;
+            }
+
+            const currentBitcoinHeight: bigint = BigInt(currentBlockHeight.blockHeight) + 1n;
+            const blockDiff = currentBitcoinHeight - OPNetConsensus.getBlockHeight();
+            if (blockDiff >= 1n) {
+                if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                    this.warn(
+                        `Block height mismatch: OPNet height ${OPNetConsensus.getBlockHeight()}, Bitcoin Core height ${currentBitcoinHeight}.`,
+                    );
+                }
+
+                await this.onBlockChange(currentBitcoinHeight);
+            }
+
+            setTimeout(() => {
+                void this.verifyBlockHeight();
+            }, 5000);
+        } catch (e) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                this.warn(`Error verifying block height: ${(e as Error).message}`);
+            }
+        }
     }
 
     private async watchBlockchain(): Promise<void> {
         this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
-            try {
-                OPNetConsensus.setBlockHeight(blockHeight);
-
+            if (OPNetConsensus.getBlockHeight() < blockHeight) {
                 await this.onBlockChange(blockHeight);
-
-                if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
-                    void this.mempoolRepository.purgeOldTransactions(blockHeight);
-                }
-            } catch {}
+            }
         });
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
@@ -135,7 +157,15 @@ export class Mempool extends Logger {
     }
 
     private async onBlockChange(blockHeight: bigint): Promise<void> {
-        await this.transactionVerifier.onBlockChange(blockHeight);
+        try {
+            OPNetConsensus.setBlockHeight(blockHeight);
+
+            await this.transactionVerifier.onBlockChange(blockHeight);
+
+            if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
+                void this.mempoolRepository.purgeOldTransactions(blockHeight);
+            }
+        } catch {}
     }
 
     private async estimateFees(): Promise<void> {

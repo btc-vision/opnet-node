@@ -1,11 +1,13 @@
 import { TransactionTypes } from './TransactionTypes.js';
-import { Network, networks, Psbt, Transaction } from '@btc-vision/bitcoin';
+import { Network, networks, Psbt, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TransactionVerifier } from '../verificator/TransactionVerifier.js';
 import { Consensus } from '../../configurations/consensus/Consensus.js';
 import { BitcoinTransactionVerificatorV2 } from '../verificator/bitcoin/v2/BitcoinTransactionVerificatorV2.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
+import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { Transaction } from '../../../blockchain-indexer/processor/transaction/Transaction.js';
 
 export interface PSBTDecodedData {
     readonly hash: string;
@@ -23,7 +25,7 @@ export interface KnownPSBTObject extends IKnownTransaction {
 }
 
 export interface KnownTransaction extends IKnownTransaction {
-    readonly transaction: Transaction;
+    readonly transaction: Transaction<OPNetTransactionTypes>;
 }
 
 export class TransactionVerifierManager extends Logger {
@@ -58,7 +60,7 @@ export class TransactionVerifierManager extends Logger {
 
         const verificator = this.verificator.find((v) => v.type === psbtType);
         if (verificator) {
-            let psbtOrTransaction: Psbt | Transaction | undefined;
+            let psbtOrTransaction: Psbt | BitcoinTransaction | undefined;
             if (tx.psbt) {
                 psbtOrTransaction = this.getPSBT(tx.data);
             } else {
@@ -84,9 +86,9 @@ export class TransactionVerifierManager extends Logger {
         }
     }
 
-    private getTransaction(data: Buffer): Transaction | undefined {
+    private getTransaction(data: Buffer): BitcoinTransaction | undefined {
         try {
-            return Transaction.fromBuffer(data);
+            return BitcoinTransaction.fromBuffer(data);
         } catch (e) {
             console.log(e);
             this.warn(`Failed to decode PSBT. Invalid transaction data.`);

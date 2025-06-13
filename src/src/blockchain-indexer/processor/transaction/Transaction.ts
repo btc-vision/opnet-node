@@ -468,9 +468,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         if (!witnessOutput.scriptPubKey.address) {
             throw new Error('No address found for contract witness output');
         }
+
         this._burnedFee = witnessOutput.value;
         if (this._burnedFee > 2000n) {
-            throw new Error('Burned too much fee');
+            throw new Error(`Burned too much fee (${this._burnedFee} satoshis)`);
         }
     }
 

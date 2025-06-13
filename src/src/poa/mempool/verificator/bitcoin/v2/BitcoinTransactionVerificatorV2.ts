@@ -10,6 +10,8 @@ import { IMempoolTransactionObj } from '../../../../../db/interfaces/IMempoolTra
 import { TransactionData, VOut } from '@btc-vision/bitcoin-rpc/src/rpc/types/BlockData.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import { scriptToAddress } from '../../../../../utils/AddressDecoder.js';
+import BigNumber from 'bignumber.js';
+import { OPNetConsensus } from '../../../../configurations/OPNetConsensus.js';
 
 const EMPTY_BLOCK_HASH = Buffer.alloc(32).toString('hex');
 
@@ -54,19 +56,14 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
     }
 
     public async verify(
-        transaction: IMempoolTransactionObj,
+        _transaction: IMempoolTransactionObj,
         data: Transaction,
     ): Promise<KnownTransaction | false> {
-        console.log(`Verifying Bitcoin Transaction V2...`, data);
-
-        const tx: KnownTransaction | false = false;
+        let tx: KnownTransaction | false = false;
         try {
             const preimages = await this.allowedPreimages;
-
             const decoded = this.toRawTransactionData(data);
-            console.log(`Decoded transaction:`, decoded);
-
-            const opnetParser = this.transactionFactory.parseTransaction(
+            const opnetDecodedTransaction = this.transactionFactory.parseTransaction(
                 decoded,
                 EMPTY_BLOCK_HASH,
                 this.currentBlockHeight,
@@ -74,15 +71,18 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
                 preimages,
             );
 
-            console.log(`Parsed transaction:`, opnetParser);
+            tx = {
+                type: this.type,
+                version: OPNetConsensus.consensus.CONSENSUS,
+                transaction: opnetDecodedTransaction,
+            };
         } catch (e) {
             if (Config.DEV_MODE) {
                 this.error(`Error verifying Bitcoin Transaction V2: ${(e as Error).message}`);
             }
-        } finally {
-            // eslint-disable-next-line no-unsafe-finally
-            return tx;
         }
+
+        return tx;
     }
 
     private toRawTransactionData(data: Transaction): TransactionData {
@@ -92,7 +92,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
 
             const decoded = scriptToAddress(output.script, this.network);
             outputs.push({
-                value: output.value,
+                value: new BigNumber(output.value).div(1e8).toNumber(),
                 scriptPubKey: {
                     hex: output.script.toString('hex'),
                     address: decoded.address,
@@ -114,6 +114,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
                     hex: input.script.toString('hex'),
                 },
                 sequence: input.sequence,
+                txinwitness: input.witness.map((witness) => witness.toString('hex')),
             })),
             vout: outputs,
             in_active_chain: false,
