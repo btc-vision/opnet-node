@@ -206,6 +206,7 @@ export class MempoolManager extends Logger {
             id: txData.txid,
             psbt: false,
             data: data,
+            isOPNet: false,
             firstSeen: new Date(),
             blockHeight: this.currentBlockHeight,
             inputs: [],

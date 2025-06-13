@@ -286,6 +286,7 @@ export class Mempool extends Logger {
                 id: id,
                 psbt: psbt,
                 theoreticalGasLimit: 0n,
+                isOPNet: false,
                 priorityFee: 0n,
                 data: Buffer.from(raw),
                 firstSeen: new Date(),

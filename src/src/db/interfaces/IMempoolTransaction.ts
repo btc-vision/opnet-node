@@ -13,6 +13,8 @@ export interface IMempoolTransaction {
     readonly priorityFee: Long;
     readonly firstSeen: Date | undefined;
 
+    readonly isOPNet: boolean;
+
     readonly inputs: {
         readonly transactionId: string;
         readonly outputIndex: number;
@@ -34,6 +36,7 @@ export interface IMempoolTransactionObj
     readonly data: Buffer;
     readonly blockHeight: bigint;
 
+    isOPNet: boolean;
     theoreticalGasLimit: bigint;
     priorityFee: bigint;
 

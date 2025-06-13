@@ -269,6 +269,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             blockHeight: DataConverter.toDecimal128(data.blockHeight),
             theoreticalGasLimit: Long.fromBigInt(data.theoreticalGasLimit),
             priorityFee: Long.fromBigInt(data.priorityFee),
+            isOPNet: data.isOPNet || false,
             inputs: data.inputs.map((input) => {
                 return {
                     transactionId: input.transactionId,
@@ -294,6 +295,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             theoreticalGasLimit: data.theoreticalGasLimit
                 ? data.theoreticalGasLimit.toBigInt()
                 : BigInt(0),
+            isOPNet: data.isOPNet || false,
             priorityFee: data.priorityFee ? data.priorityFee.toBigInt() : BigInt(0),
             inputs: data.inputs.map((input) => {
                 return {
