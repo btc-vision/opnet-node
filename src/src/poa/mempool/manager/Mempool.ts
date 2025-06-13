@@ -152,15 +152,15 @@ export class Mempool extends Logger {
         this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
             if (OPNetConsensus.getBlockHeight() < blockHeight) {
                 await this.onBlockChange(blockHeight);
-            } else {
-                const diff = blockHeight - OPNetConsensus.getBlockHeight();
-                if (diff === 0n) {
-                    this.fullSync = true;
+            }
 
-                    this.success(
-                        `OPNet node is fully synchronized with the blockchain at block height ${blockHeight}.`,
-                    );
-                }
+            const diff = blockHeight - OPNetConsensus.getBlockHeight();
+            if (diff === 0n) {
+                this.fullSync = true;
+
+                this.success(
+                    `OPNet node is fully synchronized with the blockchain at block height ${blockHeight}.`,
+                );
             }
         });
 
