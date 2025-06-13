@@ -35,7 +35,7 @@ export class Mempool extends Logger {
     private readonly transactionVerifier: TransactionVerifierManager;
     private readonly transactionSizeValidator: TransactionSizeValidator =
         new TransactionSizeValidator();
-    
+
     private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
@@ -54,7 +54,11 @@ export class Mempool extends Logger {
     constructor() {
         super();
 
-        this.transactionVerifier = new TransactionVerifierManager(this.db, this.network);
+        this.transactionVerifier = new TransactionVerifierManager(
+            this.db,
+            this.bitcoinRPC,
+            this.network,
+        );
     }
 
     private get mempoolRepository(): MempoolRepository {
@@ -113,9 +117,11 @@ export class Mempool extends Logger {
     }
 
     private async watchBlockchain(): Promise<void> {
-        this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
+        this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
             try {
                 OPNetConsensus.setBlockHeight(blockHeight);
+
+                await this.onBlockChange(blockHeight);
 
                 if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
                     void this.mempoolRepository.purgeOldTransactions(blockHeight);
@@ -126,6 +132,10 @@ export class Mempool extends Logger {
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
             Config.BITCOIN.NETWORK,
         );
+    }
+
+    private async onBlockChange(blockHeight: bigint): Promise<void> {
+        await this.transactionVerifier.onBlockChange(blockHeight);
     }
 
     private async estimateFees(): Promise<void> {
@@ -243,11 +253,7 @@ export class Mempool extends Logger {
             };
         }
 
-        const decodedTransaction = await this.transactionVerifier.verify(
-            transaction.data,
-            transaction.psbt,
-        );
-
+        const decodedTransaction = await this.transactionVerifier.verify(transaction);
         console.log(decodedTransaction, transaction.data);
 
         if (!decodedTransaction) {

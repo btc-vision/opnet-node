@@ -4,6 +4,8 @@ import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TransactionVerifier } from '../verificator/TransactionVerifier.js';
 import { Consensus } from '../../configurations/consensus/Consensus.js';
 import { BitcoinTransactionVerificatorV2 } from '../verificator/bitcoin/v2/BitcoinTransactionVerificatorV2.js';
+import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
+import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 
 export interface PSBTDecodedData {
     readonly hash: string;
@@ -31,11 +33,12 @@ export class TransactionVerifierManager extends Logger {
 
     constructor(
         protected readonly db: ConfigurableDBManager,
+        protected readonly rpc: BitcoinRPC,
         protected readonly network: Network = networks.bitcoin,
     ) {
         super();
 
-        this.verificator.push(new BitcoinTransactionVerificatorV2(this.db, network));
+        this.verificator.push(new BitcoinTransactionVerificatorV2(this.db, this.rpc, network));
     }
 
     public async createRepositories(): Promise<void> {
@@ -44,23 +47,29 @@ export class TransactionVerifierManager extends Logger {
         await Promise.safeAll(promises);
     }
 
-    public async verify(data: Buffer, isPsbt: boolean): Promise<IKnownTransaction | false> {
-        const psbtType: TransactionTypes = data[0];
+    public async onBlockChange(blockHeight: bigint): Promise<void> {
+        const promises = this.verificator.map((v) => v.onBlockChangeSync(blockHeight));
+
+        await Promise.safeAll(promises);
+    }
+
+    public async verify(tx: IMempoolTransactionObj): Promise<IKnownTransaction | false> {
+        const psbtType: TransactionTypes = tx.data[0];
 
         const verificator = this.verificator.find((v) => v.type === psbtType);
         if (verificator) {
             let psbtOrTransaction: Psbt | Transaction | undefined;
-            if (isPsbt) {
-                psbtOrTransaction = this.getPSBT(data);
+            if (tx.psbt) {
+                psbtOrTransaction = this.getPSBT(tx.data);
             } else {
-                psbtOrTransaction = this.getTransaction(data);
+                psbtOrTransaction = this.getTransaction(tx.data);
             }
 
             if (!psbtOrTransaction) {
                 return false;
             }
 
-            return await verificator.verify(psbtOrTransaction);
+            return await verificator.verify(tx, psbtOrTransaction);
         } else {
             throw new Error('Unknown PSBT type');
         }

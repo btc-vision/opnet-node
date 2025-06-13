@@ -59,7 +59,7 @@ Globals.register();
 
 init();
 
-const EMPTY_BUFFER = Buffer.alloc(32);
+const EMPTY_BLOCK_HASH = Buffer.alloc(32);
 const SIMULATION_TRANSACTION_ID = Buffer.from(
     '61e1ca05754b6990c56d8f0f06c33da411f086c5abae59572e63549361c8f5fc',
     'hex',
@@ -250,7 +250,7 @@ export class VMManager extends Logger {
             } else {
                 currentHeight = await this.fetchCachedBlockHeight();
                 median = BigInt(Date.now());
-                blockHash = EMPTY_BUFFER;
+                blockHash = EMPTY_BLOCK_HASH;
             }
 
             const specialSettings = OPNetConsensus.specialContract(contractAddress.toHex());

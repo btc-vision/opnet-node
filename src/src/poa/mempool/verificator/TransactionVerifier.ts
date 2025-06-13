@@ -7,6 +7,8 @@ import { TransactionBuilder, TweakedTransaction } from '@btc-vision/transaction'
 import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.js';
 import { AuthorityManager } from '../../configurations/manager/AuthorityManager.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
+import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
+import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 
 export abstract class TransactionVerifier<T extends TransactionTypes> extends Logger {
     public abstract readonly type: T;
@@ -14,17 +16,30 @@ export abstract class TransactionVerifier<T extends TransactionTypes> extends Lo
     public readonly logColor: string = '#e0e0e0';
 
     protected readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
+    protected currentBlockHeight: bigint = 0n;
 
     protected constructor(
         protected readonly db: ConfigurableDBManager,
+        protected readonly rpc: BitcoinRPC,
         protected readonly network: Network = networks.bitcoin,
     ) {
         super();
     }
 
+    public async onBlockChangeSync(blockHeight: bigint): Promise<void> {
+        this.currentBlockHeight = blockHeight;
+
+        await this.onBlockChange(blockHeight);
+    }
+
     public abstract createRepositories(): void | Promise<void>;
 
-    public abstract verify(data: Psbt | Transaction): Promise<IKnownTransaction | false>;
+    public abstract verify(
+        tx: IMempoolTransactionObj,
+        data: Psbt | Transaction,
+    ): Promise<IKnownTransaction | false>;
+
+    protected abstract onBlockChange(blockHeight: bigint): void | Promise<void>;
 
     protected getInOutAmounts(inputs: PsbtInput[], tx: Transaction): { in: bigint; out: bigint } {
         let inputAmount: bigint = 0n;
