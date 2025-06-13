@@ -56,7 +56,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
     }
 
     public async verify(
-        _transaction: IMempoolTransactionObj,
+        transaction: IMempoolTransactionObj,
         data: Transaction,
     ): Promise<KnownTransaction | false> {
         let tx: KnownTransaction | false = false;
@@ -76,6 +76,9 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
                 version: OPNetConsensus.consensus.CONSENSUS,
                 transaction: opnetDecodedTransaction,
             };
+
+            transaction.theoreticalGasLimit = opnetDecodedTransaction.gasSatFee;
+            transaction.priorityFee = opnetDecodedTransaction.priorityFee;
         } catch (e) {
             if (Config.DEV_MODE) {
                 this.error(`Error verifying Bitcoin Transaction V2: ${(e as Error).message}`);

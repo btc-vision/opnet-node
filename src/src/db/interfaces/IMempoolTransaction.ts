@@ -9,6 +9,8 @@ export interface IMempoolTransaction {
     readonly previousPsbtId?: string | null;
 
     readonly blockHeight: Decimal128;
+    readonly theoreticalGasLimit: string;
+    readonly priorityFee: string;
     readonly firstSeen: Date | undefined;
 
     readonly inputs: {
@@ -25,9 +27,15 @@ export interface IMempoolTransaction {
 }
 
 export interface IMempoolTransactionObj
-    extends Omit<IMempoolTransaction, 'data' | 'blockHeight' | 'outputs' | 'inputs'> {
+    extends Omit<
+        IMempoolTransaction,
+        'data' | 'blockHeight' | 'outputs' | 'inputs' | 'theoreticalGasLimit' | 'priorityFee'
+    > {
     readonly data: Buffer;
     readonly blockHeight: bigint;
+
+    theoreticalGasLimit: bigint;
+    priorityFee: bigint;
 
     readonly inputs: {
         readonly transactionId: string;

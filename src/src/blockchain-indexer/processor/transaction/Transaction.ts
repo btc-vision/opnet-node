@@ -419,6 +419,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         if (this.totalFeeFund < header.priorityFeeSat) {
             throw new Error(`OP_NET: Priority fee is higher than actually received.`);
         }
+
         this._gasSatFee = this.totalFeeFund - header.priorityFeeSat;
         this._priorityFee = header.priorityFeeSat;
     }

@@ -24,6 +24,7 @@ import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';
+import { FeeMessageResponse } from '../../../threading/interfaces/thread-messages/messages/api/FeeRequest.js';
 
 export class Mempool extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -157,10 +158,6 @@ export class Mempool extends Logger {
             const diff = blockHeight - OPNetConsensus.getBlockHeight();
             if (diff === 0n) {
                 this.fullSync = true;
-
-                this.success(
-                    `OPNet node is fully synchronized with the blockchain at block height ${blockHeight}.`,
-                );
             }
         });
 
@@ -178,6 +175,8 @@ export class Mempool extends Logger {
             if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
                 void this.mempoolRepository.purgeOldTransactions(blockHeight);
             }
+
+            await this.estimateFees();
         } catch {}
     }
 
@@ -210,10 +209,6 @@ export class Mempool extends Logger {
                 this.error(`Error estimating fees: ${(e as Error).message}`);
             }
         }
-
-        setTimeout(() => {
-            void this.estimateFees();
-        }, 20000);
     }
 
     private async onRPCMethod(m: RPCMessageData<BitcoinRPCThreadMessageType>): Promise<ThreadData> {
@@ -222,10 +217,22 @@ export class Mempool extends Logger {
                 return await this.onTransactionReceived(m.data as OPNetBroadcastData);
             }
 
+            case BitcoinRPCThreadMessageType.GET_MEMPOOL_FEES: {
+                return this.onMempoolFeesRequest();
+            }
+
             default: {
                 throw new Error(`Unknown message sent by thread of type: ${m.rpcMethod}`);
             }
         }
+    }
+
+    private onMempoolFeesRequest(): FeeMessageResponse {
+        return {
+            bitcoinFees: {
+                feeRate: this.estimatedBlockFees,
+            },
+        };
     }
 
     private async onTransactionReceived(data: OPNetBroadcastData): Promise<BroadcastResponse> {
@@ -278,6 +285,8 @@ export class Mempool extends Logger {
             const transaction: IMempoolTransactionObj = {
                 id: id,
                 psbt: psbt,
+                theoreticalGasLimit: 0n,
+                priorityFee: 0n,
                 data: Buffer.from(raw),
                 firstSeen: new Date(),
                 blockHeight: OPNetConsensus.getBlockHeight(),
@@ -334,6 +343,25 @@ export class Mempool extends Logger {
                 result: 'Could not broadcast transaction to the network.',
             }
         );
+    }
+
+    private async broadcastBitcoinTransaction(
+        data: string,
+    ): Promise<BroadcastResponse | undefined> {
+        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE> =
+            {
+                type: MessageType.RPC_METHOD,
+                data: {
+                    rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE,
+                    data: {
+                        rawTransaction: data,
+                    },
+                } as BroadcastRequest,
+            };
+
+        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
+            | BroadcastResponse
+            | undefined;
     }
 
     /*private async decodePSBTAndProcess(
@@ -465,23 +493,4 @@ export class Mempool extends Logger {
             };
         }
     }*/
-
-    private async broadcastBitcoinTransaction(
-        data: string,
-    ): Promise<BroadcastResponse | undefined> {
-        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE> =
-            {
-                type: MessageType.RPC_METHOD,
-                data: {
-                    rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE,
-                    data: {
-                        rawTransaction: data,
-                    },
-                } as BroadcastRequest,
-            };
-
-        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
-            | BroadcastResponse
-            | undefined;
-    }
 }
