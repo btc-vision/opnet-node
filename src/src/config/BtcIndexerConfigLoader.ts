@@ -128,6 +128,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         MEMPOOL: {
             THREADS: 2,
+            PREVENT_TX_BROADCAST_IF_NOT_SYNCED: true,
             EXPIRATION_BLOCKS: 20,
             ENABLE_BLOCK_PURGE: true,
             BATCH_SIZE: 25,
@@ -618,6 +619,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.MEMPOOL.EXPIRATION_BLOCKS !== 'number'
             ) {
                 throw new Error(`Oops the property MEMPOOL.EXPIRATION_BLOCKS is not a number.`);
+            }
+
+            if (
+                parsedConfig.MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED !== undefined &&
+                typeof parsedConfig.MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED is not a boolean.`,
+                );
             }
 
             if (

@@ -86,6 +86,8 @@ export interface P2P {
 export interface MempoolConfig {
     readonly THREADS: number;
 
+    readonly PREVENT_TX_BROADCAST_IF_NOT_SYNCED: boolean;
+
     readonly EXPIRATION_BLOCKS: number;
     readonly ENABLE_BLOCK_PURGE: boolean;
     readonly BATCH_SIZE: number;

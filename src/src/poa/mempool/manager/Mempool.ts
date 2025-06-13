@@ -38,6 +38,8 @@ export class Mempool extends Logger {
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
     #mempoolRepository: MempoolRepository | undefined;
 
+    private fullSync: boolean = false;
+
     //private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
     //private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
     //    Config,
@@ -131,6 +133,8 @@ export class Mempool extends Logger {
                     );
                 }
 
+                this.fullSync = false;
+
                 await this.onBlockChange(currentBitcoinHeight);
             }
 
@@ -148,6 +152,15 @@ export class Mempool extends Logger {
         this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
             if (OPNetConsensus.getBlockHeight() < blockHeight) {
                 await this.onBlockChange(blockHeight);
+            } else {
+                const diff = blockHeight - OPNetConsensus.getBlockHeight();
+                if (diff === 0n) {
+                    this.fullSync = true;
+
+                    this.success(
+                        `OPNet node is fully synchronized with the blockchain at block height ${blockHeight}.`,
+                    );
+                }
             }
         });
 
@@ -223,6 +236,19 @@ export class Mempool extends Logger {
             };
         }
 
+        if (Config.MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED) {
+            if (!this.fullSync) {
+                this.warn(
+                    `User funds have been protected from broadcasting transactions while the node is not fully synchronized.`,
+                );
+
+                return {
+                    success: false,
+                    result: 'This node is still processing the latest block. Transaction broadcasting is temporarily disabled for your safety until full synchronization completes; please reload this page to ensure you’re viewing the most up-to-date chain data before trying again.',
+                };
+            }
+        }
+
         const raw: Uint8Array = data.raw;
         const psbt: boolean = data.psbt;
         const id = data.id;
@@ -284,8 +310,6 @@ export class Mempool extends Logger {
         }
 
         const decodedTransaction = await this.transactionVerifier.verify(transaction);
-        console.log(decodedTransaction, transaction.data);
-
         if (!decodedTransaction) {
             return {
                 success: false,
@@ -295,7 +319,6 @@ export class Mempool extends Logger {
 
         const buf = Buffer.from(transaction.data);
         const rawHex: string = buf.toString('hex');
-
         const broadcast = await this.broadcastBitcoinTransaction(rawHex);
         if (broadcast && broadcast.result) {
             transaction.id = broadcast.result;
