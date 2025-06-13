@@ -8,7 +8,7 @@ import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.
 import { AuthorityManager } from '../../configurations/manager/AuthorityManager.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
-import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
+import { BitcoinRPC, TransactionData } from '@btc-vision/bitcoin-rpc';
 
 export abstract class TransactionVerifier<T extends TransactionTypes> extends Logger {
     public abstract readonly type: T;
@@ -37,6 +37,7 @@ export abstract class TransactionVerifier<T extends TransactionTypes> extends Lo
     public abstract verify(
         tx: IMempoolTransactionObj,
         data: Psbt | Transaction,
+        txData?: TransactionData,
     ): Promise<IKnownTransaction | false>;
 
     protected abstract onBlockChange(blockHeight: bigint): void | Promise<void>;

@@ -3,7 +3,12 @@ import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
-import { BitcoinRPC, BitcoinVerbosity } from '@btc-vision/bitcoin-rpc';
+import {
+    BitcoinRPC,
+    BitcoinVerbosity,
+    TransactionData,
+    TransactionDetail,
+} from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
@@ -168,11 +173,11 @@ export class MempoolManager extends Logger {
             const promises = batch.map(async (tx) => {
                 const params: BitcoinRawTransactionParams = {
                     txId: tx,
-                    verbose: BitcoinVerbosity.RAW,
+                    verbose: BitcoinVerbosity.NONE,
                 };
 
                 const txData =
-                    await this.bitcoinRPC.getRawTransaction<BitcoinVerbosity.RAW>(params);
+                    await this.bitcoinRPC.getRawTransaction<BitcoinVerbosity.NONE>(params);
 
                 if (!txData) {
                     this.error(`Failed to fetch transaction ${tx}`);
@@ -180,7 +185,7 @@ export class MempoolManager extends Logger {
                 }
 
                 return await this.convertTxDataToMempoolTransaction({
-                    hex: txData,
+                    tx: txData,
                     txid: tx,
                 });
             });
@@ -193,10 +198,10 @@ export class MempoolManager extends Logger {
     }
 
     private async convertTxDataToMempoolTransaction(txData: {
-        hex: string;
+        tx: TransactionDetail;
         txid: string;
     }): Promise<IMempoolTransactionObj> {
-        const data = Buffer.from(txData.hex, 'hex');
+        const data = Buffer.from(txData.tx.hex, 'hex');
         const resp: IMempoolTransactionObj = {
             id: txData.txid,
             psbt: false,
@@ -212,7 +217,11 @@ export class MempoolManager extends Logger {
         parseAndStoreInputOutputs(data, resp);
 
         try {
-            const decodedTransaction = await this.transactionVerifier.verify(resp);
+            const decodedTransaction = await this.transactionVerifier.verify(
+                resp,
+                txData.tx as TransactionData,
+            );
+
             if (!decodedTransaction) {
                 this.error(`Failed to verify transaction ${txData.txid}`);
             }

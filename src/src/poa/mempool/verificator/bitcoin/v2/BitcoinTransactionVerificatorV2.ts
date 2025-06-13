@@ -58,11 +58,12 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
     public async verify(
         transaction: IMempoolTransactionObj,
         data: Transaction,
+        txData?: TransactionData,
     ): Promise<KnownTransaction | false> {
         let tx: KnownTransaction | false = false;
         try {
             const preimages = await this.allowedPreimages;
-            const decoded = this.toRawTransactionData(data);
+            const decoded = !txData ? this.toRawTransactionData(data) : txData;
             const opnetDecodedTransaction = this.transactionFactory.parseTransaction(
                 decoded,
                 EMPTY_BLOCK_HASH,
