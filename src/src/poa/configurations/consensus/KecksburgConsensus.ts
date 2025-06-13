@@ -84,7 +84,7 @@ export const KecksburgConsensus: IOPNetConsensus<Consensus.Kecksburg> = {
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
          */
-        MAX_THEORETICAL_GAS: 7_000_000_000_000n, // 0.07 BTC
+        MAX_THEORETICAL_GAS: 6_500_000_000_000n, // 0.065 BTC
 
         /** Max gas per transactions */
         TRANSACTION_MAX_GAS: 2_550_000_000_000n, // 0.025 BTC.
