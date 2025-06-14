@@ -218,13 +218,15 @@ export class MempoolManager extends Logger {
         parseAndStoreInputOutputs(data, resp);
 
         try {
-            const decodedTransaction = await this.transactionVerifier.verify(
-                resp,
-                txData.tx as TransactionData,
-            );
+            if (txData.tx.version === 2) {
+                const decodedTransaction = await this.transactionVerifier.verify(
+                    resp,
+                    txData.tx as TransactionData,
+                );
 
-            if (!decodedTransaction) {
-                this.error(`Failed to verify transaction ${txData.txid}`);
+                if (!decodedTransaction) {
+                    this.error(`Failed to verify transaction ${txData.txid}`);
+                }
             }
         } catch (e) {
             if (Config.DEV_MODE) {
