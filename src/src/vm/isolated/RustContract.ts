@@ -21,6 +21,13 @@ export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly contractManager: ContractManager;
 }
 
+const PROTOCOL_ID = Uint8Array.from(
+    Buffer.from(
+        'e784995a412d773988c4b8e333d7b39dfb3cabf118d0d645411a916ca2407939', // sha256("OP_NET")
+        'hex',
+    ),
+);
+
 export class RustContract {
     private readonly enableDebug: boolean = false;
     private readonly enableDisposeLog: boolean = false;
@@ -229,6 +236,8 @@ export class RustContract {
                             ),
                             caller: Buffer.copyBytesFrom(environmentVariables.caller),
                             origin: Buffer.copyBytesFrom(environmentVariables.origin),
+                            chainId: this.getChainId(),
+                            protocolId: PROTOCOL_ID,
                         }),
                     ),
                 ),
@@ -284,6 +293,23 @@ export class RustContract {
         } catch (e) {
             const error = e as Error;
             throw this.getError(error);
+        }
+    }
+
+    private getChainId(): Uint8Array {
+        return Uint8Array.from(Buffer.from(this.getChainIdHex(), 'hex'));
+    }
+
+    private getChainIdHex(): string {
+        switch (this.params.network) {
+            case BitcoinNetworkRequest.Mainnet:
+                return '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f';
+            case BitcoinNetworkRequest.Testnet:
+                return '000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943';
+            case BitcoinNetworkRequest.Regtest:
+                return '0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206';
+            default:
+                throw new Error('Unknown network');
         }
     }
 
