@@ -212,7 +212,9 @@ export class RustContract {
         }
     }
 
-    public setEnvironment(environmentVariables: EnvironmentVariablesRequest): void {
+    public setEnvironment(
+        environmentVariables: Omit<EnvironmentVariablesRequest, 'chainId' | 'protocolId'>,
+    ): void {
         if (this.enableDebug) console.log('Setting environment', environmentVariables);
 
         try {
