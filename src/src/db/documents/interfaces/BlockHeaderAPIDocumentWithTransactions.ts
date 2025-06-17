@@ -45,11 +45,6 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     reward: undefined;
     preimage: undefined;
 
-    unwrapAmount?: string;
-    requestedAmount?: string;
-    wrappingFees?: string;
-    depositAmount?: string;
-
     _id: undefined;
 }
 

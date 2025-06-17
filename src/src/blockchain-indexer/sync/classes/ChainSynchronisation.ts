@@ -265,22 +265,6 @@ export class ChainSynchronisation extends Logger {
         }
     }
 
-    /*private queryUTXOs(block: Block, txs: TransactionData[]): void {
-        block.setRawTransactionData(txs);
-        block.deserialize(false);
-
-        // Save UTXOs
-        const utxos = block.getUTXOs();
-
-        this.amountOfUTXOs += utxos.length;
-
-        // Save UTXOs to database
-        this.unspentTransactionOutputs = this.unspentTransactionOutputs.concat({
-            blockHeight: block.header.height,
-            transactions: utxos,
-        });
-    }*/
-
     private abortAllControllers(): void {
         for (const controller of this.abortControllers.values()) {
             controller.abort('Process cancelled');
@@ -293,7 +277,7 @@ export class ChainSynchronisation extends Logger {
         block.setRawTransactionData(txs);
         block.deserialize(false);
 
-        const utxos = block.getUTXOs(); // TransactionOutput[]
+        const utxos = block.getUTXOs();
         this.amountOfUTXOs += utxos.length;
 
         this.unspentTransactionOutputs.push({
@@ -394,12 +378,13 @@ export class ChainSynchronisation extends Logger {
             await this.awaitUTXOWrites();
         }
 
+        const map = block.getAddressCache();
         return {
-            //block.toJSON(); will become handy later.
             header: block.header.toJSON(),
             rawTransactionData: blockData.tx,
             transactionOrder: undefined,
             allowedPreimages: allowedPreimages,
+            addressCache: map,
         };
     }
 

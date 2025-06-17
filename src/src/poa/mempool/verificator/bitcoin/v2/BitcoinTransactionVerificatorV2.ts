@@ -12,9 +12,7 @@ import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 import { scriptToAddress } from '../../../../../utils/AddressDecoder.js';
 import BigNumber from 'bignumber.js';
 import { OPNetConsensus } from '../../../../configurations/OPNetConsensus.js';
-import {
-    OPNetTransactionTypes
-} from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 const EMPTY_BLOCK_HASH = Buffer.alloc(32).toString('hex');
 
@@ -81,7 +79,8 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
                 transaction: opnetDecodedTransaction,
             };
 
-            transaction.isOPNet = opnetDecodedTransaction.transactionType !== OPNetTransactionTypes.Generic;
+            transaction.isOPNet =
+                opnetDecodedTransaction.transactionType !== OPNetTransactionTypes.Generic;
             transaction.theoreticalGasLimit = opnetDecodedTransaction.gasSatFee;
             transaction.priorityFee = opnetDecodedTransaction.priorityFee;
         } catch (e) {

@@ -128,7 +128,7 @@ export class Mempool extends Logger {
             const currentBitcoinHeight: bigint = BigInt(currentBlockHeight.blockHeight) + 1n;
             const blockDiff = currentBitcoinHeight - OPNetConsensus.getBlockHeight();
             if (blockDiff >= 1n) {
-                if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                     this.warn(
                         `Block height mismatch: OPNet height ${OPNetConsensus.getBlockHeight()}, Bitcoin Core height ${currentBitcoinHeight}.`,
                     );
@@ -245,10 +245,6 @@ export class Mempool extends Logger {
 
         if (Config.MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED) {
             if (!this.fullSync) {
-                this.warn(
-                    `User funds have been protected from broadcasting transactions while the node is not fully synchronized.`,
-                );
-
                 return {
                     success: false,
                     result: 'This node is still processing the latest block. Transaction broadcasting is temporarily disabled for your safety until full synchronization completes; please reload this page to ensure you’re viewing the most up-to-date chain data before trying again.',

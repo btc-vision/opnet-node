@@ -21,6 +21,7 @@ import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { SharedInteractionParameters } from './SharedInteractionParameters.js';
 import { Feature, Features } from '../features/Features.js';
+import { AddressCache } from '../../AddressCache.js';
 
 interface DeploymentWitnessData {
     readonly header: OPNetHeader;
@@ -83,8 +84,9 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         blockHash: string,
         blockHeight: bigint,
         network: networks.Network,
+        addressCache: AddressCache | undefined,
     ) {
-        super(rawTransactionData, vInputIndex, blockHash, blockHeight, network);
+        super(rawTransactionData, vInputIndex, blockHash, blockHeight, network, addressCache);
     }
 
     protected _contractTweakedPublicKey: Buffer | undefined;

@@ -27,14 +27,14 @@ export function generateRandomSHA256Hash(): string {
     return hash.digest('hex'); // returns the hash in hexadecimal format
 }
 
-export function CreateFakeTransaction(
+export async function CreateFakeTransaction(
     network: Network,
     fees: bigint,
     blockHash: string | null = null,
     vInTxId: string | null = null,
     address: string | null = null,
     computedHash: Buffer | null = null,
-): Transaction<OPNetTransactionTypes> {
+): Promise<Transaction<OPNetTransactionTypes>> {
     const transactionFactory: TransactionFactory = new TransactionFactory();
     const finalBlockHash: string = blockHash === null ? generateRandomSHA256Hash() : blockHash;
     const finalvInTxId: string = vInTxId === null ? generateRandomSHA256Hash() : vInTxId;
@@ -77,13 +77,8 @@ export function CreateFakeTransaction(
         time: 0,
     };
 
-    const transaction: Transaction<OPNetTransactionTypes> = transactionFactory.parseTransaction(
-        transactionData,
-        finalBlockHash,
-        0n,
-        network,
-        [],
-    );
+    const transaction: Transaction<OPNetTransactionTypes> =
+        await transactionFactory.parseTransaction(transactionData, finalBlockHash, 0n, network, []);
 
     vitest.spyOn(transaction, 'burnedFee', 'get').mockReturnValue(fees);
     // @ts-ignore

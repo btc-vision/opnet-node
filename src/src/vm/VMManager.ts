@@ -50,14 +50,14 @@ import { Config } from '../config/Config.js';
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
-import { init } from '@btc-vision/op-vm';
+//import { init } from '@btc-vision/op-vm';
 import { StrippedTransactionInput } from '../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { SpecialContract } from '../poa/configurations/types/SpecialContracts.js';
 import { calculateMaxGas } from '../utils/GasUtils.js';
 
 Globals.register();
 
-init();
+//init();
 
 const EMPTY_BLOCK_HASH = Buffer.alloc(32);
 const SIMULATION_TRANSACTION_ID = Buffer.from(

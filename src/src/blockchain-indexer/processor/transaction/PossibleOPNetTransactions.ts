@@ -5,6 +5,7 @@ import { DeploymentTransaction } from './transactions/DeploymentTransaction.js';
 import { GenericTransaction } from './transactions/GenericTransaction.js';
 import { InteractionTransaction } from './transactions/InteractionTransaction.js';
 import { networks } from '@btc-vision/bitcoin';
+import { AddressCache } from '../AddressCache.js';
 
 export type OPNetTransactionByType<T extends OPNetTransactionTypes> = (
     data: TransactionData,
@@ -12,6 +13,7 @@ export type OPNetTransactionByType<T extends OPNetTransactionTypes> = (
     blockHash: string,
     blockHeight: bigint,
     network: networks.Network,
+    addressCache: AddressCache | undefined,
 ) => Transaction<T>;
 
 export interface TransactionInformation {
@@ -22,9 +24,7 @@ export interface TransactionInformation {
 export interface TransactionParser<T extends OPNetTransactionTypes> {
     parse: OPNetTransactionByType<T>;
 
-    isTransaction(
-        data: TransactionData,
-    ): TransactionInformation | undefined;
+    isTransaction(data: TransactionData): TransactionInformation | undefined;
 }
 
 export const PossibleOPNetTransactions: {
@@ -32,26 +32,20 @@ export const PossibleOPNetTransactions: {
 } = {
     [OPNetTransactionTypes.Generic]: {
         parse: (...args) => new GenericTransaction(...args),
-        isTransaction(
-            data: TransactionData,
-        ): TransactionInformation | undefined {
+        isTransaction(data: TransactionData): TransactionInformation | undefined {
             return GenericTransaction.is(data);
         },
     },
     [OPNetTransactionTypes.Interaction]: {
         parse: (...args) =>
             new InteractionTransaction(...args) as Transaction<OPNetTransactionTypes.Interaction>,
-        isTransaction(
-            data: TransactionData,
-        ): TransactionInformation | undefined {
+        isTransaction(data: TransactionData): TransactionInformation | undefined {
             return InteractionTransaction.is(data);
         },
     },
     [OPNetTransactionTypes.Deployment]: {
         parse: (...args) => new DeploymentTransaction(...args),
-        isTransaction(
-            data: TransactionData,
-        ): TransactionInformation | undefined {
+        isTransaction(data: TransactionData): TransactionInformation | undefined {
             return DeploymentTransaction.is(data);
         },
     },

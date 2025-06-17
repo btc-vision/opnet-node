@@ -1,4 +1,4 @@
-import { AccountTypeResponse } from '@btc-vision/op-vm';
+import { AccountTypeResponse, BlockHashResponse } from '@btc-vision/op-vm';
 
 export interface RustContractBinding {
     readonly id: bigint;
@@ -11,5 +11,5 @@ export interface RustContractBinding {
     readonly inputs: () => Promise<Buffer | Uint8Array>;
     readonly outputs: () => Promise<Buffer | Uint8Array>;
     readonly accountType: (data: Buffer) => Promise<AccountTypeResponse>;
-    readonly blockHash: (blockNumber: bigint) => Promise<Buffer | Uint8Array>;
+    readonly blockHash: (blockNumber: bigint) => Promise<BlockHashResponse>;
 }

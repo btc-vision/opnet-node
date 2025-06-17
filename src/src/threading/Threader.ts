@@ -233,80 +233,96 @@ export class Threader<T extends ThreadTypes> extends Logger {
                     ...ThreadConfigurations.WORKER_OPTIONS,
                     ...specificConfig,
                 };
+
                 workerOpts.name = `Thread ${i} - ${this.target
                     .split('/')
                     .reverse()[0]
                     .replace('.js', '')}`;
 
-                const thread: Worker = new Worker(this.target, workerOpts);
-                const messageChannel = new MessageChannel();
+                try {
+                    const thread: Worker = new Worker(this.target, workerOpts);
+                    const messageChannel = new MessageChannel();
 
-                // keep track of subChannels by thread ID, or by index i
-                this.subChannels[thread.threadId] = messageChannel;
+                    // keep track of subChannels by thread ID, or by index i
+                    this.subChannels[thread.threadId] = messageChannel;
 
-                messageChannel.port2.on('error', () => {
-                    this.error('Something went wrong with the message port?');
-                });
+                    messageChannel.port2.on('error', () => {
+                        this.error('Something went wrong with the message port?');
+                    });
 
-                messageChannel.port2.on('message', (m: ThreadMessageBase<MessageType>) => {
-                    this.onThreadMessage(thread, m);
-                });
+                    messageChannel.port2.on('message', (m: ThreadMessageBase<MessageType>) => {
+                        this.onThreadMessage(thread, m);
+                    });
 
-                // Fired once the Worker thread successfully starts
-                thread.on('online', async () => {
-                    const msg: SetMessagePort = {
-                        type: MessageType.SET_MESSAGE_PORT,
-                        data: messageChannel.port1,
-                    };
+                    // Fired once the Worker thread successfully starts
+                    thread.on('online', async () => {
+                        const msg: SetMessagePort = {
+                            type: MessageType.SET_MESSAGE_PORT,
+                            data: messageChannel.port1,
+                        };
 
-                    thread.postMessage(msg, [messageChannel.port1]);
-                    resolve(thread);
+                        thread.postMessage(msg, [messageChannel.port1]);
+                        resolve(thread);
 
-                    // Link the newly created thread with any threads from linkThreadTypes
-                    await this.linkAllThreads(thread);
-                });
+                        // Link the newly created thread with any threads from linkThreadTypes
+                        await this.linkAllThreads(thread);
+                    });
 
-                // If this worker ever sends a message to the main thread
-                thread.on('message', (m: ThreadMessageBase<MessageType>) => {
-                    this.onThreadMessage(thread, m);
-                });
+                    // If this worker ever sends a message to the main thread
+                    thread.on('message', (m: ThreadMessageBase<MessageType>) => {
+                        this.onThreadMessage(thread, m);
+                    });
 
-                // Handle the worker exiting
-                thread.on('exit', (exitCode: number | Error) => {
-                    this.error(
-                        `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${exitCode}}`,
-                    );
-
-                    fs.appendFileSync(
-                        'threader.log',
-                        `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${exitCode}}\n`,
-                    );
-
-                    // Find the correct thread by its ID in the array
-                    const idx = this.threads.findIndex((w) => w.threadId === thread.threadId);
-                    if (idx > -1) {
-                        this.threads.splice(idx, 1); // remove just that one
-                    }
-
-                    // Then re-create a new thread instance
-                    setTimeout(async () => {
-                        this.warn(
-                            `!!!!!!!!!!!!!! --------- Restarting thread #${i}... --------- !!!!!!!!!!!!!!`,
+                    // Handle the worker exiting
+                    thread.on('exit', (exitCode: number | Error) => {
+                        this.error(
+                            `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${exitCode}}`,
                         );
-                        await this.createThread(i);
-                    }, 1000);
-                });
 
-                // If an error occurs
-                thread.on('error', (e: Error) => {
-                    fs.appendFileSync(
-                        'threader.log',
-                        `Thread #${i} errored. {Target: ${this.target} | Details -> ${e}}\n`,
-                    );
-                    this.error(`Thread #${i} errored. {Target: ${this.target} | Details: ${e}}`);
-                    this.error(e.stack as string);
-                    resolve(undefined);
-                });
+                        fs.appendFileSync(
+                            'threader.log',
+                            `Thread #${i} died. {Target: ${this.target} | ExitCode -> ${exitCode}}\n`,
+                        );
+
+                        // Find the correct thread by its ID in the array
+                        const idx = this.threads.findIndex((w) => w.threadId === thread.threadId);
+                        if (idx > -1) {
+                            this.threads.splice(idx, 1); // remove just that one
+                        }
+
+                        // Then re-create a new thread instance
+                        setTimeout(async () => {
+                            this.warn(
+                                `!!!!!!!!!!!!!! --------- Restarting thread #${i}... --------- !!!!!!!!!!!!!!`,
+                            );
+                            await this.createThread(i);
+                        }, 1000);
+                    });
+
+                    thread.on('messageerror', (e: Error) => {
+                        this.error(
+                            `Thread #${i} message error. {Target: ${this.target} | Details -> ${e}}`,
+                        );
+                        fs.appendFileSync(
+                            'threader.log',
+                            `Thread #${i} message error. {Target: ${this.target} | Details -> ${e}}\n`,
+                        );
+                    });
+
+                    // If an error occurs
+                    thread.on('error', (e: Error) => {
+                        fs.appendFileSync(
+                            'threader.log',
+                            `Thread #${i} errored. {Target: ${this.target} | Details -> ${e}}\n`,
+                        );
+                        this.error(
+                            `Thread #${i} errored. {Target: ${this.target} | Details: ${e.stack}}`,
+                        );
+                        resolve(undefined);
+                    });
+                } catch (e) {
+                    this.error(`Failed to create thread #${i} for target ${this.target}: ${e}`);
+                }
             }, i * 200);
         });
     }

@@ -1,7 +1,10 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import bitcoin, { initEccLib, networks, opcodes } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
-import { InteractionTransactionDocument } from '../../../../db/interfaces/ITransactionDocument.js';
+import {
+    InteractionTransactionDocument,
+    InteractionTransactionSafeThread,
+} from '../../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
 import {
     InteractionTransactionType,
@@ -18,6 +21,7 @@ import crypto from 'crypto';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { SharedInteractionParameters } from './SharedInteractionParameters.js';
 import { Feature, Features } from '../features/Features.js';
+import { AddressCache } from '../../AddressCache.js';
 
 export interface InteractionWitnessData {
     senderPubKey: Buffer;
@@ -67,6 +71,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
     protected contractSecret: Buffer | undefined;
     protected interactionPubKey: Buffer | undefined;
     protected interactionWitnessData: InteractionWitnessData | undefined;
+
     private p2opCached: string | undefined;
 
     public constructor(
@@ -75,8 +80,9 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         blockHash: string,
         blockHeight: bigint,
         network: networks.Network,
+        addressCache: AddressCache | undefined,
     ) {
-        super(rawTransactionData, vIndexIn, blockHash, blockHeight, network);
+        super(rawTransactionData, vIndexIn, blockHash, blockHeight, network, addressCache);
     }
 
     protected _contractAddress: Address | undefined;
@@ -228,6 +234,47 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         return OPNetTransactionTypes.Interaction;
     }
 
+    public restoreFromDocument(
+        doc: InteractionTransactionSafeThread,
+        rawTransactionData: TransactionData,
+    ): void {
+        super.restoreFromDocument(doc, rawTransactionData);
+
+        this._contractAddress = new Address(doc.contractAddress);
+
+        const from = new Address(doc.from);
+        this._txOrigin = from;
+        this._msgSender = from;
+
+        this._calldata = Buffer.from(doc.calldata.buffer);
+        this.preimage = Buffer.from(doc.preimage.buffer);
+        this.senderPubKeyHash = Buffer.from(doc.senderPubKeyHash.buffer);
+        this.contractSecret = Buffer.from(doc.contractSecret.buffer);
+        this.interactionPubKey = Buffer.from(doc.interactionPubKey.buffer);
+        this.wasCompressed = doc.wasCompressed;
+    }
+
+    public toThreadSafe(): InteractionTransactionSafeThread {
+        if (!this.contractSecret)
+            throw new Error(`Contract secret not set for transaction ${this.txidHex}`);
+        if (!this.senderPubKeyHash)
+            throw new Error(`Sender public key hash not set for transaction ${this.txidHex}`);
+        if (!this.interactionPubKey)
+            throw new Error(`Interaction public key not set for transaction ${this.txidHex}`);
+
+        return {
+            ...super.toThreadSafe(),
+            contractAddress: this.contractSecret,
+            from: this.from,
+            calldata: this.calldata,
+            preimage: this.preimage,
+            senderPubKeyHash: this.senderPubKeyHash,
+            contractSecret: this.contractSecret,
+            interactionPubKey: this.interactionPubKey,
+            wasCompressed: this.wasCompressed,
+        };
+    }
+
     public toDocument(): InteractionTransactionDocument {
         const receiptData: EvaluatedResult | undefined = this.receipt;
         const events: EvaluatedEvents | undefined = receiptData?.events;
@@ -259,6 +306,23 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             events: this.convertEvents(events),
         };
     }
+
+    /*public restoreFromDocument(doc: InteractionTransactionDocument): void {
+        //super.restoreFromDocument(doc);
+
+        this._contractAddress = this.getAddress(doc.contractAddress);
+        this._txOrigin = this.getAddress(doc.from.toString('hex'));
+        this._msgSender = this.getAddress(doc.from.toString('hex'));
+
+        this._calldata = Buffer.from(doc.calldata.buffer);
+        this.preimage = Buffer.from(doc.preimage.buffer);
+
+        this.senderPubKeyHash = Buffer.from(doc.senderPubKeyHash.buffer);
+        this.contractSecret =  Buffer.from(doc.contractSecret.buffer);
+        this.interactionPubKey =  Buffer.from(doc.interactionPubKey.buffer);
+
+        this.wasCompressed = doc.wasCompressed;
+    }*/
 
     public parseTransaction(
         vIn: VIn[],
@@ -304,6 +368,8 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             ...this.interactionWitnessData.senderPubKey,
         ]);
 
+        const senderPubKeyStr = senderPubKey.toString('hex');
+
         /** Verify witness data */
         const hashSenderPubKey = bitcoin.crypto.hash256(this.interactionWitnessData.senderPubKey);
         if (
@@ -315,7 +381,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             throw new Error(`OP_NET: Sender public key hash mismatch.`);
         }
 
-        this._from = new Address(senderPubKey);
+        this._from = this.getAddress(senderPubKeyStr);
         if (!this._from.isValid(this.network)) {
             throw new Error(`OP_NET: Invalid sender address.`);
         }
@@ -412,8 +478,6 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
     }
 
     protected regenerateContractAddress(contractSecret: Buffer): Address {
-        // For demonstration, we assume 32 or 33 or 65 bytes possible
-        // but in practice, you'd probably want only 32/33 for x-only or compressed public keys
         const isValid =
             contractSecret.length === 32 ||
             contractSecret.length === 33 ||
@@ -440,11 +504,12 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             }
         }
 
-        if (!AddressVerificator.isValidPublicKey(contractSecret.toString('hex'), this.network)) {
+        const str = contractSecret.toString('hex');
+        if (!AddressVerificator.isValidPublicKey(str, this.network)) {
             throw new Error(`OP_NET: Invalid contract pubkey specified.`);
         }
 
-        return new Address(contractSecret);
+        return this.getAddress(str);
     }
 
     private verifySpecialContract(): void {
