@@ -245,10 +245,6 @@ export class Mempool extends Logger {
 
         if (Config.MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED) {
             if (!this.fullSync) {
-                this.warn(
-                    `User funds have been protected from broadcasting transactions while the node is not fully synchronized.`,
-                );
-
                 return {
                     success: false,
                     result: 'This node is still processing the latest block. Transaction broadcasting is temporarily disabled for your safety until full synchronization completes; please reload this page to ensure you’re viewing the most up-to-date chain data before trying again.',
