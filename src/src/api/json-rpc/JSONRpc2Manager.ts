@@ -316,6 +316,12 @@ export class JSONRpc2Manager extends Logger {
         id?: JSONRpcId,
     ): void {
         if (res.closed) return;
+        if (error.message.toLowerCase().includes('mongo')) {
+            error = {
+                ...error,
+                message: `Something went critically wrong. Please contact this node administrator.`,
+            };
+        }
 
         const response: JSONRpc2ResponseError<T> = {
             jsonrpc: JSONRpc2Manager.RPC_VERSION,

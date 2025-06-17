@@ -41,6 +41,13 @@ export class IndexedMempool extends IndexedCollection<OPNetCollections.Mempool> 
                 },
                 name: 'inputs_transactionId_1',
             },
+
+            {
+                key: {
+                    isOPNet: 1,
+                },
+                name: 'isOPNet_1',
+            },
         ];
     }
 }

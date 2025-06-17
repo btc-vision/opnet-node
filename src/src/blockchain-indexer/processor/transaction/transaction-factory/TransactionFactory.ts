@@ -39,6 +39,18 @@ export class TransactionFactory {
     }
 
     protected getTransactionType(data: TransactionData): TransactionInformation {
+        // We treat all transactions version 1 as generic transactions by default.
+        if (data.version !== 2) {
+            const txInfo =
+                PossibleOPNetTransactions[this.genericTransactionType].isTransaction(data);
+
+            if (txInfo) {
+                return txInfo;
+            } else {
+                throw new Error('Invalid transaction data');
+            }
+        }
+
         for (const _transactionType in PossibleOPNetTransactions) {
             const transactionType = _transactionType as OPNetTransactionTypes;
 

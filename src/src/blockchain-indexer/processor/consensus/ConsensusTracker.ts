@@ -13,27 +13,13 @@ export class ConsensusTracker extends Logger {
 
     public setConsensusBlockHeight(blockHeight: bigint): boolean {
         try {
-            if (
-                OPNetConsensus.hasConsensus() &&
-                OPNetConsensus.isConsensusBlock() &&
-                !OPNetConsensus.isReadyForNextConsensus()
-            ) {
-                this.panic(
-                    `Consensus is getting applied in this block (${blockHeight}) but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
-                );
+            if (this.verifyConsensus(blockHeight)) {
                 return true;
             }
 
             OPNetConsensus.setBlockHeight(blockHeight);
 
-            if (
-                OPNetConsensus.hasConsensus() &&
-                OPNetConsensus.isConsensusBlock() &&
-                !OPNetConsensus.isReadyForNextConsensus()
-            ) {
-                this.panic(
-                    `Consensus is getting applied in this block (${blockHeight}) but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
-                );
+            if (this.verifyConsensus(blockHeight)) {
                 return true;
             }
 
@@ -80,6 +66,21 @@ export class ConsensusTracker extends Logger {
         setTimeout(() => {
             process.exit(1); // Exit the process.
         }, 2000);
+    }
+
+    private verifyConsensus(blockHeight: bigint): boolean {
+        if (
+            OPNetConsensus.hasConsensus() &&
+            OPNetConsensus.isConsensusBlock() &&
+            !OPNetConsensus.isReadyForNextConsensus()
+        ) {
+            this.panic(
+                `Consensus is getting applied in this block (${blockHeight}) but the node is not ready for the next consensus. UPDATE YOUR NODE!`,
+            );
+            return true;
+        }
+
+        return false;
     }
 
     private addConsensusListeners(): void {
