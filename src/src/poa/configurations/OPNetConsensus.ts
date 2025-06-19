@@ -9,7 +9,6 @@ import { Logger } from '@btc-vision/bsi-common';
 import { Config } from '../../config/Config.js';
 import { SpecialContract } from './types/SpecialContracts.js';
 import { RachelConsensus } from './consensus/RachelConsensus.js';
-import { KecksburgConsensus } from './consensus/KecksburgConsensus.js';
 
 class OPNetConsensusConfiguration extends Logger {
     private blockHeight: bigint = 0n;
@@ -19,7 +18,7 @@ class OPNetConsensusConfiguration extends Logger {
     private readonly allConsensus: IOPNetConsensusObj = {
         [Consensus.Roswell]: RoswellConsensus,
         [Consensus.Rachel]: RachelConsensus,
-        [Consensus.Kecksburg]: KecksburgConsensus,
+        //[Consensus.Kecksburg]: KecksburgConsensus,
     };
 
     #consensus: IOPNetConsensus<Consensus> | undefined;
