@@ -375,7 +375,7 @@ export class ChainSynchronisation extends Logger {
         this.queryUTXOs(block, blockData.tx);
 
         if (this.amountOfUTXOs > this.AWAIT_UTXO_WRITE_IF_QUEUE_SIZE || this.canSaveAfterBlock()) {
-            await this.awaitUTXOWrites();
+            void this.awaitUTXOWrites();
         }
 
         const map = block.getAddressCache();
