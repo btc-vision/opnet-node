@@ -94,7 +94,9 @@ type Libp2pInstance = Libp2p<{
     ping: Ping;
 }>;
 
-enable('libp2p:*');
+if(Config.P2P.ENABLE_P2P_LOGGING) {
+    enable('libp2p:*');
+}
 
 export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -823,6 +825,8 @@ export class P2PManager extends Logger {
             }
 
             info.attempts += 1;
+
+            console.trace('terminate?');
 
             this.info(`Peer ${peerStr} disconnected. Reason: ${code}. Attempts: ${info.attempts}`);
 

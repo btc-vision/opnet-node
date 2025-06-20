@@ -66,6 +66,7 @@ export interface P2P {
     readonly P2P_HOST: string;
     readonly P2P_PORT: number;
 
+    readonly ENABLE_P2P_LOGGING: boolean;
     readonly P2P_PROTOCOL: PeerToPeerMethod;
 
     readonly MINIMUM_PEERS: number;
