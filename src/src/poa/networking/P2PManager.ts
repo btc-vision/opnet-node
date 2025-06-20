@@ -71,6 +71,8 @@ import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { FastStringSet } from '../../utils/fast/FastStringSet.js';
 import { Transaction } from '@btc-vision/bitcoin';
 import { enable } from '@libp2p/logger';
+import { UPnPNAT } from '@libp2p/upnp-nat/src';
+import { ServiceFactoryMap } from 'libp2p/src';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -86,15 +88,18 @@ interface BlacklistedPeerInfo {
     attempts: number;
 }
 
-type Libp2pInstance = Libp2p<{
-    nat: unknown;
+type P2PServices = {
+    nat?: UPnPNAT;
+    autoNAT: unknown;
     aminoDHT: KadDHT;
     identify: Identify;
     identifyPush: IdentifyPush;
     ping: Ping;
-}>;
+};
 
-if(Config.P2P.ENABLE_P2P_LOGGING) {
+type Libp2pInstance = Libp2p<P2PServices>;
+
+if (Config.P2P.ENABLE_P2P_LOGGING) {
     enable('libp2p:*');
 }
 
@@ -1122,6 +1127,18 @@ export class P2PManager extends Logger {
             peerDiscovery.push(bootstrap(this.p2pConfigurations.bootstrapConfiguration));
         }
 
+        const services: ServiceFactoryMap<P2PServices> = {
+            autoNAT: autoNAT(this.p2pConfigurations.autoNATConfiguration),
+            identify: identify(this.p2pConfigurations.identifyConfiguration),
+            identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
+            ping: ping(),
+            aminoDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
+        };
+
+        if (Config.P2P.ENABLE_UPNP) {
+            services.nat = uPnPNAT(this.p2pConfigurations.upnpConfiguration);
+        }
+
         const datastore = await this.getDatastore();
         return await createLibp2p({
             datastore: datastore,
@@ -1138,14 +1155,7 @@ export class P2PManager extends Logger {
             connectionManager: this.p2pConfigurations.connectionManagerConfiguration,
             peerStore: this.peerStoreConfigurations(),
             transportManager: this.p2pConfigurations.transportManagerConfiguration,
-            services: {
-                autoNAT: autoNAT(this.p2pConfigurations.autoNATConfiguration),
-                identify: identify(this.p2pConfigurations.identifyConfiguration),
-                identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
-                nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),
-                ping: ping(),
-                aminoDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
-            },
+            services: services as unknown as ServiceFactoryMap<P2PServices>,
         });
     }
 }

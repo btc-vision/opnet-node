@@ -92,6 +92,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             P2P_PROTOCOL: PeerToPeerMethod.TCP,
 
             ENABLE_P2P_LOGGING: false,
+            ENABLE_UPNP: false,
 
             MINIMUM_PEERS: 50,
             MAXIMUM_PEERS: 100,
@@ -513,6 +514,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.P2P.ENABLE_P2P_LOGGING !== 'boolean'
             ) {
                 throw new Error(`Oops the property P2P.ENABLE_P2P_LOGGING is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.P2P.ENABLE_UPNP !== undefined &&
+                typeof parsedConfig.P2P.ENABLE_UPNP !== 'boolean'
+            ) {
+                throw new Error(`Oops the property P2P.ENABLE_UPNP is not a boolean.`);
             }
 
             if (parsedConfig.P2P.CLIENT_MODE && parsedConfig.P2P.IS_BOOTSTRAP_NODE) {

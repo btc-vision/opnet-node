@@ -68,6 +68,7 @@ export interface P2P {
 
     readonly ENABLE_P2P_LOGGING: boolean;
     readonly P2P_PROTOCOL: PeerToPeerMethod;
+    readonly ENABLE_UPNP: boolean;
 
     readonly MINIMUM_PEERS: number;
     readonly MAXIMUM_PEERS: number;

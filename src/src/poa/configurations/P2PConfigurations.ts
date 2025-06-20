@@ -74,9 +74,10 @@ export class P2PConfigurations extends OPNetPathFinder {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
             timeout: 20000,
-            maxInboundStreams: 5,
-            maxOutboundStreams: 5,
+            maxInboundStreams: 20,
+            maxOutboundStreams: 20,
             startupDelay: 4000,
+            maxMessageSize: P2PConfigurations.maxMessageSize,
         };
     }
 
