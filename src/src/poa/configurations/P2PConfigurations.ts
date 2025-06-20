@@ -78,6 +78,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             maxOutboundStreams: 20,
             startupDelay: 4000,
             maxMessageSize: P2PConfigurations.maxMessageSize,
+            refreshInterval: 30000,
         };
     }
 
