@@ -61,7 +61,6 @@ import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { Components } from 'libp2p/components.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { CID } from 'multiformats/cid';
-import { autoNAT } from '@libp2p/autonat';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import { ReusableStreamManager } from './stream/ReusableStreamManager.js';
 import { Config } from '../../config/Config.js';
@@ -831,11 +830,10 @@ export class P2PManager extends Logger {
 
             info.attempts += 1;
 
-            console.trace('terminate?');
-
             this.info(`Peer ${peerStr} disconnected. Reason: ${code}. Attempts: ${info.attempts}`);
 
-            if (info.attempts > 5) {
+            if (info.attempts > 3) {
+                // If the peer has been disconnected more than 3 times, blacklist it.
                 await this.blackListPeerId(peerId, DisconnectionCode.FLOOD);
                 this.warn(`Peer ${peerStr} blacklisted due to too many disconnections.`);
             }
