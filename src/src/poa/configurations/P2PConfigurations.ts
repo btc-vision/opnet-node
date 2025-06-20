@@ -24,7 +24,6 @@ import { BootstrapNodes } from './BootstrapNodes.js';
 import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
-import { AutoNATServiceInit } from '@libp2p/autonat/src';
 
 interface BackedUpPeer {
     id: string;
@@ -68,7 +67,7 @@ export class P2PConfigurations extends OPNetPathFinder {
                 maxPayload: P2PConfigurations.maxMessageSize,
             },
         };
-    }*/
+    }
 
     public get autoNATConfiguration(): AutoNATServiceInit {
         return {
@@ -80,7 +79,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             maxMessageSize: P2PConfigurations.maxMessageSize,
             refreshInterval: 30000,
         };
-    }
+    }*/
 
     public get yamuxConfiguration(): YamuxMuxerInit {
         return {
@@ -102,7 +101,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
             enableKeepAlive: true,
             keepAliveInterval: 15000,
-            
+
             initialStreamWindowSize: 256 * 1024, // 256 KB
 
             maxStreamWindowSize: P2PConfigurations.maxMessageSize,
