@@ -70,6 +70,7 @@ import { Ping } from '@libp2p/ping/src';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { FastStringSet } from '../../utils/fast/FastStringSet.js';
 import { Transaction } from '@btc-vision/bitcoin';
+import { enable } from '@libp2p/logger';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -92,6 +93,8 @@ type Libp2pInstance = Libp2p<{
     identifyPush: IdentifyPush;
     ping: Ping;
 }>;
+
+enable('libp2p:*');
 
 export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -823,10 +826,13 @@ export class P2PManager extends Logger {
 
             this.info(`Peer ${peerStr} disconnected. Reason: ${code}. Attempts: ${info.attempts}`);
 
-            this.blackListedPeerIds.set(peerStr, info);
-        }
+            if (info.attempts > 5) {
+                await this.blackListPeerId(peerId, DisconnectionCode.FLOOD);
+                this.warn(`Peer ${peerStr} blacklisted due to too many disconnections.`);
+            }
 
-        this.peers.delete(peerStr);
+            this.peers.delete(peerStr);
+        }
 
         await this.node.hangUp(peerId).catch((e: unknown) => {
             this.warn(`Error while hanging up peer: ${(e as Error).message}`);
