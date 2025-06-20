@@ -52,7 +52,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             outboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
 
             maxConnections: this.config.P2P.MAXIMUM_PEERS,
-            socketCloseTimeout: 20000,
+            socketCloseTimeout: 10000,
             backlog: 100,
             closeServerOnMaxConnections: {
                 closeAbove: this.config.P2P.MAXIMUM_PEERS,
@@ -73,9 +73,9 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get autoNATConfiguration(): AutoNATServiceInit {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
-            timeout: 20000,
-            maxInboundStreams: 20,
-            maxOutboundStreams: 20,
+            timeout: 10000,
+            maxInboundStreams: 5,
+            maxOutboundStreams: 5,
             startupDelay: 4000,
             maxMessageSize: P2PConfigurations.maxMessageSize,
             refreshInterval: 30000,
@@ -101,7 +101,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             maxMessageSize: P2PConfigurations.maxMessageSize,
 
             enableKeepAlive: true,
-            keepAliveInterval: 20000,
+            keepAliveInterval: 15000,
 
             // 5. The size of the initial receive window for each stream.
             //    This can be raised if you expect large data bursts and have
@@ -138,7 +138,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get bootstrapConfiguration(): BootstrapInit {
         return {
-            timeout: 20000,
+            timeout: 15000,
             tagValue: 50,
             tagTTL: 120000,
             list: this.getBootstrapPeers(),
@@ -158,8 +158,8 @@ export class P2PConfigurations extends OPNetPathFinder {
 
             maxParallelDials: 100,
 
-            protocolNegotiationTimeout: 20000,
-            dialTimeout: 20000,
+            protocolNegotiationTimeout: 10000,
+            dialTimeout: 10000,
             maxParallelReconnects: 10,
 
             /**
@@ -220,7 +220,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get identifyConfiguration(): IdentifyInit {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
-            timeout: 20000,
+            timeout: 10000,
             maxInboundStreams: 5,
             maxOutboundStreams: 5,
             maxObservedAddresses: 1,
