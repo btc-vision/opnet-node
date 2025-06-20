@@ -10,7 +10,7 @@ import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { BitcoinRPC, TransactionData } from '@btc-vision/bitcoin-rpc';
 
-export abstract class TransactionVerifier<T extends TransactionTypes> extends Logger {
+export abstract class TransactionVerifier<T extends TransactionTypes | TransactionTypes[]> extends Logger {
     public abstract readonly type: T;
 
     public readonly logColor: string = '#e0e0e0';

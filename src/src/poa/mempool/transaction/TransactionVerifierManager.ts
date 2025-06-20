@@ -31,7 +31,7 @@ export interface KnownTransaction extends IKnownTransaction {
 export class TransactionVerifierManager extends Logger {
     public readonly logColor: string = '#e0e0e0';
 
-    private verificator: TransactionVerifier<TransactionTypes>[] = [];
+    private verificator: TransactionVerifier<TransactionTypes | TransactionTypes[]>[] = [];
 
     constructor(
         protected readonly db: ConfigurableDBManager,
@@ -61,7 +61,10 @@ export class TransactionVerifierManager extends Logger {
     ): Promise<IKnownTransaction | false> {
         const psbtType: TransactionTypes = tx.data[0];
 
-        const verificator = this.verificator.find((v) => v.type === psbtType);
+        const verificator = this.verificator.find((v) =>
+            Array.isArray(v.type) ? v.type.includes(psbtType) : v.type === psbtType,
+        );
+
         if (verificator) {
             let psbtOrTransaction: Psbt | BitcoinTransaction | undefined;
             if (tx.psbt) {

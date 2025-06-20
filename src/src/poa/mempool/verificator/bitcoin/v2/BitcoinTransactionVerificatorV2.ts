@@ -16,9 +16,16 @@ import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/process
 
 const EMPTY_BLOCK_HASH = Buffer.alloc(32).toString('hex');
 
-export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<TransactionTypes.BITCOIN_TRANSACTION_V2> {
-    public readonly type: TransactionTypes.BITCOIN_TRANSACTION_V2 =
-        TransactionTypes.BITCOIN_TRANSACTION_V2;
+type Verificator = [
+    TransactionTypes.BITCOIN_TRANSACTION_V1,
+    TransactionTypes.BITCOIN_TRANSACTION_V2,
+];
+
+export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verificator> {
+    public readonly type: Verificator = [
+        TransactionTypes.BITCOIN_TRANSACTION_V1,
+        TransactionTypes.BITCOIN_TRANSACTION_V2,
+    ];
 
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
 
@@ -74,7 +81,10 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
             );
 
             tx = {
-                type: this.type,
+                type:
+                    data.version === 2
+                        ? TransactionTypes.BITCOIN_TRANSACTION_V2
+                        : TransactionTypes.BITCOIN_TRANSACTION_V1,
                 version: OPNetConsensus.consensus.CONSENSUS,
                 transaction: opnetDecodedTransaction,
             };
