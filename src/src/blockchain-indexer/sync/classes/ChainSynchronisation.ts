@@ -387,12 +387,14 @@ export class ChainSynchronisation extends Logger {
                     addressCache: map,
                 });
 
-                if (
-                    this.amountOfUTXOs > this.AWAIT_UTXO_WRITE_IF_QUEUE_SIZE ||
-                    this.canSaveAfterBlock()
-                ) {
-                    await this.awaitUTXOWrites();
-                }
+                process.nextTick(async () => {
+                    if (
+                        this.amountOfUTXOs > this.AWAIT_UTXO_WRITE_IF_QUEUE_SIZE ||
+                        this.canSaveAfterBlock()
+                    ) {
+                        await this.awaitUTXOWrites();
+                    }
+                });
             } catch (e) {
                 reject(e as Error);
             }
