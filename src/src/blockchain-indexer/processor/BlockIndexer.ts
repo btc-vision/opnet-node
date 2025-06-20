@@ -569,9 +569,7 @@ export class BlockIndexer extends Logger {
         try {
             this.currentTask = this.indexingTasks.shift();
             if (!this.currentTask) return;
-
-            this.log(`Processing task for block ${this.currentTask.tip}...`);
-
+            
             await this.currentTask.process();
 
             this.lastSyncErrored = false;
