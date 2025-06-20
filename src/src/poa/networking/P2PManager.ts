@@ -90,7 +90,7 @@ interface BlacklistedPeerInfo {
 
 type P2PServices = {
     nat?: UPnPNAT;
-    autoNAT: unknown;
+    //autoNAT: unknown;
     aminoDHT: KadDHT;
     identify: Identify;
     identifyPush: IdentifyPush;
@@ -1128,7 +1128,7 @@ export class P2PManager extends Logger {
         }
 
         const services: ServiceFactoryMap<P2PServices> = {
-            autoNAT: autoNAT(this.p2pConfigurations.autoNATConfiguration),
+            //autoNAT: autoNAT(this.p2pConfigurations.autoNATConfiguration),
             identify: identify(this.p2pConfigurations.identifyConfiguration),
             identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
             ping: ping(),
