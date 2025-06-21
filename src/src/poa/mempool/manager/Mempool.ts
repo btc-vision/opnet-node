@@ -13,28 +13,24 @@ import {
 } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
-import { PSBTTransactionVerifier } from '../psbt/PSBTTransactionVerifier.js';
+import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
 import { BitcoinRPC, FeeEstimation } from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
-import { PSBTProcessorManager } from '../PSBTProcessorManager.js';
 import { Network } from '@btc-vision/bitcoin';
-import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
-import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.js';
-import { AuthorityManager } from '../../configurations/manager/AuthorityManager.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';
+import { FeeMessageResponse } from '../../../threading/interfaces/thread-messages/messages/api/FeeRequest.js';
 
 export class Mempool extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
-    private readonly psbtVerifier: PSBTTransactionVerifier;
-    private readonly psbtProcessorManager: PSBTProcessorManager;
+    private readonly transactionVerifier: TransactionVerifierManager;
     private readonly transactionSizeValidator: TransactionSizeValidator =
         new TransactionSizeValidator();
 
@@ -43,11 +39,13 @@ export class Mempool extends Logger {
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
     #mempoolRepository: MempoolRepository | undefined;
 
-    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
-    private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
-        Config,
-        this.currentAuthority,
-    );
+    private fullSync: boolean = false;
+
+    //private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
+    //private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
+    //    Config,
+    //    this.currentAuthority,
+    //);
 
     private readonly network: Network = NetworkConverter.getNetwork();
 
@@ -56,10 +54,9 @@ export class Mempool extends Logger {
     constructor() {
         super();
 
-        this.psbtVerifier = new PSBTTransactionVerifier(this.db, this.network);
-        this.psbtProcessorManager = new PSBTProcessorManager(
-            this.opnetIdentity,
+        this.transactionVerifier = new TransactionVerifierManager(
             this.db,
+            this.bitcoinRPC,
             this.network,
         );
     }
@@ -115,25 +112,72 @@ export class Mempool extends Logger {
         await Promise.safeAll([
             this.watchBlockchain(),
             this.estimateFees(),
-            this.psbtProcessorManager.createRepositories(this.bitcoinRPC),
-            this.psbtVerifier.createRepositories(),
+            this.transactionVerifier.createRepositories(),
         ]);
+
+        await this.verifyBlockHeight();
+    }
+
+    private async verifyBlockHeight(): Promise<void> {
+        try {
+            const currentBlockHeight = await this.bitcoinRPC.getBlockHeight();
+            if (!currentBlockHeight) {
+                return;
+            }
+
+            const currentBitcoinHeight: bigint = BigInt(currentBlockHeight.blockHeight) + 1n;
+            const blockDiff = currentBitcoinHeight - OPNetConsensus.getBlockHeight();
+            if (blockDiff >= 1n) {
+                if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                    this.warn(
+                        `Block height mismatch: OPNet height ${OPNetConsensus.getBlockHeight()}, Bitcoin Core height ${currentBitcoinHeight}.`,
+                    );
+                }
+
+                this.fullSync = false;
+
+                await this.onBlockChange(currentBitcoinHeight);
+            }
+
+            setTimeout(() => {
+                void this.verifyBlockHeight();
+            }, 5000);
+        } catch (e) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                this.warn(`Error verifying block height: ${(e as Error).message}`);
+            }
+        }
     }
 
     private async watchBlockchain(): Promise<void> {
-        this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
-            try {
-                OPNetConsensus.setBlockHeight(blockHeight);
+        this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
+            if (OPNetConsensus.getBlockHeight() < blockHeight) {
+                await this.onBlockChange(blockHeight);
+            }
 
-                if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
-                    void this.mempoolRepository.purgeOldTransactions(blockHeight);
-                }
-            } catch {}
+            const diff = blockHeight - OPNetConsensus.getBlockHeight();
+            if (diff === 0n) {
+                this.fullSync = true;
+            }
         });
 
         await this.blockchainInformationRepository.getCurrentBlockAndTriggerListeners(
             Config.BITCOIN.NETWORK,
         );
+    }
+
+    private async onBlockChange(blockHeight: bigint): Promise<void> {
+        try {
+            OPNetConsensus.setBlockHeight(blockHeight);
+
+            await this.transactionVerifier.onBlockChange(blockHeight);
+
+            if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
+                void this.mempoolRepository.purgeOldTransactions(blockHeight);
+            }
+
+            await this.estimateFees();
+        } catch {}
     }
 
     private async estimateFees(): Promise<void> {
@@ -165,10 +209,6 @@ export class Mempool extends Logger {
                 this.error(`Error estimating fees: ${(e as Error).message}`);
             }
         }
-
-        setTimeout(() => {
-            void this.estimateFees();
-        }, 20000);
     }
 
     private async onRPCMethod(m: RPCMessageData<BitcoinRPCThreadMessageType>): Promise<ThreadData> {
@@ -177,10 +217,22 @@ export class Mempool extends Logger {
                 return await this.onTransactionReceived(m.data as OPNetBroadcastData);
             }
 
+            case BitcoinRPCThreadMessageType.GET_MEMPOOL_FEES: {
+                return this.onMempoolFeesRequest();
+            }
+
             default: {
                 throw new Error(`Unknown message sent by thread of type: ${m.rpcMethod}`);
             }
         }
+    }
+
+    private onMempoolFeesRequest(): FeeMessageResponse {
+        return {
+            bitcoinFees: {
+                feeRate: this.estimatedBlockFees,
+            },
+        };
     }
 
     private async onTransactionReceived(data: OPNetBroadcastData): Promise<BroadcastResponse> {
@@ -189,6 +241,15 @@ export class Mempool extends Logger {
                 success: false,
                 result: 'Consensus not reached',
             };
+        }
+
+        if (Config.MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED) {
+            if (!this.fullSync) {
+                return {
+                    success: false,
+                    result: 'This node is still processing the latest block. Transaction broadcasting is temporarily disabled for your safety until full synchronization completes; please reload this page to ensure you’re viewing the most up-to-date chain data before trying again.',
+                };
+            }
         }
 
         const raw: Uint8Array = data.raw;
@@ -220,7 +281,10 @@ export class Mempool extends Logger {
             const transaction: IMempoolTransactionObj = {
                 id: id,
                 psbt: psbt,
-                data: raw,
+                theoreticalGasLimit: 0n,
+                isOPNet: false,
+                priorityFee: 0n,
+                data: Buffer.from(raw),
                 firstSeen: new Date(),
                 blockHeight: OPNetConsensus.getBlockHeight(),
                 inputs: [],
@@ -244,7 +308,6 @@ export class Mempool extends Logger {
         transaction: IMempoolTransactionObj,
     ): Promise<BroadcastResponse> {
         const exist = await this.mempoolRepository.hasTransactionById(transaction.id);
-
         if (exist) {
             return {
                 success: false,
@@ -252,9 +315,16 @@ export class Mempool extends Logger {
             };
         }
 
+        const decodedTransaction = await this.transactionVerifier.verify(transaction);
+        if (!decodedTransaction) {
+            return {
+                success: false,
+                result: 'Could not decode transaction.',
+            };
+        }
+
         const buf = Buffer.from(transaction.data);
         const rawHex: string = buf.toString('hex');
-
         const broadcast = await this.broadcastBitcoinTransaction(rawHex);
         if (broadcast && broadcast.result) {
             transaction.id = broadcast.result;
@@ -272,10 +342,29 @@ export class Mempool extends Logger {
         );
     }
 
+    private async broadcastBitcoinTransaction(
+        data: string,
+    ): Promise<BroadcastResponse | undefined> {
+        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE> =
+            {
+                type: MessageType.RPC_METHOD,
+                data: {
+                    rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE,
+                    data: {
+                        rawTransaction: data,
+                    },
+                } as BroadcastRequest,
+            };
+
+        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
+            | BroadcastResponse
+            | undefined;
+    }
+
     /*private async decodePSBTAndProcess(
         transaction: IMempoolTransactionObj,
     ): Promise<BroadcastResponse> {
-        const decodedPsbt = await this.psbtVerifier.verify(transaction.data);
+        const decodedPsbt = await this.transactionVerifier.verify(transaction.data);
         if (!decodedPsbt) {
             return {
                 success: false,
@@ -401,23 +490,4 @@ export class Mempool extends Logger {
             };
         }
     }*/
-
-    private async broadcastBitcoinTransaction(
-        data: string,
-    ): Promise<BroadcastResponse | undefined> {
-        const currentBlockMsg: RPCMessage<BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE> =
-            {
-                type: MessageType.RPC_METHOD,
-                data: {
-                    rpcMethod: BitcoinRPCThreadMessageType.BROADCAST_TRANSACTION_BITCOIN_CORE,
-                    data: {
-                        rawTransaction: data,
-                    },
-                } as BroadcastRequest,
-            };
-
-        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
-            | BroadcastResponse
-            | undefined;
-    }
 }

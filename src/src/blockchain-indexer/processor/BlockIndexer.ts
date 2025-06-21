@@ -42,6 +42,9 @@ export class BlockIndexer extends Logger {
     private readonly consensusTracker: ConsensusTracker = new ConsensusTracker();
     private readonly specialTransactionManager: SpecialManager = new SpecialManager(this.vmManager);
 
+    //private readonly inspector: Inspector = new Inspector();
+    //private readonly workerPool: WorkerPoolManager = new WorkerPoolManager();
+
     private currentTask?: IndexingTask;
 
     private started: boolean = false;
@@ -106,9 +109,11 @@ export class BlockIndexer extends Logger {
         throw new Error('sendMessageToThread not implemented.');
     };
 
-    public handleMessage(
-        m: ThreadMessageBase<MessageType>,
-    ): Promise<ThreadData | undefined> | ThreadData | undefined {
+    //public processInteractionTx: ProcessTask = async (data: ParseTask) => {
+    //    return await this.workerPool.parse(data);
+    //};
+
+    public async handleMessage(m: ThreadMessageBase<MessageType>): Promise<ThreadData | undefined> {
         let resp: ThreadData;
         switch (m.type) {
             case MessageType.CURRENT_INDEXER_BLOCK: {
@@ -116,7 +121,7 @@ export class BlockIndexer extends Logger {
                 break;
             }
             case MessageType.START_INDEXER: {
-                resp = this.startIndexer();
+                resp = await this.startIndexer();
                 break;
             }
             default:
@@ -564,7 +569,7 @@ export class BlockIndexer extends Logger {
         try {
             this.currentTask = this.indexingTasks.shift();
             if (!this.currentTask) return;
-
+            
             await this.currentTask.process();
 
             this.lastSyncErrored = false;
@@ -633,7 +638,7 @@ export class BlockIndexer extends Logger {
         }
     }
 
-    private startIndexer(): ThreadData {
+    private async startIndexer(): Promise<ThreadData> {
         if (this.started) {
             return {
                 started: false,
@@ -641,7 +646,18 @@ export class BlockIndexer extends Logger {
             };
         }
 
-        void this.init();
+        try {
+            await this.init();
+
+            //this.inspector.pause();
+        } catch (e) {
+            this.panic(`Failed to start indexer: ${e}`);
+
+            return {
+                started: false,
+                message: `Failed to start indexer: ${e}`,
+            };
+        }
 
         return {
             started: true,

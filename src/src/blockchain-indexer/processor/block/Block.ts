@@ -36,6 +36,7 @@ import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 import { ContractEvaluation } from '../../../vm/runtime/classes/ContractEvaluation.js';
 import { RustContract } from '../../../vm/isolated/RustContract.js';
 import { SharedInteractionParameters } from '../transaction/transactions/SharedInteractionParameters.js';
+import { AddressCache, AddressCacheExport } from '../AddressCache.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
@@ -53,7 +54,24 @@ export interface DeserializedBlock extends Omit<RawBlockParam, 'abortController'
 
     readonly abortController?: AbortController;
     readonly network?: Network;
+
+    readonly addressCache: AddressCacheExport;
 }
+
+/*export interface BlockTransferShape {
+    header: ReturnType<BlockHeader['toJSON']>;
+    rawTransactionData?: TransactionData[];
+    transactionOrder?: string[];
+
+    allowedPreimages: ArrayBuffer[] | ArrayBufferLike[];
+
+    processEverythingAsGeneric: boolean;
+
+    aborted?: boolean;
+    abortReason?: unknown;
+}*/
+
+//export type BlockTransferTuple = [BlockTransferShape, Transferable[]];
 
 export class Block extends Logger {
     // Block Header
@@ -109,6 +127,9 @@ export class Block extends Logger {
     private readonly processEverythingAsGeneric: boolean = false;
 
     private readonly _blockHashBuffer: Buffer;
+    private readonly addressCache: AddressCache;
+
+    private transactionOrder: string[] | undefined;
 
     constructor(params: RawBlockParam | DeserializedBlock) {
         super();
@@ -137,10 +158,12 @@ export class Block extends Logger {
         this.processEverythingAsGeneric = params.processEverythingAsGeneric || false;
 
         if ('rawTransactionData' in params) {
-            this.setRawTransactionData(params.rawTransactionData);
-            this.deserialize(true, params.transactionOrder);
+            this.transactionOrder = params.transactionOrder;
+            this.addressCache = AddressCache.from(params.addressCache || new Map<string, string>());
 
-            this.processed = true;
+            this.setRawTransactionData(params.rawTransactionData);
+        } else {
+            this.addressCache = new AddressCache();
         }
     }
 
@@ -282,8 +305,39 @@ export class Block extends Logger {
         return this._blockGasPredictor;
     }
 
-    public static fromJSON(data: DeserializedBlock): Block {
-        return new Block(data);
+    public getAddressCache(): AddressCacheExport {
+        return this.addressCache.export();
+    }
+
+    /*public static fromTransfer(dto: BlockTransferShape, network: Network): Block {
+        const abortController = new AbortController();
+        if (dto.aborted) abortController.abort(dto.abortReason);
+
+        const reconstructed = new Block({
+            header: dto.header,
+            abortController,
+            network: network,
+            allowedPreimages: dto.allowedPreimages.map((ab) => Buffer.from(ab)),
+            processEverythingAsGeneric: dto.processEverythingAsGeneric,
+        });
+
+        if (dto.rawTransactionData) {
+            reconstructed.setRawTransactionData(dto.rawTransactionData);
+            reconstructed.transactionOrder = dto.transactionOrder;
+        }
+
+        return reconstructed;
+    }*/
+
+    public prepare(): void {
+        if (this.processed) {
+            throw new Error('Block already processed');
+        }
+
+        this.deserialize(true, this.transactionOrder);
+        this.transactionOrder = [];
+
+        this.processed = true;
     }
 
     public setRawTransactionData(rawTransactionData: TransactionData[]): void {
@@ -292,9 +346,6 @@ export class Block extends Logger {
         if (!this.header.nTx) {
             this.header.nTx = rawTransactionData.length;
         }
-
-        // First, we have to create transaction object corresponding to the transactions types in the block
-        this.createTransactions();
     }
 
     public getBlockHeaderDocument(): BlockHeaderDocument {
@@ -334,15 +385,8 @@ export class Block extends Logger {
     public deserialize(orderTransactions: boolean, transactionOrder?: string[]): void {
         this.ensureNotProcessed();
 
-        /*if (
-            Config.DEBUG_LEVEL >= DebugLevel.DEBUG &&
-            this.erroredTransactions.size > 0 &&
-            Config.DEV_MODE
-        ) {
-            this.error(
-                `Block ${this.height} contains ${this.erroredTransactions.size} errored transactions.`,
-            );
-        }*/
+        // First, we have to create transaction object corresponding to the transactions types in the block
+        this.createTransactions();
 
         if (orderTransactions) {
             if (transactionOrder) {
@@ -360,20 +404,24 @@ export class Block extends Logger {
         this.defineGeneric();
     }
 
-    public toJSON(): DeserializedBlock {
-        if (!this.rawTransactionData) {
-            throw new Error('Block data not found');
-        }
+    /*public toTransfer(): BlockTransferTuple {
+        const transferList: Transferable[] = [
+            //this._blockHashBuffer.buffer,
+            ...this.allowedPreimages.map((b) => b.buffer),
+        ];
 
-        if (!this.processed) throw new Error('Block not processed');
-
-        return {
-            rawTransactionData: this.rawTransactionData,
-            transactionOrder: this.transactions.map((t) => t.transactionIdString),
+        const dto: BlockTransferShape = {
             header: this.header.toJSON(),
-            allowedPreimages: this.allowedPreimages,
+            rawTransactionData: this.rawTransactionData,
+            transactionOrder: this.transactionOrder,
+            allowedPreimages: [], //this.allowedPreimages.map((b) => b.buffer),
+            processEverythingAsGeneric: this.processEverythingAsGeneric,
+            aborted: this.signal.aborted,
+            abortReason: this.signal.reason as unknown,
         };
-    }
+
+        return [dto, transferList];
+    }*/
 
     /** Get all transactions hashes of this block */
     public getTransactionsHashes(): string[] {
@@ -898,60 +946,12 @@ export class Block extends Logger {
             return;
         }
 
-        //const vmStorage = vmManager.getVMStorage();
-
-        //const usedUTXOs: UsedUTXOToDelete[] = [];
-        //const consolidatedUTXOs: IWBTCUTXODocument[] = [];
-
-        //const compromisedTransactions: ICompromisedTransactionDocument[] = [];
         const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
-
-        //const blockHeightDecimal = DataConverter.toDecimal128(this.height);
         for (const transaction of this.opnetTransactions) {
-            //if (!transaction.authorizedVaultUsage && transaction.vaultInputs.length) {
-            //    compromisedTransactions.push(transaction.getCompromisedDocument());
-            //}
-
             transactionData.push(transaction.toDocument());
-
-            /*if (transaction.transactionType === OPNetTransactionTypes.UnwrapInteraction) {
-                const unwrapTransaction = transaction as UnwrapTransaction;
-
-                usedUTXOs.push(...unwrapTransaction.usedUTXOs);
-                if (unwrapTransaction.consolidatedVault) {
-                    consolidatedUTXOs.push({
-                        ...unwrapTransaction.consolidatedVault,
-                        blockId: blockHeightDecimal,
-
-                        spent: false,
-                        spentAt: null,
-                    });
-                }
-            }*/
         }
 
         const promises: Promise<void>[] = [];
-        /*if (usedUTXOs.length) {
-            promises.push(vmStorage.setSpentWBTCUTXOs(usedUTXOs, this.height));
-        }
-
-        if (consolidatedUTXOs.length) {
-            promises.push(vmStorage.setWBTCUTXOs(consolidatedUTXOs));
-        }
-
-        promises.push(vmStorage.deleteOldUTXOs(this.height));
-        promises.push(vmStorage.deleteOldUsedUtxos(this.height));
-
-        if (compromisedTransactions.length) {
-            this.panic(
-                `Found ${compromisedTransactions.length} compromised transactions in block ${this.height}.`,
-            );
-
-            this.#compromised = true;
-
-            promises.push(vmStorage.saveCompromisedTransactions(compromisedTransactions));
-        }*/
-
         promises.push(vmManager.saveTransactions(transactionData));
 
         await Promise.safeAll(promises);
@@ -1021,13 +1021,16 @@ export class Block extends Logger {
 
         this.erroredTransactions.clear();
 
+        if (this.processEverythingAsGeneric) {
+            this.rawTransactionData.forEach((tx, idx) => this.treatAsGenericTransaction(tx, idx));
+            return;
+        }
+
         for (let i = 0; i < this.rawTransactionData.length; i++) {
             const rawTransactionData = this.rawTransactionData[i];
 
-            if (this.processEverythingAsGeneric) {
-                this.treatAsGenericTransaction(rawTransactionData, i);
-
-                continue;
+            if (this.signal.aborted) {
+                throw new Error(`Block #${this.height} aborted for "${this.signal.reason}"`);
             }
 
             this.processTransaction(rawTransactionData, i);
@@ -1042,6 +1045,7 @@ export class Block extends Logger {
                 this.height,
                 this.network,
                 this.allowedPreimages,
+                this.addressCache,
             );
 
             transaction.originalIndex = i;
@@ -1076,6 +1080,7 @@ export class Block extends Logger {
                 this.hash,
                 this.height,
                 this.network,
+                this.addressCache,
             );
 
             genericTransaction.originalIndex = i;

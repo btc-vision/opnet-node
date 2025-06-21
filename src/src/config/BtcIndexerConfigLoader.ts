@@ -91,6 +91,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             P2P_PORT: 9800,
             P2P_PROTOCOL: PeerToPeerMethod.TCP,
 
+            ENABLE_P2P_LOGGING: false,
+            ENABLE_UPNP: false,
+
             MINIMUM_PEERS: 50,
             MAXIMUM_PEERS: 100,
             MAXIMUM_INCOMING_PENDING_PEERS: 50,
@@ -128,6 +131,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
         MEMPOOL: {
             THREADS: 2,
+            PREVENT_TX_BROADCAST_IF_NOT_SYNCED: true,
             EXPIRATION_BLOCKS: 20,
             ENABLE_BLOCK_PURGE: true,
             BATCH_SIZE: 25,
@@ -505,6 +509,20 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(`Oops the property P2P.IS_BOOTSTRAP_NODE is not a boolean.`);
             }
 
+            if (
+                parsedConfig.P2P.ENABLE_P2P_LOGGING !== undefined &&
+                typeof parsedConfig.P2P.ENABLE_P2P_LOGGING !== 'boolean'
+            ) {
+                throw new Error(`Oops the property P2P.ENABLE_P2P_LOGGING is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.P2P.ENABLE_UPNP !== undefined &&
+                typeof parsedConfig.P2P.ENABLE_UPNP !== 'boolean'
+            ) {
+                throw new Error(`Oops the property P2P.ENABLE_UPNP is not a boolean.`);
+            }
+
             if (parsedConfig.P2P.CLIENT_MODE && parsedConfig.P2P.IS_BOOTSTRAP_NODE) {
                 throw new Error(
                     `Oops the property P2P.CLIENT_MODE and P2P.IS_BOOTSTRAP_NODE cannot be both true.`,
@@ -618,6 +636,15 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.MEMPOOL.EXPIRATION_BLOCKS !== 'number'
             ) {
                 throw new Error(`Oops the property MEMPOOL.EXPIRATION_BLOCKS is not a number.`);
+            }
+
+            if (
+                parsedConfig.MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED !== undefined &&
+                typeof parsedConfig.MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED !== 'boolean'
+            ) {
+                throw new Error(
+                    `Oops the property MEMPOOL.PREVENT_TX_BROADCAST_IF_NOT_SYNCED is not a boolean.`,
+                );
             }
 
             if (

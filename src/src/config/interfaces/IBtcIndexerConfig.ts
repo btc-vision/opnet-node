@@ -66,7 +66,9 @@ export interface P2P {
     readonly P2P_HOST: string;
     readonly P2P_PORT: number;
 
+    readonly ENABLE_P2P_LOGGING: boolean;
     readonly P2P_PROTOCOL: PeerToPeerMethod;
+    readonly ENABLE_UPNP: boolean;
 
     readonly MINIMUM_PEERS: number;
     readonly MAXIMUM_PEERS: number;
@@ -85,6 +87,8 @@ export interface P2P {
 
 export interface MempoolConfig {
     readonly THREADS: number;
+
+    readonly PREVENT_TX_BROADCAST_IF_NOT_SYNCED: boolean;
 
     readonly EXPIRATION_BLOCKS: number;
     readonly ENABLE_BLOCK_PURGE: boolean;

@@ -8,6 +8,7 @@ import {
     ITransactionDocumentBasic,
     NetEventDocument,
     TransactionDocument,
+    TransactionSafeThread,
 } from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../vm/evaluated/EvaluatedResult.js';
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
@@ -17,6 +18,7 @@ import { Address, BinaryWriter, ChallengeGenerator } from '@btc-vision/transacti
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from './interfaces/OPNetHeader.js';
 import * as ecc from 'tiny-secp256k1';
+import { AddressCache } from '../AddressCache.js';
 
 export const OPNet_MAGIC: Buffer = Buffer.from('op', 'utf-8');
 const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
@@ -61,6 +63,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         blockHash: string,
         public readonly blockHeight: bigint,
         protected readonly network: Network,
+        protected readonly addressCache: AddressCache | undefined,
     ) {
         if (rawTransactionData.blockhash && rawTransactionData.blockhash !== blockHash) {
             throw new Error(
@@ -148,7 +151,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public get from(): Address {
         if (!this._from) {
-            throw new Error(`No sender address found for transaction ${this.txid}`);
+            throw new Error(`No sender address found for transaction ${this.txidHex}`);
         }
         return this._from;
     }
@@ -335,6 +338,26 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         };
     }
 
+    public restoreFromDocument(
+        doc: TransactionSafeThread,
+        rawTransactionData: TransactionData,
+    ): void {
+        this.parseInputs(rawTransactionData.vin);
+        this.parseOutputs(rawTransactionData.vout);
+
+        this._burnedFee = BigInt(doc.burnedBitcoin);
+        this._priorityFee = BigInt(doc.priorityFee);
+        this._reward = BigInt(doc.reward);
+    }
+
+    public toThreadSafe(): TransactionSafeThread {
+        return {
+            burnedBitcoin: this.burnedFee.toString(),
+            priorityFee: this.priorityFee.toString(),
+            reward: this.reward.toString(),
+        };
+    }
+
     public toDocument(): TransactionDocument<T> {
         const revertData: Uint8Array | undefined = this.revert;
         const inputDocs = this.inputs.map((inp) => inp.toDocument());
@@ -419,6 +442,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         if (this.totalFeeFund < header.priorityFeeSat) {
             throw new Error(`OP_NET: Priority fee is higher than actually received.`);
         }
+
         this._gasSatFee = this.totalFeeFund - header.priorityFeeSat;
         this._priorityFee = header.priorityFeeSat;
     }
@@ -468,9 +492,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         if (!witnessOutput.scriptPubKey.address) {
             throw new Error('No address found for contract witness output');
         }
+
         this._burnedFee = witnessOutput.value;
         if (this._burnedFee > 2000n) {
-            throw new Error('Burned too much fee');
+            throw new Error(`Burned too much fee (${this._burnedFee} satoshis)`);
         }
     }
 

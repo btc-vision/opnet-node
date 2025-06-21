@@ -33,6 +33,9 @@ export class IndexingTask extends Logger {
     private downloadStart: number = 0;
     private downloadEnd: number = 0;
 
+    private startPrepare: number = 0;
+    private endPrepare: number = 0;
+
     public constructor(
         public readonly tip: bigint,
         private readonly network: Network,
@@ -147,6 +150,10 @@ export class IndexingTask extends Logger {
                 throw response;
             }
 
+            this.startPrepare = Date.now();
+            this.block.prepare();
+            this.endPrepare = Date.now();
+
             // 2. Process block
             await this.processBlock();
 
@@ -198,7 +205,7 @@ export class IndexingTask extends Logger {
 
             this.info(
                 `Block ${this.tip} processed (${pinkLog(`${processEndTime - this.processedAt}ms`)}). ` +
-                    `{Transaction(s): ${pinkLog(`${this.block.header.nTx}`)} | Base Gas: ${gasLog} | ` +
+                    `{Transaction(s): ${pinkLog(`${this.block.header.nTx}`)} | Prepare: ${pinkLog(`${this.endPrepare - this.startPrepare} ms`)} | Base Gas: ${gasLog} | ` +
                     `EMA: ${this.block.ema} | Download: ${pinkLog(`${this.downloadEnd - this.downloadStart}ms`)} | ` +
                     `Deserialize: ${pinkLog(`${this.prefetchEnd - this.prefetchStart}ms`)} | ` +
                     `Finalize: ${pinkLog(`${this.finalizeEnd - this.finalizeBlockStart}ms`)} | ` +
@@ -322,7 +329,6 @@ export class IndexingTask extends Logger {
             type: MessageType.DESERIALIZE_BLOCK,
             data: tip,
         })) as DeserializedBlock | { error: Error };
-
         this.downloadEnd = Date.now();
 
         if (!blockData) {

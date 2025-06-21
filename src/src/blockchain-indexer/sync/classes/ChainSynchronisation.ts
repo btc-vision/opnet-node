@@ -265,22 +265,6 @@ export class ChainSynchronisation extends Logger {
         }
     }
 
-    /*private queryUTXOs(block: Block, txs: TransactionData[]): void {
-        block.setRawTransactionData(txs);
-        block.deserialize(false);
-
-        // Save UTXOs
-        const utxos = block.getUTXOs();
-
-        this.amountOfUTXOs += utxos.length;
-
-        // Save UTXOs to database
-        this.unspentTransactionOutputs = this.unspentTransactionOutputs.concat({
-            blockHeight: block.header.height,
-            transactions: utxos,
-        });
-    }*/
-
     private abortAllControllers(): void {
         for (const controller of this.abortControllers.values()) {
             controller.abort('Process cancelled');
@@ -293,7 +277,7 @@ export class ChainSynchronisation extends Logger {
         block.setRawTransactionData(txs);
         block.deserialize(false);
 
-        const utxos = block.getUTXOs(); // TransactionOutput[]
+        const utxos = block.getUTXOs();
         this.amountOfUTXOs += utxos.length;
 
         this.unspentTransactionOutputs.push({
@@ -359,48 +343,62 @@ export class ChainSynchronisation extends Logger {
 
     // TODO: Move fetching to an other thread.
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
-        this.bestTip = blockNumber;
+        return new Promise<DeserializedBlock>(async (resolve, reject) => {
+            try {
+                this.bestTip = blockNumber;
 
-        const [blockData, allowedPreimages] = await Promise.safeAll([
-            this.blockFetcher.getBlock(blockNumber),
-            this.getPreimages(blockNumber),
-        ]);
+                const [blockData, allowedPreimages] = await Promise.safeAll([
+                    this.blockFetcher.getBlock(blockNumber),
+                    this.getPreimages(blockNumber),
+                ]);
 
-        if (!blockData) {
-            const chainHeight = await this.getBlockHeightForEver();
-            if (blockNumber > chainHeight) {
-                throw new Error(`Block ${blockNumber} not found`);
+                if (!blockData) {
+                    const chainHeight = await this.getBlockHeightForEver();
+                    if (blockNumber > chainHeight) {
+                        throw new Error(`Block ${blockNumber} not found`);
+                    }
+
+                    // And we retry forever.
+                    return resolve(
+                        new Promise((r) => setTimeout(() => r(this.queryBlock(blockNumber)), 1000)),
+                    );
+                }
+
+                const abortController = new AbortController();
+                this.abortControllers.set(blockNumber, abortController);
+
+                const block = new Block({
+                    network: this.network,
+                    abortController: abortController,
+                    header: blockData,
+                    processEverythingAsGeneric: true,
+                    allowedPreimages: allowedPreimages,
+                });
+
+                // Deserialize the block
+                this.queryUTXOs(block, blockData.tx);
+
+                const map = block.getAddressCache();
+                resolve({
+                    header: block.header.toJSON(),
+                    rawTransactionData: blockData.tx,
+                    transactionOrder: undefined,
+                    allowedPreimages: allowedPreimages,
+                    addressCache: map,
+                });
+
+                process.nextTick(async () => {
+                    if (
+                        this.amountOfUTXOs > this.AWAIT_UTXO_WRITE_IF_QUEUE_SIZE ||
+                        this.canSaveAfterBlock()
+                    ) {
+                        await this.awaitUTXOWrites();
+                    }
+                });
+            } catch (e) {
+                reject(e as Error);
             }
-
-            // And we retry forever.
-            return new Promise((r) => setTimeout(() => r(this.queryBlock(blockNumber)), 1000));
-        }
-
-        const abortController = new AbortController();
-        this.abortControllers.set(blockNumber, abortController);
-
-        const block = new Block({
-            network: this.network,
-            abortController: abortController,
-            header: blockData,
-            processEverythingAsGeneric: true,
-            allowedPreimages: allowedPreimages,
         });
-
-        // Deserialize the block
-        this.queryUTXOs(block, blockData.tx);
-
-        if (this.amountOfUTXOs > this.AWAIT_UTXO_WRITE_IF_QUEUE_SIZE || this.canSaveAfterBlock()) {
-            await this.awaitUTXOWrites();
-        }
-
-        return {
-            //block.toJSON(); will become handy later.
-            header: block.header.toJSON(),
-            rawTransactionData: blockData.tx,
-            transactionOrder: undefined,
-            allowedPreimages: allowedPreimages,
-        };
     }
 
     /*private async deserializeBlockBatch(startBlock: bigint): Promise<ThreadData> {

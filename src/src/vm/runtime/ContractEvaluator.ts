@@ -25,6 +25,7 @@ import { Config } from '../../config/Config.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import {
     AccountTypeResponse,
+    BlockHashResponse,
     ExitDataResponse,
     NEW_STORAGE_SLOT_GAS_COST,
     UPDATED_STORAGE_SLOT_GAS_COST,
@@ -132,7 +133,7 @@ export class ContractEvaluator extends Logger {
         this.contractAddress = contractInformation.contractTweakedPublicKey;
         this.bytecode = contractInformation.bytecode.subarray(1);
         this.version = contractInformation.bytecode.subarray(0, 1)[0];
-        
+
         if (
             !this.deployerAddress ||
             !this.contractAddress ||
@@ -631,13 +632,16 @@ export class ContractEvaluator extends Logger {
         };
     }
 
-    private async getBlockHashImport(blockNumber: bigint): Promise<Buffer> {
+    private async getBlockHashImport(blockNumber: bigint): Promise<BlockHashResponse> {
         const blockHash = await this.getBlockHashForBlockNumber(blockNumber);
         if (!blockHash) {
             throw new Error('OP_NET: Unable to get block hash');
         }
 
-        return blockHash;
+        return {
+            blockHash: blockHash,
+            isBlockWarm: false,
+        };
     }
 
     private generateContractParameters(evaluation: ContractEvaluation): ContractParameters {
@@ -667,7 +671,7 @@ export class ContractEvaluator extends Logger {
             accountType: async (data: Buffer): Promise<AccountTypeResponse> => {
                 return await this.getAccountType(data, evaluation);
             },
-            blockHash: async (blockNumber: bigint): Promise<Buffer> => {
+            blockHash: async (blockNumber: bigint): Promise<BlockHashResponse> => {
                 return await this.getBlockHashImport(blockNumber);
             },
             load: async (data: Buffer) => {

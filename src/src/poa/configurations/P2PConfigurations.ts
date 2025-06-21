@@ -24,7 +24,6 @@ import { BootstrapNodes } from './BootstrapNodes.js';
 import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
-import { AutoNATServiceInit } from '@libp2p/autonat/src';
 
 interface BackedUpPeer {
     id: string;
@@ -52,7 +51,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             outboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
 
             maxConnections: this.config.P2P.MAXIMUM_PEERS,
-            socketCloseTimeout: 5000,
+            socketCloseTimeout: 10000,
             backlog: 100,
             closeServerOnMaxConnections: {
                 closeAbove: this.config.P2P.MAXIMUM_PEERS,
@@ -68,7 +67,7 @@ export class P2PConfigurations extends OPNetPathFinder {
                 maxPayload: P2PConfigurations.maxMessageSize,
             },
         };
-    }*/
+    }
 
     public get autoNATConfiguration(): AutoNATServiceInit {
         return {
@@ -77,8 +76,10 @@ export class P2PConfigurations extends OPNetPathFinder {
             maxInboundStreams: 5,
             maxOutboundStreams: 5,
             startupDelay: 4000,
+            maxMessageSize: P2PConfigurations.maxMessageSize,
+            refreshInterval: 30000,
         };
-    }
+    }*/
 
     public get yamuxConfiguration(): YamuxMuxerInit {
         return {
@@ -101,15 +102,8 @@ export class P2PConfigurations extends OPNetPathFinder {
             enableKeepAlive: true,
             keepAliveInterval: 15000,
 
-            // 5. The size of the initial receive window for each stream.
-            //    This can be raised if you expect large data bursts and have
-            //    ample memory available. But do keep it below your system's
-            //    memory constraints.
             initialStreamWindowSize: 256 * 1024, // 256 KB
 
-            // 6. The maximum receive window for each stream.
-            //    Increasing this allows higher throughput but also means a
-            //    single stream can buffer more data (risking memory pressure).
             maxStreamWindowSize: P2PConfigurations.maxMessageSize,
         };
     }
@@ -136,7 +130,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get bootstrapConfiguration(): BootstrapInit {
         return {
-            timeout: 5000,
+            timeout: 15000,
             tagValue: 50,
             tagTTL: 120000,
             list: this.getBootstrapPeers(),
@@ -218,7 +212,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get identifyConfiguration(): IdentifyInit {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
-            timeout: 5000,
+            timeout: 10000,
             maxInboundStreams: 5,
             maxOutboundStreams: 5,
             maxObservedAddresses: 1,

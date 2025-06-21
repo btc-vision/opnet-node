@@ -2,6 +2,7 @@ import { RustContractBinding } from './isolated/RustContractBindings.js';
 import {
     AccountTypeResponse,
     BlockHashRequest,
+    BlockHashResponse,
     ContractManager,
     ThreadSafeJsImportResponse,
 } from '@btc-vision/op-vm';
@@ -66,10 +67,10 @@ class BlockchainBase {
     private blockHashJSFunction: (
         _: never,
         result: BlockHashRequest,
-    ) => Promise<Buffer | Uint8Array> = (
+    ) => Promise<BlockHashResponse> = (
         _: never,
         value: BlockHashRequest,
-    ): Promise<Buffer | Uint8Array> => {
+    ): Promise<BlockHashResponse> => {
         if (this.enableDebug) console.log('BLOCK HASH', value.blockNumber);
 
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
@@ -137,15 +138,15 @@ class BlockchainBase {
     };
 
     private inputsJSFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
+        id: bigint,
+        //result: ThreadSafeJsImportResponse,
     ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
+        id: bigint,
+        //value: ThreadSafeJsImportResponse,
     ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('INPUTS', value);
+        if (this.enableDebug) console.log('INPUTS', id);
 
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+        const c = this.bindings.get(BigInt(`${id}`)); // otherwise unsafe.
         if (!c) {
             throw new Error('Binding not found (inputs)');
         }
@@ -154,15 +155,15 @@ class BlockchainBase {
     };
 
     private outputsJSFunction: (
-        _: never,
-        result: ThreadSafeJsImportResponse,
+        id: bigint,
+        //result: ThreadSafeJsImportResponse,
     ) => Promise<Buffer | Uint8Array> = (
-        _: never,
-        value: ThreadSafeJsImportResponse,
+        id: bigint,
+        //value: ThreadSafeJsImportResponse,
     ): Promise<Buffer | Uint8Array> => {
-        if (this.enableDebug) console.log('OUTPUT', value);
+        if (this.enableDebug) console.log('OUTPUT', id);
 
-        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+        const c = this.bindings.get(BigInt(`${id}`)); // otherwise unsafe.
         if (!c) {
             throw new Error('Binding not found (outputs)');
         }

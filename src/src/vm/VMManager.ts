@@ -47,19 +47,19 @@ import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { Blockchain } from './Blockchain.js';
 import { BlockHeaderValidator } from './BlockHeaderValidator.js';
 import { Config } from '../config/Config.js';
-import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasPredictor.js';
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
-import { init } from '@btc-vision/op-vm';
+//import { init } from '@btc-vision/op-vm';
 import { StrippedTransactionInput } from '../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { SpecialContract } from '../poa/configurations/types/SpecialContracts.js';
+import { calculateMaxGas } from '../utils/GasUtils.js';
 
 Globals.register();
 
-init();
+//init();
 
-const EMPTY_BUFFER = Buffer.alloc(32);
+const EMPTY_BLOCK_HASH = Buffer.alloc(32);
 const SIMULATION_TRANSACTION_ID = Buffer.from(
     '61e1ca05754b6990c56d8f0f06c33da411f086c5abae59572e63549361c8f5fc',
     'hex',
@@ -250,7 +250,7 @@ export class VMManager extends Logger {
             } else {
                 currentHeight = await this.fetchCachedBlockHeight();
                 median = BigInt(Date.now());
-                blockHash = EMPTY_BUFFER;
+                blockHash = EMPTY_BLOCK_HASH;
             }
 
             const specialSettings = OPNetConsensus.specialContract(contractAddress.toHex());
@@ -357,7 +357,7 @@ export class VMManager extends Logger {
             }
 
             // Trace the execution time
-            const maxGas: bigint = this.calculateMaxGas(isSimulation, feeBitcoin, baseGas);
+            const maxGas: bigint = calculateMaxGas(isSimulation, feeBitcoin, baseGas);
             const gasTracker = this.getGasTracker(
                 maxGas,
                 0n,
@@ -451,14 +451,13 @@ export class VMManager extends Logger {
                 throw new Error('VM evaluator not found');
             }
 
-            const feeBitcoin: bigint =
-                contractDeploymentTransaction.burnedFee + contractDeploymentTransaction.reward;
+            const feeBitcoin: bigint = contractDeploymentTransaction.gasSatFee;
             if (!feeBitcoin) {
                 throw new Error('execution reverted (out of gas)');
             }
 
             // Trace the execution time
-            const maxGas: bigint = this.calculateMaxGas(false, feeBitcoin, baseGas);
+            const maxGas: bigint = calculateMaxGas(false, feeBitcoin, baseGas);
 
             const deployedContracts: AddressMap<ContractInformation> = new AddressMap();
             deployedContracts.set(
@@ -635,19 +634,6 @@ export class VMManager extends Logger {
         gasTracker.setGasUsed(usedGas, 0n, true);
 
         return gasTracker;
-    }
-
-    private calculateMaxGas(isSimulation: boolean, gasInSat: bigint, baseGas: bigint): bigint {
-        const gas: bigint = isSimulation
-            ? OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS
-            : GasTracker.convertSatToGas(
-                  gasInSat,
-                  OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS,
-                  OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO,
-              );
-
-        const gasToScale = BlockGasPredictor.toBaseBigInt(gas);
-        return gasToScale / baseGas; // Round down.
     }
 
     private async callExternal(

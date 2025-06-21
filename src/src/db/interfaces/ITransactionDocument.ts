@@ -54,6 +54,23 @@ export interface TransactionDocument<T extends OPNetTransactionTypes>
     readonly revert: Binary | undefined;
 }
 
+export interface TransactionSafeThread {
+    readonly burnedBitcoin: string;
+    readonly reward: string;
+    readonly priorityFee: string;
+}
+
+export interface InteractionTransactionSafeThread extends TransactionSafeThread {
+    readonly calldata: Buffer;
+    readonly preimage: Buffer;
+    readonly senderPubKeyHash: Buffer;
+    readonly contractSecret: Buffer;
+    readonly interactionPubKey: Buffer;
+    readonly contractAddress: Uint8Array;
+    readonly from: Uint8Array;
+    readonly wasCompressed: boolean;
+}
+
 export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocument<T> & {
     readonly from: Binary;
     readonly contractAddress: string;

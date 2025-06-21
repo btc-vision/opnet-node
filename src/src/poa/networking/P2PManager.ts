@@ -61,7 +61,6 @@ import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { Components } from 'libp2p/components.js';
 import { noise } from '@chainsafe/libp2p-noise';
 import { CID } from 'multiformats/cid';
-import { autoNAT } from '@libp2p/autonat';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import { ReusableStreamManager } from './stream/ReusableStreamManager.js';
 import { Config } from '../../config/Config.js';
@@ -70,6 +69,9 @@ import { Ping } from '@libp2p/ping/src';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { FastStringSet } from '../../utils/fast/FastStringSet.js';
 import { Transaction } from '@btc-vision/bitcoin';
+import { enable } from '@libp2p/logger';
+import { UPnPNAT } from '@libp2p/upnp-nat/src';
+import { ServiceFactoryMap } from 'libp2p/src';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -85,13 +87,20 @@ interface BlacklistedPeerInfo {
     attempts: number;
 }
 
-type Libp2pInstance = Libp2p<{
-    nat: unknown;
+type P2PServices = {
+    nat?: UPnPNAT;
+    //autoNAT: unknown;
     aminoDHT: KadDHT;
     identify: Identify;
     identifyPush: IdentifyPush;
     ping: Ping;
-}>;
+};
+
+type Libp2pInstance = Libp2p<P2PServices>;
+
+if (Config.P2P.ENABLE_P2P_LOGGING) {
+    enable('libp2p:*');
+}
 
 export class P2PManager extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -823,10 +832,14 @@ export class P2PManager extends Logger {
 
             this.info(`Peer ${peerStr} disconnected. Reason: ${code}. Attempts: ${info.attempts}`);
 
-            this.blackListedPeerIds.set(peerStr, info);
-        }
+            if (info.attempts > 3) {
+                // If the peer has been disconnected more than 3 times, blacklist it.
+                await this.blackListPeerId(peerId, DisconnectionCode.FLOOD);
+                this.warn(`Peer ${peerStr} blacklisted due to too many disconnections.`);
+            }
 
-        this.peers.delete(peerStr);
+            this.peers.delete(peerStr);
+        }
 
         await this.node.hangUp(peerId).catch((e: unknown) => {
             this.warn(`Error while hanging up peer: ${(e as Error).message}`);
@@ -1112,6 +1125,18 @@ export class P2PManager extends Logger {
             peerDiscovery.push(bootstrap(this.p2pConfigurations.bootstrapConfiguration));
         }
 
+        const services: ServiceFactoryMap<P2PServices> = {
+            //autoNAT: autoNAT(this.p2pConfigurations.autoNATConfiguration),
+            identify: identify(this.p2pConfigurations.identifyConfiguration),
+            identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
+            ping: ping(),
+            aminoDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
+        };
+
+        if (Config.P2P.ENABLE_UPNP) {
+            services.nat = uPnPNAT(this.p2pConfigurations.upnpConfiguration);
+        }
+
         const datastore = await this.getDatastore();
         return await createLibp2p({
             datastore: datastore,
@@ -1128,14 +1153,7 @@ export class P2PManager extends Logger {
             connectionManager: this.p2pConfigurations.connectionManagerConfiguration,
             peerStore: this.peerStoreConfigurations(),
             transportManager: this.p2pConfigurations.transportManagerConfiguration,
-            services: {
-                autoNAT: autoNAT(this.p2pConfigurations.autoNATConfiguration),
-                identify: identify(this.p2pConfigurations.identifyConfiguration),
-                identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
-                nat: uPnPNAT(this.p2pConfigurations.upnpConfiguration),
-                ping: ping(),
-                aminoDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
-            },
+            services: services as unknown as ServiceFactoryMap<P2PServices>,
         });
     }
 }

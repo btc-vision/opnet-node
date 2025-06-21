@@ -3,7 +3,12 @@ import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
-import { BitcoinRPC, BitcoinVerbosity } from '@btc-vision/bitcoin-rpc';
+import {
+    BitcoinRPC,
+    BitcoinVerbosity,
+    TransactionData,
+    TransactionDetail,
+} from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
@@ -13,12 +18,18 @@ import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';
 import fs from 'fs';
 import { LargeJSONProcessor } from '../../../utils/LargeJSONProcessor.js';
+import { RPCMessageData } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
+import { Network } from '@btc-vision/bitcoin';
+import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 
 export class MempoolManager extends Logger {
     public readonly logColor: string = '#00ffe1';
 
     private readonly bitcoinRPC: BitcoinRPC = new BitcoinRPC();
     private readonly db: ConfigurableDBManager = new ConfigurableDBManager(Config);
+    private readonly transactionVerifier: TransactionVerifierManager;
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
     #mempoolRepository: MempoolRepository | undefined;
@@ -33,8 +44,16 @@ export class MempoolManager extends Logger {
     private readonly jsonProcessor: LargeJSONProcessor<string[]> = new LargeJSONProcessor();
     private mempoolLoopCheck: string | number | NodeJS.Timeout | undefined;
 
+    private readonly network: Network = NetworkConverter.getNetwork();
+
     public constructor() {
         super();
+
+        this.transactionVerifier = new TransactionVerifierManager(
+            this.db,
+            this.bitcoinRPC,
+            this.network,
+        );
     }
 
     private get mempoolRepository(): MempoolRepository {
@@ -61,11 +80,7 @@ export class MempoolManager extends Logger {
     public async handleRequest(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
         switch (m.type) {
             case MessageType.RPC_METHOD: {
-                await new Promise<void>((resolve) => {
-                    setTimeout(resolve, 1000);
-                });
-
-                return;
+                return this.handleMessage(m.data as RPCMessageData<BitcoinRPCThreadMessageType>);
             }
 
             default: {
@@ -87,15 +102,24 @@ export class MempoolManager extends Logger {
         this.#mempoolRepository = new MempoolRepository(this.db.db);
         this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
-        await this.watchBlockchain();
+        await Promise.safeAll([
+            this.watchBlockchain(),
+            this.transactionVerifier.createRepositories(),
+        ]);
+    }
+
+    private handleMessage(_m: RPCMessageData<BitcoinRPCThreadMessageType>): ThreadData {
+        return {};
     }
 
     private async watchBlockchain(): Promise<void> {
-        this.blockchainInformationRepository.watchBlockChanges((blockHeight: bigint) => {
+        this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
             this.currentBlockHeight = blockHeight;
 
             try {
                 OPNetConsensus.setBlockHeight(blockHeight);
+
+                await this.transactionVerifier.onBlockChange(blockHeight);
             } catch {}
         });
 
@@ -149,19 +173,19 @@ export class MempoolManager extends Logger {
             const promises = batch.map(async (tx) => {
                 const params: BitcoinRawTransactionParams = {
                     txId: tx,
-                    verbose: BitcoinVerbosity.RAW,
+                    verbose: BitcoinVerbosity.NONE,
                 };
 
                 const txData =
-                    await this.bitcoinRPC.getRawTransaction<BitcoinVerbosity.RAW>(params);
+                    await this.bitcoinRPC.getRawTransaction<BitcoinVerbosity.NONE>(params);
 
                 if (!txData) {
                     this.error(`Failed to fetch transaction ${tx}`);
                     return;
                 }
 
-                return this.convertTxDataToMempoolTransaction({
-                    hex: txData,
+                return await this.convertTxDataToMempoolTransaction({
+                    tx: txData,
                     txid: tx,
                 });
             });
@@ -173,22 +197,40 @@ export class MempoolManager extends Logger {
         return txsData;
     }
 
-    private convertTxDataToMempoolTransaction(txData: {
-        hex: string;
+    private async convertTxDataToMempoolTransaction(txData: {
+        tx: TransactionDetail;
         txid: string;
-    }): IMempoolTransactionObj {
-        const data = Buffer.from(txData.hex, 'hex');
+    }): Promise<IMempoolTransactionObj> {
+        const data = Buffer.from(txData.tx.hex, 'hex');
         const resp: IMempoolTransactionObj = {
             id: txData.txid,
             psbt: false,
             data: data,
+            isOPNet: false,
             firstSeen: new Date(),
             blockHeight: this.currentBlockHeight,
             inputs: [],
             outputs: [],
+            theoreticalGasLimit: 0n,
+            priorityFee: 0n,
         };
 
         parseAndStoreInputOutputs(data, resp);
+
+        try {
+            const decodedTransaction = await this.transactionVerifier.verify(
+                resp,
+                txData.tx as TransactionData,
+            );
+
+            if (!decodedTransaction) {
+                this.error(`Failed to verify transaction ${txData.txid}`);
+            }
+        } catch (e) {
+            if (Config.DEV_MODE) {
+                this.warn(`Error verifying transaction ${txData.txid}: ${(e as Error).message}`);
+            }
+        }
 
         return resp;
     }

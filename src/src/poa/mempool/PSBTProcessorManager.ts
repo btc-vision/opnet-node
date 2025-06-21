@@ -1,13 +1,13 @@
-import { KnownPSBTObject } from './psbt/PSBTTransactionVerifier.js';
-import { PSBTTypes } from './psbt/PSBTTypes.js';
+import { TransactionTypes } from './transaction/TransactionTypes.js';
 import { PSBTProcessedResponse, PSBTProcessor } from './processor/PSBTProcessor.js';
 import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { Network } from '@btc-vision/bitcoin';
 import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
+import { KnownPSBTObject } from './transaction/TransactionVerifierManager.js';
 
 export class PSBTProcessorManager {
-    private readonly verificator: PSBTProcessor<PSBTTypes>[] = [];
+    private readonly verificator: PSBTProcessor<TransactionTypes>[] = [];
 
     public constructor(
         private readonly authority: OPNetIdentity,

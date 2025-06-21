@@ -1,7 +1,7 @@
-import { PSBTTypes } from '../psbt/PSBTTypes.js';
+import { TransactionTypes } from '../transaction/TransactionTypes.js';
 import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { Network, Psbt } from '@btc-vision/bitcoin';
-import { PSBTDecodedData } from '../psbt/PSBTTransactionVerifier.js';
+import { PSBTDecodedData } from '../transaction/TransactionVerifierManager.js';
 import { OPNetIdentity } from '../../identity/OPNetIdentity.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
 
@@ -12,7 +12,7 @@ export interface PSBTProcessedResponse {
     readonly hash: string;
 }
 
-export abstract class PSBTProcessor<T extends PSBTTypes> extends Logger {
+export abstract class PSBTProcessor<T extends TransactionTypes> extends Logger {
     public abstract readonly type: T;
 
     protected constructor(

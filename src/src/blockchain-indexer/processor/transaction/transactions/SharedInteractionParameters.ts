@@ -4,9 +4,32 @@ import { AccessListFeature, Feature, Features } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { opcodes, payments } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
-import { AddressMap, BinaryReader } from '@btc-vision/transaction';
+import { Address, AddressMap, BinaryReader } from '@btc-vision/transaction';
 import { SpecialContract } from '../../../../poa/configurations/types/SpecialContracts.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
+
+export class ScriptReader {
+    public pos = 0;
+
+    constructor(private readonly src: ReadonlyArray<number | Buffer>) {}
+
+    take<T extends number | Buffer>(): T {
+        const v = this.src[this.pos++] as T;
+        if (v === undefined) throw new Error('unexpected end-of-script');
+        return v;
+    }
+
+    expect(op: number): void {
+        if (this.take<number>() !== op) {
+            throw new Error(`opcode 0x${op.toString(16)} expected`);
+        }
+    }
+
+    /** zero-copy view of the unread tail */
+    tail(): ReadonlyArray<number | Buffer> {
+        return this.src.slice(this.pos);
+    }
+}
 
 export abstract class SharedInteractionParameters<
     T extends OPNetTransactionTypes,
@@ -129,6 +152,23 @@ export abstract class SharedInteractionParameters<
         }
 
         return decodedData;
+    }
+
+    public getAddress(str: string): Address {
+        if (this.addressCache) {
+            const addr: string | undefined = this.addressCache.get(str);
+
+            if (!addr) {
+                const newAddr = Address.fromString(str);
+                this.addressCache.set(str, newAddr.toHex());
+
+                return newAddr;
+            } else {
+                return Address.fromString(str);
+            }
+        } else {
+            return Address.fromString(str);
+        }
     }
 
     protected decodeAddress(outputWitness: TransactionOutput): string | undefined {
