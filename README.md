@@ -95,7 +95,8 @@ system and requires Node.js, npm, a Bitcoin node, and MongoDB.
 
 ## Installation (Quick)
 
-OPNet provides an automated setup script for quick installation. To use the script, run the following command:
+OPNet provides an automated setup script for quick installation on Ubuntu based systems. To use the script, run the
+following command:
 
 ```bash
 curl -fsSL https://autosetup.opnet.org/autoconfig.sh -o autoconfig.sh && sudo -E bash autoconfig.sh
