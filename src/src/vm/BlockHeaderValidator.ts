@@ -56,6 +56,10 @@ export class BlockHeaderValidator extends Logger {
         const blockRootStates: BlockHeaderDocument | undefined | null =
             await this.getBlockHeader(newHeight);
 
+        if (newHeight < 0n) {
+            return ZERO_HASH;
+        }
+
         if (!blockRootStates || !blockRootStates.checksumRoot) {
             // TODO: Add proper light mode validations.
             if (this.config.OP_NET.MODE === OPNetIndexerMode.LIGHT) {
