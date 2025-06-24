@@ -10,7 +10,6 @@ import { BufferHelper } from '@btc-vision/transaction';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { OPNetIndexerMode } from '../config/interfaces/OPNetIndexerMode.js';
-import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 
 export class BlockHeaderValidator extends Logger {
     public readonly logColor: string = '#00ff66';
@@ -54,12 +53,6 @@ export class BlockHeaderValidator extends Logger {
 
     public async getPreviousBlockChecksumOfHeight(height: bigint): Promise<string> {
         const newHeight: bigint = height - 1n;
-        const opnetEnabledAtBlock = OPNetConsensus.opnetEnabled;
-
-        if (newHeight < BigInt(opnetEnabledAtBlock.BLOCK)) {
-            return ZERO_HASH;
-        }
-
         const blockRootStates: BlockHeaderDocument | undefined | null =
             await this.getBlockHeader(newHeight);
 

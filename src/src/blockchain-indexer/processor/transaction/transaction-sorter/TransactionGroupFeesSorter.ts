@@ -61,7 +61,12 @@ export class TransactionGroupFeesSorter {
     ): number {
         const concatHashA = this.concatenateHashes(groupA);
         const concatHashB = this.concatenateHashes(groupB);
-        return Buffer.compare(concatHashA, concatHashB);
+
+        const cmp = Buffer.compare(concatHashA, concatHashB);
+        if (cmp !== 0) return cmp;
+
+        if (groupA.length !== groupB.length) return groupA.length - groupB.length;
+        return Buffer.compare(groupA[0].computedIndexingHash, groupB[0].computedIndexingHash);
     }
 
     private concatenateHashes(group: Transaction<OPNetTransactionTypes>[]): Buffer {
