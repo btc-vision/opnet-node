@@ -17,11 +17,11 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         [ChainIds.Bitcoin]: {
             [BitcoinNetwork.mainnet]: {
                 ENABLED: true,
-                BLOCK: 0n,
+                BLOCK: 1_000_000_000n,
             },
             [BitcoinNetwork.testnet]: {
                 ENABLED: true,
-                BLOCK: 0n,
+                BLOCK: 4_100_000n,
             },
             [BitcoinNetwork.regtest]: {
                 ENABLED: true,
