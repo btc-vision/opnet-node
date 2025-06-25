@@ -42,7 +42,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         NEXT_CONSENSUS_BLOCK: 4_506_0830n,
 
         // Is this node updated to the next consensus?
-        IS_READY_FOR_NEXT_CONSENSUS: true,
+        IS_READY_FOR_NEXT_CONSENSUS: false,
 
         // Allow legacy? Hybrid contract address are supported in this version.
         ALLOW_LEGACY: false,
@@ -153,7 +153,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         REENTRANCY_GUARD: false,
 
         /** The cost of a byte in gas */
-        STORAGE_COST_PER_BYTE: 10_000n,
+        STORAGE_COST_PER_BYTE: 250_000n,
 
         /** Skip proof validation for execution before transaction */
         SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: true,
