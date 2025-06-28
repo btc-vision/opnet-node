@@ -16,6 +16,7 @@ const nativeSwapContractSettings: Omit<SpecialContract, 'address'> = {
     bypassBlockLimit: true,
 
     maxExternalGas: 10_000_000_000n,
+    transactionGasLimit: 600_000_000_000n,
 };
 
 export const SPECIAL_CONTRACTS_ROSWELL_REGTEST: SpecialContracts = {

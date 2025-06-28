@@ -357,7 +357,15 @@ export class VMManager extends Logger {
             }
 
             // Trace the execution time
-            const maxGas: bigint = calculateMaxGas(isSimulation, feeBitcoin, baseGas);
+            const maxGas: bigint = calculateMaxGas(
+                isSimulation,
+                feeBitcoin,
+                baseGas,
+                interactionTransaction.specialSettings
+                    ? interactionTransaction.specialSettings.transactionGasLimit
+                    : OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS,
+            );
+
             const gasTracker = this.getGasTracker(
                 maxGas,
                 0n,
@@ -457,7 +465,12 @@ export class VMManager extends Logger {
             }
 
             // Trace the execution time
-            const maxGas: bigint = calculateMaxGas(false, feeBitcoin, baseGas);
+            const maxGas: bigint = calculateMaxGas(
+                false,
+                feeBitcoin,
+                baseGas,
+                OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS,
+            );
 
             const deployedContracts: AddressMap<ContractInformation> = new AddressMap();
             deployedContracts.set(
