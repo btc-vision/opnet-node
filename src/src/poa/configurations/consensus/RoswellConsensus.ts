@@ -17,11 +17,11 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         [ChainIds.Bitcoin]: {
             [BitcoinNetwork.mainnet]: {
                 ENABLED: true,
-                BLOCK: 0n,
+                BLOCK: 1_000_000_000n,
             },
             [BitcoinNetwork.testnet]: {
                 ENABLED: true,
-                BLOCK: 0n,
+                BLOCK: 4_100_000n,
             },
             [BitcoinNetwork.regtest]: {
                 ENABLED: true,
@@ -42,7 +42,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         NEXT_CONSENSUS_BLOCK: 4_506_0830n,
 
         // Is this node updated to the next consensus?
-        IS_READY_FOR_NEXT_CONSENSUS: true,
+        IS_READY_FOR_NEXT_CONSENSUS: false,
 
         // Allow legacy? Hybrid contract address are supported in this version.
         ALLOW_LEGACY: false,
@@ -89,7 +89,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         GAS_PENALTY_FACTOR: 1n,
 
         /** Target block gas limit, a transaction can not pass this limit. */
-        TARGET_GAS: 4_500_000_000_000n, // 0.025 BTC.
+        TARGET_GAS: 15_000_000_000_001n, // 1.99 BTC.
 
         /** Smooth out gas increase when equal to gas target. */
         SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
@@ -98,13 +98,13 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
          */
-        MAX_THEORETICAL_GAS: 20_000_000_000_000n, // 0.2 BTC
+        MAX_THEORETICAL_GAS: 15_000_000_000_000n, // 2 BTC
 
         /** Max gas per transactions */
-        TRANSACTION_MAX_GAS: 21_000_000_000n, //2_550_000_000_000n, // 0.002 BTC.
+        TRANSACTION_MAX_GAS: 150_000_000_000n, // 0.0015 BTC
 
         /** btc_call maximum gas */
-        EMULATION_MAX_GAS: 20_000_000_000n, // 0.002 BTC.
+        EMULATION_MAX_GAS: 149_000_000_000n, // 0.0015 BTC
 
         /** Panic gas cost */
         PANIC_GAS_COST: 100_000_000n,
@@ -153,7 +153,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         REENTRANCY_GUARD: false,
 
         /** The cost of a byte in gas */
-        STORAGE_COST_PER_BYTE: 10_000n,
+        STORAGE_COST_PER_BYTE: 50_000n,
 
         /** Skip proof validation for execution before transaction */
         SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: true,

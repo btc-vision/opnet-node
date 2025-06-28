@@ -69,7 +69,6 @@ export class TransactionSorter {
         }
 
         const newOrder: Transaction<OPNetTransactionTypes>[] = [];
-
         for (let i = 0; i < transactionIds.length; i++) {
             const tx = transactions.find((t) => t.transactionIdString === transactionIds[i]);
             if (tx) {
@@ -82,7 +81,6 @@ export class TransactionSorter {
         return newOrder;
     }
 
-    // Optional to avoid duplicated transactions
     private verifyDuplicatedTransactionsAndPushToFinalList(
         group: Transaction<OPNetTransactionTypes>[],
         finalList: Transaction<OPNetTransactionTypes>[],

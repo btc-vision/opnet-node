@@ -137,12 +137,8 @@ class BlockchainBase {
         });
     };
 
-    private inputsJSFunction: (
+    private inputsJSFunction: (id: bigint) => Promise<Buffer | Uint8Array> = (
         id: bigint,
-        //result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        id: bigint,
-        //value: ThreadSafeJsImportResponse,
     ): Promise<Buffer | Uint8Array> => {
         if (this.enableDebug) console.log('INPUTS', id);
 
@@ -154,12 +150,8 @@ class BlockchainBase {
         return c.inputs();
     };
 
-    private outputsJSFunction: (
+    private outputsJSFunction: (id: bigint) => Promise<Buffer | Uint8Array> = (
         id: bigint,
-        //result: ThreadSafeJsImportResponse,
-    ) => Promise<Buffer | Uint8Array> = (
-        id: bigint,
-        //value: ThreadSafeJsImportResponse,
     ): Promise<Buffer | Uint8Array> => {
         if (this.enableDebug) console.log('OUTPUT', id);
 
