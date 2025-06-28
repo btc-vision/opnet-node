@@ -127,7 +127,7 @@ export class Mempool extends Logger {
 
             const currentBitcoinHeight: bigint = BigInt(currentBlockHeight.blockHeight) + 1n;
             const blockDiff = currentBitcoinHeight - OPNetConsensus.getBlockHeight();
-            if (blockDiff >= 1n) {
+            if (blockDiff >= 3n) {
                 if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                     this.warn(
                         `Block height mismatch: OPNet height ${OPNetConsensus.getBlockHeight()}, Bitcoin Core height ${currentBitcoinHeight}.`,
