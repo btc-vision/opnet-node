@@ -17,6 +17,7 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
     extends Omit<TransactionDocumentBase<T>, 'outputs' | 'inputs' | 'id' | 'hash'> {
     readonly hash: string;
     readonly id: string;
+    readonly blockNumber?: string;
 
     readonly burnedBitcoin: string;
     readonly revert: string | undefined;
