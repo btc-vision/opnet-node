@@ -11,7 +11,7 @@
     "skipLibCheck": true,
     "sourceMap": false,
     "moduleDetection": "force",
-    "allowImportingTsExtensions": false,
+    "allowImportingTsExtensions": true,
     "experimentalDecorators": true,
     "lib": [
       "es6",
