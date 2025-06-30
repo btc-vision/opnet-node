@@ -501,11 +501,9 @@ export class Block extends Logger {
         try {
             this.verifyIfBlockAborted();
 
-            this.saveGenericPromises.push(vmManager.saveBlock(this));
-
             // We must wait for the generic transactions to be saved before finalizing the block
             await Promise.safeAll(this.saveGenericPromises);
-
+            await vmManager.saveBlock(this);
             await vmManager.terminateBlock();
 
             return true;
