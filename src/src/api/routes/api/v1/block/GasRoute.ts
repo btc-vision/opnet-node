@@ -28,6 +28,7 @@ export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInfo
         | Promise<FeeMessageResponse | undefined | null>;
 
     private fetchFeeInterval: number = 1000 * 30;
+    private isInitialized: boolean = false;
 
     constructor() {
         super(Routes.GAS, RouteType.GET);
@@ -84,11 +85,12 @@ export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInfo
     public onBlockChange(_blockNumber: bigint, blockHeader: BlockHeaderAPIBlockDocument): void {
         this.cachedBlock = this.cacheResponse(blockHeader);
 
-        this.fetchFee();
+        if (this.isInitialized) this.fetchFee();
     }
 
     protected initialize(): void {
         setTimeout(() => {
+            this.isInitialized = true;
             this.fetchFeeLoop();
         }, 5000);
     }
