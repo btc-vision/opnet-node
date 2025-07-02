@@ -14,7 +14,7 @@ import {
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
-import { BitcoinRPC, FeeEstimation } from '@btc-vision/bitcoin-rpc';
+import { BitcoinRPC, FeeEstimation, SmartFeeEstimation } from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
@@ -24,7 +24,14 @@ import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { TransactionSizeValidator } from '../data-validator/TransactionSizeValidator.js';
 import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtils.js';
-import { FeeMessageResponse } from '../../../threading/interfaces/thread-messages/messages/api/FeeRequest.js';
+import {
+    BitcoinFees,
+    FeeMessageResponse,
+    FeeRecommendation,
+} from '../../../threading/interfaces/thread-messages/messages/api/FeeRequest.js';
+import { RawMempoolInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/MempoolInfo.js';
+
+const btcPerKvBtoSatPerVByte = (btcPerKvB: number): number => (btcPerKvB * 1e8) / 1_000;
 
 export class Mempool extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -49,7 +56,14 @@ export class Mempool extends Logger {
 
     private readonly network: Network = NetworkConverter.getNetwork();
 
-    private estimatedBlockFees: bigint = 0n;
+    private fees: BitcoinFees = {
+        conservative: '5',
+        recommended: {
+            low: '1.5',
+            medium: '2.5',
+            high: '5',
+        },
+    };
 
     constructor() {
         super();
@@ -118,6 +132,36 @@ export class Mempool extends Logger {
         await this.verifyBlockHeight();
     }
 
+    private estimateFeesBand(info: RawMempoolInfo): FeeRecommendation {
+        const floor = Math.max(
+            1,
+            Math.round(btcPerKvBtoSatPerVByte(info.mempoolminfee || info.minrelaytxfee)),
+        );
+
+        const occ = info.usage / info.maxmempool;
+
+        let low: number, medium: number, high: number;
+        if (occ < 0.05 && floor <= 2) {
+            low = floor + 1;
+            medium = Math.max(5, floor + 4);
+            high = Math.max(10, floor + 8);
+        } else if (occ < 0.5 || floor < 10) {
+            low = floor + 2;
+            medium = Math.max(10, floor + 5);
+            high = Math.max(20, floor + 10);
+        } else {
+            low = floor + 3;
+            medium = Math.max(20, floor + 10);
+            high = Math.max(40, floor + 20);
+        }
+
+        return {
+            low: low.toFixed(4),
+            medium: medium.toFixed(4),
+            high: high.toFixed(4),
+        };
+    }
+
     private async verifyBlockHeight(): Promise<void> {
         try {
             const currentBlockHeight = await this.bitcoinRPC.getBlockHeight();
@@ -180,30 +224,38 @@ export class Mempool extends Logger {
         } catch {}
     }
 
+    private processSmartFee(feeData: SmartFeeEstimation): number {
+        if ('errors' in feeData && feeData.errors) {
+            throw new Error(feeData.errors.join(' '));
+        }
+
+        if ('feerate' in feeData) {
+            const fee: number = feeData.feerate as number;
+            return fee * 100000;
+        }
+
+        throw new Error('Invalid fee data received from Bitcoin RPC');
+    }
+
     private async estimateFees(): Promise<void> {
         try {
-            const fees = await this.bitcoinRPC.estimateSmartFee(2, FeeEstimation.CONSERVATIVE);
-            if ('errors' in fees && fees.errors) {
-                throw new Error(fees.errors.join(' '));
+            const estimatedFee = await Promise.safeAll([
+                this.bitcoinRPC.estimateSmartFee(1, FeeEstimation.CONSERVATIVE),
+                this.bitcoinRPC.getMempoolInfo(),
+            ]);
+            
+            const economicalFee = estimatedFee[0];
+            const mempoolInfo = estimatedFee[1];
+
+            if (!mempoolInfo) {
+                throw new Error('Could not retrieve mempool info from Bitcoin RPC');
             }
 
-            if ('feerate' in fees) {
-                const fee: number = fees.feerate as number;
-                const estimatedFee = Math.ceil((fee * 100000000) / 1024);
-
-                this.estimatedBlockFees = BigInt(estimatedFee);
-            }
-
-            // If fee is too low, set it to the minimum. bigint.
-            this.estimatedBlockFees =
-                this.estimatedBlockFees <
-                OPNetConsensus.consensus.PSBT.MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT
-                    ? OPNetConsensus.consensus.PSBT.MINIMAL_PSBT_ACCEPTANCE_FEE_VB_PER_SAT
-                    : this.estimatedBlockFees;
-
-            if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
-                this.log(`Estimated fees: ${this.estimatedBlockFees}`);
-            }
+            const recommendedFees = this.estimateFeesBand(mempoolInfo);
+            this.fees = {
+                conservative: this.processSmartFee(economicalFee).toFixed(4),
+                recommended: recommendedFees,
+            };
         } catch (e) {
             if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
                 this.error(`Error estimating fees: ${(e as Error).message}`);
@@ -229,9 +281,7 @@ export class Mempool extends Logger {
 
     private onMempoolFeesRequest(): FeeMessageResponse {
         return {
-            bitcoinFees: {
-                feeRate: this.estimatedBlockFees,
-            },
+            bitcoinFees: this.fees,
         };
     }
 

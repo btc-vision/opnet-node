@@ -19,7 +19,6 @@ import { TransactionReceipt } from './api/v1/transaction/TransactionReceipt.js';
 import { Route } from './Route.js';
 import { BroadcastTransaction } from './api/v1/transaction/BroadcastTransaction.js';
 import { GasRoute } from './api/v1/block/GasRoute.js';
-import { Simulation } from './api/v1/states/Simulation.js';
 import { PublicKeyInfoRoute } from './api/v1/address/PublicKeyInfoRoute.js';
 import { GetPreimage } from './api/v1/transaction/GetPreimage.js';
 
@@ -45,7 +44,6 @@ export const DefinedRoutes: {
     [Routes.GET_STORAGE_AT]: new GetStorageAt(),
     [Routes.GET_CODE]: new GetCode(),
     [Routes.CALL]: new Call(),
-    [Routes.SIMULATE]: new Simulation(),
 
     /** Chain */
     [Routes.CHAIN_ID]: new ChainId(),

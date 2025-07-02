@@ -8,41 +8,70 @@ import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlock
 import { BlockGasInformation } from '../../../../json-rpc/types/interfaces/results/blocks/BlockGasInformation.js';
 import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
 import { BlockGasPredictor } from '../../../../../blockchain-indexer/processor/gas/BlockGasPredictor.js';
+import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { MessageType } from '../../../../../threading/enum/MessageType.js';
+import { ServerThread } from '../../../../ServerThread.js';
+import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
+import {
+    FeeMessageResponse,
+    FeeRequestMessageData,
+} from '../../../../../threading/interfaces/thread-messages/messages/api/FeeRequest.js';
 
 export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInformation> {
-    private cachedBlock:
-        | Promise<BlockHeaderAPIBlockDocument | undefined>
-        | BlockHeaderAPIBlockDocument
-        | undefined;
+    private cachedBlock: Promise<BlockGasInformation | undefined> | BlockGasInformation | undefined;
+
+    private cacheBlockFee:
+        | FeeMessageResponse
+        | undefined
+        | null
+        | Promise<FeeMessageResponse | undefined | null>;
+
+    private fetchFeeInterval: number = 1000 * 30;
 
     constructor() {
         super(Routes.GAS, RouteType.GET);
     }
 
+    public async requestMempoolFee(): Promise<FeeMessageResponse | undefined> {
+        const feeRequest: RPCMessage<BitcoinRPCThreadMessageType.GET_MEMPOOL_FEES> = {
+            type: MessageType.RPC_METHOD,
+            data: {
+                rpcMethod: BitcoinRPCThreadMessageType.GET_MEMPOOL_FEES,
+            } as FeeRequestMessageData,
+        };
+
+        const feeResponse: FeeMessageResponse | null = (await ServerThread.sendMessageToThread(
+            ThreadTypes.MEMPOOL,
+            feeRequest,
+            false,
+        )) as FeeMessageResponse | null;
+
+        if (!feeResponse) {
+            throw new Error('Failed to fetch mempool fee data.');
+        }
+
+        return feeResponse;
+    }
+
     public async getData(): Promise<BlockGasInformation> {
         const latestBlock = await this.getBlockHeader();
-        if (!latestBlock)
+        if (!latestBlock) {
             throw new Error('Could not fetch latest block header. Is this node synced?');
+        }
 
-        const gasUsed: bigint = BigInt(latestBlock.gasUsed);
-        const ema: bigint = BigInt(latestBlock.ema);
-        const baseGas: bigint = BigInt(latestBlock.baseGas);
+        let fee = await this.cacheBlockFee;
+        if (fee === null) {
+            this.fetchFee();
 
-        const gasPerSat: bigint =
-            (OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO * baseGas) /
-            BlockGasPredictor.scalingFactor;
+            fee = await this.cacheBlockFee;
+        }
 
-        return {
-            blockNumber: this.bigIntToHex(BigInt(latestBlock.height)),
-            gasUsed: this.bigIntToHex(gasUsed),
-            targetGasLimit: this.bigIntToHex(OPNetConsensus.consensus.GAS.TARGET_GAS),
-            gasLimit: this.bigIntToHex(OPNetConsensus.consensus.GAS.MAX_THEORETICAL_GAS),
+        if (fee) {
+            latestBlock.bitcoin = fee.bitcoinFees;
+        }
 
-            ema: this.bigIntToHex(ema),
-            baseGas: this.bigIntToHex(baseGas),
-
-            gasPerSat: this.bigIntToHex(gasPerSat),
-        };
+        return latestBlock;
     }
 
     public async getDataRPC(): Promise<BlockGasInformation> {
@@ -53,10 +82,16 @@ export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInfo
     }
 
     public onBlockChange(_blockNumber: bigint, blockHeader: BlockHeaderAPIBlockDocument): void {
-        this.cachedBlock = blockHeader;
+        this.cachedBlock = this.cacheResponse(blockHeader);
+
+        this.fetchFee();
     }
 
-    protected initialize(): void {}
+    protected initialize(): void {
+        setTimeout(() => {
+            this.fetchFeeLoop();
+        }, 5000);
+    }
 
     /**
      * GET /api/v1/block/gas
@@ -88,7 +123,67 @@ export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInfo
         return `0x${value.toString(16)}`;
     }
 
-    private async getBlockHeader(): Promise<BlockHeaderAPIBlockDocument | undefined> {
+    private fetchFeeLoop(): void {
+        this.fetchFee();
+
+        setTimeout(() => {
+            this.fetchFeeLoop();
+        }, this.fetchFeeInterval);
+    }
+
+    private fetchFee(): void {
+        this.cacheBlockFee = this.requestMempoolFee().catch((err: unknown) => {
+            this.warn(`Failed to fetch mempool fee data: ${err}`);
+
+            return null;
+        });
+    }
+
+    private async cacheResponse(
+        data:
+            | BlockHeaderAPIBlockDocument
+            | undefined
+            | Promise<BlockHeaderAPIBlockDocument | undefined>,
+    ): Promise<BlockGasInformation | undefined> {
+        if (!this.storage) {
+            throw new Error('Storage not initialized');
+        }
+
+        const latestBlock = await data;
+        if (!latestBlock) {
+            return;
+        }
+
+        const gasUsed: bigint = BigInt(latestBlock.gasUsed);
+        const ema: bigint = BigInt(latestBlock.ema);
+        const baseGas: bigint = BigInt(latestBlock.baseGas);
+
+        const gasPerSat: bigint =
+            (OPNetConsensus.consensus.GAS.SAT_TO_GAS_RATIO * baseGas) /
+            BlockGasPredictor.scalingFactor;
+
+        return {
+            blockNumber: this.bigIntToHex(BigInt(latestBlock.height)),
+            gasUsed: this.bigIntToHex(gasUsed),
+            targetGasLimit: this.bigIntToHex(OPNetConsensus.consensus.GAS.TARGET_GAS),
+            gasLimit: this.bigIntToHex(OPNetConsensus.consensus.GAS.MAX_THEORETICAL_GAS),
+
+            ema: this.bigIntToHex(ema),
+            baseGas: this.bigIntToHex(baseGas),
+
+            gasPerSat: this.bigIntToHex(gasPerSat),
+            bitcoin: {
+                conservative: '5',
+                recommended: {
+                    low: '1.5',
+                    medium: '2.5',
+                    high: '5',
+                },
+            },
+        };
+    }
+
+    private async getBlockHeader(): Promise<BlockGasInformation | undefined> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
@@ -97,7 +192,7 @@ export class GasRoute extends Route<Routes.GAS, JSONRpcMethods.GAS, BlockGasInfo
             return this.cachedBlock;
         }
 
-        this.cachedBlock = this.storage.getLatestBlock();
+        this.cachedBlock = this.cacheResponse(this.storage.getLatestBlock());
 
         return await this.cachedBlock;
     }

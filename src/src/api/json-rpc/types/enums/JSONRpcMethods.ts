@@ -31,5 +31,4 @@ export enum JSONRpcMethods {
 
     /** Simulation */
     CALL = 'btc_call',
-    SIMULATE = 'btc_simulate',
 }
