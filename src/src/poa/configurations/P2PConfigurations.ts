@@ -1,19 +1,17 @@
-import { YamuxMuxerInit } from '@chainsafe/libp2p-yamux';
-import { BootstrapInit } from '@libp2p/bootstrap';
-import { IdentifyInit } from '@libp2p/identify';
+import type { YamuxMuxerInit } from '@chainsafe/libp2p-yamux';
+import type { BootstrapInit } from '@libp2p/bootstrap';
+import type { IdentifyInit } from '@libp2p/identify';
 
-import { NodeInfo, PeerId, PrivateKey } from '@libp2p/interface';
+import type { NodeInfo, PeerId, PrivateKey } from '@libp2p/interface';
 import { FaultTolerance } from '@libp2p/interface-transport';
 import { KadDHTInit, removePrivateAddressesMapper } from '@libp2p/kad-dht';
-import { MulticastDNSInit } from '@libp2p/mdns/dist/src/mdns.js';
+import { MulticastDNSInit } from '@libp2p/mdns';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { TCPOptions } from '@libp2p/tcp';
 import { UPnPNATInit } from '@libp2p/upnp-nat';
 import { LevelDatastore } from 'datastore-level';
 import fs from 'fs';
-import { AddressManagerInit } from 'libp2p/address-manager/index.js';
-import { ConnectionManagerInit } from 'libp2p/connection-manager/index.js';
-import { TransportManagerInit } from 'libp2p/transport-manager.js';
+import type { AddressManagerInit, ConnectionManagerInit, TransportManagerInit } from 'libp2p';
 
 import path from 'path';
 

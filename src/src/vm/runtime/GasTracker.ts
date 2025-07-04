@@ -15,7 +15,12 @@ export class GasTracker {
     ) {
         if (this.settings && this.settings.freeGas) {
             this.#maxGas = this.cap(maxGas, this.settings.maxExternalGas);
-            this.#paidMaximum = this.cap(maxGas, OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS);
+            this.#paidMaximum = this.cap(
+                maxGas,
+                this.settings.transactionGasLimit
+                    ? this.settings.transactionGasLimit
+                    : OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS,
+            );
         } else {
             this.#maxGas = this.cap(maxGas, OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS);
             this.#paidMaximum = this.#maxGas;
@@ -57,7 +62,11 @@ export class GasTracker {
                 return this.settings.maxExternalGas;
             }
 
-            return OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS - this.settings.maxExternalGas;
+            const gasCap = this.settings.transactionGasLimit
+                ? this.settings.transactionGasLimit
+                : OPNetConsensus.consensus.GAS.TRANSACTION_MAX_GAS;
+
+            return gasCap - this.settings.maxExternalGas;
         }
 
         return this.#maxGas;

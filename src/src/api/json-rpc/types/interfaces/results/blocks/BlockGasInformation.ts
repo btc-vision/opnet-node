@@ -1,3 +1,5 @@
+import { BitcoinFees } from '../../../../../../threading/interfaces/thread-messages/messages/api/FeeRequest.js';
+
 export interface BlockGasInformation {
     readonly blockNumber: string;
     readonly gasUsed: string;
@@ -9,4 +11,6 @@ export interface BlockGasInformation {
     readonly baseGas: string;
 
     readonly gasPerSat: string;
+
+    bitcoin: BitcoinFees;
 }

@@ -2,8 +2,15 @@ import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/r
 import { RPCMessageData } from './RPCMessage.js';
 import { ThreadData } from '../../../ThreadData.js';
 
+export interface FeeRecommendation {
+    low: string;
+    medium: string;
+    high: string;
+}
+
 export interface BitcoinFees {
-    readonly feeRate: bigint;
+    readonly conservative: string;
+    readonly recommended: FeeRecommendation;
 }
 
 export type FeeMessageResponse = ThreadData & {

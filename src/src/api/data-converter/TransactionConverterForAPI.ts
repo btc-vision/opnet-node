@@ -43,6 +43,8 @@ export class TransactionConverterForAPI {
             ...transaction,
             hash: transaction.hash.toString('hex'),
             id: transaction.id.toString('hex'),
+            blockNumber:
+                '0x' + DataConverter.fromDecimal128(transaction.blockHeight || 0n).toString(16),
             inputs: transaction.inputs?.map((input) => {
                 return {
                     ...input,

@@ -17,6 +17,7 @@ export interface SpecialContract {
      * The maximum allowed gas usage by external calls to this contract.
      */
     readonly maxExternalGas: bigint;
+    readonly transactionGasLimit: bigint;
 }
 
 export type SpecialContracts = {

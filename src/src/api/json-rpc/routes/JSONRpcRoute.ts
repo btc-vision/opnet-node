@@ -32,5 +32,4 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     [JSONRpcMethods.GET_CODE]: Routes.GET_CODE,
     [JSONRpcMethods.GET_STORAGE_AT]: Routes.GET_STORAGE_AT,
     [JSONRpcMethods.CALL]: Routes.CALL,
-    [JSONRpcMethods.SIMULATE]: Routes.SIMULATE,
 };

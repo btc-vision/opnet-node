@@ -2,11 +2,11 @@ import { Address } from '@btc-vision/transaction';
 import { SpecialContract, SpecialContracts } from '../../types/SpecialContracts.js';
 
 const nativeSwapRegtest: Address = Address.fromString(
-    '0x2a207fb02a5938b463ae8f43d0dde11581e0ca520b206b6ba3eff4ca8245eca2',
+    '0x65a36498ef6d9aca78050e8bbcb0031f13cfa0b6b3fb9efbbd1f4be46bff1a47',
 );
 
 const nativeSwapTestnet: Address = Address.fromString(
-    '0xe9d1826f360eef9c5d827e29ef8c64205d709d9e93f9315c3decc21331b57baf',
+    '0x0fc4f9b04dc3ccf799aae0b9a040b2428ec804a59a09969a476daf975c12faa6',
 );
 
 const nativeSwapMainnet: Address = Address.dead();
@@ -16,6 +16,7 @@ const nativeSwapContractSettings: Omit<SpecialContract, 'address'> = {
     bypassBlockLimit: true,
 
     maxExternalGas: 10_000_000_000n,
+    transactionGasLimit: 600_000_000_000n,
 };
 
 export const SPECIAL_CONTRACTS_ROSWELL_REGTEST: SpecialContracts = {

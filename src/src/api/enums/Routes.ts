@@ -28,7 +28,6 @@ export enum Routes {
     GET_CODE = 'states/get-code',
     GET_STORAGE_AT = 'states/get-storage-at',
     CALL = 'states/call',
-    SIMULATE = 'states/simulate',
 
     /** Other */
     PROTOBUF_SCHEMA = 'protobuf/schema',
