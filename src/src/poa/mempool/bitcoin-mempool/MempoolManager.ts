@@ -224,7 +224,7 @@ export class MempoolManager extends Logger {
             );
 
             if (!decodedTransaction) {
-                this.error(`Failed to verify transaction ${txData.txid}}`);
+                this.error(`Failed to verify transaction ${txData.txid}`);
             }
         } catch (e) {
             if (Config.DEV_MODE) {
