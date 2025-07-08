@@ -74,6 +74,7 @@ export class TransactionVerifierManager extends Logger {
             }
 
             if (!psbtOrTransaction) {
+                console.log('Not a valid PSBT or transaction data', tx);
                 return false;
             }
 
