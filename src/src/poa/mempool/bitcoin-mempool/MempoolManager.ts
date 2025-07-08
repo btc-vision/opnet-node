@@ -192,6 +192,14 @@ export class MempoolManager extends Logger {
 
             const batchData = await Promise.safeAll(promises);
             txsData.push(...batchData.filter((tx) => !!tx));
+
+            if (Config.DEV_MODE) {
+                this.log(
+                    `Fetched batch ${Math.floor(i / Config.MEMPOOL.BATCH_SIZE) + 1} of ${Math.ceil(
+                        txs.length / Config.MEMPOOL.BATCH_SIZE,
+                    )} (${txsData.length} transactions processed so far)`,
+                );
+            }
         }
 
         return txsData;
