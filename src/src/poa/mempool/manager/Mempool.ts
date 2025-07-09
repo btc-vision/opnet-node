@@ -216,9 +216,9 @@ export class Mempool extends Logger {
 
             await this.transactionVerifier.onBlockChange(blockHeight);
 
-            if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
+            /*if (Config.MEMPOOL.ENABLE_BLOCK_PURGE) {
                 void this.mempoolRepository.purgeOldTransactions(blockHeight);
-            }
+            }*/
 
             await this.estimateFees();
         } catch {}
@@ -243,7 +243,7 @@ export class Mempool extends Logger {
                 this.bitcoinRPC.estimateSmartFee(1, FeeEstimation.CONSERVATIVE),
                 this.bitcoinRPC.getMempoolInfo(),
             ]);
-            
+
             const economicalFee = estimatedFee[0];
             const mempoolInfo = estimatedFee[1];
 
