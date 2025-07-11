@@ -180,7 +180,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         const collection = this.getCollection();
         const options: FindOptions = this.getOptions();
         options.allowDiskUse = true;
-        options.limit = 100;
+        options.limit = Config.API.UTXO_LIMIT;
 
         const results = (await collection
             .find(criteria, options)
@@ -229,7 +229,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
                 },
             },
             {
-                $limit: 100,
+                $limit: Config.API.UTXO_LIMIT,
             },
         ];
 

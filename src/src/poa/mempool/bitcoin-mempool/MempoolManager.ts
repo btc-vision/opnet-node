@@ -192,6 +192,14 @@ export class MempoolManager extends Logger {
 
             const batchData = await Promise.safeAll(promises);
             txsData.push(...batchData.filter((tx) => !!tx));
+
+            if (Config.DEV_MODE) {
+                this.log(
+                    `Fetched batch ${Math.floor(i / Config.MEMPOOL.BATCH_SIZE) + 1} of ${Math.ceil(
+                        txs.length / Config.MEMPOOL.BATCH_SIZE,
+                    )} (${txsData.length} transactions processed so far)`,
+                );
+            }
         }
 
         return txsData;
@@ -288,11 +296,10 @@ export class MempoolManager extends Logger {
     }
 
     private async generateMempoolPopulation(): Promise<void> {
+        let txsList: string[] | null = null;
         try {
             const startedAt = Date.now();
-            const txsList: string[] | null = await this.bitcoinRPC.getRawMempool(
-                BitcoinVerbosity.RAW,
-            );
+            txsList = await this.bitcoinRPC.getRawMempool(BitcoinVerbosity.RAW);
 
             if (!txsList) {
                 this.error('Failed to fetch mempool transactions');
@@ -315,8 +322,6 @@ export class MempoolManager extends Logger {
                 return;
             }
 
-            await this.generateMempoolBackup(txsList);
-
             const fetchedTxs = await this.fetchAllUnknownTransactions(newTxs);
             if (!fetchedTxs.length) {
                 return;
@@ -333,6 +338,10 @@ export class MempoolManager extends Logger {
             this.log(`Stored ${fetchedTxs.length} transactions in ${Date.now() - stored}ms`);
         } catch (e) {
             this.error(`Failed to fetch mempool transactions: ${(e as Error).message}`);
+        } finally {
+            if (txsList && txsList.length) {
+                await this.generateMempoolBackup(txsList);
+            }
         }
     }
 }

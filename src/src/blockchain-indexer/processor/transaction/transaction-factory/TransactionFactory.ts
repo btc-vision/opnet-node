@@ -26,14 +26,16 @@ export class TransactionFactory {
         const index = parser.vInIndex;
 
         const tx = transactionObj.parse(data, index, blockHash, blockHeight, network, addressCache);
-        tx.verifyPreImage = (preimage: Buffer) => {
-            const isValid = allowedPreimages.some((allowedPreimage) =>
+        tx.verifyPreImage = (_preimage: Buffer) => {
+            /*const isValid = allowedPreimages.some((allowedPreimage) =>
                 allowedPreimage.equals(preimage),
             );
 
             if (!isValid) {
-                throw new Error('Invalid preimage');
-            }
+                throw new Error(
+                    'Transaction was pending in the mempool for too long. It is no longer valid.',
+                );
+            }*/
         };
 
         /*if (processTask && tx.transactionType === OPNetTransactionTypes.Interaction) {
