@@ -29,6 +29,12 @@ export enum JSONRpcMethods {
     GET_CODE = 'btc_getCode',
     GET_STORAGE_AT = 'btc_getStorageAt',
 
+    /** Epochs */
+    GET_EPOCH_BY_NUMBER = 'btc_getEpochByNumber',
+    GET_EPOCH_BY_HASH = 'btc_getEpochByHash',
+    GET_EPOCH_TEMPLATE = 'btc_getEpochTemplate',
+    SUBMIT_EPOCH = 'btc_submitEpoch',
+
     /** Simulation */
     CALL = 'btc_call',
 }
