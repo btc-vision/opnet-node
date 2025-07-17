@@ -14,6 +14,7 @@ export enum OPNetCollections {
     PublicKeys = 'PublicKeys',
     Epochs = 'Epochs',
     EpochSubmissions = 'EpochSubmissions',
+    TargetEpochs = 'TargetEpochs',
 }
 
 export abstract class IndexedCollection<T extends OPNetCollections> {

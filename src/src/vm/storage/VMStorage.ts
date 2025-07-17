@@ -19,6 +19,7 @@ import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js'
 import { IEpochSubmissionsDocument } from '../../db/documents/interfaces/IEpochSubmissionsDocument.js';
 import { Binary } from 'mongodb';
 import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
+import { ITargetEpochDocument } from '../../db/documents/interfaces/ITargetEpochDocument.js';
 
 export abstract class VMStorage extends Logger {
     public readonly logColor: string = '#ff00ff';
@@ -261,4 +262,14 @@ export abstract class VMStorage extends Logger {
         salt: Buffer | Binary,
         epochNumber: bigint,
     ): Promise<boolean>;
+
+    public abstract targetEpochExists(epochNumber: bigint, salt: Buffer | Binary): Promise<boolean>;
+
+    public abstract getBestTargetEpoch(epochNumber: bigint): Promise<ITargetEpochDocument | null>;
+
+    public abstract saveTargetEpoch(targetEpoch: ITargetEpochDocument): Promise<void>;
+
+    public abstract deleteOldTargetEpochs(epochNumber: bigint): Promise<void>;
+
+    public abstract getNextEpoch(blockNumber: bigint): Promise<IEpochDocument | undefined>;
 }

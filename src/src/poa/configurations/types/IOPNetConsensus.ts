@@ -36,7 +36,9 @@ export interface IOPNetConsensus<T extends Consensus> {
     readonly EPOCH: {
         /** There is an epoch change every X blocks */
         readonly BLOCKS_PER_EPOCH: bigint;
-    }
+
+        readonly MIN_DIFFICULTY: number;
+    };
 
     readonly GENERIC: {
         /** General consensus properties */

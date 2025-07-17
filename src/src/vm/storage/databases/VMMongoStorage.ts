@@ -35,10 +35,12 @@ import { EpochSubmissionRepository } from '../../../db/repositories/EpochSubmiss
 import { Binary } from 'mongodb';
 import { IEpochDocument } from '../../../db/documents/interfaces/IEpochDocument.js';
 import { IEpochSubmissionsDocument } from '../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
+import { TargetEpochRepository } from '../../../db/repositories/TargetEpochRepository.js';
+import { ITargetEpochDocument } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
+import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
-
     private pointerRepository: ContractPointerValueRepository | undefined;
     private contractRepository: ContractRepository | undefined;
     private blockRepository: BlockRepository | undefined;
@@ -47,11 +49,11 @@ export class VMMongoStorage extends VMStorage {
     private reorgRepository: ReorgsRepository | undefined;
     private blockWitnessRepository: BlockWitnessRepository | undefined;
     private mempoolRepository: MempoolRepository | undefined;
-
     private blockchainInfoRepository: BlockchainInfoRepository | undefined;
     private publicKeysRepository: PublicKeysRepository | undefined;
     private epochRepository: EpochRepository | undefined;
     private epochSubmissionRepository: EpochSubmissionRepository | undefined;
+    private targetEpochRepository: TargetEpochRepository | undefined;
     private initialized: boolean = false;
 
     constructor(
@@ -67,6 +69,59 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Blockchain info repository not initialized');
         }
         return this.blockchainInfoRepository;
+    }
+
+    public async getNextEpoch(epochNumber: bigint): Promise<IEpochDocument | undefined> {
+        // BASICALLY, the next opnet epoch is currentHeight % BLOCKS_PER_EPOCH.
+        // The target hash is the sha1 of the checksum of the block height that equals 0 to the modulo.
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        if (!this.blockRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        const targetHeight = epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+        const blockHeader = await this.blockRepository.getBlockHeader(targetHeight);
+
+        if (!blockHeader) {
+            throw new Error(`Block header not found for height ${targetHeight}`);
+        }
+
+        const targetHash = blockHeader.checksumRoot;
+    }
+
+    public targetEpochExists(epochNumber: bigint, salt: Buffer | Binary): Promise<boolean> {
+        if (!this.targetEpochRepository) {
+            throw new Error('Target epoch repository not initialized');
+        }
+
+        return this.targetEpochRepository.targetEpochExists(epochNumber, salt);
+    }
+
+    public getBestTargetEpoch(epochNumber: bigint): Promise<ITargetEpochDocument | null> {
+        if (!this.targetEpochRepository) {
+            throw new Error('Target epoch repository not initialized');
+        }
+
+        return this.targetEpochRepository.getBestTargetEpoch(epochNumber);
+    }
+
+    public saveTargetEpoch(targetEpoch: ITargetEpochDocument): Promise<void> {
+        if (!this.targetEpochRepository) {
+            throw new Error('Target epoch repository not initialized');
+        }
+
+        return this.targetEpochRepository.saveTargetEpoch(targetEpoch);
+    }
+
+    public deleteOldTargetEpochs(epochNumber: bigint): Promise<void> {
+        if (!this.targetEpochRepository) {
+            throw new Error('Target epoch repository not initialized');
+        }
+
+        return this.targetEpochRepository.deleteOldTargetEpochs(epochNumber);
     }
 
     public async killAllPendingWrites(): Promise<void> {
@@ -249,6 +304,8 @@ export class VMMongoStorage extends VMStorage {
         this.mempoolRepository = new MempoolRepository(this.databaseManager.db);
         this.publicKeysRepository = new PublicKeysRepository(this.databaseManager.db);
         this.epochRepository = new EpochRepository(this.databaseManager.db);
+        this.epochSubmissionRepository = new EpochSubmissionRepository(this.databaseManager.db);
+        this.targetEpochRepository = new TargetEpochRepository(this.databaseManager.db);
     }
 
     public async deleteTransactionsById(ids: string[]): Promise<void> {
