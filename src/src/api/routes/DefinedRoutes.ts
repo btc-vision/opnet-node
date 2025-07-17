@@ -3,7 +3,7 @@ import { JSONRpcMethods } from '../json-rpc/types/enums/JSONRpcMethods.js';
 import { GetBalanceRoute } from './api/v1/address/GetBalanceRoute.js';
 import { UTXOsRoute } from './api/v1/address/UTXOsRoute.js';
 import { BlockByHash } from './api/v1/block/BlockByHash.js';
-import { BlockById } from './api/v1/block/BlockById.js';
+import { BlockByNumber } from './api/v1/block/BlockByNumber.js';
 import { LatestBlock } from './api/v1/block/LatestBlock.js';
 import { ChainId } from './api/v1/chain/ChainId.js';
 import { ReorgRoute } from './api/v1/chain/ReorgRoute.js';
@@ -21,19 +21,26 @@ import { BroadcastTransaction } from './api/v1/transaction/BroadcastTransaction.
 import { GasRoute } from './api/v1/block/GasRoute.js';
 import { PublicKeyInfoRoute } from './api/v1/address/PublicKeyInfoRoute.js';
 import { GetPreimage } from './api/v1/transaction/GetPreimage.js';
+import { LatestEpoch } from './api/v1/epochs/LatestEpoch.js';
+import { EpochByNumber } from './api/v1/epochs/EpochByNumber.js';
+import { EpochByHash } from './api/v1/epochs/EpochByHash.js';
 
 export const DefinedRoutes: {
     [key in Routes]: Route<key, JSONRpcMethods, object | string | undefined>;
 } = {
     /** Blocks */
     [Routes.LATEST_BLOCK]: new LatestBlock(),
-    [Routes.BLOCK_BY_ID]: new BlockById(),
+    [Routes.BLOCK_BY_ID]: new BlockByNumber(),
     [Routes.BLOCK_BY_HASH]: new BlockByHash(),
     [Routes.BLOCK_WITNESS]: new OPNetWitnessRoute(),
     [Routes.GAS]: new GasRoute(),
 
-    /** OPNet */
-    //[Routes.GENERATE]: new GenerateRoute(),
+    /** Epochs */
+    [Routes.LATEST_EPOCH]: new LatestEpoch(),
+    [Routes.EPOCH_BY_NUMBER]: new EpochByNumber(),
+    [Routes.EPOCH_BY_HASH]: new EpochByHash(),
+    [Routes.EPOCH_TEMPLATE]: new GetEpochTemplateRoute(),
+    [Routes.SUBMIT_EPOCH]: new SubmitEpochRoute(),
 
     /** Address */
     [Routes.UTXOS]: new UTXOsRoute(),

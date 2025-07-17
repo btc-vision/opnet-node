@@ -121,8 +121,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             MAXIMUM_TRANSACTION_BROADCAST: 50,
             MAXIMUM_PENDING_CALL_REQUESTS: 100,
+            MAXIMUM_PARALLEL_EPOCH_QUERY: 50,
 
-            UTXO_LIMIT: 500,
+            EPOCH_CACHE_SIZE: 15,
+            UTXO_LIMIT: 1000,
         },
 
         POC: {
@@ -757,6 +759,24 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(
                     `Oops the property API.MAXIMUM_TRANSACTION_BROADCAST is not a number.`,
+                );
+            }
+
+            if (
+                parsedConfig.API.MAXIMUM_PARALLEL_EPOCH_QUERY &&
+                typeof parsedConfig.API.MAXIMUM_PARALLEL_EPOCH_QUERY !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.MAXIMUM_PARALLEL_EPOCH_QUERY is not a number.`,
+                );
+            }
+
+            if (
+                parsedConfig.API.EPOCH_CACHE_SIZE &&
+                typeof parsedConfig.API.EPOCH_CACHE_SIZE !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.EPOCH_CACHE_SIZE is not a number.`,
                 );
             }
 

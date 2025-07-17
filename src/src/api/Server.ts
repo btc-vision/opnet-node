@@ -20,6 +20,8 @@ import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
 import { BlockHeaderAPIBlockDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { P2PMajorVersion, P2PVersion } from '../poa/configurations/P2PVersion.js';
+import { Decimal128 } from 'mongodb';
+import { DataConverter } from '@btc-vision/bsi-db';
 
 Globals.register();
 
@@ -139,6 +141,11 @@ export class Server extends Logger {
                 OPNetConsensus.setBlockHeight(blockHeight);
 
                 await this.notifyAllRoutesOfBlockChange(blockHeight);
+
+                const isEpochChange = OPNetConsensus.isEpochChange(blockHeight);
+                if (isEpochChange) {
+                    await this.notifyAllRoutesOfEpochChange(blockHeight);
+                }
             } catch (e) {
                 this.error(`Error setting block height. ${(e as Error).message}`);
             }
@@ -166,6 +173,20 @@ export class Server extends Logger {
         }
 
         this.notifyWebsocketsOfBlockChange(height, header);
+    }
+
+    private async notifyAllRoutesOfEpochChange(blockHeight: bigint): Promise<void> {
+        if(blockHeight === 0n) return;
+
+        const epochData = await this.storage.getLatestEpoch();
+        if (!epochData) {
+            throw new Error(`Epoch data not found.`);
+        }
+
+        const epochNumber = DataConverter.fromDecimal128(epochData.epochNumber);
+        for (const route of Object.values(DefinedRoutes)) {
+            route.onEpochChange(epochNumber, epochData);
+        }
     }
 
     private notifyWebsocketsOfBlockChange(

@@ -30,6 +30,7 @@ export enum JSONRpcMethods {
     GET_STORAGE_AT = 'btc_getStorageAt',
 
     /** Epochs */
+    LATEST_EPOCH = 'btc_latestEpoch',
     GET_EPOCH_BY_NUMBER = 'btc_getEpochByNumber',
     GET_EPOCH_BY_HASH = 'btc_getEpochByHash',
     GET_EPOCH_TEMPLATE = 'btc_getEpochTemplate',

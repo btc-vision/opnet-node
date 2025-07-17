@@ -15,6 +15,10 @@ import { StoragePointer } from './types/StoragePointer.js';
 import { BlockchainInfoRepository } from '../../db/repositories/BlockchainInfoRepository.js';
 import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 import { Address, AddressMap } from '@btc-vision/transaction';
+import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js';
+import { IEpochSubmissionsDocument } from '../../db/documents/interfaces/IEpochSubmissionsDocument.js';
+import { Binary } from 'mongodb';
+import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
 
 export abstract class VMStorage extends Logger {
     public readonly logColor: string = '#ff00ff';
@@ -146,4 +150,115 @@ export abstract class VMStorage extends Logger {
     public abstract deleteTransactionsById(transactions: string[]): Promise<void>;
 
     public abstract getPreimage(blockHeight: bigint): Promise<string>;
+
+    // Epoch-related abstract methods
+
+    /**
+     * Get the latest epoch
+     */
+    public abstract getLatestEpoch(): Promise<IEpochDocument | undefined>;
+
+    /**
+     * Get epoch by epoch number
+     */
+    public abstract getEpochByNumber(epochNumber: SafeBigInt): Promise<IEpochDocument | undefined>;
+
+    /**
+     * Get epoch by epoch hash
+     */
+    public abstract getEpochByHash(epochHash: Buffer | Binary): Promise<IEpochDocument | undefined>;
+
+    /**
+     * Get epoch by block height (find which epoch contains this block)
+     */
+    public abstract getEpochByBlockHeight(blockHeight: bigint): Promise<IEpochDocument | undefined>;
+
+    /**
+     * Get active epoch (where endBlock is -1)
+     */
+    public abstract getActiveEpoch(): Promise<IEpochDocument | undefined>;
+
+    /**
+     * Get epochs by proposer public key
+     */
+    public abstract getEpochsByProposer(
+        proposerPublicKey: Buffer | Binary,
+    ): Promise<IEpochDocument[]>;
+
+    /**
+     * Get epochs by target hash
+     */
+    public abstract getEpochsByTargetHash(targetHash: Buffer | Binary): Promise<IEpochDocument[]>;
+
+    /**
+     * Save or update an epoch
+     */
+    public abstract saveEpoch(epoch: IEpochDocument): Promise<void>;
+
+    /**
+     * Update epoch end block
+     */
+    public abstract updateEpochEndBlock(epochNumber: bigint, endBlock: bigint): Promise<void>;
+
+    /**
+     * Delete epochs from a specific bitcoin block number onwards
+     */
+    public abstract deleteEpochFromBitcoinBlockNumber(bitcoinBlockNumber: bigint): Promise<void>;
+
+    /**
+     * Get all submissions for a specific epoch number
+     */
+    public abstract getSubmissionsByEpochNumber(
+        epochNumber: bigint,
+    ): Promise<IEpochSubmissionsDocument[]>;
+
+    /**
+     * Get submission by transaction hash
+     */
+    public abstract getSubmissionByTxHash(
+        txHash: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument | undefined>;
+
+    /**
+     * Get submission by transaction ID
+     */
+    public abstract getSubmissionByTxId(
+        txId: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument | undefined>;
+
+    /**
+     * Get submissions accepted within a block range
+     */
+    public abstract getSubmissionsInBlockRange(
+        startBlock: bigint,
+        endBlock: bigint,
+    ): Promise<IEpochSubmissionsDocument[]>;
+
+    /**
+     * Get submissions by proposer public key
+     */
+    public abstract getSubmissionsByProposer(
+        proposerPublicKey: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument[]>;
+
+    /**
+     * Get pending submissions (not yet accepted)
+     */
+    public abstract getPendingSubmissions(fromBlock: bigint): Promise<IEpochSubmissionsDocument[]>;
+
+    /**
+     * Get submissions by submission hash
+     */
+    public abstract getSubmissionByHash(
+        submissionHash: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument | undefined>;
+
+    /**
+     * Check if a submission exists
+     */
+    public abstract submissionExists(
+        publicKey: Buffer | Binary,
+        salt: Buffer | Binary,
+        epochNumber: bigint,
+    ): Promise<boolean>;
 }

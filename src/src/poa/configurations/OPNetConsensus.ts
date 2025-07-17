@@ -54,6 +54,10 @@ class OPNetConsensusConfiguration extends Logger {
         return network;
     }
 
+    public isEpochChange(blockHeight: bigint): boolean {
+        return blockHeight % this.consensus.EPOCH.BLOCKS_PER_EPOCH === 0n;
+    }
+
     public addConsensusUpgradeCallback(
         callback: (consensus: string, isReady: boolean) => void,
     ): void {

@@ -122,6 +122,9 @@ export interface APIExtendedConfigurations extends APIConfig {
     readonly MAXIMUM_TRANSACTION_BROADCAST: number; // Maximum number of transactions to broadcast
     readonly MAXIMUM_PENDING_CALL_REQUESTS: number; // Maximum number of pending call requests
 
+    readonly MAXIMUM_PARALLEL_EPOCH_QUERY: number; // Maximum number of epochs per batch
+    readonly EPOCH_CACHE_SIZE: number; // Size of the epoch cache
+
     readonly UTXO_LIMIT: number; // UTXO limit
 }
 

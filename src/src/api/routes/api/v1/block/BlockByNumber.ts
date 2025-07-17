@@ -8,7 +8,7 @@ import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/b
 import { BlockParamsConverter, SafeBigInt } from '../../../safe/BlockParamsConverter.js';
 import { BlockRoute } from './BlockRoute.js';
 
-export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
+export class BlockByNumber extends BlockRoute<Routes.BLOCK_BY_ID> {
     constructor() {
         super(Routes.BLOCK_BY_ID);
     }

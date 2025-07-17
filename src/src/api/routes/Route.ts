@@ -15,6 +15,7 @@ import { Config } from '../../config/Config.js';
 import { BlockHeaderAPIBlockDocument } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { networks } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
+import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js';
 
 export abstract class Route<
     T extends Routes,
@@ -50,6 +51,7 @@ export abstract class Route<
         };
     }
 
+    public onEpochChange(_epochNumber: bigint, _epochData: IEpochDocument): void {}
     public onBlockChange(_blockNumber: bigint, _blockHeader: BlockHeaderAPIBlockDocument): void {}
 
     public abstract getData(params?: JSONRpc2RequestParams<R>): Promise<U> | U;
