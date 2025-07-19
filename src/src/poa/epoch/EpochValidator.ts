@@ -200,9 +200,6 @@ export class EpochValidator extends Logger {
         return preimage;
     }
 
-    /**
-     * Count matching leading bits between two hex strings
-     */
     public countMatchingBits(hash1: Buffer, hash2: Buffer): number {
         let matchingBits = 0;
         const minLength = Math.min(hash1.length, hash2.length);
@@ -212,10 +209,10 @@ export class EpochValidator extends Logger {
             const byte2 = hash2[i];
 
             if (byte1 === byte2) {
-                matchingBits += 4; // Each hex digit is 4 bits
+                matchingBits += 8; // Each byte is 8 bits
             } else {
-                // Check individual bits in the mismatched hex digit
-                for (let bit = 3; bit >= 0; bit--) {
+                // Check individual bits in the mismatched byte
+                for (let bit = 7; bit >= 0; bit--) {
                     if (((byte1 >> bit) & 1) === ((byte2 >> bit) & 1)) {
                         matchingBits++;
                     } else {
