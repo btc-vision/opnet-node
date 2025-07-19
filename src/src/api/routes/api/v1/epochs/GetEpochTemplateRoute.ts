@@ -8,7 +8,6 @@ import { EpochTemplateResult } from '../../../../json-rpc/types/interfaces/resul
 import { EpochTemplateParams } from '../../../../json-rpc/types/interfaces/params/epochs/GetEpochTemplateParams.js';
 import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { SHA1 } from '../../../../../utils/SHA1.js';
 
 export class GetEpochTemplateRoute extends Route<
     Routes.EPOCH_TEMPLATE,
@@ -45,12 +44,10 @@ export class GetEpochTemplateRoute extends Route<
         }
 
         const target = blockHeader.checksumRoot;
-        const targetHash = SHA1.hash(Buffer.from(target.replace('0x', ''), 'hex'));
 
         return {
             epochNumber: epochNumber.toString(),
             epochTarget: target,
-            targetHash: targetHash,
         };
     }
 

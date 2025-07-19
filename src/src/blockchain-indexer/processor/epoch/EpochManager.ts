@@ -109,7 +109,7 @@ export class EpochManager extends Logger {
         const publicKey = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY;
         const salt = Buffer.alloc(32);
 
-        const solution = this.epochValidator.calculatePreimage(targetHash, publicKey, salt);
+        const solution = EpochValidator.calculatePreimage(preimage, publicKey, salt);
 
         const solutionHash = Buffer.from(SHA1.hash(solution), 'hex');
         const matchingBits = this.epochValidator.countMatchingBits(solutionHash, targetHash);

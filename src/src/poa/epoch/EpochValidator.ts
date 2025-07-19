@@ -58,6 +58,29 @@ export class EpochValidator extends Logger {
     }
 
     /**
+     * Calculate mining preimage using XOR operations
+     */
+    public static calculatePreimage(targetHash: Buffer, publicKey: Address, salt: Buffer): Buffer {
+        // Ensure all buffers are exactly 32 bytes
+        const target32 = Buffer.alloc(32);
+        const pubKey32 = Buffer.alloc(32);
+        const salt32 = Buffer.alloc(32);
+
+        // Copy data into 32-byte buffers
+        targetHash.copy(target32, 0, 0, Math.min(32, targetHash.length));
+        publicKey.toBuffer().copy(pubKey32, 0, 0, Math.min(32, publicKey.length));
+        salt.copy(salt32, 0, 0, Math.min(32, salt.length));
+
+        // Perform triple XOR operation
+        const preimage = Buffer.alloc(32);
+        for (let i = 0; i < 32; i++) {
+            preimage[i] = target32[i] ^ pubKey32[i] ^ salt32[i];
+        }
+
+        return preimage;
+    }
+
+    /**
      * Validate an epoch solution submission
      */
     public async validateEpochSolution(
@@ -92,7 +115,7 @@ export class EpochValidator extends Logger {
             }
 
             // Calculate the preimage
-            const preimage = this.calculatePreimage(
+            const preimage = EpochValidator.calculatePreimage(
                 params.targetHash,
                 params.publicKey,
                 params.salt,
@@ -175,29 +198,6 @@ export class EpochValidator extends Logger {
         await this.storage.saveTargetEpoch(targetEpoch);
 
         return targetEpoch;
-    }
-
-    /**
-     * Calculate mining preimage using XOR operations
-     */
-    public calculatePreimage(targetHash: Buffer, publicKey: Address, salt: Buffer): Buffer {
-        // Ensure all buffers are exactly 32 bytes
-        const target32 = Buffer.alloc(32);
-        const pubKey32 = Buffer.alloc(32);
-        const salt32 = Buffer.alloc(32);
-
-        // Copy data into 32-byte buffers
-        targetHash.copy(target32, 0, 0, Math.min(32, targetHash.length));
-        publicKey.toBuffer().copy(pubKey32, 0, 0, Math.min(32, publicKey.length));
-        salt.copy(salt32, 0, 0, Math.min(32, salt.length));
-
-        // Perform triple XOR operation
-        const preimage = Buffer.alloc(32);
-        for (let i = 0; i < 32; i++) {
-            preimage[i] = target32[i] ^ pubKey32[i] ^ salt32[i];
-        }
-
-        return preimage;
     }
 
     public countMatchingBits(hash1: Buffer, hash2: Buffer): number {
