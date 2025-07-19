@@ -54,7 +54,9 @@ export class EpochManager extends Logger {
 
     private createEpoch(epoch: IEpoch): IEpochDocument {
         return {
-            epochNumber: DataConverter.toDecimal128(0n),
+            epochNumber: DataConverter.toDecimal128(
+                epoch.startBlock / BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH),
+            ),
             epochHash: new Binary(this.hashEpoch(epoch)),
             targetHash: new Binary(epoch.targetHash),
             startBlock: DataConverter.toDecimal128(epoch.startBlock),
@@ -90,8 +92,6 @@ export class EpochManager extends Logger {
     }
 
     private async finalizeEpoch(task: IndexingTask, epochNumber: bigint): Promise<void> {
-        this.success(`Finalizing epoch ${epochNumber}`);
-
         // Load all the previous epoch data..
 
         const submissions = await this.storage.getSubmissionsByEpochNumber(epochNumber - 1n);
@@ -103,7 +103,6 @@ export class EpochManager extends Logger {
     }
 
     private async finalizeEmptyEpoch(task: IndexingTask, epochNumber: bigint): Promise<void> {
-        this.log(`!! -- Finalizing empty epoch ${epochNumber} -- !!`);
         const preimage = Buffer.from(task.block.checksumRoot.replace('0x', ''), 'hex');
 
         const targetHash = Buffer.from(SHA1.hash(preimage), 'hex');
@@ -128,6 +127,10 @@ export class EpochManager extends Logger {
 
         const epochDocument = this.createEpoch(epoch);
         await this.storage.saveEpoch(epochDocument);
+
+        this.log(
+            `!! -- Finalized epoch ${epochNumber} [${epochDocument.proposer.solution.toString('hex')} (Diff: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))})] (${epochDocument.epochHash.toString('hex')}) -- !!`,
+        );
     }
 
     private shouldUpdateEpoch(tip: bigint): EpochUpdateResult {

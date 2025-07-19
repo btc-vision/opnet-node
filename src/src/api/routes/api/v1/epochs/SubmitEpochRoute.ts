@@ -142,7 +142,7 @@ export class SubmitEpochRoute extends Route<
             validationParams,
             OPNetConsensus.consensus.EPOCH.MIN_DIFFICULTY,
         );
-        
+
         if (!validationResult.valid) {
             return {
                 epochNumber: validationParams.epochNumber.toString(),
@@ -168,7 +168,6 @@ export class SubmitEpochRoute extends Route<
         let message = 'Submission accepted';
         if (bestSubmission) {
             const currentBestHash = Buffer.from(bestSubmission.salt.buffer);
-
             const isWinning =
                 bestSubmission && currentBestHash.equals(Buffer.from(submissionHash, 'hex'));
 

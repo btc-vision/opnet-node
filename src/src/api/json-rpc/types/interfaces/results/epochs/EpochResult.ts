@@ -3,6 +3,7 @@ import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
 import { EpochSubmissionAPIResult } from '../../../../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
 
 export interface APIEpochMiner {
+    readonly solution: string;
     readonly publicKey: string;
     readonly salt: string;
     readonly graffiti?: string;

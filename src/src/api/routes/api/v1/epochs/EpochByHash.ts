@@ -24,13 +24,6 @@ export class EpochByHash extends EpochRoute<Routes.EPOCH_BY_HASH> {
                 throw new Error('Epoch hash not provided');
             }
 
-            // Validate hash format
-            const cleanHash = epochHash.replace('0x', '');
-            if (cleanHash.length !== 40) {
-                // SHA-1 hash is 20 bytes = 40 hex chars
-                throw new Error('Invalid hash length. Expected 40 hex characters for SHA-1 hash');
-            }
-
             data = this.getCachedEpochData(includeSubmissions, undefined, epochHash);
         } catch (e) {
             this.decrementPendingRequests();

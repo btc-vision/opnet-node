@@ -137,6 +137,7 @@ export abstract class EpochRoute<T extends Routes> extends Route<
                     submissionHash: submission.submissionHash.toString('hex'),
                     confirmedAt: this.convertDecimal128ToString(submission.confirmedAt),
                     epochProposed: {
+                        solution: submission.epochProposed.solution.toString('hex'),
                         publicKey: submission.epochProposed.publicKey.toString('hex'),
                         salt: submission.epochProposed.salt.toString('hex'),
                         graffiti: submission.epochProposed.graffiti?.toString('hex'),
@@ -197,6 +198,7 @@ export abstract class EpochRoute<T extends Routes> extends Route<
             minDifficulty: epoch.minDifficulty,
             targetHash: epoch.targetHash.toString('hex'),
             proposer: {
+                solution: epoch.proposer.solution.toString('hex'),
                 publicKey: epoch.proposer.publicKey.toString('hex'),
                 salt: epoch.proposer.salt.toString('hex'),
                 graffiti: epoch.proposer.graffiti?.toString('hex'),
@@ -240,7 +242,16 @@ export abstract class EpochRoute<T extends Routes> extends Route<
         const includeSubmissions = params.includeSubmissions ?? false;
 
         if ('hash' in params) {
-            return { epochHash: params.hash, includeSubmissions };
+            if (typeof params.hash !== 'string') {
+                throw new Error('Invalid hash parameter: expected a string');
+            }
+
+            const cleanHash: string | undefined = params.hash?.replace('0x', '');
+            if (cleanHash.length !== 64) {
+                throw new Error('Invalid hash length. Expected 64 hex characters for SHA-1 hash');
+            }
+
+            return { epochHash: cleanHash, includeSubmissions };
         }
 
         if ('height' in params) {

@@ -34,19 +34,6 @@ export class EpochDifficultyConverter {
     }
 
     /**
-     * Calculate the relative value of a share based on its bit difficulty
-     * compared to the minimum difficulty
-     *
-     * This is used for reward calculations
-     */
-    public static calculateShareValue(bits: number, minBits: number): number {
-        // Share value = 2^(bits - minBits)
-        // This means each additional bit doubles the share value
-        const valueBits = Math.max(0, bits - minBits);
-        return Math.pow(2, valueBits);
-    }
-
-    /**
      * Convert bits to a "points" system that prevents spam
      * while still rewarding higher difficulty shares
      *
@@ -71,19 +58,19 @@ export class EpochDifficultyConverter {
     /**
      * Format difficulty for display
      */
-    public static formatDifficulty(difficulty: number): string {
-        if (difficulty < 1000) {
-            return difficulty.toFixed(0);
-        } else if (difficulty < 1e6) {
-            return (difficulty / 1e3).toFixed(2) + 'K';
-        } else if (difficulty < 1e9) {
-            return (difficulty / 1e6).toFixed(2) + 'M';
-        } else if (difficulty < 1e12) {
-            return (difficulty / 1e9).toFixed(2) + 'G';
-        } else if (difficulty < 1e15) {
-            return (difficulty / 1e12).toFixed(2) + 'T';
+    public static formatDifficulty(difficulty: bigint): string {
+        if (difficulty < 1000n) {
+            return difficulty.toString();
+        } else if (difficulty < BigInt(1e6)) {
+            return (difficulty / BigInt(1e3)).toString() + 'K';
+        } else if (difficulty < BigInt(1e9)) {
+            return (difficulty / BigInt(1e6)).toString() + 'M';
+        } else if (difficulty < BigInt(1e12)) {
+            return (difficulty / BigInt(1e9)).toString() + 'G';
+        } else if (difficulty < BigInt(1e15)) {
+            return (difficulty / BigInt(1e12)).toString() + 'T';
         } else {
-            return (difficulty / 1e15).toFixed(2) + 'P';
+            return (difficulty / BigInt(1e15)).toString() + 'P';
         }
     }
 }
