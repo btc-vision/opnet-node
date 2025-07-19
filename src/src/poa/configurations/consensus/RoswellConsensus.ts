@@ -32,6 +32,8 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     EPOCH: {
         BLOCKS_PER_EPOCH: 5n,
+
+        MIN_DIFFICULTY: 20,
     },
 
     GENERIC: {

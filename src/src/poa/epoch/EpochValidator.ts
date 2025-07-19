@@ -1,37 +1,36 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import crypto from 'crypto';
-import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js';
-import { ITargetEpochDocument } from '../../db/documents/interfaces/ITargetEpochDocument.js';
+import {
+    ITargetEpochDocument,
+    PendingTargetEpoch,
+} from '../../db/documents/interfaces/ITargetEpochDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
+import { Address } from '@btc-vision/transaction';
+import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
+import { SHA1 } from '../../utils/SHA1.js';
 
 export interface EpochValidationParams {
-    epochNumber: bigint;
-    targetHash: Buffer;
-    salt: Buffer;
-    publicKey: Buffer;
-    graffiti?: string;
-    blockHeight?: bigint;
+    readonly epochNumber: bigint;
+    readonly targetHash: Buffer;
+    readonly salt: Buffer;
+    readonly publicKey: Address;
+    readonly graffiti?: Buffer;
+    readonly blockHeight?: bigint;
 }
 
 export interface EpochValidationResult {
-    valid: boolean;
-    matchingBits: number;
-    hash: string;
-    targetPattern: string;
-    preimage: Buffer;
-    message?: string;
-}
-
-export interface EpochSolutionQuality {
-    difficulty: number;
-    meetsMinimum: boolean;
-    qualityScore: number;
+    readonly valid: boolean;
+    readonly matchingBits: number;
+    readonly hash: Buffer;
+    readonly targetPattern: Buffer;
+    readonly preimage: Buffer;
+    readonly message?: string;
 }
 
 export class EpochValidator extends Logger {
-    public readonly logColor: string = '#9370db'; // Medium purple
+    public readonly logColor: string = '#9370db';
 
     private readonly MIN_DIFFICULTY: number;
 
@@ -46,7 +45,7 @@ export class EpochValidator extends Logger {
     /**
      * Utility method to convert hex string parameters to validation params
      */
-    public static hexToValidationParams(params: {
+    public static base64ToValidationParams(params: {
         epochNumber: string;
         targetHash: string;
         salt: string;
@@ -56,10 +55,10 @@ export class EpochValidator extends Logger {
     }): EpochValidationParams {
         return {
             epochNumber: BigInt(params.epochNumber),
-            targetHash: Buffer.from(params.targetHash, 'hex'),
-            salt: Buffer.from(params.salt, 'hex'),
-            publicKey: Buffer.from(params.publicKey, 'hex'),
-            graffiti: params.graffiti,
+            targetHash: Buffer.from(params.targetHash, 'base64'),
+            salt: Buffer.from(params.salt, 'base64'),
+            publicKey: new Address(Buffer.from(params.publicKey, 'base64')),
+            graffiti: Buffer.from(params.graffiti || '', 'base64'),
             blockHeight: params.blockHeight ? BigInt(params.blockHeight) : undefined,
         };
     }
@@ -78,8 +77,8 @@ export class EpochValidator extends Logger {
                 return {
                     valid: false,
                     matchingBits: 0,
-                    hash: '',
-                    targetPattern: '',
+                    hash: Buffer.alloc(0),
+                    targetPattern: Buffer.alloc(0),
                     preimage: Buffer.alloc(0),
                     message: 'Epoch not found',
                 };
@@ -90,8 +89,8 @@ export class EpochValidator extends Logger {
                 return {
                     valid: false,
                     matchingBits: 0,
-                    hash: '',
-                    targetPattern: '',
+                    hash: Buffer.alloc(0),
+                    targetPattern: Buffer.alloc(0),
                     preimage: Buffer.alloc(0),
                     message: 'Target hash does not match epoch',
                 };
@@ -105,13 +104,10 @@ export class EpochValidator extends Logger {
             );
 
             // Calculate SHA-1 of the preimage
-            const hash = crypto.createHash('sha1').update(preimage).digest('hex');
-
-            // Calculate SHA-1 of the target hash as the pattern
-            const targetPattern = crypto.createHash('sha1').update(params.targetHash).digest('hex');
+            const hash = Buffer.from(SHA1.hash(preimage), 'hex');
 
             // Count matching bits
-            const matchingBits = this.countMatchingBits(hash, targetPattern);
+            const matchingBits = this.countMatchingBits(hash, epoch.targetHash);
 
             // Check if meets minimum difficulty
             const valid = matchingBits >= this.MIN_DIFFICULTY;
@@ -130,7 +126,7 @@ export class EpochValidator extends Logger {
                 valid,
                 matchingBits,
                 hash,
-                targetPattern,
+                targetPattern: epoch.targetHash,
                 preimage,
                 message: valid
                     ? 'Valid solution'
@@ -141,8 +137,8 @@ export class EpochValidator extends Logger {
             return {
                 valid: false,
                 matchingBits: 0,
-                hash: '',
-                targetPattern: '',
+                hash: Buffer.alloc(0),
+                targetPattern: Buffer.alloc(0),
                 preimage: Buffer.alloc(0),
                 message: `Validation error: ${error}`,
             };
@@ -152,8 +148,12 @@ export class EpochValidator extends Logger {
     /**
      * Check if a solution already exists for this epoch/salt combination
      */
-    public async solutionExists(epochNumber: bigint, salt: Buffer): Promise<boolean> {
-        return await this.storage.targetEpochExists(epochNumber, salt);
+    public async solutionExists(
+        epochNumber: bigint,
+        salt: Buffer,
+        publicKey: Address | Buffer | Binary,
+    ): Promise<boolean> {
+        return await this.storage.targetEpochExists(epochNumber, salt, publicKey);
     }
 
     /**
@@ -174,6 +174,7 @@ export class EpochValidator extends Logger {
             epochNumber: DataConverter.toDecimal128(params.epochNumber),
             salt: new Binary(params.salt),
             difficulty: validationResult.matchingBits,
+            publicKey: new Binary(params.publicKey),
         };
 
         await this.storage.saveTargetEpoch(targetEpoch);
@@ -182,28 +183,9 @@ export class EpochValidator extends Logger {
     }
 
     /**
-     * Evaluate the quality of an epoch solution
-     */
-    public evaluateSolutionQuality(matchingBits: number): EpochSolutionQuality {
-        const meetsMinimum = matchingBits >= this.MIN_DIFFICULTY;
-
-        // Calculate quality score (0-100)
-        const maxExpectedBits = 80;
-        const range = maxExpectedBits - this.MIN_DIFFICULTY;
-        const normalized = Math.min((matchingBits - this.MIN_DIFFICULTY) / range, 1);
-        const qualityScore = Math.round(normalized * 100);
-
-        return {
-            difficulty: matchingBits,
-            meetsMinimum,
-            qualityScore,
-        };
-    }
-
-    /**
      * Calculate mining preimage using XOR operations
      */
-    public calculatePreimage(targetHash: Buffer, publicKey: Buffer, salt: Buffer): Buffer {
+    public calculatePreimage(targetHash: Buffer, publicKey: Address, salt: Buffer): Buffer {
         // Ensure all buffers are exactly 32 bytes
         const target32 = Buffer.alloc(32);
         const pubKey32 = Buffer.alloc(32);
@@ -211,7 +193,7 @@ export class EpochValidator extends Logger {
 
         // Copy data into 32-byte buffers
         targetHash.copy(target32, 0, 0, Math.min(32, targetHash.length));
-        publicKey.copy(pubKey32, 0, 0, Math.min(32, publicKey.length));
+        publicKey.toBuffer().copy(pubKey32, 0, 0, Math.min(32, publicKey.length));
         salt.copy(salt32, 0, 0, Math.min(32, salt.length));
 
         // Perform triple XOR operation
@@ -226,13 +208,13 @@ export class EpochValidator extends Logger {
     /**
      * Count matching leading bits between two hex strings
      */
-    public countMatchingBits(hash1: string, hash2: string): number {
+    public countMatchingBits(hash1: Buffer, hash2: Buffer): number {
         let matchingBits = 0;
         const minLength = Math.min(hash1.length, hash2.length);
 
         for (let i = 0; i < minLength; i++) {
-            const byte1 = parseInt(hash1[i], 16);
-            const byte2 = parseInt(hash2[i], 16);
+            const byte1 = hash1[i];
+            const byte2 = hash2[i];
 
             if (byte1 === byte2) {
                 matchingBits += 4; // Each hex digit is 4 bits
@@ -256,7 +238,7 @@ export class EpochValidator extends Logger {
      * Calculate submission hash for unique identification
      */
     public calculateSubmissionHash(params: EpochValidationParams): string {
-        const data = `${params.epochNumber}:${params.targetHash.toString('hex')}:${params.salt.toString('hex')}:${params.publicKey.toString('hex')}`;
+        const data = `${params.epochNumber}:${params.targetHash.toString('hex')}:${params.salt.toString('hex')}:${params.publicKey.toHex()}`;
         return crypto.createHash('sha256').update(data).digest('hex');
     }
 
@@ -266,29 +248,21 @@ export class EpochValidator extends Logger {
     private async getEpochData(
         epochNumber: bigint,
         blockHeight?: bigint,
-    ): Promise<IEpochDocument | undefined> {
-        // If block height is provided, get the next epoch for that block
-        if (blockHeight !== undefined) {
-            const nextEpoch = await this.storage.getNextEpoch(blockHeight);
-
-            // Verify this is the correct epoch number
-            if (nextEpoch && BigInt(nextEpoch.epochNumber.toString()) === epochNumber) {
-                return nextEpoch;
-            }
-
-            this.warn(
-                `Next epoch at block ${blockHeight} does not match requested epoch ${epochNumber}`,
-            );
+    ): Promise<PendingTargetEpoch> {
+        const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const blockHeightToEpoch = blockHeight || blockEpochInterval * epochNumber;
+        const nextEpoch = await this.storage.getPendingEpochTarget(blockHeightToEpoch);
+        if (nextEpoch && nextEpoch.nextEpochNumber === epochNumber) {
+            return nextEpoch;
         }
 
-        // Otherwise, get epoch by number
-        return await this.storage.getEpochByNumber(epochNumber);
+        throw new Error(`No pending target epoch found for epoch number ${epochNumber}`);
     }
 
     /**
      * Verify the target hash matches the epoch
      */
-    private verifyTargetHash(epoch: IEpochDocument, targetHash: Buffer): boolean {
+    private verifyTargetHash(epoch: PendingTargetEpoch, targetHash: Buffer): boolean {
         const epochTargetHash =
             epoch.targetHash instanceof Binary ? epoch.targetHash.buffer : epoch.targetHash;
 

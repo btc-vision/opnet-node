@@ -4,7 +4,6 @@ import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
 export enum SubmissionStatus {
     ACCEPTED = 'accepted',
     REJECTED = 'rejected',
-    PENDING = 'pending',
 }
 
 export interface APISubmittedEpochResult {

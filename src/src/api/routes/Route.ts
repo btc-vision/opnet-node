@@ -16,6 +16,7 @@ import { BlockHeaderAPIBlockDocument } from '../../db/interfaces/IBlockHeaderBlo
 import { networks } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js';
+import { OPNetIdentity } from '../../poa/identity/OPNetIdentity.js';
 
 export abstract class Route<
     T extends Routes,
@@ -33,15 +34,29 @@ export abstract class Route<
         super();
     }
 
+    protected _identity: OPNetIdentity | undefined;
+
+    protected get identity(): OPNetIdentity {
+        if (!this._identity) {
+            throw new Error('Identity is not set. Please set the identity before using it.');
+        }
+
+        return this._identity;
+    }
+
     public getPath(): T {
         return this.routePath;
     }
 
-    public getRoute(storage: VMStorage): {
+    public getRoute(
+        storage: VMStorage,
+        identity: OPNetIdentity,
+    ): {
         type: RouteType;
         handler: Router | MiddlewareHandler | MiddlewareHandler[];
     } {
         this.storage = storage;
+        this._identity = identity;
 
         this.initialize();
 
@@ -52,6 +67,7 @@ export abstract class Route<
     }
 
     public onEpochChange(_epochNumber: bigint, _epochData: IEpochDocument): void {}
+
     public onBlockChange(_blockNumber: bigint, _blockHeader: BlockHeaderAPIBlockDocument): void {}
 
     public abstract getData(params?: JSONRpc2RequestParams<R>): Promise<U> | U;

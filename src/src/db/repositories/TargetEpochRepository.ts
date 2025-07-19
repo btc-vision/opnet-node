@@ -3,6 +3,7 @@ import { Binary, ClientSession, Collection, Db, Filter, FindOptions } from 'mong
 import { ITargetEpochDocument } from '../documents/interfaces/ITargetEpochDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { DataConverter } from '@btc-vision/bsi-db';
+import { Address } from '@btc-vision/transaction';
 
 export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> {
     public readonly logColor: string = '#ff1493'; // Deep pink for target epochs
@@ -14,12 +15,18 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
     /**
      * Check if a target epoch exists for a specific epoch number and proposer
      */
-    public async targetEpochExists(epochNumber: bigint, salt: Buffer | Binary): Promise<boolean> {
+    public async targetEpochExists(
+        epochNumber: bigint,
+        salt: Buffer | Binary,
+        publicKey: Address | Buffer | Binary,
+    ): Promise<boolean> {
         const binarySalt = salt instanceof Binary ? salt : new Binary(salt);
+        const binaryPublicKey = publicKey instanceof Binary ? publicKey : new Binary(publicKey);
 
         const criteria: Partial<Filter<ITargetEpochDocument>> = {
             epochNumber: DataConverter.toDecimal128(epochNumber),
             salt: binarySalt,
+            publicKey: binaryPublicKey,
         };
 
         const count = await this.count(criteria);

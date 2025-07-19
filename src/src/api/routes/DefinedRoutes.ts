@@ -24,6 +24,8 @@ import { GetPreimage } from './api/v1/transaction/GetPreimage.js';
 import { LatestEpoch } from './api/v1/epochs/LatestEpoch.js';
 import { EpochByNumber } from './api/v1/epochs/EpochByNumber.js';
 import { EpochByHash } from './api/v1/epochs/EpochByHash.js';
+import { SubmitEpochRoute } from './api/v1/epochs/SubmitEpochRoute.js';
+import { GetEpochTemplateRoute } from './api/v1/epochs/GetEpochTemplateRoute.js';
 
 export const DefinedRoutes: {
     [key in Routes]: Route<key, JSONRpcMethods, object | string | undefined>;

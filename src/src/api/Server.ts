@@ -20,8 +20,10 @@ import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
 import { BlockHeaderAPIBlockDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { P2PMajorVersion, P2PVersion } from '../poa/configurations/P2PVersion.js';
-import { Decimal128 } from 'mongodb';
 import { DataConverter } from '@btc-vision/bsi-db';
+import { TrustedAuthority } from '../poa/configurations/manager/TrustedAuthority.js';
+import { AuthorityManager } from '../poa/configurations/manager/AuthorityManager.js';
+import { OPNetIdentity } from '../poa/identity/OPNetIdentity.js';
 
 Globals.register();
 
@@ -58,6 +60,12 @@ export class Server extends Logger {
     private readonly storage: VMStorage = new VMMongoStorage(Config);
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
+
+    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
+    private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
+        Config,
+        this.currentAuthority,
+    );
 
     public constructor() {
         super();
@@ -176,7 +184,7 @@ export class Server extends Logger {
     }
 
     private async notifyAllRoutesOfEpochChange(blockHeight: bigint): Promise<void> {
-        if(blockHeight === 0n) return;
+        if (blockHeight === 0n) return;
 
         const epochData = await this.storage.getLatestEpoch();
         if (!epochData) {
@@ -190,15 +198,15 @@ export class Server extends Logger {
     }
 
     private notifyWebsocketsOfBlockChange(
-        blockHeight: bigint,
-        blockHeader: BlockHeaderAPIBlockDocument,
+        _blockHeight: bigint,
+        _blockHeader: BlockHeaderAPIBlockDocument,
     ): void {
         // TODO: Implement websocket notifications.
     }
 
     private loadRoutes(): void {
         for (const route of Object.values(DefinedRoutes)) {
-            const routeData = route.getRoute(this.storage);
+            const routeData = route.getRoute(this.storage, this.opnetIdentity);
             const path = `${this.apiPrefix}/${route.getPath()}`;
 
             if (Config.DEBUG_LEVEL >= DebugLevel.TRACE && Config.DEV_MODE) {

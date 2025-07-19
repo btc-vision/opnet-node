@@ -13,10 +13,9 @@ import {
     SubmissionStatus,
     SubmittedEpochResult,
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
-import { EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
-import crypto from 'crypto';
+import { EpochValidationParams, EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
 
-export class SubmitEpoch extends Route<
+export class SubmitEpochRoute extends Route<
     Routes.SUBMIT_EPOCH,
     JSONRpcMethods.SUBMIT_EPOCH,
     SubmittedEpochResult
@@ -95,6 +94,21 @@ export class SubmitEpoch extends Route<
         }
     }
 
+    private validateBuffers(params: EpochValidationParams): void {
+        // Ensure all buffers are valid hex strings
+        if (params.salt.length !== 64) {
+            throw new Error('Salt must be a 32-byte hex string');
+        }
+
+        if (params.targetHash.length !== 40) {
+            throw new Error('Target hash must be a 20-byte hex string');
+        }
+
+        if (params.graffiti && params.graffiti.length > 32) {
+            throw new Error('Graffiti can not be longer than 16 bytes.');
+        }
+    }
+
     /**
      * Process the epoch submission
      */
@@ -105,7 +119,7 @@ export class SubmitEpoch extends Route<
         const validatedParams = this.validateSubmissionParams(params);
 
         // Convert to validation params
-        const validationParams = EpochValidator.hexToValidationParams({
+        const validationParams = EpochValidator.base64ToValidationParams({
             epochNumber: validatedParams.epochTarget,
             targetHash: validatedParams.targetHash,
             salt: validatedParams.salt,
@@ -113,10 +127,13 @@ export class SubmitEpoch extends Route<
             graffiti: validatedParams.graffiti,
         });
 
+        this.validateBuffers(validationParams);
+
         // Check if this epoch/salt combination already exists
         const exists = await this.epochValidator.solutionExists(
             validationParams.epochNumber,
             validationParams.salt,
+            validationParams.publicKey,
         );
 
         if (exists) {
@@ -148,13 +165,16 @@ export class SubmitEpoch extends Route<
             validationParams.epochNumber,
         );
 
-        const isWinning =
-            bestSubmission &&
-            bestSubmission.submissionHash.buffer.equals(Buffer.from(submissionHash, 'hex'));
-
         let message = 'Submission accepted';
-        if (isWinning) {
-            message = 'Current best submission';
+        if (bestSubmission) {
+            const currentBestHash = Buffer.from(bestSubmission.salt.buffer);
+
+            const isWinning =
+                bestSubmission && currentBestHash.equals(Buffer.from(submissionHash, 'hex'));
+
+            if (isWinning) {
+                message = 'Current best submission';
+            }
         }
 
         return {
@@ -181,147 +201,23 @@ export class SubmitEpoch extends Route<
      * Validate the epoch submission parameters
      */
     private validateSubmissionParams(params: SubmitEpochParamsAsObject): SubmitEpochParamsAsObject {
-        // Validate epochTarget
-        if (!params.epochTarget || !/^\d+$/.test(params.epochTarget)) {
-            throw new Error('Invalid epoch target format');
+        if (!params.epochTarget) {
+            throw new Error('Epoch target is required');
         }
 
-        // Validate targetHash (SHA-1 is 40 hex chars)
-        if (!params.targetHash || !/^[0-9a-fA-F]{40}$/.test(params.targetHash)) {
-            throw new Error('Invalid target hash format (must be 40 hex characters)');
+        if (!params.publicKey) {
+            throw new Error('Public key is required');
         }
 
-        // Validate salt (assume reasonable length)
-        if (!params.salt || !/^[0-9a-fA-F]+$/.test(params.salt) || params.salt.length < 16) {
-            throw new Error('Invalid salt format (must be at least 8 bytes in hex)');
+        if (!params.targetHash) {
+            throw new Error('Target hash is required');
         }
 
-        // Validate publicKey (assume 33 or 65 bytes for compressed/uncompressed)
-        if (!params.publicKey || !/^[0-9a-fA-F]{66,130}$/.test(params.publicKey)) {
-            throw new Error('Invalid public key format');
-        }
-
-        // Validate graffiti if provided (limit length)
-        if (params.graffiti && params.graffiti.length > 80) {
-            throw new Error('Graffiti too long (max 80 characters)');
+        if (!params.salt) {
+            throw new Error('Salt is required');
         }
 
         return params;
-    }
-
-    /**
-     * Calculate difficulty based on collision quality (matching bits)
-     */
-    private calculateDifficulty(targetHash: Buffer, publicKey: Buffer, salt: Buffer): number {
-        // Calculate the preimage using XOR operation
-        const preimage = this.calculatePreimage(targetHash, publicKey, salt);
-
-        // Calculate SHA-1 of the preimage to get the actual hash
-        const hash = crypto.createHash('sha1').update(preimage).digest('hex');
-
-        // Calculate SHA-1 of the target hash as the pattern to match against
-        const targetPattern = crypto.createHash('sha1').update(targetHash).digest('hex');
-
-        // Count matching bits between hash and target pattern
-        const matchingBits = this.countMatchingBits(hash, targetPattern);
-
-        return matchingBits;
-    }
-
-    /**
-     * Verify the SHA-1 collision solution
-     * @param params The submission parameters
-     * @returns True if valid collision
-     */
-    private async verifySolution(params: SubmitEpochParamsAsObject): Promise<boolean> {
-        try {
-            // Convert hex strings to buffers
-            const targetHashBuffer = Buffer.from(params.targetHash, 'hex');
-            const saltBuffer = Buffer.from(params.salt, 'hex');
-            const publicKeyBuffer = Buffer.from(params.publicKey, 'hex');
-
-            // Calculate the preimage using XOR operation
-            const preimage = this.calculatePreimage(targetHashBuffer, publicKeyBuffer, saltBuffer);
-
-            // Calculate SHA-1 of the preimage
-            const hash = crypto.createHash('sha1').update(preimage).digest('hex');
-
-            // Calculate SHA-1 of the target hash as the pattern to match
-            const targetPattern = crypto.createHash('sha1').update(targetHashBuffer).digest('hex');
-
-            // Count matching bits
-            const matchingBits = this.countMatchingBits(hash, targetPattern);
-
-            // Verify the solution meets minimum difficulty
-            if (matchingBits < OPNetConsensus.consensus.EPOCH.MIN_DIFFICULTY) {
-                this.warn(
-                    `Solution rejected: ${matchingBits} bits < ${OPNetConsensus.consensus.EPOCH.MIN_DIFFICULTY} minimum`,
-                );
-                return false;
-            }
-
-            // Log successful verification
-            this.info(`Solution verified: ${matchingBits} matching bits`);
-
-            return true;
-        } catch (error) {
-            this.error(`Solution verification failed: ${error}`);
-            return false;
-        }
-    }
-
-    /**
-     * Calculate the preimage by XORing targetHash, publicKey, and salt
-     * All buffers must be 32 bytes
-     */
-    private calculatePreimage(targetHash: Buffer, publicKey: Buffer, salt: Buffer): Buffer {
-        // Ensure all buffers are exactly 32 bytes
-        const target32 = Buffer.alloc(32);
-        const pubKey32 = Buffer.alloc(32);
-        const salt32 = Buffer.alloc(32);
-
-        // Copy data into 32-byte buffers
-        targetHash.copy(target32, 0, 0, Math.min(32, targetHash.length));
-        publicKey.copy(pubKey32, 0, 0, Math.min(32, publicKey.length));
-        salt.copy(salt32, 0, 0, Math.min(32, salt.length));
-
-        // Perform triple XOR operation
-        const preimage = Buffer.alloc(32);
-        for (let i = 0; i < 32; i++) {
-            preimage[i] = target32[i] ^ pubKey32[i] ^ salt32[i];
-        }
-
-        return preimage;
-    }
-
-    /**
-     * Count matching leading bits between two hex strings
-     * Adapted from ShareValidator
-     */
-    private countMatchingBits(hash1: string, hash2: string): number {
-        let matchingBits = 0;
-        const minLength = Math.min(hash1.length, hash2.length);
-
-        for (let i = 0; i < minLength; i++) {
-            const byte1 = parseInt(hash1[i], 16);
-            const byte2 = parseInt(hash2[i], 16);
-
-            if (byte1 === byte2) {
-                matchingBits += 4; // Each hex digit is 4 bits
-            } else {
-                // Check individual bits in the mismatched hex digit
-                for (let bit = 3; bit >= 0; bit--) {
-                    if (((byte1 >> bit) & 1) === ((byte2 >> bit) & 1)) {
-                        matchingBits++;
-                    } else {
-                        // Stop at first non-matching bit
-                        return matchingBits;
-                    }
-                }
-            }
-        }
-
-        return matchingBits;
     }
 
     /**

@@ -36,8 +36,12 @@ import { Binary } from 'mongodb';
 import { IEpochDocument } from '../../../db/documents/interfaces/IEpochDocument.js';
 import { IEpochSubmissionsDocument } from '../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
 import { TargetEpochRepository } from '../../../db/repositories/TargetEpochRepository.js';
-import { ITargetEpochDocument } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
+import {
+    ITargetEpochDocument,
+    PendingTargetEpoch,
+} from '../../../db/documents/interfaces/ITargetEpochDocument.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { SHA1 } from '../../../utils/SHA1.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -71,9 +75,7 @@ export class VMMongoStorage extends VMStorage {
         return this.blockchainInfoRepository;
     }
 
-    public async getNextEpoch(epochNumber: bigint): Promise<IEpochDocument | undefined> {
-        // BASICALLY, the next opnet epoch is currentHeight % BLOCKS_PER_EPOCH.
-        // The target hash is the sha1 of the checksum of the block height that equals 0 to the modulo.
+    public async getPendingEpochTarget(blockNumber: bigint): Promise<PendingTargetEpoch> {
         if (!this.epochRepository) {
             throw new Error('Epoch repository not initialized');
         }
@@ -82,22 +84,37 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Epoch repository not initialized');
         }
 
-        const targetHeight = epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
-        const blockHeader = await this.blockRepository.getBlockHeader(targetHeight);
+        const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const currentEpochHeight = blockNumber / blockEpochInterval;
+        const epochTargetBlockHeight = currentEpochHeight * blockEpochInterval;
 
+        const blockHeader = await this.blockRepository.getBlockHeader(epochTargetBlockHeight);
         if (!blockHeader) {
-            throw new Error(`Block header not found for height ${targetHeight}`);
+            throw new Error(
+                `Block header not found for height ${epochTargetBlockHeight} (epoch ${currentEpochHeight})`,
+            );
         }
 
-        const targetHash = blockHeader.checksumRoot;
+        const target = Buffer.from(blockHeader.checksumRoot.replace('0x', ''), 'hex');
+        const targetHash: Buffer = Buffer.from(SHA1.hash(target), 'hex');
+
+        return {
+            target,
+            targetHash: targetHash,
+            nextEpochNumber: currentEpochHeight,
+        };
     }
 
-    public targetEpochExists(epochNumber: bigint, salt: Buffer | Binary): Promise<boolean> {
+    public targetEpochExists(
+        epochNumber: bigint,
+        salt: Buffer | Binary,
+        publicKey: Address | Buffer | Binary,
+    ): Promise<boolean> {
         if (!this.targetEpochRepository) {
             throw new Error('Target epoch repository not initialized');
         }
 
-        return this.targetEpochRepository.targetEpochExists(epochNumber, salt);
+        return this.targetEpochRepository.targetEpochExists(epochNumber, salt, publicKey);
     }
 
     public getBestTargetEpoch(epochNumber: bigint): Promise<ITargetEpochDocument | null> {

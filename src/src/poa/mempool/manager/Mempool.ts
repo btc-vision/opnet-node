@@ -48,12 +48,6 @@ export class Mempool extends Logger {
 
     private fullSync: boolean = false;
 
-    //private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
-    //private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
-    //    Config,
-    //    this.currentAuthority,
-    //);
-
     private readonly network: Network = NetworkConverter.getNetwork();
 
     private fees: BitcoinFees = {
