@@ -32,14 +32,8 @@ export interface EpochValidationResult {
 export class EpochValidator extends Logger {
     public readonly logColor: string = '#9370db';
 
-    private readonly MIN_DIFFICULTY: number;
-
-    constructor(
-        private readonly storage: VMStorage,
-        minDifficulty: number = 20,
-    ) {
+    constructor(private readonly storage: VMStorage) {
         super();
-        this.MIN_DIFFICULTY = minDifficulty;
     }
 
     /**
@@ -68,6 +62,7 @@ export class EpochValidator extends Logger {
      */
     public async validateEpochSolution(
         params: EpochValidationParams,
+        minDifficulty: number = 20,
     ): Promise<EpochValidationResult> {
         try {
             // Get the epoch data from storage
@@ -110,7 +105,7 @@ export class EpochValidator extends Logger {
             const matchingBits = this.countMatchingBits(hash, epoch.targetHash);
 
             // Check if meets minimum difficulty
-            const valid = matchingBits >= this.MIN_DIFFICULTY;
+            const valid = matchingBits >= minDifficulty;
 
             if (valid) {
                 this.info(
@@ -118,7 +113,7 @@ export class EpochValidator extends Logger {
                 );
             } else {
                 this.warn(
-                    `Invalid epoch solution: ${matchingBits} bits < ${this.MIN_DIFFICULTY} minimum`,
+                    `Invalid epoch solution: ${matchingBits} bits < ${minDifficulty} minimum`,
                 );
             }
 
@@ -130,7 +125,7 @@ export class EpochValidator extends Logger {
                 preimage,
                 message: valid
                     ? 'Valid solution'
-                    : `Solution does not meet minimum difficulty (${this.MIN_DIFFICULTY} bits)`,
+                    : `Solution does not meet minimum difficulty (${minDifficulty} bits)`,
             };
         } catch (error) {
             this.error(`Epoch validation failed: ${error}`);
@@ -252,7 +247,7 @@ export class EpochValidator extends Logger {
         const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
         const blockHeightToEpoch = blockHeight || blockEpochInterval * epochNumber;
         const nextEpoch = await this.storage.getPendingEpochTarget(blockHeightToEpoch);
-        if (nextEpoch && nextEpoch.nextEpochNumber === epochNumber) {
+        if (nextEpoch.nextEpochNumber === epochNumber) {
             return nextEpoch;
         }
 

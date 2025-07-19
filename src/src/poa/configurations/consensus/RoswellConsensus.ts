@@ -7,6 +7,7 @@ import {
     SPECIAL_CONTRACTS_ROSWELL_TESTNET,
 } from './roswell/SpecialContractsRoswell.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
+import { Address } from '@btc-vision/transaction';
 
 export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     /** Information about the consensus */
@@ -34,6 +35,8 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         BLOCKS_PER_EPOCH: 5n,
 
         MIN_DIFFICULTY: 20,
+
+        GENESIS_PROPOSER_PUBLIC_KEY: Address.dead(),
     },
 
     GENERIC: {

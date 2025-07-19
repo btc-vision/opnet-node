@@ -160,32 +160,45 @@ export class VMMongoStorage extends VMStorage {
         if (!this.blockRepository) {
             throw new Error('Block header repository not initialized');
         }
+
         if (!this.transactionRepository) {
             throw new Error('Transaction repository not initialized');
         }
+
         if (!this.unspentTransactionRepository) {
             throw new Error('Unspent transaction repository not initialized');
         }
+
         if (!this.contractRepository) {
             throw new Error('Contract repository not initialized');
         }
+
         if (!this.pointerRepository) {
             throw new Error('Pointer repository not initialized');
         }
+
         if (!this.blockWitnessRepository) {
             throw new Error('Block witness repository not initialized');
         }
+
         if (!this.reorgRepository) {
             throw new Error('Reorg repository not initialized');
         }
+
         if (!this.mempoolRepository) {
             throw new Error('Mempool repository not initialized');
         }
+
         if (!this.epochRepository) {
             throw new Error('Epoch repository not initialized');
         }
+
         if (!this.epochSubmissionRepository) {
             throw new Error('Public key repository not initialized');
+        }
+
+        if (!this.targetEpochRepository) {
+            throw new Error('Target epoch repository not initialized');
         }
 
         if (Config.DEV_MODE) {
@@ -219,6 +232,9 @@ export class VMMongoStorage extends VMStorage {
 
             this.log(`Purging epoch submissions...`);
             await this.epochSubmissionRepository.deleteSubmissionsFromBlock(blockId);
+
+            this.log(`Purging target epochs...`);
+            await this.targetEpochRepository.deleteAllTargetEpochs();
         } else {
             const promises: Promise<void>[] = [
                 this.transactionRepository.deleteTransactionsFromBlockHeight(blockId),
@@ -230,6 +246,7 @@ export class VMMongoStorage extends VMStorage {
                 this.reorgRepository.deleteReorgs(blockId),
                 this.epochRepository.deleteEpochFromBitcoinBlockNumber(blockId),
                 this.epochSubmissionRepository.deleteSubmissionsFromBlock(blockId),
+                this.targetEpochRepository.deleteAllTargetEpochs(),
             ];
 
             await Promise.safeAll(promises);

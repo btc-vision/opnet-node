@@ -1,6 +1,7 @@
 import { Binary, Decimal128 } from 'mongodb';
 
 export interface IEpochMiner {
+    readonly solution: Binary;
     readonly publicKey: Binary;
     readonly salt: Binary;
     readonly graffiti?: Binary;

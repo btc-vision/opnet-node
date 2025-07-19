@@ -28,6 +28,7 @@ import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { Block } from './block/Block.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import fs from 'fs';
+import { EpochManager } from './epoch/EpochManager.js';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -66,6 +67,8 @@ export class BlockIndexer extends Logger {
         this.vmManager,
         this.rpcClient,
     );
+
+    private readonly epochManager: EpochManager = new EpochManager(this.vmStorage);
 
     private readonly network: Network = NetworkConverter.getNetwork();
 
@@ -523,6 +526,9 @@ export class BlockIndexer extends Logger {
             this.consensusTracker.lockdown();
         }
 
+        // Update epoch.
+        await this.epochManager.updateEpoch(task);
+
         // Update height.
         await this.chainObserver.setNewHeight(task.tip);
 
@@ -569,7 +575,7 @@ export class BlockIndexer extends Logger {
         try {
             this.currentTask = this.indexingTasks.shift();
             if (!this.currentTask) return;
-            
+
             await this.currentTask.process();
 
             this.lastSyncErrored = false;

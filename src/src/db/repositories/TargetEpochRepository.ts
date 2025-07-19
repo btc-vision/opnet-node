@@ -6,7 +6,7 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { Address } from '@btc-vision/transaction';
 
 export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> {
-    public readonly logColor: string = '#ff1493'; // Deep pink for target epochs
+    public readonly logColor: string = '#ff1493';
 
     public constructor(db: Db) {
         super(db);
@@ -31,6 +31,12 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
 
         const count = await this.count(criteria);
         return count > 0;
+    }
+
+    public async deleteAllTargetEpochs(): Promise<void> {
+        const criteria: Partial<Filter<ITargetEpochDocument>> = {};
+
+        await this.delete(criteria);
     }
 
     public async getBestTargetEpoch(epochNumber: bigint): Promise<ITargetEpochDocument | null> {

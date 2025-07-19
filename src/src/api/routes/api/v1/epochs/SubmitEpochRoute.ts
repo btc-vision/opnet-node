@@ -50,10 +50,7 @@ export class SubmitEpochRoute extends Route<
         }
 
         // Initialize epoch validator with configured minimum difficulty
-        this._epochValidator = new EpochValidator(
-            this.storage,
-            OPNetConsensus.consensus.EPOCH.MIN_DIFFICULTY,
-        );
+        this._epochValidator = new EpochValidator(this.storage);
     }
 
     /**
@@ -141,8 +138,11 @@ export class SubmitEpochRoute extends Route<
         }
 
         // Validate the solution
-        const validationResult = await this.epochValidator.validateEpochSolution(validationParams);
-
+        const validationResult = await this.epochValidator.validateEpochSolution(
+            validationParams,
+            OPNetConsensus.consensus.EPOCH.MIN_DIFFICULTY,
+        );
+        
         if (!validationResult.valid) {
             return {
                 epochNumber: validationParams.epochNumber.toString(),

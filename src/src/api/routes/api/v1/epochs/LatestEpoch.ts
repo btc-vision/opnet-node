@@ -3,7 +3,7 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { EpochAPIResult } from '../../../../json-rpc/types/interfaces/results/epochs/EpochResult.js';
+import { EpochResult } from '../../../../json-rpc/types/interfaces/results/epochs/EpochResult.js';
 import { Route } from '../../../Route.js';
 import { IEpochDocument } from '../../../../../db/documents/interfaces/IEpochDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -11,22 +11,22 @@ import { DataConverter } from '@btc-vision/bsi-db';
 export class LatestEpoch extends Route<
     Routes.LATEST_EPOCH,
     JSONRpcMethods.GET_EPOCH_BY_NUMBER,
-    EpochAPIResult
+    EpochResult
 > {
-    private cachedEpoch: Promise<EpochAPIResult | undefined> | EpochAPIResult | undefined;
+    private cachedEpoch: Promise<EpochResult | undefined> | EpochResult | undefined;
 
     constructor() {
         super(Routes.LATEST_EPOCH, RouteType.GET);
     }
 
-    public async getData(): Promise<EpochAPIResult> {
+    public async getData(): Promise<EpochResult> {
         const resp = await this.getLatestEpoch();
         if (!resp) throw new Error(`Latest epoch not found.`);
 
         return resp;
     }
 
-    public async getDataRPC(): Promise<EpochAPIResult> {
+    public async getDataRPC(): Promise<EpochResult> {
         return await this.getData();
     }
 
@@ -63,7 +63,7 @@ export class LatestEpoch extends Route<
         }
     }
 
-    private async fetchLatestEpoch(): Promise<EpochAPIResult | undefined> {
+    private async fetchLatestEpoch(): Promise<EpochResult | undefined> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
@@ -76,7 +76,7 @@ export class LatestEpoch extends Route<
         return this.convertEpochToAPIResult(epoch);
     }
 
-    private async getLatestEpoch(): Promise<EpochAPIResult | undefined> {
+    private async getLatestEpoch(): Promise<EpochResult | undefined> {
         if (this.cachedEpoch && !(this.cachedEpoch instanceof Promise)) {
             return this.cachedEpoch;
         }
@@ -85,7 +85,7 @@ export class LatestEpoch extends Route<
         return await this.cachedEpoch;
     }
 
-    private convertEpochToAPIResult(epoch: IEpochDocument): EpochAPIResult {
+    private convertEpochToAPIResult(epoch: IEpochDocument): EpochResult {
         return {
             epochNumber: DataConverter.fromDecimal128(epoch.epochNumber).toString(),
             epochHash: epoch.epochHash.toString('hex'),
