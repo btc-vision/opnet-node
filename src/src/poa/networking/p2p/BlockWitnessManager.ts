@@ -484,7 +484,6 @@ export class BlockWitnessManager extends Logger {
                 );
             })
             .map((w) => {
-                console.log('time', w.timestamp.getTime(), w.timestamp);
                 return {
                     identity: w.identity,
                     timestamp: Long.fromValue(w.timestamp.getTime(), true),
