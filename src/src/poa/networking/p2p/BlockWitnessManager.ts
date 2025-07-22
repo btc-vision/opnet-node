@@ -474,13 +474,24 @@ export class BlockWitnessManager extends Logger {
     private convertKnownWitnessesToOPNetWitness(
         witnesses: IParsedBlockWitnessDocument[],
     ): OPNetBlockWitness[] {
-        return witnesses.map((w) => {
-            return {
-                identity: w.identity,
-                signature: Buffer.from(w.signature.buffer),
-                opnetPubKey: w.opnetPubKey ? Buffer.from(w.opnetPubKey.buffer) : undefined,
-            };
-        });
+        return witnesses
+            .filter((witness: IParsedBlockWitnessDocument) => {
+                return (
+                    witness.blockNumber !== undefined &&
+                    witness.signature !== undefined &&
+                    witness.identity !== undefined &&
+                    witness.timestamp !== undefined
+                );
+            })
+            .map((w) => {
+                console.log('time', w.timestamp.getTime(), w.timestamp);
+                return {
+                    identity: w.identity,
+                    timestamp: Long.fromValue(w.timestamp.getTime(), true),
+                    signature: Buffer.from(w.signature.buffer),
+                    opnetPubKey: w.opnetPubKey ? Buffer.from(w.opnetPubKey.buffer) : undefined,
+                };
+            });
     }
 
     private async writeBlockWitnessesToDatabase(
@@ -556,7 +567,7 @@ export class BlockWitnessManager extends Logger {
 
         return witnesses.filter((witness) => {
             return this.identity.verifyTrustedAcknowledgment(
-                blockChecksumHash,
+                this.identity.mergeDataAndWitness(blockChecksumHash, witness.timestamp.toBigInt()),
                 witness,
                 witness.identity,
             );
@@ -574,7 +585,10 @@ export class BlockWitnessManager extends Logger {
         }
 
         return witnesses.filter((witness) => {
-            return this.identity.verifyAcknowledgment(blockChecksumHash, witness);
+            return this.identity.verifyAcknowledgment(
+                this.identity.mergeDataAndWitness(blockChecksumHash, witness.timestamp.toBigInt()),
+                witness,
+            );
         });
     }
 

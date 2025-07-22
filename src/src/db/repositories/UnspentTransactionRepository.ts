@@ -331,7 +331,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                     ) {
                         if (spent) {
                             spent.blockHeight = this.decimal128ToLong(transaction.blockHeight);
-                            spent.value = new Long(output.value); //this.decimal128ToLong(output.value);
+                            spent.value = new Long(output.value, true); //this.decimal128ToLong(output.value);
                             spent.scriptPubKey = {
                                 hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                 address: output.scriptPubKey.address ?? null,
@@ -342,7 +342,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                 blockHeight: this.decimal128ToLong(transaction.blockHeight),
                                 transactionId: transaction.id,
                                 outputIndex: output.index,
-                                value: new Long(output.value),
+                                value: new Long(output.value, true),
                                 scriptPubKey: {
                                     hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                     address: output.scriptPubKey.address ?? null,

@@ -9,6 +9,7 @@ export interface OPNetBlockWitness {
 
     readonly opnetPubKey?: Buffer;
     readonly signature: Buffer;
+    readonly timestamp: Long;
 }
 
 export interface ChecksumProof {

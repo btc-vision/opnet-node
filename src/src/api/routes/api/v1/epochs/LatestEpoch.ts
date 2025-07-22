@@ -98,6 +98,7 @@ export class LatestEpoch extends Route<
                 publicKey: epoch.proposer.publicKey.toString('hex'),
                 salt: epoch.proposer.salt.toString('hex'),
                 graffiti: epoch.proposer.graffiti?.toString('hex'),
+                solution: epoch.proposer.solution.toString('hex'),
             },
         };
     }

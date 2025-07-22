@@ -107,10 +107,11 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
                 identity: witness.identity,
             };
 
-            const update: Partial<IBlockWitnessDocument> = {
+            const update: IBlockWitnessDocument = {
                 blockNumber: blockNumber,
                 signature: signature,
                 identity: witness.identity,
+                timestamp: new Date(Number(witness.timestamp)),
                 opnetPubKey: pubKey,
                 trusted: isTrusted,
             };
@@ -154,6 +155,7 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
                 opnetPubKey: witness.opnetPubKey,
                 signature: witness.signature,
                 trusted: witness.trusted,
+                timestamp: witness.timestamp,
             });
         }
 

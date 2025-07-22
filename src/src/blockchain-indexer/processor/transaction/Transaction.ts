@@ -373,7 +373,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             burnedBitcoin: DataConverter.toDecimal128(this._burnedFee),
             priorityFee: DataConverter.toDecimal128(this._priorityFee),
-            reward: new Long(this._reward),
+            reward: new Long(this._reward, true),
 
             gasUsed: DataConverter.toDecimal128(this.receipt ? this.receipt.gasUsed : 0n),
             specialGasUsed: DataConverter.toDecimal128(
