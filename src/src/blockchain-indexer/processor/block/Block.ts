@@ -34,7 +34,7 @@ import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { Long } from 'mongodb';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 import { ContractEvaluation } from '../../../vm/runtime/classes/ContractEvaluation.js';
-import { RustContract } from '../../../vm/isolated/RustContract.js';
+import { RustContract } from '../../../vm/rust/RustContract.js';
 import { SharedInteractionParameters } from '../transaction/transactions/SharedInteractionParameters.js';
 import { AddressCache, AddressCacheExport } from '../AddressCache.js';
 

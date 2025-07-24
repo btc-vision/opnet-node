@@ -41,20 +41,44 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
 
         let result: PagingQueryResult<IBlockWitnessDocument> | IBlockWitnessDocument[];
         if (limit) {
-            const queryInfo: PagingQueryInfo = new PagingQueryInfo(limit, page || 0);
+            const queryInfo: PagingQueryInfo = new PagingQueryInfo(limit, page ?? 1);
 
-            result = await this.queryManyAndSortPaged(criteria, { blockNumber: 1 }, queryInfo);
+            result = await this.queryManyAndSortPaged(criteria, {}, queryInfo);
         } else {
-            result = await this.queryMany(criteria, undefined, { blockNumber: 1 });
+            result = await this.queryMany(criteria, undefined, {});
         }
 
         if (!result) {
             return [];
         }
 
-        const witnesses = result instanceof Array ? result : result.results;
-
+        const witnesses = Array.isArray(result) ? result : result.results;
         return this.parseBlockWitnesses(witnesses);
+    }
+
+    public async getWitnessesForEpoch(
+        startBlock: bigint,
+        endBlock: bigint,
+        limitPerBlock: number,
+    ): Promise<IParsedBlockWitnessDocument[]> {
+        const results: Promise<IParsedBlockWitnessDocument[]>[] = [];
+        for (let height = startBlock; height <= endBlock; height++) {
+            results.push(this.getWitnesses(height, false, limitPerBlock));
+        }
+
+        const allWitnesses = await Promise.safeAll(results);
+        const flat = allWitnesses.flat();
+
+        // sort by block number
+        return flat.sort((a, b) => {
+            if (a.blockNumber < b.blockNumber) {
+                return -1;
+            } else if (a.blockNumber > b.blockNumber) {
+                return 1;
+            } else {
+                return 0;
+            }
+        });
     }
 
     public async getBlockWitnesses(

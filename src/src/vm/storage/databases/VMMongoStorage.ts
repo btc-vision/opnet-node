@@ -96,7 +96,7 @@ export class VMMongoStorage extends VMStorage {
         }
 
         const target = Buffer.from(blockHeader.checksumRoot.replace('0x', ''), 'hex');
-        const targetHash: Buffer = Buffer.from(SHA1.hash(target), 'hex');
+        const targetHash: Buffer = SHA1.hashBuffer(target);
 
         return {
             target,
@@ -311,7 +311,23 @@ export class VMMongoStorage extends VMStorage {
             height = BigInt(lastBlock.height);
         }
 
-        return await this.blockWitnessRepository.getWitnesses(height, trusted, limit, page);
+        return await this.blockWitnessRepository.getWitnesses(height, trusted, limit, page ?? 1);
+    }
+
+    public async getWitnessesForEpoch(
+        startBlock: bigint,
+        endBlock: bigint,
+        limitPerBlock: number,
+    ): Promise<IParsedBlockWitnessDocument[]> {
+        if (!this.blockWitnessRepository) {
+            throw new Error('Block witness repository not initialized');
+        }
+
+        return await this.blockWitnessRepository.getWitnessesForEpoch(
+            startBlock,
+            endBlock,
+            limitPerBlock,
+        );
     }
 
     public async init(): Promise<void> {

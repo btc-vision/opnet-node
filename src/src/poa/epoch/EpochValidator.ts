@@ -122,7 +122,7 @@ export class EpochValidator extends Logger {
             );
 
             // Calculate SHA-1 of the preimage
-            const hash = Buffer.from(SHA1.hash(preimage), 'hex');
+            const hash = SHA1.hashBuffer(preimage);
 
             // Count matching bits
             const matchingBits = this.countMatchingBits(hash, epoch.targetHash);

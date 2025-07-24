@@ -7,6 +7,7 @@ import {
     BlockchainConfig,
     DevConfig,
     DocsConfig,
+    EpochConfigs,
     IBtcIndexerConfig,
     IndexerConfig,
     MempoolConfig,
@@ -28,6 +29,8 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
     public readonly P2P: P2P;
     public readonly SSH: SSHConfig;
 
+    public readonly EPOCH: EpochConfigs;
+
     public readonly API: APIExtendedConfigurations;
 
     public readonly MEMPOOL: MempoolConfig;
@@ -48,6 +51,8 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
         super(config);
 
         this.DEV = config.DEV;
+
+        this.EPOCH = config.EPOCH;
 
         this.BECH32 = config.BECH32;
         this.BASE58 = config.BASE58;

@@ -76,6 +76,12 @@ export abstract class VMStorage extends Logger {
         page?: number,
     ): Promise<IParsedBlockWitnessDocument[]>;
 
+    public abstract getWitnessesForEpoch(
+        startBlock: bigint,
+        endBlock: bigint,
+        limitPerBlock: number,
+    ): Promise<IParsedBlockWitnessDocument[]>;
+
     public abstract getStorage(
         address: Address,
         pointer: StoragePointer,

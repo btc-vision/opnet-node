@@ -34,6 +34,8 @@ export interface IOPNetConsensus<T extends Consensus> {
         };
     };
 
+    readonly PROTOCOL_ID: Uint8Array;
+
     readonly EPOCH: {
         /** There is an epoch change every X blocks */
         readonly BLOCKS_PER_EPOCH: bigint;
@@ -41,6 +43,8 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly MIN_DIFFICULTY: number;
 
         readonly GENESIS_PROPOSER_PUBLIC_KEY: Address;
+
+        readonly GRAFFITI_LENGTH: number;
     };
 
     readonly GENERIC: {

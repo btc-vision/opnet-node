@@ -6,24 +6,45 @@ import { SHA1 } from '../../../utils/SHA1.js';
 import { IEpochDocument } from '../../../db/documents/interfaces/IEpochDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
-import { sha256 } from '@btc-vision/bitcoin';
 import { EpochDifficultyConverter } from '../../../poa/epoch/EpochDifficultyConverter.js';
 import { EpochValidator } from '../../../poa/epoch/EpochValidator.js';
+import {
+    Attestation,
+    AttestationType,
+    EpochData,
+    EpochMerkleTree,
+} from '../block/merkle/EpochWitnessMerkleTree.js';
+import {
+    EpochSubmissionWinner,
+    IEpochSubmissionsDocument,
+} from '../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
+import { Address } from '@btc-vision/transaction';
+import { Config } from '../../../config/Config.js';
+import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
+import { BlockHeaderDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import fs from 'fs';
 
 export interface IEpoch {
-    startBlock: bigint;
-    targetHash: Buffer;
-    target: Buffer;
-    solution: Buffer;
-    salt: Buffer;
-    publicKey: Buffer;
-    graffiti?: Buffer;
-    solutionBits: number;
+    readonly startBlock: bigint;
+    readonly targetHash: Buffer;
+    readonly target: Buffer;
+    readonly solution: Buffer;
+    readonly salt: Buffer;
+    readonly publicKey: Buffer;
+    readonly graffiti?: Buffer;
+    readonly solutionBits: number;
+    readonly epochRoot: Buffer;
+    readonly epochHash: Buffer;
 }
 
 interface EpochUpdateResult {
     readonly update: boolean;
     readonly currentEpoch: bigint;
+}
+
+interface AttestationEpoch {
+    readonly root: Buffer;
+    readonly epochNumber: bigint;
 }
 
 export class EpochManager extends Logger {
@@ -38,10 +59,28 @@ export class EpochManager extends Logger {
     }
 
     public async updateEpoch(task: IndexingTask): Promise<void> {
-        await Promise.resolve();
-
         if (task.tip === 0n) {
-            return await this.finalizeEmptyEpoch(task, 0n);
+            const [lastEpoch, attestation, witnesses] = await Promise.safeAll([
+                this.getPreviousEpochHash(0n),
+                this.getAttestationChecksumRoot(0n),
+                this.storage.getWitnessesForEpoch(
+                    0n,
+                    OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n,
+                    Config.EPOCH.MAX_ATTESTATION_PER_BLOCK,
+                ),
+            ]);
+
+            return await this.finalizeEpoch(
+                0n,
+                OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n,
+                new Map<bigint, Buffer>(),
+                [],
+                witnesses,
+                task,
+                0n,
+                lastEpoch,
+                attestation,
+            );
         }
 
         const shouldUpdate = this.shouldUpdateEpoch(task.tip);
@@ -49,19 +88,20 @@ export class EpochManager extends Logger {
             return;
         }
 
-        await this.finalizeEpoch(task, shouldUpdate.currentEpoch);
+        await this.finalizeEpochCompletion(task, shouldUpdate.currentEpoch - 1n);
     }
 
     private createEpoch(epoch: IEpoch): IEpochDocument {
         return {
+            epochHash: new Binary(epoch.epochHash),
+            epochRoot: new Binary(epoch.epochRoot),
             epochNumber: DataConverter.toDecimal128(
                 epoch.startBlock / BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH),
             ),
-            epochHash: new Binary(this.hashEpoch(epoch)),
             targetHash: new Binary(epoch.targetHash),
             startBlock: DataConverter.toDecimal128(epoch.startBlock),
             endBlock: DataConverter.toDecimal128(
-                epoch.startBlock + BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH),
+                epoch.startBlock + BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH) - 1n,
             ),
             difficultyScaled: EpochDifficultyConverter.bitsToScaledDifficulty(
                 epoch.solutionBits,
@@ -75,67 +115,314 @@ export class EpochManager extends Logger {
         };
     }
 
-    private hashEpoch(epoch: IEpoch): Buffer {
-        const heightBuffer = Buffer.alloc(8);
-        heightBuffer.writeBigUint64BE(epoch.startBlock);
+    private async getPreviousEpochHash(epochNumber: bigint): Promise<Buffer> {
+        if (epochNumber === 0n) {
+            return Buffer.alloc(32);
+        }
 
-        return sha256(
-            Buffer.concat([
-                heightBuffer,
-                epoch.target,
-                epoch.targetHash,
-                epoch.salt,
-                epoch.publicKey,
-                epoch.graffiti || Buffer.alloc(16),
-            ]),
+        const epoch = await this.storage.getEpochByNumber(epochNumber - 1n);
+        if (!epoch) {
+            throw new Error(`No epoch found for number ${epochNumber - 1n}`);
+        }
+
+        return Buffer.from(epoch.epochHash.buffer);
+    }
+
+    private async finalizeEpochCompletion(task: IndexingTask, epochNumber: bigint): Promise<void> {
+        const startBlock = epochNumber * BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const endBlock = startBlock + BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH) - 1n;
+
+        // Load all the previous epoch data
+        const [lastEpoch, attestationChecksumRoot, submissions, witnesses, checkSumRoots] =
+            await Promise.all([
+                this.getPreviousEpochHash(epochNumber),
+                this.getAttestationChecksumRoot(epochNumber),
+                this.storage.getSubmissionsByEpochNumber(epochNumber - 1n),
+                this.storage.getWitnessesForEpoch(
+                    startBlock,
+                    endBlock,
+                    Config.EPOCH.MAX_ATTESTATION_PER_BLOCK,
+                ),
+                this.getChecksumRoots(startBlock, endBlock),
+            ]);
+
+        return await this.finalizeEpoch(
+            startBlock,
+            endBlock,
+            checkSumRoots,
+            submissions,
+            witnesses,
+            task,
+            epochNumber,
+            lastEpoch,
+            attestationChecksumRoot,
         );
     }
 
-    private async finalizeEpoch(task: IndexingTask, epochNumber: bigint): Promise<void> {
-        // Load all the previous epoch data..
+    private async getChecksumRoots(
+        startBlock: bigint,
+        endBlock: bigint,
+    ): Promise<Map<bigint, Buffer>> {
+        const promises: Promise<BlockHeaderDocument | undefined>[] = [];
 
-        const submissions = await this.storage.getSubmissionsByEpochNumber(epochNumber - 1n);
-        if (!submissions || submissions.length === 0) {
-            return await this.finalizeEmptyEpoch(task, epochNumber);
+        for (let blockNumber = startBlock; blockNumber <= endBlock; blockNumber++) {
+            promises.push(this.storage.getBlockHeader(blockNumber));
         }
 
-        throw new Error('Epoch finalization not implemented yet.'); // TODO: Implement epoch finalization logic
+        const headers = await Promise.safeAll(promises);
+        const checkSumRoots = new Map<bigint, Buffer>();
+
+        for (const header of headers) {
+            if (header) {
+                const blockNumber = DataConverter.fromDecimal128(header.height);
+                const checksumRoot = Buffer.from(header.checksumRoot.replace('0x', ''), 'hex');
+                if (checksumRoot.length !== 32) {
+                    throw new Error(
+                        `Invalid checksum root length: ${checksumRoot.length}. Expected 32 bytes.`,
+                    );
+                }
+
+                checkSumRoots.set(blockNumber, checksumRoot);
+            }
+        }
+
+        return checkSumRoots;
     }
 
-    private async finalizeEmptyEpoch(task: IndexingTask, epochNumber: bigint): Promise<void> {
-        const preimage = Buffer.from(task.block.checksumRoot.replace('0x', ''), 'hex');
+    private getBestSubmission(
+        submissions: IEpochSubmissionsDocument[],
+        targetHash: Buffer,
+    ): EpochSubmissionWinner | null {
+        if (submissions.length === 0) {
+            return null;
+        }
 
-        const targetHash = Buffer.from(SHA1.hash(preimage), 'hex');
-        const publicKey = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY;
-        const salt = Buffer.alloc(32);
+        // Find submission with highest difficulty (most matching bits)
+        let bestSubmission: IEpochSubmissionsDocument | null = null;
+        let bestMatchingBits = 0;
 
-        const solution = EpochValidator.calculatePreimage(preimage, publicKey, salt);
+        for (const submission of submissions) {
+            const solutionHash = Buffer.from(submission.epochProposed.solution.buffer);
+            if (solutionHash.length !== 20) {
+                this.log(
+                    `Invalid solution hash length: ${solutionHash.length}. Expected 20 bytes.`,
+                );
+                continue;
+            }
 
-        const solutionHash = Buffer.from(SHA1.hash(solution), 'hex');
+            const matchingBits = this.epochValidator.countMatchingBits(solutionHash, targetHash);
+            if (matchingBits > bestMatchingBits) {
+                bestMatchingBits = matchingBits;
+                bestSubmission = submission;
+            }
+        }
+
+        if (!bestSubmission) {
+            return null;
+        }
+
+        return {
+            epochNumber: DataConverter.fromDecimal128(bestSubmission.epochNumber),
+            matchingBits: bestMatchingBits,
+            salt: Buffer.from(bestSubmission.epochProposed.salt.buffer),
+            publicKey: new Address(Buffer.from(bestSubmission.epochProposed.publicKey.buffer)),
+            solutionHash: Buffer.from(bestSubmission.submissionHash.buffer),
+            graffiti: bestSubmission.epochProposed.graffiti
+                ? Buffer.from(bestSubmission.epochProposed.graffiti.buffer)
+                : Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH),
+        };
+    }
+
+    private async finalizeEpoch(
+        startBlock: bigint,
+        endBlock: bigint,
+        checksumRoots: Map<bigint, Buffer>,
+        submissions: IEpochSubmissionsDocument[],
+        witnesses: IParsedBlockWitnessDocument[],
+        task: IndexingTask,
+        epochNumber: bigint,
+        previousEpochHash: Buffer,
+        attestationChecksumRoot: AttestationEpoch,
+    ): Promise<void> {
+        const checksumRoot = Buffer.from(task.block.checksumRoot.replace('0x', ''), 'hex');
+        const targetHash = SHA1.hashBuffer(checksumRoot);
+
+        const winningSubmission = this.getBestSubmission(submissions, targetHash);
+        if (winningSubmission && winningSubmission.epochNumber !== epochNumber) {
+            throw new Error(
+                `Winner epoch mismatch: expected ${epochNumber}, got ${winningSubmission.epochNumber}`,
+            );
+        }
+
+        let salt: Buffer;
+        let publicKey: Address;
+        let graffiti: Buffer;
+
+        if (!winningSubmission) {
+            // No valid submission, use genesis proposer
+            salt = Buffer.alloc(32);
+            publicKey = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY;
+            graffiti = Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH);
+        } else {
+            salt = winningSubmission.salt;
+            publicKey = winningSubmission.publicKey;
+            graffiti = winningSubmission.graffiti;
+        }
+
+        if (salt.length !== 32) {
+            throw new Error(`Invalid salt length: ${salt.length}. Expected 32 bytes.`);
+        }
+
+        const solution = EpochValidator.calculatePreimage(checksumRoot, publicKey, salt);
+        const solutionHash = SHA1.hashBuffer(solution);
         const matchingBits = this.epochValidator.countMatchingBits(solutionHash, targetHash);
 
-        const epoch: IEpoch = {
-            startBlock: epochNumber * BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH),
-            targetHash: targetHash,
-            target: preimage,
-            solution: solutionHash,
-            salt: salt,
-            publicKey: publicKey.toBuffer(),
-            graffiti: Buffer.alloc(0),
-            solutionBits: matchingBits,
+        const epochData: EpochData = {
+            epochNumber: epochNumber,
+            startBlock,
+            endBlock,
+            checksumRoot,
+            previousEpochHash: previousEpochHash,
+            attestedEpochNumber: attestationChecksumRoot.epochNumber,
+            attestedChecksumRoot: attestationChecksumRoot.root,
         };
 
-        const epochDocument = this.createEpoch(epoch);
+        const epoch = new EpochMerkleTree(epochData);
+
+        // Create winner object
+        const epochWinner: EpochSubmissionWinner = {
+            epochNumber: epochNumber,
+            publicKey: publicKey,
+            solutionHash: solutionHash,
+            salt: salt,
+            matchingBits: matchingBits,
+            graffiti: graffiti,
+        };
+
+        epoch.setWinner(epochWinner);
+
+        // Add all the attestations for this epoch.
+        for (const witness of witnesses) {
+            epoch.addBlockAttestation(this.witnessToAttestation(witness, checksumRoots));
+        }
+
+        epoch.freeze();
+
+        const finalEpoch: IEpoch = {
+            startBlock,
+            targetHash: targetHash,
+            target: checksumRoot,
+            solution: solutionHash,
+            salt: salt,
+            publicKey: publicKey.originalPublicKeyBuffer(),
+            graffiti: graffiti,
+            solutionBits: matchingBits,
+            epochRoot: Buffer.from(epoch.rootBuffer),
+            epochHash: epoch.epochHash,
+        };
+
+        const epochDocument = this.createEpoch(finalEpoch);
         await this.storage.saveEpoch(epochDocument);
+
+        if (Config.EPOCH.LOG_FINALIZATION) {
+            const tree = epoch.exportCompleteTree();
+            console.dir(tree, { depth: 500, colors: true });
+
+            fs.writeFileSync(`epoch/epoch-${epochNumber}.json`, JSON.stringify(tree, null, 4));
+
+            const treeStats = epoch.getTreeStatistics();
+
+            this.log(`Epoch ${epochNumber}:`);
+            this.log(`  Epoch Hash: ${epochDocument.epochHash.toString('hex')}`);
+            this.log(`  Attestation Root: ${finalEpoch.epochRoot.toString('hex')}`);
+            this.log(`  Attestation Count: ${treeStats.attestationCount}`);
+            this.log(`  Tree Height: ${treeStats.treeHeight}`);
+            this.log(`  Winner: ${publicKey.toHex()} (${matchingBits} bits)`);
+            this.log(`  Solution: ${solutionHash.toString('hex')}`);
+            this.log(`  Salt: ${salt.toString('hex')}`);
+            this.log(`  Graffiti: ${graffiti.toString('utf8')}`);
+            this.log(`  Target Hash: ${targetHash.toString('hex')}`);
+            this.log(`  Checksum Root: ${checksumRoot.toString('hex')}`);
+            this.log(`  Block Range: ${startBlock} - ${endBlock}`);
+            this.log(
+                `  Difficulty: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))}`,
+            );
+
+            // Log attestation type breakdown if available
+            if (Object.keys(treeStats.attestationTypes).length > 0) {
+                this.log(`  Attestation Types:`);
+                for (const [type, count] of Object.entries(treeStats.attestationTypes)) {
+                    const typeName = type === '0' ? 'BLOCK_WITNESS' : 'EMPTY_ATTESTATION';
+                    this.log(`    - ${typeName}: ${count}`);
+                }
+            }
+        }
 
         this.log(
             `!! -- Finalized epoch ${epochNumber} [${epochDocument.proposer.solution.toString('hex')} (Diff: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))})] (${epochDocument.epochHash.toString('hex')}) -- !!`,
         );
     }
 
+    private witnessToAttestation(
+        witness: IParsedBlockWitnessDocument,
+        checkSumRoots: Map<bigint, Buffer>,
+    ): Attestation {
+        const root = checkSumRoots.get(witness.blockNumber);
+        if (!root) {
+            throw new Error(`No checksum root found for block number ${witness.blockNumber}`);
+        }
+
+        if (!witness.opnetPubKey) {
+            throw new Error(`Witness at block ${witness.blockNumber} has no public key`);
+        }
+
+        return {
+            type: AttestationType.BLOCK_WITNESS,
+            blockNumber: witness.blockNumber,
+            checksumRoot: root,
+            signature: Buffer.from(witness.signature.buffer),
+            timestamp: witness.timestamp.getTime(),
+            publicKey: new Address(witness.opnetPubKey.buffer),
+        };
+    }
+
+    private async getAttestationChecksumRoot(epochNumber: bigint): Promise<AttestationEpoch> {
+        const targetEpochNumber = epochNumber - 4n;
+        if (epochNumber < 4n) {
+            // For epochs 0-3, return zero hash as there's no history to attest to
+            return {
+                root: Buffer.alloc(32),
+                epochNumber: targetEpochNumber,
+            };
+        }
+
+        const targetEpoch = await this.storage.getEpochByNumber(targetEpochNumber);
+        if (!targetEpoch) {
+            throw new Error(
+                `No epoch found for number ${targetEpochNumber}, cannot get attestation checksum root`,
+            );
+        }
+
+        const endBlock = DataConverter.fromDecimal128(targetEpoch.endBlock);
+        const blockHeader = await this.storage.getBlockHeader(endBlock); // Last block of epoch
+
+        if (!blockHeader) {
+            throw new Error(
+                `No block header found for epoch end block ${endBlock}, cannot get attestation checksum root`,
+            );
+        }
+
+        const root = Buffer.from(blockHeader.checksumRoot.replace('0x', ''), 'hex');
+        if (root.length !== 32) {
+            throw new Error(`Invalid checksum root length: ${root.length}. Expected 32 bytes.`);
+        }
+
+        return { root, epochNumber: targetEpochNumber };
+    }
+
     private shouldUpdateEpoch(tip: bigint): EpochUpdateResult {
-        const currentEpoch = tip / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
-        const lastBlockEpoch = (tip - 1n) / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+        const currentEpoch = tip / BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const lastBlockEpoch = (tip - 1n) / BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
 
         return {
             update: currentEpoch > lastBlockEpoch,

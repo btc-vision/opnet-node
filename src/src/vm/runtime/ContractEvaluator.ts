@@ -19,7 +19,7 @@ import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { Network, networks } from '@btc-vision/bitcoin';
-import { ContractParameters, RustContract } from '../isolated/RustContract.js';
+import { ContractParameters, RustContract } from '../rust/RustContract.js';
 import { Blockchain } from '../Blockchain.js';
 import { Config } from '../../config/Config.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';

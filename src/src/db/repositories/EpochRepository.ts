@@ -52,7 +52,6 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         };
 
         const result: IEpochDocument | null = await this.queryOne(criteria, currentSession);
-
         if (result === null) {
             return;
         }
@@ -74,7 +73,6 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         };
 
         const result: IEpochDocument | null = await this.queryOne(criteria, currentSession);
-
         if (result === null) {
             return;
         }
@@ -96,7 +94,6 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         };
 
         const result: IEpochDocument | null = await this.queryOne(criteria, currentSession);
-
         if (result === null) {
             return;
         }
@@ -115,7 +112,6 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         };
 
         const result: IEpochDocument | null = await this.queryOne(criteria, currentSession);
-
         if (result === null) {
             return;
         }

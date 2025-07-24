@@ -31,12 +31,21 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         },
     },
 
+    PROTOCOL_ID: Uint8Array.from(
+        Buffer.from(
+            'e784995a412d773988c4b8e333d7b39dfb3cabf118d0d645411a916ca2407939', // sha256("OP_NET")
+            'hex',
+        ),
+    ),
+
     EPOCH: {
         BLOCKS_PER_EPOCH: 5n,
 
         MIN_DIFFICULTY: 20,
 
         GENESIS_PROPOSER_PUBLIC_KEY: Address.dead(),
+
+        GRAFFITI_LENGTH: 16,
     },
 
     GENERIC: {

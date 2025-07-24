@@ -10,6 +10,7 @@ export interface IEpochMiner {
 export interface IEpochDocument {
     readonly epochNumber: Decimal128;
     readonly epochHash: Binary;
+    readonly epochRoot: Binary;
 
     readonly startBlock: Decimal128;
     readonly endBlock: Decimal128;
