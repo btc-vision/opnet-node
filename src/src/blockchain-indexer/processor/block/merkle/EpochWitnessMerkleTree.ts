@@ -499,7 +499,7 @@ export class EpochMerkleTree {
     private epochDataToBytes(): Uint8Array {
         const baseSize = 64 + 8 + 8 + 8 + 32 + 32 + 8 + 32;
         const winnerSize = this.epochData.winner
-            ? 32 + 1 + 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
+            ? 32 + 2 + 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
             : 0;
 
         const writer = new BinaryWriter(baseSize + winnerSize);
@@ -531,7 +531,7 @@ export class EpochMerkleTree {
         }
 
         writer.writeAddress(this.epochData.winner.publicKey); // 32
-        writer.writeU8(this.epochData.winner.matchingBits & 0xff); // 1
+        writer.writeU16(this.epochData.winner.matchingBits & 0xffff); // 2
         writer.writeBytes(this.epochData.winner.salt); // 32
         writer.writeBytes(this.epochData.winner.solutionHash); // 32
         writer.writeBytes(this.epochData.winner.graffiti); // OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
