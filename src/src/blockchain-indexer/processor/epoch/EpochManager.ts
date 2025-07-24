@@ -326,7 +326,7 @@ export class EpochManager extends Logger {
 
         if (Config.EPOCH.LOG_FINALIZATION) {
             const tree = epoch.exportCompleteTree();
-            console.dir(tree, { depth: 500, colors: true });
+            //console.dir(tree, { depth: 500, colors: true });
 
             fs.writeFileSync(`epoch/epoch-${epochNumber}.json`, JSON.stringify(tree, null, 4));
 
