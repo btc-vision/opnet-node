@@ -499,7 +499,7 @@ export class EpochMerkleTree {
     private epochDataToBytes(): Uint8Array {
         const baseSize = 64 + 8 + 8 + 8 + 32 + 32 + 8 + 32;
         const winnerSize = this.epochData.winner
-            ? 32 + 2 + 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
+            ? 32 + 1 + 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
             : 0;
 
         const writer = new BinaryWriter(baseSize + winnerSize);
@@ -518,22 +518,23 @@ export class EpochMerkleTree {
         writer.writeBytes(this.epochData.attestedChecksumRoot); // 32
 
         // Write winner data if present
-        if (this.epochData.winner) {
-            if (
-                this.epochData.winner.graffiti.length !==
-                OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
-            ) {
-                throw new Error(
-                    `Invalid graffiti length: expected ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH}, got ${this.epochData.winner.graffiti.length}`,
-                );
-            }
-
-            writer.writeAddress(this.epochData.winner.publicKey); // 32
-            writer.writeU16(this.epochData.winner.matchingBits & 0xffff); // 2
-            writer.writeBytes(this.epochData.winner.salt); // 32
-            writer.writeBytes(this.epochData.winner.solutionHash); // 32
-            writer.writeBytes(this.epochData.winner.graffiti); // OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
+        if (!this.epochData.winner) {
+            throw new Error('Epoch winner data is not set');
         }
+
+        if (
+            this.epochData.winner.graffiti.length !== OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
+        ) {
+            throw new Error(
+                `Invalid graffiti length: expected ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH}, got ${this.epochData.winner.graffiti.length}`,
+            );
+        }
+
+        writer.writeAddress(this.epochData.winner.publicKey); // 32
+        writer.writeU8(this.epochData.winner.matchingBits & 0xff); // 1
+        writer.writeBytes(this.epochData.winner.salt); // 32
+        writer.writeBytes(this.epochData.winner.solutionHash); // 32
+        writer.writeBytes(this.epochData.winner.graffiti); // OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
 
         return writer.getBuffer();
     }
