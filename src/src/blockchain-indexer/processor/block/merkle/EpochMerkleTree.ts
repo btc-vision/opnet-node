@@ -36,21 +36,6 @@ export interface EpochData {
     winner?: EpochSubmissionWinner;
 }
 
-export interface EpochSummaryProof {
-    readonly epochNumber: bigint;
-    readonly attestationRoot: string;
-    readonly attestationCount: number;
-    readonly winner?: {
-        readonly publicKey: string;
-        readonly matchingBits: number;
-        readonly salt: string;
-        readonly solutionHash: string;
-        readonly graffiti: string;
-    };
-    readonly checksumRoot: string;
-    readonly previousEpochHash: string;
-}
-
 export interface EpochDataProof {
     readonly epochNumber: bigint;
     readonly startBlock: bigint;
@@ -68,7 +53,6 @@ export interface EpochDataProof {
     };
     readonly proof: string[];
     readonly leafHash: string;
-    readonly rawBytes: string;
 }
 
 export interface AttestationProof {
@@ -83,7 +67,6 @@ export interface AttestationProof {
     readonly proof: string[];
     readonly leafHash: string;
     readonly index: number;
-    readonly rawBytes: string;
 }
 
 export interface CompleteEpochMerkleTreeExport {
@@ -130,7 +113,8 @@ const chainId = getChainId(NetworkConverter.networkToBitcoinNetwork(NetworkConve
 export class EpochMerkleTree {
     private tree: RustMerkleTree | undefined;
     private attestations: Attestation[] = [];
-    private epochData: EpochData;
+    private readonly epochData: EpochData;
+    private epochBytes: Uint8Array | undefined;
     private frozen: boolean = false;
 
     private readonly maxAttestations: number;
@@ -171,10 +155,7 @@ export class EpochMerkleTree {
         attestation: Attestation,
         proof: string[],
     ): boolean {
-        const attestationBytes = EpochMerkleTree.prototype.attestationToBytes.call(
-            { epochData: { epochNumber: 0n } },
-            attestation,
-        );
+        const attestationBytes = EpochMerkleTree.attestationToBytes(attestation);
         const merkleProof = new MerkleProof(proof.map((p) => toBytes(p)));
         return merkleProof.verify(root, RustMerkleTree.hash(attestationBytes));
     }
@@ -242,6 +223,61 @@ export class EpochMerkleTree {
         };
     }
 
+    public static attestationToBytes(attestation: Attestation): Uint8Array {
+        const writer = new BinaryWriter(145);
+
+        // Write attestation fields
+        writer.writeU8(attestation.type); // 1
+        writer.writeU64(attestation.blockNumber); // 8
+        writer.writeBytes(attestation.checksumRoot); // 32
+        writer.writeBytes(attestation.signature); // 64
+        writer.writeU64(BigInt(attestation.timestamp)); // 8
+        writer.writeAddress(attestation.publicKey); // 32
+
+        return writer.getBuffer();
+    }
+
+    public static epochDataToBytes(epochData: EpochData): Uint8Array {
+        const baseSize = 64 + 8 + 8 + 8 + 32 + 32 + 8 + 32;
+        const winnerSize = epochData.winner
+            ? 32 + 2 + 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
+            : 0;
+
+        const writer = new BinaryWriter(baseSize + winnerSize);
+
+        // Protocol information
+        writer.writeBytes(chainId);
+        writer.writeBytes(OPNetConsensus.consensus.PROTOCOL_ID);
+
+        // Write epoch data fields
+        writer.writeU64(epochData.epochNumber); // 8
+        writer.writeU64(epochData.startBlock); // 8
+        writer.writeU64(epochData.endBlock); // 8
+        writer.writeBytes(epochData.checksumRoot); // 32
+        writer.writeBytes(epochData.previousEpochHash); // 32
+        writer.writeU64(epochData.attestedEpochNumber); // 8
+        writer.writeBytes(epochData.attestedChecksumRoot); // 32
+
+        // Write winner data if present
+        if (!epochData.winner) {
+            throw new Error('Epoch winner data is not set');
+        }
+
+        if (epochData.winner.graffiti.length !== OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
+            throw new Error(
+                `Invalid graffiti length: expected ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH}, got ${epochData.winner.graffiti.length}`,
+            );
+        }
+
+        writer.writeAddress(epochData.winner.publicKey); // 32
+        writer.writeU16(epochData.winner.matchingBits & 0xffff); // 2
+        writer.writeBytes(epochData.winner.salt); // 32
+        writer.writeBytes(epochData.winner.solutionHash); // 32
+        writer.writeBytes(epochData.winner.graffiti); // OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
+
+        return writer.getBuffer();
+    }
+
     public setWinner(winner: EpochSubmissionWinner): void {
         if (this.frozen) {
             throw new Error('Epoch merkle tree is frozen');
@@ -290,14 +326,16 @@ export class EpochMerkleTree {
         // Create array of bytes for merkle tree
         const treeLeaves: Uint8Array[] = [];
 
-        const epochDataBytes = this.epochDataToBytes();
-        this._epochHash = sha256(Buffer.from(epochDataBytes));
+        this.epochBytes = EpochMerkleTree.epochDataToBytes(this.epochData);
+        this._epochHash = sha256(Buffer.from(this.epochBytes));
 
         // Add epoch data as the first leaf
-        treeLeaves.push(epochDataBytes);
+        treeLeaves.push(this.epochBytes);
 
         // Add attestations as subsequent leaves
-        const attestationBytes = selectedAttestations.map((att) => this.attestationToBytes(att));
+        const attestationBytes = selectedAttestations.map((att) =>
+            EpochMerkleTree.attestationToBytes(att),
+        );
         treeLeaves.push(...attestationBytes);
 
         this.tree = new RustMerkleTree(treeLeaves);
@@ -317,27 +355,31 @@ export class EpochMerkleTree {
             throw new Error('Attestation index out of bounds');
         }
 
-        // Note: attestationIndex 0 corresponds to tree index 1 (since epoch data is at index 0)
-        const attestationBytes = this.attestationToBytes(this.attestations[attestationIndex]);
+        // attestationIndex 0 corresponds to tree index 1 (since epoch data is at index 0)
+        const attestationBytes = EpochMerkleTree.attestationToBytes(
+            this.attestations[attestationIndex],
+        );
+
         return this.tree.getProof(this.tree.getIndexData(attestationBytes)).proofHashesHex();
     }
 
-    public getEpochDataProof(): string[] {
+    public getEpochDataProof(epochDataBytes: Uint8Array): string[] {
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
 
-        const epochDataBytes = this.epochDataToBytes();
         return this.tree.getProof(this.tree.getIndexData(epochDataBytes)).proofHashesHex();
     }
 
-    public getEpochDataProofPackage(): EpochDataProof {
+    public getEpochData(): EpochDataProof {
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
 
-        const epochDataBytes = this.epochDataToBytes();
-        const proof = this.getEpochDataProof();
+        const epochDataBytes = this.epochBytes
+            ? this.epochBytes
+            : EpochMerkleTree.epochDataToBytes(this.epochData);
+        const proof = this.getEpochDataProof(epochDataBytes);
         const leafHash = RustMerkleTree.hash(epochDataBytes);
 
         return {
@@ -359,7 +401,6 @@ export class EpochMerkleTree {
                 : undefined,
             proof,
             leafHash: '0x' + Buffer.from(leafHash).toString('hex'),
-            rawBytes: '0x' + Buffer.from(epochDataBytes).toString('hex'),
         };
     }
 
@@ -373,7 +414,7 @@ export class EpochMerkleTree {
         }
 
         const attestation = this.attestations[attestationIndex];
-        const attestationBytes = this.attestationToBytes(attestation);
+        const attestationBytes = EpochMerkleTree.attestationToBytes(attestation);
         const proof = this.getProof(attestationIndex);
         const leafHash = RustMerkleTree.hash(attestationBytes);
 
@@ -389,7 +430,6 @@ export class EpochMerkleTree {
             proof,
             leafHash: '0x' + Buffer.from(leafHash).toString('hex'),
             index: attestationIndex,
-            rawBytes: '0x' + Buffer.from(attestationBytes).toString('hex'),
         };
     }
 
@@ -401,7 +441,7 @@ export class EpochMerkleTree {
         return this.attestations.map((_, index) => this.getAttestationProofPackage(index));
     }
 
-    public exportCompleteTree(): CompleteEpochMerkleTreeExport {
+    public export(): CompleteEpochMerkleTreeExport {
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
@@ -409,7 +449,7 @@ export class EpochMerkleTree {
         return {
             root: this.root,
             hash: '0x' + this.epochHash.toString('hex'),
-            epoch: this.getEpochDataProofPackage(),
+            epoch: this.getEpochData(),
             metadata: {
                 chainId: '0x' + Buffer.from(chainId).toString('hex'),
                 protocolId:
@@ -444,113 +484,6 @@ export class EpochMerkleTree {
             attestation: { ...attestation },
             proof,
         };
-    }
-
-    public getTreeStatistics(): {
-        totalLeaves: number;
-        attestationCount: number;
-        treeHeight: number;
-        root: string;
-        hasWinner: boolean;
-        attestationTypes: { [key: number]: number };
-    } {
-        if (!this.tree) {
-            throw new Error('Tree not generated');
-        }
-
-        const attestationTypes: { [key: number]: number } = {};
-        this.attestations.forEach((att) => {
-            attestationTypes[att.type] = (attestationTypes[att.type] || 0) + 1;
-        });
-
-        return {
-            totalLeaves: this.attestations.length + 1,
-            attestationCount: this.attestations.length,
-            treeHeight: Math.ceil(Math.log2(this.attestations.length + 1)),
-            root: this.root,
-            hasWinner: !!this.epochData.winner,
-            attestationTypes,
-        };
-    }
-
-    public getEpochSummaryProof(): EpochSummaryProof {
-        if (!this.tree) {
-            throw new Error('Tree not generated');
-        }
-
-        return {
-            epochNumber: this.epochData.epochNumber,
-            attestationRoot: this.root,
-            attestationCount: this.attestations.length,
-            winner: this.epochData.winner
-                ? {
-                      publicKey: this.epochData.winner.publicKey.toHex(),
-                      matchingBits: this.epochData.winner.matchingBits,
-                      salt: this.epochData.winner.salt.toString('hex'),
-                      solutionHash: this.epochData.winner.solutionHash.toString('hex'),
-                      graffiti: this.epochData.winner.graffiti.toString('hex'),
-                  }
-                : undefined,
-            checksumRoot: this.epochData.checksumRoot.toString('hex'),
-            previousEpochHash: this.epochData.previousEpochHash.toString('hex'),
-        };
-    }
-
-    private epochDataToBytes(): Uint8Array {
-        const baseSize = 64 + 8 + 8 + 8 + 32 + 32 + 8 + 32;
-        const winnerSize = this.epochData.winner
-            ? 32 + 2 + 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
-            : 0;
-
-        const writer = new BinaryWriter(baseSize + winnerSize);
-
-        // Protocol information
-        writer.writeBytes(chainId);
-        writer.writeBytes(OPNetConsensus.consensus.PROTOCOL_ID);
-
-        // Write epoch data fields
-        writer.writeU64(this.epochData.epochNumber); // 8
-        writer.writeU64(this.epochData.startBlock); // 8
-        writer.writeU64(this.epochData.endBlock); // 8
-        writer.writeBytes(this.epochData.checksumRoot); // 32
-        writer.writeBytes(this.epochData.previousEpochHash); // 32
-        writer.writeU64(this.epochData.attestedEpochNumber); // 8
-        writer.writeBytes(this.epochData.attestedChecksumRoot); // 32
-
-        // Write winner data if present
-        if (!this.epochData.winner) {
-            throw new Error('Epoch winner data is not set');
-        }
-
-        if (
-            this.epochData.winner.graffiti.length !== OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
-        ) {
-            throw new Error(
-                `Invalid graffiti length: expected ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH}, got ${this.epochData.winner.graffiti.length}`,
-            );
-        }
-
-        writer.writeAddress(this.epochData.winner.publicKey); // 32
-        writer.writeU16(this.epochData.winner.matchingBits & 0xffff); // 2
-        writer.writeBytes(this.epochData.winner.salt); // 32
-        writer.writeBytes(this.epochData.winner.solutionHash); // 32
-        writer.writeBytes(this.epochData.winner.graffiti); // OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
-
-        return writer.getBuffer();
-    }
-
-    private attestationToBytes(attestation: Attestation): Uint8Array {
-        const writer = new BinaryWriter(145);
-
-        // Write attestation fields
-        writer.writeU8(attestation.type); // 1
-        writer.writeU64(attestation.blockNumber); // 8
-        writer.writeBytes(attestation.checksumRoot); // 32
-        writer.writeBytes(attestation.signature); // 64
-        writer.writeU64(BigInt(attestation.timestamp)); // 8
-        writer.writeAddress(attestation.publicKey); // 32
-
-        return writer.getBuffer();
     }
 
     private addDummyAttestations(): void {

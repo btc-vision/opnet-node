@@ -13,7 +13,7 @@ import {
     AttestationType,
     EpochData,
     EpochMerkleTree,
-} from '../block/merkle/EpochWitnessMerkleTree.js';
+} from '../block/merkle/EpochMerkleTree.js';
 import {
     EpochSubmissionWinner,
     IEpochSubmissionsDocument,
@@ -22,7 +22,6 @@ import { Address } from '@btc-vision/transaction';
 import { Config } from '../../../config/Config.js';
 import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockHeaderDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import fs from 'fs';
 
 export interface IEpoch {
     readonly startBlock: bigint;
@@ -325,37 +324,9 @@ export class EpochManager extends Logger {
         await this.storage.saveEpoch(epochDocument);
 
         if (Config.EPOCH.LOG_FINALIZATION) {
-            const tree = epoch.exportCompleteTree();
-            //console.dir(tree, { depth: 500, colors: true });
-
-            fs.writeFileSync(`epoch/epoch-${epochNumber}.json`, JSON.stringify(tree, null, 4));
-
-            const treeStats = epoch.getTreeStatistics();
-
-            this.log(`Epoch ${epochNumber}:`);
-            this.log(`  Epoch Hash: ${epochDocument.epochHash.toString('hex')}`);
-            this.log(`  Attestation Root: ${finalEpoch.epochRoot.toString('hex')}`);
-            this.log(`  Attestation Count: ${treeStats.attestationCount}`);
-            this.log(`  Tree Height: ${treeStats.treeHeight}`);
-            this.log(`  Winner: ${publicKey.toHex()} (${matchingBits} bits)`);
-            this.log(`  Solution: ${solutionHash.toString('hex')}`);
-            this.log(`  Salt: ${salt.toString('hex')}`);
-            this.log(`  Graffiti: ${graffiti.toString('utf8')}`);
-            this.log(`  Target Hash: ${targetHash.toString('hex')}`);
-            this.log(`  Checksum Root: ${checksumRoot.toString('hex')}`);
-            this.log(`  Block Range: ${startBlock} - ${endBlock}`);
-            this.log(
-                `  Difficulty: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))}`,
+            this.debugBright(
+                `Epoch ${epochNumber} finalized with root: ${epochDocument.epochRoot.toString('hex')} (Hash: ${epochDocument.epochHash.toString('hex')} | Difficulty: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))}) | Winner: ${finalEpoch.publicKey.toString('hex')} | Solution: ${finalEpoch.solution.toString('hex')}) | Salt: ${finalEpoch.salt.toString('hex')} | Graffiti: ${finalEpoch.graffiti ? finalEpoch.graffiti.toString('hex') : 'None'}`,
             );
-
-            // Log attestation type breakdown if available
-            if (Object.keys(treeStats.attestationTypes).length > 0) {
-                this.log(`  Attestation Types:`);
-                for (const [type, count] of Object.entries(treeStats.attestationTypes)) {
-                    const typeName = type === '0' ? 'BLOCK_WITNESS' : 'EMPTY_ATTESTATION';
-                    this.log(`    - ${typeName}: ${count}`);
-                }
-            }
         }
 
         this.log(
