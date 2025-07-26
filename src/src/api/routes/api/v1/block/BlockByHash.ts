@@ -7,6 +7,7 @@ import { BlockByHashParams } from '../../../../json-rpc/types/interfaces/params/
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { BlockRoute } from './BlockRoute.js';
 import { BlockParamsConverter } from '../../../safe/BlockParamsConverter.js';
+import { Config } from '../../../../../config/Config.js';
 
 export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
     constructor() {
@@ -31,6 +32,10 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
             data = this.getCachedBlockData(includeTransactions, undefined, blockHash);
         } catch (e) {
             this.decrementPendingRequests();
+
+            if (Config.DEV_MODE) {
+                this.error(`Error details: ${(e as Error).stack}`);
+            }
 
             throw new Error(`Something went wrong.`);
         }

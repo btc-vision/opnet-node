@@ -7,6 +7,7 @@ import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/bl
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { BlockParamsConverter, SafeBigInt } from '../../../safe/BlockParamsConverter.js';
 import { BlockRoute } from './BlockRoute.js';
+import { Config } from '../../../../../config/Config.js';
 
 export class BlockByNumber extends BlockRoute<Routes.BLOCK_BY_ID> {
     constructor() {
@@ -26,6 +27,10 @@ export class BlockByNumber extends BlockRoute<Routes.BLOCK_BY_ID> {
             data = this.getCachedBlockData(includeTransactions, height);
         } catch (e) {
             this.decrementPendingRequests();
+
+            if (Config.DEV_MODE) {
+                this.error(`Error details: ${(e as Error).stack}`);
+            }
 
             throw new Error('Something went wrong.');
         }

@@ -135,8 +135,10 @@ export class Server extends Logger {
 
     private globalErrorHandler(_request: Request, response: Response, _error: Error): void {
         response.status(500);
-
-        this.error(`API Error: ${_error.stack}`);
+        
+        if (Config.DEV_MODE) {
+            this.error(`Error details: ${_error.stack}`);
+        }
 
         response.json({
             error: 'Something went wrong.',

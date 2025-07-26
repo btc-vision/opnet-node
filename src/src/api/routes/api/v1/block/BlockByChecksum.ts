@@ -7,6 +7,7 @@ import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/b
 import { BlockRoute } from './BlockRoute.js';
 import { BlockParamsConverter } from '../../../safe/BlockParamsConverter.js';
 import { BlockByChecksumParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByChecksumParams.js';
+import { Config } from '../../../../../config/Config.js';
 
 export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
     constructor() {
@@ -33,6 +34,10 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
             data = this.getCachedBlockData(includeTransactions, undefined, blockChecksum, true);
         } catch (e) {
             this.decrementPendingRequests();
+
+            if (Config.DEV_MODE) {
+                this.error(`Error details: ${(e as Error).stack}`);
+            }
 
             throw new Error(`Something went wrong.`);
         }
