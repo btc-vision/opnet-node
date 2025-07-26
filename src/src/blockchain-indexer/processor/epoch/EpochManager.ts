@@ -3,7 +3,7 @@ import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { IndexingTask } from '../tasks/IndexingTask.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { SHA1 } from '../../../utils/SHA1.js';
-import { IEpochDocument } from '../../../db/documents/interfaces/IEpochDocument.js';
+import { IEpoch, IEpochDocument } from '../../../db/documents/interfaces/IEpochDocument.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { EpochDifficultyConverter } from '../../../poa/epoch/EpochDifficultyConverter.js';
@@ -22,19 +22,6 @@ import { Address } from '@btc-vision/transaction';
 import { Config } from '../../../config/Config.js';
 import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockHeaderDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
-
-export interface IEpoch {
-    readonly startBlock: bigint;
-    readonly targetHash: Buffer;
-    readonly target: Buffer;
-    readonly solution: Buffer;
-    readonly salt: Buffer;
-    readonly publicKey: Buffer;
-    readonly graffiti?: Buffer;
-    readonly solutionBits: number;
-    readonly epochRoot: Buffer;
-    readonly epochHash: Buffer;
-}
 
 interface EpochUpdateResult {
     readonly update: boolean;
@@ -111,6 +98,7 @@ export class EpochManager extends Logger {
                 salt: new Binary(epoch.salt),
                 graffiti: epoch.graffiti ? new Binary(epoch.graffiti) : undefined,
             },
+            proofs: epoch.proofs.map((proof) => new Binary(proof)),
         };
     }
 
@@ -309,15 +297,20 @@ export class EpochManager extends Logger {
 
         const finalEpoch: IEpoch = {
             startBlock,
+            endBlock,
+
             targetHash: targetHash,
             target: checksumRoot,
+
             solution: solutionHash,
             salt: salt,
             publicKey: publicKey.originalPublicKeyBuffer(),
             graffiti: graffiti,
             solutionBits: matchingBits,
+            
             epochRoot: Buffer.from(epoch.rootBuffer),
             epochHash: epoch.epochHash,
+            proofs: epoch.getProof(0), // Get proofs for this epoch
         };
 
         const epochDocument = this.createEpoch(finalEpoch);

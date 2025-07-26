@@ -8,7 +8,10 @@ import { SafeBigInt } from '../../../safe/BlockParamsConverter.js';
 import { Config } from '../../../../../config/Config.js';
 import { AdvancedCaching } from '../../../../../caching/AdvancedCaching.js';
 import { IEpochDocument } from '../../../../../db/documents/interfaces/IEpochDocument.js';
-import { EpochAPIResult } from '../../../../json-rpc/types/interfaces/results/epochs/EpochResult.js';
+import {
+    EpochAPIResult,
+    EpochResult,
+} from '../../../../json-rpc/types/interfaces/results/epochs/EpochResult.js';
 import { EpochByNumberParams } from '../../../../json-rpc/types/interfaces/params/epochs/EpochByNumberParams.js';
 import { EpochByHashParams } from '../../../../json-rpc/types/interfaces/params/epochs/EpochByHashParams.js';
 import { Decimal128 } from 'mongodb';
@@ -188,24 +191,27 @@ export abstract class EpochRoute<T extends Routes> extends Route<
         this.cachedEpochs.set(key, data);
     }
 
-    protected convertEpochToAPIResult(epoch: IEpochDocument): EpochAPIResult {
+    protected convertEpochToAPIResult(epoch: IEpochDocument): EpochResult {
         return {
-            epochNumber: this.convertDecimal128ToString(epoch.epochNumber),
-            epochHash: epoch.epochHash.toString('hex'),
-            startBlock: this.convertDecimal128ToString(epoch.startBlock),
-            endBlock: this.convertDecimal128ToString(epoch.endBlock),
+            epochNumber: DataConverter.fromDecimal128(epoch.epochNumber).toString(),
+            epochHash: '0x' + epoch.epochHash.toString('hex'),
+            startBlock: DataConverter.fromDecimal128(epoch.startBlock).toString(),
+            endBlock: DataConverter.fromDecimal128(epoch.endBlock).toString(),
             difficultyScaled: epoch.difficultyScaled,
             minDifficulty: epoch.minDifficulty,
-            targetHash: epoch.targetHash.toString('hex'),
+            targetHash: '0x' + epoch.targetHash.toString('hex'),
             proposer: {
-                solution: epoch.proposer.solution.toString('hex'),
-                publicKey: epoch.proposer.publicKey.toString('hex'),
-                salt: epoch.proposer.salt.toString('hex'),
-                graffiti: epoch.proposer.graffiti?.toString('hex'),
+                publicKey: '0x' + epoch.proposer.publicKey.toString('hex'),
+                salt: '0x' + epoch.proposer.salt.toString('hex'),
+                graffiti: epoch.proposer.graffiti
+                    ? '0x' + epoch.proposer.graffiti.toString('hex')
+                    : '',
+                solution: '0x' + epoch.proposer.solution.toString('hex'),
             },
+            proofs: epoch.proofs.map((proof) => '0x' + proof.toString('hex')),
         };
     }
-
+    
     protected convertDecimal128ToString(value: Decimal128): string {
         return this.convertDecimal128ToBigInt(value).toString();
     }

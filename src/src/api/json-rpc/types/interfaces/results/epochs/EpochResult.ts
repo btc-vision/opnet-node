@@ -22,6 +22,7 @@ export interface EpochAPIResult {
     readonly targetHash: string;
 
     readonly proposer: APIEpochMiner;
+    readonly proofs: string[];
 
     submissions?: EpochSubmissionAPIResult[];
 }

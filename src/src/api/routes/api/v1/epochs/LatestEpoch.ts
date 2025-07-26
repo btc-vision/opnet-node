@@ -88,18 +88,21 @@ export class LatestEpoch extends Route<
     private convertEpochToAPIResult(epoch: IEpochDocument): EpochResult {
         return {
             epochNumber: DataConverter.fromDecimal128(epoch.epochNumber).toString(),
-            epochHash: epoch.epochHash.toString('hex'),
+            epochHash: '0x' + epoch.epochHash.toString('hex'),
             startBlock: DataConverter.fromDecimal128(epoch.startBlock).toString(),
             endBlock: DataConverter.fromDecimal128(epoch.endBlock).toString(),
             difficultyScaled: epoch.difficultyScaled,
             minDifficulty: epoch.minDifficulty,
-            targetHash: epoch.targetHash.toString('hex'),
+            targetHash: '0x' + epoch.targetHash.toString('hex'),
             proposer: {
-                publicKey: epoch.proposer.publicKey.toString('hex'),
-                salt: epoch.proposer.salt.toString('hex'),
-                graffiti: epoch.proposer.graffiti?.toString('hex'),
-                solution: epoch.proposer.solution.toString('hex'),
+                publicKey: '0x' + epoch.proposer.publicKey.toString('hex'),
+                salt: '0x' + epoch.proposer.salt.toString('hex'),
+                graffiti: epoch.proposer.graffiti
+                    ? '0x' + epoch.proposer.graffiti.toString('hex')
+                    : '',
+                solution: '0x' + epoch.proposer.solution.toString('hex'),
             },
+            proofs: epoch.proofs.map((proof) => '0x' + proof.toString('hex')),
         };
     }
 }

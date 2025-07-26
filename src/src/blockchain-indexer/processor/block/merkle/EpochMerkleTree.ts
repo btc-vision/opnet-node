@@ -64,7 +64,7 @@ export interface AttestationProof {
         readonly timestamp: number;
         readonly publicKey: string;
     };
-    readonly proof: string[];
+    readonly proof: Buffer[];
     readonly leafHash: string;
     readonly index: number;
 }
@@ -105,7 +105,7 @@ export interface EpochTreeVerification {
 export interface AttestationVerificationProof {
     readonly root: string;
     readonly attestation: Attestation;
-    readonly proof: string[];
+    readonly proof: Buffer[];
 }
 
 const chainId = getChainId(NetworkConverter.networkToBitcoinNetwork(NetworkConverter.getNetwork()));
@@ -153,10 +153,10 @@ export class EpochMerkleTree {
     public static verifyAttestation(
         root: Buffer | Uint8Array,
         attestation: Attestation,
-        proof: string[],
+        proof: Buffer[],
     ): boolean {
         const attestationBytes = EpochMerkleTree.attestationToBytes(attestation);
-        const merkleProof = new MerkleProof(proof.map((p) => toBytes(p)));
+        const merkleProof = new MerkleProof(proof);
         return merkleProof.verify(root, RustMerkleTree.hash(attestationBytes));
     }
 
@@ -166,9 +166,7 @@ export class EpochMerkleTree {
         return merkleProof.verify(root, leafHash);
     }
 
-    public static verifyCompleteTree(
-        treeExport: CompleteEpochMerkleTreeExport,
-    ): EpochTreeVerification {
+    public static verify(treeExport: CompleteEpochMerkleTreeExport): EpochTreeVerification {
         const root = Buffer.from(treeExport.root.replace('0x', ''), 'hex');
 
         // Verify epoch data
@@ -192,7 +190,7 @@ export class EpochMerkleTree {
             };
 
             const isValid = EpochMerkleTree.verifyAttestation(root, attestation, attPackage.proof);
-            const computedRoot = new MerkleProof(attPackage.proof.map((p) => toBytes(p))).rootHex(
+            const computedRoot = new MerkleProof(attPackage.proof).rootHex(
                 Buffer.from(attPackage.leafHash.replace('0x', ''), 'hex'),
             );
 
@@ -346,7 +344,7 @@ export class EpochMerkleTree {
         this.frozen = true;
     }
 
-    public getProof(attestationIndex: number): string[] {
+    public getProof(attestationIndex: number): Buffer[] {
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
@@ -360,7 +358,10 @@ export class EpochMerkleTree {
             this.attestations[attestationIndex],
         );
 
-        return this.tree.getProof(this.tree.getIndexData(attestationBytes)).proofHashesHex();
+        return this.tree
+            .getProof(this.tree.getIndexData(attestationBytes))
+            .proofHashes()
+            .map((hash) => Buffer.from(hash));
     }
 
     public getEpochDataProof(epochDataBytes: Uint8Array): string[] {
@@ -404,7 +405,7 @@ export class EpochMerkleTree {
         };
     }
 
-    public getAttestationProofPackage(attestationIndex: number): AttestationProof {
+    public getAttestationProofs(attestationIndex: number): AttestationProof {
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
@@ -438,7 +439,7 @@ export class EpochMerkleTree {
             throw new Error('Tree not generated');
         }
 
-        return this.attestations.map((_, index) => this.getAttestationProofPackage(index));
+        return this.attestations.map((_, index) => this.getAttestationProofs(index));
     }
 
     public export(): CompleteEpochMerkleTreeExport {

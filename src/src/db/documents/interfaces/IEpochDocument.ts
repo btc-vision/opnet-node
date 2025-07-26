@@ -21,4 +21,22 @@ export interface IEpochDocument {
     readonly targetHash: Binary;
 
     readonly proposer: IEpochMiner;
+    readonly proofs: Binary[];
+}
+
+export interface IEpoch {
+    readonly startBlock: bigint;
+    readonly endBlock: bigint;
+
+    readonly targetHash: Buffer;
+    readonly target: Buffer;
+    readonly solution: Buffer;
+    readonly salt: Buffer;
+    readonly publicKey: Buffer;
+    readonly graffiti?: Buffer;
+    readonly solutionBits: number;
+    readonly epochRoot: Buffer;
+    readonly epochHash: Buffer;
+
+    readonly proofs: Buffer[];
 }
