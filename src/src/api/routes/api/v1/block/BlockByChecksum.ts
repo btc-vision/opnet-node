@@ -5,7 +5,7 @@ import { BlockHeaderAPIDocumentWithTransactions } from '../../../../../db/docume
 import { Routes } from '../../../../enums/Routes.js';
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { BlockRoute } from './BlockRoute.js';
-import { BlockParamsConverter } from '../../../safe/BlockParamsConverter.js';
+import { BlockParamsConverter, SafeString } from '../../../safe/BlockParamsConverter.js';
 import { BlockByChecksumParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByChecksumParams.js';
 import { Config } from '../../../../../config/Config.js';
 
@@ -21,7 +21,11 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
 
         let data: Promise<BlockHeaderAPIDocumentWithTransactions>;
         try {
-            const blockChecksum = BlockParamsConverter.getParameterAsStringForBlock(params);
+            let blockChecksum: SafeString =
+                BlockParamsConverter.getParameterAsStringForBlock(params);
+
+            blockChecksum = blockChecksum ? blockChecksum.replace('0x', '').toLowerCase() : null;
+            
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
             if (!blockChecksum) {
                 throw new Error(
