@@ -3,32 +3,34 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { BlockHeaderAPIDocumentWithTransactions } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { Routes } from '../../../../enums/Routes.js';
-import { BlockByHashParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByHashParams.js';
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { BlockRoute } from './BlockRoute.js';
 import { BlockParamsConverter } from '../../../safe/BlockParamsConverter.js';
+import { BlockByChecksumParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByChecksumParams.js';
 
-export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
+export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
     constructor() {
-        super(Routes.BLOCK_BY_HASH);
+        super(Routes.BLOCK_BY_CHECKSUM);
     }
 
     public async getData(
-        params: BlockByHashParams,
+        params: BlockByChecksumParams,
     ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
         this.incrementPendingRequests();
 
         let data: Promise<BlockHeaderAPIDocumentWithTransactions>;
         try {
-            const blockHash = BlockParamsConverter.getParameterAsStringForBlock(params);
+            const blockChecksum = BlockParamsConverter.getParameterAsStringForBlock(params);
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
-            if (!blockHash) {
-                throw new Error(`Could not find the block with the provided hash ${blockHash}.`);
+            if (!blockChecksum) {
+                throw new Error(
+                    `Could not find the block with the provided checksum ${blockChecksum}.`,
+                );
             }
 
-            if (blockHash.length !== 64) throw new Error(`Invalid hash length`);
+            if (blockChecksum.length !== 64) throw new Error(`Invalid checksum length`);
 
-            data = this.getCachedBlockData(includeTransactions, undefined, blockHash);
+            data = this.getCachedBlockData(includeTransactions, undefined, blockChecksum, true);
         } catch (e) {
             this.decrementPendingRequests();
 
@@ -40,7 +42,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
         return data;
     }
 
-    public async getDataRPC(params: BlockByHashParams): Promise<BlockByIdResult | undefined> {
+    public async getDataRPC(params: BlockByChecksumParams): Promise<BlockByIdResult | undefined> {
         const data = await this.getData(params);
         if (!data) throw new Error(`Block not found at given height.`);
 
@@ -48,10 +50,10 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
     }
 
     /**
-     * GET /api/v1/block/by-hash
+     * GET /api/v1/block/by-checksum
      * @tag Block
      * @summary Get a block and its transactions by height.
-     * @queryParam {string} [hash] - The block hash to search for.
+     * @queryParam {string} [hash] - The block checksum to search for.
      * @queryParam {boolean} [sendTransactions] - Whether to include transactions in the response.
      * @description Get the requested block and its transactions.
      * @response 200 - Return the requested block and its transactions.

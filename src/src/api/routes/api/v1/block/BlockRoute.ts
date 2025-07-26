@@ -19,10 +19,13 @@ import { DeploymentTxEncoder } from '../shared/DeploymentTxEncoder.js';
 import { Config } from '../../../../../config/Config.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { AdvancedCaching } from '../../../../../caching/AdvancedCaching.js';
+import { BlockByChecksumParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByChecksumParams.js';
 
 export abstract class BlockRoute<T extends Routes> extends Route<
     T,
-    JSONRpcMethods.GET_BLOCK_BY_NUMBER | JSONRpcMethods.GET_BLOCK_BY_HASH,
+    | JSONRpcMethods.GET_BLOCK_BY_NUMBER
+    | JSONRpcMethods.GET_BLOCK_BY_HASH
+    | JSONRpcMethods.GET_BLOCK_BY_CHECKSUM,
     BlockHeaderAPIDocumentWithTransactions | undefined
 > {
     protected cachedBlocks: AdvancedCaching<
@@ -41,11 +44,11 @@ export abstract class BlockRoute<T extends Routes> extends Route<
     }
 
     public abstract getData(
-        params: BlockByIdParams | BlockByHashParams,
+        params: BlockByIdParams | BlockByHashParams | BlockByChecksumParams,
     ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined>;
 
     public abstract getDataRPC(
-        params: BlockByIdParams | BlockByHashParams,
+        params: BlockByIdParams | BlockByHashParams | BlockByChecksumParams,
     ): Promise<BlockByIdResult | undefined>;
 
     public onBlockChange(_blockNumber: bigint, blockHeader: BlockHeaderAPIBlockDocument): void {
@@ -60,9 +63,11 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         includeTransactions: boolean,
         height?: SafeBigInt,
         hash?: string,
+        checksum?: boolean,
     ): Promise<BlockHeaderAPIDocumentWithTransactions> {
         const heightOrHash =
             typeof height === 'bigint' || typeof height === 'number' ? height : hash;
+
         if (heightOrHash === undefined || heightOrHash === null || heightOrHash === '') {
             throw new Error(`No height or hash provided`);
         }
@@ -77,7 +82,10 @@ export abstract class BlockRoute<T extends Routes> extends Route<
             return cachedData;
         }
 
-        this.setToCache(documentKey, this.getBlockData(includeTransactions, height, hash));
+        this.setToCache(
+            documentKey,
+            this.getBlockData(includeTransactions, height, hash, checksum),
+        );
 
         const cachedKey = this.getCachedData(documentKey);
         if (!cachedKey) {
@@ -91,6 +99,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         includeTransactions: boolean,
         height?: SafeBigInt,
         hash?: string,
+        checksum?: boolean,
     ): Promise<BlockHeaderAPIDocumentWithTransactions> {
         const heightOrHash =
             typeof height === 'bigint' || typeof height === 'number' ? height : hash;
@@ -103,7 +112,12 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         }
 
         const transactions: BlockWithTransactions | undefined = hash
-            ? await this.storage.getBlockTransactions(undefined, hash, includeTransactions)
+            ? await this.storage.getBlockTransactions(
+                  undefined,
+                  hash,
+                  includeTransactions,
+                  checksum,
+              )
             : await this.storage.getBlockTransactions(height, undefined, includeTransactions);
 
         if (!transactions) {
@@ -188,7 +202,9 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         };
     }
 
-    protected getParameterAsBoolean(params: BlockByIdParams | BlockByHashParams): boolean {
+    protected getParameterAsBoolean(
+        params: BlockByIdParams | BlockByHashParams | BlockByChecksumParams,
+    ): boolean {
         const isArray = Array.isArray(params);
 
         let includeTransactions;

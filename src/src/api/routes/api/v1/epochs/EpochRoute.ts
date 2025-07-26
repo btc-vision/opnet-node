@@ -211,7 +211,7 @@ export abstract class EpochRoute<T extends Routes> extends Route<
             proofs: epoch.proofs.map((proof) => '0x' + proof.toString('hex')),
         };
     }
-    
+
     protected convertDecimal128ToString(value: Decimal128): string {
         return this.convertDecimal128ToBigInt(value).toString();
     }

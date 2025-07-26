@@ -26,6 +26,7 @@ import { EpochByNumber } from './api/v1/epochs/EpochByNumber.js';
 import { EpochByHash } from './api/v1/epochs/EpochByHash.js';
 import { SubmitEpochRoute } from './api/v1/epochs/SubmitEpochRoute.js';
 import { GetEpochTemplateRoute } from './api/v1/epochs/GetEpochTemplateRoute.js';
+import { BlockByChecksum } from './api/v1/block/BlockByChecksum.js';
 
 export const DefinedRoutes: {
     [key in Routes]: Route<key, JSONRpcMethods, object | string | undefined>;
@@ -34,6 +35,7 @@ export const DefinedRoutes: {
     [Routes.LATEST_BLOCK]: new LatestBlock(),
     [Routes.BLOCK_BY_ID]: new BlockByNumber(),
     [Routes.BLOCK_BY_HASH]: new BlockByHash(),
+    [Routes.BLOCK_BY_CHECKSUM]: new BlockByChecksum(),
     [Routes.BLOCK_WITNESS]: new OPNetWitnessRoute(),
     [Routes.GAS]: new GasRoute(),
 

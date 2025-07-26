@@ -136,6 +136,7 @@ export abstract class VMStorage extends Logger {
         height?: bigint | -1,
         hash?: string,
         includeTransactions?: boolean,
+        checksum?: boolean,
     ): Promise<BlockWithTransactions | undefined>;
 
     public abstract getUTXOs(

@@ -399,6 +399,7 @@ export class VMMongoStorage extends VMStorage {
         height: SafeBigInt = -1,
         hash?: string,
         includeTransactions?: boolean,
+        checksum?: boolean,
     ): Promise<BlockWithTransactions | undefined> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
@@ -412,7 +413,7 @@ export class VMMongoStorage extends VMStorage {
 
         let block: IBlockHeaderBlockDocument | undefined;
         if (hash) {
-            block = await this.blockRepository.getBlockByHash(hash);
+            block = await this.blockRepository.getBlockByHash(hash, checksum || false);
         } else {
             block =
                 height === -1

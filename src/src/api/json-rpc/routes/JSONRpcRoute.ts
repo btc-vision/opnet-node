@@ -9,6 +9,7 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
 
     /** Blocks */
     [JSONRpcMethods.GET_BLOCK_BY_HASH]: Routes.BLOCK_BY_HASH,
+    [JSONRpcMethods.GET_BLOCK_BY_CHECKSUM]: Routes.BLOCK_BY_CHECKSUM,
     [JSONRpcMethods.GET_BLOCK_BY_NUMBER]: Routes.BLOCK_BY_ID,
     [JSONRpcMethods.BLOCK_WITNESS]: Routes.BLOCK_WITNESS,
     [JSONRpcMethods.GAS]: Routes.GAS,

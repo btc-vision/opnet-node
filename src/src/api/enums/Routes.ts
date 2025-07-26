@@ -3,6 +3,7 @@ export enum Routes {
     LATEST_BLOCK = 'block/latest',
     BLOCK_BY_HASH = 'block/by-hash',
     BLOCK_BY_ID = 'block/by-id',
+    BLOCK_BY_CHECKSUM = 'block/by-checksum',
     BLOCK_WITNESS = 'block/block-witness',
     GAS = 'block/gas',
 

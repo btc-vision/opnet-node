@@ -8,6 +8,7 @@ export enum JSONRpcMethods {
 
     /** Blocks */
     GET_BLOCK_BY_HASH = 'btc_getBlockByHash',
+    GET_BLOCK_BY_CHECKSUM = 'btc_getBlockByChecksum',
     GET_BLOCK_BY_NUMBER = 'btc_getBlockByNumber',
     GAS = 'btc_gas',
 

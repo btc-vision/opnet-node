@@ -46,10 +46,17 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         return result;
     }
 
-    public async getBlockByHash(hash: string): Promise<IBlockHeaderBlockDocument | undefined> {
-        const criteria: Partial<BlockHeaderDocument> = {
-            hash: hash,
-        };
+    public async getBlockByHash(
+        hash: string,
+        checksum: boolean,
+    ): Promise<IBlockHeaderBlockDocument | undefined> {
+        const criteria: Partial<BlockHeaderDocument> = {};
+
+        if (!checksum) {
+            criteria.hash = hash;
+        } else {
+            criteria.checksumRoot = '0x' + hash.replace('0x', ''); // Always have 0x.
+        }
 
         const result: IBlockHeaderBlockDocument | null = await this.queryOne(criteria);
 
