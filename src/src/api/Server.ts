@@ -148,8 +148,6 @@ export class Server extends Logger {
     private async listenToBlockChanges(): Promise<void> {
         this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
             try {
-                console.log('blockHeight', blockHeight);
-
                 OPNetConsensus.setBlockHeight(blockHeight);
 
                 await this.notifyAllRoutesOfBlockChange(blockHeight);

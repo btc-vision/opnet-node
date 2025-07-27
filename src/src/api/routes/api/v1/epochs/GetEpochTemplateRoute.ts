@@ -66,8 +66,6 @@ export class GetEpochTemplateRoute extends Route<
     }
 
     public onBlockChange(blockHeight: bigint, _header: BlockHeaderAPIBlockDocument): void {
-        console.log(blockHeight);
-
         this.currentBlockHeight = blockHeight - 1n;
     }
 
