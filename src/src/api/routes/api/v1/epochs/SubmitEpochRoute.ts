@@ -116,8 +116,8 @@ export class SubmitEpochRoute extends Route<
         const validatedParams = this.validateSubmissionParams(params);
 
         // Convert to validation params
-        const validationParams = EpochValidator.base64ToValidationParams({
-            epochNumber: validatedParams.epochTarget,
+        const validationParams = EpochValidator.hexToValidationParams({
+            epochNumber: validatedParams.epochNumber,
             targetHash: validatedParams.targetHash,
             salt: validatedParams.salt,
             publicKey: validatedParams.publicKey,
@@ -200,7 +200,7 @@ export class SubmitEpochRoute extends Route<
      * Validate the epoch submission parameters
      */
     private validateSubmissionParams(params: SubmitEpochParamsAsObject): SubmitEpochParamsAsObject {
-        if (!params.epochTarget) {
+        if (!params.epochNumber) {
             throw new Error('Epoch target is required');
         }
 

@@ -2,7 +2,7 @@ import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpcParams } from '../../JSONRpcParams.js';
 
 export interface SubmitEpochParamsAsObject extends JSONRpcParams<JSONRpcMethods.SUBMIT_EPOCH> {
-    readonly epochTarget: string;
+    readonly epochNumber: string;
 
     readonly targetHash: string;
     readonly salt: string;

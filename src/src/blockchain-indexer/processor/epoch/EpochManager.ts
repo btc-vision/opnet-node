@@ -309,7 +309,7 @@ export class EpochManager extends Logger {
 
             solution: solutionHash,
             salt: salt,
-            publicKey: publicKey.originalPublicKeyBuffer(),
+            publicKey: publicKey.toBuffer(),
             graffiti: graffiti,
             solutionBits: matchingBits,
 

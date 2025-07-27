@@ -6,6 +6,7 @@ import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js
 import { NetworkConverter } from '../../../../config/network/NetworkConverter.js';
 import { getChainId } from '../../../../vm/rust/ChainIdHex.js';
 import { sha256 } from '@btc-vision/bitcoin';
+import { stringToBuffer } from '../../../../utils/StringToBuffer.js';
 
 export enum AttestationType {
     BLOCK_WITNESS = 0,
@@ -105,10 +106,6 @@ export interface AttestationVerificationProof {
     readonly root: string;
     readonly attestation: Attestation;
     readonly proof: Buffer[];
-}
-
-function stringToBuffer(str: string): Buffer {
-    return Buffer.from(str.replace('0x', ''), 'hex');
 }
 
 const chainId = getChainId(NetworkConverter.networkToBitcoinNetwork(NetworkConverter.getNetwork()));

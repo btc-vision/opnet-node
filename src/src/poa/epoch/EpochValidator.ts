@@ -10,6 +10,7 @@ import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { Address } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { SHA1 } from '../../utils/SHA1.js';
+import { stringToBuffer } from '../../utils/StringToBuffer.js';
 
 export interface EpochValidationParams {
     readonly epochNumber: bigint;
@@ -29,6 +30,15 @@ export interface EpochValidationResult {
     readonly message?: string;
 }
 
+interface ParamsToConvert {
+    epochNumber: string;
+    targetHash: string;
+    salt: string;
+    publicKey: string;
+    graffiti?: string;
+    blockHeight?: string;
+}
+
 export class EpochValidator extends Logger {
     public readonly logColor: string = '#9370db';
 
@@ -39,20 +49,24 @@ export class EpochValidator extends Logger {
     /**
      * Utility method to convert hex string parameters to validation params
      */
-    public static base64ToValidationParams(params: {
-        epochNumber: string;
-        targetHash: string;
-        salt: string;
-        publicKey: string;
-        graffiti?: string;
-        blockHeight?: string;
-    }): EpochValidationParams {
+    public static base64ToValidationParams(params: ParamsToConvert): EpochValidationParams {
         return {
             epochNumber: BigInt(params.epochNumber),
             targetHash: Buffer.from(params.targetHash, 'base64'),
             salt: Buffer.from(params.salt, 'base64'),
             publicKey: new Address(Buffer.from(params.publicKey, 'base64')),
             graffiti: Buffer.from(params.graffiti || '', 'base64'),
+            blockHeight: params.blockHeight ? BigInt(params.blockHeight) : undefined,
+        };
+    }
+
+    public static hexToValidationParams(params: ParamsToConvert): EpochValidationParams {
+        return {
+            epochNumber: BigInt(params.epochNumber),
+            targetHash: stringToBuffer(params.targetHash),
+            salt: stringToBuffer(params.salt),
+            publicKey: Address.fromString(params.publicKey),
+            graffiti: params.graffiti ? stringToBuffer(params.graffiti) : undefined,
             blockHeight: params.blockHeight ? BigInt(params.blockHeight) : undefined,
         };
     }
