@@ -26,7 +26,7 @@ export class TransactionFactory {
         const index = parser.vInIndex;
 
         const tx = transactionObj.parse(data, index, blockHash, blockHeight, network, addressCache);
-        tx.verifyPreImage = (_preimage: Buffer) => {
+        tx.verifyPreImage = (_miner: Buffer, _preimage: Buffer) => {
             /*const isValid = allowedPreimages.some((allowedPreimage) =>
                 allowedPreimage.equals(preimage),
             );

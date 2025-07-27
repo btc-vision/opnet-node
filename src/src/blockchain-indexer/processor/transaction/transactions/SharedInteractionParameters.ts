@@ -120,6 +120,15 @@ export abstract class SharedInteractionParameters<
             return;
         }
 
+        const miner = scriptData.shift();
+        if (!Buffer.isBuffer(miner) || miner.length !== 33) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
+            return;
+        }
+
         const preimage = scriptData.shift();
         if (
             !Buffer.isBuffer(preimage) ||
@@ -132,7 +141,7 @@ export abstract class SharedInteractionParameters<
             return;
         }
 
-        return new OPNetHeader(header, preimage);
+        return new OPNetHeader(header, miner, preimage);
     }
 
     protected static decodeFeatures(

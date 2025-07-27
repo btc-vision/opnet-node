@@ -28,12 +28,14 @@ port.on('message', (msg: MsgFromMain): void => {
         );
 
         const buf = msg.allowedPreimages.map((preimage) => Buffer.from(preimage, 'hex'));
-        itx.verifyPreImage = (preimage: Buffer) => {
+        itx.verifyPreImage = (miner: Buffer, preimage: Buffer) => {
             const isValid = buf.some((allowedPreimage) => allowedPreimage.equals(preimage));
 
             if (!isValid) {
                 throw new Error('Invalid preimage');
             }
+
+            // TODO: ADD NEW IMPLEMENTATION.
         };
 
         itx.parseTransaction(data.vin, data.vout);

@@ -247,7 +247,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         this._msgSender = from;
 
         this._calldata = Buffer.from(doc.calldata.buffer);
-        this.preimage = Buffer.from(doc.preimage.buffer);
+        this.setMiner(Buffer.from(doc.miner.buffer), Buffer.from(doc.preimage.buffer));
         this.senderPubKeyHash = Buffer.from(doc.senderPubKeyHash.buffer);
         this.contractSecret = Buffer.from(doc.contractSecret.buffer);
         this.interactionPubKey = Buffer.from(doc.interactionPubKey.buffer);
@@ -268,6 +268,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             from: this.from,
             calldata: this.calldata,
             preimage: this.preimage,
+            miner: this.miner,
             senderPubKeyHash: this.senderPubKeyHash,
             contractSecret: this.contractSecret,
             interactionPubKey: this.interactionPubKey,
@@ -306,23 +307,6 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             events: this.convertEvents(events),
         };
     }
-
-    /*public restoreFromDocument(doc: InteractionTransactionDocument): void {
-        //super.restoreFromDocument(doc);
-
-        this._contractAddress = this.getAddress(doc.contractAddress);
-        this._txOrigin = this.getAddress(doc.from.toString('hex'));
-        this._msgSender = this.getAddress(doc.from.toString('hex'));
-
-        this._calldata = Buffer.from(doc.calldata.buffer);
-        this.preimage = Buffer.from(doc.preimage.buffer);
-
-        this.senderPubKeyHash = Buffer.from(doc.senderPubKeyHash.buffer);
-        this.contractSecret =  Buffer.from(doc.contractSecret.buffer);
-        this.interactionPubKey =  Buffer.from(doc.interactionPubKey.buffer);
-
-        this.wasCompressed = doc.wasCompressed;
-    }*/
 
     public parseTransaction(
         vIn: VIn[],
@@ -404,7 +388,10 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         this.contractSecretHash = this.interactionWitnessData.contractSecretHash160;
         this.contractSecret = contractSecret;
 
-        this.preimage = this.interactionWitnessData.header.preimage;
+        this.setMiner(
+            this.interactionWitnessData.header.miner,
+            this.interactionWitnessData.header.preimage,
+        );
 
         /** We must verify that the contract secret matches at least one output. */
         const outputWitness: TransactionOutput | undefined = this.outputs[0];

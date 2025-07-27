@@ -46,6 +46,8 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         GENESIS_PROPOSER_PUBLIC_KEY: Address.dead(),
 
         GRAFFITI_LENGTH: 16,
+
+        TIMELOCK_BLOCKS_REWARD: 75,
     },
 
     GENERIC: {
@@ -67,7 +69,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     POW: {
-        PREIMAGE_LENGTH: 32,
+        PREIMAGE_LENGTH: 20,
     },
 
     CONTRACTS: {

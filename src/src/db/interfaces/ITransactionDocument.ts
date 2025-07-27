@@ -63,6 +63,7 @@ export interface TransactionSafeThread {
 export interface InteractionTransactionSafeThread extends TransactionSafeThread {
     readonly calldata: Buffer;
     readonly preimage: Buffer;
+    readonly miner: Buffer;
     readonly senderPubKeyHash: Buffer;
     readonly contractSecret: Buffer;
     readonly interactionPubKey: Buffer;

@@ -45,6 +45,8 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly GENESIS_PROPOSER_PUBLIC_KEY: Address;
 
         readonly GRAFFITI_LENGTH: number;
+
+        readonly TIMELOCK_BLOCKS_REWARD: number;
     };
 
     readonly GENERIC: {

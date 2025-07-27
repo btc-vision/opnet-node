@@ -14,7 +14,7 @@ import { EvaluatedEvents, EvaluatedResult } from '../../../vm/evaluated/Evaluate
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { StrippedTransactionInput, TransactionInput } from './inputs/TransactionInput.js';
 import { StrippedTransactionOutput, TransactionOutput } from './inputs/TransactionOutput.js';
-import { Address, BinaryWriter, ChallengeGenerator } from '@btc-vision/transaction';
+import { Address, BinaryWriter, TimeLockGenerator } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from './interfaces/OPNetHeader.js';
 import * as ecc from 'tiny-secp256k1';
@@ -103,10 +103,20 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return preimage;
     }
 
-    public set preimage(preimage: Buffer) {
-        this.verifyPreImage(preimage);
+    protected _miner: Buffer | undefined;
+    public get miner(): Buffer {
+        const preimage = Buffer.alloc(this._miner?.length || 0);
+        if (this._miner) {
+            this._miner.copy(preimage);
+        }
+        return preimage;
+    }
+
+    public setMiner(miner: Buffer, preimage: Buffer) {
+        this.verifyPreImage(miner, preimage);
 
         this._preimage = preimage;
+        this._miner = miner;
     }
 
     public get strippedInputs(): StrippedTransactionInput[] {
@@ -317,7 +327,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return Buffer.from(checksum);
     }
 
-    public verifyPreImage: (preimage: Buffer) => void = (_preimage: Buffer) => {
+    public verifyPreImage: (miner: Buffer, preimage: Buffer) => void = (_miner: Buffer, _preimage: Buffer) => {
         throw new Error('Verify preimage method not implemented.');
     };
 
@@ -457,13 +467,15 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             return; // no reward output
         }
 
+        console.log(rewardOutput);
         if (!rewardOutput.scriptPubKey.address || rewardOutput.scriptPubKey.type !== 'scripthash') {
             return; // reward output must be a P2SH address
         }
 
-        const rewardChallenge = ChallengeGenerator.generateMineableReward(
+        const rewardChallenge = TimeLockGenerator.generateTimeLockAddress(
             this.preimage,
             this.network,
+            OPNetConsensus.consensus.EPOCH.TIMELOCK_BLOCKS_REWARD,
         );
 
         if (rewardOutput.scriptPubKey.address !== rewardChallenge.address) {
