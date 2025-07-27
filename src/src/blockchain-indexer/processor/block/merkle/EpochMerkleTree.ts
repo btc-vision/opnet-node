@@ -441,7 +441,7 @@ export class EpochMerkleTree {
             attestedChecksumRoot: this.epochData.attestedChecksumRoot.toString('hex'),
             winner: this.epochData.winner
                 ? {
-                      publicKey: this.epochData.winner.publicKey.toHex(),
+                      publicKey: this.epochData.winner.publicKey.originalPublicKeyBuffer().toString('hex'),
                       matchingBits: this.epochData.winner.matchingBits,
                       salt: this.epochData.winner.salt.toString('hex'),
                       solutionHash: this.epochData.winner.solutionHash.toString('hex'),

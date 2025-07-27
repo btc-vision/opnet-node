@@ -13,7 +13,7 @@ import {
     SubmissionStatus,
     SubmittedEpochResult,
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
-import { EpochValidationParams, EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
+import { EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 
 export class SubmitEpochRoute extends Route<
@@ -105,23 +105,94 @@ export class SubmitEpochRoute extends Route<
         }
     }
 
-    private validateBuffers(params: EpochValidationParams): void {
-        // Ensure all buffers are valid hex strings
-        if (params.salt.length !== 32) {
-            throw new Error('Salt must be a 32-byte hex string');
+    /**
+     * Validate that hex strings will produce buffers of the correct byte length
+     * This validation happens before converting to buffers to provide clear error messages
+     */
+    private validateHexStringLengths(params: SubmitEpochParamsAsObject): void {
+        // Public key validation: must be 33 bytes (66 hex characters)
+        if (!params.publicKey || typeof params.publicKey !== 'string') {
+            throw new Error('Public key must be a hex string');
         }
 
-        if (params.targetHash.length !== 20) {
-            throw new Error('Target hash must be a 20-byte hex string');
-        }
+        // Remove '0x' prefix if present for all validations
+        const publicKeyHex = params.publicKey.startsWith('0x')
+            ? params.publicKey.slice(2)
+            : params.publicKey;
 
-        if (
-            params.graffiti &&
-            params.graffiti.length > OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
-        ) {
+        if (publicKeyHex.length !== 66) {
             throw new Error(
-                `Graffiti can not be longer than ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH} bytes.`,
+                `Public key must be 33 bytes (66 hex characters). Received ${publicKeyHex.length} characters`,
             );
+        }
+
+        // Salt validation: must be 32 bytes (64 hex characters)
+        if (!params.salt || typeof params.salt !== 'string') {
+            throw new Error('Salt must be a hex string');
+        }
+
+        const saltHex = params.salt.startsWith('0x') ? params.salt.slice(2) : params.salt;
+
+        if (saltHex.length !== 64) {
+            throw new Error(
+                `Salt must be 32 bytes (64 hex characters). Received ${saltHex.length} characters`,
+            );
+        }
+
+        // Target hash validation: must be 20 bytes (40 hex characters)
+        if (!params.targetHash || typeof params.targetHash !== 'string') {
+            throw new Error('Target hash must be a hex string');
+        }
+
+        const targetHashHex = params.targetHash.startsWith('0x')
+            ? params.targetHash.slice(2)
+            : params.targetHash;
+
+        if (targetHashHex.length !== 40) {
+            throw new Error(
+                `Target hash must be 20 bytes (40 hex characters). Received ${targetHashHex.length} characters`,
+            );
+        }
+
+        // Validate that all strings contain only valid hex characters
+        const hexRegex = /^[0-9a-fA-F]+$/;
+
+        if (!hexRegex.test(publicKeyHex)) {
+            throw new Error('Public key contains invalid hex characters');
+        }
+
+        if (!hexRegex.test(saltHex)) {
+            throw new Error('Salt contains invalid hex characters');
+        }
+
+        if (!hexRegex.test(targetHashHex)) {
+            throw new Error('Target hash contains invalid hex characters');
+        }
+
+        // Graffiti validation if present
+        if (params.graffiti) {
+            if (typeof params.graffiti !== 'string') {
+                throw new Error('Graffiti must be a string');
+            }
+
+            const graffitiHex = params.graffiti.startsWith('0x')
+                ? params.graffiti.slice(2)
+                : params.graffiti;
+
+            // Check if graffiti length exceeds maximum allowed bytes
+            // Each hex pair represents one byte, so divide by 2
+            const graffitiByteLength = graffitiHex.length / 2;
+
+            if (graffitiByteLength > OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
+                throw new Error(
+                    `Graffiti cannot exceed ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH} bytes. ` +
+                        `Received ${graffitiByteLength} bytes`,
+                );
+            }
+
+            if (graffitiHex.length > 0 && !hexRegex.test(graffitiHex)) {
+                throw new Error('Graffiti contains invalid hex characters');
+            }
         }
     }
 
@@ -140,10 +211,11 @@ export class SubmitEpochRoute extends Route<
             throw new Error('Current block height not set. Ensure blockchain is initialized.');
         }
 
-        // Validate parameters
+        // Validate parameters structure and presence
         const validatedParams = this.validateSubmissionParams(params);
 
-        // Get current block height for timing validation
+        // Validate hex string lengths before conversion
+        this.validateHexStringLengths(validatedParams);
 
         // Convert to validation params with block height
         const validationParams = EpochValidator.hexToValidationParams({
@@ -153,8 +225,6 @@ export class SubmitEpochRoute extends Route<
             publicKey: validatedParams.publicKey,
             graffiti: validatedParams.graffiti,
         });
-
-        this.validateBuffers(validationParams);
 
         // Check if this epoch/salt combination already exists
         const exists = await this.epochValidator.solutionExists(
@@ -227,11 +297,11 @@ export class SubmitEpochRoute extends Route<
     }
 
     /**
-     * Validate the epoch submission parameters
+     * Validate the epoch submission parameters for presence and basic structure
      */
     private validateSubmissionParams(params: SubmitEpochParamsAsObject): SubmitEpochParamsAsObject {
         if (!params.epochNumber) {
-            throw new Error('Epoch target is required');
+            throw new Error('Epoch number is required');
         }
 
         if (!params.publicKey) {
@@ -253,7 +323,18 @@ export class SubmitEpochRoute extends Route<
      * Handle submission-specific errors
      */
     private handleSubmissionError(res: Response, error: Error): void {
-        if (error.message.includes('already exists')) {
+        // Handle validation errors
+        if (
+            error.message.includes('bytes') ||
+            error.message.includes('hex') ||
+            error.message.includes('must be')
+        ) {
+            res.status(400);
+            res.json({
+                error: error.message,
+                code: 'INVALID_FORMAT',
+            });
+        } else if (error.message.includes('already exists')) {
             res.status(409);
             res.json({
                 error: error.message,
