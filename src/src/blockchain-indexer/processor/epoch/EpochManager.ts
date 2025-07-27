@@ -307,10 +307,10 @@ export class EpochManager extends Logger {
             publicKey: publicKey.originalPublicKeyBuffer(),
             graffiti: graffiti,
             solutionBits: matchingBits,
-            
+
             epochRoot: Buffer.from(epoch.rootBuffer),
             epochHash: epoch.epochHash,
-            proofs: epoch.getProof(0), // Get proofs for this epoch
+            proofs: epoch.getEpochDataProof(), // Get proofs for this epoch
         };
 
         const epochDocument = this.createEpoch(finalEpoch);

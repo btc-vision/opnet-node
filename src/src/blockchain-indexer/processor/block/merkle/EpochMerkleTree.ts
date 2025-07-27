@@ -51,7 +51,7 @@ export interface EpochDataProof {
         readonly solutionHash: string;
         readonly graffiti: string;
     };
-    readonly proof: string[];
+    readonly proof: Buffer[];
     readonly leafHash: string;
 }
 
@@ -108,12 +108,18 @@ export interface AttestationVerificationProof {
     readonly proof: Buffer[];
 }
 
+function stringToBuffer(str: string): Buffer {
+    return Buffer.from(str.replace('0x', ''), 'hex');
+}
+
 const chainId = getChainId(NetworkConverter.networkToBitcoinNetwork(NetworkConverter.getNetwork()));
 
 export class EpochMerkleTree {
     private tree: RustMerkleTree | undefined;
     private attestations: Attestation[] = [];
+
     private readonly epochData: EpochData;
+
     private epochBytes: Uint8Array | undefined;
     private frozen: boolean = false;
 
@@ -122,6 +128,14 @@ export class EpochMerkleTree {
     constructor(epochData: EpochData, maxAttestations: number = 500_000) {
         this.epochData = epochData;
         this.maxAttestations = maxAttestations;
+    }
+
+    public get data(): EpochData {
+        if (!this.tree) {
+            throw new Error('[EpochMerkle] Tree not generated');
+        }
+
+        return this.epochData;
     }
 
     public get root(): string {
@@ -160,20 +174,50 @@ export class EpochMerkleTree {
         return merkleProof.verify(root, RustMerkleTree.hash(attestationBytes));
     }
 
-    public static verifyEpochData(root: Buffer, epochDataPackage: EpochDataProof): boolean {
-        const merkleProof = new MerkleProof(epochDataPackage.proof.map((p) => toBytes(p)));
-        const leafHash = Buffer.from(epochDataPackage.leafHash.replace('0x', ''), 'hex');
-        return merkleProof.verify(root, leafHash);
+    public static verifyEpochData(root: Buffer, proofs: Buffer[], data: Uint8Array): boolean {
+        const merkleProof = new MerkleProof(proofs);
+        return merkleProof.verifyData(root, data);
     }
 
     public static verify(treeExport: CompleteEpochMerkleTreeExport): EpochTreeVerification {
-        const root = Buffer.from(treeExport.root.replace('0x', ''), 'hex');
+        const root = stringToBuffer(treeExport.root);
+
+        const winner = treeExport.epoch.winner;
+        if (!winner) {
+            throw new Error('Winner data is not set in the epoch export');
+        }
+
+        const epochData: EpochData = {
+            attestedChecksumRoot: stringToBuffer(treeExport.epoch.attestedChecksumRoot),
+            attestedEpochNumber: treeExport.epoch.attestedEpochNumber,
+            checksumRoot: stringToBuffer(treeExport.epoch.checksumRoot),
+            endBlock: treeExport.epoch.endBlock,
+            epochNumber: treeExport.epoch.epochNumber,
+            previousEpochHash: stringToBuffer(treeExport.epoch.previousEpochHash),
+            startBlock: treeExport.epoch.startBlock,
+            winner: {
+                epochNumber: treeExport.epoch.epochNumber,
+                matchingBits: winner.matchingBits,
+                salt: stringToBuffer(winner.salt),
+                publicKey: Address.fromString(winner.publicKey),
+                solutionHash: stringToBuffer(winner.solutionHash),
+                graffiti: Buffer.from(winner.graffiti, 'hex'),
+            },
+        };
+
+        const epochDataBytes = EpochMerkleTree.epochDataToBytes(epochData);
+        console.log('epochDataBytes', epochDataBytes);
 
         // Verify epoch data
-        const epochDataValid = EpochMerkleTree.verifyEpochData(root, treeExport.epoch);
-        const epochDataRoot = new MerkleProof(
-            treeExport.epoch.proof.map((p) => toBytes(p)),
-        ).rootHex(Buffer.from(treeExport.epoch.leafHash.replace('0x', ''), 'hex'));
+        const epochDataValid = EpochMerkleTree.verifyEpochData(
+            root,
+            treeExport.epoch.proof,
+            epochDataBytes,
+        );
+
+        const epochDataRoot = new MerkleProof(treeExport.epoch.proof).rootHex(
+            stringToBuffer(treeExport.epoch.leafHash),
+        );
 
         // Verify all attestations
         const attestationVerifications = treeExport.attestations.map((attPackage) => {
@@ -364,12 +408,19 @@ export class EpochMerkleTree {
             .map((hash) => Buffer.from(hash));
     }
 
-    public getEpochDataProof(epochDataBytes: Uint8Array): string[] {
+    public getEpochDataProof(epochDataBytes: Uint8Array | undefined = this.epochBytes): Buffer[] {
+        if (!epochDataBytes) {
+            throw new Error('Epoch data bytes are not provided');
+        }
+
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
-
-        return this.tree.getProof(this.tree.getIndexData(epochDataBytes)).proofHashesHex();
+        
+        return this.tree
+            .getProof(this.tree.getIndexData(epochDataBytes))
+            .proofHashes()
+            .map((hash) => Buffer.from(hash));
     }
 
     public getEpochData(): EpochDataProof {
@@ -380,6 +431,7 @@ export class EpochMerkleTree {
         const epochDataBytes = this.epochBytes
             ? this.epochBytes
             : EpochMerkleTree.epochDataToBytes(this.epochData);
+
         const proof = this.getEpochDataProof(epochDataBytes);
         const leafHash = RustMerkleTree.hash(epochDataBytes);
 
