@@ -64,7 +64,7 @@ export class SubmitEpochRoute extends Route<
             throw new Error('No blocks found in storage to determine current height');
         }
 
-        this.currentBlockHeight = BigInt(currentBlock.height) - 1n;
+        this.currentBlockHeight = BigInt(currentBlock.height);
     }
 
     /**

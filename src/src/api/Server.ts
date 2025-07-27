@@ -135,7 +135,7 @@ export class Server extends Logger {
 
     private globalErrorHandler(_request: Request, response: Response, _error: Error): void {
         response.status(500);
-        
+
         if (Config.DEV_MODE) {
             this.error(`Error details: ${_error.stack}`);
         }
@@ -148,6 +148,8 @@ export class Server extends Logger {
     private async listenToBlockChanges(): Promise<void> {
         this.blockchainInformationRepository.watchBlockChanges(async (blockHeight: bigint) => {
             try {
+                console.log('blockHeight', blockHeight);
+
                 OPNetConsensus.setBlockHeight(blockHeight);
 
                 await this.notifyAllRoutesOfBlockChange(blockHeight);

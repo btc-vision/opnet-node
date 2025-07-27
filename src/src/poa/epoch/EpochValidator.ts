@@ -141,16 +141,6 @@ export class EpochValidator extends Logger {
 
             // Get the epoch data from storage
             const epoch = await this.getEpochData(params.epochNumber);
-
-            console.log('Validating epoch solution:', {
-                epochNumber: params.epochNumber,
-                targetBlock:
-                    (params.epochNumber - 1n) *
-                    BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH),
-                targetHash: epoch.targetHash.toString('hex'),
-                providedTargetHash: params.targetHash.toString('hex'),
-            });
-
             if (!epoch) {
                 return {
                     valid: false,
@@ -305,8 +295,10 @@ export class EpochValidator extends Logger {
 
         const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
 
-        // Get the mining target block (first block of the previous epoch)
-        const targetBlockHeight = (epochNumber - 1n) * blockEpochInterval;
+        // Get the mining target block (LAST block of the current epoch)
+        // Epoch 1 mines block 4, Epoch 2 mines block 9, etc.
+        const targetBlockHeight = epochNumber * blockEpochInterval - 1n;
+
         const blockHeader = await this.storage.getBlockHeader(targetBlockHeight);
         if (!blockHeader) {
             throw new Error(

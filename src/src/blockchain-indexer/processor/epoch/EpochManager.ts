@@ -115,7 +115,7 @@ export class EpochManager extends Logger {
         ] = await Promise.all([
             this.getPreviousEpochHash(epochNumber),
             this.getAttestationChecksumRoot(epochNumber),
-            
+
             // For epoch 0, no submissions (it can't be mined)
             epochNumber === 0n ? [] : this.storage.getSubmissionsByEpochNumber(epochNumber),
             this.storage.getWitnessesForEpoch(
@@ -151,7 +151,7 @@ export class EpochManager extends Logger {
         // Epoch 2 mines block 5 (first block of epoch 1)
         // Epoch 3 mines block 10 (first block of epoch 2)
         // etc.
-        return (epochNumber - 1n) * BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        return epochNumber * BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH) - 1n;
     }
 
     private async getMiningTargetChecksum(targetBlock: bigint | null): Promise<Buffer | null> {
@@ -273,10 +273,6 @@ export class EpochManager extends Logger {
             checksumRoot = miningTargetChecksum;
             targetHash = SHA1.hashBuffer(checksumRoot);
         }
-
-        console.log(
-            `Epoch ${epochNumber} - Mining target block: ${this.getMiningTargetBlock(epochNumber)}, checksumRoot: ${checksumRoot.toString('hex')}, targetHash: ${targetHash.toString('hex')}`,
-        );
 
         const winningSubmission = this.getBestSubmission(submissions, targetHash);
         if (winningSubmission && winningSubmission.epochNumber !== epochNumber) {

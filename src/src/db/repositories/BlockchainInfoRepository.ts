@@ -2,6 +2,7 @@ import { BaseRepository } from '@btc-vision/bsi-common';
 import {
     ChangeStream,
     ChangeStreamDocument,
+    ChangeStreamOptions,
     ChangeStreamUpdateDocument,
     Collection,
     Db,
@@ -28,7 +29,10 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
     private readonly blockUpdateListeners: Array<(blockHeight: bigint) => void> = [];
     private changeStream: BlockChangeStream;
 
-    private latestBlockHeightUpdate: Date | undefined;
+    private lastPolledBlockHeight: bigint = -1n;
+    private pollingInterval: NodeJS.Timeout | null = null;
+
+    private readonly POLLING_INTERVAL_MS = 1000;
 
     public constructor(db: Db) {
         super(db);
@@ -65,7 +69,8 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
     public watchBlockChanges(cb: (blockHeight: bigint) => void): void {
         this.blockUpdateListeners.push(cb);
 
-        this.createWatcher();
+        //this.createWatcher();
+        this.startPolling();
     }
 
     public createWatcher(): void {
@@ -74,7 +79,23 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
         }
 
         const collection = this.getCollection();
-        this.changeStream = collection.watch<{ inProgressBlock: number }>();
+
+        // Configure change stream for lower latency
+        const options: ChangeStreamOptions = {
+            fullDocument: 'updateLookup', // Get the full document on updates
+            batchSize: 1, // Process changes immediately
+        };
+
+        this.changeStream = collection.watch<{ inProgressBlock: number }>(
+            [
+                {
+                    $match: {
+                        'updateDescription.updatedFields.inProgressBlock': { $exists: true },
+                    },
+                },
+            ],
+            options,
+        );
 
         this.createChangeStreamListeners();
     }
@@ -87,8 +108,22 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
             currentBlockNumber = 0;
         }
 
-        this.triggerBlockUpdateListeners(BigInt(currentBlockNumber));
+        const blockHeight = BigInt(currentBlockNumber);
+        this.lastPolledBlockHeight = blockHeight;
+        this.triggerBlockUpdateListeners(blockHeight);
     }
+
+    /*public async destroy(): Promise<void> {
+        if (this.changeStream) {
+            await this.changeStream.close();
+            this.changeStream = undefined;
+        }
+
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+        }
+    }*/
 
     protected override getCollection(): Collection<IBlockchainInformationDocument> {
         return this._db.collection('BlockchainInformation');
@@ -106,33 +141,63 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
         }
 
         this.changeStream.on('change', (change: UpdatedChangeStreamDocument) => {
-            const updatedFields = change.updateDescription?.updatedFields;
-            if (!updatedFields) {
-                return;
+            // Handle both update and replace operations
+            let updatedProgressBlock: number | undefined;
+
+            if (change.operationType === 'update') {
+                updatedProgressBlock = change.updateDescription?.updatedFields?.inProgressBlock;
+            } else if (change.operationType === 'replace' && change.fullDocument) {
+                const fullDoc = change.fullDocument as { inProgressBlock: number };
+                updatedProgressBlock = fullDoc.inProgressBlock;
             }
 
-            const updatedProgressBlock = updatedFields.inProgressBlock;
             if (updatedProgressBlock === undefined) {
                 return;
             }
 
-            if (!change.wallTime) {
-                return;
-            }
-
-            // We are getting the next block, so we need to subtract 1 to get the current block.
             let blockHeight = BigInt(updatedProgressBlock);
             if (blockHeight < 0n) {
                 blockHeight = 0n;
             }
 
-            const wallTime = change.wallTime;
-            if (!this.latestBlockHeightUpdate || wallTime > this.latestBlockHeightUpdate) {
-                this.latestBlockHeightUpdate = wallTime;
-
-                this.triggerBlockUpdateListeners(blockHeight);
-            }
+            this.triggerBlockUpdateListeners(blockHeight);
         });
+
+        this.changeStream.on('error', (error) => {
+            this.error(`Change stream error: ${error.message}`);
+            // Attempt to recreate the change stream
+            this.changeStream = undefined;
+            setTimeout(() => this.createWatcher(), 1000);
+        });
+    }
+
+    private startPolling(): void {
+        if (this.pollingInterval) {
+            return;
+        }
+
+        // Poll the database periodically
+        this.pollingInterval = setInterval(async () => {
+            try {
+                // Get the latest block info for all networks
+                const info = await this.getCollection().findOne({});
+                if (!info) {
+                    this.error('No blockchain information found in the database.');
+                    return;
+                }
+
+                const blockHeight = BigInt(info.inProgressBlock || 0);
+
+                // Only trigger if the block height changed
+                if (blockHeight !== this.lastPolledBlockHeight) {
+                    this.lastPolledBlockHeight = blockHeight;
+
+                    this.triggerBlockUpdateListeners(blockHeight);
+                }
+            } catch (error) {
+                this.error(`Polling error: ${(error as Error).message}`);
+            }
+        }, this.POLLING_INTERVAL_MS);
     }
 
     private createDefault(network: string): IBlockchainInformationDocument {

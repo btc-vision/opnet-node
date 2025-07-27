@@ -103,9 +103,9 @@ export class VMMongoStorage extends VMStorage {
             };
         }
 
-        // Get the target block for mining (first block of the previous epoch)
-        // Epoch 1 mines block 0, Epoch 2 mines block 5, etc.
-        const targetBlockHeight = (nextEpochToFinalize - 1n) * blockEpochInterval;
+        // Get the target block for mining (LAST block of the current epoch)
+        // Epoch 1 mines block 4, Epoch 2 mines block 9, etc.
+        const targetBlockHeight = nextEpochToFinalize * blockEpochInterval - 1n;
 
         console.log(
             'Current block:',
