@@ -1,6 +1,5 @@
 import { Address, BinaryWriter } from '@btc-vision/transaction';
 import { MerkleProof, MerkleTree as RustMerkleTree } from '@btc-vision/rust-merkle-tree';
-import { toBytes } from './MerkleTree.js';
 import { ZERO_HASH } from '../types/ZeroValue.js';
 import { EpochSubmissionWinner } from '../../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
@@ -515,12 +514,12 @@ export class EpochMerkleTree {
         };
     }
 
-    public verifyProof(leafData: Uint8Array, proof: string[]): boolean {
+    public verifyProof(leafData: Uint8Array, proof: Buffer[]): boolean {
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
 
-        const merkleProof = new MerkleProof(proof.map((p) => toBytes(p)));
+        const merkleProof = new MerkleProof(proof);
         return merkleProof.verify(this.rootBuffer, RustMerkleTree.hash(leafData));
     }
 

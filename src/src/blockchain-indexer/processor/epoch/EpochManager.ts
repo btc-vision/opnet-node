@@ -290,7 +290,12 @@ export class EpochManager extends Logger {
 
         // Add all the attestations for this epoch.
         for (const witness of witnesses) {
-            epoch.addBlockAttestation(this.witnessToAttestation(witness, checksumRoots));
+            const attestation = this.witnessToAttestation(witness, checksumRoots);
+            if (!attestation) {
+                continue;
+            }
+
+            epoch.addBlockAttestation(attestation);
         }
 
         epoch.freeze();
@@ -335,14 +340,16 @@ export class EpochManager extends Logger {
     private witnessToAttestation(
         witness: IParsedBlockWitnessDocument,
         checkSumRoots: Map<bigint, Buffer>,
-    ): Attestation {
+    ): Attestation | null {
         const root = checkSumRoots.get(witness.blockNumber);
         if (!root) {
             throw new Error(`No checksum root found for block number ${witness.blockNumber}`);
         }
 
         if (!witness.publicKey) {
-            throw new Error(`Witness at block ${witness.blockNumber} has no public key`);
+            this.warn(`Witness at block ${witness.blockNumber} has no public key`);
+
+            return null;
         }
 
         return {
