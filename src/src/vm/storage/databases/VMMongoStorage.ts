@@ -404,9 +404,11 @@ export class VMMongoStorage extends VMStorage {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
         }
+
         if (!this.transactionRepository) {
             throw new Error('Transaction repository not initialized');
         }
+
         if (!this.contractRepository) {
             throw new Error('Contract repository not initialized');
         }

@@ -103,6 +103,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
     ): Promise<BlockHeaderAPIDocumentWithTransactions> {
         const heightOrHash =
             typeof height === 'bigint' || typeof height === 'number' ? height : hash;
+
         if (heightOrHash === undefined || heightOrHash === null || heightOrHash === '') {
             throw new Error(`No height or hash provided`);
         }

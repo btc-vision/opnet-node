@@ -59,7 +59,6 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         }
 
         const result: IBlockHeaderBlockDocument | null = await this.queryOne(criteria);
-
         if (result === null) {
             return;
         }
