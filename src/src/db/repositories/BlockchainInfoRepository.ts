@@ -165,6 +165,7 @@ export class BlockchainInfoRepository extends BaseRepository<IBlockchainInformat
 
         this.changeStream.on('error', (error) => {
             this.error(`Change stream error: ${error.message}`);
+            
             // Attempt to recreate the change stream
             this.changeStream = undefined;
             setTimeout(() => this.createWatcher(), 1000);
