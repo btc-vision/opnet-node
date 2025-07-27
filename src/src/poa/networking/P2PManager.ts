@@ -140,6 +140,10 @@ export class P2PManager extends Logger {
 
             this.purgeOldBlacklistedPeers();
         }, 10_000);
+
+        setInterval(async () => {
+            await this.cleanupStalePeers();
+        }, 60_000);
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -194,6 +198,8 @@ export class P2PManager extends Logger {
         );
 
         this.addListeners();
+
+        await this.cleanupStalePeers();
         await this.startNode();
         await this.addHandles();
 
@@ -274,6 +280,20 @@ export class P2PManager extends Logger {
 
         // Ensure that we never send more than 100 peers at once.
         return peers.slice(0, 100);
+    }
+
+    private async cleanupStalePeers(): Promise<void> {
+        if (!this.node) return;
+
+        const allPeers = await this.node.peerStore.all();
+        for (const peer of allPeers) {
+            // If peer has no addresses or only expired addresses, remove it
+            if (!peer.addresses || peer.addresses.length === 0) {
+                await this.node.peerStore.delete(peer.id);
+
+                this.debug(`Removed stale peer ${peer.id.toString()} with no addresses`);
+            }
+        }
     }
 
     private purgeOldBlacklistedPeers(): void {

@@ -14,12 +14,15 @@ import {
     SubmittedEpochResult,
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
 import { EpochValidationParams, EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
+import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 
 export class SubmitEpochRoute extends Route<
     Routes.SUBMIT_EPOCH,
     JSONRpcMethods.SUBMIT_EPOCH,
     SubmittedEpochResult
 > {
+    private currentBlockHeight: bigint | undefined;
+
     constructor() {
         super(Routes.SUBMIT_EPOCH, RouteType.POST);
     }
@@ -44,13 +47,24 @@ export class SubmitEpochRoute extends Route<
         return this.processEpochSubmission(normalizedParams);
     }
 
-    protected initialize(): void {
+    public onBlockChange(blockHeight: bigint, _header: BlockHeaderAPIBlockDocument): void {
+        this.currentBlockHeight = blockHeight - 1n;
+    }
+
+    protected async initialize(): Promise<void> {
         if (!this.storage) {
             throw new Error('Storage not initialized for SubmitEpoch route');
         }
 
         // Initialize epoch validator with configured minimum difficulty
         this._epochValidator = new EpochValidator(this.storage);
+
+        const currentBlock = await this.storage.getLatestBlock();
+        if (!currentBlock) {
+            throw new Error('No blocks found in storage to determine current height');
+        }
+
+        this.currentBlockHeight = BigInt(currentBlock.height) - 1n;
     }
 
     /**
@@ -93,16 +107,21 @@ export class SubmitEpochRoute extends Route<
 
     private validateBuffers(params: EpochValidationParams): void {
         // Ensure all buffers are valid hex strings
-        if (params.salt.length !== 64) {
+        if (params.salt.length !== 32) {
             throw new Error('Salt must be a 32-byte hex string');
         }
 
-        if (params.targetHash.length !== 40) {
+        if (params.targetHash.length !== 20) {
             throw new Error('Target hash must be a 20-byte hex string');
         }
 
-        if (params.graffiti && params.graffiti.length > 32) {
-            throw new Error('Graffiti can not be longer than 16 bytes.');
+        if (
+            params.graffiti &&
+            params.graffiti.length > OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
+        ) {
+            throw new Error(
+                `Graffiti can not be longer than ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH} bytes.`,
+            );
         }
     }
 
@@ -112,10 +131,21 @@ export class SubmitEpochRoute extends Route<
     private async processEpochSubmission(
         params: SubmitEpochParamsAsObject,
     ): Promise<SubmittedEpochResult> {
+        if (!this.storage) {
+            throw new Error('Storage not initialized for SubmitEpoch route');
+        }
+
+        if (!this.currentBlockHeight) {
+            // 0 will also throw, this is ok.
+            throw new Error('Current block height not set. Ensure blockchain is initialized.');
+        }
+
         // Validate parameters
         const validatedParams = this.validateSubmissionParams(params);
 
-        // Convert to validation params
+        // Get current block height for timing validation
+
+        // Convert to validation params with block height
         const validationParams = EpochValidator.hexToValidationParams({
             epochNumber: validatedParams.epochNumber,
             targetHash: validatedParams.targetHash,
@@ -137,9 +167,10 @@ export class SubmitEpochRoute extends Route<
             throw new Error('Epoch submission with this salt already exists');
         }
 
-        // Validate the solution
+        // Validate the solution (this will now check timing)
         const validationResult = await this.epochValidator.validateEpochSolution(
             validationParams,
+            this.currentBlockHeight,
             OPNetConsensus.consensus.EPOCH.MIN_DIFFICULTY,
         );
 
@@ -167,9 +198,8 @@ export class SubmitEpochRoute extends Route<
 
         let message = 'Submission accepted';
         if (bestSubmission) {
-            const currentBestHash = Buffer.from(bestSubmission.salt.buffer);
-            const isWinning =
-                bestSubmission && currentBestHash.equals(Buffer.from(submissionHash, 'hex'));
+            const currentBestSalt = Buffer.from(bestSubmission.salt.buffer);
+            const isWinning = bestSubmission && currentBestSalt.equals(validationParams.salt);
 
             if (isWinning) {
                 message = 'Current best submission';

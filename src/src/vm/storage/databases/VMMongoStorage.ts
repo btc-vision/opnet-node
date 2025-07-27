@@ -43,6 +43,7 @@ import {
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { SHA1 } from '../../../utils/SHA1.js';
 import { AttestationProof } from '../../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
+import { stringToBuffer } from '../../../utils/StringToBuffer.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -82,27 +83,55 @@ export class VMMongoStorage extends VMStorage {
         }
 
         if (!this.blockRepository) {
-            throw new Error('Epoch repository not initialized');
+            throw new Error('Block repository not initialized');
         }
 
         const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
-        const currentEpochHeight = blockNumber / blockEpochInterval;
-        const epochTargetBlockHeight = currentEpochHeight * blockEpochInterval;
 
-        const blockHeader = await this.blockRepository.getBlockHeader(epochTargetBlockHeight);
+        // Calculate which epoch we're currently in
+        const currentEpoch = blockNumber / blockEpochInterval;
+
+        // The next epoch that will be finalized
+        const nextEpochToFinalize = currentEpoch + 1n;
+
+        // Epoch 0 cannot be mined
+        if (nextEpochToFinalize === 0n) {
+            return {
+                target: Buffer.alloc(32),
+                targetHash: SHA1.hashBuffer(Buffer.alloc(32)),
+                nextEpochNumber: 0n,
+            };
+        }
+
+        // Get the target block for mining (first block of the previous epoch)
+        // Epoch 1 mines block 0, Epoch 2 mines block 5, etc.
+        const targetBlockHeight = (nextEpochToFinalize - 1n) * blockEpochInterval;
+
+        console.log(
+            'Current block:',
+            blockNumber,
+            '| Current epoch:',
+            currentEpoch,
+            '| Next epoch to finalize:',
+            nextEpochToFinalize,
+            '| Mining target block:',
+            targetBlockHeight,
+        );
+
+        const blockHeader = await this.blockRepository.getBlockHeader(targetBlockHeight);
         if (!blockHeader) {
             throw new Error(
-                `Block header not found for height ${epochTargetBlockHeight} (epoch ${currentEpochHeight})`,
+                `Block header not found for mining target height ${targetBlockHeight} (for epoch ${nextEpochToFinalize})`,
             );
         }
 
-        const target = Buffer.from(blockHeader.checksumRoot.replace('0x', ''), 'hex');
-        const targetHash: Buffer = SHA1.hashBuffer(target);
+        const target = stringToBuffer(blockHeader.checksumRoot);
+        const targetHash = SHA1.hashBuffer(target);
 
         return {
             target,
             targetHash: targetHash,
-            nextEpochNumber: currentEpochHeight,
+            nextEpochNumber: nextEpochToFinalize,
         };
     }
 

@@ -20,6 +20,7 @@ import {
     EpochSubmissionAPIResult,
     IEpochSubmissionsDocument,
 } from '../../../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
+import { stringToBuffer } from '../../../../../utils/StringToBuffer.js';
 
 export abstract class EpochRoute<T extends Routes> extends Route<
     T,
@@ -108,7 +109,7 @@ export abstract class EpochRoute<T extends Routes> extends Route<
         let epoch: IEpochDocument | undefined;
 
         if (epochHash) {
-            const hashBuffer = Buffer.from(epochHash.replace('0x', ''), 'hex');
+            const hashBuffer = stringToBuffer(epochHash);
             epoch = await this.storage.getEpochByHash(hashBuffer);
         } else if (epochNumber === -1n) {
             epoch = await this.storage.getLatestEpoch();

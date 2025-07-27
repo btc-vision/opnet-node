@@ -21,7 +21,16 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
         publicKey: Address | Buffer | Binary,
     ): Promise<boolean> {
         const binarySalt = salt instanceof Binary ? salt : new Binary(salt);
-        const binaryPublicKey = publicKey instanceof Binary ? publicKey : new Binary(publicKey);
+
+        // Handle Address type properly
+        let binaryPublicKey: Binary;
+        if (publicKey instanceof Address) {
+            binaryPublicKey = new Binary(publicKey.toBuffer());
+        } else if (publicKey instanceof Binary) {
+            binaryPublicKey = publicKey;
+        } else {
+            binaryPublicKey = new Binary(publicKey);
+        }
 
         const criteria: Partial<Filter<ITargetEpochDocument>> = {
             epochNumber: DataConverter.toDecimal128(epochNumber),
@@ -58,6 +67,7 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
         const criteria: Partial<Filter<ITargetEpochDocument>> = {
             epochNumber: targetEpoch.epochNumber,
             salt: targetEpoch.salt,
+            publicKey: targetEpoch.publicKey,
         };
 
         const update = {
@@ -72,12 +82,13 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
     }
 
     /**
-     * Delete old target epochs
+     * Delete target epochs older than a specific epoch number
+     * This should delete epochs BEFORE the given epoch number, not including it
      */
     public async deleteOldTargetEpochs(epochNumber: bigint): Promise<void> {
         const criteria: Partial<Filter<ITargetEpochDocument>> = {
             epochNumber: {
-                $lte: DataConverter.toDecimal128(epochNumber),
+                $lt: DataConverter.toDecimal128(epochNumber), // Changed from $lte to $lt
             },
         };
 

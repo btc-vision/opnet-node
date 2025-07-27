@@ -18,7 +18,7 @@ export interface EpochValidationParams {
     readonly salt: Buffer;
     readonly publicKey: Address;
     readonly graffiti?: Buffer;
-    readonly blockHeight?: bigint;
+    //readonly blockHeight?: bigint;
 }
 
 export interface EpochValidationResult {
@@ -36,7 +36,7 @@ interface ParamsToConvert {
     salt: string;
     publicKey: string;
     graffiti?: string;
-    blockHeight?: string;
+    //blockHeight?: string;
 }
 
 export class EpochValidator extends Logger {
@@ -56,7 +56,7 @@ export class EpochValidator extends Logger {
             salt: Buffer.from(params.salt, 'base64'),
             publicKey: new Address(Buffer.from(params.publicKey, 'base64')),
             graffiti: Buffer.from(params.graffiti || '', 'base64'),
-            blockHeight: params.blockHeight ? BigInt(params.blockHeight) : undefined,
+            //blockHeight: params.blockHeight ? BigInt(params.blockHeight) : undefined,
         };
     }
 
@@ -67,21 +67,25 @@ export class EpochValidator extends Logger {
             salt: stringToBuffer(params.salt),
             publicKey: Address.fromString(params.publicKey),
             graffiti: params.graffiti ? stringToBuffer(params.graffiti) : undefined,
-            blockHeight: params.blockHeight ? BigInt(params.blockHeight) : undefined,
+            //blockHeight: params.blockHeight ? BigInt(params.blockHeight) : undefined,
         };
     }
 
     /**
      * Calculate mining preimage using XOR operations
      */
-    public static calculatePreimage(targetHash: Buffer, publicKey: Address, salt: Buffer): Buffer {
+    public static calculatePreimage(
+        checksumRoot: Buffer,
+        publicKey: Address,
+        salt: Buffer,
+    ): Buffer {
         // Ensure all buffers are exactly 32 bytes
         const target32 = Buffer.alloc(32);
         const pubKey32 = Buffer.alloc(32);
         const salt32 = Buffer.alloc(32);
 
         // Copy data into 32-byte buffers
-        targetHash.copy(target32, 0, 0, Math.min(32, targetHash.length));
+        checksumRoot.copy(target32, 0, 0, Math.min(32, checksumRoot.length));
         publicKey.toBuffer().copy(pubKey32, 0, 0, Math.min(32, publicKey.length));
         salt.copy(salt32, 0, 0, Math.min(32, salt.length));
 
@@ -99,11 +103,53 @@ export class EpochValidator extends Logger {
      */
     public async validateEpochSolution(
         params: EpochValidationParams,
+        currentHeight: bigint,
         minDifficulty: number = 20,
     ): Promise<EpochValidationResult> {
         try {
+            // Validate epoch 0 cannot be mined
+            if (params.epochNumber === 0n) {
+                return {
+                    valid: false,
+                    matchingBits: 0,
+                    hash: Buffer.alloc(0),
+                    targetPattern: Buffer.alloc(0),
+                    preimage: Buffer.alloc(0),
+                    message: 'Epoch 0 cannot be mined',
+                };
+            }
+
+            // If blockHeight is provided, validate submission timing
+            if (currentHeight !== undefined) {
+                const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+                const currentEpoch = currentHeight / blockEpochInterval;
+
+                // Can only submit for the next epoch to be finalized
+                const nextEpochToFinalize = currentEpoch + 1n;
+
+                if (params.epochNumber !== nextEpochToFinalize) {
+                    return {
+                        valid: false,
+                        matchingBits: 0,
+                        hash: Buffer.alloc(0),
+                        targetPattern: Buffer.alloc(0),
+                        preimage: Buffer.alloc(0),
+                        message: `Cannot submit for epoch ${params.epochNumber} at block ${currentHeight}. Can only submit for epoch ${nextEpochToFinalize}`,
+                    };
+                }
+            }
+
             // Get the epoch data from storage
-            const epoch = await this.getEpochData(params.epochNumber, params.blockHeight);
+            const epoch = await this.getEpochData(params.epochNumber);
+
+            console.log('Validating epoch solution:', {
+                epochNumber: params.epochNumber,
+                targetBlock:
+                    (params.epochNumber - 1n) *
+                    BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH),
+                targetHash: epoch.targetHash.toString('hex'),
+                providedTargetHash: params.targetHash.toString('hex'),
+            });
 
             if (!epoch) {
                 return {
@@ -124,13 +170,13 @@ export class EpochValidator extends Logger {
                     hash: Buffer.alloc(0),
                     targetPattern: Buffer.alloc(0),
                     preimage: Buffer.alloc(0),
-                    message: 'Target hash does not match epoch',
+                    message: `Target hash does not match epoch. Expected: ${epoch.targetHash.toString('hex')}, got: ${params.targetHash.toString('hex')}`,
                 };
             }
 
             // Calculate the preimage
             const preimage = EpochValidator.calculatePreimage(
-                params.targetHash,
+                epoch.target,
                 params.publicKey,
                 params.salt,
             );
@@ -138,7 +184,7 @@ export class EpochValidator extends Logger {
             // Calculate SHA-1 of the preimage
             const hash = SHA1.hashBuffer(preimage);
 
-            // Count matching bits
+            // Count matching bits against the target hash
             const matchingBits = this.countMatchingBits(hash, epoch.targetHash);
 
             // Check if meets minimum difficulty
@@ -206,7 +252,7 @@ export class EpochValidator extends Logger {
             epochNumber: DataConverter.toDecimal128(params.epochNumber),
             salt: new Binary(params.salt),
             difficulty: validationResult.matchingBits,
-            publicKey: new Binary(params.publicKey),
+            publicKey: new Binary(params.publicKey.toBuffer()),
         };
 
         await this.storage.saveTargetEpoch(targetEpoch);
@@ -251,18 +297,31 @@ export class EpochValidator extends Logger {
     /**
      * Get epoch data from storage
      */
-    private async getEpochData(
-        epochNumber: bigint,
-        blockHeight?: bigint,
-    ): Promise<PendingTargetEpoch> {
-        const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
-        const blockHeightToEpoch = blockHeight || blockEpochInterval * epochNumber;
-        const nextEpoch = await this.storage.getPendingEpochTarget(blockHeightToEpoch);
-        if (nextEpoch.nextEpochNumber === epochNumber) {
-            return nextEpoch;
+    private async getEpochData(epochNumber: bigint): Promise<PendingTargetEpoch> {
+        // Epoch 0 cannot be mined
+        if (epochNumber === 0n) {
+            throw new Error('Epoch 0 cannot be mined');
         }
 
-        throw new Error(`No pending target epoch found for epoch number ${epochNumber}`);
+        const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+
+        // Get the mining target block (first block of the previous epoch)
+        const targetBlockHeight = (epochNumber - 1n) * blockEpochInterval;
+        const blockHeader = await this.storage.getBlockHeader(targetBlockHeight);
+        if (!blockHeader) {
+            throw new Error(
+                `Block header not found for mining target height ${targetBlockHeight} (for epoch ${epochNumber})`,
+            );
+        }
+
+        const target = stringToBuffer(blockHeader.checksumRoot);
+        const targetHash = SHA1.hashBuffer(target);
+
+        return {
+            target,
+            targetHash: targetHash,
+            nextEpochNumber: epochNumber,
+        };
     }
 
     /**

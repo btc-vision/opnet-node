@@ -45,36 +45,18 @@ export class EpochManager extends Logger {
     }
 
     public async updateEpoch(task: IndexingTask): Promise<void> {
-        if (task.tip === 0n) {
-            const [lastEpoch, attestation, witnesses] = await Promise.safeAll([
-                this.getPreviousEpochHash(0n),
-                this.getAttestationChecksumRoot(0n),
-                this.storage.getWitnessesForEpoch(
-                    0n,
-                    OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n,
-                    Config.EPOCH.MAX_ATTESTATION_PER_BLOCK,
-                ),
-            ]);
+        const currentHeight = task.tip;
+        const epochsPerBlock = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
 
-            return await this.finalizeEpoch(
-                0n,
-                OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n,
-                new Map<bigint, Buffer>(),
-                [],
-                witnesses,
-                task,
-                0n,
-                lastEpoch,
-                attestation,
-            );
+        // Check if we're at a block that finalizes an epoch
+        // Epoch 0 (blocks 0-4) finalizes at block 5
+        // Epoch 1 (blocks 5-9) finalizes at block 10
+        // etc.
+        if (currentHeight % epochsPerBlock === 0n && currentHeight > 0n) {
+            // We're at the first block of a new epoch, finalize the previous one
+            const epochToFinalize = currentHeight / epochsPerBlock - 1n;
+            await this.finalizeEpochCompletion(task, epochToFinalize);
         }
-
-        const shouldUpdate = this.shouldUpdateEpoch(task.tip);
-        if (!shouldUpdate.update) {
-            return;
-        }
-
-        await this.finalizeEpochCompletion(task, shouldUpdate.currentEpoch - 1n);
     }
 
     private createEpoch(epoch: IEpoch): IEpochDocument {
@@ -119,19 +101,31 @@ export class EpochManager extends Logger {
         const startBlock = epochNumber * BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
         const endBlock = startBlock + BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH) - 1n;
 
+        // Get the target block for mining based on epoch number
+        const miningTargetBlock = this.getMiningTargetBlock(epochNumber);
+
         // Load all the previous epoch data
-        const [lastEpoch, attestationChecksumRoot, submissions, witnesses, checkSumRoots] =
-            await Promise.all([
-                this.getPreviousEpochHash(epochNumber),
-                this.getAttestationChecksumRoot(epochNumber),
-                this.storage.getSubmissionsByEpochNumber(epochNumber - 1n),
-                this.storage.getWitnessesForEpoch(
-                    startBlock,
-                    endBlock,
-                    Config.EPOCH.MAX_ATTESTATION_PER_BLOCK,
-                ),
-                this.getChecksumRoots(startBlock, endBlock),
-            ]);
+        const [
+            lastEpoch,
+            attestationChecksumRoot,
+            submissions,
+            witnesses,
+            checkSumRoots,
+            miningTarget,
+        ] = await Promise.all([
+            this.getPreviousEpochHash(epochNumber),
+            this.getAttestationChecksumRoot(epochNumber),
+            
+            // For epoch 0, no submissions (it can't be mined)
+            epochNumber === 0n ? [] : this.storage.getSubmissionsByEpochNumber(epochNumber),
+            this.storage.getWitnessesForEpoch(
+                startBlock,
+                endBlock,
+                Config.EPOCH.MAX_ATTESTATION_PER_BLOCK,
+            ),
+            this.getChecksumRoots(startBlock, endBlock),
+            this.getMiningTargetChecksum(miningTargetBlock),
+        ]);
 
         return await this.finalizeEpoch(
             startBlock,
@@ -143,7 +137,41 @@ export class EpochManager extends Logger {
             epochNumber,
             lastEpoch,
             attestationChecksumRoot,
+            miningTarget,
         );
+    }
+
+    private getMiningTargetBlock(epochNumber: bigint): bigint | null {
+        // Epoch 0 has no mining target (can't be mined)
+        if (epochNumber === 0n) {
+            return null;
+        }
+
+        // Epoch 1 mines block 0 (first block of epoch 0)
+        // Epoch 2 mines block 5 (first block of epoch 1)
+        // Epoch 3 mines block 10 (first block of epoch 2)
+        // etc.
+        return (epochNumber - 1n) * BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+    }
+
+    private async getMiningTargetChecksum(targetBlock: bigint | null): Promise<Buffer | null> {
+        if (targetBlock === null) {
+            return null;
+        }
+
+        const header = await this.storage.getBlockHeader(targetBlock);
+        if (!header) {
+            throw new Error(`No block header found for mining target block ${targetBlock}`);
+        }
+
+        const checksumRoot = Buffer.from(header.checksumRoot.replace('0x', ''), 'hex');
+        if (checksumRoot.length !== 32) {
+            throw new Error(
+                `Invalid checksum root length: ${checksumRoot.length}. Expected 32 bytes.`,
+            );
+        }
+
+        return checksumRoot;
     }
 
     private async getChecksumRoots(
@@ -230,9 +258,25 @@ export class EpochManager extends Logger {
         epochNumber: bigint,
         previousEpochHash: Buffer,
         attestationChecksumRoot: AttestationEpoch,
+        miningTargetChecksum: Buffer | null,
     ): Promise<void> {
-        const checksumRoot = Buffer.from(task.block.checksumRoot.replace('0x', ''), 'hex');
-        const targetHash = SHA1.hashBuffer(checksumRoot);
+        // For epoch 0, there's no mining target
+        let checksumRoot: Buffer;
+        let targetHash: Buffer;
+
+        if (epochNumber === 0n || !miningTargetChecksum) {
+            // Epoch 0 can't be mined, use a zero hash
+            checksumRoot = Buffer.alloc(32);
+            targetHash = SHA1.hashBuffer(checksumRoot);
+        } else {
+            // Use the mining target checksum (from the first block of the previous epoch)
+            checksumRoot = miningTargetChecksum;
+            targetHash = SHA1.hashBuffer(checksumRoot);
+        }
+
+        console.log(
+            `Epoch ${epochNumber} - Mining target block: ${this.getMiningTargetBlock(epochNumber)}, checksumRoot: ${checksumRoot.toString('hex')}, targetHash: ${targetHash.toString('hex')}`,
+        );
 
         const winningSubmission = this.getBestSubmission(submissions, targetHash);
         if (winningSubmission && winningSubmission.epochNumber !== epochNumber) {
@@ -245,8 +289,8 @@ export class EpochManager extends Logger {
         let publicKey: Address;
         let graffiti: Buffer;
 
-        if (!winningSubmission) {
-            // No valid submission, use genesis proposer
+        if (!winningSubmission || epochNumber === 0n) {
+            // No valid submission or epoch 0, use genesis proposer
             salt = Buffer.alloc(32);
             publicKey = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY;
             graffiti = Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH);
