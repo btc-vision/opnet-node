@@ -8,7 +8,7 @@ export interface IBlockWitnessAPI {
 
     readonly proofs: string[];
     readonly identity?: string;
-    readonly opnetPubKey?: string;
+    readonly publicKey?: string;
 }
 
 export interface IBlockWitnessResultAPI {

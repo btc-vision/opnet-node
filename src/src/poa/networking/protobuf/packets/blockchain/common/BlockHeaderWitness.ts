@@ -7,7 +7,7 @@ import { PackedMessage, Packet } from '../../Packet.js';
 export interface OPNetBlockWitness {
     identity?: string;
 
-    readonly opnetPubKey?: Buffer;
+    readonly publicKey?: Buffer;
     readonly signature: Buffer;
     readonly timestamp: Long;
 }

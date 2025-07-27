@@ -104,7 +104,7 @@ message BroadcastTransaction {
 message OPNetBlockWitness {
   bytes signature = 1;
   uint64 timestamp = 2;
-  optional bytes opnetPubKey = 3;
+  optional bytes publicKey = 3;
   optional string identity = 4;
 }
 

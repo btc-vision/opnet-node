@@ -32,7 +32,7 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
         for (const proof of attestationProofs) {
             const criteria: Partial<IBlockWitnessDocument> = {
                 blockNumber: DataConverter.toDecimal128(proof.attestation.blockNumber),
-                opnetPubKey: new Binary(proof.attestation.publicKey),
+                publicKey: new Binary(proof.attestation.publicKey),
                 signature: new Binary(proof.attestation.signature),
             };
 
@@ -151,8 +151,8 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
             }
 
             const signature = new Binary(witness.signature);
-            const pubKey: Binary | undefined = witness.opnetPubKey
-                ? new Binary(witness.opnetPubKey)
+            const pubKey: Binary | undefined = witness.publicKey
+                ? new Binary(witness.publicKey)
                 : undefined;
 
             const blockNumber = DataConverter.toDecimal128(height);
@@ -172,7 +172,7 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
                 signature: signature,
                 identity: witness.identity,
                 timestamp: new Date(Number(witness.timestamp)),
-                opnetPubKey: pubKey,
+                publicKey: pubKey,
                 trusted: isTrusted,
             };
 
@@ -212,7 +212,7 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
             parsedWitnesses.push({
                 blockNumber: DataConverter.fromDecimal128(witness.blockNumber),
                 identity: witness.identity,
-                opnetPubKey: witness.opnetPubKey,
+                publicKey: witness.publicKey,
                 signature: witness.signature,
                 trusted: witness.trusted,
                 timestamp: witness.timestamp,

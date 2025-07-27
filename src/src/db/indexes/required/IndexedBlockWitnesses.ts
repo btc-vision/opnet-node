@@ -15,7 +15,7 @@ export class IndexedBlockWitnesses extends IndexedCollection<OPNetCollections.Bl
             {
                 key: {
                     blockNumber: 1,
-                    opnetPubKey: 1,
+                    publicKey: 1,
                     signature: 1,
                 },
             },

@@ -341,7 +341,7 @@ export class EpochManager extends Logger {
             throw new Error(`No checksum root found for block number ${witness.blockNumber}`);
         }
 
-        if (!witness.opnetPubKey) {
+        if (!witness.publicKey) {
             throw new Error(`Witness at block ${witness.blockNumber} has no public key`);
         }
 
@@ -351,7 +351,7 @@ export class EpochManager extends Logger {
             checksumRoot: root,
             signature: Buffer.from(witness.signature.buffer),
             timestamp: witness.timestamp.getTime(),
-            publicKey: new Address(witness.opnetPubKey.buffer),
+            publicKey: new Address(witness.publicKey.buffer),
         };
     }
 

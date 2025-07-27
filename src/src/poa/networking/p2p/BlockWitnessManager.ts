@@ -488,7 +488,7 @@ export class BlockWitnessManager extends Logger {
                     identity: w.identity,
                     timestamp: Long.fromValue(w.timestamp.getTime(), true),
                     signature: Buffer.from(w.signature.buffer),
-                    opnetPubKey: w.opnetPubKey ? Buffer.from(w.opnetPubKey.buffer) : undefined,
+                    publicKey: w.publicKey ? Buffer.from(w.publicKey.buffer) : undefined,
                 };
             });
     }

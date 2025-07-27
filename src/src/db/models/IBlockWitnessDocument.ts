@@ -8,7 +8,7 @@ interface IOPNetWitnessDocument {
     readonly signature: Binary;
 
     identity?: string;
-    readonly opnetPubKey?: Binary;
+    readonly publicKey?: Binary;
 
     readonly proofs?: Binary[];
 }

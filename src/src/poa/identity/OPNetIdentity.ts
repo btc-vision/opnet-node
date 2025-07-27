@@ -155,15 +155,15 @@ export class OPNetIdentity extends OPNetPathFinder {
     // PoC: Proof of Computational Acknowledgment
     public verifyAcknowledgment(data: Buffer, witness: OPNetBlockWitness): boolean {
         if (!data) return false;
-        if (!witness.opnetPubKey) return false;
+        if (!witness.publicKey) return false;
         if (!witness.identity) return false;
 
-        if (!this.verifyOPNetIdentity(witness.identity, witness.opnetPubKey)) return false;
+        if (!this.verifyOPNetIdentity(witness.identity, witness.publicKey)) return false;
 
         return this.keyPairGenerator.verifyOPNetSignature(
             data,
             witness.signature,
-            witness.opnetPubKey,
+            witness.publicKey,
         );
     }
 
@@ -196,7 +196,7 @@ export class OPNetIdentity extends OPNetPathFinder {
             signature: this.keyPairGenerator.sign(witnessData, this.keyPair.privateKey),
             timestamp: Long.fromBigInt(now, true),
             identity: this.opnetAddress,
-            opnetPubKey: this.keyPair.publicKey,
+            publicKey: this.keyPair.publicKey,
         };
     }
 
