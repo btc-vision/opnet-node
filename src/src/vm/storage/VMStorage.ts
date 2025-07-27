@@ -161,8 +161,6 @@ export abstract class VMStorage extends Logger {
 
     public abstract deleteTransactionsById(transactions: string[]): Promise<void>;
 
-    public abstract getPreimage(blockHeight: bigint): Promise<string>;
-
     // Epoch-related abstract methods
 
     /**

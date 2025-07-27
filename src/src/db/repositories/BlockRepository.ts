@@ -80,23 +80,6 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
     }
 
     /**
-     * Get the latest preimage to use.
-     * @param blockHeight
-     */
-    public async getBlockPreimage(blockHeight: bigint): Promise<string> {
-        const criteria: Partial<Filter<IBlockHeaderBlockDocument>> = {
-            height: DataConverter.toDecimal128(blockHeight - 101n), // we do 101 here just in-case we have a reorg
-        };
-
-        const result: IBlockHeaderBlockDocument | null = await this.queryOne(criteria, undefined);
-        if (result === null) {
-            return ZERO_HASH.replace('0x', '');
-        }
-
-        return result.hash;
-    }
-
-    /**
      * We do not allow the usage of the last 100 blocks to avoid reorgs
      * @param blockHeight
      */
