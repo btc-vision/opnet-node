@@ -40,7 +40,8 @@ interface DeploymentWitnessData {
 
 export class DeploymentTransaction extends SharedInteractionParameters<OPNetTransactionTypes.Deployment> {
     public static LEGACY_DEPLOYMENT_SCRIPT: Buffer = Buffer.from([
-        opcodes.OP_TOALTSTACK,
+        opcodes.OP_TOALTSTACK, // HEADER
+        opcodes.OP_TOALTSTACK, // MINER
         opcodes.OP_TOALTSTACK, // PREIMAGE
 
         opcodes.OP_DUP,

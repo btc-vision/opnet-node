@@ -38,8 +38,9 @@ initEccLib(ecc);
 
 export class InteractionTransaction extends SharedInteractionParameters<InteractionTransactionType> {
     public static LEGACY_INTERACTION: Buffer = Buffer.from([
-        opcodes.OP_TOALTSTACK,
-        opcodes.OP_TOALTSTACK, // preimage
+        opcodes.OP_TOALTSTACK, // HEADER
+        opcodes.OP_TOALTSTACK, // MINER
+        opcodes.OP_TOALTSTACK, // PREIMAGE
 
         opcodes.OP_DUP,
         opcodes.OP_HASH256,

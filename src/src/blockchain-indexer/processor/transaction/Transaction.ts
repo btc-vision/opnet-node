@@ -112,13 +112,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return preimage;
     }
 
-    public setMiner(miner: Buffer, preimage: Buffer) {
-        this.verifyPreImage(miner, preimage);
-
-        this._preimage = preimage;
-        this._miner = miner;
-    }
-
     public get strippedInputs(): StrippedTransactionInput[] {
         return this.inputs
             .slice(0, OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_INPUTS)
@@ -327,7 +320,17 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return Buffer.from(checksum);
     }
 
-    public verifyPreImage: (miner: Buffer, preimage: Buffer) => void = (_miner: Buffer, _preimage: Buffer) => {
+    public setMiner(miner: Buffer, preimage: Buffer) {
+        this.verifyPreImage(miner, preimage);
+
+        this._preimage = preimage;
+        this._miner = miner;
+    }
+
+    public verifyPreImage: (miner: Buffer, preimage: Buffer) => void = (
+        _miner: Buffer,
+        _preimage: Buffer,
+    ) => {
         throw new Error('Verify preimage method not implemented.');
     };
 
@@ -467,13 +470,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             return; // no reward output
         }
 
-        console.log(rewardOutput);
         if (!rewardOutput.scriptPubKey.address || rewardOutput.scriptPubKey.type !== 'scripthash') {
             return; // reward output must be a P2SH address
         }
 
         const rewardChallenge = TimeLockGenerator.generateTimeLockAddress(
-            this.preimage,
+            this.miner,
             this.network,
             OPNetConsensus.consensus.EPOCH.TIMELOCK_BLOCKS_REWARD,
         );
