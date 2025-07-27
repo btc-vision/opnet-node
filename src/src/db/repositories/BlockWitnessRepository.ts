@@ -7,6 +7,7 @@ import {
     IBlockWitnessDocument,
     IParsedBlockWitnessDocument,
 } from '../models/IBlockWitnessDocument.js';
+import { AttestationProof } from '../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 
 export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument> {
     public readonly logColor: string = '#afeeee';
@@ -23,6 +24,41 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
         };
 
         await this.delete(criteria);
+    }
+
+    public async updateWitnessProofs(attestationProofs: AttestationProof[]): Promise<void> {
+        const bulk = this.getCollection().initializeUnorderedBulkOp();
+
+        for (const proof of attestationProofs) {
+            const criteria: Partial<IBlockWitnessDocument> = {
+                blockNumber: DataConverter.toDecimal128(proof.attestation.blockNumber),
+                opnetPubKey: new Binary(proof.attestation.publicKey),
+                signature: new Binary(proof.attestation.signature),
+            };
+
+            const update: Partial<IBlockWitnessDocument> = {
+                proofs: proof.proofs.map((p) => {
+                    return new Binary(p);
+                }),
+            };
+
+            bulk.find(criteria).updateOne({ $set: update });
+        }
+
+        const options: BulkWriteOptions = this.getOptions();
+        const response: BulkWriteResult = await bulk.execute(options);
+
+        if (response.modifiedCount !== attestationProofs.length) {
+            throw new Error(
+                `[DATABASE ERROR] Expected to update ${attestationProofs.length} documents, but only updated ${response.modifiedCount}.`,
+            );
+        }
+
+        if (response.hasWriteErrors() || !response.isOk()) {
+            this.error(`[DATABASE ERROR] Bulk write operation failed.`);
+
+            throw new Error(`[DATABASE ERROR.] Bulk write operation failed.`);
+        }
     }
 
     public async getWitnesses(
@@ -180,6 +216,7 @@ export class BlockWitnessRepository extends BaseRepository<IBlockWitnessDocument
                 signature: witness.signature,
                 trusted: witness.trusted,
                 timestamp: witness.timestamp,
+                proofs: witness.proofs,
             });
         }
 

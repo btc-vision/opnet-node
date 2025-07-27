@@ -23,6 +23,7 @@ import {
     ITargetEpochDocument,
     PendingTargetEpoch,
 } from '../../db/documents/interfaces/ITargetEpochDocument.js';
+import { AttestationProof } from '../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 
 export abstract class VMStorage extends Logger {
     public readonly logColor: string = '#ff00ff';
@@ -205,6 +206,11 @@ export abstract class VMStorage extends Logger {
      * Save or update an epoch
      */
     public abstract saveEpoch(epoch: IEpochDocument): Promise<void>;
+
+    /**
+     * Update epoch proofs
+     */
+    public abstract updateWitnessProofs(attestationProofs: AttestationProof[]): Promise<void>;
 
     /**
      * Update epoch end block

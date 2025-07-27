@@ -9,6 +9,8 @@ interface IOPNetWitnessDocument {
 
     identity?: string;
     readonly opnetPubKey?: Binary;
+
+    readonly proofs?: Binary[];
 }
 
 export interface IBlockWitnessDocument extends IOPNetWitnessDocument {

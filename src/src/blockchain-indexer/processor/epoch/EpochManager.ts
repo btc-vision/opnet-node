@@ -314,7 +314,12 @@ export class EpochManager extends Logger {
         };
 
         const epochDocument = this.createEpoch(finalEpoch);
-        await this.storage.saveEpoch(epochDocument);
+
+        // Update the proofs for the witnesses
+        await Promise.allSettled([
+            this.storage.updateWitnessProofs(epoch.getAllAttestationProofs()),
+            this.storage.saveEpoch(epochDocument),
+        ]);
 
         if (Config.EPOCH.LOG_FINALIZATION) {
             this.debugBright(

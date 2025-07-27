@@ -42,6 +42,7 @@ import {
 } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { SHA1 } from '../../../utils/SHA1.js';
+import { AttestationProof } from '../../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -393,6 +394,13 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Reorg repository not initialized');
         }
         await this.reorgRepository.setReorg(reorg);
+    }
+
+    public async updateWitnessProofs(attestationProofs: AttestationProof[]): Promise<void> {
+        if (!this.blockWitnessRepository) {
+            throw new Error('Block witness repository not initialized');
+        }
+        await this.blockWitnessRepository.updateWitnessProofs(attestationProofs);
     }
 
     public async getBlockTransactions(

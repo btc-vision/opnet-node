@@ -60,11 +60,11 @@ export interface AttestationProof {
         readonly type: AttestationType;
         readonly blockNumber: bigint;
         readonly checksumRoot: string;
-        readonly signature: string;
+        readonly signature: Buffer;
         readonly timestamp: number;
-        readonly publicKey: string;
+        readonly publicKey: Address;
     };
-    readonly proof: Buffer[];
+    readonly proofs: Buffer[];
     readonly leafHash: string;
     readonly index: number;
 }
@@ -228,13 +228,13 @@ export class EpochMerkleTree {
                     attPackage.attestation.checksumRoot.replace('0x', ''),
                     'hex',
                 ),
-                signature: Buffer.from(attPackage.attestation.signature.replace('0x', ''), 'hex'),
+                signature: attPackage.attestation.signature,
                 timestamp: attPackage.attestation.timestamp,
-                publicKey: Address.fromString(attPackage.attestation.publicKey),
+                publicKey: attPackage.attestation.publicKey,
             };
 
-            const isValid = EpochMerkleTree.verifyAttestation(root, attestation, attPackage.proof);
-            const computedRoot = new MerkleProof(attPackage.proof).rootHex(
+            const isValid = EpochMerkleTree.verifyAttestation(root, attestation, attPackage.proofs);
+            const computedRoot = new MerkleProof(attPackage.proofs).rootHex(
                 Buffer.from(attPackage.leafHash.replace('0x', ''), 'hex'),
             );
 
@@ -416,7 +416,7 @@ export class EpochMerkleTree {
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
-        
+
         return this.tree
             .getProof(this.tree.getIndexData(epochDataBytes))
             .proofHashes()
@@ -476,17 +476,17 @@ export class EpochMerkleTree {
                 type: attestation.type,
                 blockNumber: attestation.blockNumber,
                 checksumRoot: attestation.checksumRoot.toString('hex'),
-                signature: attestation.signature.toString('hex'),
+                signature: attestation.signature,
                 timestamp: attestation.timestamp,
-                publicKey: attestation.publicKey.toHex(),
+                publicKey: attestation.publicKey,
             },
-            proof,
+            proofs: proof,
             leafHash: '0x' + Buffer.from(leafHash).toString('hex'),
             index: attestationIndex,
         };
     }
 
-    public getAllAttestationProofPackages(): AttestationProof[] {
+    public getAllAttestationProofs(): AttestationProof[] {
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
@@ -511,7 +511,7 @@ export class EpochMerkleTree {
                 leafCount: this.attestations.length + 1,
                 generatedAt: Date.now(),
             },
-            attestations: this.getAllAttestationProofPackages(),
+            attestations: this.getAllAttestationProofs(),
         };
     }
 

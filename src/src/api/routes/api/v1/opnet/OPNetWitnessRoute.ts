@@ -136,6 +136,8 @@ export class OPNetWitnessRoute extends Route<
             const parsedWitness: IBlockWitnessAPI = {
                 signature: witness.signature.toString('base64'),
                 opnetPubKey: witness.opnetPubKey?.toString('base64'),
+                timestamp: witness.timestamp.getTime(),
+                proofs: witness.proofs?.map((proof) => proof.toString('base64')) || [],
                 identity: witness.identity,
                 trusted: witness.trusted,
             };
