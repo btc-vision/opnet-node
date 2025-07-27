@@ -106,7 +106,7 @@ export class RustContract {
         if (RustContract.startsWithErrorSelector(revertDataBytes)) {
             const decoder = new TextDecoder();
             const revertMessage = decoder.decode(
-                revertDataBytes.slice(SELECTOR_BYTE_LENGTH + U32_BYTE_LENGTH),
+                revertDataBytes.subarray(SELECTOR_BYTE_LENGTH + U32_BYTE_LENGTH),
             );
 
             return new Error(revertMessage);
