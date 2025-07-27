@@ -15,6 +15,7 @@ export class TransactionFactory {
         blockHeight: bigint,
         network: networks.Network,
         allowedPreimages: Buffer[],
+        enableVerification: boolean,
         addressCache?: AddressCache,
     ): Transaction<OPNetTransactionTypes> {
         if (!Array.isArray(allowedPreimages)) {
@@ -26,8 +27,12 @@ export class TransactionFactory {
         const index = parser.vInIndex;
 
         const tx = transactionObj.parse(data, index, blockHash, blockHeight, network, addressCache);
-        tx.verifyPreImage = (_miner: Buffer, _preimage: Buffer) => {
-            /*const isValid = allowedPreimages.some((allowedPreimage) =>
+        tx.verifyPreImage = (_miner: Buffer, preimage: Buffer) => {
+            if (!enableVerification) {
+                return;
+            }
+
+            const isValid = allowedPreimages.some((allowedPreimage) =>
                 allowedPreimage.equals(preimage),
             );
 
@@ -35,7 +40,7 @@ export class TransactionFactory {
                 throw new Error(
                     'Transaction was pending in the mempool for too long. It is no longer valid.',
                 );
-            }*/
+            }
         };
 
         /*if (processTask && tx.transactionType === OPNetTransactionTypes.Interaction) {

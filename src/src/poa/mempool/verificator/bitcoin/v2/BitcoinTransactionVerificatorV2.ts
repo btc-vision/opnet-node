@@ -78,6 +78,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verific
                 this.currentBlockHeight,
                 this.network,
                 preimages,
+                false,
             );
 
             tx = {

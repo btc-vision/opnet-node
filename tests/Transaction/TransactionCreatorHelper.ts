@@ -77,8 +77,14 @@ export async function CreateFakeTransaction(
         time: 0,
     };
 
-    const transaction: Transaction<OPNetTransactionTypes> =
-        await transactionFactory.parseTransaction(transactionData, finalBlockHash, 0n, network, []);
+    const transaction: Transaction<OPNetTransactionTypes> = transactionFactory.parseTransaction(
+        transactionData,
+        finalBlockHash,
+        0n,
+        network,
+        [],
+        false,
+    );
 
     vitest.spyOn(transaction, 'burnedFee', 'get').mockReturnValue(fees);
     // @ts-ignore

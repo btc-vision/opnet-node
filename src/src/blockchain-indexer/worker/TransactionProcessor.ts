@@ -28,7 +28,9 @@ port.on('message', (msg: MsgFromMain): void => {
         );
 
         const buf = msg.allowedPreimages.map((preimage) => Buffer.from(preimage, 'hex'));
-        itx.verifyPreImage = (miner: Buffer, preimage: Buffer) => {
+        itx.verifyPreImage = (_miner: Buffer, preimage: Buffer) => {
+            console.warn('!!! verifyPreImage is not implemented in TxParseWorker !!!');
+
             const isValid = buf.some((allowedPreimage) => allowedPreimage.equals(preimage));
 
             if (!isValid) {
@@ -46,8 +48,6 @@ port.on('message', (msg: MsgFromMain): void => {
         };
         port.postMessage(out satisfies MsgToMain);
     } catch (err) {
-        console.log(err);
-
         const out: MsgError = {
             id: msg.id,
             error: err instanceof Error ? err.message : String(err),

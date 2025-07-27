@@ -295,6 +295,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         const unsafePreimage: Preimage = {
             solution: this.preimage,
+            publicKey: new Address(this.miner),
         } as unknown as Preimage;
 
         const params: ContractAddressVerificationParams = {

@@ -470,7 +470,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             return; // no reward output
         }
 
-        if (!rewardOutput.scriptPubKey.address || rewardOutput.scriptPubKey.type !== 'scripthash') {
+        if (
+            !rewardOutput.scriptPubKey.address ||
+            rewardOutput.scriptPubKey.type !== 'witness_v0_scripthash'
+        ) {
             return; // reward output must be a P2SH address
         }
 

@@ -202,7 +202,6 @@ export class EpochMerkleTree {
         };
 
         const epochDataBytes = EpochMerkleTree.epochDataToBytes(epochData);
-        console.log('epochDataBytes', epochDataBytes);
 
         // Verify epoch data
         const epochDataValid = EpochMerkleTree.verifyEpochData(
@@ -441,7 +440,9 @@ export class EpochMerkleTree {
             attestedChecksumRoot: this.epochData.attestedChecksumRoot.toString('hex'),
             winner: this.epochData.winner
                 ? {
-                      publicKey: this.epochData.winner.publicKey.originalPublicKeyBuffer().toString('hex'),
+                      publicKey: this.epochData.winner.publicKey
+                          .originalPublicKeyBuffer()
+                          .toString('hex'),
                       matchingBits: this.epochData.winner.matchingBits,
                       salt: this.epochData.winner.salt.toString('hex'),
                       solutionHash: this.epochData.winner.solutionHash.toString('hex'),

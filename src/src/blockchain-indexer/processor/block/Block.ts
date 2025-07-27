@@ -1043,6 +1043,7 @@ export class Block extends Logger {
                 this.height,
                 this.network,
                 this.allowedPreimages,
+                true,
                 this.addressCache,
             );
 
