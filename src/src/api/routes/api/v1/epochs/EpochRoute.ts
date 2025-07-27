@@ -195,6 +195,7 @@ export abstract class EpochRoute<T extends Routes> extends Route<
         return {
             epochNumber: DataConverter.fromDecimal128(epoch.epochNumber).toString(),
             epochHash: '0x' + epoch.epochHash.toString('hex'),
+            epochRoot: '0x' + epoch.epochRoot.toString('hex'),
             startBlock: DataConverter.fromDecimal128(epoch.startBlock).toString(),
             endBlock: DataConverter.fromDecimal128(epoch.endBlock).toString(),
             difficultyScaled: epoch.difficultyScaled,

@@ -12,6 +12,7 @@ export interface APIEpochMiner {
 export interface EpochAPIResult {
     readonly epochNumber: string;
     readonly epochHash: string;
+    readonly epochRoot: string;
 
     readonly startBlock: string;
     readonly endBlock: string;
