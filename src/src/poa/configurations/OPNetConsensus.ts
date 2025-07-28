@@ -54,8 +54,23 @@ class OPNetConsensusConfiguration extends Logger {
         return network;
     }
 
-    public isEpochChange(blockHeight: bigint): boolean {
-        return blockHeight % this.consensus.EPOCH.BLOCKS_PER_EPOCH === 0n;
+    public calculateCurrentEpoch(blockHeight: bigint): bigint {
+        // Each epoch contains BLOCKS_PER_EPOCH blocks (typically 5)
+        // Epoch 0: blocks 0-4
+        // Epoch 1: blocks 5-9
+        // Epoch 2: blocks 10-14
+        // And so on...
+
+        // Integer division gives us the epoch number
+        // blockHeight 0-4 / 5 = 0 (epoch 0)
+        // blockHeight 5-9 / 5 = 1 (epoch 1)
+        // blockHeight 10-14 / 5 = 2 (epoch 2)
+
+        if (blockHeight < 0n) {
+            throw new Error(`Invalid block height: ${blockHeight}. Block height must be non-negative.`);
+        }
+
+        return blockHeight / BigInt(this.consensus.EPOCH.BLOCKS_PER_EPOCH);
     }
 
     public addConsensusUpgradeCallback(

@@ -522,19 +522,16 @@ export class BlockIndexer extends Logger {
         if (task.chainReorged || task.aborted) return;
 
         const processedBlock = task.block;
-        if (processedBlock.compromised) {
-            this.consensusTracker.lockdown();
-        }
 
         // Update epoch.
         await this.epochManager.updateEpoch(task);
 
-        // Update height.
-        await this.chainObserver.setNewHeight(task.tip);
-
         if (!this.taskInProgress) {
             throw new Error('Database corrupted. Two tasks are running at the same time.');
         }
+
+        // Update height.
+        await this.chainObserver.setNewHeight(task.tip);
 
         // Notify PoC
         void this.notifyBlockProcessed({

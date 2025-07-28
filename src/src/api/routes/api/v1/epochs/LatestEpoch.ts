@@ -30,8 +30,7 @@ export class LatestEpoch extends Route<
         return await this.getData();
     }
 
-    public onEpochChange(_epochNumber: bigint, epochData: IEpochDocument): void {
-        // Update cached epoch when a new epoch is created
+    public override onEpochFinalized(_epochNumber: bigint, epochData: IEpochDocument): void {
         this.cachedEpoch = this.convertEpochToAPIResult(epochData);
     }
 

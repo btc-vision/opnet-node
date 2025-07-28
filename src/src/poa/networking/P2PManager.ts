@@ -275,6 +275,11 @@ export class P2PManager extends Logger {
             peers.push(peerInfo);
         }
 
+        //console.dir(peers, {
+        //    colors: true,
+        //    depth: 100,
+        //});
+
         // Apply shuffle to the peers list, way to not be "predictable" and re-identified by the same peers.
         shuffleArray(peers);
 
@@ -597,6 +602,8 @@ export class P2PManager extends Logger {
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
+        //console.log('peers', peers);
+
         // Prevent flooding.
         if (peers && peers.length > 100) {
             peers = peers.slice(0, 100);
@@ -641,6 +648,8 @@ export class P2PManager extends Logger {
                     this.warn(`No valid addresses found for peer ${peerIdStr}`);
                     continue;
                 }
+
+                //console.log('Peer addresses', addresses);
 
                 const peerData: PeerInfo = {
                     id: peerIdFromString(peerIdStr),

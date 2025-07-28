@@ -256,7 +256,9 @@ export class ChainSynchronisation extends Logger {
     }
 
     private async awaitUTXOWrites(): Promise<void> {
-        this.warn('Awaiting UTXO writes to complete... May take a while.');
+        if (this.amountOfUTXOs > 20000) {
+            this.warn('Awaiting UTXO writes to complete... May take a while.');
+        }
 
         await this.saveUTXOs();
 

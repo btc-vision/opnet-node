@@ -124,17 +124,14 @@ export class EpochValidator extends Logger {
                 const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
                 const currentEpoch = currentHeight / blockEpochInterval;
 
-                // Can only submit for the next epoch to be finalized
-                const nextEpochToFinalize = currentEpoch + 1n;
-
-                if (params.epochNumber !== nextEpochToFinalize) {
+                if (params.epochNumber !== currentEpoch) {
                     return {
                         valid: false,
                         matchingBits: 0,
                         hash: Buffer.alloc(0),
                         targetPattern: Buffer.alloc(0),
                         preimage: Buffer.alloc(0),
-                        message: `Cannot submit for epoch ${params.epochNumber} at block ${currentHeight}. Can only submit for epoch ${nextEpochToFinalize}`,
+                        message: `Cannot submit for epoch ${params.epochNumber} at block ${currentHeight}. Can only submit for epoch ${currentEpoch}`,
                     };
                 }
             }
@@ -295,8 +292,7 @@ export class EpochValidator extends Logger {
 
         const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
 
-        // Get the mining target block (LAST block of the current epoch)
-        // Epoch 1 mines block 4, Epoch 2 mines block 9, etc.
+        // Calculate the target block height for this epoch
         const targetBlockHeight = epochNumber * blockEpochInterval - 1n;
 
         const blockHeader = await this.storage.getBlockHeader(targetBlockHeight);

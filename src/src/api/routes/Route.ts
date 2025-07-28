@@ -16,7 +16,6 @@ import { BlockHeaderAPIBlockDocument } from '../../db/interfaces/IBlockHeaderBlo
 import { networks } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js';
-import { OPNetIdentity } from '../../poa/identity/OPNetIdentity.js';
 
 export abstract class Route<
     T extends Routes,
@@ -34,7 +33,7 @@ export abstract class Route<
         super();
     }
 
-    protected _identity: OPNetIdentity | undefined;
+    /*protected _identity: OPNetIdentity | undefined;
 
     protected get identity(): OPNetIdentity {
         if (!this._identity) {
@@ -42,7 +41,7 @@ export abstract class Route<
         }
 
         return this._identity;
-    }
+    }*/
 
     public getPath(): T {
         return this.routePath;
@@ -50,13 +49,13 @@ export abstract class Route<
 
     public getRoute(
         storage: VMStorage,
-        identity: OPNetIdentity,
+        //identity: OPNetIdentity,
     ): {
         type: RouteType;
         handler: Router | MiddlewareHandler | MiddlewareHandler[];
     } {
         this.storage = storage;
-        this._identity = identity;
+        //this._identity = identity;
 
         this.initialize();
 
@@ -66,9 +65,20 @@ export abstract class Route<
         };
     }
 
-    public onEpochChange(_epochNumber: bigint, _epochData: IEpochDocument): void {}
-
+    /**
+     * IMPORTANT: blockHeight convention
+     * blockHeight represents the block currently being mined
+     *
+     * If Bitcoin's last completed block is 9, blockHeight = 10
+     * This means we're in the process of mining block 10
+     * @param {bigint} _blockNumber - The block number that has changed
+     * @param {BlockHeaderAPIBlockDocument} _blockHeader - The block header document
+     */
     public onBlockChange(_blockNumber: bigint, _blockHeader: BlockHeaderAPIBlockDocument): void {}
+
+    public onMiningEpochChange(_newMiningEpoch: bigint): void {}
+
+    public onEpochFinalized(_finalizedEpochNumber: bigint, _epochData: IEpochDocument): void {}
 
     public abstract getData(params?: JSONRpc2RequestParams<R>): Promise<U> | U;
 

@@ -21,9 +21,6 @@ import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
 import { BlockHeaderAPIBlockDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { P2PMajorVersion, P2PVersion } from '../poa/configurations/P2PVersion.js';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { TrustedAuthority } from '../poa/configurations/manager/TrustedAuthority.js';
-import { AuthorityManager } from '../poa/configurations/manager/AuthorityManager.js';
-import { OPNetIdentity } from '../poa/identity/OPNetIdentity.js';
 
 Globals.register();
 
@@ -61,11 +58,14 @@ export class Server extends Logger {
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
 
-    private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
-    private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
+    //private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
+    /*private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
         Config,
         this.currentAuthority,
-    );
+    );*/
+
+    private lastMiningEpoch: bigint = 0n;
+    private lastFinalizedEpoch: bigint = -1n;
 
     public constructor() {
         super();
@@ -152,12 +152,24 @@ export class Server extends Logger {
 
                 await this.notifyAllRoutesOfBlockChange(blockHeight);
 
-                const isEpochChange = OPNetConsensus.isEpochChange(blockHeight);
-                if (isEpochChange) {
-                    await this.notifyAllRoutesOfEpochChange(blockHeight);
+                // Check for mining epoch change
+                const currentMiningEpoch = OPNetConsensus.calculateCurrentEpoch(blockHeight);
+                if (this.lastMiningEpoch !== currentMiningEpoch) {
+                    this.lastMiningEpoch = currentMiningEpoch;
+                    this.notifyAllRoutesOfMiningEpochChange(currentMiningEpoch);
+                }
+
+                // Check if we have entered a new epoch since last notification
+                const highestPossibleFinalizedEpoch =
+                    currentMiningEpoch > 0n ? currentMiningEpoch - 1n : -1n;
+
+                if (highestPossibleFinalizedEpoch > this.lastFinalizedEpoch) {
+                    this.lastFinalizedEpoch = highestPossibleFinalizedEpoch;
+
+                    await this.notifyAllRoutesOfEpochFinalized(highestPossibleFinalizedEpoch);
                 }
             } catch (e) {
-                this.error(`Error setting block height. ${(e as Error).message}`);
+                this.error(`Error processing block height change: ${(e as Error).message}`);
             }
         });
 
@@ -172,12 +184,6 @@ export class Server extends Logger {
             throw new Error(`Block header not found at height ${height}.`);
         }
 
-        /*if (height < BigInt(header.height)) {
-            throw new Error(
-                `Block header height (${header.height}) does not match block height (${height}).`,
-            );
-        }*/
-
         for (const route of Object.values(DefinedRoutes)) {
             route.onBlockChange(height, header);
         }
@@ -185,17 +191,50 @@ export class Server extends Logger {
         this.notifyWebsocketsOfBlockChange(height, header);
     }
 
-    private async notifyAllRoutesOfEpochChange(blockHeight: bigint): Promise<void> {
-        if (blockHeight === 0n) return;
-
-        const epochData = await this.storage.getLatestEpoch();
-        if (!epochData) {
-            throw new Error(`Epoch data not found.`);
-        }
-
-        const epochNumber = DataConverter.fromDecimal128(epochData.epochNumber);
+    private notifyAllRoutesOfMiningEpochChange(newMiningEpoch: bigint): void {
         for (const route of Object.values(DefinedRoutes)) {
-            route.onEpochChange(epochNumber, epochData);
+            try {
+                route.onMiningEpochChange(newMiningEpoch);
+            } catch (e) {
+                this.error(`Error notifying route of mining epoch change: ${(e as Error).message}`);
+            }
+        }
+    }
+
+    private async notifyAllRoutesOfEpochFinalized(finalizedEpochNumber: bigint): Promise<void> {
+        if (finalizedEpochNumber < 0n) return;
+
+        try {
+            // Fetch the finalized epoch data from storage
+            const epochData = await this.storage.getEpochByNumber(finalizedEpochNumber);
+            if (!epochData) {
+                // This might happen if finalization is still in progress
+                this.warn(
+                    `!!!! --- Epoch ${finalizedEpochNumber} not found in storage yet --- !!!!`,
+                );
+                return;
+            }
+
+            // Verify we got the right epoch
+            const storedEpochNumber = DataConverter.fromDecimal128(epochData.epochNumber);
+            if (storedEpochNumber !== finalizedEpochNumber) {
+                throw new Error(
+                    `Epoch number mismatch: expected ${finalizedEpochNumber}, got ${storedEpochNumber}`,
+                );
+            }
+
+            // Notify all routes with the full epoch data
+            for (const route of Object.values(DefinedRoutes)) {
+                try {
+                    route.onEpochFinalized(finalizedEpochNumber, epochData);
+                } catch (e) {
+                    this.error(
+                        `Error notifying route of epoch finalization: ${(e as Error).message}`,
+                    );
+                }
+            }
+        } catch (e) {
+            this.error(`Failed to notify routes of epoch finalization: ${(e as Error).message}`);
         }
     }
 
@@ -208,7 +247,7 @@ export class Server extends Logger {
 
     private loadRoutes(): void {
         for (const route of Object.values(DefinedRoutes)) {
-            const routeData = route.getRoute(this.storage, this.opnetIdentity);
+            const routeData = route.getRoute(this.storage);
             const path = `${this.apiPrefix}/${route.getPath()}`;
 
             if (Config.DEBUG_LEVEL >= DebugLevel.TRACE && Config.DEV_MODE) {

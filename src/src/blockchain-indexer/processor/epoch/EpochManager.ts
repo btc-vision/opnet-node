@@ -51,9 +51,8 @@ export class EpochManager extends Logger {
         // Check if we're at a block that finalizes an epoch
         // Epoch 0 (blocks 0-4) finalizes at block 5
         // Epoch 1 (blocks 5-9) finalizes at block 10
-        // etc.
         if (currentHeight % epochsPerBlock === 0n && currentHeight > 0n) {
-            // We're at the first block of a new epoch, finalize the previous one
+            // We are at the first block of a new epoch, finalize the previous one
             const epochToFinalize = currentHeight / epochsPerBlock - 1n;
             await this.finalizeEpochCompletion(task, epochToFinalize);
         }
@@ -112,7 +111,7 @@ export class EpochManager extends Logger {
             witnesses,
             checkSumRoots,
             miningTarget,
-        ] = await Promise.all([
+        ] = await Promise.safeAll([
             this.getPreviousEpochHash(epochNumber),
             this.getAttestationChecksumRoot(epochNumber),
 
@@ -133,7 +132,7 @@ export class EpochManager extends Logger {
             checkSumRoots,
             submissions,
             witnesses,
-            task,
+            //task,
             epochNumber,
             lastEpoch,
             attestationChecksumRoot,
@@ -142,16 +141,22 @@ export class EpochManager extends Logger {
     }
 
     private getMiningTargetBlock(epochNumber: bigint): bigint | null {
-        // Epoch 0 has no mining target (can't be mined)
         if (epochNumber === 0n) {
             return null;
         }
 
-        // Epoch 1 mines block 0 (first block of epoch 0)
-        // Epoch 2 mines block 5 (first block of epoch 1)
-        // Epoch 3 mines block 10 (first block of epoch 2)
+        // CHANGE: For 1-epoch delay, we mine based on the last block of the previous epoch
+        // Epoch 1 mines block 4 (last block of epoch 0)
+        // Epoch 2 mines block 9 (last block of epoch 1)
+        // Epoch 3 mines block 14 (last block of epoch 2)
         // etc.
-        return epochNumber * BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH) - 1n;
+
+        // Old code (2-epoch delay):
+        // return epochNumber * BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH) - 1n;
+
+        // mine the last block of the immediately previous epoch
+        const blocksPerEpoch = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        return epochNumber * blocksPerEpoch - 1n;
     }
 
     private async getMiningTargetChecksum(targetBlock: bigint | null): Promise<Buffer | null> {
@@ -254,7 +259,7 @@ export class EpochManager extends Logger {
         checksumRoots: Map<bigint, Buffer>,
         submissions: IEpochSubmissionsDocument[],
         witnesses: IParsedBlockWitnessDocument[],
-        task: IndexingTask,
+        //task: IndexingTask,
         epochNumber: bigint,
         previousEpochHash: Buffer,
         attestationChecksumRoot: AttestationEpoch,

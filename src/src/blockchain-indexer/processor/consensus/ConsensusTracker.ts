@@ -38,20 +38,6 @@ export class ConsensusTracker extends Logger {
         }
     }
 
-    public lockdown(): void {
-        this.notifyArt(
-            'panic',
-            `LOCKDOWN`,
-            'Doh',
-            `\n\n\nOP_NET detected a compromised block.\n\n\n\n\n`,
-            `\n\nA vault has been compromised. The network is now in lockdown.\n`,
-        );
-
-        this.panic(`A vault has been compromised. The network is now in lockdown.`);
-        this.panic(`If this is a false positive, this should be resolved automatically.`);
-        this.panic(`To prevent further damage, the network has been locked down.`);
-    }
-
     public onConsensusFailed(consensusName: string): void {
         this.notifyArt(
             'warn',

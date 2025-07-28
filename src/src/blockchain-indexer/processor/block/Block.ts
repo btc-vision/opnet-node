@@ -111,7 +111,6 @@ export class Block extends Logger {
     private specialTransaction: Transaction<OPNetTransactionTypes>[] = [];
 
     private specialExecutionPromise: Promise<void> | undefined;
-    #compromised: boolean = false;
 
     #_storageRoot: string | undefined;
     #_receiptRoot: string | undefined;
@@ -236,10 +235,6 @@ export class Block extends Logger {
         }
 
         return this.#_storageRoot;
-    }
-
-    public get compromised(): boolean {
-        return this.#compromised;
     }
 
     public get version(): number {

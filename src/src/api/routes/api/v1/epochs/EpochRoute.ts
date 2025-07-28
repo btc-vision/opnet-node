@@ -46,7 +46,7 @@ export abstract class EpochRoute<T extends Routes> extends Route<
         params: EpochByNumberParams | EpochByHashParams,
     ): Promise<EpochAPIResult | undefined>;
 
-    public onEpochChange(epochNumber: bigint, epochData: IEpochDocument): void {
+    public override onEpochFinalized(epochNumber: bigint, epochData: IEpochDocument): void {
         this.currentEpochData = this.convertEpochToAPIResult(epochData);
 
         // Clear cache for this epoch to ensure fresh data
@@ -248,7 +248,6 @@ export abstract class EpochRoute<T extends Routes> extends Route<
 
         // Handle object format
         const includeSubmissions = params.includeSubmissions ?? false;
-
         if ('hash' in params) {
             if (typeof params.hash !== 'string') {
                 throw new Error('Invalid hash parameter: expected a string');

@@ -14,51 +14,28 @@ export class GetEpochTemplateRoute extends Route<
     JSONRpcMethods.GET_EPOCH_TEMPLATE,
     EpochTemplateResult
 > {
-    private currentBlockHeight: bigint | undefined;
+    private pendingBlockHeight: bigint | undefined;
+    private cachedTemplatePromise: Promise<EpochTemplateResult> | undefined;
+    private cacheValidForEpoch: bigint | undefined;
 
     constructor() {
         super(Routes.EPOCH_TEMPLATE, RouteType.GET);
     }
 
     public async getData(_params?: EpochTemplateParams): Promise<EpochTemplateResult> {
-        if (!this.storage) {
-            throw new Error('Storage not initialized for GetEpochTemplate route');
+        if (!this.storage || this.pendingBlockHeight === undefined) {
+            throw new Error('Route not properly initialized');
         }
 
-        if (!this.currentBlockHeight) {
-            throw new Error(
-                'Current block height is not set. Ensure the node is initialized and synced.',
-            );
+        const currentEpoch = OPNetConsensus.calculateCurrentEpoch(this.pendingBlockHeight);
+        if (this.cachedTemplatePromise && this.cacheValidForEpoch === currentEpoch) {
+            return await this.cachedTemplatePromise;
         }
 
-        const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
-        const currentEpoch = this.currentBlockHeight / blockEpochInterval;
+        this.cacheValidForEpoch = currentEpoch;
+        this.cachedTemplatePromise = this.computeTemplate(this.pendingBlockHeight);
 
-        // Next epoch to be finalized
-        const nextEpochToFinalize = currentEpoch + 1n;
-
-        // Get the mining target block (last block of current epoch)
-        const targetBlockHeight = nextEpochToFinalize * blockEpochInterval - 1n;
-
-        // Check if the target block exists yet
-        if (targetBlockHeight > this.currentBlockHeight) {
-            // Target block doesn't exist yet, miners need to wait
-            throw new Error(
-                `Mining target block ${targetBlockHeight} does not exist yet. ` +
-                    `Current height is ${this.currentBlockHeight}. Wait until block ${targetBlockHeight} is created.`,
-            );
-        }
-
-        const blockHeader = await this.storage.getBlockHeader(targetBlockHeight);
-        if (!blockHeader) {
-            throw new Error(`Block header not found for mining target height ${targetBlockHeight}`);
-        }
-
-        const target = blockHeader.checksumRoot;
-        return {
-            epochNumber: nextEpochToFinalize.toString(),
-            epochTarget: target,
-        };
+        return await this.cachedTemplatePromise;
     }
 
     public async getDataRPC(params?: EpochTemplateParams): Promise<EpochTemplateResult> {
@@ -66,20 +43,36 @@ export class GetEpochTemplateRoute extends Route<
     }
 
     public onBlockChange(blockHeight: bigint, _header: BlockHeaderAPIBlockDocument): void {
-        this.currentBlockHeight = blockHeight - 1n;
+        this.pendingBlockHeight = blockHeight;
     }
 
     protected async initialize(): Promise<void> {
         if (!this.storage) {
-            throw new Error('Storage not initialized for SubmitEpoch route');
+            throw new Error('Storage not initialized for GetEpochTemplate route');
         }
 
+        // Get the current block height from storage
         const currentBlock = await this.storage.getLatestBlock();
         if (!currentBlock) {
             throw new Error('No blocks found in storage to determine current height');
         }
 
-        this.currentBlockHeight = BigInt(currentBlock.height);
+        this.pendingBlockHeight = BigInt(currentBlock.height);
+
+        const currentEpoch = OPNetConsensus.calculateCurrentEpoch(this.pendingBlockHeight);
+        if (currentEpoch > 0n) {
+            this.cacheValidForEpoch = currentEpoch;
+            this.cachedTemplatePromise = this.computeTemplate(this.pendingBlockHeight);
+
+            try {
+                await this.cachedTemplatePromise;
+            } catch (error) {
+                this.error(`Failed to pre-cache template during initialization: ${error}`);
+
+                this.cachedTemplatePromise = undefined;
+                this.cacheValidForEpoch = undefined;
+            }
+        }
     }
 
     /**
@@ -101,5 +94,28 @@ export class GetEpochTemplateRoute extends Route<
         } catch (err) {
             this.handleDefaultError(res, err as Error);
         }
+    }
+
+    private async computeTemplate(blockHeight: bigint): Promise<EpochTemplateResult> {
+        if (!this.storage) {
+            throw new Error('Storage not available for template computation');
+        }
+
+        const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const currentEpoch = blockHeight / blockEpochInterval;
+        if (currentEpoch === 0n) {
+            throw new Error('Epoch 0 cannot be mined. Mining begins in epoch 1.');
+        }
+
+        const miningTargetBlock = currentEpoch * blockEpochInterval - 1n;
+        const blockHeader = await this.storage.getBlockHeader(miningTargetBlock);
+        if (!blockHeader) {
+            throw new Error(`Block header not found for mining target height ${miningTargetBlock}`);
+        }
+
+        return {
+            epochNumber: currentEpoch.toString(),
+            epochTarget: blockHeader.checksumRoot,
+        };
     }
 }

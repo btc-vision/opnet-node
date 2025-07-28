@@ -21,7 +21,7 @@ export class SubmitEpochRoute extends Route<
     JSONRpcMethods.SUBMIT_EPOCH,
     SubmittedEpochResult
 > {
-    private currentBlockHeight: bigint | undefined;
+    private pendingBlockHeight: bigint | undefined;
 
     constructor() {
         super(Routes.SUBMIT_EPOCH, RouteType.POST);
@@ -48,7 +48,7 @@ export class SubmitEpochRoute extends Route<
     }
 
     public onBlockChange(blockHeight: bigint, _header: BlockHeaderAPIBlockDocument): void {
-        this.currentBlockHeight = blockHeight - 1n;
+        this.pendingBlockHeight = blockHeight;
     }
 
     protected async initialize(): Promise<void> {
@@ -64,7 +64,7 @@ export class SubmitEpochRoute extends Route<
             throw new Error('No blocks found in storage to determine current height');
         }
 
-        this.currentBlockHeight = BigInt(currentBlock.height);
+        this.pendingBlockHeight = BigInt(currentBlock.height);
     }
 
     /**
@@ -206,7 +206,7 @@ export class SubmitEpochRoute extends Route<
             throw new Error('Storage not initialized for SubmitEpoch route');
         }
 
-        if (!this.currentBlockHeight) {
+        if (!this.pendingBlockHeight) {
             // 0 will also throw, this is ok.
             throw new Error('Current block height not set. Ensure blockchain is initialized.');
         }
@@ -240,7 +240,7 @@ export class SubmitEpochRoute extends Route<
         // Validate the solution (this will now check timing)
         const validationResult = await this.epochValidator.validateEpochSolution(
             validationParams,
-            this.currentBlockHeight,
+            this.pendingBlockHeight,
             OPNetConsensus.consensus.EPOCH.MIN_DIFFICULTY,
         );
 
