@@ -391,7 +391,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
 
         this.setMiner(
             this.interactionWitnessData.header.miner,
-            this.interactionWitnessData.header.preimage,
+            this.interactionWitnessData.header.solution,
         );
 
         /** We must verify that the contract secret matches at least one output. */

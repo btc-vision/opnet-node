@@ -1,4 +1,4 @@
-import { AddressMap } from '@btc-vision/transaction';
+import { Address, AddressMap } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -37,13 +37,14 @@ import { ContractEvaluation } from '../../../vm/runtime/classes/ContractEvaluati
 import { RustContract } from '../../../vm/rust/RustContract.js';
 import { SharedInteractionParameters } from '../transaction/transactions/SharedInteractionParameters.js';
 import { AddressCache, AddressCacheExport } from '../AddressCache.js';
+import { ChallengeSolution } from '../interfaces/TransactionPreimage.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
     abortController: AbortController;
     network: Network;
 
-    readonly allowedPreimages: Buffer[];
+    readonly allowedSolutions: [Buffer, Buffer[]][];
 
     readonly processEverythingAsGeneric?: boolean;
 }
@@ -98,7 +99,7 @@ export class Block extends Logger {
     protected readonly network: Network;
     protected readonly abortController: AbortController;
 
-    protected readonly allowedPreimages: Buffer[];
+    protected readonly allowedSolutions: ChallengeSolution;
 
     private rawTransactionData: TransactionData[] | undefined;
 
@@ -148,9 +149,9 @@ export class Block extends Logger {
         this.header = new BlockHeader(params.header);
         this._blockHashBuffer = Buffer.from(this.header.hash, 'hex');
 
-        this.allowedPreimages = params.allowedPreimages;
+        this.allowedSolutions = this.parseSolutions(params.allowedSolutions);
 
-        if (!this.allowedPreimages) {
+        if (!this.allowedSolutions) {
             throw new Error('Allowed preimages not found');
         }
 
@@ -304,6 +305,17 @@ export class Block extends Logger {
         return this.addressCache.export();
     }
 
+    public prepare(): void {
+        if (this.processed) {
+            throw new Error('Block already processed');
+        }
+
+        this.deserialize(true, this.transactionOrder);
+        this.transactionOrder = [];
+
+        this.processed = true;
+    }
+
     /*public static fromTransfer(dto: BlockTransferShape, network: Network): Block {
         const abortController = new AbortController();
         if (dto.aborted) abortController.abort(dto.abortReason);
@@ -323,17 +335,6 @@ export class Block extends Logger {
 
         return reconstructed;
     }*/
-
-    public prepare(): void {
-        if (this.processed) {
-            throw new Error('Block already processed');
-        }
-
-        this.deserialize(true, this.transactionOrder);
-        this.transactionOrder = [];
-
-        this.processed = true;
-    }
 
     public setRawTransactionData(rawTransactionData: TransactionData[]): void {
         this.rawTransactionData = rawTransactionData;
@@ -399,6 +400,13 @@ export class Block extends Logger {
         this.defineGeneric();
     }
 
+    /** Get all transactions hashes of this block */
+    public getTransactionsHashes(): string[] {
+        return this.transactions.map((transaction: Transaction<OPNetTransactionTypes>) => {
+            return transaction.transactionIdString;
+        });
+    }
+
     /*public toTransfer(): BlockTransferTuple {
         const transferList: Transferable[] = [
             //this._blockHashBuffer.buffer,
@@ -417,13 +425,6 @@ export class Block extends Logger {
 
         return [dto, transferList];
     }*/
-
-    /** Get all transactions hashes of this block */
-    public getTransactionsHashes(): string[] {
-        return this.transactions.map((transaction: Transaction<OPNetTransactionTypes>) => {
-            return transaction.transactionIdString;
-        });
-    }
 
     public getUTXOs(): ITransactionDocumentBasic<OPNetTransactionTypes>[] {
         return this.transactions.map((t) => t.toBitcoinDocument());
@@ -662,6 +663,25 @@ export class Block extends Logger {
         }
 
         this.verifyTransaction(transaction);
+    }
+
+    private parseSolutions(allowedSolutions: [Buffer, Buffer[]][]): ChallengeSolution {
+        // NOTE: Blocks 0-14 has no solutions, unconfirmed epochs, no rewards, no valid transactions.
+        
+        const solutions: ChallengeSolution = new AddressMap();
+        for (const [miner, solution] of allowedSolutions) {
+            const address = new Address(miner);
+            const solutionArray = solutions.get(address);
+
+            if (solutionArray) throw new Error(`Solution for address ${address} already exists`);
+
+            solutions.set(
+                address,
+                solution.map((sol: Buffer) => Buffer.from(sol)),
+            );
+        }
+
+        return solutions;
     }
 
     private processEvaluation(evaluation: ContractEvaluation, vmManager: VMManager): void {
@@ -1037,7 +1057,7 @@ export class Block extends Logger {
                 this.hash,
                 this.height,
                 this.network,
-                this.allowedPreimages,
+                this.allowedSolutions,
                 true,
                 this.addressCache,
             );

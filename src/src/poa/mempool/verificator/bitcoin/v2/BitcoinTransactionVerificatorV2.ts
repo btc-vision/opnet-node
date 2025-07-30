@@ -5,7 +5,6 @@ import { ConfigurableDBManager } from '@btc-vision/bsi-common';
 import { KnownTransaction } from '../../../transaction/TransactionVerifierManager.js';
 import { Config } from '../../../../../config/Config.js';
 import { TransactionFactory } from '../../../../../blockchain-indexer/processor/transaction/transaction-factory/TransactionFactory.js';
-import { BlockRepository } from '../../../../../db/repositories/BlockRepository.js';
 import { IMempoolTransactionObj } from '../../../../../db/interfaces/IMempoolTransaction.js';
 import { TransactionData, VOut } from '@btc-vision/bitcoin-rpc/src/rpc/types/BlockData.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
@@ -13,6 +12,9 @@ import { scriptToAddress } from '../../../../../utils/AddressDecoder.js';
 import BigNumber from 'bignumber.js';
 import { OPNetConsensus } from '../../../../configurations/OPNetConsensus.js';
 import { OPNetTransactionTypes } from '../../../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import { ChallengeSolution } from '../../../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
+import { AddressMap } from '@btc-vision/transaction';
+import { EpochRepository } from '../../../../../db/repositories/EpochRepository.js';
 
 const EMPTY_BLOCK_HASH = Buffer.alloc(32).toString('hex');
 
@@ -29,7 +31,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verific
 
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
 
-    private allowedPreimages: Promise<Buffer[]> = Promise.resolve([]);
+    private allowedChallenges: Promise<ChallengeSolution> = Promise.resolve(new AddressMap());
 
     public constructor(
         db: ConfigurableDBManager,
@@ -39,20 +41,20 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verific
         super(db, rpc, network);
     }
 
-    private _blockRepository: BlockRepository | undefined;
+    private _epochRepository: EpochRepository | undefined;
 
-    private get blockRepository(): BlockRepository {
-        if (!this._blockRepository) {
-            throw new Error('BlockRepository not initialized');
+    private get epochRepository(): EpochRepository {
+        if (!this._epochRepository) {
+            throw new Error('EpochRepository not initialized');
         }
 
-        return this._blockRepository;
+        return this._epochRepository;
     }
 
     public async onBlockChange(blockHeight: bigint): Promise<void> {
-        await this.allowedPreimages; // Don't flood the database on quick block changes
+        await this.allowedChallenges; // Don't flood the database on quick block changes
 
-        this.allowedPreimages = this.getPreimages(blockHeight);
+        this.allowedChallenges = this.epochRepository.getChallengeSolutions(blockHeight);
     }
 
     public createRepositories(): void {
@@ -60,7 +62,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verific
             throw new Error('Database not initialized');
         }
 
-        this._blockRepository = new BlockRepository(this.db.db);
+        this._epochRepository = new EpochRepository(this.db.db);
     }
 
     public async verify(
@@ -70,14 +72,14 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verific
     ): Promise<KnownTransaction | false> {
         let tx: KnownTransaction | false = false;
         try {
-            const preimages = await this.allowedPreimages;
+            const solutions = await this.allowedChallenges;
             const decoded = !txData ? this.toRawTransactionData(data) : txData;
             const opnetDecodedTransaction = this.transactionFactory.parseTransaction(
                 decoded,
                 EMPTY_BLOCK_HASH,
                 this.currentBlockHeight,
                 this.network,
-                preimages,
+                solutions,
                 false,
             );
 
@@ -146,14 +148,5 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verific
             blocktime: 0,
             time: 0,
         };
-    }
-
-    private async getPreimages(blockNumber: bigint): Promise<Buffer[]> {
-        const hashes = await this.blockRepository.getBlockPreimages(blockNumber);
-        if (!hashes.length) {
-            return [];
-        }
-
-        return hashes.map((hash) => Buffer.from(hash, 'hex'));
     }
 }

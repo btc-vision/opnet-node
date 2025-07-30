@@ -5,7 +5,6 @@ import {
     BlockHeaderDocument,
     IBlockHeaderBlockDocument,
 } from '../interfaces/IBlockHeaderBlockDocument.js';
-import { ZERO_HASH } from '../../blockchain-indexer/processor/block/types/ZeroValue.js';
 
 export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
     public readonly logColor: string = '#afeeee';
@@ -77,25 +76,6 @@ export class BlockRepository extends BaseRepository<IBlockHeaderBlockDocument> {
         }
 
         return result;
-    }
-
-    /**
-     * We do not allow the usage of the last 100 blocks to avoid reorgs
-     * @param blockHeight
-     */
-    public async getBlockPreimages(blockHeight: bigint): Promise<string[]> {
-        const criteria: Partial<Filter<IBlockHeaderBlockDocument>> = {
-            height: {
-                $lte: DataConverter.toDecimal128(blockHeight - 100n),
-                $gte: DataConverter.toDecimal128(blockHeight - 150n),
-            },
-        };
-
-        const result: IBlockHeaderBlockDocument[] = await this.queryMany(criteria, undefined, {
-            height: -1,
-        });
-
-        return result.map((block) => block.hash);
     }
 
     /** Save block headers */

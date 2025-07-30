@@ -4,6 +4,8 @@ import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { PossibleOPNetTransactions, TransactionInformation } from '../PossibleOPNetTransactions.js';
 import { Transaction } from '../Transaction.js';
 import { AddressCache } from '../../AddressCache.js';
+import { ChallengeSolution } from '../../interfaces/TransactionPreimage.js';
+import { Address } from '@btc-vision/transaction';
 
 export class TransactionFactory {
     public readonly genericTransactionType: OPNetTransactionTypes.Generic =
@@ -14,29 +16,32 @@ export class TransactionFactory {
         blockHash: string,
         blockHeight: bigint,
         network: networks.Network,
-        allowedPreimages: Buffer[],
+        allowedChallenges: ChallengeSolution,
         enableVerification: boolean,
         addressCache?: AddressCache,
     ): Transaction<OPNetTransactionTypes> {
-        if (!Array.isArray(allowedPreimages)) {
-            throw new Error('Allowed preimages must be an array');
-        }
-
         const parser: TransactionInformation = this.getTransactionType(data);
         const transactionObj = PossibleOPNetTransactions[parser.type];
         const index = parser.vInIndex;
 
         const tx = transactionObj.parse(data, index, blockHash, blockHeight, network, addressCache);
-        tx.verifyPreImage = (_miner: Buffer, preimage: Buffer) => {
+        tx.verifyPreImage = (miner: Address, preimage: Buffer) => {
             if (!enableVerification) {
                 return;
             }
 
-            const isValid = allowedPreimages.some((allowedPreimage) =>
-                allowedPreimage.equals(preimage),
-            );
+            const hasMiner = allowedChallenges.get(miner);
+            if (!hasMiner) {
+                throw new Error(
+                    'Transaction was pending in the mempool for too long. It is no longer valid.',
+                );
+            }
 
-            if (!isValid) {
+            const hasSolution = hasMiner.some((challenge) => {
+                return challenge.equals(preimage);
+            });
+
+            if (!hasSolution) {
                 throw new Error(
                     'Transaction was pending in the mempool for too long. It is no longer valid.',
                 );
@@ -49,7 +54,7 @@ export class TransactionFactory {
                 vIndexIn: index,
                 blockHash,
                 blockHeight,
-                allowedPreimages: allowedPreimages.map((p) => p.toString('hex')),
+                allowedChallenges: allowedChallenges.map((p) => p.toString('hex')),
             });
 
             tx.restoreFromDocument(a, data);

@@ -14,6 +14,9 @@ export class LatestEpoch extends Route<
     EpochResult
 > {
     private cachedEpoch: Promise<EpochResult | undefined> | EpochResult | undefined;
+    private cacheTimestamp: number = 0;
+
+    private readonly CACHE_TTL_MS: number = 5000;
 
     constructor() {
         super(Routes.LATEST_EPOCH, RouteType.GET);
@@ -32,6 +35,7 @@ export class LatestEpoch extends Route<
 
     public override onEpochFinalized(_epochNumber: bigint, epochData: IEpochDocument): void {
         this.cachedEpoch = this.convertEpochToAPIResult(epochData);
+        this.cacheTimestamp = Date.now();
     }
 
     protected initialize(): void {}
@@ -72,16 +76,32 @@ export class LatestEpoch extends Route<
             throw new Error('No epochs found');
         }
 
-        return this.convertEpochToAPIResult(epoch);
+        const result = this.convertEpochToAPIResult(epoch);
+        this.cacheTimestamp = Date.now(); // Update timestamp when fetching from DB
+
+        return result;
+    }
+
+    private isCacheExpired(): boolean {
+        return Date.now() - this.cacheTimestamp > this.CACHE_TTL_MS;
     }
 
     private async getLatestEpoch(): Promise<EpochResult | undefined> {
-        if (this.cachedEpoch && !(this.cachedEpoch instanceof Promise)) {
+        if (this.cachedEpoch && !(this.cachedEpoch instanceof Promise) && !this.isCacheExpired()) {
             return this.cachedEpoch;
         }
 
         this.cachedEpoch = this.fetchLatestEpoch();
-        return await this.cachedEpoch;
+
+        try {
+            const result = await this.cachedEpoch;
+            this.cachedEpoch = result; // Store resolved value
+            return result;
+        } catch (error) {
+            // Clear cache on error
+            this.cachedEpoch = undefined;
+            throw error;
+        }
     }
 
     private convertEpochToAPIResult(epoch: IEpochDocument): EpochResult {

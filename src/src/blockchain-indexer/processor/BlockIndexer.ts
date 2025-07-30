@@ -291,7 +291,7 @@ export class BlockIndexer extends Logger {
             abortController: abortController,
             header: data,
             processEverythingAsGeneric: true,
-            allowedPreimages: [],
+            allowedSolutions: [],
         });
 
         block.deserialize(false);

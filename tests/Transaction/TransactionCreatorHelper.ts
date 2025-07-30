@@ -1,5 +1,5 @@
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
-import { EcKeyPair } from '@btc-vision/transaction';
+import { AddressMap, EcKeyPair } from '@btc-vision/transaction';
 import { Network } from '@btc-vision/bitcoin';
 import { createHash, Hash, randomBytes } from 'crypto';
 import { OPNetTransactionTypes } from '../../src/src/blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
@@ -82,7 +82,7 @@ export async function CreateFakeTransaction(
         finalBlockHash,
         0n,
         network,
-        [],
+        new AddressMap(),
         false,
     );
 

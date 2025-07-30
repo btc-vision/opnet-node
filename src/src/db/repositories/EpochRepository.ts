@@ -4,15 +4,13 @@ import { IEpochDocument } from '../documents/interfaces/IEpochDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
-
-export interface EpochStats {
-    readonly totalEpochs: number;
-    readonly averageDifficulty: number;
-    readonly uniqueMiners: number;
-}
+import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
+import { Address, AddressMap } from '@btc-vision/transaction';
 
 export class EpochRepository extends BaseRepository<IEpochDocument> {
-    public readonly logColor: string = '#ffd700'; // Gold color for epochs
+    public readonly logColor: string = '#ffd700';
+
+    private readonly SOLUTION_LIFETIME: bigint = 80n;
 
     public constructor(db: Db) {
         super(db);
@@ -170,6 +168,31 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
     }
 
     /**
+     * We do not allow the usage of the last 100 blocks to avoid reorgs
+     * @param blockHeight
+     */
+    public async getChallengeSolutions(blockHeight: bigint): Promise<ChallengeSolution> {
+        const epochs = await this.getEpochsInBlockRange(
+            blockHeight - this.SOLUTION_LIFETIME,
+            blockHeight,
+        );
+
+        const solutions: ChallengeSolution = new AddressMap();
+        for (let i = 0; i < epochs.length; i++) {
+            const epoch = epochs[i];
+
+            const minerAddress = new Address(epoch.proposer.publicKey.buffer);
+            const solutionArray = solutions.get(minerAddress) || [];
+
+            solutionArray.push(Buffer.from(epoch.proposer.solution.buffer));
+
+            solutions.set(minerAddress, solutionArray);
+        }
+
+        return solutions;
+    }
+
+    /**
      * Get epochs by target hash
      */
     public async getEpochsByTargetHash(
@@ -236,22 +259,6 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         await this.getCollection().updateOne(criteria, update, { session: currentSession });
     }
 
-    /**
-     * Delete epochs from a specific epoch number onwards
-     */
-    public async deleteEpochsFromNumber(
-        epochNumber: bigint,
-        currentSession?: ClientSession,
-    ): Promise<void> {
-        const criteria: Partial<Filter<IEpochDocument>> = {
-            epochNumber: {
-                $gte: DataConverter.toDecimal128(epochNumber),
-            },
-        };
-
-        await this.delete(criteria, currentSession);
-    }
-
     public async deleteEpochFromBitcoinBlockNumber(
         bitcoinBlockNumber: bigint,
         currentSession?: ClientSession,
@@ -283,70 +290,6 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         return await this.queryMany(criteria, currentSession, {
             epochNumber: -1,
         });
-    }
-
-    /**
-     * Get epochs with graffiti
-     */
-    public async getEpochsWithGraffiti(currentSession?: ClientSession): Promise<IEpochDocument[]> {
-        const criteria: Partial<Filter<IEpochDocument>> = {
-            'proposer.graffiti': { $exists: true },
-        };
-
-        return await this.queryMany(criteria, currentSession, {
-            epochNumber: -1,
-        });
-    }
-
-    /**
-     * Get epoch statistics for a given time range (by block numbers)
-     */
-    public async getEpochStats(
-        startBlock: number,
-        endBlock: number,
-        currentSession?: ClientSession,
-    ): Promise<EpochStats> {
-        const pipeline = [
-            {
-                $match: {
-                    startBlock: { $gte: startBlock },
-                    endBlock: { $lte: endBlock, $ne: -1 },
-                },
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalEpochs: { $sum: 1 },
-                    avgDifficulty: { $avg: { $toDouble: '$difficultyScaled' } },
-                    miners: { $addToSet: '$proposer.publicKey' },
-                },
-            },
-            {
-                $project: {
-                    totalEpochs: 1,
-                    averageDifficulty: '$avgDifficulty',
-                    uniqueMiners: { $size: '$miners' },
-                },
-            },
-        ];
-
-        const result = await this.getCollection()
-            .aggregate(pipeline, { session: currentSession })
-            .toArray();
-
-        if (result.length === 0) {
-            return {
-                totalEpochs: 0,
-                averageDifficulty: 0,
-                uniqueMiners: 0,
-            };
-        }
-
-        return result[0] as {
-            totalEpochs: number;
-            averageDifficulty: number;
-            uniqueMiners: number;
-        };
     }
 
     protected override getCollection(): Collection<IEpochDocument> {

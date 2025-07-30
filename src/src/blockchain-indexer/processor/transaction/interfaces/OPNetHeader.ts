@@ -14,7 +14,7 @@ export class OPNetHeader {
     constructor(
         header: Buffer,
         public readonly miner: Buffer,
-        public readonly preimage: Buffer,
+        public readonly solution: Buffer,
     ) {
         this.reader = new BinaryReader(header);
         this._headerBytes = this.reader.readBytes(4);

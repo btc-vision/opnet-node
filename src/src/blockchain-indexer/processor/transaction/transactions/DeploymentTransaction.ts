@@ -259,7 +259,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             throw new Error(`OP_NET: Invalid contract signer.`);
         }
 
-        this.setMiner(deploymentWitnessData.header.miner, deploymentWitnessData.header.preimage);
+        this.setMiner(deploymentWitnessData.header.miner, deploymentWitnessData.header.solution);
 
         /** We regenerate the contract address and verify it */
         const input0: TransactionInput = this.inputs[0];

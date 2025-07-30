@@ -160,8 +160,8 @@ export class Server extends Logger {
                 }
 
                 // Check if we have entered a new epoch since last notification
-                const highestPossibleFinalizedEpoch =
-                    currentMiningEpoch > 0n ? currentMiningEpoch - 1n : -1n;
+                const currentEpoch = OPNetConsensus.calculateCurrentEpoch(blockHeight - 1n);
+                const highestPossibleFinalizedEpoch = currentEpoch > 0n ? currentEpoch - 1n : -1n;
 
                 if (highestPossibleFinalizedEpoch > this.lastFinalizedEpoch) {
                     this.lastFinalizedEpoch = highestPossibleFinalizedEpoch;

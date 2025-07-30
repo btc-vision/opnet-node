@@ -347,9 +347,7 @@ export class IndexingTask extends Logger {
 
         return new Block({
             ...blockData,
-            allowedPreimages: blockData.allowedPreimages.map((preimage: Uint8Array) =>
-                Buffer.from(preimage),
-            ),
+            allowedSolutions: blockData.allowedSolutions,
             network: this.network,
             abortController: this._abortController,
         });

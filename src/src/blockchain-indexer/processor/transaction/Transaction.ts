@@ -321,14 +321,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     public setMiner(miner: Buffer, preimage: Buffer) {
-        this.verifyPreImage(miner, preimage);
+        this.verifyPreImage(new Address(miner), preimage);
 
         this._preimage = preimage;
         this._miner = miner;
     }
 
-    public verifyPreImage: (miner: Buffer, preimage: Buffer) => void = (
-        _miner: Buffer,
+    public verifyPreImage: (miner: Address, preimage: Buffer) => void = (
+        _miner: Address,
         _preimage: Buffer,
     ) => {
         throw new Error('Verify preimage method not implemented.');
