@@ -44,6 +44,7 @@ import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { SHA1 } from '../../../utils/SHA1.js';
 import { AttestationProof } from '../../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 import { stringToBuffer } from '../../../utils/StringToBuffer.js';
+import { ChallengeSolution } from '../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -86,7 +87,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Block repository not initialized');
         }
 
-        const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const blockEpochInterval = OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
 
         // Calculate which epoch we're currently in
         const currentEpoch = blockNumber / blockEpochInterval;
@@ -669,6 +670,14 @@ export class VMMongoStorage extends VMStorage {
         }
 
         return this.epochRepository.getEpochByBlockHeight(blockHeight);
+    }
+
+    public getChallengeSolutionsAtHeight(blockHeight: bigint): Promise<ChallengeSolution> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.getChallengeSolutionsAtHeight(blockHeight);
     }
 
     public getActiveEpoch(): Promise<IEpochDocument | undefined> {

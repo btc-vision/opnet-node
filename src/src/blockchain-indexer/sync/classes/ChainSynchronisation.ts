@@ -21,8 +21,8 @@ import { PublicKeysRepository } from '../../../db/repositories/PublicKeysReposit
 import { BasicBlockInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/BasicBlockInfo.js';
 import { Classification, Utxo, UtxoSorter } from '../solver/UTXOSorter.js';
 import { AnyoneCanSpendRepository } from '../../../db/repositories/AnyoneCanSpendRepository.js';
-import { EpochRepository } from '../../../db/repositories/EpochRepository.js';
 import { ChallengeSolution } from '../../processor/interfaces/TransactionPreimage.js';
+import { AddressMap } from '@btc-vision/transaction';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -71,7 +71,7 @@ export class ChainSynchronisation extends Logger {
         return this._anyoneCanSpend;
     }
 
-    private _epochRepository: EpochRepository | undefined;
+    /*private _epochRepository: EpochRepository | undefined;
 
     private get epochRepository(): EpochRepository {
         if (!this._epochRepository) {
@@ -79,7 +79,7 @@ export class ChainSynchronisation extends Logger {
         }
 
         return this._epochRepository;
-    }
+    }*/
 
     private _publicKeysRepository: PublicKeysRepository | undefined;
 
@@ -121,7 +121,7 @@ export class ChainSynchronisation extends Logger {
         this._unspentTransactionRepository = new UnspentTransactionRepository(DBManagerInstance.db);
         this._anyoneCanSpend = new AnyoneCanSpendRepository(DBManagerInstance.db);
         this._publicKeysRepository = new PublicKeysRepository(DBManagerInstance.db);
-        this._epochRepository = new EpochRepository(DBManagerInstance.db);
+        //this._epochRepository = new EpochRepository(DBManagerInstance.db);
 
         await this.startSaveLoop();
     }
@@ -335,10 +335,7 @@ export class ChainSynchronisation extends Logger {
             try {
                 this.bestTip = blockNumber;
 
-                const [blockData, allowedSolutions] = await Promise.safeAll([
-                    this.blockFetcher.getBlock(blockNumber),
-                    this.epochRepository.getChallengeSolutions(blockNumber),
-                ]);
+                const blockData = await this.blockFetcher.getBlock(blockNumber);
 
                 if (!blockData) {
                     const chainHeight = await this.getBlockHeightForEver();
@@ -355,14 +352,15 @@ export class ChainSynchronisation extends Logger {
                 const abortController = new AbortController();
                 this.abortControllers.set(blockNumber, abortController);
 
-                const convertedSolutions = this.convertAllowedSolutions(allowedSolutions);
+                // const convertedSolutions = this.convertAllowedSolutions(allowedSolutions);
 
+                const solutions: ChallengeSolution = new AddressMap();
                 const block = new Block({
                     network: this.network,
                     abortController: abortController,
                     header: blockData,
                     processEverythingAsGeneric: true,
-                    allowedSolutions: convertedSolutions,
+                    allowedSolutions: solutions,
                 });
 
                 // Deserialize the block
@@ -373,7 +371,6 @@ export class ChainSynchronisation extends Logger {
                     header: block.header.toJSON(),
                     rawTransactionData: blockData.tx,
                     transactionOrder: undefined,
-                    allowedSolutions: convertedSolutions,
                     addressCache: map,
                 });
 
@@ -389,16 +386,6 @@ export class ChainSynchronisation extends Logger {
                 reject(e as Error);
             }
         });
-    }
-
-    private convertAllowedSolutions(solutions: ChallengeSolution): [Buffer, Buffer[]][] {
-        const converted: [Buffer, Buffer[]][] = [];
-
-        for (const [address, list] of solutions.entries()) {
-            converted.push([address.toBuffer(), list]);
-        }
-
-        return converted;
     }
 
     /*private async deserializeBlockBatch(startBlock: bigint): Promise<ThreadData> {

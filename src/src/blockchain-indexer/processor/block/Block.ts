@@ -1,4 +1,4 @@
-import { Address, AddressMap } from '@btc-vision/transaction';
+import { AddressMap } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -44,7 +44,7 @@ export interface RawBlockParam {
     abortController: AbortController;
     network: Network;
 
-    readonly allowedSolutions: [Buffer, Buffer[]][];
+    allowedSolutions?: ChallengeSolution;
 
     readonly processEverythingAsGeneric?: boolean;
 }
@@ -97,10 +97,8 @@ export class Block extends Logger {
 
     protected readonly signal: AbortSignal;
     protected readonly network: Network;
+
     protected readonly abortController: AbortController;
-
-    protected readonly allowedSolutions: ChallengeSolution;
-
     private rawTransactionData: TransactionData[] | undefined;
 
     // Private
@@ -122,10 +120,9 @@ export class Block extends Logger {
 
     private saveGenericPromises: Promise<void>[] = [];
     private _predictedGas: CalculatedBlockGas | undefined;
-
     private blockUsedGas: bigint = 0n;
-    private readonly processEverythingAsGeneric: boolean = false;
 
+    private readonly processEverythingAsGeneric: boolean = false;
     private readonly _blockHashBuffer: Buffer;
     private readonly addressCache: AddressCache;
 
@@ -149,11 +146,7 @@ export class Block extends Logger {
         this.header = new BlockHeader(params.header);
         this._blockHashBuffer = Buffer.from(this.header.hash, 'hex');
 
-        this.allowedSolutions = this.parseSolutions(params.allowedSolutions);
-
-        if (!this.allowedSolutions) {
-            throw new Error('Allowed preimages not found');
-        }
+        this._allowedSolutions = params.allowedSolutions;
 
         this.processEverythingAsGeneric = params.processEverythingAsGeneric || false;
 
@@ -276,6 +269,16 @@ export class Block extends Logger {
         return this.#_checksumProofs;
     }
 
+    protected _allowedSolutions?: ChallengeSolution;
+
+    private get allowedSolutions(): ChallengeSolution {
+        if (!this._allowedSolutions) {
+            throw new Error('Allowed solutions are mandatory for deserialization.');
+        }
+
+        return this._allowedSolutions;
+    }
+
     private _prevEMA: bigint = 0n;
 
     private get prevEMA(): bigint {
@@ -299,6 +302,14 @@ export class Block extends Logger {
         }
 
         return this._blockGasPredictor;
+    }
+
+    public setChallengeSolutions(solutions: ChallengeSolution): void {
+        if (this._allowedSolutions) {
+            throw new Error('Allowed solutions already set');
+        }
+
+        this._allowedSolutions = solutions;
     }
 
     public getAddressCache(): AddressCacheExport {
@@ -663,25 +674,6 @@ export class Block extends Logger {
         }
 
         this.verifyTransaction(transaction);
-    }
-
-    private parseSolutions(allowedSolutions: [Buffer, Buffer[]][]): ChallengeSolution {
-        // NOTE: Blocks 0-14 has no solutions, unconfirmed epochs, no rewards, no valid transactions.
-        
-        const solutions: ChallengeSolution = new AddressMap();
-        for (const [miner, solution] of allowedSolutions) {
-            const address = new Address(miner);
-            const solutionArray = solutions.get(address);
-
-            if (solutionArray) throw new Error(`Solution for address ${address} already exists`);
-
-            solutions.set(
-                address,
-                solution.map((sol: Buffer) => Buffer.from(sol)),
-            );
-        }
-
-        return solutions;
     }
 
     private processEvaluation(evaluation: ContractEvaluation, vmManager: VMManager): void {

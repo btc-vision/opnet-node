@@ -101,7 +101,7 @@ export class GetEpochTemplateRoute extends Route<
             throw new Error('Storage not available for template computation');
         }
 
-        const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const blockEpochInterval = OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
         const currentEpoch = blockHeight / blockEpochInterval;
         if (currentEpoch === 0n) {
             throw new Error('Epoch 0 cannot be mined. Mining begins in epoch 1.');

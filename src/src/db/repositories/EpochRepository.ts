@@ -6,6 +6,7 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
 import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { Address, AddressMap } from '@btc-vision/transaction';
+import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 
 export class EpochRepository extends BaseRepository<IEpochDocument> {
     public readonly logColor: string = '#ffd700';
@@ -171,10 +172,13 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
      * We do not allow the usage of the last 100 blocks to avoid reorgs
      * @param blockHeight
      */
-    public async getChallengeSolutions(blockHeight: bigint): Promise<ChallengeSolution> {
+    public async getChallengeSolutionsAtHeight(blockHeight: bigint): Promise<ChallengeSolution> {
+        // We need to skip one epoch. This is very important.
+        const adjustedEndBlock = blockHeight - OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+
         const epochs = await this.getEpochsInBlockRange(
-            blockHeight - this.SOLUTION_LIFETIME,
-            blockHeight,
+            adjustedEndBlock - this.SOLUTION_LIFETIME,
+            adjustedEndBlock,
         );
 
         const solutions: ChallengeSolution = new AddressMap();

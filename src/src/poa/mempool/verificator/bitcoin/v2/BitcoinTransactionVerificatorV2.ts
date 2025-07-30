@@ -54,7 +54,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verific
     public async onBlockChange(blockHeight: bigint): Promise<void> {
         await this.allowedChallenges; // Don't flood the database on quick block changes
 
-        this.allowedChallenges = this.epochRepository.getChallengeSolutions(blockHeight);
+        this.allowedChallenges = this.epochRepository.getChallengeSolutionsAtHeight(blockHeight);
     }
 
     public createRepositories(): void {

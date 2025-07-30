@@ -7,6 +7,9 @@ import { AddressCache } from '../../AddressCache.js';
 import { ChallengeSolution } from '../../interfaces/TransactionPreimage.js';
 import { Address } from '@btc-vision/transaction';
 
+const EXPIRED_TRANSACTION_ERROR: string =
+    'Transaction was pending in the mempool for too long. It is no longer valid.';
+
 export class TransactionFactory {
     public readonly genericTransactionType: OPNetTransactionTypes.Generic =
         OPNetTransactionTypes.Generic;
@@ -32,19 +35,17 @@ export class TransactionFactory {
 
             const hasMiner = allowedChallenges.get(miner);
             if (!hasMiner) {
-                throw new Error(
-                    'Transaction was pending in the mempool for too long. It is no longer valid.',
-                );
+                throw new Error(EXPIRED_TRANSACTION_ERROR);
             }
+
+            console.log('hasMiner', hasMiner, preimage.toString('hex'));
 
             const hasSolution = hasMiner.some((challenge) => {
                 return challenge.equals(preimage);
             });
 
             if (!hasSolution) {
-                throw new Error(
-                    'Transaction was pending in the mempool for too long. It is no longer valid.',
-                );
+                throw new Error(EXPIRED_TRANSACTION_ERROR);
             }
         };
 

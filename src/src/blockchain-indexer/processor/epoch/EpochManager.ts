@@ -46,7 +46,7 @@ export class EpochManager extends Logger {
 
     public async updateEpoch(task: IndexingTask): Promise<void> {
         const currentHeight = task.tip;
-        const epochsPerBlock = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const epochsPerBlock = OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
 
         // Check if we're at a block that finalizes an epoch
         // Epoch 0 (blocks 0-4) finalizes at block 5
@@ -63,12 +63,12 @@ export class EpochManager extends Logger {
             epochHash: new Binary(epoch.epochHash),
             epochRoot: new Binary(epoch.epochRoot),
             epochNumber: DataConverter.toDecimal128(
-                epoch.startBlock / BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH),
+                epoch.startBlock / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH,
             ),
             targetHash: new Binary(epoch.targetHash),
             startBlock: DataConverter.toDecimal128(epoch.startBlock),
             endBlock: DataConverter.toDecimal128(
-                epoch.startBlock + BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH) - 1n,
+                epoch.startBlock + OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n,
             ),
             difficultyScaled: EpochDifficultyConverter.bitsToScaledDifficulty(
                 epoch.solutionBits,
@@ -97,8 +97,8 @@ export class EpochManager extends Logger {
     }
 
     private async finalizeEpochCompletion(task: IndexingTask, epochNumber: bigint): Promise<void> {
-        const startBlock = epochNumber * BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
-        const endBlock = startBlock + BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH) - 1n;
+        const startBlock = epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+        const endBlock = startBlock + OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n;
 
         // Get the target block for mining based on epoch number
         const miningTargetBlock = this.getMiningTargetBlock(epochNumber);
@@ -152,10 +152,10 @@ export class EpochManager extends Logger {
         // etc.
 
         // Old code (2-epoch delay):
-        // return epochNumber * BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH) - 1n;
+        // return epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n;
 
         // mine the last block of the immediately previous epoch
-        const blocksPerEpoch = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const blocksPerEpoch = OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
         return epochNumber * blocksPerEpoch - 1n;
     }
 
@@ -442,8 +442,8 @@ export class EpochManager extends Logger {
     }
 
     private shouldUpdateEpoch(tip: bigint): EpochUpdateResult {
-        const currentEpoch = tip / BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
-        const lastBlockEpoch = (tip - 1n) / BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const currentEpoch = tip / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+        const lastBlockEpoch = (tip - 1n) / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
 
         return {
             update: currentEpoch > lastBlockEpoch,

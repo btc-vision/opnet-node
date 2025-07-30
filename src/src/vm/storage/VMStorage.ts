@@ -24,6 +24,7 @@ import {
     PendingTargetEpoch,
 } from '../../db/documents/interfaces/ITargetEpochDocument.js';
 import { AttestationProof } from '../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
+import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 
 export abstract class VMStorage extends Logger {
     public readonly logColor: string = '#ff00ff';
@@ -161,7 +162,7 @@ export abstract class VMStorage extends Logger {
 
     public abstract deleteTransactionsById(transactions: string[]): Promise<void>;
 
-    // Epoch-related abstract methods
+    public abstract getChallengeSolutionsAtHeight(blockHeight: bigint): Promise<ChallengeSolution>;
 
     /**
      * Get the latest epoch

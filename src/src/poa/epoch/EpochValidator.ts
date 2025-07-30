@@ -121,7 +121,7 @@ export class EpochValidator extends Logger {
 
             // If blockHeight is provided, validate submission timing
             if (currentHeight !== undefined) {
-                const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+                const blockEpochInterval = OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
                 const currentEpoch = currentHeight / blockEpochInterval;
 
                 if (params.epochNumber !== currentEpoch) {
@@ -290,7 +290,7 @@ export class EpochValidator extends Logger {
             throw new Error('Epoch 0 cannot be mined');
         }
 
-        const blockEpochInterval = BigInt(OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        const blockEpochInterval = OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
 
         // Calculate the target block height for this epoch
         const targetBlockHeight = epochNumber * blockEpochInterval - 1n;

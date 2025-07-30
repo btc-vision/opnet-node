@@ -29,6 +29,7 @@ import { Block } from './block/Block.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import fs from 'fs';
 import { EpochManager } from './epoch/EpochManager.js';
+import { AddressMap } from '@btc-vision/transaction';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -283,15 +284,18 @@ export class BlockIndexer extends Logger {
         this.success(`Block header ready.`);
     }
 
-    private async processLightBlock(data: BlockDataWithTransactionData): Promise<boolean> {
+    private async processLightBlock(_data: BlockDataWithTransactionData): Promise<boolean> {
+        await Promise.resolve();
+        throw new Error('Light mode processing is not implemented yet.');
+
         // TODO: Finish this.
-        const abortController = new AbortController();
+        /*const abortController = new AbortController();
         const block = new Block({
             network: this.network,
             abortController: abortController,
             header: data,
             processEverythingAsGeneric: true,
-            allowedSolutions: [],
+            allowedSolutions: new AddressMap()
         });
 
         block.deserialize(false);
@@ -301,7 +305,7 @@ export class BlockIndexer extends Logger {
         this.vmManager.prepareBlock(block.height);
 
         await block.onEmptyBlock(this.vmManager);
-        return await block.finalizeBlock(this.vmManager);
+        return await block.finalizeBlock(this.vmManager);*/
     }
 
     private nodeSyncLightTargetBlock(): bigint {
