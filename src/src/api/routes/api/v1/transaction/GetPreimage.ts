@@ -7,6 +7,7 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
+import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
 
 export class GetPreimage extends Route<
     Routes.TRANSACTION_PREIMAGE,
@@ -76,6 +77,11 @@ export class GetPreimage extends Route<
         return await this.cachedData;
     }
 
+    private uint8ArrayToHex(data: Uint8Array | Buffer, prefix: boolean = true): string {
+        const hex = Buffer.from(data).toString('hex');
+        return prefix ? '0x' + hex : hex;
+    }
+
     private async getPreimageData(): Promise<PreimageResult | undefined> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
@@ -87,55 +93,67 @@ export class GetPreimage extends Route<
             throw new Error('Block header not found');
         }
 
-        // Get the latest finalized epoch
-        const latestEpoch = await this.storage.getLatestEpoch();
-        if (!latestEpoch) {
-            throw new Error('No finalized epoch found');
+        const currentBlockHeight = BigInt(block.height);
+        const currentEpoch = currentBlockHeight / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+
+        // Apply 2-epoch delay
+        const targetEpochNumber = currentEpoch - 2n;
+
+        // Don't return data if we don't have enough epochs yet
+        if (targetEpochNumber < 0n) {
+            return undefined;
+        }
+
+        // Get the epoch from 2 epochs ago
+        const targetEpoch = await this.storage.getEpochByNumber(targetEpochNumber);
+        if (!targetEpoch) {
+            throw new Error(`No finalized epoch found for epoch ${targetEpochNumber}`);
         }
 
         // Convert binary data to hex strings
-        const epochNumber = DataConverter.fromDecimal128(latestEpoch.epochNumber);
-        const publicKey = Buffer.from(latestEpoch.proposer.publicKey.buffer).toString('hex');
-        const solution = Buffer.from(latestEpoch.proposer.solution.buffer).toString('hex');
-        const salt = Buffer.from(latestEpoch.proposer.salt.buffer).toString('hex');
-        const graffiti = latestEpoch.proposer.graffiti
-            ? Buffer.from(latestEpoch.proposer.graffiti.buffer).toString('hex')
-            : '00'.repeat(16); // Default graffiti length
+        const epochNumber = DataConverter.fromDecimal128(targetEpoch.epochNumber);
+        const publicKey = this.uint8ArrayToHex(targetEpoch.proposer.publicKey.buffer);
+        const solution = this.uint8ArrayToHex(targetEpoch.proposer.solution.buffer);
+        const salt = this.uint8ArrayToHex(targetEpoch.proposer.salt.buffer);
+        const graffiti = targetEpoch.proposer.graffiti
+            ? this.uint8ArrayToHex(targetEpoch.proposer.graffiti.buffer)
+            : '0x' + '00'.repeat(16); // Default graffiti length
 
-        const difficulty = parseInt(latestEpoch.difficultyScaled);
+        const difficulty = parseInt(targetEpoch.difficultyScaled);
 
         // Verification data
-        const epochHash = Buffer.from(latestEpoch.epochHash.buffer).toString('hex');
-        const epochRoot = Buffer.from(latestEpoch.epochRoot.buffer).toString('hex');
-        const targetHash = Buffer.from(latestEpoch.targetHash.buffer).toString('hex');
-        const startBlock = DataConverter.fromDecimal128(latestEpoch.startBlock).toString();
-        const endBlock = DataConverter.fromDecimal128(latestEpoch.endBlock).toString();
+        const epochHash = this.uint8ArrayToHex(targetEpoch.epochHash.buffer);
+        const epochRoot = this.uint8ArrayToHex(targetEpoch.epochRoot.buffer);
+        const targetHash = this.uint8ArrayToHex(targetEpoch.targetHash.buffer);
+        const startBlock = DataConverter.fromDecimal128(targetEpoch.startBlock).toString();
+        const endBlock = DataConverter.fromDecimal128(targetEpoch.endBlock).toString();
 
         // Get the target checksum (what was mined)
-        const targetBlockHeight = epochNumber * 5n - 1n; // Last block of previous epoch
+        const targetBlockHeight =
+            epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n; // Last block of previous epoch
         const targetBlockHeader = await this.storage.getBlockHeader(targetBlockHeight);
         const targetChecksum = targetBlockHeader
             ? targetBlockHeader.checksumRoot
             : '0x' + '00'.repeat(32);
 
         // Convert proofs to hex strings
-        const proofs = latestEpoch.proofs.map((proof) => Buffer.from(proof.buffer).toString('hex'));
+        const proofs = targetEpoch.proofs.map((proof) => this.uint8ArrayToHex(proof.buffer));
 
         return {
             epochNumber: epochNumber.toString(),
-            publicKey: '0x' + publicKey,
-            solution: '0x' + solution,
-            salt: '0x' + salt,
-            graffiti: '0x' + graffiti,
+            publicKey,
+            solution,
+            salt,
+            graffiti,
             difficulty,
             verification: {
-                epochHash: '0x' + epochHash,
-                epochRoot: '0x' + epochRoot,
-                targetHash: '0x' + targetHash,
+                epochHash,
+                epochRoot,
+                targetHash,
                 targetChecksum,
                 startBlock,
                 endBlock,
-                proofs: proofs.map((p) => '0x' + p),
+                proofs,
             },
         };
     }
