@@ -38,8 +38,6 @@ export class TransactionFactory {
                 throw new Error(EXPIRED_TRANSACTION_ERROR);
             }
 
-            console.log('hasMiner', hasMiner, preimage.toString('hex'));
-
             const hasSolution = hasMiner.some((challenge) => {
                 return challenge.equals(preimage);
             });
