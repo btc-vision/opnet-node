@@ -47,10 +47,9 @@ export abstract class EpochRoute<T extends Routes> extends Route<
     ): Promise<EpochAPIResult | undefined>;
 
     public override onEpochFinalized(epochNumber: bigint, epochData: IEpochDocument): void {
-        this.currentEpochData = this.convertEpochToAPIResult(epochData);
-
-        // Clear cache for this epoch to ensure fresh data
         this.cachedEpochs.delete(epochNumber.toString());
+
+        this.currentEpochData = this.convertEpochToAPIResult(epochData);
     }
 
     protected async getCachedEpochData(
