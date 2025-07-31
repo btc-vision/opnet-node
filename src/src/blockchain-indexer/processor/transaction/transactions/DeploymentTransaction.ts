@@ -287,6 +287,25 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         this.decompress();
     }
 
+    private getFeatures(): Feature<Features>[] {
+        const features: Feature<Features>[] = [];
+        if (this._submission) {
+            features.push({
+                opcode: Features.EPOCH_SUBMISSION,
+                data: this._submission.raw,
+            });
+        }
+
+        /*if (this._accessList) {
+            features.push({
+                opcode: Features.ACCESS_LIST,
+                data: this._accessList.raw,
+            });
+        }*/
+
+        return features;
+    }
+
     private getOriginalContractAddress(controlBlock: Buffer, priorityFee: bigint): void {
         if (!this.deployerPubKey) throw new Error('Deployer public key not found');
         if (!this.contractSigner) throw new Error('Contract signer not found');
@@ -297,6 +316,8 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             solution: this.preimage,
             publicKey: new Address(this.miner),
         } as unknown as ChallengeSolution;
+
+        const features: Feature<Features>[] = this.getFeatures();
 
         const params: ContractAddressVerificationParams = {
             deployerPubKey: this.deployerPubKey,
@@ -310,6 +331,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             challenge: unsafePreimage,
             network: this.network,
             priorityFee: priorityFee,
+            features: features,
         };
 
         let tapContractAddress: boolean;

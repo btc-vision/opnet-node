@@ -229,11 +229,12 @@ export abstract class SharedInteractionParameters<
         if (bytesLeft > 0 && bytesLeft <= OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
             graffiti = binaryReader.readBytesWithLength(bytesLeft);
         }
-        
+
         return {
             publicKey: Buffer.from(publicKey),
             salt: Buffer.from(solution),
             graffiti: graffiti ? Buffer.from(graffiti) : undefined,
+            raw: feature.data,
         };
     }
 
