@@ -293,7 +293,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             features.push({
                 opcode: Features.EPOCH_SUBMISSION,
                 data: {
-                    publicKey: this._submission.publicKey,
+                    publicKey: new Address(this._submission.publicKey),
                     solution: this._submission.salt,
                     graffiti: this._submission.graffiti,
                 },
