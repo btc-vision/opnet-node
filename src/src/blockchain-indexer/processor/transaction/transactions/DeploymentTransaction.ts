@@ -11,9 +11,9 @@ import crypto from 'crypto';
 
 import {
     Address,
+    ChallengeSolution,
     ContractAddressVerificationParams,
     EcKeyPair,
-    Preimage,
     TapscriptVerificator,
 } from '@btc-vision/transaction';
 import { Binary } from 'mongodb';
@@ -293,10 +293,10 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         if (!this.contractSeed) throw new Error('Contract seed not found');
         if (!this.bytecode) throw new Error('Compressed bytecode not found');
 
-        const unsafePreimage: Preimage = {
+        const unsafePreimage: ChallengeSolution = {
             solution: this.preimage,
             publicKey: new Address(this.miner),
-        } as unknown as Preimage;
+        } as unknown as ChallengeSolution;
 
         const params: ContractAddressVerificationParams = {
             deployerPubKey: this.deployerPubKey,
@@ -307,7 +307,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
                 this._calldata && Buffer.isBuffer(this._calldata) && this._calldata.length > 0
                     ? this._calldata
                     : undefined,
-            preimage: unsafePreimage,
+            challenge: unsafePreimage,
             network: this.network,
             priorityFee: priorityFee,
         };
