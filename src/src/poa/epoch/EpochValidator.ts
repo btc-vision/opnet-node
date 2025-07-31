@@ -222,7 +222,7 @@ export class EpochValidator extends Logger {
             epochNumber: DataConverter.toDecimal128(params.epochNumber),
             salt: new Binary(params.salt),
             difficulty: validationResult.matchingBits,
-            publicKey: new Binary(params.publicKey.toBuffer()),
+            publicKey: new Binary(params.publicKey.originalPublicKeyBuffer()),
             signature: new Binary(params.signature),
         };
 
