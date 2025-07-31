@@ -369,6 +369,7 @@ export class EpochManager extends Logger {
         await Promise.allSettled([
             this.storage.updateWitnessProofs(epoch.getAllAttestationProofs()),
             this.storage.saveEpoch(epochDocument),
+            this.storage.deleteOldTargetEpochs(epochNumber),
         ]);
 
         if (Config.EPOCH.LOG_FINALIZATION) {

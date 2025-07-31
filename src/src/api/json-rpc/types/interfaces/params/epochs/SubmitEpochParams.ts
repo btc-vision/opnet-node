@@ -9,6 +9,7 @@ export interface SubmitEpochParamsAsObject extends JSONRpcParams<JSONRpcMethods.
     readonly publicKey: string;
 
     readonly graffiti?: string;
+    readonly signature: string;
 }
 
 export type SubmitEpochParamsAsArray = [SubmitEpochParamsAsObject];

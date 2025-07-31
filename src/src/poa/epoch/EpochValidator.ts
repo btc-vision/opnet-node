@@ -18,7 +18,7 @@ export interface EpochValidationParams {
     readonly salt: Buffer;
     readonly publicKey: Address;
     readonly graffiti?: Buffer;
-    //readonly blockHeight?: bigint;
+    readonly signature: Buffer;
 }
 
 export interface EpochValidationResult {
@@ -36,7 +36,7 @@ interface ParamsToConvert {
     salt: string;
     publicKey: string;
     graffiti?: string;
-    //blockHeight?: string;
+    signature: string;
 }
 
 export class EpochValidator extends Logger {
@@ -46,20 +46,6 @@ export class EpochValidator extends Logger {
         super();
     }
 
-    /**
-     * Utility method to convert hex string parameters to validation params
-     */
-    public static base64ToValidationParams(params: ParamsToConvert): EpochValidationParams {
-        return {
-            epochNumber: BigInt(params.epochNumber),
-            targetHash: Buffer.from(params.targetHash, 'base64'),
-            salt: Buffer.from(params.salt, 'base64'),
-            publicKey: new Address(Buffer.from(params.publicKey, 'base64')),
-            graffiti: Buffer.from(params.graffiti || '', 'base64'),
-            //blockHeight: params.blockHeight ? BigInt(params.blockHeight) : undefined,
-        };
-    }
-
     public static hexToValidationParams(params: ParamsToConvert): EpochValidationParams {
         return {
             epochNumber: BigInt(params.epochNumber),
@@ -67,7 +53,7 @@ export class EpochValidator extends Logger {
             salt: stringToBuffer(params.salt),
             publicKey: Address.fromString(params.publicKey),
             graffiti: params.graffiti ? stringToBuffer(params.graffiti) : undefined,
-            //blockHeight: params.blockHeight ? BigInt(params.blockHeight) : undefined,
+            signature: stringToBuffer(params.signature),
         };
     }
 
@@ -237,7 +223,12 @@ export class EpochValidator extends Logger {
             salt: new Binary(params.salt),
             difficulty: validationResult.matchingBits,
             publicKey: new Binary(params.publicKey.toBuffer()),
+            signature: new Binary(params.signature),
         };
+
+        if (params.graffiti) {
+            targetEpoch.graffiti = new Binary(params.graffiti);
+        }
 
         await this.storage.saveTargetEpoch(targetEpoch);
 

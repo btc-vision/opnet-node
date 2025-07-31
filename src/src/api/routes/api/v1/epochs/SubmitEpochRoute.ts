@@ -13,8 +13,9 @@ import {
     SubmissionStatus,
     SubmittedEpochResult,
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
-import { EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
+import { EpochValidationParams, EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { BinaryWriter, MessageSigner } from '@btc-vision/transaction';
 
 export class SubmitEpochRoute extends Route<
     Routes.SUBMIT_EPOCH,
@@ -169,6 +170,22 @@ export class SubmitEpochRoute extends Route<
             throw new Error('Target hash contains invalid hex characters');
         }
 
+        const signature = params.signature;
+        if (!signature || typeof signature !== 'string') {
+            throw new Error('Signature must be a hex string');
+        }
+
+        const signatureHex = signature.startsWith('0x') ? signature.slice(2) : signature;
+        if (signatureHex.length !== 128) {
+            throw new Error(
+                `Signature must be 64 bytes (128 hex characters). Received ${signatureHex.length} characters`,
+            );
+        }
+
+        if (!hexRegex.test(signatureHex)) {
+            throw new Error('Signature contains invalid hex characters');
+        }
+
         // Graffiti validation if present
         if (params.graffiti) {
             if (typeof params.graffiti !== 'string') {
@@ -224,6 +241,7 @@ export class SubmitEpochRoute extends Route<
             salt: validatedParams.salt,
             publicKey: validatedParams.publicKey,
             graffiti: validatedParams.graffiti,
+            signature: validatedParams.signature,
         });
 
         // Check if this epoch/salt combination already exists
@@ -255,6 +273,8 @@ export class SubmitEpochRoute extends Route<
             };
         }
 
+        this.validateSignature(validationParams);
+
         // Save the validated solution
         await this.epochValidator.saveEpochSolution(validationParams, validationResult);
 
@@ -284,6 +304,28 @@ export class SubmitEpochRoute extends Route<
             status: SubmissionStatus.ACCEPTED,
             message: message,
         };
+    }
+
+    private validateSignature(data: EpochValidationParams): void {
+        const signatureDataWriter = new BinaryWriter();
+        signatureDataWriter.writeAddress(data.publicKey);
+        signatureDataWriter.writeU64(data.epochNumber);
+        signatureDataWriter.writeBytes(data.salt);
+
+        if (data.graffiti) {
+            signatureDataWriter.writeBytes(data.graffiti);
+        }
+
+        const signatureData = signatureDataWriter.getBuffer();
+        const isValid = MessageSigner.verifySignature(
+            data.publicKey,
+            signatureData,
+            data.signature,
+        );
+
+        if (!isValid) {
+            throw new Error('Invalid signature for epoch submission');
+        }
     }
 
     /**

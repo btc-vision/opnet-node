@@ -88,7 +88,7 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
     public async deleteOldTargetEpochs(epochNumber: bigint): Promise<void> {
         const criteria: Partial<Filter<ITargetEpochDocument>> = {
             epochNumber: {
-                $lt: DataConverter.toDecimal128(epochNumber), // Changed from $lte to $lt
+                $lt: DataConverter.toDecimal128(epochNumber),
             },
         };
 

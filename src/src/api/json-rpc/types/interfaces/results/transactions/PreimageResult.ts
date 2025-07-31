@@ -1,3 +1,10 @@
+export interface ChallengeSubmission {
+    readonly publicKey: string;
+    readonly solution: string;
+    readonly graffiti: string;
+    readonly signature: string;
+}
+
 export interface PreimageResult {
     readonly epochNumber: string;
     readonly publicKey: string;
@@ -15,4 +22,6 @@ export interface PreimageResult {
         readonly endBlock: string;
         readonly proofs: string[];
     };
+
+    readonly submission?: ChallengeSubmission;
 }

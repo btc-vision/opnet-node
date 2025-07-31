@@ -1,12 +1,14 @@
 import { Binary, Decimal128 } from 'mongodb';
 
-// Local tracking of epoch submissions (my own proposed epochs)
 export interface ITargetEpochDocument {
-    readonly epochNumber: Decimal128; // Epoch number
-    readonly difficulty: number; // Amount of bits of difficulty
+    readonly epochNumber: Decimal128;
+    readonly difficulty: number;
 
     readonly salt: Binary;
     readonly publicKey: Binary;
+
+    graffiti?: Binary;
+    readonly signature: Binary;
 }
 
 export interface PendingTargetEpoch {

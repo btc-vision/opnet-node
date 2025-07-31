@@ -1,6 +1,9 @@
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { Route } from '../../../Route.js';
-import { PreimageResult } from '../../../../json-rpc/types/interfaces/results/transactions/PreimageResult.js';
+import {
+    ChallengeSubmission,
+    PreimageResult,
+} from '../../../../json-rpc/types/interfaces/results/transactions/PreimageResult.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { MiddlewareNext } from 'hyper-express';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -139,6 +142,18 @@ export class GetPreimage extends Route<
         // Convert proofs to hex strings
         const proofs = targetEpoch.proofs.map((proof) => this.uint8ArrayToHex(proof.buffer));
 
+        const submission = await this.storage.getBestTargetEpoch(epochNumber + 2n);
+        const submissionData: ChallengeSubmission | undefined = submission
+            ? {
+                  publicKey: this.uint8ArrayToHex(submission.publicKey.buffer),
+                  solution: this.uint8ArrayToHex(submission.salt.buffer),
+                  graffiti: submission.graffiti
+                      ? this.uint8ArrayToHex(submission.graffiti.buffer)
+                      : '0x' + '00'.repeat(16),
+                  signature: this.uint8ArrayToHex(submission.signature.buffer),
+              }
+            : undefined;
+
         return {
             epochNumber: epochNumber.toString(),
             publicKey,
@@ -155,6 +170,7 @@ export class GetPreimage extends Route<
                 endBlock,
                 proofs,
             },
+            submission: submissionData,
         };
     }
 }
