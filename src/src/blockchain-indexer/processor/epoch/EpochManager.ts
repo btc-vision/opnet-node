@@ -61,12 +61,12 @@ export class EpochManager extends Logger {
         }
     }
 
-    public async solutionExists(
+    public async submissionExists(
         epochNumber: bigint,
         salt: Buffer,
-        publicKey: Address | Buffer | Binary,
+        publicKey: Buffer | Binary,
     ): Promise<boolean> {
-        return this.epochValidator.solutionExists(epochNumber, salt, publicKey);
+        return this.storage.submissionExists(publicKey, salt, epochNumber);
     }
 
     public async getPendingEpochTarget(currentEpoch: bigint): Promise<PendingTargetEpoch> {

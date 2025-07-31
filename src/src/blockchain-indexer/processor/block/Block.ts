@@ -745,7 +745,7 @@ export class Block extends Logger {
     ): Promise<void> {
         const existenceChecks = Array.from(this.epochSubmissions.entries()).map(([key, data]) => ({
             key,
-            promise: epochManager.solutionExists(
+            promise: epochManager.submissionExists(
                 currentEpoch,
                 data.submission.salt,
                 data.submission.publicKey,
