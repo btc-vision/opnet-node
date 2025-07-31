@@ -738,7 +738,7 @@ export class Block extends Logger {
             });
         }
     }
-
+    
     private async filterExistingSubmissions(
         epochManager: EpochManager,
         currentEpoch: bigint,
