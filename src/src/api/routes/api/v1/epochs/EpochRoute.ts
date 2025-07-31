@@ -135,15 +135,17 @@ export abstract class EpochRoute<T extends Routes> extends Route<
 
             apiResult.submissions = submissions.map(
                 (submission: IEpochSubmissionsDocument): EpochSubmissionAPIResult => ({
-                    submissionTxId: submission.submissionTxId.toString('hex'),
-                    submissionTxHash: submission.submissionTxHash.toString('hex'),
-                    submissionHash: submission.submissionHash.toString('hex'),
+                    submissionTxId: '0x' + submission.submissionTxId.toString('hex'),
+                    submissionTxHash: '0x' + submission.submissionTxHash.toString('hex'),
+                    submissionHash: '0x' + submission.submissionHash.toString('hex'),
                     confirmedAt: this.convertDecimal128ToString(submission.confirmedAt),
                     epochProposed: {
-                        solution: submission.epochProposed.solution.toString('hex'),
-                        publicKey: submission.epochProposed.publicKey.toString('hex'),
-                        salt: submission.epochProposed.salt.toString('hex'),
-                        graffiti: submission.epochProposed.graffiti?.toString('hex'),
+                        solution: '0x' + submission.epochProposed.solution.toString('hex'),
+                        publicKey: '0x' + submission.epochProposed.publicKey.toString('hex'),
+                        salt: '0x' + submission.epochProposed.salt.toString('hex'),
+                        graffiti: submission.epochProposed.graffiti
+                            ? '0x' + submission.epochProposed.graffiti.toString('hex')
+                            : undefined,
                     },
                 }),
             );
