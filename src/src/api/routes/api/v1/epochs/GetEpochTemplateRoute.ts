@@ -32,6 +32,10 @@ export class GetEpochTemplateRoute extends Route<
             return await this.cachedTemplatePromise;
         }
 
+        this.log(
+            `Computing template for epoch ${currentEpoch} at block height ${this.pendingBlockHeight}`,
+        );
+
         this.cacheValidForEpoch = currentEpoch;
         this.cachedTemplatePromise = this.computeTemplate(this.pendingBlockHeight);
 
@@ -44,6 +48,8 @@ export class GetEpochTemplateRoute extends Route<
 
     public onBlockChange(blockHeight: bigint, _header: BlockHeaderAPIBlockDocument): void {
         this.pendingBlockHeight = blockHeight;
+
+        this.info(`Block changed to ${blockHeight}`);
     }
 
     protected async initialize(): Promise<void> {
@@ -101,13 +107,13 @@ export class GetEpochTemplateRoute extends Route<
             throw new Error('Storage not available for template computation');
         }
 
-        const blockEpochInterval = OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
-        const currentEpoch = blockHeight / blockEpochInterval;
+        const currentEpoch = blockHeight / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
         if (currentEpoch === 0n) {
             throw new Error('Epoch 0 cannot be mined. Mining begins in epoch 1.');
         }
 
-        const miningTargetBlock = currentEpoch * blockEpochInterval - 1n;
+        const miningTargetBlock =
+            currentEpoch * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n;
         const blockHeader = await this.storage.getBlockHeader(miningTargetBlock);
         if (!blockHeader) {
             throw new Error(`Block header not found for mining target height ${miningTargetBlock}`);
