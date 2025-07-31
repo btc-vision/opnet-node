@@ -580,7 +580,6 @@ export class Block extends Logger {
         await this.filterExistingSubmissions(epochManager, currentEpoch);
 
         const pendingTarget = await epochManager.getPendingEpochTarget(currentEpoch);
-        console.log('pendingTarget', pendingTarget);
 
         // Validate submissions synchronously and remove invalid ones
         this.validateSubmissions(epochManager, pendingTarget);

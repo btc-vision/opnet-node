@@ -227,9 +227,9 @@ export abstract class SharedInteractionParameters<
 
         let graffiti: Uint8Array | undefined;
         if (bytesLeft > 0 && bytesLeft <= OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
-            graffiti = binaryReader.readBytes(bytesLeft);
+            graffiti = binaryReader.readBytesWithLength(bytesLeft);
         }
-
+        
         return {
             publicKey: Buffer.from(publicKey),
             salt: Buffer.from(solution),
