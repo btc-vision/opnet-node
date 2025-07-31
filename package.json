@@ -84,7 +84,6 @@
         "lru-cache": "^11.1.0",
         "mongodb": "^6.17.0",
         "openapi-comment-parser": "^1.0.0",
-        "opnet": "^1.6.0",
         "protobufjs": "^7.5.3",
         "sodium-native": "5.0.1",
         "ssh2": "^1.16.0",
