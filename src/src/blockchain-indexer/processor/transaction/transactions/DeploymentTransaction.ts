@@ -292,7 +292,11 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         if (this._submission) {
             features.push({
                 opcode: Features.EPOCH_SUBMISSION,
-                data: this._submission.raw,
+                data: {
+                    publicKey: this._submission.publicKey,
+                    solution: this._submission.salt,
+                    graffiti: this._submission.graffiti,
+                },
             });
         }
 

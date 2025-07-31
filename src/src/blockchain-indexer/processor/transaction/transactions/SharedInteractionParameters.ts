@@ -234,7 +234,6 @@ export abstract class SharedInteractionParameters<
             publicKey: Buffer.from(publicKey),
             salt: Buffer.from(solution),
             graffiti: graffiti ? Buffer.from(graffiti) : undefined,
-            raw: feature.data,
         };
     }
 
