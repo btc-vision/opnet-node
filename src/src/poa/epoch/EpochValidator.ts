@@ -79,17 +79,14 @@ export class EpochValidator extends Logger {
         publicKey: Address,
         salt: Buffer,
     ): Buffer {
-        // Ensure all buffers are exactly 32 bytes
         const target32 = Buffer.alloc(32);
         const pubKey32 = Buffer.alloc(32);
         const salt32 = Buffer.alloc(32);
 
-        // Copy data into 32-byte buffers
         checksumRoot.copy(target32, 0, 0, Math.min(32, checksumRoot.length));
         publicKey.toBuffer().copy(pubKey32, 0, 0, Math.min(32, publicKey.length));
         salt.copy(salt32, 0, 0, Math.min(32, salt.length));
 
-        // Perform triple XOR operation
         const preimage = Buffer.alloc(32);
         for (let i = 0; i < 32; i++) {
             preimage[i] = target32[i] ^ pubKey32[i] ^ salt32[i];
@@ -157,19 +154,19 @@ export class EpochValidator extends Logger {
                     hash: Buffer.alloc(0),
                     targetPattern: Buffer.alloc(0),
                     preimage: Buffer.alloc(0),
-                    message: `Target hash does not match epoch. Expected: ${epoch.targetHash.toString('hex')}, got: ${params.targetHash.toString('hex')}`,
+                    message: `Target hash does not match epoch. Expected: ${epoch.target.toString('hex')}, got: ${params.targetHash.toString('hex')}`,
                 };
             }
 
             // Calculate the preimage
-            const preimage = EpochValidator.calculatePreimage(
+            const solution = EpochValidator.calculatePreimage(
                 epoch.target,
                 params.publicKey,
                 params.salt,
             );
 
             // Calculate SHA-1 of the preimage
-            const hash = SHA1.hashBuffer(preimage);
+            const hash = SHA1.hashBuffer(solution);
 
             // Count matching bits against the target hash
             const matchingBits = this.countMatchingBits(hash, epoch.targetHash);
@@ -192,7 +189,7 @@ export class EpochValidator extends Logger {
                 matchingBits,
                 hash,
                 targetPattern: epoch.targetHash,
-                preimage,
+                preimage: solution,
                 message: valid
                     ? 'Valid solution'
                     : `Solution does not meet minimum difficulty (${minDifficulty} bits)`,
@@ -316,8 +313,7 @@ export class EpochValidator extends Logger {
      * Verify the target hash matches the epoch
      */
     private verifyTargetHash(epoch: PendingTargetEpoch, targetHash: Buffer): boolean {
-        const epochTargetHash =
-            epoch.targetHash instanceof Binary ? epoch.targetHash.buffer : epoch.targetHash;
+        const epochTargetHash = epoch.target instanceof Binary ? epoch.target.buffer : epoch.target;
 
         return Buffer.isBuffer(epochTargetHash) && epochTargetHash.equals(targetHash);
     }

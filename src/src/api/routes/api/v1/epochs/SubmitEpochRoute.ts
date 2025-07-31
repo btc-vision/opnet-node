@@ -148,9 +148,9 @@ export class SubmitEpochRoute extends Route<
             ? params.targetHash.slice(2)
             : params.targetHash;
 
-        if (targetHashHex.length !== 40) {
+        if (targetHashHex.length !== 64) {
             throw new Error(
-                `Target hash must be 20 bytes (40 hex characters). Received ${targetHashHex.length} characters`,
+                `Target hash must be 32 bytes (64 hex characters). Received ${targetHashHex.length} characters`,
             );
         }
 
