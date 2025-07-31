@@ -42,8 +42,6 @@ export class GetEpochTemplateRoute extends Route<
             return await this.cachedTemplatePromise;
         }
 
-        this.cacheValidForEpoch = currentEpoch;
-        this.cacheTimestamp = now;
         this.cachedTemplatePromise = this.computeTemplate(this.pendingBlockHeight);
 
         return await this.cachedTemplatePromise;
@@ -138,6 +136,9 @@ export class GetEpochTemplateRoute extends Route<
         if (!blockHeader) {
             throw new Error(`Block header not found for mining target height ${miningTargetBlock}`);
         }
+
+        this.cacheValidForEpoch = currentEpoch;
+        this.cacheTimestamp = Date.now();
 
         return {
             epochNumber: currentEpoch.toString(),

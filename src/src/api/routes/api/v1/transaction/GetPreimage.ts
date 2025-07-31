@@ -93,7 +93,6 @@ export class GetPreimage extends Route<
         }
 
         this.cachedData = this.getPreimageData();
-        this.cacheTimestamp = Date.now();
 
         return await this.cachedData;
     }
@@ -171,6 +170,8 @@ export class GetPreimage extends Route<
                   signature: this.uint8ArrayToHex(submission.signature.buffer),
               }
             : undefined;
+
+        this.cacheTimestamp = Date.now();
 
         return {
             epochNumber: epochNumber.toString(),
