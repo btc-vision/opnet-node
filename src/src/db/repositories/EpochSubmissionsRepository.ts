@@ -1,22 +1,11 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
-import { Binary, ClientSession, Collection, Db, Decimal128, Filter } from 'mongodb';
+import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
 import { IEpochSubmissionsDocument } from '../documents/interfaces/IEpochSubmissionsDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { DataConverter } from '@btc-vision/bsi-db';
 
-export interface EpochSubmissionStats {
-    readonly totalSubmissions: number;
-    readonly uniqueSubmitters: number;
-    readonly averageBlocksToAcceptance: number;
-}
-
-export interface SubmissionsByEpoch {
-    readonly epochNumber: Decimal128;
-    readonly submissions: IEpochSubmissionsDocument[];
-}
-
 export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsDocument> {
-    public readonly logColor: string = '#ff6347'; // Tomato color for submissions
+    public readonly logColor: string = '#ff6347';
 
     public constructor(db: Db) {
         super(db);
@@ -34,7 +23,7 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
         };
 
         return await this.queryMany(criteria, currentSession, {
-            acceptedAt: 1,
+            confirmedAt: 1,
         });
     }
 
@@ -107,7 +96,7 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
         };
 
         return await this.queryMany(criteria, currentSession, {
-            acceptedAt: 1,
+            confirmedAt: 1,
         });
     }
 
@@ -126,7 +115,7 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
         };
 
         return await this.queryMany(criteria, currentSession, {
-            acceptedAt: -1,
+            confirmedAt: -1,
         });
     }
 
@@ -232,7 +221,7 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
             criteria,
             currentSession,
             {
-                acceptedAt: -1,
+                confirmedAt: -1,
             },
         );
 
@@ -241,21 +230,6 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
         }
 
         return result;
-    }
-
-    /**
-     * Get submissions with graffiti
-     */
-    public async getSubmissionsWithGraffiti(
-        currentSession?: ClientSession,
-    ): Promise<IEpochSubmissionsDocument[]> {
-        const criteria: Partial<Filter<IEpochSubmissionsDocument>> = {
-            'epochProposed.graffiti': { $exists: true },
-        };
-
-        return await this.queryMany(criteria, currentSession, {
-            acceptedAt: -1,
-        });
     }
 
     /**
@@ -275,111 +249,6 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
 
         const count = await this.count(criteria);
         return count > 0;
-    }
-
-    /**
-     * Get competing submissions for the same epoch
-     */
-    public async getCompetingSubmissions(
-        epochNumber: bigint,
-        startBlock: bigint,
-        currentSession?: ClientSession,
-    ): Promise<IEpochSubmissionsDocument[]> {
-        const criteria: Partial<Filter<IEpochSubmissionsDocument>> = {
-            epochNumber: DataConverter.toDecimal128(epochNumber),
-            startBlock: DataConverter.toDecimal128(startBlock),
-        };
-
-        return await this.queryMany(criteria, currentSession, {
-            acceptedAt: 1,
-        });
-    }
-
-    /**
-     * Get submission statistics for a block range
-     */
-    public async getSubmissionStats(
-        startBlock: bigint,
-        endBlock: bigint,
-        currentSession?: ClientSession,
-    ): Promise<EpochSubmissionStats> {
-        const pipeline = [
-            {
-                $match: {
-                    acceptedAt: {
-                        $gte: DataConverter.toDecimal128(startBlock),
-                        $lte: DataConverter.toDecimal128(endBlock),
-                    },
-                },
-            },
-            {
-                $group: {
-                    _id: null,
-                    totalSubmissions: { $sum: 1 },
-                    submitters: { $addToSet: '$epochProposed.publicKey' },
-                    avgBlocksToAcceptance: {
-                        $avg: {
-                            $subtract: [{ $toDouble: '$acceptedAt' }, { $toDouble: '$startBlock' }],
-                        },
-                    },
-                },
-            },
-            {
-                $project: {
-                    totalSubmissions: 1,
-                    uniqueSubmitters: { $size: '$submitters' },
-                    averageBlocksToAcceptance: '$avgBlocksToAcceptance',
-                },
-            },
-        ];
-
-        const result = await this.getCollection()
-            .aggregate(pipeline, { session: currentSession })
-            .toArray();
-
-        if (result.length === 0) {
-            return {
-                totalSubmissions: 0,
-                uniqueSubmitters: 0,
-                averageBlocksToAcceptance: 0,
-            };
-        }
-
-        return result[0] as EpochSubmissionStats;
-    }
-
-    /**
-     * Get submissions grouped by epoch number
-     */
-    public async getSubmissionsGroupedByEpoch(
-        limit: number = 10,
-        currentSession?: ClientSession,
-    ): Promise<SubmissionsByEpoch[]> {
-        const pipeline = [
-            {
-                $sort: { epochNumber: -1 },
-            },
-            {
-                $group: {
-                    _id: '$epochNumber',
-                    submissions: { $push: '$$ROOT' },
-                },
-            },
-            {
-                $project: {
-                    epochNumber: '$_id',
-                    submissions: 1,
-                    _id: 0,
-                },
-            },
-            {
-                $limit: limit,
-            },
-        ];
-
-        return (await this.getCollection()
-            .aggregate(pipeline, { session: currentSession })
-            .toArray()) as SubmissionsByEpoch[];
     }
 
     protected override getCollection(): Collection<IEpochSubmissionsDocument> {

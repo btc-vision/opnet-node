@@ -36,14 +36,8 @@ import { Binary } from 'mongodb';
 import { IEpochDocument } from '../../../db/documents/interfaces/IEpochDocument.js';
 import { IEpochSubmissionsDocument } from '../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
 import { TargetEpochRepository } from '../../../db/repositories/TargetEpochRepository.js';
-import {
-    ITargetEpochDocument,
-    PendingTargetEpoch,
-} from '../../../db/documents/interfaces/ITargetEpochDocument.js';
-import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
-import { SHA1 } from '../../../utils/SHA1.js';
+import { ITargetEpochDocument } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
 import { AttestationProof } from '../../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
-import { stringToBuffer } from '../../../utils/StringToBuffer.js';
 import { ChallengeSolution } from '../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 
 export class VMMongoStorage extends VMStorage {
@@ -78,64 +72,6 @@ export class VMMongoStorage extends VMStorage {
         return this.blockchainInfoRepository;
     }
 
-    public async getPendingEpochTarget(blockNumber: bigint): Promise<PendingTargetEpoch> {
-        if (!this.epochRepository) {
-            throw new Error('Epoch repository not initialized');
-        }
-
-        if (!this.blockRepository) {
-            throw new Error('Block repository not initialized');
-        }
-
-        const blockEpochInterval = OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
-
-        // Calculate which epoch we're currently in
-        const currentEpoch = blockNumber / blockEpochInterval;
-
-        // The next epoch that will be finalized
-        const nextEpochToFinalize = currentEpoch + 1n;
-
-        // Epoch 0 cannot be mined
-        if (nextEpochToFinalize === 0n) {
-            return {
-                target: Buffer.alloc(32),
-                targetHash: SHA1.hashBuffer(Buffer.alloc(32)),
-                nextEpochNumber: 0n,
-            };
-        }
-
-        // Get the target block for mining (LAST block of the current epoch)
-        // Epoch 1 mines block 4, Epoch 2 mines block 9, etc.
-        const targetBlockHeight = nextEpochToFinalize * blockEpochInterval - 1n;
-
-        console.log(
-            'Current block:',
-            blockNumber,
-            '| Current epoch:',
-            currentEpoch,
-            '| Next epoch to finalize:',
-            nextEpochToFinalize,
-            '| Mining target block:',
-            targetBlockHeight,
-        );
-
-        const blockHeader = await this.blockRepository.getBlockHeader(targetBlockHeight);
-        if (!blockHeader) {
-            throw new Error(
-                `Block header not found for mining target height ${targetBlockHeight} (for epoch ${nextEpochToFinalize})`,
-            );
-        }
-
-        const target = stringToBuffer(blockHeader.checksumRoot);
-        const targetHash = SHA1.hashBuffer(target);
-
-        return {
-            target,
-            targetHash: targetHash,
-            nextEpochNumber: nextEpochToFinalize,
-        };
-    }
-
     public targetEpochExists(
         epochNumber: bigint,
         salt: Buffer | Binary,
@@ -154,6 +90,14 @@ export class VMMongoStorage extends VMStorage {
         }
 
         return this.targetEpochRepository.getBestTargetEpoch(epochNumber);
+    }
+
+    public saveSubmission(submission: IEpochSubmissionsDocument): Promise<void> {
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Epoch submission repository not initialized');
+        }
+
+        return this.epochSubmissionRepository.saveSubmission(submission);
     }
 
     public saveTargetEpoch(targetEpoch: ITargetEpochDocument): Promise<void> {

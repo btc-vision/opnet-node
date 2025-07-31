@@ -300,17 +300,26 @@ export class EpochMerkleTree {
             throw new Error('Epoch winner data is not set');
         }
 
-        if (epochData.winner.graffiti.length !== OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
-            throw new Error(
-                `Invalid graffiti length: expected ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH}, got ${epochData.winner.graffiti.length}`,
-            );
+        if (epochData.winner.graffiti.length > OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
+            throw new Error(`Graffiti too long, was ${epochData.winner.graffiti.length}`);
         }
+
+        const resizedGraffiti = Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH, 0);
+        epochData.winner.graffiti.copy(
+            resizedGraffiti,
+            0,
+            0,
+            Math.min(
+                epochData.winner.graffiti.length,
+                OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH,
+            ),
+        );
 
         writer.writeAddress(epochData.winner.publicKey); // 32
         writer.writeU16(epochData.winner.matchingBits & 0xffff); // 2
         writer.writeBytes(epochData.winner.salt); // 32
         writer.writeBytes(epochData.winner.solutionHash); // 32
-        writer.writeBytes(epochData.winner.graffiti); // OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
+        writer.writeBytes(resizedGraffiti); // OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
 
         return writer.getBuffer();
     }

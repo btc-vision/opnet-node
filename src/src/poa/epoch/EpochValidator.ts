@@ -26,7 +26,7 @@ export interface EpochValidationResult {
     readonly matchingBits: number;
     readonly hash: Buffer;
     readonly targetPattern: Buffer;
-    readonly preimage: Buffer;
+    readonly challenge: Buffer;
     readonly message?: string;
 }
 
@@ -97,7 +97,7 @@ export class EpochValidator extends Logger {
                     matchingBits: 0,
                     hash: Buffer.alloc(0),
                     targetPattern: Buffer.alloc(0),
-                    preimage: Buffer.alloc(0),
+                    challenge: Buffer.alloc(0),
                     message: 'Epoch 0 cannot be mined',
                 };
             }
@@ -113,7 +113,7 @@ export class EpochValidator extends Logger {
                         matchingBits: 0,
                         hash: Buffer.alloc(0),
                         targetPattern: Buffer.alloc(0),
-                        preimage: Buffer.alloc(0),
+                        challenge: Buffer.alloc(0),
                         message: `Cannot submit for epoch ${params.epochNumber} at block ${currentHeight}. Can only submit for epoch ${currentEpoch}`,
                     };
                 }
@@ -127,7 +127,7 @@ export class EpochValidator extends Logger {
                     matchingBits: 0,
                     hash: Buffer.alloc(0),
                     targetPattern: Buffer.alloc(0),
-                    preimage: Buffer.alloc(0),
+                    challenge: Buffer.alloc(0),
                     message: 'Epoch not found',
                 };
             }
@@ -139,7 +139,7 @@ export class EpochValidator extends Logger {
                     matchingBits: 0,
                     hash: Buffer.alloc(0),
                     targetPattern: Buffer.alloc(0),
-                    preimage: Buffer.alloc(0),
+                    challenge: Buffer.alloc(0),
                     message: `Target hash does not match epoch. Expected: ${epoch.target.toString('hex')}, got: ${params.targetHash.toString('hex')}`,
                 };
             }
@@ -175,7 +175,7 @@ export class EpochValidator extends Logger {
                 matchingBits,
                 hash,
                 targetPattern: epoch.targetHash,
-                preimage: solution,
+                challenge: solution,
                 message: valid
                     ? 'Valid solution'
                     : `Solution does not meet minimum difficulty (${minDifficulty} bits)`,
@@ -187,7 +187,7 @@ export class EpochValidator extends Logger {
                 matchingBits: 0,
                 hash: Buffer.alloc(0),
                 targetPattern: Buffer.alloc(0),
-                preimage: Buffer.alloc(0),
+                challenge: Buffer.alloc(0),
                 message: `Validation error: ${error}`,
             };
         }
@@ -268,20 +268,16 @@ export class EpochValidator extends Logger {
         const data = `${params.epochNumber}:${params.targetHash.toString('hex')}:${params.salt.toString('hex')}:${params.publicKey.toHex()}`;
         return crypto.createHash('sha256').update(data).digest('hex');
     }
-
-    /**
-     * Get epoch data from storage
-     */
-    private async getEpochData(epochNumber: bigint): Promise<PendingTargetEpoch> {
+    
+    public async getEpochData(epochNumber: bigint): Promise<PendingTargetEpoch> {
         // Epoch 0 cannot be mined
         if (epochNumber === 0n) {
             throw new Error('Epoch 0 cannot be mined');
         }
 
-        const blockEpochInterval = OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
-
         // Calculate the target block height for this epoch
-        const targetBlockHeight = epochNumber * blockEpochInterval - 1n;
+        const targetBlockHeight =
+            epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n;
 
         const blockHeader = await this.storage.getBlockHeader(targetBlockHeight);
         if (!blockHeader) {

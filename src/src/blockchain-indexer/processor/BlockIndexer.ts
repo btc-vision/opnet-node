@@ -25,11 +25,9 @@ import { IReorgData } from '../../db/interfaces/IReorgDocument.js';
 import { VMManager } from '../../vm/VMManager.js';
 import { SpecialManager } from './special-transaction/SpecialManager.js';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
-import { Block } from './block/Block.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import fs from 'fs';
 import { EpochManager } from './epoch/EpochManager.js';
-import { AddressMap } from '@btc-vision/transaction';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -577,7 +575,7 @@ export class BlockIndexer extends Logger {
             this.currentTask = this.indexingTasks.shift();
             if (!this.currentTask) return;
 
-            await this.currentTask.process();
+            await this.currentTask.process(this.epochManager);
 
             this.lastSyncErrored = false;
         } catch (e) {

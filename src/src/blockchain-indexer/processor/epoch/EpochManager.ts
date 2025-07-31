@@ -22,10 +22,13 @@ import { Address } from '@btc-vision/transaction';
 import { Config } from '../../../config/Config.js';
 import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockHeaderDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { Submission } from '../transaction/features/Submission.js';
+import { PendingTargetEpoch } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
 
-interface EpochUpdateResult {
-    readonly update: boolean;
-    readonly currentEpoch: bigint;
+export interface ValidatedSolutionResult {
+    readonly valid: boolean;
+    readonly matchingBits: number;
+    readonly hash: Buffer;
 }
 
 interface AttestationEpoch {
@@ -54,8 +57,103 @@ export class EpochManager extends Logger {
         if (currentHeight % epochsPerBlock === 0n && currentHeight > 0n) {
             // We are at the first block of a new epoch, finalize the previous one
             const epochToFinalize = currentHeight / epochsPerBlock - 1n;
-            await this.finalizeEpochCompletion(task, epochToFinalize);
+            await this.finalizeEpochCompletion(epochToFinalize);
         }
+    }
+
+    public async solutionExists(
+        epochNumber: bigint,
+        salt: Buffer,
+        publicKey: Address | Buffer | Binary,
+    ): Promise<boolean> {
+        return this.epochValidator.solutionExists(epochNumber, salt, publicKey);
+    }
+
+    public async getPendingEpochTarget(currentEpoch: bigint): Promise<PendingTargetEpoch> {
+        if (currentEpoch === 0n) {
+            return {
+                target: Buffer.alloc(32),
+                targetHash: SHA1.hashBuffer(Buffer.alloc(32)),
+                nextEpochNumber: 0n,
+            };
+        }
+
+        return await this.epochValidator.getEpochData(currentEpoch);
+    }
+
+    public validateEpochSubmission(
+        submission: Submission,
+        blockHeight: bigint,
+        pendingTarget: PendingTargetEpoch,
+    ): ValidatedSolutionResult {
+        const currentEpoch = blockHeight / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+
+        // Epoch 0 cannot be mined
+        if (currentEpoch === 0n) {
+            return {
+                valid: false,
+                matchingBits: 0,
+                hash: Buffer.alloc(0),
+            };
+        }
+
+        if (pendingTarget.nextEpochNumber !== currentEpoch) {
+            return {
+                valid: false,
+                matchingBits: 0,
+                hash: Buffer.alloc(0),
+            };
+        }
+
+        // Reuse the static calculatePreimage method from EpochValidator
+        const preimage = EpochValidator.calculatePreimage(
+            pendingTarget.target,
+            new Address(submission.publicKey),
+            submission.salt,
+        );
+
+        // Calculate SHA-1 of the preimage
+        const hash = SHA1.hashBuffer(preimage);
+
+        // Reuse the countMatchingBits method from epochValidator instance
+        const matchingBits = this.epochValidator.countMatchingBits(hash, pendingTarget.targetHash);
+
+        // Check minimum difficulty
+        const minDifficulty = OPNetConsensus.consensus.EPOCH.MIN_DIFFICULTY || 20;
+        if (matchingBits < minDifficulty) {
+            return {
+                valid: false,
+                matchingBits,
+                hash,
+            };
+        }
+
+        // Validate salt length
+        if (submission.salt.length !== 32) {
+            return {
+                valid: false,
+                matchingBits,
+                hash,
+            };
+        }
+
+        // Validate graffiti length if provided
+        if (
+            submission.graffiti &&
+            submission.graffiti.length > OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
+        ) {
+            return {
+                valid: false,
+                matchingBits,
+                hash,
+            };
+        }
+
+        return {
+            valid: true,
+            matchingBits,
+            hash,
+        };
     }
 
     private createEpoch(epoch: IEpoch): IEpochDocument {
@@ -96,7 +194,7 @@ export class EpochManager extends Logger {
         return Buffer.from(epoch.epochHash.buffer);
     }
 
-    private async finalizeEpochCompletion(task: IndexingTask, epochNumber: bigint): Promise<void> {
+    private async finalizeEpochCompletion(epochNumber: bigint): Promise<void> {
         const startBlock = epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
         const endBlock = startBlock + OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n;
 
@@ -151,12 +249,8 @@ export class EpochManager extends Logger {
         // Epoch 3 mines block 14 (last block of epoch 2)
         // etc.
 
-        // Old code (2-epoch delay):
-        // return epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n;
-
         // mine the last block of the immediately previous epoch
-        const blocksPerEpoch = OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
-        return epochNumber * blocksPerEpoch - 1n;
+        return epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n;
     }
 
     private async getMiningTargetChecksum(targetBlock: bigint | null): Promise<Buffer | null> {
@@ -440,15 +534,5 @@ export class EpochManager extends Logger {
         }
 
         return { root, epochNumber: targetEpochNumber };
-    }
-
-    private shouldUpdateEpoch(tip: bigint): EpochUpdateResult {
-        const currentEpoch = tip / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
-        const lastBlockEpoch = (tip - 1n) / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
-
-        return {
-            update: currentEpoch > lastBlockEpoch,
-            currentEpoch: currentEpoch,
-        };
     }
 }

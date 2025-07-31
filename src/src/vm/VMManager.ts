@@ -46,7 +46,6 @@ import bitcoin, { Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { Blockchain } from './Blockchain.js';
 import { BlockHeaderValidator } from './BlockHeaderValidator.js';
-import { Config } from '../config/Config.js';
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
@@ -428,11 +427,11 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && Config.DEV_MODE) {
+        /*if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && Config.DEV_MODE) {
             this.debugBright(
                 `Attempting to deploy contract ${contractDeploymentTransaction.contractAddress}`,
             );
-        }
+        }*/
 
         const contractInformation: ContractInformation = ContractInformation.fromTransaction(
             blockHeight,

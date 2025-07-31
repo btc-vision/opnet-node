@@ -12,6 +12,7 @@ import { Network } from '@btc-vision/bitcoin';
 import { VMManager } from '../../../vm/VMManager.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { BlockGasPredictor } from '../gas/BlockGasPredictor.js';
+import { EpochManager } from '../epoch/EpochManager.js';
 
 export class IndexingTask extends Logger {
     public readonly logColor: string = '#9545c5';
@@ -110,7 +111,7 @@ export class IndexingTask extends Logger {
         this.clear();
     }
 
-    public async process(): Promise<void> {
+    public async process(epochManager: EpochManager): Promise<void> {
         this.processedAt = Date.now();
 
         if (!this.prefetchPromise) {
@@ -137,7 +138,7 @@ export class IndexingTask extends Logger {
             this.endPrepare = Date.now();
 
             // Process block
-            await this.processBlock();
+            await this.processBlock(epochManager);
 
             // If the block was reverted
             if (this.block.reverted) {
@@ -233,7 +234,7 @@ export class IndexingTask extends Logger {
         }
     };
 
-    private async processBlock(): Promise<void> {
+    private async processBlock(epochManager: EpochManager): Promise<void> {
         // Define consensus block height
         const cannotProceed = this.consensusTracker.setConsensusBlockHeight(this.tip);
         if (cannotProceed) {
@@ -248,6 +249,9 @@ export class IndexingTask extends Logger {
 
             // Process the block
             await this.block.execute(this.vmManager, this.specialTransactionManager);
+
+            // Update epoch submissions
+            await this.block.processSubmissions(this.vmManager.getVMStorage(), epochManager);
         } catch (e) {
             await this.revertBlock(e as Error);
 

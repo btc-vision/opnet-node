@@ -19,10 +19,7 @@ import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js'
 import { IEpochSubmissionsDocument } from '../../db/documents/interfaces/IEpochSubmissionsDocument.js';
 import { Binary } from 'mongodb';
 import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
-import {
-    ITargetEpochDocument,
-    PendingTargetEpoch,
-} from '../../db/documents/interfaces/ITargetEpochDocument.js';
+import { ITargetEpochDocument } from '../../db/documents/interfaces/ITargetEpochDocument.js';
 import { AttestationProof } from '../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 
@@ -229,6 +226,11 @@ export abstract class VMStorage extends Logger {
     ): Promise<IEpochSubmissionsDocument[]>;
 
     /**
+     * Save an epoch submission
+     */
+    public abstract saveSubmission(submission: IEpochSubmissionsDocument): Promise<void>;
+
+    /**
      * Get submission by transaction hash
      */
     public abstract getSubmissionByTxHash(
@@ -289,6 +291,4 @@ export abstract class VMStorage extends Logger {
     public abstract saveTargetEpoch(targetEpoch: ITargetEpochDocument): Promise<void>;
 
     public abstract deleteOldTargetEpochs(epochNumber: bigint): Promise<void>;
-
-    public abstract getPendingEpochTarget(blockNumber: bigint): Promise<PendingTargetEpoch>;
 }

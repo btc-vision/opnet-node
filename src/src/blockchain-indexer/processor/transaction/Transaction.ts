@@ -19,6 +19,7 @@ import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from './interfaces/OPNetHeader.js';
 import * as ecc from 'tiny-secp256k1';
 import { AddressCache } from '../AddressCache.js';
+import { Submission } from './features/Submission.js';
 
 export const OPNet_MAGIC: Buffer = Buffer.from('op', 'utf-8');
 const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
@@ -92,6 +93,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.time = rawTransactionData.time;
 
         this._computedIndexingHash = this.computeHashForTransaction();
+    }
+
+    protected _submission: Submission | undefined;
+
+    public get submission(): Submission | undefined {
+        return this._submission;
     }
 
     protected _preimage: Buffer | undefined;

@@ -31,13 +31,18 @@ import { GenericTransaction } from '../transaction/transactions/GenericTransacti
 import assert from 'node:assert';
 import { BlockGasPredictor, CalculatedBlockGas } from '../gas/BlockGasPredictor.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
-import { Long } from 'mongodb';
+import { Binary, Long } from 'mongodb';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 import { ContractEvaluation } from '../../../vm/runtime/classes/ContractEvaluation.js';
 import { RustContract } from '../../../vm/rust/RustContract.js';
 import { SharedInteractionParameters } from '../transaction/transactions/SharedInteractionParameters.js';
 import { AddressCache, AddressCacheExport } from '../AddressCache.js';
 import { ChallengeSolution } from '../interfaces/TransactionPreimage.js';
+import { VMStorage } from '../../../vm/storage/VMStorage.js';
+import { EpochManager, ValidatedSolutionResult } from '../epoch/EpochManager.js';
+import { Submission } from '../transaction/features/Submission.js';
+import { PendingTargetEpoch } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
+import { IEpochSubmissionsDocument } from '../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
@@ -125,6 +130,16 @@ export class Block extends Logger {
     private readonly processEverythingAsGeneric: boolean = false;
     private readonly _blockHashBuffer: Buffer;
     private readonly addressCache: AddressCache;
+
+    private epochSubmissions: Map<
+        string,
+        {
+            submission: Submission;
+            validationResult: ValidatedSolutionResult | null;
+            transactionId: string;
+            txHash: string;
+        }
+    > = new Map();
 
     private transactionOrder: string[] | undefined;
 
@@ -552,6 +567,27 @@ export class Block extends Logger {
         await this.signBlock(vmManager);
     }
 
+    public async processSubmissions(
+        vmStorage: VMStorage,
+        epochManager: EpochManager,
+    ): Promise<void> {
+        const currentEpoch = this.height / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+
+        // Extract and dedupe submissions directly into this.epochSubmissions
+        this.extractUniqueSubmissions();
+
+        // Batch check existence and remove existing ones
+        await this.filterExistingSubmissions(epochManager, currentEpoch);
+
+        const pendingTarget = await epochManager.getPendingEpochTarget(currentEpoch);
+        console.log('pendingTarget', pendingTarget);
+
+        // Validate submissions synchronously and remove invalid ones
+        this.validateSubmissions(epochManager, pendingTarget);
+
+        await this.saveEpochSubmissions(vmStorage);
+    }
+
     /** Block States Processing */
     protected async processBlockStates(
         states: EvaluatedStates,
@@ -674,6 +710,177 @@ export class Block extends Logger {
         }
 
         this.verifyTransaction(transaction);
+    }
+
+    private extractUniqueSubmissions(): void {
+        for (const transaction of this.transactions) {
+            if (!transaction.submission) {
+                continue;
+            }
+
+            const submissionData = transaction.submission;
+            const key = this.generateSubmissionKey(submissionData);
+
+            // Skip if already processed
+            if (this.epochSubmissions.has(key)) {
+                if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                    this.debug(
+                        `Skipping duplicate epoch submission in tx ${transaction.transactionIdString} (salt+pubkey already seen)`,
+                    );
+                }
+                continue;
+            }
+
+            this.epochSubmissions.set(key, {
+                submission: submissionData,
+                validationResult: null,
+                transactionId: transaction.transactionIdString,
+                txHash: transaction.txidHex,
+            });
+        }
+    }
+
+    private async filterExistingSubmissions(
+        epochManager: EpochManager,
+        currentEpoch: bigint,
+    ): Promise<void> {
+        const existenceChecks = Array.from(this.epochSubmissions.entries()).map(([key, data]) => ({
+            key,
+            promise: epochManager.solutionExists(
+                currentEpoch,
+                data.submission.salt,
+                data.submission.publicKey,
+            ),
+        }));
+
+        try {
+            const results = await Promise.safeAll(existenceChecks.map((check) => check.promise));
+
+            // Remove existing submissions
+            for (let i = 0; i < results.length; i++) {
+                const exists = results[i];
+                const { key } = existenceChecks[i];
+
+                if (exists) {
+                    if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                        const data = this.epochSubmissions.get(key);
+                        this.debug(
+                            `Epoch submission in tx ${data?.transactionId} already exists in database`,
+                        );
+                    }
+
+                    this.epochSubmissions.delete(key);
+                }
+            }
+        } catch (error) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.ERROR) {
+                this.error(`Failed to check existence for submissions: ${error}`);
+            }
+            // Clear all submissions on error to be safe
+            this.epochSubmissions.clear();
+        }
+    }
+
+    private validateSubmissions(
+        epochManager: EpochManager,
+        pendingTarget: PendingTargetEpoch,
+    ): void {
+        const keysToRemove: string[] = [];
+
+        for (const [key, data] of this.epochSubmissions) {
+            const validationResult: ValidatedSolutionResult = epochManager.validateEpochSubmission(
+                data.submission,
+                this.height,
+                pendingTarget,
+            );
+
+            if (!validationResult.valid) {
+                if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                    this.warn(`Invalid epoch submission in tx ${data.transactionId}`);
+                }
+
+                keysToRemove.push(key);
+                continue;
+            }
+
+            data.validationResult = validationResult;
+        }
+
+        for (const key of keysToRemove) {
+            this.epochSubmissions.delete(key);
+        }
+    }
+
+    private generateSubmissionKey(submission: Submission): string {
+        return `${submission.salt.toString('hex')}-${submission.publicKey.toString('hex')}`;
+    }
+
+    private async saveEpochSubmissions(vmStorage: VMStorage): Promise<void> {
+        if (this.epochSubmissions.size === 0) {
+            return;
+        }
+
+        const currentEpoch = this.height / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+        const submissions: IEpochSubmissionsDocument[] = [];
+
+        for (const data of this.epochSubmissions.values()) {
+            if (!data.validationResult || !data.validationResult.valid) {
+                continue;
+            }
+
+            const submission = data.submission;
+            const validationResult = data.validationResult;
+
+            const epochSubmissionDoc: IEpochSubmissionsDocument = {
+                confirmedAt: DataConverter.toDecimal128(this.height),
+                epochNumber: DataConverter.toDecimal128(currentEpoch),
+                startBlock: DataConverter.toDecimal128(
+                    currentEpoch * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH,
+                ),
+
+                submissionTxId: new Binary(Buffer.from(data.transactionId, 'hex')),
+                submissionTxHash: new Binary(Buffer.from(data.txHash, 'hex')),
+
+                submissionHash: new Binary(validationResult.hash),
+
+                epochProposed: {
+                    solution: new Binary(validationResult.hash),
+                    publicKey: new Binary(submission.publicKey),
+                    salt: new Binary(submission.salt),
+                    graffiti: submission.graffiti ? new Binary(submission.graffiti) : undefined,
+                },
+            };
+
+            submissions.push(epochSubmissionDoc);
+
+            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.debug(
+                    `Saving epoch submission for tx ${data.transactionId} with ${validationResult.matchingBits} matching bits`,
+                );
+            }
+        }
+
+        if (submissions.length > 0) {
+            try {
+                // Save all submissions in parallel
+                const savePromises = submissions.map((submission) =>
+                    vmStorage.saveSubmission(submission),
+                );
+
+                await Promise.safeAll(savePromises);
+
+                if (Config.DEV_MODE) {
+                    this.debugBright(
+                        `Saved ${submissions.length} epoch submissions for epoch ${currentEpoch} at block ${this.height}`,
+                    );
+                }
+            } catch (error) {
+                this.error(`Failed to save epoch submissions: ${error}`);
+                throw error;
+            }
+        }
+
+        this.epochSubmissions.clear();
     }
 
     private processEvaluation(evaluation: ContractEvaluation, vmManager: VMManager): void {

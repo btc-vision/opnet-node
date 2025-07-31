@@ -1,5 +1,5 @@
 export interface Submission {
-    readonly publicKey: Uint8Array;
-    readonly salt: Uint8Array;
-    readonly graffiti?: Uint8Array;
+    readonly publicKey: Buffer;
+    readonly salt: Buffer;
+    readonly graffiti?: Buffer;
 }

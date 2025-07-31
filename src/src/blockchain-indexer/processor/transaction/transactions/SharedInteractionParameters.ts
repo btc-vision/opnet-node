@@ -22,11 +22,6 @@ export abstract class SharedInteractionParameters<
     protected features: Feature<Features>[] = [];
 
     protected _accessList: AddressMap<Uint8Array[]> | undefined;
-    protected _submission: Submission | undefined;
-
-    public get submission(): Submission | undefined {
-        return this._submission;
-    }
 
     protected _calldata: Buffer | undefined;
 
@@ -236,9 +231,9 @@ export abstract class SharedInteractionParameters<
         }
 
         return {
-            publicKey: publicKey,
-            salt: solution,
-            graffiti: graffiti,
+            publicKey: Buffer.from(publicKey),
+            salt: Buffer.from(solution),
+            graffiti: graffiti ? Buffer.from(graffiti) : undefined,
         };
     }
 
