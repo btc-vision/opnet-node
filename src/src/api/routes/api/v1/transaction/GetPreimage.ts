@@ -159,6 +159,7 @@ export class GetPreimage extends Route<
         // Convert proofs to hex strings
         const proofs = targetEpoch.proofs.map((proof) => this.uint8ArrayToHex(proof.buffer));
 
+        console.log('fetching submission for epoch:', epochNumber + 2n);
         const submission = await this.storage.getBestTargetEpoch(epochNumber + 2n);
         const submissionData: ChallengeSubmission | undefined = submission
             ? {
