@@ -33,10 +33,18 @@ export class OPNetHeader {
 
     public decodeFlags(): Features[] {
         const features: Features[] = [];
-        const includesAccessList = (this._flags & 0b1) === 0b1;
+        const includesAccessList =
+            (this._flags & Features.ACCESS_LIST) === (Features.ACCESS_LIST as number);
+
+        const includesEpochSubmission =
+            (this._flags & Features.EPOCH_SUBMISSION) === (Features.EPOCH_SUBMISSION as number);
 
         if (includesAccessList) {
             features.push(Features.ACCESS_LIST);
+        }
+
+        if (includesEpochSubmission) {
+            features.push(Features.EPOCH_SUBMISSION);
         }
 
         return features;
