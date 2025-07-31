@@ -113,7 +113,7 @@ export class GetPreimage extends Route<
             throw new Error('Block header not found');
         }
 
-        const currentBlockHeight = BigInt(block.height);
+        const currentBlockHeight = BigInt(block.height) + 1n;
         const currentEpoch = currentBlockHeight / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
 
         // Apply 2-epoch delay
@@ -148,9 +148,10 @@ export class GetPreimage extends Route<
         const startBlock = DataConverter.fromDecimal128(targetEpoch.startBlock).toString();
         const endBlock = DataConverter.fromDecimal128(targetEpoch.endBlock).toString();
 
-        // Get the target checksum (what was mined)
+        // Get the target checksum
         const targetBlockHeight =
-            epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n; // Last block of previous epoch
+            epochNumber * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n;
+
         const targetBlockHeader = await this.storage.getBlockHeader(targetBlockHeight);
         const targetChecksum = targetBlockHeader
             ? targetBlockHeader.checksumRoot
@@ -158,9 +159,7 @@ export class GetPreimage extends Route<
 
         // Convert proofs to hex strings
         const proofs = targetEpoch.proofs.map((proof) => this.uint8ArrayToHex(proof.buffer));
-
-        console.log('fetching submission for epoch:', epochNumber + 2n);
-        const submission = await this.storage.getBestTargetEpoch(epochNumber + 2n);
+        const submission = await this.storage.getBestTargetEpoch(currentEpoch);
         const submissionData: ChallengeSubmission | undefined = submission
             ? {
                   publicKey: this.uint8ArrayToHex(submission.publicKey.buffer),
