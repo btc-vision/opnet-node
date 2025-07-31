@@ -133,6 +133,7 @@ export class GetEpochTemplateRoute extends Route<
 
         const miningTargetBlock =
             currentEpoch * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n;
+
         const blockHeader = await this.storage.getBlockHeader(miningTargetBlock);
         if (!blockHeader) {
             throw new Error(`Block header not found for mining target height ${miningTargetBlock}`);
