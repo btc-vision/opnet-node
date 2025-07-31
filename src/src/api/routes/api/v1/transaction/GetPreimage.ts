@@ -19,6 +19,9 @@ export class GetPreimage extends Route<
 > {
     private cachedData: Promise<PreimageResult | undefined> | PreimageResult | undefined;
     private lastBlockHeight: bigint | undefined;
+    private cacheTimestamp: number | undefined;
+
+    private readonly CACHE_EXPIRY_MS = 10_000;
 
     constructor() {
         super(Routes.TRANSACTION_PREIMAGE, RouteType.GET);
@@ -36,10 +39,9 @@ export class GetPreimage extends Route<
     }
 
     public onBlockChange(blockNumber: bigint, _blockHeader: BlockHeaderAPIBlockDocument): void {
-        // Only update cache if we've moved to a new block
         if (this.lastBlockHeight !== blockNumber) {
             this.lastBlockHeight = blockNumber;
-            this.cachedData = this.getPreimageData();
+            this.invalidateCache();
         }
     }
 
@@ -71,12 +73,28 @@ export class GetPreimage extends Route<
         }
     }
 
+    private invalidateCache(): void {
+        this.cachedData = undefined;
+        this.cacheTimestamp = undefined;
+    }
+
+    private isCacheExpired(): boolean {
+        if (!this.cacheTimestamp) {
+            return true;
+        }
+
+        const now = Date.now();
+        return now - this.cacheTimestamp > this.CACHE_EXPIRY_MS;
+    }
+
     private async getCachedData(): Promise<PreimageResult | undefined> {
-        if (this.cachedData) {
+        if (this.cachedData && !this.isCacheExpired()) {
             return this.cachedData;
         }
 
         this.cachedData = this.getPreimageData();
+        this.cacheTimestamp = Date.now();
+
         return await this.cachedData;
     }
 
