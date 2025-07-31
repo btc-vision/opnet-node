@@ -17,6 +17,9 @@ export class GetEpochTemplateRoute extends Route<
     private pendingBlockHeight: bigint | undefined;
     private cachedTemplatePromise: Promise<EpochTemplateResult> | undefined;
     private cacheValidForEpoch: bigint | undefined;
+    private cacheTimestamp: number | undefined;
+
+    private readonly CACHE_DURATION_MS = 5000;
 
     constructor() {
         super(Routes.EPOCH_TEMPLATE, RouteType.GET);
@@ -28,15 +31,19 @@ export class GetEpochTemplateRoute extends Route<
         }
 
         const currentEpoch = OPNetConsensus.calculateCurrentEpoch(this.pendingBlockHeight);
-        if (this.cachedTemplatePromise && this.cacheValidForEpoch === currentEpoch) {
+        const now = Date.now();
+
+        if (
+            this.cachedTemplatePromise &&
+            this.cacheValidForEpoch === currentEpoch &&
+            this.cacheTimestamp !== undefined &&
+            now - this.cacheTimestamp < this.CACHE_DURATION_MS
+        ) {
             return await this.cachedTemplatePromise;
         }
 
-        this.log(
-            `Computing template for epoch ${currentEpoch} at block height ${this.pendingBlockHeight}`,
-        );
-
         this.cacheValidForEpoch = currentEpoch;
+        this.cacheTimestamp = now;
         this.cachedTemplatePromise = this.computeTemplate(this.pendingBlockHeight);
 
         return await this.cachedTemplatePromise;
@@ -47,9 +54,19 @@ export class GetEpochTemplateRoute extends Route<
     }
 
     public onBlockChange(blockHeight: bigint, _header: BlockHeaderAPIBlockDocument): void {
+        const previousEpoch =
+            this.pendingBlockHeight !== undefined
+                ? OPNetConsensus.calculateCurrentEpoch(this.pendingBlockHeight)
+                : undefined;
+
+        const newEpoch = OPNetConsensus.calculateCurrentEpoch(blockHeight);
         this.pendingBlockHeight = blockHeight;
 
-        this.info(`Block changed to ${blockHeight}`);
+        if (previousEpoch !== undefined && previousEpoch !== newEpoch) {
+            this.cachedTemplatePromise = undefined;
+            this.cacheValidForEpoch = undefined;
+            this.cacheTimestamp = undefined;
+        }
     }
 
     protected async initialize(): Promise<void> {
@@ -68,6 +85,7 @@ export class GetEpochTemplateRoute extends Route<
         const currentEpoch = OPNetConsensus.calculateCurrentEpoch(this.pendingBlockHeight);
         if (currentEpoch > 0n) {
             this.cacheValidForEpoch = currentEpoch;
+            this.cacheTimestamp = Date.now();
             this.cachedTemplatePromise = this.computeTemplate(this.pendingBlockHeight);
 
             try {
@@ -77,6 +95,7 @@ export class GetEpochTemplateRoute extends Route<
 
                 this.cachedTemplatePromise = undefined;
                 this.cacheValidForEpoch = undefined;
+                this.cacheTimestamp = undefined;
             }
         }
     }
