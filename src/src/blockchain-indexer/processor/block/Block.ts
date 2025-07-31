@@ -734,7 +734,7 @@ export class Block extends Logger {
                 submission: submissionData,
                 validationResult: null,
                 transactionId: transaction.transactionIdString,
-                txHash: transaction.txidHex,
+                txHash: transaction.hash.toString('hex'),
             });
         }
     }
