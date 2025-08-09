@@ -341,7 +341,7 @@ export class Mempool extends Logger {
 
             return await this.decodeTransactionAndProcess(transaction);
         } catch (e) {
-            if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            if (Config.DEV.DEBUG_API_ERRORS) {
                 this.error(`Error processing transaction: ${(e as Error).stack}`);
             }
 

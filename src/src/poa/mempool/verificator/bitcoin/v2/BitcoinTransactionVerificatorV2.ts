@@ -18,13 +18,8 @@ import { EpochRepository } from '../../../../../db/repositories/EpochRepository.
 
 const EMPTY_BLOCK_HASH = Buffer.alloc(32).toString('hex');
 
-type Verificator = [
-    TransactionTypes.BITCOIN_TRANSACTION_V1,
-    TransactionTypes.BITCOIN_TRANSACTION_V2,
-];
-
-export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verificator> {
-    public readonly type: Verificator = [
+export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<TransactionTypes[]> {
+    public readonly type: TransactionTypes[] = [
         TransactionTypes.BITCOIN_TRANSACTION_V1,
         TransactionTypes.BITCOIN_TRANSACTION_V2,
     ];
@@ -84,10 +79,7 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verific
             );
 
             tx = {
-                type:
-                    data.version === 2
-                        ? TransactionTypes.BITCOIN_TRANSACTION_V2
-                        : TransactionTypes.BITCOIN_TRANSACTION_V1,
+                type: this.getTxVersion(data.version),
                 version: OPNetConsensus.consensus.CONSENSUS,
                 transaction: opnetDecodedTransaction,
             };
@@ -103,6 +95,12 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Verific
         }
 
         return tx;
+    }
+
+    protected getTxVersion(version: number): TransactionTypes {
+        return version === 2
+            ? TransactionTypes.BITCOIN_TRANSACTION_V2
+            : TransactionTypes.BITCOIN_TRANSACTION_V1;
     }
 
     private toRawTransactionData(data: Transaction): TransactionData {
