@@ -81,8 +81,6 @@ export class TransactionVerifierManager extends Logger {
                 return false;
             }
 
-            console.log(psbtOrTransaction);
-
             return await verificator.verify(tx, psbtOrTransaction, txData);
         } else {
             throw new Error(`Unknown transaction type ${psbtType}`);
