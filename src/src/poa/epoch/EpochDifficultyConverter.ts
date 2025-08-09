@@ -1,7 +1,3 @@
-/**
- * Converts between bit difficulty (matching bits) and actual difficulty value
- * for proper share accounting in the mining pool
- */
 export class EpochDifficultyConverter {
     /**
      * Convert matching bits to actual difficulty value
@@ -16,43 +12,7 @@ export class EpochDifficultyConverter {
      * not just 2x more
      */
     public static bitsToScaledDifficulty(bits: number): bigint {
-        // For lower bits, use direct calculation
-        if (bits <= 32) {
-            return BigInt(Math.pow(2, bits));
-        }
-
-        return BigInt(2) ** BigInt(bits);
-    }
-
-    /**
-     * Convert difficulty value back to equivalent bits
-     * bits = log2(difficulty)
-     */
-    public static scaledDifficultyToBits(difficulty: number): number {
-        if (difficulty <= 0) return 0;
-        return Math.log2(difficulty);
-    }
-
-    /**
-     * Convert bits to a "points" system that prevents spam
-     * while still rewarding higher difficulty shares
-     *
-     * Uses a logarithmic scale to balance between:
-     * - Not allowing spam of low difficulty shares
-     * - Still incentivizing high difficulty shares
-     */
-    public static bitsToPoints(bits: number, minBits: number): number {
-        if (bits < minBits) return 0;
-
-        // Base points for meeting minimum difficulty
-        const basePoints = 1;
-
-        // Additional points scale logarithmically with excess bits
-        // This prevents spam while still rewarding high difficulty
-        const excessBits = bits - minBits;
-        const bonusPoints = Math.log2(1 + excessBits) * 10;
-
-        return basePoints + bonusPoints;
+        return 2n ** BigInt(Math.max(0, bits));
     }
 
     /**

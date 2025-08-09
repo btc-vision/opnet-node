@@ -17,7 +17,6 @@ import { OPNet_MAGIC } from '../Transaction.js';
 import { Address, AddressVerificator } from '@btc-vision/transaction';
 import * as ecc from 'tiny-secp256k1';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
-import crypto from 'crypto';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { SharedInteractionParameters } from './SharedInteractionParameters.js';
 import { Feature, Features } from '../features/Features.js';
@@ -357,12 +356,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
 
         /** Verify witness data */
         const hashSenderPubKey = bitcoin.crypto.hash256(this.interactionWitnessData.senderPubKey);
-        if (
-            !crypto.timingSafeEqual(
-                hashSenderPubKey,
-                this.interactionWitnessData.hashedSenderPubKey,
-            )
-        ) {
+        if (!this.safeEq(hashSenderPubKey, this.interactionWitnessData.hashedSenderPubKey)) {
             throw new Error(`OP_NET: Sender public key hash mismatch.`);
         }
 
@@ -376,12 +370,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
 
         /** Verify contract salt */
         const hashContractSalt = bitcoin.crypto.hash160(contractSecret);
-        if (
-            !crypto.timingSafeEqual(
-                hashContractSalt,
-                this.interactionWitnessData.contractSecretHash160,
-            )
-        ) {
+        if (!this.safeEq(hashContractSalt, this.interactionWitnessData.contractSecretHash160)) {
             throw new Error(`OP_NET: Contract salt hash mismatch.`);
         }
 
@@ -452,11 +441,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         const scriptBuffer = Buffer.from(contractScript, 'hex');
         const contractKey = scriptBuffer.subarray(3); // Skip OP_16 and get the next 32 bytes
 
-        if (
-            contractKey.length !== hashContractSalt.length ||
-            !crypto.timingSafeEqual(contractKey, hashContractSalt) ||
-            !contractKey.equals(hashContractSalt)
-        ) {
+        if (!this.safeEq(contractKey, hashContractSalt) || !contractKey.equals(hashContractSalt)) {
             throw new Error(`OP_NET: Malformed UTXO output or mismatched pubKey.`);
         }
 

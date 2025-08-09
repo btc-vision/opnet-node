@@ -7,7 +7,6 @@ import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOPNetTransactions.js';
 import { OPNet_MAGIC } from '../Transaction.js';
-import crypto from 'crypto';
 
 import {
     Address,
@@ -205,7 +204,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         // Verify sender pubkey
         const hashSenderPubKey = bitcoin.crypto.hash256(deploymentWitnessData.senderPubKey);
-        if (!crypto.timingSafeEqual(hashSenderPubKey, deploymentWitnessData.hashedSenderPubKey)) {
+        if (!this.safeEq(hashSenderPubKey, deploymentWitnessData.hashedSenderPubKey)) {
             throw new Error(`OP_NET: Sender public key hash mismatch.`);
         }
         this.deployerPubKeyHash = hashSenderPubKey;
@@ -227,7 +226,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         /** Verify contract salt */
         const hashOriginalSalt: Buffer = bitcoin.crypto.hash256(originalSalt);
-        if (!crypto.timingSafeEqual(hashOriginalSalt, deploymentWitnessData.contractSaltHash)) {
+        if (!this.safeEq(hashOriginalSalt, deploymentWitnessData.contractSaltHash)) {
             throw new Error(`OP_NET: Invalid contract salt hash found in deployment transaction.`);
         }
 

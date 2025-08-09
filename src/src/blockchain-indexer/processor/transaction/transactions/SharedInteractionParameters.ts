@@ -13,6 +13,7 @@ import { Address, AddressMap, BinaryReader } from '@btc-vision/transaction';
 import { SpecialContract } from '../../../../poa/configurations/types/SpecialContracts.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { Submission } from '../features/Submission.js';
+import { timingSafeEqual } from 'node:crypto';
 
 export abstract class SharedInteractionParameters<
     T extends OPNetTransactionTypes,
@@ -162,6 +163,11 @@ export abstract class SharedInteractionParameters<
         } else {
             return Address.fromString(str);
         }
+    }
+
+    protected safeEq(a: Buffer, b: Buffer): boolean {
+        if (a.length !== b.length) return false;
+        return timingSafeEqual(a, b);
     }
 
     protected decodeAddress(outputWitness: TransactionOutput): string | undefined {
