@@ -37,6 +37,8 @@ export interface IOPNetConsensus<T extends Consensus> {
     readonly PROTOCOL_ID: Uint8Array;
 
     readonly EPOCH: {
+        readonly ENABLED: boolean;
+
         /** There is an epoch change every X blocks */
         readonly BLOCKS_PER_EPOCH: bigint;
 
