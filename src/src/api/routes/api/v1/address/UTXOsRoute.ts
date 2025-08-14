@@ -5,9 +5,7 @@ import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { UTXOsByAddressParams } from '../../../../json-rpc/types/interfaces/params/address/UTXOsByAddressParams.js';
 import { UTXOsOutputResult } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputResult.js';
-import {
-    UTXOsOutputTransactions
-} from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import { UTXOsOutputTransactions } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { Route } from '../../../Route.js';
 import { SafeString } from '../../../safe/BlockParamsConverter.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
