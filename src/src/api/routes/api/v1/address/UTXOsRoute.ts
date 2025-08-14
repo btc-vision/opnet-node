@@ -5,7 +5,9 @@ import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { UTXOsByAddressParams } from '../../../../json-rpc/types/interfaces/params/address/UTXOsByAddressParams.js';
 import { UTXOsOutputResult } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputResult.js';
-import { UTXOsOutputTransactions } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import {
+    UTXOsOutputTransactions
+} from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { Route } from '../../../Route.js';
 import { SafeString } from '../../../safe/BlockParamsConverter.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
@@ -138,10 +140,9 @@ export class UTXOsRoute extends Route<
 
         let olderThan;
         if (isArray) {
-            olderThan = params.shift();
-
-            if (typeof olderThan !== 'number') {
-                olderThan = undefined;
+            const param = params.shift();
+            if (typeof param === 'string') {
+                olderThan = BigInt(param);
             }
         } else {
             olderThan = params.olderThan ? BigInt(params.olderThan) : undefined;
