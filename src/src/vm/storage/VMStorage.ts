@@ -141,6 +141,7 @@ export abstract class VMStorage extends Logger {
     public abstract getUTXOs(
         address: string,
         optimize: boolean,
+        olderThan: bigint | undefined,
     ): Promise<UTXOsOutputTransactions | undefined>;
 
     public abstract getBalanceOf(

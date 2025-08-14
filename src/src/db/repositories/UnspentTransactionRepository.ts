@@ -233,7 +233,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
     public async getWalletUnspentUTXOS(
         wallet: string,
         optimize: boolean = false,
-        currentSession?: ClientSession,
+        olderThan: bigint | undefined,
     ): Promise<UTXOSOutputTransaction[]> {
         // TODO: Add cursor page support.
         // TODO: Optimize this function so only legacy have raw transaction data added to them. (PERFORMANCE)
@@ -241,10 +241,12 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             wallet,
             true,
             optimize,
+            true,
+            olderThan,
         );
 
         const collection = this.getCollection();
-        const options = this.getOptions(currentSession) as AggregateOptions;
+        const options = this.getOptions() as AggregateOptions;
         options.allowDiskUse = true;
 
         try {

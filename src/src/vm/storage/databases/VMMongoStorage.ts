@@ -551,14 +551,15 @@ export class VMMongoStorage extends VMStorage {
     public async getUTXOs(
         address: string,
         optimize: boolean = false,
+        olderThan: bigint | undefined,
     ): Promise<UTXOsOutputTransactions> {
         if (!this.unspentTransactionRepository || !this.mempoolRepository) {
             throw new Error('Transaction repository not initialized');
         }
 
         const utxos = await Promise.safeAll([
-            this.unspentTransactionRepository.getWalletUnspentUTXOS(address, optimize),
-            this.mempoolRepository.getPendingTransactions(address),
+            this.unspentTransactionRepository.getWalletUnspentUTXOS(address, optimize, olderThan),
+            olderThan === undefined ? this.mempoolRepository.getPendingTransactions(address) : [],
         ]);
 
         const confirmed = utxos[0];

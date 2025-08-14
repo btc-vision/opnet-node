@@ -2,6 +2,7 @@ import { Binary, Decimal128, Document, Long } from 'mongodb';
 import { Aggregation } from './Aggregation.js';
 import { ShortScriptPubKey } from '../../../../db/interfaces/IUnspentTransaction.js';
 import { Config } from '../../../../config/Config.js';
+import { DataConverter } from '@btc-vision/bsi-db';
 
 export interface UTXOSOutputTransactionFromDBV2 {
     readonly transactionId: Binary;
@@ -17,6 +18,7 @@ export class UTXOsAggregationV2 extends Aggregation {
         limit: boolean = true,
         optimize: boolean = false,
         pushRawTxs: boolean = true,
+        olderThan: bigint | undefined,
     ): Document[] {
         const minValue: number = optimize ? 9999 : 330;
 
@@ -28,6 +30,13 @@ export class UTXOsAggregationV2 extends Aggregation {
                         $gte: Long.fromValue(minValue),
                     },
                     deletedAtBlock: null,
+                    ...(olderThan !== undefined
+                        ? {
+                              blockHeight: {
+                                  $lt: DataConverter.toDecimal128(olderThan),
+                              },
+                          }
+                        : {}),
                 },
             },
             {

@@ -31,7 +31,9 @@ export class UTXOsRoute extends Route<
         }
 
         const optimize: boolean = this.getOptimizeParameterAsBoolean(params);
-        return await this.storage.getUTXOs(address, optimize);
+        const olderThan: bigint | undefined = this.getOlderThanParameterAsNumber(params);
+
+        return await this.storage.getUTXOs(address, optimize, olderThan);
     }
 
     public async getDataRPC(params: UTXOsByAddressParams): Promise<UTXOsOutputResult | undefined> {
@@ -98,8 +100,7 @@ export class UTXOsRoute extends Route<
                 includeTransactions = false;
             }
         } else {
-            includeTransactions =
-                (params.optimize === 'true' || params.optimized === 'true') ?? false;
+            includeTransactions = params.optimize === 'true';
         }
 
         return includeTransactions;
@@ -120,5 +121,22 @@ export class UTXOsRoute extends Route<
         }
 
         return blockHash;
+    }
+
+    private getOlderThanParameterAsNumber(params: UTXOsByAddressParams): bigint | undefined {
+        const isArray = Array.isArray(params);
+
+        let olderThan;
+        if (isArray) {
+            olderThan = params.shift();
+
+            if (typeof olderThan !== 'number') {
+                olderThan = undefined;
+            }
+        } else {
+            olderThan = params.olderThan ? BigInt(params.olderThan) : undefined;
+        }
+
+        return olderThan;
     }
 }
