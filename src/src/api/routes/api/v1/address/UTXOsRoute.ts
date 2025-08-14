@@ -5,15 +5,20 @@ import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { UTXOsByAddressParams } from '../../../../json-rpc/types/interfaces/params/address/UTXOsByAddressParams.js';
 import { UTXOsOutputResult } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputResult.js';
-import { UTXOsOutputTransactions } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import {
+    UTXOsOutputTransactions
+} from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { Route } from '../../../Route.js';
 import { SafeString } from '../../../safe/BlockParamsConverter.js';
+import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 
 export class UTXOsRoute extends Route<
     Routes.UTXOS,
     JSONRpcMethods.GET_UTXOS,
     UTXOsOutputTransactions | undefined
 > {
+    private currentBlockHeight: bigint = 0n;
+
     constructor() {
         super(Routes.UTXOS, RouteType.GET);
     }
@@ -33,7 +38,14 @@ export class UTXOsRoute extends Route<
         const optimize: boolean = this.getOptimizeParameterAsBoolean(params);
         const olderThan: bigint | undefined = this.getOlderThanParameterAsNumber(params);
 
-        return await this.storage.getUTXOs(address, optimize, olderThan);
+        const targetBlockHeight =
+            olderThan !== undefined ? this.currentBlockHeight - olderThan : undefined;
+
+        return await this.storage.getUTXOs(address, optimize, targetBlockHeight);
+    }
+
+    public onBlockChange(_blockNumber: bigint, _blockHeader: BlockHeaderAPIBlockDocument) {
+        this.currentBlockHeight = _blockNumber;
     }
 
     public async getDataRPC(params: UTXOsByAddressParams): Promise<UTXOsOutputResult | undefined> {
