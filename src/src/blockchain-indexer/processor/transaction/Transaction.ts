@@ -472,7 +472,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             throw new Error('Preimage not found');
         }
 
-        const rewardOutput = this.outputs[1];
+        const rewardOutput = this.outputs[1]; // ALWAYS the second output.
         if (!rewardOutput) {
             return; // no reward output
         }
