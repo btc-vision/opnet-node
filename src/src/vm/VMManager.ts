@@ -1,24 +1,18 @@
-import {
-    Address,
-    AddressMap,
-    BufferHelper,
-    MemorySlotData,
-    TapscriptVerificator,
-} from '@btc-vision/transaction';
+import { Address, AddressMap, BufferHelper, MemorySlotData, TapscriptVerificator, } from '@btc-vision/transaction';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
-import {
-    BTC_FAKE_ADDRESS,
-    MAX_HASH,
-    MAX_MINUS_ONE,
-} from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import { BTC_FAKE_ADDRESS, MAX_HASH, MAX_MINUS_ONE, } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
-import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import {
+    DeploymentTransaction
+} from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import {
+    InteractionTransaction
+} from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import {
     BlockHeader,
@@ -911,6 +905,7 @@ export class VMManager extends Logger {
         vmEvaluator.getStorage = this.getStorage.bind(this);
         vmEvaluator.getStorageMultiple = this.getStorageMultiple.bind(this);
         vmEvaluator.setStorage = this.setStorage.bind(this);
+        vmEvaluator.isContract = this.isContract.bind(this);
         vmEvaluator.callExternal = this.callExternal.bind(this);
         vmEvaluator.deployContractAtAddress = this.deployContractAtAddress.bind(this);
         vmEvaluator.deployContract = this.deployContractFromInfo.bind(this);
@@ -1055,6 +1050,12 @@ export class VMManager extends Logger {
         }
 
         this.blockState.updateValue(address, pointer, value);
+    }
+
+    private async isContract(address: Address): Promise<boolean> {
+        const contract = await this.getContractAddress(address.p2op(this.network));
+
+        return !!contract?.equals(address);
     }
 
     private async getStorageFromDB(

@@ -105,11 +105,11 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [callExternal]');
     }
 
-    public async getBlockHashForBlockNumber(_blockNumber: bigint): Promise<Buffer> {
+    public getBlockHashForBlockNumber(_blockNumber: bigint): Promise<Buffer> {
         throw new Error('Method not implemented. [getBlockHashForBlockNumber]');
     }
 
-    public async isContract(_address: Address): Promise<boolean> {
+    public isContract(_address: Address): Promise<boolean> {
         throw new Error('Method not implemented.');
     }
 
