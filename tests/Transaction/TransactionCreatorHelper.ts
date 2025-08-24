@@ -1,5 +1,5 @@
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
-import { EcKeyPair } from '@btc-vision/transaction';
+import { AddressMap, EcKeyPair } from '@btc-vision/transaction';
 import { Network } from '@btc-vision/bitcoin';
 import { createHash, Hash, randomBytes } from 'crypto';
 import { OPNetTransactionTypes } from '../../src/src/blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
@@ -77,8 +77,14 @@ export async function CreateFakeTransaction(
         time: 0,
     };
 
-    const transaction: Transaction<OPNetTransactionTypes> =
-        await transactionFactory.parseTransaction(transactionData, finalBlockHash, 0n, network, []);
+    const transaction: Transaction<OPNetTransactionTypes> = transactionFactory.parseTransaction(
+        transactionData,
+        finalBlockHash,
+        0n,
+        network,
+        new AddressMap(),
+        false,
+    );
 
     vitest.spyOn(transaction, 'burnedFee', 'get').mockReturnValue(fees);
     // @ts-ignore

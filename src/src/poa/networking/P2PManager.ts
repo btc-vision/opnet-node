@@ -140,6 +140,10 @@ export class P2PManager extends Logger {
 
             this.purgeOldBlacklistedPeers();
         }, 10_000);
+
+        setInterval(async () => {
+            await this.cleanupStalePeers();
+        }, 60_000);
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -194,6 +198,8 @@ export class P2PManager extends Logger {
         );
 
         this.addListeners();
+
+        await this.cleanupStalePeers();
         await this.startNode();
         await this.addHandles();
 
@@ -269,11 +275,30 @@ export class P2PManager extends Logger {
             peers.push(peerInfo);
         }
 
+        //console.dir(peers, {
+        //    colors: true,
+        //    depth: 100,
+        //});
+
         // Apply shuffle to the peers list, way to not be "predictable" and re-identified by the same peers.
         shuffleArray(peers);
 
         // Ensure that we never send more than 100 peers at once.
         return peers.slice(0, 100);
+    }
+
+    private async cleanupStalePeers(): Promise<void> {
+        if (!this.node) return;
+
+        const allPeers = await this.node.peerStore.all();
+        for (const peer of allPeers) {
+            // If peer has no addresses or only expired addresses, remove it
+            if (!peer.addresses || peer.addresses.length === 0) {
+                await this.node.peerStore.delete(peer.id);
+
+                this.debug(`Removed stale peer ${peer.id.toString()} with no addresses`);
+            }
+        }
     }
 
     private purgeOldBlacklistedPeers(): void {
@@ -577,6 +602,8 @@ export class P2PManager extends Logger {
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
+        //console.log('peers', peers);
+
         // Prevent flooding.
         if (peers && peers.length > 100) {
             peers = peers.slice(0, 100);
@@ -621,6 +648,8 @@ export class P2PManager extends Logger {
                     this.warn(`No valid addresses found for peer ${peerIdStr}`);
                     continue;
                 }
+
+                //console.log('Peer addresses', addresses);
 
                 const peerData: PeerInfo = {
                     id: peerIdFromString(peerIdStr),

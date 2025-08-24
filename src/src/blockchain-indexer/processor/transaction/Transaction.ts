@@ -14,11 +14,12 @@ import { EvaluatedEvents, EvaluatedResult } from '../../../vm/evaluated/Evaluate
 import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { StrippedTransactionInput, TransactionInput } from './inputs/TransactionInput.js';
 import { StrippedTransactionOutput, TransactionOutput } from './inputs/TransactionOutput.js';
-import { Address, BinaryWriter, ChallengeGenerator } from '@btc-vision/transaction';
+import { Address, BinaryWriter, TimeLockGenerator } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from './interfaces/OPNetHeader.js';
 import * as ecc from 'tiny-secp256k1';
 import { AddressCache } from '../AddressCache.js';
+import { Submission } from './features/Submission.js';
 
 export const OPNet_MAGIC: Buffer = Buffer.from('op', 'utf-8');
 const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
@@ -94,6 +95,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._computedIndexingHash = this.computeHashForTransaction();
     }
 
+    protected _submission: Submission | undefined;
+
+    public get submission(): Submission | undefined {
+        return this._submission;
+    }
+
     protected _preimage: Buffer | undefined;
     public get preimage(): Buffer {
         const preimage = Buffer.alloc(this._preimage?.length || 0);
@@ -103,10 +110,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return preimage;
     }
 
-    public set preimage(preimage: Buffer) {
-        this.verifyPreImage(preimage);
-
-        this._preimage = preimage;
+    protected _miner: Buffer | undefined;
+    public get miner(): Buffer {
+        const preimage = Buffer.alloc(this._miner?.length || 0);
+        if (this._miner) {
+            this._miner.copy(preimage);
+        }
+        return preimage;
     }
 
     public get strippedInputs(): StrippedTransactionInput[] {
@@ -317,7 +327,17 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return Buffer.from(checksum);
     }
 
-    public verifyPreImage: (preimage: Buffer) => void = (_preimage: Buffer) => {
+    public setMiner(miner: Buffer, preimage: Buffer) {
+        this.verifyPreImage(new Address(miner), preimage);
+
+        this._preimage = preimage;
+        this._miner = miner;
+    }
+
+    public verifyPreImage: (miner: Address, preimage: Buffer) => void = (
+        _miner: Address,
+        _preimage: Buffer,
+    ) => {
         throw new Error('Verify preimage method not implemented.');
     };
 
@@ -373,7 +393,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
             burnedBitcoin: DataConverter.toDecimal128(this._burnedFee),
             priorityFee: DataConverter.toDecimal128(this._priorityFee),
-            reward: new Long(this._reward),
+            reward: new Long(this._reward, true),
 
             gasUsed: DataConverter.toDecimal128(this.receipt ? this.receipt.gasUsed : 0n),
             specialGasUsed: DataConverter.toDecimal128(
@@ -452,18 +472,22 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             throw new Error('Preimage not found');
         }
 
-        const rewardOutput = this.outputs[1];
+        const rewardOutput = this.outputs[1]; // ALWAYS the second output.
         if (!rewardOutput) {
             return; // no reward output
         }
 
-        if (!rewardOutput.scriptPubKey.address || rewardOutput.scriptPubKey.type !== 'scripthash') {
+        if (
+            !rewardOutput.scriptPubKey.address ||
+            rewardOutput.scriptPubKey.type !== 'witness_v0_scripthash'
+        ) {
             return; // reward output must be a P2SH address
         }
 
-        const rewardChallenge = ChallengeGenerator.generateMineableReward(
-            this.preimage,
+        const rewardChallenge = TimeLockGenerator.generateTimeLockAddress(
+            this.miner,
             this.network,
+            OPNetConsensus.consensus.EPOCH.TIMELOCK_BLOCKS_REWARD,
         );
 
         if (rewardOutput.scriptPubKey.address !== rewardChallenge.address) {

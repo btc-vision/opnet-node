@@ -8,6 +8,7 @@ import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransacti
 import { BitcoinRPC, TransactionData } from '@btc-vision/bitcoin-rpc';
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { Transaction } from '../../../blockchain-indexer/processor/transaction/Transaction.js';
+import { BitcoinTransactionVerificatorV3 } from '../verificator/bitcoin/v2/BitcoinTransactionVerificatorV3.js';
 
 export interface PSBTDecodedData {
     readonly hash: string;
@@ -41,6 +42,7 @@ export class TransactionVerifierManager extends Logger {
         super();
 
         this.verificator.push(new BitcoinTransactionVerificatorV2(this.db, this.rpc, network));
+        this.verificator.push(new BitcoinTransactionVerificatorV3(this.db, this.rpc, network));
     }
 
     public async createRepositories(): Promise<void> {

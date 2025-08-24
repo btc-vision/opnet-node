@@ -112,6 +112,11 @@ export interface SSHConfig {
     readonly ALLOWED_IPS: string[];
 }
 
+export interface EpochConfigs {
+    readonly MAX_ATTESTATION_PER_BLOCK: number;
+    readonly LOG_FINALIZATION: boolean;
+}
+
 export interface APIExtendedConfigurations extends APIConfig {
     readonly MAXIMUM_PENDING_REQUESTS_PER_THREADS: number; // Maximum number of pending requests per thread
     readonly BATCH_PROCESSING_SIZE: number; // Batch processing size
@@ -121,6 +126,9 @@ export interface APIExtendedConfigurations extends APIConfig {
 
     readonly MAXIMUM_TRANSACTION_BROADCAST: number; // Maximum number of transactions to broadcast
     readonly MAXIMUM_PENDING_CALL_REQUESTS: number; // Maximum number of pending call requests
+
+    readonly MAXIMUM_PARALLEL_EPOCH_QUERY: number; // Maximum number of epochs per batch
+    readonly EPOCH_CACHE_SIZE: number; // Size of the epoch cache
 
     readonly UTXO_LIMIT: number; // UTXO limit
 }
@@ -184,6 +192,8 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     DEV_MODE: boolean;
 
     DEV: DevConfig;
+
+    EPOCH: EpochConfigs;
 
     BITCOIN: BitcoinConfig;
     BECH32: Bech32Config;

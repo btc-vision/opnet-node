@@ -9,6 +9,7 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
 
     /** Blocks */
     [JSONRpcMethods.GET_BLOCK_BY_HASH]: Routes.BLOCK_BY_HASH,
+    [JSONRpcMethods.GET_BLOCK_BY_CHECKSUM]: Routes.BLOCK_BY_CHECKSUM,
     [JSONRpcMethods.GET_BLOCK_BY_NUMBER]: Routes.BLOCK_BY_ID,
     [JSONRpcMethods.BLOCK_WITNESS]: Routes.BLOCK_WITNESS,
     [JSONRpcMethods.GAS]: Routes.GAS,
@@ -32,4 +33,11 @@ export const JSONRpcRouteMethods: JSONRpcRoute = {
     [JSONRpcMethods.GET_CODE]: Routes.GET_CODE,
     [JSONRpcMethods.GET_STORAGE_AT]: Routes.GET_STORAGE_AT,
     [JSONRpcMethods.CALL]: Routes.CALL,
+
+    /** Epochs */
+    [JSONRpcMethods.LATEST_EPOCH]: Routes.LATEST_EPOCH,
+    [JSONRpcMethods.GET_EPOCH_BY_NUMBER]: Routes.EPOCH_BY_NUMBER,
+    [JSONRpcMethods.GET_EPOCH_BY_HASH]: Routes.EPOCH_BY_HASH,
+    [JSONRpcMethods.GET_EPOCH_TEMPLATE]: Routes.EPOCH_TEMPLATE,
+    [JSONRpcMethods.SUBMIT_EPOCH]: Routes.SUBMIT_EPOCH,
 };

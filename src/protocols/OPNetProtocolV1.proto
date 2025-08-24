@@ -103,8 +103,9 @@ message BroadcastTransaction {
 
 message OPNetBlockWitness {
   bytes signature = 1;
-  optional bytes opnetPubKey = 2;
-  optional string identity = 3;
+  uint64 timestamp = 2;
+  optional bytes publicKey = 3;
+  optional string identity = 4;
 }
 
 message ChecksumProof {

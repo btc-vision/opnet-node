@@ -33,7 +33,8 @@ export default tseslint.config(
             'max-depth': ['error', 8],
             '@typescript-eslint/require-await': 'warn',
             '@typescript-eslint/no-unnecessary-type-arguments': 'off',
-            'no-debugger': 'off'
+            'no-debugger': 'off',
+            '@typescript-eslint/no-unnecessary-type-conversion': 'warn',
         },
     },
     {

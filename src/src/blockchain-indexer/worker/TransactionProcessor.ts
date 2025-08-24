@@ -4,6 +4,7 @@ import { InteractionTransaction } from '../processor/transaction/transactions/In
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { MsgError, MsgFromMain, MsgResult, MsgToMain } from './interfaces.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import { Address } from '@btc-vision/transaction';
 
 const port: MessagePort = (() => {
     if (parentPort == null) {
@@ -28,12 +29,16 @@ port.on('message', (msg: MsgFromMain): void => {
         );
 
         const buf = msg.allowedPreimages.map((preimage) => Buffer.from(preimage, 'hex'));
-        itx.verifyPreImage = (preimage: Buffer) => {
+        itx.verifyPreImage = (_miner: Address, preimage: Buffer) => {
+            console.warn('!!! verifyPreImage is not implemented in TxParseWorker !!!');
+
             const isValid = buf.some((allowedPreimage) => allowedPreimage.equals(preimage));
 
             if (!isValid) {
                 throw new Error('Invalid preimage');
             }
+
+            // TODO: ADD NEW IMPLEMENTATION.
         };
 
         itx.parseTransaction(data.vin, data.vout);
@@ -44,8 +49,6 @@ port.on('message', (msg: MsgFromMain): void => {
         };
         port.postMessage(out satisfies MsgToMain);
     } catch (err) {
-        console.log(err);
-
         const out: MsgError = {
             id: msg.id,
             error: err instanceof Error ? err.message : String(err),

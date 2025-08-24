@@ -20,6 +20,7 @@ import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
 import { BlockHeaderAPIBlockDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { P2PMajorVersion, P2PVersion } from '../poa/configurations/P2PVersion.js';
+import { DataConverter } from '@btc-vision/bsi-db';
 
 Globals.register();
 
@@ -56,6 +57,15 @@ export class Server extends Logger {
     private readonly storage: VMStorage = new VMMongoStorage(Config);
 
     #blockchainInformationRepository: BlockchainInfoRepository | undefined;
+
+    //private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
+    /*private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
+        Config,
+        this.currentAuthority,
+    );*/
+
+    private lastMiningEpoch: bigint = 0n;
+    private lastFinalizedEpoch: bigint = -1n;
 
     public constructor() {
         super();
@@ -126,7 +136,9 @@ export class Server extends Logger {
     private globalErrorHandler(_request: Request, response: Response, _error: Error): void {
         response.status(500);
 
-        this.error(`API Error: ${_error.stack}`);
+        if (Config.DEV_MODE) {
+            this.error(`Error details: ${_error.stack}`);
+        }
 
         response.json({
             error: 'Something went wrong.',
@@ -139,8 +151,25 @@ export class Server extends Logger {
                 OPNetConsensus.setBlockHeight(blockHeight);
 
                 await this.notifyAllRoutesOfBlockChange(blockHeight);
+
+                // Check for mining epoch change
+                const currentMiningEpoch = OPNetConsensus.calculateCurrentEpoch(blockHeight);
+                if (this.lastMiningEpoch !== currentMiningEpoch) {
+                    this.lastMiningEpoch = currentMiningEpoch;
+                    this.notifyAllRoutesOfMiningEpochChange(currentMiningEpoch);
+                }
+
+                // Check if we have entered a new epoch since last notification
+                const currentEpoch = OPNetConsensus.calculateCurrentEpoch(blockHeight - 1n);
+                const highestPossibleFinalizedEpoch = currentEpoch > 0n ? currentEpoch - 1n : -1n;
+
+                if (highestPossibleFinalizedEpoch > this.lastFinalizedEpoch) {
+                    this.lastFinalizedEpoch = highestPossibleFinalizedEpoch;
+
+                    await this.notifyAllRoutesOfEpochFinalized(highestPossibleFinalizedEpoch);
+                }
             } catch (e) {
-                this.error(`Error setting block height. ${(e as Error).message}`);
+                this.error(`Error processing block height change: ${(e as Error).message}`);
             }
         });
 
@@ -155,12 +184,6 @@ export class Server extends Logger {
             throw new Error(`Block header not found at height ${height}.`);
         }
 
-        /*if (height < BigInt(header.height)) {
-            throw new Error(
-                `Block header height (${header.height}) does not match block height (${height}).`,
-            );
-        }*/
-
         for (const route of Object.values(DefinedRoutes)) {
             route.onBlockChange(height, header);
         }
@@ -168,9 +191,56 @@ export class Server extends Logger {
         this.notifyWebsocketsOfBlockChange(height, header);
     }
 
+    private notifyAllRoutesOfMiningEpochChange(newMiningEpoch: bigint): void {
+        for (const route of Object.values(DefinedRoutes)) {
+            try {
+                route.onMiningEpochChange(newMiningEpoch);
+            } catch (e) {
+                this.error(`Error notifying route of mining epoch change: ${(e as Error).message}`);
+            }
+        }
+    }
+
+    private async notifyAllRoutesOfEpochFinalized(finalizedEpochNumber: bigint): Promise<void> {
+        if (finalizedEpochNumber < 0n) return;
+
+        try {
+            // Fetch the finalized epoch data from storage
+            const epochData = await this.storage.getEpochByNumber(finalizedEpochNumber);
+            if (!epochData) {
+                // This might happen if finalization is still in progress
+                this.warn(
+                    `!!!! --- Epoch ${finalizedEpochNumber} not found in storage yet --- !!!!`,
+                );
+                return;
+            }
+
+            // Verify we got the right epoch
+            const storedEpochNumber = DataConverter.fromDecimal128(epochData.epochNumber);
+            if (storedEpochNumber !== finalizedEpochNumber) {
+                throw new Error(
+                    `Epoch number mismatch: expected ${finalizedEpochNumber}, got ${storedEpochNumber}`,
+                );
+            }
+
+            // Notify all routes with the full epoch data
+            for (const route of Object.values(DefinedRoutes)) {
+                try {
+                    route.onEpochFinalized(finalizedEpochNumber, epochData);
+                } catch (e) {
+                    this.error(
+                        `Error notifying route of epoch finalization: ${(e as Error).message}`,
+                    );
+                }
+            }
+        } catch (e) {
+            this.error(`Failed to notify routes of epoch finalization: ${(e as Error).message}`);
+        }
+    }
+
     private notifyWebsocketsOfBlockChange(
-        blockHeight: bigint,
-        blockHeader: BlockHeaderAPIBlockDocument,
+        _blockHeight: bigint,
+        _blockHeader: BlockHeaderAPIBlockDocument,
     ): void {
         // TODO: Implement websocket notifications.
     }

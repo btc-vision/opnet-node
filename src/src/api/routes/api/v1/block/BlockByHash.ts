@@ -7,6 +7,7 @@ import { BlockByHashParams } from '../../../../json-rpc/types/interfaces/params/
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
 import { BlockRoute } from './BlockRoute.js';
 import { BlockParamsConverter } from '../../../safe/BlockParamsConverter.js';
+import { Config } from '../../../../../config/Config.js';
 
 export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
     constructor() {
@@ -32,6 +33,10 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
         } catch (e) {
             this.decrementPendingRequests();
 
+            if (Config.DEV_MODE) {
+                this.error(`Error details: ${(e as Error).stack}`);
+            }
+
             throw new Error(`Something went wrong.`);
         }
 
@@ -51,7 +56,7 @@ export class BlockByHash extends BlockRoute<Routes.BLOCK_BY_HASH> {
      * GET /api/v1/block/by-hash
      * @tag Block
      * @summary Get a block and its transactions by height.
-     * @queryParam {string} [hash] - The height of the block to fetch.
+     * @queryParam {string} [hash] - The block hash to search for.
      * @queryParam {boolean} [sendTransactions] - Whether to include transactions in the response.
      * @description Get the requested block and its transactions.
      * @response 200 - Return the requested block and its transactions.

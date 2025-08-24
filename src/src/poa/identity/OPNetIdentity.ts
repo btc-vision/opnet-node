@@ -11,6 +11,7 @@ import { OPNetPathFinder } from './OPNetPathFinder.js';
 import { TrustedAuthority } from '../configurations/manager/TrustedAuthority.js';
 import { EcKeyPair } from '@btc-vision/transaction';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
+import Long from 'long';
 
 export class OPNetIdentity extends OPNetPathFinder {
     public readonly network: Network = NetworkConverter.getNetwork();
@@ -154,15 +155,15 @@ export class OPNetIdentity extends OPNetPathFinder {
     // PoC: Proof of Computational Acknowledgment
     public verifyAcknowledgment(data: Buffer, witness: OPNetBlockWitness): boolean {
         if (!data) return false;
-        if (!witness.opnetPubKey) return false;
+        if (!witness.publicKey) return false;
         if (!witness.identity) return false;
 
-        if (!this.verifyOPNetIdentity(witness.identity, witness.opnetPubKey)) return false;
+        if (!this.verifyOPNetIdentity(witness.identity, witness.publicKey)) return false;
 
         return this.keyPairGenerator.verifyOPNetSignature(
             data,
             witness.signature,
-            witness.opnetPubKey,
+            witness.publicKey,
         );
     }
 
@@ -188,18 +189,34 @@ export class OPNetIdentity extends OPNetPathFinder {
     }
 
     public acknowledgeData(data: Buffer): OPNetBlockWitness {
+        const now = BigInt(Date.now());
+        const witnessData = this.mergeDataAndWitness(data, now);
+
         return {
-            signature: this.keyPairGenerator.sign(data, this.keyPair.privateKey),
+            signature: this.keyPairGenerator.sign(witnessData, this.keyPair.privateKey),
+            timestamp: Long.fromBigInt(now, true),
             identity: this.opnetAddress,
-            opnetPubKey: this.keyPair.publicKey,
+            publicKey: this.keyPair.publicKey,
         };
+    }
+
+    public mergeDataAndWitness(blockChecksumHash: Buffer, timestamp: bigint): Buffer {
+        const data = Buffer.alloc(40);
+        blockChecksumHash.copy(data, 0, 0, 32);
+        data.writeBigUint64BE(timestamp, 32);
+
+        return data;
     }
 
     public acknowledgeTrustedData(data: Buffer): OPNetBlockWitness {
         if (!this.opnetWallet.privateKey) throw new Error('Private key not found');
 
+        const now = BigInt(Date.now());
+        const witnessData = this.mergeDataAndWitness(data, now);
+
         return {
-            signature: this.keyPairGenerator.sign(data, this.keyPair.trusted.privateKey),
+            signature: this.keyPairGenerator.sign(witnessData, this.keyPair.trusted.privateKey),
+            timestamp: Long.fromBigInt(now, true),
             identity: this.trustedIdentity,
         };
     }

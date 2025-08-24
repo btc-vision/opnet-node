@@ -3,7 +3,13 @@ import { UTXOsAggregationV2 } from './UTXOsAggregationV2.js';
 
 export class BalanceOfAggregationV2 extends UTXOsAggregationV2 {
     public getAggregation(wallet: string, filterOrdinals: boolean = true): Document[] {
-        const aggregation: Document[] = super.getAggregation(wallet, false, filterOrdinals, false);
+        const aggregation: Document[] = super.getAggregation(
+            wallet,
+            false,
+            filterOrdinals,
+            false,
+            undefined,
+        );
 
         aggregation.push({
             $group: {

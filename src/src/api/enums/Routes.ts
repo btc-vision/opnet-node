@@ -3,11 +3,9 @@ export enum Routes {
     LATEST_BLOCK = 'block/latest',
     BLOCK_BY_HASH = 'block/by-hash',
     BLOCK_BY_ID = 'block/by-id',
+    BLOCK_BY_CHECKSUM = 'block/by-checksum',
     BLOCK_WITNESS = 'block/block-witness',
     GAS = 'block/gas',
-
-    /** Disabled 2024-11-07 */
-    //GENERATE = 'opnet/generate',
 
     /** Chain */
     CHAIN_ID = 'chain/id',
@@ -28,6 +26,14 @@ export enum Routes {
     GET_CODE = 'states/get-code',
     GET_STORAGE_AT = 'states/get-storage-at',
     CALL = 'states/call',
+
+    /** Epoch */
+    EPOCH_BY_NUMBER = 'epoch/by-number',
+    EPOCH_BY_HASH = 'epoch/by-hash',
+    LATEST_EPOCH = 'epoch/latest',
+
+    SUBMIT_EPOCH = 'epoch/submit',
+    EPOCH_TEMPLATE = 'epoch/template',
 
     /** Other */
     PROTOBUF_SCHEMA = 'protobuf/schema',

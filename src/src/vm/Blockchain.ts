@@ -1,4 +1,4 @@
-import { RustContractBinding } from './isolated/RustContractBindings.js';
+import { RustContractBinding } from './rust/RustContractBindings.js';
 import {
     AccountTypeResponse,
     BlockHashRequest,

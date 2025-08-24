@@ -12,6 +12,7 @@ import { Network } from '@btc-vision/bitcoin';
 import { VMManager } from '../../../vm/VMManager.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { BlockGasPredictor } from '../gas/BlockGasPredictor.js';
+import { EpochManager } from '../epoch/EpochManager.js';
 
 export class IndexingTask extends Logger {
     public readonly logColor: string = '#9545c5';
@@ -57,9 +58,6 @@ export class IndexingTask extends Logger {
 
     private _block: Block | null = null;
 
-    /**
-     * Expose the block if processed. Throws if not processed yet.
-     */
     public get block(): Block {
         if (!this._block) {
             throw new Error('Task not processed.');
@@ -67,22 +65,12 @@ export class IndexingTask extends Logger {
         return this._block;
     }
 
-    /**
-     * A convenience getter to check if the task has been aborted.
-     */
     public get aborted(): boolean {
         return !this._abortController || this.abortController.signal.aborted;
     }
 
-    /**
-     * We keep the AbortController in a nullable field.
-     */
     private _abortController: AbortController | null = new AbortController();
 
-    /**
-     * Safely retrieve our internal AbortController,
-     * throws if it's been destroyed (null).
-     */
     private get abortController(): AbortController {
         if (!this._abortController) {
             throw new Error('Abort controller not set');
@@ -105,10 +93,6 @@ export class IndexingTask extends Logger {
         throw new Error('verifyReorg not implemented.');
     };
 
-    /**
-     * Clean up references, remove event listeners, and
-     * null out our AbortController so it can be GC'd.
-     */
     public destroy(): void {
         // Avoid calls after we've already destroyed
         if (!this._abortController) {
@@ -127,11 +111,7 @@ export class IndexingTask extends Logger {
         this.clear();
     }
 
-    /**
-     * Main process method: waits for prefetch, processes the block, finalizes it,
-     * and calls onComplete if successful.
-     */
-    public async process(): Promise<void> {
+    public async process(epochManager: EpochManager): Promise<void> {
         this.processedAt = Date.now();
 
         if (!this.prefetchPromise) {
@@ -139,10 +119,13 @@ export class IndexingTask extends Logger {
         }
 
         try {
-            // 1. Wait for the prefetch to complete
-            const response = await this.prefetchPromise.catch((error: unknown) => {
-                throw error as Error;
-            });
+            // Wait for the prefetch to complete
+            this.startPrepare = Date.now();
+
+            const [response, challengeSolutions] = await Promise.safeAll([
+                this.prefetchPromise,
+                this.vmStorage.getChallengeSolutionsAtHeight(this.tip),
+            ]);
 
             this.prefetchPromise = null;
             if (response) {
@@ -150,12 +133,12 @@ export class IndexingTask extends Logger {
                 throw response;
             }
 
-            this.startPrepare = Date.now();
+            this.block.setChallengeSolutions(challengeSolutions);
             this.block.prepare();
             this.endPrepare = Date.now();
 
-            // 2. Process block
-            await this.processBlock();
+            // Process block
+            await this.processBlock(epochManager);
 
             // If the block was reverted
             if (this.block.reverted) {
@@ -164,7 +147,7 @@ export class IndexingTask extends Logger {
 
             this.finalizeBlockStart = Date.now();
 
-            // 3. Finalize the block
+            // Finalize the block
             const resp = await Promise.safeAll([
                 this.vmStorage.deleteTransactionsById(this.block.getTransactionsHashes()),
                 this.block.finalizeBlock(this.vmManager),
@@ -178,21 +161,19 @@ export class IndexingTask extends Logger {
                 return;
             }
 
-            // 4. Verify finalization
+            // Verify finalization
             if (!resp[1]) {
                 throw new Error('Block finalization failed');
             }
 
-            // 5. Notify chain observer
+            // Notify chain observer
             await this.onComplete();
         } catch (e) {
-            // Destroy task
             this.destroy();
 
             throw e;
         }
 
-        // Logging
         if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
             const processEndTime = Date.now();
             const scale = BlockGasPredictor.scalingFactor / 100_000n;
@@ -216,9 +197,6 @@ export class IndexingTask extends Logger {
         }
     }
 
-    /**
-     * Cancels the task (due to reorg or other reasons).
-     */
     public async cancel(reorged: boolean): Promise<void> {
         this.chainReorged = reorged;
         if (this._abortController) {
@@ -233,9 +211,6 @@ export class IndexingTask extends Logger {
         this.destroy();
     }
 
-    /**
-     * Prefetch block data
-     */
     public prefetch(): void {
         if (Config.DEBUG_LEVEL > DebugLevel.DEBUG) {
             this.debug(`Prefetching block ${this.tip}`);
@@ -253,19 +228,13 @@ export class IndexingTask extends Logger {
         );
     }
 
-    /**
-     * We'll store the abort callback here so we can remove it in `destroy()`.
-     */
     private onAbortHandler = () => {
         if (this.prefetchPromise && this.prefetchResolver) {
             this.prefetchResolver(new Error('Task aborted'));
         }
     };
 
-    /**
-     * Perform all steps needed to process the block.
-     */
-    private async processBlock(): Promise<void> {
+    private async processBlock(epochManager: EpochManager): Promise<void> {
         // Define consensus block height
         const cannotProceed = this.consensusTracker.setConsensusBlockHeight(this.tip);
         if (cannotProceed) {
@@ -280,6 +249,9 @@ export class IndexingTask extends Logger {
 
             // Process the block
             await this.block.execute(this.vmManager, this.specialTransactionManager);
+
+            // Update epoch submissions
+            await this.block.processSubmissions(this.vmManager.getVMStorage(), epochManager);
         } catch (e) {
             await this.revertBlock(e as Error);
 
@@ -295,9 +267,6 @@ export class IndexingTask extends Logger {
         }
     }
 
-    /**
-     * Revert the block on error.
-     */
     private async revertBlock(error: Error): Promise<void> {
         await this.vmStorage.killAllPendingWrites();
 
@@ -310,19 +279,12 @@ export class IndexingTask extends Logger {
         throw new Error(`Block ${this.tip} reverted: ${error.stack}`);
     }
 
-    /**
-     * Clear local references.
-     */
     private clear(): void {
         this._blockHash = null;
         this.prefetchPromise = null;
         this.prefetchResolver = null;
     }
 
-    /**
-     * Requests a block from another thread (via sendMessageToThread) and
-     * measures time metrics.
-     */
     private async requestBlock(tip: bigint): Promise<Block> {
         this.downloadStart = Date.now();
         const blockData = (await this.sendMessageToThread(ThreadTypes.SYNCHRONISATION, {
@@ -347,17 +309,11 @@ export class IndexingTask extends Logger {
 
         return new Block({
             ...blockData,
-            allowedPreimages: blockData.allowedPreimages.map((preimage: Uint8Array) =>
-                Buffer.from(preimage),
-            ),
             network: this.network,
             abortController: this._abortController,
         });
     }
 
-    /**
-     * Internal method that actually kicks off the prefetch logic.
-     */
     private async processPrefetch(): Promise<void> {
         if (!this.prefetchResolver) {
             throw new Error('Prefetch resolver not set');

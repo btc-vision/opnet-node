@@ -1,35 +1,19 @@
 import { Transaction } from '../Transaction.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
-import { AccessListFeature, Feature, Features } from '../features/Features.js';
+import {
+    AccessListFeature,
+    EpochSubmissionFeature,
+    Feature,
+    Features,
+} from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { opcodes, payments } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import { Address, AddressMap, BinaryReader } from '@btc-vision/transaction';
 import { SpecialContract } from '../../../../poa/configurations/types/SpecialContracts.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
-
-export class ScriptReader {
-    public pos = 0;
-
-    constructor(private readonly src: ReadonlyArray<number | Buffer>) {}
-
-    take<T extends number | Buffer>(): T {
-        const v = this.src[this.pos++] as T;
-        if (v === undefined) throw new Error('unexpected end-of-script');
-        return v;
-    }
-
-    expect(op: number): void {
-        if (this.take<number>() !== op) {
-            throw new Error(`opcode 0x${op.toString(16)} expected`);
-        }
-    }
-
-    /** zero-copy view of the unread tail */
-    tail(): ReadonlyArray<number | Buffer> {
-        return this.src.slice(this.pos);
-    }
-}
+import { Submission } from '../features/Submission.js';
+import { timingSafeEqual } from 'node:crypto';
 
 export abstract class SharedInteractionParameters<
     T extends OPNetTransactionTypes,
@@ -39,6 +23,7 @@ export abstract class SharedInteractionParameters<
     protected features: Feature<Features>[] = [];
 
     protected _accessList: AddressMap<Uint8Array[]> | undefined;
+
     protected _calldata: Buffer | undefined;
 
     public get calldata(): Buffer {
@@ -120,6 +105,15 @@ export abstract class SharedInteractionParameters<
             return;
         }
 
+        const miner = scriptData.shift();
+        if (!Buffer.isBuffer(miner) || miner.length !== 33) {
+            return;
+        }
+
+        if (scriptData.shift() !== opcodes.OP_TOALTSTACK) {
+            return;
+        }
+
         const preimage = scriptData.shift();
         if (
             !Buffer.isBuffer(preimage) ||
@@ -132,7 +126,7 @@ export abstract class SharedInteractionParameters<
             return;
         }
 
-        return new OPNetHeader(header, preimage);
+        return new OPNetHeader(header, miner, preimage);
     }
 
     protected static decodeFeatures(
@@ -169,6 +163,11 @@ export abstract class SharedInteractionParameters<
         } else {
             return Address.fromString(str);
         }
+    }
+
+    protected safeEq(a: Buffer, b: Buffer): boolean {
+        if (a.length !== b.length) return false;
+        return timingSafeEqual(a, b);
     }
 
     protected decodeAddress(outputWitness: TransactionOutput): string | undefined {
@@ -209,10 +208,39 @@ export abstract class SharedInteractionParameters<
                 break;
             }
 
+            case Features.EPOCH_SUBMISSION: {
+                this._submission = this.decodeEpochSubmission(feature as EpochSubmissionFeature);
+                break;
+            }
+
             default: {
                 throw new Error(`Feature ${feature.opcode} not implemented`);
             }
         }
+    }
+
+    private decodeEpochSubmission(feature: EpochSubmissionFeature): Submission {
+        const data: Buffer = feature.data;
+
+        if (data.length > 32 + 33 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
+            throw new Error(`OP_NET: Invalid epoch submission feature data length.`);
+        }
+
+        const binaryReader = new BinaryReader(data);
+        const publicKey = binaryReader.readBytes(33);
+        const solution = binaryReader.readBytes(32);
+        const bytesLeft = data.length - 65;
+
+        let graffiti: Uint8Array | undefined;
+        if (bytesLeft > 0 && bytesLeft <= OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
+            graffiti = binaryReader.readBytesWithLength(bytesLeft);
+        }
+
+        return {
+            publicKey: Buffer.from(publicKey),
+            salt: Buffer.from(solution),
+            graffiti: graffiti ? Buffer.from(graffiti) : undefined,
+        };
     }
 
     private decodeAccessList(feature: AccessListFeature): AddressMap<Uint8Array[]> {

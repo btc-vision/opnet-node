@@ -31,19 +31,25 @@ import { GenericTransaction } from '../transaction/transactions/GenericTransacti
 import assert from 'node:assert';
 import { BlockGasPredictor, CalculatedBlockGas } from '../gas/BlockGasPredictor.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
-import { Long } from 'mongodb';
+import { Binary, Long } from 'mongodb';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 import { ContractEvaluation } from '../../../vm/runtime/classes/ContractEvaluation.js';
-import { RustContract } from '../../../vm/isolated/RustContract.js';
+import { RustContract } from '../../../vm/rust/RustContract.js';
 import { SharedInteractionParameters } from '../transaction/transactions/SharedInteractionParameters.js';
 import { AddressCache, AddressCacheExport } from '../AddressCache.js';
+import { ChallengeSolution } from '../interfaces/TransactionPreimage.js';
+import { VMStorage } from '../../../vm/storage/VMStorage.js';
+import { EpochManager, ValidatedSolutionResult } from '../epoch/EpochManager.js';
+import { Submission } from '../transaction/features/Submission.js';
+import { PendingTargetEpoch } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
+import { IEpochSubmissionsDocument } from '../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
     abortController: AbortController;
     network: Network;
 
-    readonly allowedPreimages: Buffer[];
+    allowedSolutions?: ChallengeSolution;
 
     readonly processEverythingAsGeneric?: boolean;
 }
@@ -96,10 +102,8 @@ export class Block extends Logger {
 
     protected readonly signal: AbortSignal;
     protected readonly network: Network;
+
     protected readonly abortController: AbortController;
-
-    protected readonly allowedPreimages: Buffer[];
-
     private rawTransactionData: TransactionData[] | undefined;
 
     // Private
@@ -111,7 +115,6 @@ export class Block extends Logger {
     private specialTransaction: Transaction<OPNetTransactionTypes>[] = [];
 
     private specialExecutionPromise: Promise<void> | undefined;
-    #compromised: boolean = false;
 
     #_storageRoot: string | undefined;
     #_receiptRoot: string | undefined;
@@ -122,12 +125,21 @@ export class Block extends Logger {
 
     private saveGenericPromises: Promise<void>[] = [];
     private _predictedGas: CalculatedBlockGas | undefined;
-
     private blockUsedGas: bigint = 0n;
-    private readonly processEverythingAsGeneric: boolean = false;
 
+    private readonly processEverythingAsGeneric: boolean = false;
     private readonly _blockHashBuffer: Buffer;
     private readonly addressCache: AddressCache;
+
+    private epochSubmissions: Map<
+        string,
+        {
+            submission: Submission;
+            validationResult: ValidatedSolutionResult | null;
+            transactionId: string;
+            txHash: string;
+        }
+    > = new Map();
 
     private transactionOrder: string[] | undefined;
 
@@ -149,11 +161,7 @@ export class Block extends Logger {
         this.header = new BlockHeader(params.header);
         this._blockHashBuffer = Buffer.from(this.header.hash, 'hex');
 
-        this.allowedPreimages = params.allowedPreimages;
-
-        if (!this.allowedPreimages) {
-            throw new Error('Allowed preimages not found');
-        }
+        this._allowedSolutions = params.allowedSolutions;
 
         this.processEverythingAsGeneric = params.processEverythingAsGeneric || false;
 
@@ -238,10 +246,6 @@ export class Block extends Logger {
         return this.#_storageRoot;
     }
 
-    public get compromised(): boolean {
-        return this.#compromised;
-    }
-
     public get version(): number {
         return this.header.version;
     }
@@ -280,6 +284,16 @@ export class Block extends Logger {
         return this.#_checksumProofs;
     }
 
+    protected _allowedSolutions?: ChallengeSolution;
+
+    private get allowedSolutions(): ChallengeSolution {
+        if (!this._allowedSolutions) {
+            throw new Error('Allowed solutions are mandatory for deserialization.');
+        }
+
+        return this._allowedSolutions;
+    }
+
     private _prevEMA: bigint = 0n;
 
     private get prevEMA(): bigint {
@@ -305,8 +319,27 @@ export class Block extends Logger {
         return this._blockGasPredictor;
     }
 
+    public setChallengeSolutions(solutions: ChallengeSolution): void {
+        if (this._allowedSolutions) {
+            throw new Error('Allowed solutions already set');
+        }
+
+        this._allowedSolutions = solutions;
+    }
+
     public getAddressCache(): AddressCacheExport {
         return this.addressCache.export();
+    }
+
+    public prepare(): void {
+        if (this.processed) {
+            throw new Error('Block already processed');
+        }
+
+        this.deserialize(true, this.transactionOrder);
+        this.transactionOrder = [];
+
+        this.processed = true;
     }
 
     /*public static fromTransfer(dto: BlockTransferShape, network: Network): Block {
@@ -328,17 +361,6 @@ export class Block extends Logger {
 
         return reconstructed;
     }*/
-
-    public prepare(): void {
-        if (this.processed) {
-            throw new Error('Block already processed');
-        }
-
-        this.deserialize(true, this.transactionOrder);
-        this.transactionOrder = [];
-
-        this.processed = true;
-    }
 
     public setRawTransactionData(rawTransactionData: TransactionData[]): void {
         this.rawTransactionData = rawTransactionData;
@@ -404,6 +426,13 @@ export class Block extends Logger {
         this.defineGeneric();
     }
 
+    /** Get all transactions hashes of this block */
+    public getTransactionsHashes(): string[] {
+        return this.transactions.map((transaction: Transaction<OPNetTransactionTypes>) => {
+            return transaction.transactionIdString;
+        });
+    }
+
     /*public toTransfer(): BlockTransferTuple {
         const transferList: Transferable[] = [
             //this._blockHashBuffer.buffer,
@@ -422,13 +451,6 @@ export class Block extends Logger {
 
         return [dto, transferList];
     }*/
-
-    /** Get all transactions hashes of this block */
-    public getTransactionsHashes(): string[] {
-        return this.transactions.map((transaction: Transaction<OPNetTransactionTypes>) => {
-            return transaction.transactionIdString;
-        });
-    }
 
     public getUTXOs(): ITransactionDocumentBasic<OPNetTransactionTypes>[] {
         return this.transactions.map((t) => t.toBitcoinDocument());
@@ -543,6 +565,26 @@ export class Block extends Logger {
         this.#_receiptRoot = ZERO_HASH;
 
         await this.signBlock(vmManager);
+    }
+
+    public async processSubmissions(
+        vmStorage: VMStorage,
+        epochManager: EpochManager,
+    ): Promise<void> {
+        const currentEpoch = this.height / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+
+        // Extract and dedupe submissions directly into this.epochSubmissions
+        this.extractUniqueSubmissions();
+
+        // Batch check existence and remove existing ones
+        await this.filterExistingSubmissions(epochManager, currentEpoch);
+
+        const pendingTarget = await epochManager.getPendingEpochTarget(currentEpoch);
+
+        // Validate submissions synchronously and remove invalid ones
+        this.validateSubmissions(epochManager, pendingTarget);
+
+        await this.saveEpochSubmissions(vmStorage);
     }
 
     /** Block States Processing */
@@ -667,6 +709,177 @@ export class Block extends Logger {
         }
 
         this.verifyTransaction(transaction);
+    }
+
+    private extractUniqueSubmissions(): void {
+        for (const transaction of this.transactions) {
+            if (!transaction.submission) {
+                continue;
+            }
+
+            const submissionData = transaction.submission;
+            const key = this.generateSubmissionKey(submissionData);
+
+            // Skip if already processed
+            if (this.epochSubmissions.has(key)) {
+                if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+                    this.debug(
+                        `Skipping duplicate epoch submission in tx ${transaction.transactionIdString} (salt+pubkey already seen)`,
+                    );
+                }
+                continue;
+            }
+
+            this.epochSubmissions.set(key, {
+                submission: submissionData,
+                validationResult: null,
+                transactionId: transaction.transactionIdString,
+                txHash: transaction.hash.toString('hex'),
+            });
+        }
+    }
+
+    private async filterExistingSubmissions(
+        epochManager: EpochManager,
+        currentEpoch: bigint,
+    ): Promise<void> {
+        const existenceChecks = Array.from(this.epochSubmissions.entries()).map(([key, data]) => ({
+            key,
+            promise: epochManager.submissionExists(
+                currentEpoch,
+                data.submission.salt,
+                data.submission.publicKey,
+            ),
+        }));
+
+        try {
+            const results = await Promise.safeAll(existenceChecks.map((check) => check.promise));
+
+            // Remove existing submissions
+            for (let i = 0; i < results.length; i++) {
+                const exists = results[i];
+                const { key } = existenceChecks[i];
+
+                if (exists) {
+                    if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                        const data = this.epochSubmissions.get(key);
+                        this.debug(
+                            `Epoch submission in tx ${data?.transactionId} already exists in database`,
+                        );
+                    }
+
+                    this.epochSubmissions.delete(key);
+                }
+            }
+        } catch (error) {
+            if (Config.DEBUG_LEVEL >= DebugLevel.ERROR) {
+                this.error(`Failed to check existence for submissions: ${error}`);
+            }
+            // Clear all submissions on error to be safe
+            this.epochSubmissions.clear();
+        }
+    }
+
+    private validateSubmissions(
+        epochManager: EpochManager,
+        pendingTarget: PendingTargetEpoch,
+    ): void {
+        const keysToRemove: string[] = [];
+
+        for (const [key, data] of this.epochSubmissions) {
+            const validationResult: ValidatedSolutionResult = epochManager.validateEpochSubmission(
+                data.submission,
+                this.height,
+                pendingTarget,
+            );
+
+            if (!validationResult.valid) {
+                if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
+                    this.warn(`Invalid epoch submission in tx ${data.transactionId}`);
+                }
+
+                keysToRemove.push(key);
+                continue;
+            }
+
+            data.validationResult = validationResult;
+        }
+
+        for (const key of keysToRemove) {
+            this.epochSubmissions.delete(key);
+        }
+    }
+
+    private generateSubmissionKey(submission: Submission): string {
+        return `${submission.salt.toString('hex')}-${submission.publicKey.toString('hex')}`;
+    }
+
+    private async saveEpochSubmissions(vmStorage: VMStorage): Promise<void> {
+        if (this.epochSubmissions.size === 0) {
+            return;
+        }
+
+        const currentEpoch = this.height / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
+        const submissions: IEpochSubmissionsDocument[] = [];
+
+        for (const data of this.epochSubmissions.values()) {
+            if (!data.validationResult || !data.validationResult.valid) {
+                continue;
+            }
+
+            const submission = data.submission;
+            const validationResult = data.validationResult;
+
+            const epochSubmissionDoc: IEpochSubmissionsDocument = {
+                confirmedAt: DataConverter.toDecimal128(this.height),
+                epochNumber: DataConverter.toDecimal128(currentEpoch),
+                startBlock: DataConverter.toDecimal128(
+                    currentEpoch * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH,
+                ),
+
+                submissionTxId: new Binary(Buffer.from(data.transactionId, 'hex')),
+                submissionTxHash: new Binary(Buffer.from(data.txHash, 'hex')),
+
+                submissionHash: new Binary(validationResult.hash),
+
+                epochProposed: {
+                    solution: new Binary(validationResult.hash),
+                    publicKey: new Binary(submission.publicKey),
+                    salt: new Binary(submission.salt),
+                    graffiti: submission.graffiti ? new Binary(submission.graffiti) : undefined,
+                },
+            };
+
+            submissions.push(epochSubmissionDoc);
+
+            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.debug(
+                    `Saving epoch submission for tx ${data.transactionId} with ${validationResult.matchingBits} matching bits`,
+                );
+            }
+        }
+
+        if (submissions.length > 0) {
+            try {
+                // Save all submissions in parallel
+                const savePromises = submissions.map((submission) =>
+                    vmStorage.saveSubmission(submission),
+                );
+
+                await Promise.safeAll(savePromises);
+
+                if (Config.DEV_MODE) {
+                    this.debugBright(
+                        `Saved ${submissions.length} epoch submissions for epoch ${currentEpoch} at block ${this.height}`,
+                    );
+                }
+            } catch (error) {
+                this.error(`Failed to save epoch submissions: ${error}`);
+                throw error;
+            }
+        }
+
+        this.epochSubmissions.clear();
     }
 
     private processEvaluation(evaluation: ContractEvaluation, vmManager: VMManager): void {
@@ -1042,7 +1255,8 @@ export class Block extends Logger {
                 this.hash,
                 this.height,
                 this.network,
-                this.allowedPreimages,
+                this.allowedSolutions,
+                true,
                 this.addressCache,
             );
 

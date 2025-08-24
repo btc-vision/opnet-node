@@ -18,10 +18,11 @@ import {
 import { DBManagerInstance } from '../../../db/DBManager.js';
 import { IChainReorg } from '../../../threading/interfaces/thread-messages/messages/indexer/IChainReorg.js';
 import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
-import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { BasicBlockInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/BasicBlockInfo.js';
 import { Classification, Utxo, UtxoSorter } from '../solver/UTXOSorter.js';
 import { AnyoneCanSpendRepository } from '../../../db/repositories/AnyoneCanSpendRepository.js';
+import { ChallengeSolution } from '../../processor/interfaces/TransactionPreimage.js';
+import { AddressMap } from '@btc-vision/transaction';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -70,15 +71,15 @@ export class ChainSynchronisation extends Logger {
         return this._anyoneCanSpend;
     }
 
-    private _blockRepository: BlockRepository | undefined;
+    /*private _epochRepository: EpochRepository | undefined;
 
-    private get blockRepository(): BlockRepository {
-        if (!this._blockRepository) {
-            throw new Error('BlockRepository not initialized');
+    private get epochRepository(): EpochRepository {
+        if (!this._epochRepository) {
+            throw new Error('EpochRepository not initialized');
         }
 
-        return this._blockRepository;
-    }
+        return this._epochRepository;
+    }*/
 
     private _publicKeysRepository: PublicKeysRepository | undefined;
 
@@ -120,7 +121,7 @@ export class ChainSynchronisation extends Logger {
         this._unspentTransactionRepository = new UnspentTransactionRepository(DBManagerInstance.db);
         this._anyoneCanSpend = new AnyoneCanSpendRepository(DBManagerInstance.db);
         this._publicKeysRepository = new PublicKeysRepository(DBManagerInstance.db);
-        this._blockRepository = new BlockRepository(DBManagerInstance.db);
+        //this._epochRepository = new EpochRepository(DBManagerInstance.db);
 
         await this.startSaveLoop();
     }
@@ -256,7 +257,9 @@ export class ChainSynchronisation extends Logger {
     }
 
     private async awaitUTXOWrites(): Promise<void> {
-        this.warn('Awaiting UTXO writes to complete... May take a while.');
+        if (this.amountOfUTXOs > 20000) {
+            this.warn('Awaiting UTXO writes to complete... May take a while.');
+        }
 
         await this.saveUTXOs();
 
@@ -326,31 +329,13 @@ export class ChainSynchronisation extends Logger {
         return height;
     }
 
-    /**
-     * By default, this means that the minimum activation block for OPNet is block 100.
-     * On bitcoin, mined coins cant be spent before 100 blocks anyway.
-     * @param blockNumber
-     * @private
-     */
-    private async getPreimages(blockNumber: bigint): Promise<Buffer[]> {
-        const hashes = await this.blockRepository.getBlockPreimages(blockNumber);
-        if (!hashes.length) {
-            return [];
-        }
-
-        return hashes.map((hash) => Buffer.from(hash, 'hex'));
-    }
-
     // TODO: Move fetching to an other thread.
     private async queryBlock(blockNumber: bigint): Promise<DeserializedBlock> {
         return new Promise<DeserializedBlock>(async (resolve, reject) => {
             try {
                 this.bestTip = blockNumber;
 
-                const [blockData, allowedPreimages] = await Promise.safeAll([
-                    this.blockFetcher.getBlock(blockNumber),
-                    this.getPreimages(blockNumber),
-                ]);
+                const blockData = await this.blockFetcher.getBlock(blockNumber);
 
                 if (!blockData) {
                     const chainHeight = await this.getBlockHeightForEver();
@@ -367,12 +352,15 @@ export class ChainSynchronisation extends Logger {
                 const abortController = new AbortController();
                 this.abortControllers.set(blockNumber, abortController);
 
+                // const convertedSolutions = this.convertAllowedSolutions(allowedSolutions);
+
+                const solutions: ChallengeSolution = new AddressMap();
                 const block = new Block({
                     network: this.network,
                     abortController: abortController,
                     header: blockData,
                     processEverythingAsGeneric: true,
-                    allowedPreimages: allowedPreimages,
+                    allowedSolutions: solutions,
                 });
 
                 // Deserialize the block
@@ -383,7 +371,6 @@ export class ChainSynchronisation extends Logger {
                     header: block.header.toJSON(),
                     rawTransactionData: blockData.tx,
                     transactionOrder: undefined,
-                    allowedPreimages: allowedPreimages,
                     addressCache: map,
                 });
 

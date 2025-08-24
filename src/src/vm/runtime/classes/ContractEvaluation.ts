@@ -26,7 +26,7 @@ import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 import { AddressStack } from './AddressStack.js';
-import { RustContract } from '../../isolated/RustContract.js';
+import { RustContract } from '../../rust/RustContract.js';
 import {
     TransactionInputFlags,
     TransactionOutputFlags,

@@ -233,7 +233,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
     public async getWalletUnspentUTXOS(
         wallet: string,
         optimize: boolean = false,
-        currentSession?: ClientSession,
+        olderThan: bigint | undefined,
     ): Promise<UTXOSOutputTransaction[]> {
         // TODO: Add cursor page support.
         // TODO: Optimize this function so only legacy have raw transaction data added to them. (PERFORMANCE)
@@ -241,10 +241,12 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             wallet,
             true,
             optimize,
+            true,
+            olderThan,
         );
 
         const collection = this.getCollection();
-        const options = this.getOptions(currentSession) as AggregateOptions;
+        const options = this.getOptions() as AggregateOptions;
         options.allowDiskUse = true;
 
         try {
@@ -331,7 +333,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                     ) {
                         if (spent) {
                             spent.blockHeight = this.decimal128ToLong(transaction.blockHeight);
-                            spent.value = new Long(output.value); //this.decimal128ToLong(output.value);
+                            spent.value = new Long(output.value, true); //this.decimal128ToLong(output.value);
                             spent.scriptPubKey = {
                                 hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                 address: output.scriptPubKey.address ?? null,
@@ -342,7 +344,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                                 blockHeight: this.decimal128ToLong(transaction.blockHeight),
                                 transactionId: transaction.id,
                                 outputIndex: output.index,
-                                value: new Long(output.value),
+                                value: new Long(output.value, true),
                                 scriptPubKey: {
                                     hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                     address: output.scriptPubKey.address ?? null,

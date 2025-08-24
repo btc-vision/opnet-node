@@ -25,9 +25,9 @@ import { IReorgData } from '../../db/interfaces/IReorgDocument.js';
 import { VMManager } from '../../vm/VMManager.js';
 import { SpecialManager } from './special-transaction/SpecialManager.js';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
-import { Block } from './block/Block.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import fs from 'fs';
+import { EpochManager } from './epoch/EpochManager.js';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -66,6 +66,8 @@ export class BlockIndexer extends Logger {
         this.vmManager,
         this.rpcClient,
     );
+
+    private readonly epochManager: EpochManager = new EpochManager(this.vmStorage);
 
     private readonly network: Network = NetworkConverter.getNetwork();
 
@@ -280,15 +282,18 @@ export class BlockIndexer extends Logger {
         this.success(`Block header ready.`);
     }
 
-    private async processLightBlock(data: BlockDataWithTransactionData): Promise<boolean> {
+    private async processLightBlock(_data: BlockDataWithTransactionData): Promise<boolean> {
+        await Promise.resolve();
+        throw new Error('Light mode processing is not implemented yet.');
+
         // TODO: Finish this.
-        const abortController = new AbortController();
+        /*const abortController = new AbortController();
         const block = new Block({
             network: this.network,
             abortController: abortController,
             header: data,
             processEverythingAsGeneric: true,
-            allowedPreimages: [],
+            allowedSolutions: new AddressMap()
         });
 
         block.deserialize(false);
@@ -298,7 +303,7 @@ export class BlockIndexer extends Logger {
         this.vmManager.prepareBlock(block.height);
 
         await block.onEmptyBlock(this.vmManager);
-        return await block.finalizeBlock(this.vmManager);
+        return await block.finalizeBlock(this.vmManager);*/
     }
 
     private nodeSyncLightTargetBlock(): bigint {
@@ -519,16 +524,16 @@ export class BlockIndexer extends Logger {
         if (task.chainReorged || task.aborted) return;
 
         const processedBlock = task.block;
-        if (processedBlock.compromised) {
-            this.consensusTracker.lockdown();
-        }
 
-        // Update height.
-        await this.chainObserver.setNewHeight(task.tip);
+        // Update epoch.
+        await this.epochManager.updateEpoch(task);
 
         if (!this.taskInProgress) {
             throw new Error('Database corrupted. Two tasks are running at the same time.');
         }
+
+        // Update height.
+        await this.chainObserver.setNewHeight(task.tip);
 
         // Notify PoC
         void this.notifyBlockProcessed({
@@ -569,8 +574,8 @@ export class BlockIndexer extends Logger {
         try {
             this.currentTask = this.indexingTasks.shift();
             if (!this.currentTask) return;
-            
-            await this.currentTask.process();
+
+            await this.currentTask.process(this.epochManager);
 
             this.lastSyncErrored = false;
         } catch (e) {

@@ -3,31 +3,47 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
 import { BlockHeaderAPIDocumentWithTransactions } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 import { Routes } from '../../../../enums/Routes.js';
-import { BlockByIdParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByIdParams.js';
 import { BlockByIdResult } from '../../../../json-rpc/types/interfaces/results/blocks/BlockByIdResult.js';
-import { BlockParamsConverter, SafeBigInt } from '../../../safe/BlockParamsConverter.js';
 import { BlockRoute } from './BlockRoute.js';
+import { BlockParamsConverter, SafeString } from '../../../safe/BlockParamsConverter.js';
+import { BlockByChecksumParams } from '../../../../json-rpc/types/interfaces/params/blocks/BlockByChecksumParams.js';
+import { Config } from '../../../../../config/Config.js';
 
-export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
+export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
     constructor() {
-        super(Routes.BLOCK_BY_ID);
+        super(Routes.BLOCK_BY_CHECKSUM);
     }
 
     public async getData(
-        params: BlockByIdParams,
+        params: BlockByChecksumParams,
     ): Promise<BlockHeaderAPIDocumentWithTransactions | undefined> {
         this.incrementPendingRequests();
 
         let data: Promise<BlockHeaderAPIDocumentWithTransactions>;
         try {
-            const height: SafeBigInt = BlockParamsConverter.getParameterAsBigIntForBlock(params);
-            const includeTransactions: boolean = this.getParameterAsBoolean(params);
+            let blockChecksum: SafeString =
+                BlockParamsConverter.getParameterAsStringForBlock(params);
 
-            data = this.getCachedBlockData(includeTransactions, height);
+            blockChecksum = blockChecksum ? blockChecksum.replace('0x', '').toLowerCase() : null;
+            
+            const includeTransactions: boolean = this.getParameterAsBoolean(params);
+            if (!blockChecksum) {
+                throw new Error(
+                    `Could not find the block with the provided checksum ${blockChecksum}.`,
+                );
+            }
+
+            if (blockChecksum.length !== 64) throw new Error(`Invalid checksum length`);
+
+            data = this.getCachedBlockData(includeTransactions, undefined, blockChecksum, true);
         } catch (e) {
             this.decrementPendingRequests();
 
-            throw new Error('Something went wrong.');
+            if (Config.DEV_MODE) {
+                this.error(`Error details: ${(e as Error).stack}`);
+            }
+
+            throw new Error(`Something went wrong.`);
         }
 
         this.decrementPendingRequests();
@@ -35,7 +51,7 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
         return data;
     }
 
-    public async getDataRPC(params: BlockByIdParams): Promise<BlockByIdResult | undefined> {
+    public async getDataRPC(params: BlockByChecksumParams): Promise<BlockByIdResult | undefined> {
         const data = await this.getData(params);
         if (!data) throw new Error(`Block not found at given height.`);
 
@@ -43,10 +59,10 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
     }
 
     /**
-     * GET /api/v1/block/by-id
+     * GET /api/v1/block/by-checksum
      * @tag Block
      * @summary Get a block and its transactions by height.
-     * @queryParam {integer} [height] - The height of the block to fetch.
+     * @queryParam {string} [hash] - The block checksum to search for.
      * @queryParam {boolean} [sendTransactions] - Whether to include transactions in the response.
      * @description Get the requested block and its transactions.
      * @response 200 - Return the requested block and its transactions.
@@ -60,12 +76,16 @@ export class BlockById extends BlockRoute<Routes.BLOCK_BY_ID> {
                 throw new Error('Invalid params.');
             }
 
-            const height = req.query.height as string | undefined;
-            const bigintHeight = height ? BigInt(height) : -1;
+            const hash = req.query.hash as string | undefined;
+            if (!hash) {
+                res.status(400);
+                res.json({ error: 'Block hash not provided' });
+                return;
+            }
 
             const sendTransactions = req.query.sendTransactions === 'true';
             const data = await this.getData({
-                height: bigintHeight,
+                blockHash: hash,
                 sendTransactions: sendTransactions,
             });
 

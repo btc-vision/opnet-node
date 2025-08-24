@@ -46,18 +46,14 @@ import bitcoin, { Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { Blockchain } from './Blockchain.js';
 import { BlockHeaderValidator } from './BlockHeaderValidator.js';
-import { Config } from '../config/Config.js';
 import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
-//import { init } from '@btc-vision/op-vm';
 import { StrippedTransactionInput } from '../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { SpecialContract } from '../poa/configurations/types/SpecialContracts.js';
 import { calculateMaxGas } from '../utils/GasUtils.js';
 
 Globals.register();
-
-//init();
 
 const EMPTY_BLOCK_HASH = Buffer.alloc(32);
 const SIMULATION_TRANSACTION_ID = Buffer.from(
@@ -431,11 +427,11 @@ export class VMManager extends Logger {
             throw new Error('Block height mismatch');
         }
 
-        if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && Config.DEV_MODE) {
+        /*if (this.config.DEBUG_LEVEL >= DebugLevel.DEBUG && Config.DEV_MODE) {
             this.debugBright(
                 `Attempting to deploy contract ${contractDeploymentTransaction.contractAddress}`,
             );
-        }
+        }*/
 
         const contractInformation: ContractInformation = ContractInformation.fromTransaction(
             blockHeight,
@@ -915,6 +911,7 @@ export class VMManager extends Logger {
         vmEvaluator.getStorage = this.getStorage.bind(this);
         vmEvaluator.getStorageMultiple = this.getStorageMultiple.bind(this);
         vmEvaluator.setStorage = this.setStorage.bind(this);
+        vmEvaluator.isContract = this.isContract.bind(this);
         vmEvaluator.callExternal = this.callExternal.bind(this);
         vmEvaluator.deployContractAtAddress = this.deployContractAtAddress.bind(this);
         vmEvaluator.deployContract = this.deployContractFromInfo.bind(this);
@@ -1059,6 +1056,12 @@ export class VMManager extends Logger {
         }
 
         this.blockState.updateValue(address, pointer, value);
+    }
+
+    private async isContract(address: Address): Promise<boolean> {
+        const contract = await this.getContractAddress(address.p2op(this.network));
+
+        return !!contract?.equals(address);
     }
 
     private async getStorageFromDB(

@@ -48,12 +48,6 @@ export class Mempool extends Logger {
 
     private fullSync: boolean = false;
 
-    //private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
-    //private readonly opnetIdentity: OPNetIdentity = new OPNetIdentity(
-    //    Config,
-    //    this.currentAuthority,
-    //);
-
     private readonly network: Network = NetworkConverter.getNetwork();
 
     private fees: BitcoinFees = {
@@ -347,7 +341,7 @@ export class Mempool extends Logger {
 
             return await this.decodeTransactionAndProcess(transaction);
         } catch (e) {
-            if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
+            if (Config.DEV.DEBUG_API_ERRORS) {
                 this.error(`Error processing transaction: ${(e as Error).stack}`);
             }
 

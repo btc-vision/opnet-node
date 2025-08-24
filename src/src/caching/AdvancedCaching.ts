@@ -58,6 +58,32 @@ export class AdvancedCaching<K, V extends WeakKey> {
         return undefined;
     }
 
+    public delete(key: K): boolean {
+        const deleted = this.cache.delete(key);
+        if (deleted) {
+            // If the key was found and deleted, unregister it from the FinalizationRegistry.
+            const ref = this.cache.get(key);
+            if (ref) {
+                this.registry.unregister(<object | symbol>ref.deref());
+            }
+        }
+        return deleted;
+    }
+
+    public entries(): IterableIterator<[K, V]> {
+        const entries: [K, V][] = [];
+        for (const [key, weakRef] of this.cache.entries()) {
+            const value = weakRef.deref();
+            if (value !== undefined) {
+                entries.push([key, value]);
+            } else {
+                // Value has been garbage collected; remove the entry from the cache.
+                this.cache.delete(key);
+            }
+        }
+        return entries[Symbol.iterator]();
+    }
+
     /**
      * Removes all entries from the cache.
      */

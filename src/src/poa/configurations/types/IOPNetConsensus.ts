@@ -2,6 +2,7 @@ import { Consensus } from '../consensus/Consensus.js';
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 import { SpecialContracts } from './SpecialContracts.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
+import { Address } from '@btc-vision/transaction';
 
 export enum TransactionInputFlags {
     hasCoinbase = 0b00000001,
@@ -31,6 +32,23 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly [key in ChainIds]?: {
             readonly [key in BitcoinNetwork]?: OPNetEnabledConfigs;
         };
+    };
+
+    readonly PROTOCOL_ID: Uint8Array;
+
+    readonly EPOCH: {
+        readonly ENABLED: boolean;
+
+        /** There is an epoch change every X blocks */
+        readonly BLOCKS_PER_EPOCH: bigint;
+
+        readonly MIN_DIFFICULTY: number;
+
+        readonly GENESIS_PROPOSER_PUBLIC_KEY: Address;
+
+        readonly GRAFFITI_LENGTH: number;
+
+        readonly TIMELOCK_BLOCKS_REWARD: number;
     };
 
     readonly GENERIC: {

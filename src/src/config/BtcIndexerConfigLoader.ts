@@ -15,6 +15,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             PORT: 7000,
         },
 
+        EPOCH: {
+            MAX_ATTESTATION_PER_BLOCK: 100_000,
+            LOG_FINALIZATION: false,
+        },
+
         BITCOIN: {
             CHAIN_ID: ChainIds.Bitcoin,
             NETWORK: BitcoinNetwork.mainnet,
@@ -121,8 +126,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             MAXIMUM_TRANSACTION_BROADCAST: 50,
             MAXIMUM_PENDING_CALL_REQUESTS: 100,
+            MAXIMUM_PARALLEL_EPOCH_QUERY: 50,
 
-            UTXO_LIMIT: 500,
+            EPOCH_CACHE_SIZE: 15,
+            UTXO_LIMIT: 1000,
         },
 
         POC: {
@@ -431,16 +438,6 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ) {
                 throw new Error(`Oops the property OP_NET.CHAIN_ID is not a number.`);
             }
-
-            // Prohibit the use of the main chain id.
-            /*if (
-                parsedConfig.BITCOIN.NETWORK === BitcoinNetwork.mainnet &&
-                parsedConfig.BITCOIN.CHAIN_ID === ChainIds.Bitcoin
-            ) {
-                throw new Error(
-                    `Mainnet configuration is not allowed. Please use the testnet configuration.`,
-                );
-            }*/
 
             if (
                 parsedConfig.BITCOIN.NETWORK_MAGIC !== undefined &&
@@ -761,6 +758,22 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
+                parsedConfig.API.MAXIMUM_PARALLEL_EPOCH_QUERY &&
+                typeof parsedConfig.API.MAXIMUM_PARALLEL_EPOCH_QUERY !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property API.MAXIMUM_PARALLEL_EPOCH_QUERY is not a number.`,
+                );
+            }
+
+            if (
+                parsedConfig.API.EPOCH_CACHE_SIZE &&
+                typeof parsedConfig.API.EPOCH_CACHE_SIZE !== 'number'
+            ) {
+                throw new Error(`Oops the property API.EPOCH_CACHE_SIZE is not a number.`);
+            }
+
+            if (
                 parsedConfig.API.MAXIMUM_PENDING_CALL_REQUESTS &&
                 typeof parsedConfig.API.MAXIMUM_PENDING_CALL_REQUESTS !== 'number'
             ) {
@@ -784,6 +797,24 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             if (parsedConfig.API.THREADS && typeof parsedConfig.API.THREADS !== 'number') {
                 throw new Error(`Oops the property API.THREADS is not a number.`);
+            }
+        }
+
+        if (parsedConfig.EPOCH) {
+            if (
+                parsedConfig.EPOCH.MAX_ATTESTATION_PER_BLOCK !== undefined &&
+                typeof parsedConfig.EPOCH.MAX_ATTESTATION_PER_BLOCK !== 'number'
+            ) {
+                throw new Error(
+                    `Oops the property EPOCH.MAX_ATTESTATION_PER_EPOCH is not a number.`,
+                );
+            }
+
+            if (
+                parsedConfig.EPOCH.LOG_FINALIZATION !== undefined &&
+                typeof parsedConfig.EPOCH.LOG_FINALIZATION !== 'boolean'
+            ) {
+                throw new Error(`Oops the property EPOCH.LOG_FINALIZATION is not a boolean.`);
             }
         }
 
@@ -1062,6 +1093,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             parsedConfig.DEV,
             defaultConfigs.DEV,
         );
+
+        this.config.EPOCH = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['EPOCH']
+        >(parsedConfig.EPOCH, defaultConfigs.EPOCH);
     }
 
     private getConfigModified<U extends keyof IBtcIndexerConfig, T extends IBtcIndexerConfig[U]>(

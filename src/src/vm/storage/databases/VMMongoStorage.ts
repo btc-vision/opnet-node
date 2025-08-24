@@ -30,10 +30,18 @@ import { CurrentOpOutput, OperationDetails } from '../interfaces/StorageInterfac
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
 import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
 import { IPublicKeyInfoResult } from '../../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
+import { EpochRepository } from '../../../db/repositories/EpochRepository.js';
+import { EpochSubmissionRepository } from '../../../db/repositories/EpochSubmissionsRepository.js';
+import { Binary } from 'mongodb';
+import { IEpochDocument } from '../../../db/documents/interfaces/IEpochDocument.js';
+import { IEpochSubmissionsDocument } from '../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
+import { TargetEpochRepository } from '../../../db/repositories/TargetEpochRepository.js';
+import { ITargetEpochDocument } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
+import { AttestationProof } from '../../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
+import { ChallengeSolution } from '../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
-
     private pointerRepository: ContractPointerValueRepository | undefined;
     private contractRepository: ContractRepository | undefined;
     private blockRepository: BlockRepository | undefined;
@@ -42,9 +50,11 @@ export class VMMongoStorage extends VMStorage {
     private reorgRepository: ReorgsRepository | undefined;
     private blockWitnessRepository: BlockWitnessRepository | undefined;
     private mempoolRepository: MempoolRepository | undefined;
-
     private blockchainInfoRepository: BlockchainInfoRepository | undefined;
     private publicKeysRepository: PublicKeysRepository | undefined;
+    private epochRepository: EpochRepository | undefined;
+    private epochSubmissionRepository: EpochSubmissionRepository | undefined;
+    private targetEpochRepository: TargetEpochRepository | undefined;
     private initialized: boolean = false;
 
     constructor(
@@ -60,6 +70,50 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Blockchain info repository not initialized');
         }
         return this.blockchainInfoRepository;
+    }
+
+    public targetEpochExists(
+        epochNumber: bigint,
+        salt: Buffer | Binary,
+        publicKey: Address | Buffer | Binary,
+    ): Promise<boolean> {
+        if (!this.targetEpochRepository) {
+            throw new Error('Target epoch repository not initialized');
+        }
+
+        return this.targetEpochRepository.targetEpochExists(epochNumber, salt, publicKey);
+    }
+
+    public getBestTargetEpoch(epochNumber: bigint): Promise<ITargetEpochDocument | null> {
+        if (!this.targetEpochRepository) {
+            throw new Error('Target epoch repository not initialized');
+        }
+
+        return this.targetEpochRepository.getBestTargetEpoch(epochNumber);
+    }
+
+    public saveSubmission(submission: IEpochSubmissionsDocument): Promise<void> {
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Epoch submission repository not initialized');
+        }
+
+        return this.epochSubmissionRepository.saveSubmission(submission);
+    }
+
+    public saveTargetEpoch(targetEpoch: ITargetEpochDocument): Promise<void> {
+        if (!this.targetEpochRepository) {
+            throw new Error('Target epoch repository not initialized');
+        }
+
+        return this.targetEpochRepository.saveTargetEpoch(targetEpoch);
+    }
+
+    public deleteOldTargetEpochs(epochNumber: bigint): Promise<void> {
+        if (!this.targetEpochRepository) {
+            throw new Error('Target epoch repository not initialized');
+        }
+
+        return this.targetEpochRepository.deleteOldTargetEpochs(epochNumber);
     }
 
     public async killAllPendingWrites(): Promise<void> {
@@ -81,26 +135,45 @@ export class VMMongoStorage extends VMStorage {
         if (!this.blockRepository) {
             throw new Error('Block header repository not initialized');
         }
+
         if (!this.transactionRepository) {
             throw new Error('Transaction repository not initialized');
         }
+
         if (!this.unspentTransactionRepository) {
             throw new Error('Unspent transaction repository not initialized');
         }
+
         if (!this.contractRepository) {
             throw new Error('Contract repository not initialized');
         }
+
         if (!this.pointerRepository) {
             throw new Error('Pointer repository not initialized');
         }
+
         if (!this.blockWitnessRepository) {
             throw new Error('Block witness repository not initialized');
         }
+
         if (!this.reorgRepository) {
             throw new Error('Reorg repository not initialized');
         }
+
         if (!this.mempoolRepository) {
             throw new Error('Mempool repository not initialized');
+        }
+
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Public key repository not initialized');
+        }
+
+        if (!this.targetEpochRepository) {
+            throw new Error('Target epoch repository not initialized');
         }
 
         if (Config.DEV_MODE) {
@@ -128,6 +201,15 @@ export class VMMongoStorage extends VMStorage {
 
             this.log(`Purging reorgs...`);
             await this.reorgRepository.deleteReorgs(blockId);
+
+            this.log(`Purging epochs...`);
+            await this.epochRepository.deleteEpochFromBitcoinBlockNumber(blockId);
+
+            this.log(`Purging epoch submissions...`);
+            await this.epochSubmissionRepository.deleteSubmissionsFromBlock(blockId);
+
+            this.log(`Purging target epochs...`);
+            await this.targetEpochRepository.deleteAllTargetEpochs();
         } else {
             const promises: Promise<void>[] = [
                 this.transactionRepository.deleteTransactionsFromBlockHeight(blockId),
@@ -137,6 +219,9 @@ export class VMMongoStorage extends VMStorage {
                 this.blockRepository.deleteBlockHeadersFromBlockHeight(blockId),
                 this.blockWitnessRepository.deleteBlockWitnessesFromHeight(blockId),
                 this.reorgRepository.deleteReorgs(blockId),
+                this.epochRepository.deleteEpochFromBitcoinBlockNumber(blockId),
+                this.epochSubmissionRepository.deleteSubmissionsFromBlock(blockId),
+                this.targetEpochRepository.deleteAllTargetEpochs(),
             ];
 
             await Promise.safeAll(promises);
@@ -201,7 +286,23 @@ export class VMMongoStorage extends VMStorage {
             height = BigInt(lastBlock.height);
         }
 
-        return await this.blockWitnessRepository.getWitnesses(height, trusted, limit, page);
+        return await this.blockWitnessRepository.getWitnesses(height, trusted, limit, page ?? 1);
+    }
+
+    public async getWitnessesForEpoch(
+        startBlock: bigint,
+        endBlock: bigint,
+        limitPerBlock: number,
+    ): Promise<IParsedBlockWitnessDocument[]> {
+        if (!this.blockWitnessRepository) {
+            throw new Error('Block witness repository not initialized');
+        }
+
+        return await this.blockWitnessRepository.getWitnessesForEpoch(
+            startBlock,
+            endBlock,
+            limitPerBlock,
+        );
     }
 
     public async init(): Promise<void> {
@@ -227,6 +328,9 @@ export class VMMongoStorage extends VMStorage {
         this.blockWitnessRepository = new BlockWitnessRepository(this.databaseManager.db);
         this.mempoolRepository = new MempoolRepository(this.databaseManager.db);
         this.publicKeysRepository = new PublicKeysRepository(this.databaseManager.db);
+        this.epochRepository = new EpochRepository(this.databaseManager.db);
+        this.epochSubmissionRepository = new EpochSubmissionRepository(this.databaseManager.db);
+        this.targetEpochRepository = new TargetEpochRepository(this.databaseManager.db);
     }
 
     public async deleteTransactionsById(ids: string[]): Promise<void> {
@@ -266,24 +370,34 @@ export class VMMongoStorage extends VMStorage {
         await this.reorgRepository.setReorg(reorg);
     }
 
+    public async updateWitnessProofs(attestationProofs: AttestationProof[]): Promise<void> {
+        if (!this.blockWitnessRepository) {
+            throw new Error('Block witness repository not initialized');
+        }
+        await this.blockWitnessRepository.updateWitnessProofs(attestationProofs);
+    }
+
     public async getBlockTransactions(
         height: SafeBigInt = -1,
         hash?: string,
         includeTransactions?: boolean,
+        checksum?: boolean,
     ): Promise<BlockWithTransactions | undefined> {
         if (!this.blockRepository) {
             throw new Error('Repository not initialized');
         }
+
         if (!this.transactionRepository) {
             throw new Error('Transaction repository not initialized');
         }
+
         if (!this.contractRepository) {
             throw new Error('Contract repository not initialized');
         }
 
         let block: IBlockHeaderBlockDocument | undefined;
         if (hash) {
-            block = await this.blockRepository.getBlockByHash(hash);
+            block = await this.blockRepository.getBlockByHash(hash, checksum || false);
         } else {
             block =
                 height === -1
@@ -384,13 +498,6 @@ export class VMMongoStorage extends VMStorage {
         await this.pointerRepository.setStoragePointers(storage, lastSeenAt);
     }
 
-    public async getPreimage(blockHeight: bigint): Promise<string> {
-        if (!this.blockRepository) {
-            throw new Error('Repository not initialized');
-        }
-        return await this.blockRepository.getBlockPreimage(blockHeight);
-    }
-
     public async setContractAt(contractData: ContractInformation): Promise<void> {
         if (!this.contractRepository) {
             throw new Error('Repository not initialized');
@@ -444,14 +551,15 @@ export class VMMongoStorage extends VMStorage {
     public async getUTXOs(
         address: string,
         optimize: boolean = false,
+        olderThan: bigint | undefined,
     ): Promise<UTXOsOutputTransactions> {
         if (!this.unspentTransactionRepository || !this.mempoolRepository) {
             throw new Error('Transaction repository not initialized');
         }
 
         const utxos = await Promise.safeAll([
-            this.unspentTransactionRepository.getWalletUnspentUTXOS(address, optimize),
-            this.mempoolRepository.getPendingTransactions(address),
+            this.unspentTransactionRepository.getWalletUnspentUTXOS(address, optimize, olderThan),
+            olderThan === undefined ? this.mempoolRepository.getPendingTransactions(address) : [],
         ]);
 
         const confirmed = utxos[0];
@@ -475,6 +583,173 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
         return await this.unspentTransactionRepository.getBalanceOf(address, filterOrdinals);
+    }
+
+    public getLatestEpoch(): Promise<IEpochDocument | undefined> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.getLatestEpoch();
+    }
+
+    public getEpochByNumber(epochNumber: SafeBigInt): Promise<IEpochDocument | undefined> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.getEpochByNumber(epochNumber);
+    }
+
+    public getEpochByHash(epochHash: Buffer | Binary): Promise<IEpochDocument | undefined> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.getEpochByHash(epochHash);
+    }
+
+    public getEpochByBlockHeight(blockHeight: bigint): Promise<IEpochDocument | undefined> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.getEpochByBlockHeight(blockHeight);
+    }
+
+    public getChallengeSolutionsAtHeight(blockHeight: bigint): Promise<ChallengeSolution> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.getChallengeSolutionsAtHeight(blockHeight);
+    }
+
+    public getActiveEpoch(): Promise<IEpochDocument | undefined> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.getActiveEpoch();
+    }
+
+    public getEpochsByProposer(proposerPublicKey: Buffer | Binary): Promise<IEpochDocument[]> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.getEpochsByProposer(proposerPublicKey);
+    }
+
+    public getEpochsByTargetHash(targetHash: Buffer | Binary): Promise<IEpochDocument[]> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.getEpochsByTargetHash(targetHash);
+    }
+
+    public saveEpoch(epoch: IEpochDocument): Promise<void> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.saveEpoch(epoch);
+    }
+
+    public updateEpochEndBlock(epochNumber: bigint, endBlock: bigint): Promise<void> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.updateEpochEndBlock(epochNumber, endBlock);
+    }
+
+    public deleteEpochFromBitcoinBlockNumber(bitcoinBlockNumber: bigint): Promise<void> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        return this.epochRepository.deleteEpochFromBitcoinBlockNumber(bitcoinBlockNumber);
+    }
+
+    public getSubmissionsByEpochNumber(epochNumber: bigint): Promise<IEpochSubmissionsDocument[]> {
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Epoch submission repository not initialized');
+        }
+
+        return this.epochSubmissionRepository.getSubmissionsByEpochNumber(epochNumber);
+    }
+
+    public getSubmissionByTxHash(
+        txHash: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument | undefined> {
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Epoch submission repository not initialized');
+        }
+
+        return this.epochSubmissionRepository.getSubmissionByTxHash(txHash);
+    }
+
+    public getSubmissionByTxId(
+        txId: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument | undefined> {
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Epoch submission repository not initialized');
+        }
+
+        return this.epochSubmissionRepository.getSubmissionByTxId(txId);
+    }
+
+    public getSubmissionsInBlockRange(
+        startBlock: bigint,
+        endBlock: bigint,
+    ): Promise<IEpochSubmissionsDocument[]> {
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Epoch submission repository not initialized');
+        }
+
+        return this.epochSubmissionRepository.getSubmissionsInBlockRange(startBlock, endBlock);
+    }
+
+    public getSubmissionsByProposer(
+        proposerPublicKey: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument[]> {
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Epoch submission repository not initialized');
+        }
+
+        return this.epochSubmissionRepository.getSubmissionsByProposer(proposerPublicKey);
+    }
+
+    public getPendingSubmissions(fromBlock: bigint): Promise<IEpochSubmissionsDocument[]> {
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Epoch submission repository not initialized');
+        }
+
+        return this.epochSubmissionRepository.getPendingSubmissions(fromBlock);
+    }
+
+    public getSubmissionByHash(
+        submissionHash: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument | undefined> {
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Epoch submission repository not initialized');
+        }
+
+        return this.epochSubmissionRepository.getSubmissionByHash(submissionHash);
+    }
+
+    public submissionExists(
+        publicKey: Buffer | Binary,
+        salt: Buffer | Binary,
+        epochNumber: bigint,
+    ): Promise<boolean> {
+        if (!this.epochSubmissionRepository) {
+            throw new Error('Epoch submission repository not initialized');
+        }
+
+        return this.epochSubmissionRepository.submissionExists(publicKey, salt, epochNumber);
     }
 
     private chunkArray<T>(array: T[], size: number): T[][] {

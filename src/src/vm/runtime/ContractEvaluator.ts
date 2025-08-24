@@ -19,7 +19,7 @@ import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { Network, networks } from '@btc-vision/bitcoin';
-import { ContractParameters, RustContract } from '../isolated/RustContract.js';
+import { ContractParameters, RustContract } from '../rust/RustContract.js';
 import { Blockchain } from '../Blockchain.js';
 import { Config } from '../../config/Config.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
@@ -105,11 +105,11 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [callExternal]');
     }
 
-    public async getBlockHashForBlockNumber(_blockNumber: bigint): Promise<Buffer> {
+    public getBlockHashForBlockNumber(_blockNumber: bigint): Promise<Buffer> {
         throw new Error('Method not implemented. [getBlockHashForBlockNumber]');
     }
 
-    public async isContract(_address: Address): Promise<boolean> {
+    public isContract(_address: Address): Promise<boolean> {
         throw new Error('Method not implemented.');
     }
 

@@ -7,10 +7,10 @@ import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOPNetTransactions.js';
 import { OPNet_MAGIC } from '../Transaction.js';
-import crypto from 'crypto';
 
 import {
     Address,
+    ChallengeSolution,
     ContractAddressVerificationParams,
     EcKeyPair,
     TapscriptVerificator,
@@ -39,7 +39,8 @@ interface DeploymentWitnessData {
 
 export class DeploymentTransaction extends SharedInteractionParameters<OPNetTransactionTypes.Deployment> {
     public static LEGACY_DEPLOYMENT_SCRIPT: Buffer = Buffer.from([
-        opcodes.OP_TOALTSTACK,
+        opcodes.OP_TOALTSTACK, // HEADER
+        opcodes.OP_TOALTSTACK, // MINER
         opcodes.OP_TOALTSTACK, // PREIMAGE
 
         opcodes.OP_DUP,
@@ -203,7 +204,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         // Verify sender pubkey
         const hashSenderPubKey = bitcoin.crypto.hash256(deploymentWitnessData.senderPubKey);
-        if (!crypto.timingSafeEqual(hashSenderPubKey, deploymentWitnessData.hashedSenderPubKey)) {
+        if (!this.safeEq(hashSenderPubKey, deploymentWitnessData.hashedSenderPubKey)) {
             throw new Error(`OP_NET: Sender public key hash mismatch.`);
         }
         this.deployerPubKeyHash = hashSenderPubKey;
@@ -225,7 +226,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         /** Verify contract salt */
         const hashOriginalSalt: Buffer = bitcoin.crypto.hash256(originalSalt);
-        if (!crypto.timingSafeEqual(hashOriginalSalt, deploymentWitnessData.contractSaltHash)) {
+        if (!this.safeEq(hashOriginalSalt, deploymentWitnessData.contractSaltHash)) {
             throw new Error(`OP_NET: Invalid contract salt hash found in deployment transaction.`);
         }
 
@@ -257,7 +258,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             throw new Error(`OP_NET: Invalid contract signer.`);
         }
 
-        this.preimage = deploymentWitnessData.header.preimage;
+        this.setMiner(deploymentWitnessData.header.miner, deploymentWitnessData.header.solution);
 
         /** We regenerate the contract address and verify it */
         const input0: TransactionInput = this.inputs[0];
@@ -285,11 +286,41 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         this.decompress();
     }
 
+    private getFeatures(): Feature<Features>[] {
+        const features: Feature<Features>[] = [];
+        if (this._submission) {
+            features.push({
+                opcode: Features.EPOCH_SUBMISSION,
+                data: {
+                    publicKey: new Address(this._submission.publicKey),
+                    solution: this._submission.salt,
+                    graffiti: this._submission.graffiti,
+                },
+            });
+        }
+
+        /*if (this._accessList) {
+            features.push({
+                opcode: Features.ACCESS_LIST,
+                data: this._accessList.raw,
+            });
+        }*/
+
+        return features;
+    }
+
     private getOriginalContractAddress(controlBlock: Buffer, priorityFee: bigint): void {
         if (!this.deployerPubKey) throw new Error('Deployer public key not found');
         if (!this.contractSigner) throw new Error('Contract signer not found');
         if (!this.contractSeed) throw new Error('Contract seed not found');
         if (!this.bytecode) throw new Error('Compressed bytecode not found');
+
+        const unsafePreimage: ChallengeSolution = {
+            solution: this.preimage,
+            publicKey: new Address(this.miner),
+        } as unknown as ChallengeSolution;
+
+        const features: Feature<Features>[] = this.getFeatures();
 
         const params: ContractAddressVerificationParams = {
             deployerPubKey: this.deployerPubKey,
@@ -300,9 +331,10 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
                 this._calldata && Buffer.isBuffer(this._calldata) && this._calldata.length > 0
                     ? this._calldata
                     : undefined,
-            preimage: this.preimage,
+            challenge: unsafePreimage,
             network: this.network,
             priorityFee: priorityFee,
+            features: features,
         };
 
         let tapContractAddress: boolean;

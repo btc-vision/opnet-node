@@ -233,3 +233,5 @@ src/config/btc.testnet.conf
 src/config/doge.conf
 src/config/ltc.conf
 src/config/*.conf
+
+build/epoch/*.json

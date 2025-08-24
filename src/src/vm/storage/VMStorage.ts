@@ -15,6 +15,13 @@ import { StoragePointer } from './types/StoragePointer.js';
 import { BlockchainInfoRepository } from '../../db/repositories/BlockchainInfoRepository.js';
 import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 import { Address, AddressMap } from '@btc-vision/transaction';
+import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js';
+import { IEpochSubmissionsDocument } from '../../db/documents/interfaces/IEpochSubmissionsDocument.js';
+import { Binary } from 'mongodb';
+import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
+import { ITargetEpochDocument } from '../../db/documents/interfaces/ITargetEpochDocument.js';
+import { AttestationProof } from '../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
+import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 
 export abstract class VMStorage extends Logger {
     public readonly logColor: string = '#ff00ff';
@@ -66,6 +73,12 @@ export abstract class VMStorage extends Logger {
         trusted?: boolean,
         limit?: number,
         page?: number,
+    ): Promise<IParsedBlockWitnessDocument[]>;
+
+    public abstract getWitnessesForEpoch(
+        startBlock: bigint,
+        endBlock: bigint,
+        limitPerBlock: number,
     ): Promise<IParsedBlockWitnessDocument[]>;
 
     public abstract getStorage(
@@ -122,11 +135,13 @@ export abstract class VMStorage extends Logger {
         height?: bigint | -1,
         hash?: string,
         includeTransactions?: boolean,
+        checksum?: boolean,
     ): Promise<BlockWithTransactions | undefined>;
 
     public abstract getUTXOs(
         address: string,
         optimize: boolean,
+        olderThan: bigint | undefined,
     ): Promise<UTXOsOutputTransactions | undefined>;
 
     public abstract getBalanceOf(
@@ -145,5 +160,136 @@ export abstract class VMStorage extends Logger {
 
     public abstract deleteTransactionsById(transactions: string[]): Promise<void>;
 
-    public abstract getPreimage(blockHeight: bigint): Promise<string>;
+    public abstract getChallengeSolutionsAtHeight(blockHeight: bigint): Promise<ChallengeSolution>;
+
+    /**
+     * Get the latest epoch
+     */
+    public abstract getLatestEpoch(): Promise<IEpochDocument | undefined>;
+
+    /**
+     * Get epoch by epoch number
+     */
+    public abstract getEpochByNumber(epochNumber: SafeBigInt): Promise<IEpochDocument | undefined>;
+
+    /**
+     * Get epoch by epoch hash
+     */
+    public abstract getEpochByHash(epochHash: Buffer | Binary): Promise<IEpochDocument | undefined>;
+
+    /**
+     * Get epoch by block height (find which epoch contains this block)
+     */
+    public abstract getEpochByBlockHeight(blockHeight: bigint): Promise<IEpochDocument | undefined>;
+
+    /**
+     * Get active epoch (where endBlock is -1)
+     */
+    public abstract getActiveEpoch(): Promise<IEpochDocument | undefined>;
+
+    /**
+     * Get epochs by proposer public key
+     */
+    public abstract getEpochsByProposer(
+        proposerPublicKey: Buffer | Binary,
+    ): Promise<IEpochDocument[]>;
+
+    /**
+     * Get epochs by target hash
+     */
+    public abstract getEpochsByTargetHash(targetHash: Buffer | Binary): Promise<IEpochDocument[]>;
+
+    /**
+     * Save or update an epoch
+     */
+    public abstract saveEpoch(epoch: IEpochDocument): Promise<void>;
+
+    /**
+     * Update epoch proofs
+     */
+    public abstract updateWitnessProofs(attestationProofs: AttestationProof[]): Promise<void>;
+
+    /**
+     * Update epoch end block
+     */
+    public abstract updateEpochEndBlock(epochNumber: bigint, endBlock: bigint): Promise<void>;
+
+    /**
+     * Delete epochs from a specific bitcoin block number onwards
+     */
+    public abstract deleteEpochFromBitcoinBlockNumber(bitcoinBlockNumber: bigint): Promise<void>;
+
+    /**
+     * Get all submissions for a specific epoch number
+     */
+    public abstract getSubmissionsByEpochNumber(
+        epochNumber: bigint,
+    ): Promise<IEpochSubmissionsDocument[]>;
+
+    /**
+     * Save an epoch submission
+     */
+    public abstract saveSubmission(submission: IEpochSubmissionsDocument): Promise<void>;
+
+    /**
+     * Get submission by transaction hash
+     */
+    public abstract getSubmissionByTxHash(
+        txHash: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument | undefined>;
+
+    /**
+     * Get submission by transaction ID
+     */
+    public abstract getSubmissionByTxId(
+        txId: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument | undefined>;
+
+    /**
+     * Get submissions accepted within a block range
+     */
+    public abstract getSubmissionsInBlockRange(
+        startBlock: bigint,
+        endBlock: bigint,
+    ): Promise<IEpochSubmissionsDocument[]>;
+
+    /**
+     * Get submissions by proposer public key
+     */
+    public abstract getSubmissionsByProposer(
+        proposerPublicKey: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument[]>;
+
+    /**
+     * Get pending submissions (not yet accepted)
+     */
+    public abstract getPendingSubmissions(fromBlock: bigint): Promise<IEpochSubmissionsDocument[]>;
+
+    /**
+     * Get submissions by submission hash
+     */
+    public abstract getSubmissionByHash(
+        submissionHash: Buffer | Binary,
+    ): Promise<IEpochSubmissionsDocument | undefined>;
+
+    /**
+     * Check if a submission exists
+     */
+    public abstract submissionExists(
+        publicKey: Buffer | Binary,
+        salt: Buffer | Binary,
+        epochNumber: bigint,
+    ): Promise<boolean>;
+
+    public abstract targetEpochExists(
+        epochNumber: bigint,
+        salt: Buffer | Binary,
+        publicKey: Address | Buffer | Binary,
+    ): Promise<boolean>;
+
+    public abstract getBestTargetEpoch(epochNumber: bigint): Promise<ITargetEpochDocument | null>;
+
+    public abstract saveTargetEpoch(targetEpoch: ITargetEpochDocument): Promise<void>;
+
+    public abstract deleteOldTargetEpochs(epochNumber: bigint): Promise<void>;
 }

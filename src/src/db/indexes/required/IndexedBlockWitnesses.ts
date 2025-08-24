@@ -12,6 +12,13 @@ export class IndexedBlockWitnesses extends IndexedCollection<OPNetCollections.Bl
             { key: { blockNumber: 1 }, name: 'blockNumber_1' },
             { key: { identity: 1 }, name: 'identity_1' },
             { key: { trusted: 1 }, name: 'trusted_1' },
+            {
+                key: {
+                    blockNumber: 1,
+                    publicKey: 1,
+                    signature: 1,
+                },
+            },
         ];
     }
 }

@@ -14,6 +14,9 @@ import { IndexedUnspentTransactions } from './required/IndexedUnspentTransaction
 import { Config } from '../../config/Config.js';
 import { IndexedPublicKeys } from './required/IndexedPublicKeys.js';
 import { IndexedAnyoneCanSpend } from './required/IndexedAnyoneCanSpend.js';
+import { IndexedEpochs } from './required/IndexedEpochs.js';
+import { IndexedEpochSubmissions } from './required/IndexedEpochSubmissions.js';
+import { IndexedTargetEpochs } from './required/IndexedTargetEpochs.js';
 
 /** This class job is to create the required indexes for the database */
 export class IndexManager extends Logger {
@@ -31,6 +34,9 @@ export class IndexManager extends Logger {
         new IndexedAnyoneCanSpend(),
         new IndexedUnspentTransactions(),
         new IndexedPublicKeys(),
+        new IndexedEpochs(),
+        new IndexedEpochSubmissions(),
+        new IndexedTargetEpochs(),
     ];
 
     constructor(private readonly opnetDB: ConfigurableDBManager) {
