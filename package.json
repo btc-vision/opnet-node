@@ -85,7 +85,7 @@
         "mongodb": "^6.17.0",
         "openapi-comment-parser": "^1.0.0",
         "protobufjs": "^7.5.3",
-        "sodium-native": "5.0.1",
+        "sodium-native": "5.0.8",
         "ssh2": "^1.16.0",
         "swagger-ui-express": "^5.0.1",
         "tiny-secp256k1": "^2.2.3",
