@@ -252,4 +252,4 @@ py -3 -m pip install setuptools
 
 ## License
 
-View the license by clicking [here](https://github.com/btc-vision/bsi/blob/main/LICENSE.md).
+View the license by clicking [here](https://github.com/btc-vision/opnet-node/blob/main/LICENSE.md).
