@@ -24,7 +24,6 @@ import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDoc
 import { BlockHeaderDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { Submission } from '../transaction/features/Submission.js';
 import { PendingTargetEpoch } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
-import { Consensus } from '../../../poa/configurations/consensus/Consensus.js';
 
 export interface ValidatedSolutionResult {
     readonly valid: boolean;
@@ -196,7 +195,7 @@ export class EpochManager extends Logger {
     }
 
     private async finalizeEpochCompletion(epochNumber: bigint): Promise<void> {
-        if(!OPNetConsensus.consensus.EPOCH.ENABLED) {
+        if (!OPNetConsensus.consensus.EPOCH.ENABLED) {
             return;
         }
 
