@@ -279,7 +279,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         /** We set the fee burned to the output witness */
         this.setBurnedFee(outputWitness);
 
-        this.verifyRewardUTXO();
+        this.verifyRewardUTXO(1);
         this.setGasFromHeader(deploymentWitnessData.header);
 
         /** Decompress contract bytecode if needed */

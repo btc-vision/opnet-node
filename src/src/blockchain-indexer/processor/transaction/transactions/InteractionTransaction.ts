@@ -6,10 +6,7 @@ import {
     InteractionTransactionSafeThread,
 } from '../../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
-import {
-    InteractionTransactionType,
-    OPNetTransactionTypes,
-} from '../enums/OPNetTransactionTypes.js';
+import { InteractionTransactionType, OPNetTransactionTypes, } from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOPNetTransactions.js';
@@ -384,7 +381,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         );
 
         /** We must verify that the contract secret matches at least one output. */
-        const outputWitness: TransactionOutput | undefined = this.outputs[0];
+        /*const outputWitness: TransactionOutput | undefined = this.outputs[0];
         if (!outputWitness) {
             throw new Error(`OP_NET: Interaction miss configured. No outputs found.`);
         }
@@ -392,17 +389,18 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         // Here, we only allow 'witness_v1_taproot'
         if (outputWitness.scriptPubKey.type !== 'witness_unknown') {
             throw new Error(`OP_NET: Only P2OP is allowed for interactions.`);
-        }
+        }*/
 
         // We build an Address from the contractSecret:
         this._contractAddress = this.regenerateContractAddress(contractSecret);
 
-        this.verifyContractAddress(outputWitness, hashContractSalt);
+        // Disabled
+        // this.verifyContractAddress(outputWitness, hashContractSalt);
 
         /** We set the fee burned to the output witness */
-        this.setBurnedFee(outputWitness);
+        //this.setBurnedFee(outputWitness);
 
-        this.verifyRewardUTXO();
+        this.verifyRewardUTXO(0);
         this.setGasFromHeader(this.interactionWitnessData.header);
 
         /** Decompress calldata if needed */
