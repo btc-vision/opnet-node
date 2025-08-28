@@ -467,12 +467,12 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this._priorityFee = header.priorityFeeSat;
     }
 
-    protected verifyRewardUTXO(): void {
+    protected verifyRewardUTXO(utxoIndex: number): void {
         if (!this._preimage) {
             throw new Error('Preimage not found');
         }
 
-        const rewardOutput = this.outputs[1]; // ALWAYS the second output.
+        const rewardOutput = this.outputs[utxoIndex]; // ALWAYS the second output.
         if (!rewardOutput) {
             return; // no reward output
         }

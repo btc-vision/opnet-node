@@ -127,7 +127,7 @@ export class OPNetWitnessRoute extends Route<
         const result: IBlockWitnessResultAPI = {};
 
         for (const witness of witnesses) {
-            const blockNumber: string = witness.blockNumber.toString(16);
+            const blockNumber: string = witness.blockNumber.toString();
 
             if (!result[blockNumber]) {
                 result[blockNumber] = [];
@@ -135,7 +135,7 @@ export class OPNetWitnessRoute extends Route<
 
             const parsedWitness: IBlockWitnessAPI = {
                 signature: witness.signature.toString('base64'),
-                publicKey: witness.publicKey?.toString('base64'),
+                publicKey: witness.publicKey ? '0x' + witness.publicKey.toString('hex') : undefined,
                 timestamp: witness.timestamp.getTime(),
                 proofs: witness.proofs?.map((proof) => proof.toString('base64')) || [],
                 identity: witness.identity,

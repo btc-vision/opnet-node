@@ -233,7 +233,7 @@ export class BlockIndexer extends Logger {
         if (
             opnetEnabledAtBlock.ENABLED &&
             opnetEnabledAtBlock.BLOCK &&
-            BigInt(opnetEnabledAtBlock.BLOCK) < tip
+            opnetEnabledAtBlock.BLOCK < tip
         ) {
             this.fail(
                 `OPNet states will be invalid, your light node will be missing critical states in other for smart contracts to work correctly.`,
