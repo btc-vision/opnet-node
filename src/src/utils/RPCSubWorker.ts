@@ -9,11 +9,7 @@ import {
 } from '../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { DebugLevel } from '@btc-vision/logger';
 import { BTC_FAKE_ADDRESS } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
-import {
-    BlockchainStorageMap,
-    EvaluatedEvents,
-    EvaluatedResult,
-} from '../vm/evaluated/EvaluatedResult.js';
+import { BlockchainStorageMap, EvaluatedEvents, EvaluatedResult, } from '../vm/evaluated/EvaluatedResult.js';
 import {
     ContractInformation,
     ContractInformationAsString,
@@ -22,10 +18,7 @@ import { Blockchain } from '../vm/Blockchain.js';
 import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { Address, AddressMap, BufferHelper, PointerStorage } from '@btc-vision/transaction';
-import {
-    CallRequestError,
-    LoadedStorageList,
-} from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
+import { CallRequestError, LoadedStorageList, } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import {
     ParsedSimulatedTransaction,
     SimulatedTransaction,
@@ -279,13 +272,6 @@ class RPCManager extends Logger {
                         value: 10000000n,
                         index: 0,
                         to: 'tb1pff6z2u3jvy0c206nkwsxm2d7xzuuyfq337w6dxgrgmgt3my2ayzsquka3w',
-                        flags: TransactionOutputFlags.hasTo,
-                        scriptPubKey: undefined,
-                    },
-                    {
-                        value: 10000000n,
-                        index: 1,
-                        to: '2N3boRkKs7YUXgzsKC9THBMDU622dWNn7T3',
                         flags: TransactionOutputFlags.hasTo,
                         scriptPubKey: undefined,
                     },
