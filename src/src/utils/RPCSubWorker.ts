@@ -9,7 +9,11 @@ import {
 } from '../threading/interfaces/thread-messages/messages/api/CallRequest.js';
 import { DebugLevel } from '@btc-vision/logger';
 import { BTC_FAKE_ADDRESS } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
-import { BlockchainStorageMap, EvaluatedEvents, EvaluatedResult, } from '../vm/evaluated/EvaluatedResult.js';
+import {
+    BlockchainStorageMap,
+    EvaluatedEvents,
+    EvaluatedResult,
+} from '../vm/evaluated/EvaluatedResult.js';
 import {
     ContractInformation,
     ContractInformationAsString,
@@ -18,7 +22,10 @@ import { Blockchain } from '../vm/Blockchain.js';
 import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { Address, AddressMap, BufferHelper, PointerStorage } from '@btc-vision/transaction';
-import { CallRequestError, LoadedStorageList, } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
+import {
+    CallRequestError,
+    LoadedStorageList,
+} from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import {
     ParsedSimulatedTransaction,
     SimulatedTransaction,
