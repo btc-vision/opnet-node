@@ -75,6 +75,7 @@ const SIMULATION_DEFAULT_INPUT: StrippedTransactionInput = {
     txId: SIMULATION_DEFAULT_INPUT_TX_HASH,
     outputIndex: 0,
     scriptSig: Buffer.alloc(0),
+    witnesses: [],
     coinbase: undefined,
     flags: 0,
 };

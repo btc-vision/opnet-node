@@ -266,6 +266,9 @@ class RPCManager extends Logger {
                     txId: Buffer.from(input.txId, 'base64'),
                     outputIndex: input.outputIndex,
                     scriptSig: Buffer.from(input.scriptSig, 'base64'),
+                    witnesses: input.witnesses
+                        ? input.witnesses.map((w) => Buffer.from(w, 'base64'))
+                        : [],
                     coinbase: input.coinbase ? Buffer.from(input.coinbase, 'base64') : undefined,
                     flags: input.flags || 0,
                 };

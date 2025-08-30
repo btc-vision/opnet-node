@@ -429,6 +429,14 @@ export class ContractEvaluation implements ExecutionParameters {
 
                 writer.writeBytesWithLength(input.coinbase);
             }
+
+            if (flagsEnabled && input.flags & TransactionInputFlags.hasWitnesses) {
+                if (!input.witnesses) {
+                    throw new Error('OP_NET: Impossible case, input.witnesses is undefined.');
+                }
+
+                writer.writeArrayOfBuffer(input.witnesses);
+            }
         }
 
         return writer.getBuffer();

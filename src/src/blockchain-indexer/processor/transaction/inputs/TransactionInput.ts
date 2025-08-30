@@ -2,19 +2,21 @@ import { ScriptSig, VIn } from '@btc-vision/bitcoin-rpc';
 import { TransactionInputFlags } from '../../../../poa/configurations/types/IOPNetConsensus.js';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
-export interface TransactionInputBase {
+export interface ITransactionInput {
     readonly originalTransactionId: Buffer | undefined;
     readonly outputTransactionIndex: number | undefined; // consumer output index
 
     readonly scriptSignature?: ScriptSig;
     readonly sequenceId: number;
 
-    readonly transactionInWitness: string[];
+    readonly transactionInWitness: Buffer[];
 }
 
-export interface ITransactionInput extends Omit<TransactionInputBase, 'transactionInWitness'> {}
+export interface ITransactionInputWithoutWitnesses
+    extends Omit<ITransactionInput, 'transactionInWitness'> {}
 
-export interface APIDocumentInput extends Omit<ITransactionInput, 'originalTransactionId'> {
+export interface APIDocumentInput
+    extends Omit<ITransactionInputWithoutWitnesses, 'originalTransactionId'> {
     readonly originalTransactionId: string | undefined;
 }
 
@@ -22,6 +24,7 @@ export interface StrippedTransactionInput {
     readonly txId: Uint8Array | Buffer;
     readonly outputIndex: number;
     readonly scriptSig: Uint8Array | Buffer;
+    readonly witnesses: (Uint8Array | Buffer)[];
 
     readonly flags: number;
     readonly coinbase: Buffer | undefined;
@@ -31,19 +34,20 @@ export interface StrippedTransactionInputAPI {
     readonly txId: string;
     readonly outputIndex: number;
     readonly scriptSig: string;
+    readonly witnesses: string[];
 
     readonly coinbase: string | undefined;
     readonly flags: number;
 }
 
-export class TransactionInput implements TransactionInputBase {
+export class TransactionInput implements ITransactionInput {
     public readonly originalTransactionId: Buffer;
     public readonly outputTransactionIndex: number | undefined; // consumer output index
 
     public readonly scriptSignature: ScriptSig | undefined;
     public readonly sequenceId: number;
 
-    public readonly transactionInWitness: string[] = [];
+    public readonly transactionInWitness: Buffer[] = [];
 
     // New properties to hold the decoded public key or hash
     public readonly decodedPubKey: Buffer | null;
@@ -57,7 +61,9 @@ export class TransactionInput implements TransactionInputBase {
 
         this.scriptSignature = data.scriptSig;
         this.sequenceId = data.sequence;
-        this.transactionInWitness = data.txinwitness || [];
+        this.transactionInWitness = data.txinwitness
+            ? data.txinwitness.map((w) => Buffer.from(w, 'hex'))
+            : [];
 
         // for P2PK, P2WPKH, and P2PKH
         this.decodedPubKey = this.decodePubKey();
@@ -69,7 +75,7 @@ export class TransactionInput implements TransactionInputBase {
         }
     }
 
-    public toDocument(): ITransactionInput {
+    public toDocument(): ITransactionInputWithoutWitnesses {
         return {
             originalTransactionId: this.originalTransactionId,
             outputTransactionIndex: this.outputTransactionIndex,
@@ -86,12 +92,21 @@ export class TransactionInput implements TransactionInputBase {
             if (OPNetConsensus.consensus.VM.UTXOS.INPUTS.WRITE_COINBASE && this.coinbase) {
                 flags |= TransactionInputFlags.hasCoinbase;
             }
+
+            if (
+                OPNetConsensus.consensus.VM.UTXOS.INPUTS.WRITE_WITNESSES &&
+                this.transactionInWitness &&
+                this.transactionInWitness.length
+            ) {
+                flags |= TransactionInputFlags.hasWitnesses;
+            }
         }
 
         return {
             txId: this.originalTransactionId,
             outputIndex: this.outputTransactionIndex || 0,
             scriptSig: Buffer.from(this.scriptSignature?.hex || '', 'hex'),
+            witnesses: this.transactionInWitness,
             flags: flags,
             coinbase: this.coinbase,
         };
@@ -106,7 +121,7 @@ export class TransactionInput implements TransactionInputBase {
             this.transactionInWitness.length === 2 &&
             (secondWitnessLength === 66 || secondWitnessLength === 130)
         ) {
-            return Buffer.from(this.transactionInWitness[1], 'hex'); // Return the public key in hex format
+            return this.transactionInWitness[1]; // Return the public key in hex format
         }
 
         // Decode from scriptSig (P2PK)
@@ -127,7 +142,7 @@ export class TransactionInput implements TransactionInputBase {
     private decodePubKeyHash(): Buffer | null {
         // Check for P2WPKH in witness data
         if (this.transactionInWitness.length === 2 && this.transactionInWitness[0].length === 40) {
-            return Buffer.from(this.transactionInWitness[0], 'hex'); // Return the public key hash in hex format
+            return this.transactionInWitness[0]; // Return the public key hash in hex format
         }
 
         // Check for P2PKH in scriptSig

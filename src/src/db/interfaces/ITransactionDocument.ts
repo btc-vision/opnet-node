@@ -5,7 +5,7 @@ import {
     OPNetTransactionTypes,
 } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
-    ITransactionInput,
+    ITransactionInputWithoutWitnesses,
     TransactionInput,
 } from '../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import {
@@ -48,7 +48,7 @@ export interface TransactionDocument<T extends OPNetTransactionTypes>
     readonly specialGasUsed: Decimal128;
     readonly priorityFee: Decimal128;
 
-    readonly inputs: ITransactionInput[];
+    readonly inputs: ITransactionInputWithoutWitnesses[];
     readonly outputs: ITransactionOutput[];
 
     readonly revert: Binary | undefined;

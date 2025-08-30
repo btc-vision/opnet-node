@@ -1152,6 +1152,7 @@ export class Block extends Logger {
         }*/
     }
 
+    /** TODO: ADD BSON.calculateObjectSize(txDocument); */
     private async saveOPNetTransactions(vmManager: VMManager): Promise<void> {
         if (!this.opnetTransactions.length) {
             return;
@@ -1159,7 +1160,9 @@ export class Block extends Logger {
 
         const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
         for (const transaction of this.opnetTransactions) {
-            transactionData.push(transaction.toDocument());
+            const txDocument = transaction.toDocument();
+
+            transactionData.push(txDocument);
         }
 
         const promises: Promise<void>[] = [];
@@ -1179,7 +1182,9 @@ export class Block extends Logger {
 
         const transactionData: TransactionDocument<OPNetTransactionTypes>[] = [];
         for (const transaction of this.genericTransactions) {
-            transactionData.push(transaction.toDocument());
+            const txDocument = transaction.toDocument();
+
+            transactionData.push(txDocument);
         }
 
         try {
