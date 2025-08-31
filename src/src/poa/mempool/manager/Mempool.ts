@@ -374,12 +374,19 @@ export class Mempool extends Logger {
         const buf = Buffer.from(transaction.data);
         const rawHex: string = buf.toString('hex');
         const broadcast = await this.broadcastBitcoinTransaction(rawHex);
+
         if (broadcast && broadcast.result) {
             transaction.id = broadcast.result;
 
             parseAndStoreInputOutputs(buf, transaction);
 
-            await this.mempoolRepository.storeTransaction(transaction);
+            const stored = await this.mempoolRepository.storeTransaction(transaction);
+            if (!stored) {
+                return {
+                    success: false,
+                    result: 'Could not store transaction in mempool.',
+                };
+            }
         }
 
         return (

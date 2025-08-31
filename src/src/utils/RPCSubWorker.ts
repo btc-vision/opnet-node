@@ -350,7 +350,9 @@ class RPCManager extends Logger {
         } catch (e) {
             const error = e as Error;
             if (Config.DEV_MODE) {
-                this.error(`Failed to execute call request (subworker). ${error.stack}`);
+                if (error.stack && !error.stack.includes('Contract not found')) {
+                    this.error(`Failed to execute call request (subworker). ${error.stack}`);
+                }
             }
 
             result = {

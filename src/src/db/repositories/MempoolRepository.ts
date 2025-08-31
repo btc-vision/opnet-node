@@ -163,8 +163,13 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             await this.updatePartialWithFilter(filter, {
                 $set: data,
             });
+
             return true;
         } catch (e) {
+            if (Config.DEV_MODE) {
+                this.fail(`Error storing mempool transaction: ${e}`);
+            }
+
             return false;
         }
     }

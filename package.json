@@ -38,7 +38,7 @@
         "@asyncapi/html-template": "^3.3.0",
         "@bitauth/libauth": "^3.0.0",
         "@btc-vision/bitcoin": "^6.4.8",
-        "@btc-vision/bitcoin-rpc": "^1.0.2",
+        "@btc-vision/bitcoin-rpc": "^1.0.4",
         "@btc-vision/bsi-common": "^1.1.0",
         "@btc-vision/bsi-db": "^1.0.4",
         "@btc-vision/logger": "^1.0.6",
