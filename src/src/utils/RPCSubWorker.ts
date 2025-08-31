@@ -321,9 +321,7 @@ class RPCManager extends Logger {
         }
 
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.info(
-                `Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`,
-            );
+            this.info(`Call request received. {To: ${data.to}, Calldata: ${data.calldata}}`);
         }
 
         const vmManager = await this.getNextVMManager();
