@@ -20,7 +20,7 @@ export class UTXOsAggregationV2 extends Aggregation {
         pushRawTxs: boolean = true,
         olderThan: bigint | undefined,
     ): Document[] {
-        const minValue: number = optimize ? 9999 : 330;
+        const minValue: number = optimize ? 12000 : 330;
 
         const aggregation: Document[] = [
             {
@@ -33,7 +33,7 @@ export class UTXOsAggregationV2 extends Aggregation {
                     ...(olderThan !== undefined
                         ? {
                               blockHeight: {
-                                  $lt: DataConverter.toDecimal128(olderThan),
+                                  $lte: DataConverter.toDecimal128(olderThan),
                               },
                           }
                         : {}),
