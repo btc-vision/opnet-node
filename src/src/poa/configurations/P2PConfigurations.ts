@@ -38,10 +38,13 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     private readonly defaultBootstrapNodes: string[];
 
+    private bootstrapPeerIds: Set<string> = new Set();
+
     constructor(private readonly config: BtcIndexerConfig) {
         super();
 
         this.defaultBootstrapNodes = this.getDefaultBootstrapNodes();
+        this.initializeBootstrapPeerIds();
     }
 
     public get tcpConfiguration(): TCPOptions {
@@ -232,24 +235,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     public isBootstrapPeer(peerId: string): boolean {
-        // Check if this peer ID matches any known bootstrap nodes
-        const bootstrapList = [...this.config.P2P.BOOTSTRAP_NODES, ...this.defaultBootstrapNodes];
-
-        // Bootstrap nodes in the config are in multiaddr format
-        // Extract peer IDs from them
-        for (const bootstrapAddr of bootstrapList) {
-            try {
-                const addr = multiaddr(bootstrapAddr);
-                const peerIdFromAddr = addr.getPeerId();
-                if (peerIdFromAddr && peerIdFromAddr === peerId) {
-                    return true;
-                }
-            } catch {
-                // Invalid multiaddr format, skip
-            }
-        }
-
-        return false;
+        return this.bootstrapPeerIds.has(peerId);
     }
 
     public async privateKeyConfigurations(): Promise<PrivateKey> {
@@ -294,6 +280,27 @@ export class P2PConfigurations extends OPNetPathFinder {
         }
 
         return dataStore;
+    }
+
+    private initializeBootstrapPeerIds(): void {
+        const bootstrapList = [...this.config.P2P.BOOTSTRAP_NODES, ...this.defaultBootstrapNodes];
+
+        for (const bootstrapAddr of bootstrapList) {
+            try {
+                const addr = multiaddr(bootstrapAddr);
+                const addrStr = addr.toString();
+
+                // Extract peer ID from /p2p/ or /ipfs/ component
+                const p2pMatch = addrStr.match(/\/(p2p|ipfs)\/([^/]+)/);
+                if (p2pMatch && p2pMatch[2]) {
+                    this.bootstrapPeerIds.add(p2pMatch[2]);
+                }
+            } catch (e) {
+                if (Config.DEV_MODE) {
+                    console.error(`Invalid multiaddr format: ${bootstrapAddr}`);
+                }
+            }
+        }
     }
 
     private getDefaultBootstrapNodes(): string[] {
