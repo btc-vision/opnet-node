@@ -256,6 +256,7 @@ export class P2PManager extends Logger {
 
             const peerIdStr = peerData.id.toString();
             if (this.p2pConfigurations.isBootstrapPeer(peerIdStr)) {
+                this.warn(`Skipping bootstrap peer ${peerIdStr} in peer list.`);
                 continue;
             }
 
@@ -505,10 +506,6 @@ export class P2PManager extends Logger {
         );
 
         if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS && !this.isBootstrapNode()) {
-            this.warn(
-                `Low healthy connections: ${healthyConnections.length}/${this.config.P2P.MINIMUM_PEERS}`,
-            );
-
             // Trigger peer discovery
             try {
                 await this.node.services.aminoDHT.refreshRoutingTable();
@@ -523,7 +520,9 @@ export class P2PManager extends Logger {
                         try {
                             await this.node.dial(peer.id);
                         } catch (e) {
-                            this.debug(`Failed to dial ${peer.id}: ${e}`);
+                            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                                this.debug(`Failed to dial ${peer.id}: ${e}`);
+                            }
                         }
                     }
                 }
