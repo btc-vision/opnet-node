@@ -1,14 +1,5 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
-import {
-    AggregateOptions,
-    Binary,
-    Collection,
-    Db,
-    Document,
-    Filter,
-    FindOptions,
-    Long,
-} from 'mongodb';
+import { AggregateOptions, Binary, Collection, Db, Document, Filter, FindOptions, Long, } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { IMempoolTransaction, IMempoolTransactionObj } from '../interfaces/IMempoolTransaction.js';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -297,9 +288,9 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             ...data,
             data: Buffer.from(data.data.buffer),
             blockHeight: DataConverter.fromDecimal128(data.blockHeight),
-            theoreticalGasLimit: data.theoreticalGasLimit
+            theoreticalGasLimit: Long.isLong(data.theoreticalGasLimit)
                 ? data.theoreticalGasLimit.toBigInt()
-                : BigInt(0),
+                : BigInt(`${data.theoreticalGasLimit}`),
             isOPNet: data.isOPNet || false,
             priorityFee: data.priorityFee ? data.priorityFee.toBigInt() : BigInt(0),
             inputs: data.inputs.map((input) => {
