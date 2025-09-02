@@ -144,6 +144,10 @@ export class P2PManager extends Logger {
         setInterval(async () => {
             await this.cleanupStalePeers();
         }, 60_000);
+
+        setInterval(async () => {
+            await this.monitorConnectionHealth();
+        }, 30_000);
     }
 
     private get multiAddresses(): Multiaddr[] {
@@ -236,6 +240,7 @@ export class P2PManager extends Logger {
 
         const peers: OPNetPeerInfo[] = [];
         const peersData: Peer[] = await this.node.peerStore.all();
+        const thisNodeAddr = this.node.peerId.toString();
 
         for (const peerData of peersData) {
             const peer = this.peers.get(peerData.id.toString());
@@ -249,16 +254,33 @@ export class P2PManager extends Logger {
             if (peer.clientChainId === undefined) continue;
             if (peer.clientNetwork === undefined) continue;
 
-            // filter out self
-            const thisNodeAddr = this.node.peerId.toString();
-            const addresses = peerData.addresses
-                .map((addr) => {
-                    if (addr.multiaddr.toString().includes(thisNodeAddr)) return null;
-                    if (addr.isCertified) return null; // Skip certified addresses.
+            const peerIdStr = peerData.id.toString();
+            if (this.p2pConfigurations.isBootstrapPeer(peerIdStr)) {
+                continue;
+            }
 
-                    return addr.multiaddr.bytes;
-                })
-                .filter((addr) => !!addr);
+            const certifiedAddresses: Uint8Array[] = [];
+            const uncertifiedAddresses: Uint8Array[] = [];
+
+            for (const addr of peerData.addresses) {
+                const addrStr = addr.multiaddr.toString();
+
+                // Skip self references
+                if (addrStr.includes(thisNodeAddr)) continue;
+
+                // Filter reachable addresses
+                const filtered = this.filterReachableAddresses([addr.multiaddr]);
+                if (filtered.length === 0) continue;
+
+                if (addr.isCertified) {
+                    certifiedAddresses.push(addr.multiaddr.bytes);
+                } else {
+                    uncertifiedAddresses.push(addr.multiaddr.bytes);
+                }
+            }
+
+            const addresses =
+                certifiedAddresses.length > 0 ? certifiedAddresses : uncertifiedAddresses;
 
             if (addresses.length === 0) continue;
 
@@ -269,22 +291,35 @@ export class P2PManager extends Logger {
                 network: peer.clientNetwork,
                 chainId: peer.clientChainId,
                 peer: peerData.id.toCID().bytes,
-                addresses: addresses,
+                addresses: addresses.slice(0, 5),
             };
 
             peers.push(peerInfo);
         }
 
-        //console.dir(peers, {
-        //    colors: true,
-        //    depth: 100,
-        //});
-
-        // Apply shuffle to the peers list, way to not be "predictable" and re-identified by the same peers.
         shuffleArray(peers);
-
-        // Ensure that we never send more than 100 peers at once.
         return peers.slice(0, 100);
+    }
+
+    private filterReachableAddresses(addrs: Multiaddr[]): Multiaddr[] {
+        return addrs.filter((addr) => {
+            try {
+                const str = addr.toString();
+                // Skip localhost, private IPs, and link-local addresses
+                return !(
+                    str.includes('/127.0.0.1/') ||
+                    str.includes('/::1/') ||
+                    str.includes('/10.') ||
+                    str.includes('/192.168.') ||
+                    (str.includes('/172.') && str.match(/\/172\.(1[6-9]|2[0-9]|3[0-1])\./)) ||
+                    str.includes('/fe80:') ||
+                    str.includes('/fc00:') ||
+                    str.includes('/fd00:')
+                );
+            } catch {
+                return false;
+            }
+        });
     }
 
     private async cleanupStalePeers(): Promise<void> {
@@ -443,7 +478,7 @@ export class P2PManager extends Logger {
         this.warn(`Failed to reconnect to peer ${peerId}.`);
     }
 
-    private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
+    /*private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
         const peerInfo: IdentifyResult = evt.detail;
@@ -453,6 +488,71 @@ export class P2PManager extends Logger {
 
         await this.node.peerStore.merge(peerInfo.peerId, peerData);
         this.info(`Identified peer: ${peerInfo.peerId.toString()}`);
+    }*/
+
+    private async monitorConnectionHealth(): Promise<void> {
+        if (!this.node) return;
+
+        const connections = this.node.getConnections();
+        const healthyConnections = connections.filter((conn) => conn.status === 'open');
+
+        const authenticatedPeers = Array.from(this.peers.values()).filter(
+            (p) => p.isAuthenticated,
+        ).length;
+
+        this.debug(
+            `Connection health: ${healthyConnections.length} connections, ${authenticatedPeers} authenticated peers`,
+        );
+
+        if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS && !this.isBootstrapNode()) {
+            this.warn(
+                `Low healthy connections: ${healthyConnections.length}/${this.config.P2P.MINIMUM_PEERS}`,
+            );
+
+            // Trigger peer discovery
+            try {
+                await this.node.services.aminoDHT.refreshRoutingTable();
+
+                // Try to dial known peers that we're not connected to
+                const knownPeers = await this.node.peerStore.all();
+                const connectedPeerIds = new Set(connections.map((c) => c.remotePeer.toString()));
+
+                for (const peer of knownPeers.slice(0, 5)) {
+                    // Try up to 5 peers
+                    if (!connectedPeerIds.has(peer.id.toString())) {
+                        try {
+                            await this.node.dial(peer.id);
+                        } catch (e) {
+                            this.debug(`Failed to dial ${peer.id}: ${e}`);
+                        }
+                    }
+                }
+            } catch (e) {
+                this.error(`Failed to refresh routing table: ${e}`);
+            }
+        }
+    }
+
+    private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
+        if (!this.node) throw new Error('Node not initialized');
+
+        const peerInfo: IdentifyResult = evt.detail;
+
+        // Filter out unreachable addresses before storing
+        const reachableAddrs = this.filterReachableAddresses(peerInfo.listenAddrs);
+
+        if (reachableAddrs.length > 0) {
+            const peerData: PeerData = {
+                multiaddrs: reachableAddrs,
+            };
+
+            await this.node.peerStore.merge(peerInfo.peerId, peerData);
+            this.info(
+                `Identified peer: ${peerInfo.peerId.toString()} with ${reachableAddrs.length} reachable addresses`,
+            );
+        } else {
+            this.warn(`Peer ${peerInfo.peerId.toString()} has no reachable addresses`);
+        }
     }
 
     private async refreshRouting(): Promise<void> {
@@ -602,15 +702,14 @@ export class P2PManager extends Logger {
     private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
-        //console.log('peers', peers);
-
-        // Prevent flooding.
+        // Prevent flooding
         if (peers && peers.length > 100) {
             peers = peers.slice(0, 100);
         }
 
         const discovered: string[] = [];
         const peersToTry: PeerInfo[] = [];
+
         for (let peer = 0; peer < peers.length; peer++) {
             const peerInfo: OPNetPeerInfo = peers[peer];
 
@@ -627,7 +726,7 @@ export class P2PManager extends Logger {
 
                 if (this.isBlackListedPeerId(peerIdStr)) continue;
 
-                // Is self.
+                // Is self
                 if (this.node.peerId.equals(peerId)) continue;
 
                 if (peerInfo.addresses.length === 0) {
@@ -639,21 +738,28 @@ export class P2PManager extends Logger {
                 for (const address of peerInfo.addresses) {
                     const addr = multiaddr(address);
 
-                    if (this.blackListedPeerIps.has(addr.nodeAddress().address)) continue;
+                    // Check blacklist
+                    try {
+                        const nodeAddr = addr.nodeAddress();
+                        if (nodeAddr && this.blackListedPeerIps.has(nodeAddr.address)) continue;
+                    } catch {
+                        // Address might not have a node address (e.g., circuit relay)
+                    }
 
                     addresses.push(addr);
                 }
 
-                if (addresses.length === 0) {
-                    this.warn(`No valid addresses found for peer ${peerIdStr}`);
+                // Filter reachable addresses
+                const reachableAddresses = this.filterReachableAddresses(addresses);
+
+                if (reachableAddresses.length === 0) {
+                    this.warn(`No reachable addresses found for peer ${peerIdStr}`);
                     continue;
                 }
 
-                //console.log('Peer addresses', addresses);
-
                 const peerData: PeerInfo = {
                     id: peerIdFromString(peerIdStr),
-                    multiaddrs: addresses,
+                    multiaddrs: reachableAddresses,
                 };
 
                 peersToTry.push(peerData);
@@ -668,27 +774,51 @@ export class P2PManager extends Logger {
             return;
         }
 
-        // Mitigate potential flooding.
+        // Mitigate potential flooding
         const maxPerBatch = 10;
         for (let i = 0; i < peersToTry.length; i += maxPerBatch) {
             const batch = peersToTry.slice(i, i + maxPerBatch);
-            const promises: Promise<Peer>[] = [];
+            const promises: Promise<void>[] = [];
 
             for (const peerData of batch) {
-                const addedPeer = this.node.peerStore.merge(peerData.id, {
-                    multiaddrs: peerData.multiaddrs,
-                    tags: {
-                        ['OPNET']: {
-                            value: 50,
-                            ttl: 128000,
-                        },
-                    },
-                });
-
-                promises.push(addedPeer);
+                promises.push(this.tryPeerData(peerData));
             }
 
-            await Promise.safeAll(promises);
+            await Promise.allSettled(promises);
+        }
+
+        this.info(`Discovered and attempted to connect to ${peersToTry.length} new peers`);
+    }
+
+    private async tryPeerData(peerData: PeerInfo): Promise<void> {
+        if (!this.node) {
+            throw new Error('Node not initialized');
+        }
+
+        try {
+            await this.node.peerStore.merge(peerData.id, {
+                multiaddrs: peerData.multiaddrs,
+                tags: {
+                    ['OPNET']: {
+                        value: 50,
+                        ttl: 128000,
+                    },
+                },
+            });
+
+            const existingConnections = this.node.getConnections(peerData.id);
+            if (existingConnections.length === 0) {
+                const signal = AbortSignal.timeout(5000);
+                await this.node.dial(peerData.id, { signal });
+
+                if (Config.DEV_MODE) {
+                    this.debug(`Successfully dialed peer ${peerData.id}`);
+                }
+            }
+        } catch (e) {
+            if (Config.DEV_MODE) {
+                this.error(`Failed to add/dial peer ${peerData.id}: ${e}`);
+            }
         }
     }
 
