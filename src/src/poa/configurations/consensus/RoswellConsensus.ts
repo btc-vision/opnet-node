@@ -43,13 +43,15 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
         BLOCKS_PER_EPOCH: 5n,
 
-        MIN_DIFFICULTY: 20,
+        MIN_DIFFICULTY: 35,
 
         GENESIS_PROPOSER_PUBLIC_KEY: Address.dead(),
 
         GRAFFITI_LENGTH: 16,
 
         TIMELOCK_BLOCKS_REWARD: 75,
+
+        SOLUTION_LIFETIME: 80n,
     },
 
     GENERIC: {

@@ -50,6 +50,8 @@ export interface IOPNetConsensus<T extends Consensus> {
         readonly GRAFFITI_LENGTH: number;
 
         readonly TIMELOCK_BLOCKS_REWARD: number;
+
+        readonly SOLUTION_LIFETIME: bigint;
     };
 
     readonly GENERIC: {

@@ -11,8 +11,6 @@ import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 export class EpochRepository extends BaseRepository<IEpochDocument> {
     public readonly logColor: string = '#ffd700';
 
-    private readonly SOLUTION_LIFETIME: bigint = 80n;
-
     public constructor(db: Db) {
         super(db);
     }
@@ -177,7 +175,7 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         const adjustedEndBlock = blockHeight - OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
 
         const epochs = await this.getEpochsInBlockRange(
-            adjustedEndBlock - this.SOLUTION_LIFETIME,
+            adjustedEndBlock - OPNetConsensus.consensus.EPOCH.SOLUTION_LIFETIME,
             adjustedEndBlock,
         );
 
