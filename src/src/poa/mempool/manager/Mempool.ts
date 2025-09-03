@@ -387,6 +387,9 @@ export class Mempool extends Logger {
                     result: 'Could not store transaction in mempool.',
                 };
             }
+
+            // Proactively clean up any evicted transactions
+            await this.cleanupEvictedTransactions(transaction);
         }
 
         return (
@@ -395,6 +398,42 @@ export class Mempool extends Logger {
                 result: 'Could not broadcast transaction to the network.',
             }
         );
+    }
+
+    private async cleanupEvictedTransactions(transaction: IMempoolTransactionObj): Promise<void> {
+        const conflicts = await this.mempoolRepository.findConflictingTransactions(transaction);
+        if (!conflicts.length) return;
+
+        const toDelete: Set<string> = new Set();
+        const visited: Set<string> = new Set();
+
+        for (const conf of conflicts) {
+            toDelete.add(conf.id);
+            const descendants = await this.getAllDescendants(conf.id, visited);
+            descendants.forEach((id) => toDelete.add(id));
+        }
+
+        if (toDelete.size > 100) {
+            this.warn(`Evicted transaction count exceeds limit: ${toDelete.size}`);
+        }
+
+        await this.mempoolRepository.deleteTransactionsById(Array.from(toDelete));
+    }
+
+    private async getAllDescendants(id: string, visited: Set<string>): Promise<string[]> {
+        if (visited.has(id)) return [];
+
+        visited.add(id);
+
+        const direct = await this.mempoolRepository.findDirectDescendants(id);
+        let all: string[] = [];
+
+        for (const d of direct) {
+            const sub = await this.getAllDescendants(d.id, visited);
+            all = all.concat([d.id, ...sub]);
+        }
+
+        return all;
     }
 
     private async broadcastBitcoinTransaction(

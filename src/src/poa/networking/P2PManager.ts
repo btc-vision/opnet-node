@@ -256,7 +256,6 @@ export class P2PManager extends Logger {
 
             const peerIdStr = peerData.id.toString();
             if (this.p2pConfigurations.isBootstrapPeer(peerIdStr)) {
-                this.warn(`Skipping bootstrap peer ${peerIdStr} in peer list.`);
                 continue;
             }
 

@@ -452,6 +452,10 @@ export class Block extends Logger {
         return [dto, transferList];
     }*/
 
+    public getTransactions(): Transaction<OPNetTransactionTypes>[] {
+        return this.transactions;
+    }
+
     public getUTXOs(): ITransactionDocumentBasic<OPNetTransactionTypes>[] {
         return this.transactions.map((t) => t.toBitcoinDocument());
     }

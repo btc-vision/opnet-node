@@ -13,6 +13,19 @@ import { VMManager } from '../../../vm/VMManager.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { BlockGasPredictor } from '../gas/BlockGasPredictor.js';
 import { EpochManager } from '../epoch/EpochManager.js';
+import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
+import { Transaction } from '../transaction/Transaction.js';
+import { OPNetTransactionTypes } from '../transaction/enums/OPNetTransactionTypes.js';
+
+interface DummyTxInput {
+    transactionId: string;
+    outputIndex: number;
+}
+
+interface DummyMempoolTx {
+    id: string;
+    inputs: DummyTxInput[];
+}
 
 export class IndexingTask extends Logger {
     public readonly logColor: string = '#9545c5';
@@ -147,10 +160,19 @@ export class IndexingTask extends Logger {
 
             this.finalizeBlockStart = Date.now();
 
-            // Finalize the block
-            const resp = await Promise.safeAll([
-                this.vmStorage.deleteTransactionsById(this.block.getTransactionsHashes()),
+            // Get transaction data we'll need
+            const blockTxs = this.block.getTransactions();
+            const blockTxHashes = this.block.getTransactionsHashes();
+
+            // Create a set for fast lookup of already deleted transactions
+            const deletedTxIds = new Set<string>(blockTxHashes);
+
+            // Execute operations in the correct sequence
+            await this.vmStorage.deleteTransactionsById(blockTxHashes);
+
+            const [finalizationResult] = await Promise.all([
                 this.block.finalizeBlock(this.vmManager),
+                this.detectAndRemoveConflictingTransactions(blockTxs, deletedTxIds),
             ]);
 
             this.finalizeEnd = Date.now();
@@ -162,7 +184,7 @@ export class IndexingTask extends Logger {
             }
 
             // Verify finalization
-            if (!resp[1]) {
+            if (!finalizationResult) {
                 throw new Error('Block finalization failed');
             }
 
@@ -226,6 +248,64 @@ export class IndexingTask extends Logger {
                 void this.processPrefetch();
             },
         );
+    }
+
+    private async detectAndRemoveConflictingTransactions(
+        blockTxs: Transaction<OPNetTransactionTypes>[],
+        alreadyDeletedTxIds: Set<string>,
+    ): Promise<void> {
+        if (blockTxs.length === 0) {
+            return;
+        }
+
+        const BATCH_SIZE = 500;
+        const conflictIds = new Set<string>();
+
+        for (let i = 0; i < blockTxs.length; i += BATCH_SIZE) {
+            const batch = blockTxs.slice(i, Math.min(i + BATCH_SIZE, blockTxs.length));
+
+            const batchDummies: DummyMempoolTx[] = batch.map((tx) => ({
+                id: tx.transactionIdString,
+                inputs: tx.inputs.map((input) => ({
+                    transactionId: input.originalTransactionId.toString('hex'),
+                    outputIndex: input.outputTransactionIndex,
+                })) as DummyTxInput[],
+            }));
+
+            const batchPromises = batchDummies.map(async (dummy) => {
+                try {
+                    const conflicts = await this.vmStorage.findConflictingTransactions(
+                        dummy as unknown as IMempoolTransactionObj,
+                    );
+                    return conflicts.map((c) => c.id);
+                } catch (error) {
+                    this.error(`Failed to detect conflicts for tx ${dummy.id}: ${error}`);
+                    return [];
+                }
+            });
+
+            const batchResults = await Promise.all(batchPromises);
+
+            for (const ids of batchResults) {
+                for (const id of ids) {
+                    if (!alreadyDeletedTxIds.has(id)) {
+                        conflictIds.add(id);
+                    }
+                }
+            }
+
+            if (this.aborted) {
+                throw new Error('Conflict detection aborted');
+            }
+        }
+
+        if (conflictIds.size > 0) {
+            await this.vmStorage.deleteTransactionsById(Array.from(conflictIds));
+
+            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                this.debug(`Removed ${conflictIds.size} conflicting transactions from mempool`);
+            }
+        }
     }
 
     private onAbortHandler = () => {
