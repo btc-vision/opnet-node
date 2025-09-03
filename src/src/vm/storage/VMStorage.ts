@@ -22,6 +22,7 @@ import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
 import { ITargetEpochDocument } from '../../db/documents/interfaces/ITargetEpochDocument.js';
 import { AttestationProof } from '../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
+import { IMempoolTransactionObj } from '../../db/interfaces/IMempoolTransaction.js';
 
 export abstract class VMStorage extends Logger {
     public readonly logColor: string = '#ff00ff';
@@ -159,6 +160,9 @@ export abstract class VMStorage extends Logger {
     public abstract killAllPendingWrites(): Promise<void>;
 
     public abstract deleteTransactionsById(transactions: string[]): Promise<void>;
+    public abstract findConflictingTransactions(
+        transaction: IMempoolTransactionObj,
+    ): Promise<IMempoolTransactionObj[]>;
 
     public abstract getChallengeSolutionsAtHeight(blockHeight: bigint): Promise<ChallengeSolution>;
 

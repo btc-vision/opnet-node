@@ -15,18 +15,21 @@ export class IndexedMempool extends IndexedCollection<OPNetCollections.Mempool> 
                 unique: true,
                 name: 'id_1',
             },
+
             {
                 key: {
                     previousPsbtId: 1,
                 },
                 name: 'psbtId_1',
             },
+
             {
                 key: {
                     blockHeight: 1,
                 },
                 name: 'blockHeight_1',
             },
+
             {
                 key: {
                     'outputs.address': 1,
@@ -40,6 +43,14 @@ export class IndexedMempool extends IndexedCollection<OPNetCollections.Mempool> 
                     'inputs.transactionId': 1,
                 },
                 name: 'inputs_transactionId_1',
+            },
+
+            {
+                key: {
+                    'inputs.transactionId': 1,
+                    'inputs.outputIndex': 1,
+                },
+                name: 'inputs_transactionId_1_outputIndex_1',
             },
 
             {

@@ -6,6 +6,7 @@ import { Address } from '@btc-vision/transaction';
 
 export enum TransactionInputFlags {
     hasCoinbase = 0b00000001,
+    hasWitnesses = 0b00000010,
 }
 
 export enum TransactionOutputFlags {
@@ -193,6 +194,9 @@ export interface IOPNetConsensus<T extends Consensus> {
             readonly INPUTS: {
                 /** Write coinbase to the transaction. */
                 readonly WRITE_COINBASE: boolean;
+
+                /** Write witnesses to the transaction. */
+                readonly WRITE_WITNESSES: boolean;
             };
 
             readonly OUTPUTS: {

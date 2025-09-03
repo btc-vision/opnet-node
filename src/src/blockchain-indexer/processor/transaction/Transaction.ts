@@ -537,11 +537,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             return;
         }
 
-        const witnessHex = witnesses[expectedPositionInWitness];
-        if (!witnessHex) return;
+        const witness = witnesses[expectedPositionInWitness];
+        if (!witness) return;
 
-        const raw = Buffer.from(witnessHex, 'hex');
-        const decoded = script.decompile(raw);
+        const decoded = script.decompile(witness);
         if (!decoded) return;
 
         // this check is redundant now

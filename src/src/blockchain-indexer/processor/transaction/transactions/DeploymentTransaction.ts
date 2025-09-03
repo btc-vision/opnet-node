@@ -191,8 +191,8 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         }
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
-        const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
-        const originalSalt = Buffer.from(witnesses[0], 'hex');
+        const witnesses: Buffer[] = inputOPNetWitnessTransaction.transactionInWitness;
+        const originalSalt = witnesses[0];
 
         // Regenerate raw public key
         const deployerPubKey = Buffer.from([
@@ -263,10 +263,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         /** We regenerate the contract address and verify it */
         const input0: TransactionInput = this.inputs[0];
         const controlBlock = input0.transactionInWitness[input0.transactionInWitness.length - 1];
-        this.getOriginalContractAddress(
-            Buffer.from(controlBlock, 'hex'),
-            deploymentWitnessData.header.priorityFeeSat,
-        );
+        this.getOriginalContractAddress(controlBlock, deploymentWitnessData.header.priorityFeeSat);
 
         const outputWitness: TransactionOutput = this.outputs[0]; // SHOULD ALWAYS BE 0.
         const decodedAddress = this.decodeAddress(outputWitness);

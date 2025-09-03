@@ -22,6 +22,7 @@ import { BootstrapNodes } from './BootstrapNodes.js';
 import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
+import { multiaddr } from '@multiformats/multiaddr';
 
 interface BackedUpPeer {
     id: string;
@@ -37,10 +38,13 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     private readonly defaultBootstrapNodes: string[];
 
+    private bootstrapPeerIds: Set<string> = new Set();
+
     constructor(private readonly config: BtcIndexerConfig) {
         super();
 
         this.defaultBootstrapNodes = this.getDefaultBootstrapNodes();
+        this.initializeBootstrapPeerIds();
     }
 
     public get tcpConfiguration(): TCPOptions {
@@ -57,27 +61,6 @@ export class P2PConfigurations extends OPNetPathFinder {
             },
         };
     }
-
-    /*public get websocketConfiguration(): WebSocketsInit {
-        return {
-            websocket: {
-                handshakeTimeout: 10000,
-                maxPayload: P2PConfigurations.maxMessageSize,
-            },
-        };
-    }
-
-    public get autoNATConfiguration(): AutoNATServiceInit {
-        return {
-            protocolPrefix: P2PConfigurations.protocolName,
-            timeout: 10000,
-            maxInboundStreams: 5,
-            maxOutboundStreams: 5,
-            startupDelay: 4000,
-            maxMessageSize: P2PConfigurations.maxMessageSize,
-            refreshInterval: 30000,
-        };
-    }*/
 
     public get yamuxConfiguration(): YamuxMuxerInit {
         return {
@@ -105,6 +88,27 @@ export class P2PConfigurations extends OPNetPathFinder {
             maxStreamWindowSize: P2PConfigurations.maxMessageSize,
         };
     }
+
+    /*public get websocketConfiguration(): WebSocketsInit {
+        return {
+            websocket: {
+                handshakeTimeout: 10000,
+                maxPayload: P2PConfigurations.maxMessageSize,
+            },
+        };
+    }
+
+    public get autoNATConfiguration(): AutoNATServiceInit {
+        return {
+            protocolPrefix: P2PConfigurations.protocolName,
+            timeout: 10000,
+            maxInboundStreams: 5,
+            maxOutboundStreams: 5,
+            startupDelay: 4000,
+            maxMessageSize: P2PConfigurations.maxMessageSize,
+            refreshInterval: 30000,
+        };
+    }*/
 
     public get listeningConfiguration(): AddressManagerInit {
         const listenAt: string[] = [];
@@ -142,31 +146,39 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     public get connectionManagerConfiguration(): ConnectionManagerInit {
+        const isBootstrap = this.config.P2P.IS_BOOTSTRAP_NODE;
+
         return {
             reconnectRetries: 3,
             reconnectRetryInterval: 5000,
 
-            maxParallelDials: 100,
+            maxParallelDials: isBootstrap ? 200 : 100,
 
-            protocolNegotiationTimeout: 10000,
+            outboundStreamProtocolNegotiationTimeout: 10000,
+            inboundStreamProtocolNegotiationTimeout: 10000,
             dialTimeout: 10000,
-            maxParallelReconnects: 10,
+            maxParallelReconnects: isBootstrap ? 20 : 10,
 
             /**
              * A remote peer may attempt to open up to this many connections per second,
              * any more than that will be automatically rejected
              */
-            inboundConnectionThreshold: 10,
+            inboundConnectionThreshold: isBootstrap ? 20 : 10,
 
             /**
              * The total number of connections allowed to be open at one time
+             * Bootstrap nodes should handle more connections
              */
-            maxConnections: this.config.P2P.MAXIMUM_PEERS,
+            maxConnections: isBootstrap
+                ? this.config.P2P.MAXIMUM_PEERS * 2
+                : this.config.P2P.MAXIMUM_PEERS,
 
             /**
              * How many connections can be open but not yet upgraded
              */
-            maxIncomingPendingConnections: this.config.P2P.MAXIMUM_INCOMING_PENDING_PEERS,
+            maxIncomingPendingConnections: isBootstrap
+                ? this.config.P2P.MAXIMUM_INCOMING_PENDING_PEERS * 2
+                : this.config.P2P.MAXIMUM_INCOMING_PENDING_PEERS,
         };
     }
 
@@ -222,6 +234,10 @@ export class P2PConfigurations extends OPNetPathFinder {
         return `${P2PConfigurations.protocolName}/op/${P2PMajorVersion}`;
     }
 
+    public isBootstrapPeer(peerId: string): boolean {
+        return this.bootstrapPeerIds.has(peerId);
+    }
+
     public async privateKeyConfigurations(): Promise<PrivateKey> {
         const thisPeer = this.loadPeer();
         if (!thisPeer || !thisPeer.privKey) {
@@ -264,6 +280,27 @@ export class P2PConfigurations extends OPNetPathFinder {
         }
 
         return dataStore;
+    }
+
+    private initializeBootstrapPeerIds(): void {
+        const bootstrapList = [...this.config.P2P.BOOTSTRAP_NODES, ...this.defaultBootstrapNodes];
+
+        for (const bootstrapAddr of bootstrapList) {
+            try {
+                const addr = multiaddr(bootstrapAddr);
+                const addrStr = addr.toString();
+
+                // Extract peer ID from /p2p/ or /ipfs/ component
+                const p2pMatch = addrStr.match(/\/(p2p|ipfs)\/([^/]+)/);
+                if (p2pMatch && p2pMatch[2]) {
+                    this.bootstrapPeerIds.add(p2pMatch[2]);
+                }
+            } catch (e) {
+                if (Config.DEV_MODE) {
+                    console.error(`Invalid multiaddr format: ${bootstrapAddr}`);
+                }
+            }
+        }
     }
 
     private getDefaultBootstrapNodes(): string[] {

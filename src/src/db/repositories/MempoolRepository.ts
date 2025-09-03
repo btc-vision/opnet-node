@@ -82,6 +82,41 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         return !!result;
     }
 
+    public async getAllTransactionIds(): Promise<string[]> {
+        const collection = this.getCollection();
+        return await collection
+            .find({}, { projection: { id: 1, _id: 0 } })
+            .map((doc) => doc.id)
+            .toArray();
+    }
+
+    public async findConflictingTransactions(
+        transaction: IMempoolTransactionObj,
+    ): Promise<IMempoolTransactionObj[]> {
+        const orConditions: Filter<IMempoolTransaction>[] = transaction.inputs.map((input) => ({
+            inputs: {
+                $elemMatch: { transactionId: input.transactionId, outputIndex: input.outputIndex },
+            },
+        }));
+
+        if (!orConditions.length) return [];
+
+        const collection = this.getCollection();
+        const criteria: Filter<IMempoolTransaction> = { $or: orConditions };
+        const results = (await collection.find(criteria).toArray()) as IMempoolTransaction[];
+
+        return results.map(this.convertToObj).filter((t) => t.id !== transaction.id);
+    }
+
+    public async findDirectDescendants(id: string): Promise<IMempoolTransactionObj[]> {
+        const criteria: Filter<IMempoolTransaction> = { 'inputs.transactionId': id };
+        const results = (await this.getCollection()
+            .find(criteria)
+            .toArray()) as IMempoolTransaction[];
+
+        return results.map(this.convertToObj);
+    }
+
     public async storeTransactions(txs: IMempoolTransactionObj[]): Promise<void> {
         const batch = 100;
 
@@ -163,8 +198,13 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             await this.updatePartialWithFilter(filter, {
                 $set: data,
             });
+
             return true;
         } catch (e) {
+            if (Config.DEV_MODE) {
+                this.fail(`Error storing mempool transaction: ${e}`);
+            }
+
             return false;
         }
     }
@@ -292,9 +332,9 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             ...data,
             data: Buffer.from(data.data.buffer),
             blockHeight: DataConverter.fromDecimal128(data.blockHeight),
-            theoreticalGasLimit: data.theoreticalGasLimit
+            theoreticalGasLimit: Long.isLong(data.theoreticalGasLimit)
                 ? data.theoreticalGasLimit.toBigInt()
-                : BigInt(0),
+                : BigInt(`${data.theoreticalGasLimit}`),
             isOPNet: data.isOPNet || false,
             priorityFee: data.priorityFee ? data.priorityFee.toBigInt() : BigInt(0),
             inputs: data.inputs.map((input) => {

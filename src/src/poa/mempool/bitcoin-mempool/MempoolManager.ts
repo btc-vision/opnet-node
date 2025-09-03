@@ -310,6 +310,7 @@ export class MempoolManager extends Logger {
             this.mempoolTransactionCache = new Set(txsList);
 
             if (!unknownTxs.length) {
+                await this.cleanUpDB(txsList);
                 return;
             }
 
@@ -319,11 +320,13 @@ export class MempoolManager extends Logger {
 
             const newTxs = unknownTxs.filter((tx) => !alreadyKnownTxs.includes(tx));
             if (!newTxs.length) {
+                await this.cleanUpDB(txsList);
                 return;
             }
 
             const fetchedTxs = await this.fetchAllUnknownTransactions(newTxs);
             if (!fetchedTxs.length) {
+                await this.cleanUpDB(txsList);
                 return;
             }
 
@@ -341,7 +344,18 @@ export class MempoolManager extends Logger {
         } finally {
             if (txsList && txsList.length) {
                 await this.generateMempoolBackup(txsList);
+                await this.cleanUpDB(txsList);
             }
+        }
+    }
+
+    private async cleanUpDB(currentTxs: string[]): Promise<void> {
+        const dbIds = await this.mempoolRepository.getAllTransactionIds();
+        const toDelete = dbIds.filter((id) => !currentTxs.includes(id));
+
+        if (toDelete.length) {
+            this.log(`Cleaning up ${toDelete.length} evicted transactions from DB`);
+            await this.mempoolRepository.deleteTransactionsById(toDelete);
         }
     }
 }

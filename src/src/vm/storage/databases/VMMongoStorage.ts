@@ -39,6 +39,7 @@ import { TargetEpochRepository } from '../../../db/repositories/TargetEpochRepos
 import { ITargetEpochDocument } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
 import { AttestationProof } from '../../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 import { ChallengeSolution } from '../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
+import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -338,6 +339,16 @@ export class VMMongoStorage extends VMStorage {
             throw `Mempool repository not defined.`;
         }
         await this.mempoolRepository.deleteTransactionsById(ids);
+    }
+
+    public async findConflictingTransactions(
+        transaction: IMempoolTransactionObj,
+    ): Promise<IMempoolTransactionObj[]> {
+        if (!this.mempoolRepository) {
+            throw `Mempool repository not defined.`;
+        }
+
+        return await this.mempoolRepository.findConflictingTransactions(transaction);
     }
 
     public async getLatestBlock(): Promise<BlockHeaderAPIBlockDocument> {

@@ -358,6 +358,26 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     throw new Error('Invalid scriptSig');
                 }
 
+                if (input.witnesses) {
+                    if (!Array.isArray(input.witnesses)) {
+                        throw new Error('Invalid witnesses');
+                    }
+
+                    if (input.witnesses.length > 30) {
+                        throw new Error('Too many witnesses');
+                    }
+
+                    if ((input.flags & TransactionInputFlags.hasWitnesses) === 0) {
+                        throw new Error('Missing witnesses flag. Is this an error?');
+                    }
+
+                    for (const witness of input.witnesses) {
+                        if (typeof witness !== 'string') {
+                            throw new Error('Invalid witness');
+                        }
+                    }
+                }
+
                 if (input.coinbase && typeof input.coinbase !== 'string') {
                     if ((input.flags & TransactionInputFlags.hasCoinbase) === 0) {
                         throw new Error('Missing coinbase flag. Is this an error?');
@@ -378,6 +398,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     txId: input.txId,
                     outputIndex: input.outputIndex,
                     coinbase: input.coinbase,
+                    witnesses: input.witnesses,
                 } as StrippedTransactionInputAPI);
             }
 

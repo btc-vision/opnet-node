@@ -6,7 +6,10 @@ import {
     InteractionTransactionSafeThread,
 } from '../../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
-import { InteractionTransactionType, OPNetTransactionTypes, } from '../enums/OPNetTransactionTypes.js';
+import {
+    InteractionTransactionType,
+    OPNetTransactionTypes,
+} from '../enums/OPNetTransactionTypes.js';
 import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOPNetTransactions.js';
@@ -340,10 +343,10 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         this._calldata = this.interactionWitnessData.calldata;
 
         const inputOPNetWitnessTransaction: TransactionInput = inputOPNetWitnessTransactions[0];
-        const witnesses: string[] = inputOPNetWitnessTransaction.transactionInWitness;
+        const witnesses: Buffer[] = inputOPNetWitnessTransaction.transactionInWitness;
 
         // The first witness item might be your "contractSecret" or other salt
-        const contractSecret: Buffer = Buffer.from(witnesses[0], 'hex');
+        const contractSecret: Buffer = witnesses[0];
         const senderPubKey: Buffer = Buffer.from([
             this.interactionWitnessData.header.publicKeyPrefix,
             ...this.interactionWitnessData.senderPubKey,

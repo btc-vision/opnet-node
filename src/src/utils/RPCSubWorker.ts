@@ -266,6 +266,9 @@ class RPCManager extends Logger {
                     txId: Buffer.from(input.txId, 'base64'),
                     outputIndex: input.outputIndex,
                     scriptSig: Buffer.from(input.scriptSig, 'base64'),
+                    witnesses: input.witnesses
+                        ? input.witnesses.map((w) => Buffer.from(w, 'base64'))
+                        : [],
                     coinbase: input.coinbase ? Buffer.from(input.coinbase, 'base64') : undefined,
                     flags: input.flags || 0,
                 };
@@ -276,13 +279,6 @@ class RPCManager extends Logger {
                         value: 10000000n,
                         index: 0,
                         to: 'tb1pff6z2u3jvy0c206nkwsxm2d7xzuuyfq337w6dxgrgmgt3my2ayzsquka3w',
-                        flags: TransactionOutputFlags.hasTo,
-                        scriptPubKey: undefined,
-                    },
-                    {
-                        value: 10000000n,
-                        index: 1,
-                        to: '2N3boRkKs7YUXgzsKC9THBMDU622dWNn7T3',
                         flags: TransactionOutputFlags.hasTo,
                         scriptPubKey: undefined,
                     },
@@ -332,9 +328,7 @@ class RPCManager extends Logger {
         }
 
         if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.info(
-                `Call request received. {To: ${data.to.toString()}, Calldata: ${data.calldata}}`,
-            );
+            this.info(`Call request received. {To: ${data.to}, Calldata: ${data.calldata}}`);
         }
 
         const vmManager = await this.getNextVMManager();
@@ -354,7 +348,13 @@ class RPCManager extends Logger {
         } catch (e) {
             const error = e as Error;
             if (Config.DEV_MODE) {
-                this.error(`Failed to execute call request (subworker). ${error.stack}`);
+                if (
+                    error.stack &&
+                    !error.stack.includes('Contract not found') &&
+                    !error.stack.includes('Invalid contract.')
+                ) {
+                    this.error(`Failed to execute call request (subworker). ${error.stack}`);
+                }
             }
 
             result = {
