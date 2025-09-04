@@ -63,7 +63,7 @@
         "@libp2p/upnp-nat": "^3.1.20",
         "@libp2p/websockets": "^9.2.17",
         "@multiformats/multiaddr": "^12.5.1",
-        "@noble/curves": "^1.9.2",
+        "@noble/curves": "^2.0.0",
         "@noble/secp256k1": "^2.3.0",
         "@typescript-eslint/eslint-plugin": "^8.35.0",
         "@typescript-eslint/parser": "^8.35.0",
