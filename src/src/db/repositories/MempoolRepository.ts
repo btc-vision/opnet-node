@@ -336,7 +336,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
                 ? data.theoreticalGasLimit.toBigInt()
                 : BigInt(`${data.theoreticalGasLimit}`),
             isOPNet: data.isOPNet || false,
-            priorityFee: data.priorityFee ? data.priorityFee.toBigInt() : BigInt(0),
+            priorityFee: Long.isLong(data.priorityFee) ? data.priorityFee.toBigInt() : BigInt(0),
             inputs: data.inputs.map((input) => {
                 return {
                     transactionId: input.transactionId,
