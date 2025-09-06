@@ -5,8 +5,15 @@ import { MiddlewareNext } from 'hyper-express/types/components/middleware/Middle
 import { JSONRpcRouter } from './JSONRpcRouter.js';
 import { JSONRPCErrorCode, JSONRPCErrorHttpCodes } from './types/enums/JSONRPCErrorCode.js';
 import { JSONRpcMethods } from './types/enums/JSONRpcMethods.js';
-import { JSONRpc2Request, JSONRpc2RequestParams, JSONRpcId, } from './types/interfaces/JSONRpc2Request.js';
-import { JSONRpc2ResponseError, JSONRpc2ResponseResult, } from './types/interfaces/JSONRpc2Result.js';
+import {
+    JSONRpc2Request,
+    JSONRpc2RequestParams,
+    JSONRpcId,
+} from './types/interfaces/JSONRpc2Request.js';
+import {
+    JSONRpc2ResponseError,
+    JSONRpc2ResponseResult,
+} from './types/interfaces/JSONRpc2Result.js';
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
 
