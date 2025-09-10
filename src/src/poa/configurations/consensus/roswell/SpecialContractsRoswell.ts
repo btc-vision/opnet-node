@@ -14,7 +14,7 @@ const nativeSecondaryTestnet: Address = Address.fromString(
 );
 
 const nativeThirdTestnet: Address = Address.fromString(
-    '0x9232ebf2cc1d83339e1f15d0e62ac01eca535ba91fccda9dcb7b9d859f9ef31e',
+    '0xcfbe271de8b9ce5e29096fac9e9d1e3ca65806c091e71f96dba1f7a0c9a4ad24',
 );
 
 const nativeSwapMainnet: Address = Address.dead();
