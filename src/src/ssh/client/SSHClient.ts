@@ -11,7 +11,7 @@ import { AuthMethods } from './enums/AuthMethods.js';
 import { SSHConfig } from '../../config/interfaces/IBtcIndexerConfig.js';
 import { Buffer } from 'buffer';
 import * as readline from 'node:readline';
-import figlet, { Fonts } from 'figlet';
+import figlet, { FontName } from 'figlet';
 import { OPNetSysInfo } from './custom/OPNetSysInfo.js';
 import { CustomOperationCommand } from './custom/CustomOperationCommand.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
@@ -399,7 +399,7 @@ export class SSHClient extends Logger {
         enableColors: boolean,
         type: 'info' | 'warn' | 'success' | 'panic',
         text: string,
-        font: Fonts,
+        font: FontName,
         prefix: string,
         ...suffix: string[]
     ): string {

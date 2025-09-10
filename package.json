@@ -75,7 +75,7 @@
         "datastore-level": "^11.0.3",
         "ecpair": "^2.1.0",
         "eslint-plugin-openapi": "^0.0.4",
-        "figlet": "^1.8.1",
+        "figlet": "^1.9.1",
         "gulp-logger-new": "^1.0.1",
         "hyper-express": "^6.17.3",
         "it-length-prefixed-stream": "^2.0.3",
@@ -97,7 +97,6 @@
     "devDependencies": {
         "@types/cors": "^2.8.19",
         "@types/debug": "^4.1.12",
-        "@types/figlet": "^1.7.0",
         "@types/node": "^24.0.7",
         "@types/sodium-native": "^2.3.9",
         "@types/ssh2": "^1.15.5",

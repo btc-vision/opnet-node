@@ -1,6 +1,6 @@
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { Logger } from '@btc-vision/bsi-common';
-import figlet, { Fonts } from 'figlet';
+import figlet, { FontName } from 'figlet';
 
 export class ConsensusTracker extends Logger {
     public readonly logColor: string = '#ff9100';
@@ -80,7 +80,7 @@ export class ConsensusTracker extends Logger {
     private notifyArt(
         type: 'info' | 'warn' | 'success' | 'panic',
         text: string,
-        font: Fonts,
+        font: FontName,
         prefix: string,
         ...suffix: string[]
     ): void {

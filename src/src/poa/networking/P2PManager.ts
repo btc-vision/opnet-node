@@ -23,7 +23,7 @@ import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { tcp } from '@libp2p/tcp';
 import { uPnPNAT, UPnPNAT } from '@libp2p/upnp-nat';
 import { multiaddr, Multiaddr } from '@multiformats/multiaddr';
-import figlet, { Fonts } from 'figlet';
+import figlet, { FontName } from 'figlet';
 import type { Datastore } from 'interface-datastore';
 import { createLibp2p, Libp2p, ServiceFactoryMap } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
@@ -926,7 +926,7 @@ export class P2PManager extends Logger {
     private notifyArt(
         type: 'info' | 'warn' | 'success' | 'panic',
         text: string,
-        font: Fonts,
+        font: FontName,
         prefix: string,
         ...suffix: string[]
     ): void {

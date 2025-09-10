@@ -6,7 +6,7 @@ import { ThreadData } from '../threading/interfaces/ThreadData.js';
 
 import ssh2, { ServerConfig } from 'ssh2';
 import { SSHClient } from './client/SSHClient.js';
-import figlet, { Fonts } from 'figlet';
+import figlet, { FontName } from 'figlet';
 
 import { Chalk } from 'chalk';
 import { BlockchainInfoRepository } from '../db/repositories/BlockchainInfoRepository.js';
@@ -67,6 +67,10 @@ export class SSH extends Logger {
         return this.#blockchainInformationRepository;
     }
 
+    private get binFolder(): string {
+        return `./bin-${Config.BITCOIN.NETWORK}-${Config.BITCOIN.CHAIN_ID}`;
+    }
+
     public async init(): Promise<void> {
         this.log(`Starting SSH...`);
 
@@ -113,14 +117,12 @@ export class SSH extends Logger {
         fs.writeFileSync(`./${this.binFolder}/host.bin`, this.hostKey, { encoding: 'utf-8' });
     }
 
-    private get binFolder(): string {
-        return `./bin-${Config.BITCOIN.NETWORK}-${Config.BITCOIN.CHAIN_ID}`;
-    }
-
     private generateHostKey(): void {
         if (fs.existsSync(`./${this.binFolder}/host.bin`)) {
             try {
-                this.hostKey = fs.readFileSync(`./${this.binFolder}/host.bin`, { encoding: 'utf-8' });
+                this.hostKey = fs.readFileSync(`./${this.binFolder}/host.bin`, {
+                    encoding: 'utf-8',
+                });
             } catch {
                 this.panic(`Failed to read host key. Aborting...`);
             }
@@ -135,7 +137,7 @@ export class SSH extends Logger {
         enableColors: boolean,
         type: 'info' | 'warn' | 'success' | 'panic',
         text: string,
-        font: Fonts,
+        font: FontName,
         prefix: string,
         ...suffix: string[]
     ): string {
