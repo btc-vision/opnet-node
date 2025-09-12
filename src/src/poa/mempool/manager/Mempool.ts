@@ -7,12 +7,13 @@ import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import { RPCMessage, RPCMessageData, } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import {
-    RPCMessage,
-    RPCMessageData,
-} from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
-import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+    BitcoinRPCThreadMessageType
+} from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import {
+    OPNetBroadcastData
+} from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
 import { BitcoinRPC, FeeEstimation, SmartFeeEstimation } from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
@@ -129,20 +130,27 @@ export class Mempool extends Logger {
     private estimateFeesBand(info: RawMempoolInfo): FeeRecommendation {
         const floor = Math.max(
             1,
-            Math.round(btcPerKvBtoSatPerVByte(info.mempoolminfee || info.minrelaytxfee)),
+            Math.round(btcPerKvBtoSatPerVByte(info.mempoolminfee || info.minrelaytxfee || 0.00001)),
         );
 
         const occ = info.usage / info.maxmempool;
+        const txCount = info.size || 0; // Number of transactions
 
         let low: number, medium: number, high: number;
-        if (occ < 0.05 && floor <= 2) {
+
+        // If mempool is essentially empty (< 500 tx and < 5% full)
+        if (txCount < 3000 && occ < 0.05) {
+            low = floor;
+            medium = floor + 1;
+            high = floor + 2;
+        } else if (occ < 0.05 && floor <= 2) {
             low = floor + 1;
-            medium = Math.max(5, floor + 4);
-            high = Math.max(10, floor + 8);
-        } else if (occ < 0.5 || floor < 10) {
+            medium = Math.min(5, floor + 2);
+            high = Math.min(10, floor + 4);
+        } else if (occ < 0.5) {
             low = floor + 2;
-            medium = Math.max(10, floor + 5);
-            high = Math.max(20, floor + 10);
+            medium = Math.min(10, floor + 5);
+            high = Math.min(20, floor + 10);
         } else {
             low = floor + 3;
             medium = Math.max(20, floor + 10);
@@ -234,7 +242,7 @@ export class Mempool extends Logger {
     private async estimateFees(): Promise<void> {
         try {
             const estimatedFee = await Promise.safeAll([
-                this.bitcoinRPC.estimateSmartFee(1, FeeEstimation.CONSERVATIVE),
+                this.bitcoinRPC.estimateSmartFee(2, FeeEstimation.CONSERVATIVE),
                 this.bitcoinRPC.getMempoolInfo(),
             ]);
 
@@ -246,6 +254,15 @@ export class Mempool extends Logger {
             }
 
             const recommendedFees = this.estimateFeesBand(mempoolInfo);
+            const mempoolSize = mempoolInfo.size || 0;
+            if (mempoolSize < 3000) {
+                this.fees = {
+                    conservative: recommendedFees.low,
+                    recommended: recommendedFees,
+                };
+                return;
+            }
+
             this.fees = {
                 conservative: this.processSmartFee(economicalFee).toFixed(4),
                 recommended: recommendedFees,
