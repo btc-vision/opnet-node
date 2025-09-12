@@ -140,7 +140,7 @@ export class Mempool extends Logger {
 
         // If mempool is essentially empty (< 500 tx and < 5% full)
         if (txCount < 3000 && occ < 0.05) {
-            low = floor;
+            low = floor + 0.5;
             medium = floor + 1;
             high = floor + 2;
         } else if (occ < 0.05 && floor <= 2) {
