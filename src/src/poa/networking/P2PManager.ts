@@ -309,7 +309,7 @@ export class P2PManager extends Logger {
                 return !(
                     str.includes('/127.0.0.1/') ||
                     str.includes('/::1/') ||
-                    str.includes('/10.') ||
+                    //str.includes('/10.') ||
                     str.includes('/192.168.') ||
                     (str.includes('/172.') && str.match(/\/172\.(1[6-9]|2[0-9]|3[0-1])\./)) ||
                     str.includes('/fe80:') ||
