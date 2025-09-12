@@ -722,6 +722,12 @@ export class P2PManager extends Logger {
 
                 discovered.push(peerIdStr);
 
+                const checkIfConnected = this.node.getConnections(peerId);
+                if (checkIfConnected.length > 0) {
+                    // Already connected
+                    continue;
+                }
+
                 if (this.isBlackListedPeerId(peerIdStr)) continue;
 
                 // Is self
@@ -749,7 +755,6 @@ export class P2PManager extends Logger {
 
                 // Filter reachable addresses
                 const reachableAddresses = this.filterReachableAddresses(addresses);
-
                 if (reachableAddresses.length === 0) {
                     this.warn(`No reachable addresses found for peer ${peerIdStr}`);
                     continue;
