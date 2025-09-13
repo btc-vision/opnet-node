@@ -7,13 +7,12 @@ import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
-import { RPCMessage, RPCMessageData, } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import {
-    BitcoinRPCThreadMessageType
-} from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import {
-    OPNetBroadcastData
-} from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+    RPCMessage,
+    RPCMessageData,
+} from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
+import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
 import { BitcoinRPC, FeeEstimation, SmartFeeEstimation } from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
