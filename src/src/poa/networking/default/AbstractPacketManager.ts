@@ -42,7 +42,7 @@ export abstract class AbstractPacketManager extends Logger {
         const eventHandlers = this.eventHandlers.get(event);
         if (!eventHandlers) return;
 
-        const promises: Promise<void>[] = [];
+        const promises: (Promise<void> | void)[] = [];
         for (const handler of eventHandlers) {
             promises.push(handler(data));
         }

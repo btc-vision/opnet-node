@@ -1,7 +1,7 @@
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { yamux } from '@chainsafe/libp2p-yamux';
-import { bootstrap, BootstrapComponents } from '@libp2p/bootstrap';
-import { Identify, identify, IdentifyPush, identifyPush } from '@libp2p/identify';
+import { bootstrap } from '@libp2p/bootstrap';
+import { identify, identifyPush } from '@libp2p/identify';
 import {
     type ConnectionGater,
     Peer,
@@ -15,17 +15,17 @@ import { IdentifyResult } from '@libp2p/interface/src';
 import type { Connection, MultiaddrConnection } from '@libp2p/interface/src/connection.js';
 import { PeerData } from '@libp2p/interface/src/peer-store.js';
 import { IncomingStreamData } from '@libp2p/interface/src/stream-handler.js';
-import { KadDHT, kadDHT } from '@libp2p/kad-dht';
+import { kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
 import { MulticastDNSComponents } from '@libp2p/mdns/dist/src/mdns.js';
 import { peerIdFromCID, peerIdFromString } from '@libp2p/peer-id';
 import type { PersistentPeerStoreInit } from '@libp2p/peer-store';
 import { tcp } from '@libp2p/tcp';
-import { uPnPNAT, UPnPNAT } from '@libp2p/upnp-nat';
+import { uPnPNAT } from '@libp2p/upnp-nat';
 import { multiaddr, Multiaddr } from '@multiformats/multiaddr';
 import figlet, { FontName } from 'figlet';
 import type { Datastore } from 'interface-datastore';
-import { createLibp2p, Libp2p, ServiceFactoryMap } from 'libp2p';
+import { createLibp2p, ServiceFactoryMap } from 'libp2p';
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
 import { MessageType } from '../../threading/enum/MessageType.js';
@@ -64,37 +64,20 @@ import { CID } from 'multiformats/cid';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import { ReusableStreamManager } from './stream/ReusableStreamManager.js';
 import { Config } from '../../config/Config.js';
-import { ping, Ping } from '@libp2p/ping';
+import { ping } from '@libp2p/ping';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { FastStringSet } from '../../utils/fast/FastStringSet.js';
 import { Transaction } from '@btc-vision/bitcoin';
 import { enable } from '@libp2p/logger';
 import { autoNATv2 } from '@libp2p/autonat-v2';
-
-type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
-
-export interface OPNetConnectionInfo {
-    peerId: PeerId;
-    agentVersion: string;
-    protocolVersion: string;
-}
-
-interface BlacklistedPeerInfo {
-    reason: DisconnectionCode;
-    timestamp: number;
-    attempts: number;
-}
-
-type P2PServices = {
-    nat?: UPnPNAT;
-    autoNAT?: unknown;
-    aminoDHT: KadDHT;
-    identify: Identify;
-    identifyPush: IdentifyPush;
-    ping: Ping;
-};
-
-type Libp2pInstance = Libp2p<P2PServices>;
+import {
+    BlacklistedPeerInfo,
+    BootstrapDiscoveryMethod,
+    Libp2pInstance,
+    OPNetConnectionInfo,
+    P2PServices,
+} from './interfaces/NodeType.js';
+import { PeerChecker } from './PeerChecker.js';
 
 if (Config.P2P.ENABLE_P2P_LOGGING) {
     enable('libp2p:*');
@@ -151,6 +134,16 @@ export class P2PManager extends Logger {
         }, 30_000);
     }
 
+    private _peerChecker: PeerChecker | undefined;
+
+    private get peerChecker(): PeerChecker {
+        if (!this._peerChecker) {
+            throw new Error('PeerChecker not initialized');
+        }
+
+        return this._peerChecker;
+    }
+
     private get multiAddresses(): Multiaddr[] {
         if (!this.node) {
             throw new Error('Node not initialized');
@@ -195,6 +188,7 @@ export class P2PManager extends Logger {
         await this.blockWitnessManager.setCurrentBlock();
 
         this.node = await this.createNode();
+        this._peerChecker = new PeerChecker(this.node);
         this.streamManager = new ReusableStreamManager(
             this.node,
             async (peerIdStr: PeerId, data: Uint8Array) => {
@@ -499,12 +493,6 @@ export class P2PManager extends Logger {
         this.node.addEventListener('peer:reconnect-failure', this.onReconnectFailure.bind(this));
     }
 
-    private onReconnectFailure(evt: CustomEvent<PeerId>): void {
-        const peerId = evt.detail.toString();
-
-        this.warn(`Failed to reconnect to peer ${peerId}.`);
-    }
-
     /*private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
         if (!this.node) throw new Error('Node not initialized');
 
@@ -516,6 +504,12 @@ export class P2PManager extends Logger {
         await this.node.peerStore.merge(peerInfo.peerId, peerData);
         this.info(`Identified peer: ${peerInfo.peerId.toString()}`);
     }*/
+
+    private onReconnectFailure(evt: CustomEvent<PeerId>): void {
+        const peerId = evt.detail.toString();
+
+        this.warn(`Failed to reconnect to peer ${peerId}.`);
+    }
 
     private async monitorConnectionHealth(): Promise<void> {
         if (!this.node) return;
@@ -726,7 +720,7 @@ export class P2PManager extends Logger {
             | undefined;
     }
 
-    private async onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): Promise<void> {
+    private onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): void {
         if (!this.node) throw new Error('Node not initialized');
 
         // Prevent flooding
@@ -806,52 +800,7 @@ export class P2PManager extends Logger {
             return;
         }
 
-        // Mitigate potential flooding
-        const maxPerBatch = 10;
-        for (let i = 0; i < peersToTry.length; i += maxPerBatch) {
-            const batch = peersToTry.slice(i, i + maxPerBatch);
-            const promises: Promise<void>[] = [];
-
-            for (const peerData of batch) {
-                promises.push(this.tryPeerData(peerData));
-            }
-
-            await Promise.allSettled(promises);
-        }
-
-        this.info(`Discovered and attempted to connect to ${peersToTry.length} new peers`);
-    }
-
-    private async tryPeerData(peerData: PeerInfo): Promise<void> {
-        if (!this.node) {
-            throw new Error('Node not initialized');
-        }
-
-        try {
-            const existingConnections = this.node.getConnections(peerData.id);
-            if (existingConnections.length === 0) {
-                const signal = AbortSignal.timeout(5000);
-                await this.node.dial(peerData.id, { signal });
-
-                if (Config.DEV_MODE) {
-                    this.debug(`Successfully dialed peer ${peerData.id}`);
-                }
-            }
-
-            await this.node.peerStore.merge(peerData.id, {
-                multiaddrs: peerData.multiaddrs,
-                tags: {
-                    ['OPNET']: {
-                        value: 50,
-                        ttl: 128000,
-                    },
-                },
-            });
-        } catch (e) {
-            if (Config.DEV_MODE) {
-                this.error(`Failed to add/dial peer ${peerData.id}: ${e}`);
-            }
-        }
+        this.peerChecker.checkPeers(peersToTry);
     }
 
     private reportAuthenticatedPeer(_peerId: PeerId): void {

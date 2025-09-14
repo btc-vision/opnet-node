@@ -7,7 +7,6 @@ import { OPNetIdentity } from '../identity/OPNetIdentity.js';
 import { ClientPeerNetworking } from '../networking/client/ClientPeerNetworking.js';
 import { DisconnectionCode } from '../networking/enums/DisconnectionCode.js';
 import { NetworkingEventHandler } from '../networking/interfaces/IEventHandler.js';
-import { OPNetConnectionInfo } from '../networking/P2PManager.js';
 import { IBlockHeaderWitness } from '../networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import {
     ITransactionPacket,
@@ -18,6 +17,7 @@ import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryR
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
+import { OPNetConnectionInfo } from '../networking/interfaces/NodeType.js';
 
 const PEER_DISCOVERY_TIMEOUT = 1000 * 60 * 2; // 2 minutes
 
@@ -122,7 +122,7 @@ export class OPNetPeer extends Logger {
         throw new Error('Method not implemented.');
     };
 
-    public onPeersDiscovered: (peers: OPNetPeerInfo[]) => Promise<void> = () => {
+    public onPeersDiscovered: (peers: OPNetPeerInfo[]) => void = () => {
         throw new Error('onPeersDiscovered not implemented.');
     };
 
@@ -265,7 +265,7 @@ export class OPNetPeer extends Logger {
         const obj = this.eventHandlers.get(event);
         if (!obj) return;
 
-        const promises: Promise<void>[] = [];
+        const promises: (Promise<void> | void)[] = [];
         for (const handler of obj) {
             promises.push(handler(data));
         }
@@ -319,8 +319,8 @@ export class OPNetPeer extends Logger {
         );
     }
 
-    private async onPeersDiscoveredInternal(peers: OPNetPeerInfo[]): Promise<void> {
-        await this.onPeersDiscovered(peers);
+    private onPeersDiscoveredInternal(peers: OPNetPeerInfo[]): void {
+        this.onPeersDiscovered(peers);
     }
 
     private defineClientNetworkingEvents(): void {
@@ -336,8 +336,8 @@ export class OPNetPeer extends Logger {
             this.onClientAuthenticationCompleted();
         };
 
-        this.clientNetworkingManager.onPeersDiscovered = async (peers: OPNetPeerInfo[]) => {
-            await this.onPeersDiscoveredInternal(peers);
+        this.clientNetworkingManager.onPeersDiscovered = (peers: OPNetPeerInfo[]) => {
+            this.onPeersDiscoveredInternal(peers);
         };
 
         this.clientNetworkingManager.onBlockWitness = async (blockWitness: IBlockHeaderWitness) => {

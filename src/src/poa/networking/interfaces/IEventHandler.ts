@@ -1,1 +1,1 @@
-export type NetworkingEventHandler<U = object> = (data: U) => Promise<void>;
+export type NetworkingEventHandler<U = object> = (data: U) => Promise<void> | void;
