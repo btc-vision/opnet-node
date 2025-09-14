@@ -1320,8 +1320,8 @@ export class P2PManager extends Logger {
             aminoDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
         };
 
-        if(!Config.P2P.PRIVATE_MODE) {
-            services.autoNAT = autoNATv2(this.p2pConfigurations.autoNATConfiguration),
+        if (!Config.P2P.PRIVATE_MODE) {
+            services.autoNAT = autoNATv2(this.p2pConfigurations.autoNATConfiguration);
         }
 
         if (Config.P2P.ENABLE_UPNP) {
