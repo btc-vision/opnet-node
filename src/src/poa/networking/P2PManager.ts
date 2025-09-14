@@ -69,6 +69,7 @@ import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { FastStringSet } from '../../utils/fast/FastStringSet.js';
 import { Transaction } from '@btc-vision/bitcoin';
 import { enable } from '@libp2p/logger';
+import { autoNATv2 } from '@libp2p/autonat-v2';
 
 type BootstrapDiscoveryMethod = (components: BootstrapComponents) => PeerDiscovery;
 
@@ -86,7 +87,7 @@ interface BlacklistedPeerInfo {
 
 type P2PServices = {
     nat?: UPnPNAT;
-    //autoNAT: unknown;
+    autoNAT?: unknown;
     aminoDHT: KadDHT;
     identify: Identify;
     identifyPush: IdentifyPush;
@@ -1313,12 +1314,15 @@ export class P2PManager extends Logger {
         }
 
         const services: ServiceFactoryMap<P2PServices> = {
-            //autoNAT: autoNAT(this.p2pConfigurations.autoNATConfiguration),
             identify: identify(this.p2pConfigurations.identifyConfiguration),
             identifyPush: identifyPush(this.p2pConfigurations.identifyConfiguration),
             ping: ping(),
             aminoDHT: kadDHT(this.p2pConfigurations.dhtConfiguration),
         };
+
+        if(!Config.P2P.PRIVATE_MODE) {
+            services.autoNAT = autoNATv2(this.p2pConfigurations.autoNATConfiguration),
+        }
 
         if (Config.P2P.ENABLE_UPNP) {
             services.nat = uPnPNAT(this.p2pConfigurations.upnpConfiguration);

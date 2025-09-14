@@ -87,6 +87,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ENABLE_IPV6: false,
 
             ENABLE_IP_BANNING: false,
+            PRIVATE_MODE: false,
             MDNS: false,
 
             P2P_HOST_V6: '::',
@@ -493,6 +494,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
+                parsedConfig.P2P.PRIVATE_MODE !== undefined &&
+                typeof parsedConfig.P2P.PRIVATE_MODE !== 'boolean'
+            ) {
+                throw new Error(`Oops the property P2P.PRIVATE_MODE is not a boolean.`);
+            }
+
+            if (
                 parsedConfig.P2P.ENABLE_IP_BANNING !== undefined &&
                 typeof parsedConfig.P2P.ENABLE_IP_BANNING !== 'boolean'
             ) {
@@ -593,7 +601,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(`Oops the property P2P.NODES is not an array.`);
             }
 
-            if (parsedConfig.P2P.PRIVATE_NODES !== undefined && !Array.isArray(parsedConfig.P2P.PRIVATE_NODES)) {
+            if (
+                parsedConfig.P2P.PRIVATE_NODES !== undefined &&
+                !Array.isArray(parsedConfig.P2P.PRIVATE_NODES)
+            ) {
                 throw new Error(`Oops the property P2P.PRIVATE_NODES is not an array.`);
             }
 

@@ -49,7 +49,7 @@
         "@chainsafe/libp2p-quic": "^1.1.1",
         "@chainsafe/libp2p-yamux": "^7.0.4",
         "@eslint/js": "^9.30.0",
-        "@libp2p/autonat": "^2.0.37",
+        "@libp2p/autonat-v2": "^1.0.1",
         "@libp2p/bootstrap": "^11.0.43",
         "@libp2p/identify": "^3.0.37",
         "@libp2p/interface": "^2.10.5",
