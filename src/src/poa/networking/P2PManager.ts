@@ -272,6 +272,9 @@ export class P2PManager extends Logger {
                 const filtered = this.filterReachableAddresses([addr.multiaddr]);
                 if (filtered.length === 0) continue;
 
+                const filteredPrivate = this.filterPrivateNodes(filtered);
+                if (filteredPrivate.length === 0) continue;
+
                 if (addr.isCertified) {
                     certifiedAddresses.push(addr.multiaddr.bytes);
                 } else {
@@ -301,15 +304,38 @@ export class P2PManager extends Logger {
         return peers.slice(0, 100);
     }
 
+    private filterPrivateNodes(addrs: Multiaddr[]): Multiaddr[] {
+        return addrs.filter((addr) => {
+            try {
+                const str = addr.toString();
+
+                return !this.includesIPInPrivateNodes(str);
+            } catch {
+                return false;
+            }
+        });
+    }
+
+    private includesIPInPrivateNodes(ip: string): boolean {
+        for (const addr of this.config.P2P.PRIVATE_NODES) {
+            if (addr.includes(ip)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private filterReachableAddresses(addrs: Multiaddr[]): Multiaddr[] {
         return addrs.filter((addr) => {
             try {
                 const str = addr.toString();
+
                 // Skip localhost, private IPs, and link-local addresses
                 return !(
                     str.includes('/127.0.0.1/') ||
                     str.includes('/::1/') ||
-                    //str.includes('/10.') ||
+                    str.includes('/10.') ||
                     str.includes('/192.168.') ||
                     (str.includes('/172.') && str.match(/\/172\.(1[6-9]|2[0-9]|3[0-1])\./)) ||
                     str.includes('/fe80:') ||
@@ -522,6 +548,9 @@ export class P2PManager extends Logger {
                             if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                                 this.debug(`Failed to dial ${peer.id}: ${e}`);
                             }
+
+                            // remove peer
+                            await this.node.peerStore.delete(peer.id);
                         }
                     }
                 }
@@ -538,7 +567,6 @@ export class P2PManager extends Logger {
 
         // Filter out unreachable addresses before storing
         const reachableAddrs = this.filterReachableAddresses(peerInfo.listenAddrs);
-
         if (reachableAddrs.length > 0) {
             const peerData: PeerData = {
                 multiaddrs: reachableAddrs,
@@ -799,16 +827,6 @@ export class P2PManager extends Logger {
         }
 
         try {
-            await this.node.peerStore.merge(peerData.id, {
-                multiaddrs: peerData.multiaddrs,
-                tags: {
-                    ['OPNET']: {
-                        value: 50,
-                        ttl: 128000,
-                    },
-                },
-            });
-
             const existingConnections = this.node.getConnections(peerData.id);
             if (existingConnections.length === 0) {
                 const signal = AbortSignal.timeout(5000);
@@ -818,6 +836,16 @@ export class P2PManager extends Logger {
                     this.debug(`Successfully dialed peer ${peerData.id}`);
                 }
             }
+
+            await this.node.peerStore.merge(peerData.id, {
+                multiaddrs: peerData.multiaddrs,
+                tags: {
+                    ['OPNET']: {
+                        value: 50,
+                        ttl: 128000,
+                    },
+                },
+            });
         } catch (e) {
             if (Config.DEV_MODE) {
                 this.error(`Failed to add/dial peer ${peerData.id}: ${e}`);

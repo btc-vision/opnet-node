@@ -367,6 +367,11 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     private getBootstrapPeers(): string[] {
-        return [...this.config.P2P.BOOTSTRAP_NODES, ...this.defaultBootstrapNodes];
+        return [
+            ...this.config.P2P.BOOTSTRAP_NODES,
+            ...this.defaultBootstrapNodes,
+            ...this.config.P2P.NODES,
+            ...this.config.P2P.PRIVATE_NODES
+        ];
     }
 }

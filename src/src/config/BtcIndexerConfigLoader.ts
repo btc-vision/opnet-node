@@ -108,9 +108,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             MAXIMUM_INBOUND_STREAMS: 100,
             MAXIMUM_OUTBOUND_STREAMS: 100,
 
+            NODES: [],
+            PRIVATE_NODES: [],
             BOOTSTRAP_NODES: [],
-            TRUSTED_VALIDATORS: [],
-            TRUSTED_VALIDATORS_CHECKSUM_HASH: '',
         },
 
         API: {
@@ -589,20 +589,12 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 throw new Error(`Oops the property P2P.BOOTSTRAP_NODES is not an array.`);
             }
 
-            if (
-                parsedConfig.P2P.TRUSTED_VALIDATORS !== undefined &&
-                !Array.isArray(parsedConfig.P2P.TRUSTED_VALIDATORS)
-            ) {
-                throw new Error(`Oops the property P2P.TRUSTED_VALIDATORS is not an array.`);
+            if (parsedConfig.P2P.NODES !== undefined && !Array.isArray(parsedConfig.P2P.NODES)) {
+                throw new Error(`Oops the property P2P.NODES is not an array.`);
             }
 
-            if (
-                parsedConfig.P2P.TRUSTED_VALIDATORS_CHECKSUM_HASH !== undefined &&
-                typeof parsedConfig.P2P.TRUSTED_VALIDATORS_CHECKSUM_HASH !== 'string'
-            ) {
-                throw new Error(
-                    `Oops the property P2P.TRUSTED_VALIDATORS_CHECKSUM_HASH is not a string.`,
-                );
+            if (parsedConfig.P2P.PRIVATE_NODES !== undefined && !Array.isArray(parsedConfig.P2P.PRIVATE_NODES)) {
+                throw new Error(`Oops the property P2P.PRIVATE_NODES is not an array.`);
             }
 
             if (
