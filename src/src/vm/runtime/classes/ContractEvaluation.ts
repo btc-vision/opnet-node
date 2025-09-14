@@ -20,17 +20,16 @@ import {
 import { GasTracker } from '../GasTracker.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
-import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import {
+    StrippedTransactionOutput
+} from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { FastBigIntMap } from '../../../utils/fast/FastBigintMap.js';
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { ProvenPointers } from '../../storage/types/MemoryValue.js';
 import { AddressStack } from './AddressStack.js';
 import { RustContract } from '../../rust/RustContract.js';
-import {
-    TransactionInputFlags,
-    TransactionOutputFlags,
-} from '../../../poa/configurations/types/IOPNetConsensus.js';
+import { TransactionInputFlags, TransactionOutputFlags, } from '../../../poa/configurations/types/IOPNetConsensus.js';
 import { SpecialContract } from '../../../poa/configurations/types/SpecialContracts.js';
 
 export class ContractEvaluation implements ExecutionParameters {
@@ -94,6 +93,9 @@ export class ContractEvaluation implements ExecutionParameters {
         this.deployedContracts = params.deployedContracts || new AddressMap();
         this.isDeployment = params.isDeployment || false;
         this.memoryPagesUsed = params.memoryPagesUsed || 0n;
+
+        if (params.specialContract)
+            console.log(`Memory pages used so far: ${this.memoryPagesUsed}`);
 
         this.contractDeployDepth = params.contractDeployDepth || 0;
 

@@ -378,6 +378,7 @@ export class ContractEvaluator extends Logger {
 
             // Update the memory pages used.
             evaluation.memoryPagesUsed = BigInt(reader.readU32());
+            console.log(`[pre call] Memory pages used so far: ${evaluation.memoryPagesUsed}`);
 
             const contractAddress: Address = reader.readAddress();
             const calldata: Uint8Array = reader.readBytesWithLength();
