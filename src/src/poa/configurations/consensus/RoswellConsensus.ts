@@ -199,7 +199,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
             INPUTS: {
                 WRITE_COINBASE: true,
-                WRITE_WITNESSES: false,
+                WRITE_WITNESSES: true,
             },
 
             OUTPUTS: {
