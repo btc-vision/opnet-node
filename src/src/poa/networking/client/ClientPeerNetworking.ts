@@ -80,7 +80,7 @@ export class ClientPeerNetworking extends ClientAuthenticationManager {
         delete this._blockHeaderManager;
     }
 
-    public onPeersDiscovered: (peers: OPNetPeerInfo[]) => Promise<void> = () => {
+    public onPeersDiscovered: (peers: OPNetPeerInfo[]) => void = () => {
         throw new Error('onPeersDiscovered not implemented.');
     };
 

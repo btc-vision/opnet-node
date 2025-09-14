@@ -56,6 +56,7 @@ export interface P2P {
     readonly IS_BOOTSTRAP_NODE: boolean;
     readonly CLIENT_MODE: boolean;
 
+    readonly PRIVATE_MODE: boolean;
     readonly MDNS: boolean;
     readonly ENABLE_IP_BANNING: boolean;
 
@@ -79,10 +80,9 @@ export interface P2P {
     readonly MAXIMUM_INBOUND_STREAMS: number;
     readonly MAXIMUM_OUTBOUND_STREAMS: number;
 
+    readonly NODES: string[];
+    readonly PRIVATE_NODES: string[];
     readonly BOOTSTRAP_NODES: string[];
-
-    readonly TRUSTED_VALIDATORS: string[];
-    readonly TRUSTED_VALIDATORS_CHECKSUM_HASH: string;
 }
 
 export interface MempoolConfig {

@@ -103,7 +103,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
         const handlerFunctions = this.eventHandlers.get(event);
         if (!handlerFunctions) return;
 
-        const promises: Promise<void>[] = [];
+        const promises: (Promise<void> | void)[] = [];
         for (const handler of handlerFunctions) {
             promises.push(handler(data));
         }

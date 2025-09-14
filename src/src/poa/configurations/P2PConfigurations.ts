@@ -23,6 +23,7 @@ import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
 import { multiaddr } from '@multiformats/multiaddr';
+import { AutoNATv2ServiceInit } from '@libp2p/autonat-v2';
 
 interface BackedUpPeer {
     id: string;
@@ -219,6 +220,30 @@ export class P2PConfigurations extends OPNetPathFinder {
         };
     }
 
+    public get autoNATConfiguration(): AutoNATv2ServiceInit {
+        return {
+            protocolPrefix: P2PConfigurations.protocolName,
+
+            // 15 seconds is reasonable for verification
+            timeout: 15000,
+            startupDelay: 10000,
+            refreshInterval: 360000,
+
+            // Limit concurrent streams to prevent resource exhaustion
+            maxInboundStreams: 2,
+            maxOutboundStreams: 2,
+            connectionThreshold: 80,
+
+            // 8KB is reasonable for autonat messages
+            maxMessageSize: 8192,
+
+            // Anti-amplification protection (v2 specific)
+            // 200KB limit for dial-back data
+            maxDialDataBytes: 200_000n,
+            dialDataChunkSize: 4096,
+        };
+    }
+
     public get identifyConfiguration(): IdentifyInit {
         return {
             protocolPrefix: P2PConfigurations.protocolName,
@@ -367,6 +392,11 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     private getBootstrapPeers(): string[] {
-        return [...this.config.P2P.BOOTSTRAP_NODES, ...this.defaultBootstrapNodes];
+        return [
+            ...this.config.P2P.BOOTSTRAP_NODES,
+            ...this.defaultBootstrapNodes,
+            ...this.config.P2P.NODES,
+            ...this.config.P2P.PRIVATE_NODES,
+        ];
     }
 }
