@@ -197,7 +197,7 @@ export class OPNetPeer extends Logger {
             }
         } catch (e) {
             if (Config.DEV_MODE) {
-                console.log(`BAD PACKET`, e);
+                this.fail(`BAD PACKET: ${e}`);
             }
 
             if (++this.badPacketCount < 5) {
