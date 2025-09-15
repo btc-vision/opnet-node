@@ -1264,6 +1264,7 @@ export class Block extends Logger {
 
             this.transactions.push(transaction);
         } catch (e) {
+            console.log('HELP!');
             if (Config.DEV.DEBUG_TRANSACTION_PARSE_FAILURE) {
                 const error: Error = e as Error;
 
