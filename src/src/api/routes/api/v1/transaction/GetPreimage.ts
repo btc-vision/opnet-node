@@ -118,6 +118,7 @@ export class GetPreimage extends Route<
 
         // Apply 2-epoch delay
         const targetEpochNumber = currentEpoch - 2n;
+        console.log('targetEpochNumber', targetEpochNumber);
 
         // Don't return data if we don't have enough epochs yet
         if (targetEpochNumber < 0n) {
