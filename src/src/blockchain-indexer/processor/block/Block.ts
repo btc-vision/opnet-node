@@ -4,20 +4,11 @@ import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { DataConverter } from '@btc-vision/bsi-db';
 import { Network } from '@btc-vision/bitcoin';
 import { Config } from '../../../config/Config.js';
-import {
-    BlockHeaderChecksumProof,
-    BlockHeaderDocument,
-} from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import {
-    ITransactionDocumentBasic,
-    TransactionDocument,
-} from '../../../db/interfaces/ITransactionDocument.js';
+import { BlockHeaderChecksumProof, BlockHeaderDocument, } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { ITransactionDocumentBasic, TransactionDocument, } from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedStates } from '../../../vm/evaluated/EvaluatedStates.js';
 import { VMManager } from '../../../vm/VMManager.js';
-import {
-    OPNetInteractionTypeValues,
-    OPNetTransactionTypes,
-} from '../transaction/enums/OPNetTransactionTypes.js';
+import { OPNetInteractionTypeValues, OPNetTransactionTypes, } from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
 import { TransactionSorter } from '../transaction/transaction-sorter/TransactionSorter.js';
 import { Transaction } from '../transaction/Transaction.js';
@@ -1268,6 +1259,13 @@ export class Block extends Logger {
                 true,
                 this.addressCache,
             );
+
+            if (
+                transaction.transactionId ===
+                Buffer.from('zYXTK+YjtFz0HyUy8xjwGBN+RiMll20e2daFD8VKo38=', 'base64')
+            ) {
+                console.log('transaction', transaction, i);
+            }
 
             transaction.originalIndex = i;
 
