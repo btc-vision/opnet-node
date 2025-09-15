@@ -1261,8 +1261,9 @@ export class Block extends Logger {
             );
 
             if (
-                transaction.transactionId ===
-                Buffer.from('zYXTK+YjtFz0HyUy8xjwGBN+RiMll20e2daFD8VKo38=', 'base64')
+                transaction.transactionId.equals(
+                    Buffer.from('zYXTK+YjtFz0HyUy8xjwGBN+RiMll20e2daFD8VKo38=', 'base64'),
+                )
             ) {
                 console.log('transaction', transaction, i);
             }
@@ -1271,6 +1272,7 @@ export class Block extends Logger {
 
             this.transactions.push(transaction);
         } catch (e) {
+            console.log('HELP!');
             if (Config.DEV.DEBUG_TRANSACTION_PARSE_FAILURE) {
                 const error: Error = e as Error;
 
