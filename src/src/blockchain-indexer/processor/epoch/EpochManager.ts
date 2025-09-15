@@ -8,12 +8,7 @@ import { DataConverter } from '@btc-vision/bsi-db';
 import { Binary } from 'mongodb';
 import { EpochDifficultyConverter } from '../../../poa/epoch/EpochDifficultyConverter.js';
 import { EpochValidator } from '../../../poa/epoch/EpochValidator.js';
-import {
-    Attestation,
-    AttestationType,
-    EpochData,
-    EpochMerkleTree,
-} from '../block/merkle/EpochMerkleTree.js';
+import { Attestation, AttestationType, EpochData, EpochMerkleTree, } from '../block/merkle/EpochMerkleTree.js';
 import {
     EpochSubmissionWinner,
     IEpochSubmissionsDocument,
@@ -316,7 +311,7 @@ export class EpochManager extends Logger {
         }
 
         // Find submission with highest difficulty (most matching bits)
-        let bestSubmission: IEpochSubmissionsDocument | null = null;
+        let bestSubmissions: IEpochSubmissionsDocument[] = [];
         let bestMatchingBits = 0;
 
         for (const submission of submissions) {
@@ -329,26 +324,104 @@ export class EpochManager extends Logger {
             }
 
             const matchingBits = this.epochValidator.countMatchingBits(solutionHash, targetHash);
-            if (matchingBits > bestMatchingBits) {
+            if (matchingBits === bestMatchingBits) {
+                bestSubmissions.push(submission);
+            } else if (matchingBits > bestMatchingBits) {
                 bestMatchingBits = matchingBits;
-                bestSubmission = submission;
+                bestSubmissions = [submission];
             }
         }
 
-        if (!bestSubmission) {
+        if (bestSubmissions.length === 0) {
             return null;
         }
 
+        const winningSubmission = this.getWinningSubmission(bestSubmissions, targetHash);
         return {
-            epochNumber: DataConverter.fromDecimal128(bestSubmission.epochNumber),
+            epochNumber: DataConverter.fromDecimal128(winningSubmission.epochNumber),
             matchingBits: bestMatchingBits,
-            salt: Buffer.from(bestSubmission.epochProposed.salt.buffer),
-            publicKey: new Address(Buffer.from(bestSubmission.epochProposed.publicKey.buffer)),
-            solutionHash: Buffer.from(bestSubmission.submissionHash.buffer),
-            graffiti: bestSubmission.epochProposed.graffiti
-                ? Buffer.from(bestSubmission.epochProposed.graffiti.buffer)
+            salt: Buffer.from(winningSubmission.epochProposed.salt.buffer),
+            publicKey: new Address(Buffer.from(winningSubmission.epochProposed.publicKey.buffer)),
+            solutionHash: Buffer.from(winningSubmission.submissionHash.buffer),
+            graffiti: winningSubmission.epochProposed.graffiti
+                ? Buffer.from(winningSubmission.epochProposed.graffiti.buffer)
                 : Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH),
         };
+    }
+
+    private getWinningSubmission(
+        submissions: IEpochSubmissionsDocument[],
+        targetHash: Buffer,
+    ): IEpochSubmissionsDocument {
+        const winner = [...submissions].sort((a, b) => {
+            // Compare public keys (without pairing byte) - lower wins
+            const aPublicKey = Buffer.from(a.epochProposed.publicKey.buffer);
+            const bPublicKey = Buffer.from(b.epochProposed.publicKey.buffer);
+
+            if (aPublicKey.length < 33 || bPublicKey.length < 33) {
+                throw new Error('Invalid public key length for comparison tiebreaker.');
+            }
+
+            const aPublicKeyWithoutPairing = aPublicKey.subarray(1, 33);
+            const bPublicKeyWithoutPairing = bPublicKey.subarray(1, 33);
+
+            const pubKeyComparison = aPublicKeyWithoutPairing.compare(bPublicKeyWithoutPairing);
+            if (pubKeyComparison !== 0) {
+                return pubKeyComparison; // Lower public key wins
+            }
+
+            // If public keys are equal, use public key matching bits as secondary tiebreaker
+            // This adds an element of "mining luck" even among equal solutions
+            const aPublicKeySlice = aPublicKey.subarray(13); // Last 20 bytes
+            const bPublicKeySlice = bPublicKey.subarray(13);
+
+            if (aPublicKeySlice.length === 20 && bPublicKeySlice.length === 20) {
+                const aPublicKeyBits = this.epochValidator.countMatchingBits(
+                    aPublicKeySlice,
+                    targetHash,
+                );
+
+                const bPublicKeyBits = this.epochValidator.countMatchingBits(
+                    bPublicKeySlice,
+                    targetHash,
+                );
+
+                if (aPublicKeyBits !== bPublicKeyBits) {
+                    return bPublicKeyBits - aPublicKeyBits; // Higher matching bits wins
+                }
+            } else {
+                throw new Error('Invalid public key length for tiebreaker comparison.');
+            }
+
+            // Compare salts - lower wins
+            const aSalt = Buffer.from(a.epochProposed.salt.buffer);
+            const bSalt = Buffer.from(b.epochProposed.salt.buffer);
+            const saltComparison = aSalt.compare(bSalt);
+            if (saltComparison !== 0) {
+                return saltComparison; // Lower salt wins
+            }
+
+            // Submission tx hash - lower wins
+            const aTxHash = Buffer.from(a.submissionTxHash.buffer);
+            const bTxHash = Buffer.from(b.submissionTxHash.buffer);
+            const hashCompare = aTxHash.compare(bTxHash);
+
+            if (hashCompare !== 0) {
+                return hashCompare; // Lower tx hash wins
+            }
+
+            // Finally, submission tx id - lower wins
+            const aTxId = Buffer.from(a.submissionTxId.buffer);
+            const bTxId = Buffer.from(b.submissionTxId.buffer);
+
+            return aTxId.compare(bTxId); // Lower tx id wins
+        })[0];
+
+        if (!winner) {
+            throw new Error('No winning submission found after evaluation.');
+        }
+
+        return winner;
     }
 
     private async finalizeEpoch(
