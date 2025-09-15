@@ -118,7 +118,6 @@ export class GetPreimage extends Route<
 
         // Apply 2-epoch delay
         const targetEpochNumber = currentEpoch - 2n;
-        console.log('targetEpochNumber', targetEpochNumber);
 
         // Don't return data if we don't have enough epochs yet
         if (targetEpochNumber < 0n) {
@@ -130,6 +129,8 @@ export class GetPreimage extends Route<
         if (!targetEpoch) {
             throw new Error(`No finalized epoch found for epoch ${targetEpochNumber}`);
         }
+
+        console.log('targetEpoch', targetEpoch, 'currentEpoch', currentEpoch);
 
         // Convert binary data to hex strings
         const epochNumber = DataConverter.fromDecimal128(targetEpoch.epochNumber);
@@ -161,6 +162,8 @@ export class GetPreimage extends Route<
         // Convert proofs to hex strings
         const proofs = targetEpoch.proofs.map((proof) => this.uint8ArrayToHex(proof.buffer));
         const submission = await this.storage.getBestTargetEpoch(currentEpoch);
+        console.log('submission', submission);
+
         const submissionData: ChallengeSubmission | undefined = submission
             ? {
                   publicKey: this.uint8ArrayToHex(submission.publicKey.buffer),
