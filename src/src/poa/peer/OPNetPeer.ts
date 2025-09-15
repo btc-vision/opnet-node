@@ -12,7 +12,9 @@ import {
     ITransactionPacket,
     TransactionPacket,
 } from '../networking/protobuf/packets/blockchain/common/TransactionPacket.js';
-import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
+import {
+    ISyncBlockHeaderResponse
+} from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
@@ -36,6 +38,7 @@ export class OPNetPeer extends Logger {
     private peerDiscoveryTimeout: NodeJS.Timeout | undefined;
 
     private eventHandlers: FastStringMap<NetworkingEventHandler[]> = new FastStringMap();
+    private badPacketCount: number = 0;
 
     constructor(
         private _peerIdentity: OPNetConnectionInfo | undefined,
@@ -197,8 +200,10 @@ export class OPNetPeer extends Logger {
                 console.log(`BAD PACKET`, e);
             }
 
-            await this.disconnect(DisconnectionCode.BAD_PACKET, 'Bad packet.');
-            await this.destroy(false);
+            if (++this.badPacketCount < 5) {
+                await this.disconnect(DisconnectionCode.BAD_PACKET, 'Bad packet.');
+                await this.destroy(false);
+            }
         }
     }
 

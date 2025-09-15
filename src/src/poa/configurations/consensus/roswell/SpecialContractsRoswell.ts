@@ -13,10 +13,6 @@ const nativeSecondaryTestnet: Address = Address.fromString(
     '0x158ea7e5f16cd5b7cc5a410378944b7f0fb5e8f7312e5dba31cfa86e5c08fd28',
 );
 
-const nativeThirdTestnet: Address = Address.fromString(
-    '0xcfbe271de8b9ce5e29096fac9e9d1e3ca65806c091e71f96dba1f7a0c9a4ad24',
-);
-
 const nativeSwapMainnet: Address = Address.dead();
 
 const nativeSwapContractSettings: Omit<SpecialContract, 'address'> = {
@@ -46,12 +42,6 @@ export const SPECIAL_CONTRACTS_ROSWELL_TESTNET: SpecialContracts = {
         ...nativeSwapContractSettings,
 
         address: nativeSecondaryTestnet,
-    },
-
-    [nativeThirdTestnet.toHex()]: {
-        ...nativeSwapContractSettings,
-
-        address: nativeThirdTestnet,
     },
 };
 
