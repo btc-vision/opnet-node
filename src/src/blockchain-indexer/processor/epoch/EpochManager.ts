@@ -370,6 +370,15 @@ export class EpochManager extends Logger {
                 return pubKeyComparison; // Lower public key wins
             }
 
+            // Submission tx hash - lower wins
+            const aTxHash = Buffer.from(a.submissionTxHash.buffer);
+            const bTxHash = Buffer.from(b.submissionTxHash.buffer);
+
+            const hashCompare = aTxHash.compare(bTxHash);
+            if (hashCompare !== 0) {
+                return hashCompare; // Lower tx hash wins
+            }
+
             // If public keys are equal, use public key matching bits as secondary tiebreaker
             // This adds an element of "mining luck" even among equal solutions
             const aPublicKeySlice = aPublicKey.subarray(13); // Last 20 bytes
@@ -399,15 +408,6 @@ export class EpochManager extends Logger {
             const saltComparison = aSalt.compare(bSalt);
             if (saltComparison !== 0) {
                 return saltComparison; // Lower salt wins
-            }
-
-            // Submission tx hash - lower wins
-            const aTxHash = Buffer.from(a.submissionTxHash.buffer);
-            const bTxHash = Buffer.from(b.submissionTxHash.buffer);
-            const hashCompare = aTxHash.compare(bTxHash);
-
-            if (hashCompare !== 0) {
-                return hashCompare; // Lower tx hash wins
             }
 
             // Finally, submission tx id - lower wins
