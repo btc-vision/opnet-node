@@ -57,10 +57,7 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
             sort: { difficulty: -1 },
         };
 
-        const e = await this.getCollection().findOne(criteria, options);
-        console.log('returned', e, criteria, options, this.getCollection().collectionName);
-
-        return e;
+        return await this.getCollection().findOne(criteria, options);
     }
 
     /**
