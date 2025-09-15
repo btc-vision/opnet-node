@@ -130,8 +130,6 @@ export class GetPreimage extends Route<
             throw new Error(`No finalized epoch found for epoch ${targetEpochNumber}`);
         }
 
-        console.log('targetEpoch', targetEpoch, 'currentEpoch', currentEpoch);
-
         // Convert binary data to hex strings
         const epochNumber = DataConverter.fromDecimal128(targetEpoch.epochNumber);
         const publicKey = this.uint8ArrayToHex(targetEpoch.proposer.publicKey.buffer);

@@ -33,6 +33,15 @@ export class TransactionFactory {
                 return;
             }
 
+            console.log(
+                'Verifying preimage for miner',
+                miner.toString(),
+                'and preimage',
+                preimage.toString('hex'),
+                'allowedChallenges',
+                allowedChallenges,
+            );
+
             const hasMiner = allowedChallenges.get(miner);
             if (!hasMiner) {
                 throw new Error(EXPIRED_TRANSACTION_ERROR);
