@@ -1260,16 +1260,6 @@ export class Block extends Logger {
                 this.addressCache,
             );
 
-            if (
-                transaction.transactionId.equals(
-                    Buffer.from('zYXTK+YjtFz0HyUy8xjwGBN+RiMll20e2daFD8VKo38=', 'base64'),
-                )
-            ) {
-                console.log('transaction', transaction, i);
-            } else {
-                console.log('not transaction', transaction.transactionId.toString('hex'));
-            }
-
             transaction.originalIndex = i;
 
             this.transactions.push(transaction);
