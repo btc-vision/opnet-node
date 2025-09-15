@@ -1266,6 +1266,8 @@ export class Block extends Logger {
                 )
             ) {
                 console.log('transaction', transaction, i);
+            } else {
+                console.log('not transaction', transaction.transactionId.toString('hex'));
             }
 
             transaction.originalIndex = i;
