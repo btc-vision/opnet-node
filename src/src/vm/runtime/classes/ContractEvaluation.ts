@@ -468,14 +468,7 @@ export class ContractEvaluation implements ExecutionParameters {
                 writer.writeBytesWithLength(output.scriptPubKey);
             }
 
-            // TODO: Clean this up for mainnet.
             if (output.flags & TransactionOutputFlags.hasTo) {
-                if (!output.to) {
-                    throw new Error('OP_NET: Impossible case, output.to is undefined.');
-                }
-
-                writer.writeStringWithLength(output.to);
-            } else if (!flagsEnabled) {
                 if (!output.to) {
                     throw new Error('OP_NET: Impossible case, output.to is undefined.');
                 }
