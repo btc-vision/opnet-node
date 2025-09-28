@@ -57,7 +57,7 @@ export class UtxoSorter extends Logger {
         utxos: readonly Utxo[],
         chain: ChainContext,
     ): Promise<Classification[]> {
-        let prelim: (Classification | null)[] = utxos.map(({ txid, output }) => {
+        const prelim: (Classification | null)[] = utxos.map(({ txid, output }) => {
             if (isStandardScript(output)) {
                 return null;
             }
