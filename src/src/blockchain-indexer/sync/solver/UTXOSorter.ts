@@ -56,9 +56,8 @@ export class UtxoSorter extends Logger {
     public async classifyBatch(
         utxos: readonly Utxo[],
         chain: ChainContext,
-        bruteMax: bigint = 32n,
     ): Promise<Classification[]> {
-        const prelim: (Classification | null)[] = utxos.map(({ txid, output }) => {
+        let prelim: (Classification | null)[] = utxos.map(({ txid, output }) => {
             if (isStandardScript(output)) {
                 return null;
             }
@@ -102,32 +101,32 @@ export class UtxoSorter extends Logger {
             };
         });
 
-        await Promise.all(
-            prelim.map((cl, i) => {
-                if (!cl) return; // skip standard outputs
-                if (cl.status !== 'Unknown') return;
+        //await Promise.all(
+        prelim.map((cl, i) => {
+            if (!cl) return; // skip standard outputs
+            if (cl.status !== 'Unknown') return;
 
-                const { output } = utxos[i];
-                const key = h256(output.scriptPubKeyBuffer);
-                const cache = solverCache.get(key);
-                if (cache) {
-                    cl.status = 'Solved';
-                    cl.unlocking = cache;
-                    return;
-                }
+            const { output } = utxos[i];
+            const key = h256(output.scriptPubKeyBuffer);
+            const cache = solverCache.get(key);
+            if (cache) {
+                cl.status = 'Solved';
+                cl.unlocking = cache;
+                return;
+            }
 
-                if (!cl.outpoint.txid) {
-                    throw new Error(`Missing txid for output at index ${i}`);
-                }
+            if (!cl.outpoint.txid) {
+                throw new Error(`Missing txid for output at index ${i}`);
+            }
 
-                return {
-                    status: 'Unknown',
-                    outpoint: cl.outpoint,
-                    sats: cl.sats,
-                    hex: cl.hex,
-                };
-            }),
-        );
+            return {
+                status: 'Unknown',
+                outpoint: cl.outpoint,
+                sats: cl.sats,
+                hex: cl.hex,
+            };
+        });
+        //);
 
         const stkHash = (s?: Uint8Array) => (!s ? '' : h256(s));
         const bucket = new Map<string, Uint8Array>();
