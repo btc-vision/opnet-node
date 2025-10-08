@@ -377,8 +377,14 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             });
         } catch (err) {
             const e = err as Error;
+
+            let msgOrStack: string = e.message;
+            if (Config.DEV_MODE) {
+                msgOrStack = e.stack ?? e.message;
+            }
+
             this.error(
-                `error in tx (${txId.toString('hex')}) (${e.message})`,
+                `error in tx (${txId.toString('hex')}) (${msgOrStack})`,
                 publicKey.toString('hex'),
             );
         }
