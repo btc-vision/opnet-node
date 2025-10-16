@@ -2,9 +2,7 @@ import { AddressVerificator, BufferHelper, NetEvent } from '@btc-vision/transact
 import { Request } from 'hyper-express/types/components/http/Request.js';
 import { Response } from 'hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import {
-    BitcoinRPCThreadMessageType
-} from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { Config } from '../../../../../config/Config.js';
 import { MessageType } from '../../../../../threading/enum/MessageType.js';
 import {
@@ -16,7 +14,10 @@ import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.j
 import { PointerStorageMap } from '../../../../../vm/evaluated/EvaluatedResult.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { CallParams, SimulatedTransaction, } from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
+import {
+    CallParams,
+    SimulatedTransaction,
+} from '../../../../json-rpc/types/interfaces/params/states/CallParams.js';
 import {
     AccessList,
     AccessListItem,
@@ -33,12 +34,8 @@ import {
     TransactionInputFlags,
     TransactionOutputFlags,
 } from '../../../../../poa/configurations/types/IOPNetConsensus.js';
-import {
-    StrippedTransactionInputAPI
-} from '../../../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
-import {
-    StrippedTransactionOutputAPI
-} from '../../../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
+import { StrippedTransactionInputAPI } from '../../../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
+import { StrippedTransactionOutputAPI } from '../../../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 
 export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | undefined> {
     private pendingRequests: number = 0;
@@ -56,10 +53,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         accessList?: AccessList,
         preloadStorage?: LoadedStorageList,
     ): Promise<CallRequestResponse> {
-        console.log(
-            `Requesting thread execution for call to ${to} from ${from} with calldata ${calldata}`,
-        );
-
         const simulationMsg: RPCMessage<BitcoinRPCThreadMessageType.CALL> = {
             type: MessageType.RPC_METHOD,
             data: {
