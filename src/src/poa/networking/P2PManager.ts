@@ -88,6 +88,7 @@ export class P2PManager extends Logger {
 
     private readonly p2pConfigurations: P2PConfigurations;
     private node: Libp2pInstance | undefined;
+    private readonly disableOPNetProtocolPeerDiscovery: boolean = true;
 
     private privateKey: PrivateKey | undefined;
 
@@ -722,6 +723,7 @@ export class P2PManager extends Logger {
 
     private onOPNetPeersDiscovered(peers: OPNetPeerInfo[]): void {
         if (!this.node) throw new Error('Node not initialized');
+        if (this.disableOPNetProtocolPeerDiscovery) return;
 
         // Prevent flooding
         if (peers && peers.length > 100) {
