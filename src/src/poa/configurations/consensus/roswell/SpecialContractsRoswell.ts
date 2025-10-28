@@ -7,7 +7,7 @@ const nativeSwapRegtest: Address = Address.fromString(
 );
 
 /*const nativeSwapTestnet: Address = Address.fromString(
-    '0xb029ae75cff337453696c86af773b022b929b2666eec8b8693e8e745be65e302',
+    '',
 );*/
 
 // const nativeSwapMainnet: Address = Address.dead();

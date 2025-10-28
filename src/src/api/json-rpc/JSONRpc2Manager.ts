@@ -10,10 +10,7 @@ import {
     JSONRpc2RequestParams,
     JSONRpcId,
 } from './types/interfaces/JSONRpc2Request.js';
-import {
-    JSONRpc2ResponseError,
-    JSONRpc2ResponseResult,
-} from './types/interfaces/JSONRpc2Result.js';
+import { JSONRpc2ResponseError, JSONRpc2Result } from './types/interfaces/JSONRpc2Result.js';
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
 
@@ -57,9 +54,7 @@ export class JSONRpc2Manager extends Logger {
             const requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined =
                 await req.json();
 
-            let response:
-                | JSONRpc2ResponseResult<JSONRpcMethods>
-                | JSONRpc2ResponseResult<JSONRpcMethods>[];
+            let response: JSONRpc2Result<JSONRpcMethods> | JSONRpc2Result<JSONRpcMethods>[];
 
             // Batch request
             if (Array.isArray(requestData)) {
@@ -104,7 +99,12 @@ export class JSONRpc2Manager extends Logger {
             //    body: response,
             //});
 
-            res.status(200);
+            if ('error' in response) {
+                res.status(JSONRPCErrorHttpCodes.INVALID_REQUEST);
+            } else {
+                res.status(200);
+            }
+
             res.header('Content-Type', 'application/json');
 
             //if (stream instanceof Readable) {
@@ -155,31 +155,44 @@ export class JSONRpc2Manager extends Logger {
         request: JSONRpc2Request<JSONRpcMethods>[],
         res: Response,
         batchSize: number,
-    ): Promise<JSONRpc2ResponseResult<JSONRpcMethods>[]> {
+    ): Promise<JSONRpc2Result<JSONRpcMethods>[]> {
         const length = request.length;
 
         let i = 0;
 
-        const responses: JSONRpc2ResponseResult<JSONRpcMethods>[] = [];
+        const responses: JSONRpc2Result<JSONRpcMethods>[] = [];
         while (i < length) {
             const batch = request.slice(i, i + batchSize);
-            const pendingPromise: Promise<JSONRpc2ResponseResult<JSONRpcMethods> | undefined>[] =
-                [];
+            const pendingPromise: Promise<JSONRpc2Result<JSONRpcMethods> | undefined>[] = [];
 
             for (const req of batch) {
                 pendingPromise.push(this.processSingleRequest(res, req));
             }
 
-            const resp = await Promise.safeAll(pendingPromise);
+            const resp = await Promise.allSettled(pendingPromise);
+            const results: (JSONRpc2Result<JSONRpcMethods> | undefined)[] = resp.map((r) => {
+                if (r.status === 'fulfilled') {
+                    return r.value;
+                } else {
+                    return {
+                        jsonrpc: JSONRpc2Manager.RPC_VERSION,
+                        id: null,
+                        error: {
+                            code: JSONRPCErrorCode.INTERNAL_ERROR,
+                            message: r.status,
+                        },
+                    };
+                }
+            });
 
             // We must check if the response is an array of undefined values
             // If so, we must send an internal error
-            if (resp.every((value) => value === undefined)) {
+            if (results.every((value) => value === undefined)) {
                 throw new Error('Something went wrong, a batch request failed');
             }
 
             i += batchSize;
-            responses.push(...(resp as JSONRpc2ResponseResult<JSONRpcMethods>[]));
+            responses.push(...(results as JSONRpc2Result<JSONRpcMethods>[]));
         }
 
         return responses;
@@ -188,7 +201,8 @@ export class JSONRpc2Manager extends Logger {
     private async processSingleRequest(
         res: Response,
         requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined,
-    ): Promise<JSONRpc2ResponseResult<JSONRpcMethods> | undefined> {
+        sendErrorOnError: boolean = true,
+    ): Promise<JSONRpc2Result<JSONRpcMethods> | undefined> {
         const hasValidRequest = this.verifyRequest(requestData);
         if (!hasValidRequest || !requestData) {
             this.sendInvalidRequest(res, requestData?.id);
@@ -216,18 +230,42 @@ export class JSONRpc2Manager extends Logger {
         const method: JSONRpcMethods = requestData.method as JSONRpcMethods;
         const result = await this.router.requestResponse(method, params);
         if (typeof result === 'undefined') {
-            this.sendInternalError(res);
-            return;
+            if (sendErrorOnError) {
+                this.sendInternalError(res);
+                return;
+            }
+
+            return {
+                jsonrpc: JSONRpc2Manager.RPC_VERSION,
+                id: requestData.id ?? null,
+                error: this.buildInternalError(),
+            };
         }
 
         if ('error' in result) {
-            this.sendErrorResponse(result.error, res, requestData.id);
-            return;
+            if (sendErrorOnError) {
+                this.sendErrorResponse(result.error, res, requestData.id);
+                return;
+            }
+
+            return {
+                jsonrpc: JSONRpc2Manager.RPC_VERSION,
+                id: requestData.id ?? null,
+                error: result.error,
+            };
         }
 
         if (!result.result) {
-            this.sendInternalError(res);
-            return;
+            if (sendErrorOnError) {
+                this.sendInternalError(res);
+                return;
+            }
+
+            return {
+                jsonrpc: JSONRpc2Manager.RPC_VERSION,
+                id: requestData.id ?? null,
+                error: this.buildInternalError(),
+            };
         }
 
         return {
@@ -273,15 +311,19 @@ export class JSONRpc2Manager extends Logger {
         );
     }
 
+    private buildInternalError(msg: string = 'Internal error'): JSONRpcResultError<JSONRpcMethods> {
+        return {
+            code: JSONRPCErrorCode.INTERNAL_ERROR,
+            message: msg,
+        };
+    }
+
     private sendInternalError(res: Response): void {
         if (res.closed) return;
 
-        const errorData: JSONRpcResultError<JSONRpcMethods> = {
-            code: JSONRPCErrorCode.INTERNAL_ERROR,
-            message: 'Internal error',
-        };
-
+        const errorData = this.buildInternalError();
         res.status(JSONRPCErrorHttpCodes.INTERNAL_ERROR);
+
         this.sendErrorResponse(errorData, res);
     }
 
