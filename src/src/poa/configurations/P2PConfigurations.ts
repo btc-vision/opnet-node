@@ -134,7 +134,7 @@ export class P2PConfigurations extends OPNetPathFinder {
     public get bootstrapConfiguration(): BootstrapInit {
         return {
             timeout: 15000,
-            tagValue: 50,
+            tagValue: 100,
             tagTTL: 120000,
             list: this.getBootstrapPeers(),
         };
@@ -307,6 +307,15 @@ export class P2PConfigurations extends OPNetPathFinder {
         return dataStore;
     }
 
+    public getBootstrapPeers(): string[] {
+        return [
+            ...this.config.P2P.BOOTSTRAP_NODES,
+            ...this.defaultBootstrapNodes,
+            ...this.config.P2P.NODES,
+            ...this.config.P2P.PRIVATE_NODES,
+        ];
+    }
+
     private initializeBootstrapPeerIds(): void {
         const bootstrapList = [...this.config.P2P.BOOTSTRAP_NODES, ...this.defaultBootstrapNodes];
 
@@ -389,14 +398,5 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     private uint8ArrayToString(uint8Array: Uint8Array): string {
         return Buffer.from(uint8Array).toString('base64');
-    }
-
-    private getBootstrapPeers(): string[] {
-        return [
-            ...this.config.P2P.BOOTSTRAP_NODES,
-            ...this.defaultBootstrapNodes,
-            ...this.config.P2P.NODES,
-            ...this.config.P2P.PRIVATE_NODES,
-        ];
     }
 }

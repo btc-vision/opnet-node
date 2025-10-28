@@ -531,11 +531,19 @@ export class P2PManager extends Logger {
         if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS && !this.isBootstrapNode()) {
             // Trigger peer discovery
             try {
+                this.addBoostrapNodesToPeerStore();
+
                 await this.node.services.aminoDHT.refreshRoutingTable();
 
                 // Try to dial known peers that we're not connected to
                 const knownPeers = await this.node.peerStore.all();
                 const connectedPeerIds = new Set(connections.map((c) => c.remotePeer.toString()));
+
+                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    this.debug(
+                        `Refreshing routing table. Known peers: ${knownPeers.length}, Connected peers: ${connectedPeerIds.size}`,
+                    );
+                }
 
                 for (const peer of knownPeers.slice(0, 5)) {
                     // Try up to 5 peers
@@ -555,6 +563,44 @@ export class P2PManager extends Logger {
             } catch (e) {
                 this.error(`Failed to refresh routing table: ${e}`);
             }
+        } else {
+            this.debug('Connection health is good.');
+        }
+    }
+
+    private addBoostrapNodesToPeerStore(): void {
+        if (!this.node) return;
+
+        const bootstrapPeers = this.p2pConfigurations.getBootstrapPeers();
+        const peersToTry: PeerInfo[] = [];
+
+        for (const address of bootstrapPeers) {
+            const addr = multiaddr(address);
+
+            // Extract peer ID from multiaddr using getComponents
+            const components = addr.getComponents();
+            const p2pComponent = components.find((c) => c.name === 'p2p');
+            if (!p2pComponent?.value) {
+                this.warn(`No peer ID found in address ${address}`);
+                continue;
+            }
+
+            const peerId = peerIdFromString(p2pComponent.value);
+            const reachableAddresses = this.filterReachableAddresses([addr]);
+
+            if (reachableAddresses.length === 0) {
+                this.warn(`No reachable addresses found for peer ${peerId.toString()}`);
+                continue;
+            }
+
+            peersToTry.push({
+                id: peerId,
+                multiaddrs: reachableAddresses,
+            });
+        }
+
+        if (peersToTry.length) {
+            this.peerChecker.checkPeers(peersToTry);
         }
     }
 
