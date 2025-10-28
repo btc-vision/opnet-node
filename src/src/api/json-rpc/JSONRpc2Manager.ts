@@ -89,10 +89,17 @@ export class JSONRpc2Manager extends Logger {
 
                 const resp = await this.processSingleRequest(res, requestData);
                 if (!resp) {
-                    throw new Error(`Invalid request ${requestData?.method}`);
+                    response = {
+                        jsonrpc: JSONRpc2Manager.RPC_VERSION,
+                        id: requestData?.id ?? null,
+                        error: {
+                            code: JSONRPCErrorCode.INVALID_REQUEST,
+                            message: 'Invalid request.',
+                        },
+                    };
+                } else {
+                    response = resp;
                 }
-
-                response = resp;
             }
 
             //const stream = json.createStringifyStream({

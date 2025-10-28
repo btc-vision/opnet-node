@@ -1,7 +1,10 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { MessagePort, parentPort, threadId } from 'worker_threads';
 import { MessageType } from '../enum/MessageType.js';
-import { LinkThreadMessage, LinkType, } from '../interfaces/thread-messages/messages/LinkThreadMessage.js';
+import {
+    LinkThreadMessage,
+    LinkType,
+} from '../interfaces/thread-messages/messages/LinkThreadMessage.js';
 import { SetMessagePort } from '../interfaces/thread-messages/messages/SetMessagePort.js';
 import { ThreadMessageResponse } from '../interfaces/thread-messages/messages/ThreadMessageResponse.js';
 import { ThreadMessageBase } from '../interfaces/thread-messages/ThreadMessageBase.js';
