@@ -7,12 +7,13 @@ import {
     BroadcastRequest,
     BroadcastResponse,
 } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
+import { RPCMessage, RPCMessageData, } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import {
-    RPCMessage,
-    RPCMessageData,
-} from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
-import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
-import { OPNetBroadcastData } from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
+    BitcoinRPCThreadMessageType
+} from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import {
+    OPNetBroadcastData
+} from '../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
 import { BitcoinRPC, FeeEstimation, SmartFeeEstimation } from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
@@ -466,9 +467,21 @@ export class Mempool extends Logger {
                 } as BroadcastRequest,
             };
 
-        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
-            | BroadcastResponse
-            | undefined;
+        try {
+            return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
+                | BroadcastResponse
+                | undefined;
+        } catch (e: unknown) {
+            const err: Error = e as Error;
+
+            return {
+                finalizedTransaction: false,
+                identifier: 0n,
+                peers: 0,
+                success: false,
+                error: err.message,
+            };
+        }
     }
 
     /*private async decodePSBTAndProcess(
