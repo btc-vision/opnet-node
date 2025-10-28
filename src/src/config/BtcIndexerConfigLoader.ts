@@ -89,6 +89,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ENABLE_IP_BANNING: false,
             PRIVATE_MODE: false,
             MDNS: false,
+            ANNOUNCE_ADDRESSES: [],
 
             P2P_HOST_V6: '::',
             P2P_PORT_V6: 9801,
@@ -505,6 +506,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.P2P.ENABLE_IP_BANNING !== 'boolean'
             ) {
                 throw new Error(`Oops the property P2P.ENABLE_IP_BANNING is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.P2P.ANNOUNCE_ADDRESSES !== undefined &&
+                !Array.isArray(parsedConfig.P2P.ANNOUNCE_ADDRESSES)
+            ) {
+                throw new Error(`Oops the property P2P.ANNOUNCE_ADDRESSES is not an array.`);
             }
 
             if (

@@ -1,7 +1,6 @@
 import type { YamuxMuxerInit } from '@chainsafe/libp2p-yamux';
 import type { BootstrapInit } from '@libp2p/bootstrap';
 import type { IdentifyInit } from '@libp2p/identify';
-
 import type { NodeInfo, PeerId, PrivateKey } from '@libp2p/interface';
 import { FaultTolerance } from '@libp2p/interface-transport';
 import { KadDHTInit, removePrivateAddressesMapper } from '@libp2p/kad-dht';
@@ -12,9 +11,7 @@ import { UPnPNATInit } from '@libp2p/upnp-nat';
 import { LevelDatastore } from 'datastore-level';
 import fs from 'fs';
 import type { AddressManagerInit, ConnectionManagerInit, TransportManagerInit } from 'libp2p';
-
 import path from 'path';
-
 import { BtcIndexerConfig } from '../../config/BtcIndexerConfig.js';
 import { PeerToPeerMethod } from '../../config/interfaces/PeerToPeerMethod.js';
 import { OPNetPathFinder } from '../identity/OPNetPathFinder.js';
@@ -22,7 +19,7 @@ import { BootstrapNodes } from './BootstrapNodes.js';
 import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
-import { multiaddr } from '@multiformats/multiaddr';
+import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import { AutoNATv2ServiceInit } from '@libp2p/autonat-v2';
 
 interface BackedUpPeer {
@@ -34,16 +31,13 @@ interface BackedUpPeer {
 export class P2PConfigurations extends OPNetPathFinder {
     public static readonly protocolName: string = 'opnet';
     public static readonly protocolVersion: string = '1.0.0';
-
     public static readonly maxMessageSize: number = 6 * 1024 * 1024; // 6 MiB
 
     private readonly defaultBootstrapNodes: string[];
-
     private bootstrapPeerIds: Set<string> = new Set();
 
     constructor(private readonly config: BtcIndexerConfig) {
         super();
-
         this.defaultBootstrapNodes = this.getDefaultBootstrapNodes();
         this.initializeBootstrapPeerIds();
     }
@@ -52,7 +46,6 @@ export class P2PConfigurations extends OPNetPathFinder {
         return {
             inboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
             outboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
-
             maxConnections: this.config.P2P.MAXIMUM_PEERS,
             socketCloseTimeout: 10000,
             backlog: 100,
@@ -78,38 +71,16 @@ export class P2PConfigurations extends OPNetPathFinder {
              * This field is optional, the default value is shown
              */
             maxOutboundStreams: this.config.P2P.MAXIMUM_OUTBOUND_STREAMS,
-
             maxMessageSize: P2PConfigurations.maxMessageSize,
 
             enableKeepAlive: true,
             keepAliveInterval: 15000,
 
-            initialStreamWindowSize: 256 * 1024, // 256 KB
+            initialStreamWindowSize: 256 * 1024,
 
             maxStreamWindowSize: P2PConfigurations.maxMessageSize,
         };
     }
-
-    /*public get websocketConfiguration(): WebSocketsInit {
-        return {
-            websocket: {
-                handshakeTimeout: 10000,
-                maxPayload: P2PConfigurations.maxMessageSize,
-            },
-        };
-    }
-
-    public get autoNATConfiguration(): AutoNATServiceInit {
-        return {
-            protocolPrefix: P2PConfigurations.protocolName,
-            timeout: 10000,
-            maxInboundStreams: 5,
-            maxOutboundStreams: 5,
-            startupDelay: 4000,
-            maxMessageSize: P2PConfigurations.maxMessageSize,
-            refreshInterval: 30000,
-        };
-    }*/
 
     public get listeningConfiguration(): AddressManagerInit {
         const listenAt: string[] = [];
@@ -122,12 +93,34 @@ export class P2PConfigurations extends OPNetPathFinder {
         if (this.config.P2P.ENABLE_IPV6) {
             const host = this.config.P2P.P2P_HOST_V6 ?? '::';
             const port = this.config.P2P.P2P_PORT_V6 ?? 0;
-
             listenAt.push(`/ip6/${host}/${protocol}/${port}`);
         }
 
+        // Critical: Add announce addresses for external connectivity
+        const announce: string[] = [];
+
+        if (this.config.P2P.ANNOUNCE_ADDRESSES && this.config.P2P.ANNOUNCE_ADDRESSES.length > 0) {
+            announce.push(...this.config.P2P.ANNOUNCE_ADDRESSES);
+        } else if (port !== 0 && host !== '0.0.0.0') {
+            // Only announce non-wildcard addresses
+            announce.push(`/ip4/${host}/${protocol}/${port}`);
+        }
+
+        // Don't announce private addresses
+        const noAnnounce = [
+            '/ip4/127.0.0.0/ipcidr/8', // All loopback addresses
+            '/ip4/10.0.0.0/ipcidr/8', // Private network
+            '/ip4/172.16.0.0/ipcidr/12', // Private network
+            '/ip4/192.168.0.0/ipcidr/16', // Private network
+            '/ip6/::1/ipcidr/128', // IPv6 loopback
+            '/ip6/fc00::/ipcidr/7', // IPv6 unique local
+            '/ip6/fe80::/ipcidr/10', // IPv6 link local
+        ];
+
         return {
             listen: listenAt,
+            announce: announce.length > 0 ? announce : undefined,
+            noAnnounce,
         };
     }
 
@@ -142,7 +135,10 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     public get multicastDnsConfiguration(): MulticastDNSInit {
         return {
-            interval: 1000,
+            broadcast: true,
+            interval: 20000,
+            serviceTag: 'opnet.local',
+            peerName: 'opnet-node',
         };
     }
 
@@ -184,7 +180,34 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     public get peerStoreConfiguration(): PersistentPeerStoreInit {
-        return {};
+        return {
+            addressFilter: (peerId: PeerId, multiaddr: Multiaddr) => {
+                const str = multiaddr.toString();
+
+                // Always keep bootstrap peer addresses
+                if (this.isBootstrapPeer(peerId.toString())) {
+                    return true;
+                }
+
+                // Filter out obvious private/local addresses
+                if (
+                    str.includes('/127.0.0.1/') ||
+                    str.includes('/::1/') ||
+                    str.includes('/0.0.0.0/')
+                ) {
+                    return false;
+                }
+
+                // Keep all other addresses (including private network for testing)
+                return true;
+            },
+
+            // Increase address TTL to prevent premature expiry
+            maxAddressAge: 24 * 60 * 60 * 1000, // 24 hours
+
+            // Keep peers even without addresses for longer
+            maxPeerAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        };
     }
 
     public get nodeConfigurations(): NodeInfo {
@@ -205,6 +228,18 @@ export class P2PConfigurations extends OPNetPathFinder {
         return {
             portMappingDescription: P2PConfigurations.protocolName,
             portMappingTTL: 7200,
+
+            // Enable auto refresh to maintain NAT mappings
+            portMappingAutoRefresh: true,
+            portMappingRefreshThreshold: 60000, // Refresh 1 minute before expiry
+
+            // Auto-confirm addresses to speed up connectivity
+            autoConfirmAddress: false, // Keep false for security
+
+            // Increase gateway search intervals after initial discovery
+            initialGatewaySearchInterval: 5000,
+            gatewaySearchInterval: 300000, // 5 minutes
+            gatewaySearchTimeout: 60000,
         };
     }
 
@@ -217,6 +252,9 @@ export class P2PConfigurations extends OPNetPathFinder {
             logPrefix: 'libp2p:dht-amino',
             datastorePrefix: '/dht-amino',
             metricsPrefix: 'libp2p_dht_amino',
+            querySelfInterval: 300000, // 5 minutes
+            initialQuerySelfInterval: 5000,
+            allowQueryWithZeroPeers: false,
         };
     }
 
@@ -250,8 +288,9 @@ export class P2PConfigurations extends OPNetPathFinder {
             timeout: 10000,
             maxInboundStreams: 5,
             maxOutboundStreams: 5,
-            maxObservedAddresses: 1,
-            runOnConnectionOpen: false,
+            maxObservedAddresses: 15,
+            runOnConnectionOpen: true,
+            runOnLimitedConnection: true,
         };
     }
 
@@ -268,7 +307,6 @@ export class P2PConfigurations extends OPNetPathFinder {
         if (!thisPeer || !thisPeer.privKey) {
             return generateKeyPair('Ed25519');
         }
-
         return privateKeyFromRaw(thisPeer.privKey);
     }
 
@@ -300,20 +338,20 @@ export class P2PConfigurations extends OPNetPathFinder {
             await dataStore.open();
         } catch (e) {
             console.log(`Failed to open data store: ${(e as Error).stack}`);
-
             return undefined;
         }
-
         return dataStore;
     }
 
     public getBootstrapPeers(): string[] {
-        return [
+        // Deduplicate bootstrap peers
+        const peers = new Set([
             ...this.config.P2P.BOOTSTRAP_NODES,
             ...this.defaultBootstrapNodes,
             ...this.config.P2P.NODES,
             ...this.config.P2P.PRIVATE_NODES,
-        ];
+        ]);
+        return Array.from(peers);
     }
 
     private initializeBootstrapPeerIds(): void {
@@ -323,8 +361,6 @@ export class P2PConfigurations extends OPNetPathFinder {
             try {
                 const addr = multiaddr(bootstrapAddr);
                 const addrStr = addr.toString();
-
-                // Extract peer ID from /p2p/ or /ipfs/ component
                 const p2pMatch = addrStr.match(/\/(p2p|ipfs)\/([^/]+)/);
                 if (p2pMatch && p2pMatch[2]) {
                     this.bootstrapPeerIds.add(p2pMatch[2]);
@@ -354,9 +390,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
     private createDirIfNotExists(dir: string): void {
         if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, {
-                recursive: true,
-            });
+            fs.mkdirSync(dir, { recursive: true });
         }
     }
 
@@ -364,27 +398,22 @@ export class P2PConfigurations extends OPNetPathFinder {
         try {
             const lastPeerIdentity = fs.readFileSync(this.peerFilePath());
             const decrypted = this.decryptToString(new Uint8Array(lastPeerIdentity));
-
             const decoded = JSON.parse(decrypted) as {
                 id: string;
                 privKey: string | Buffer;
                 pubKey: string;
             };
-
             decoded.privKey = Buffer.from(decoded.privKey as string, 'base64');
-
             return decoded as BackedUpPeer;
         } catch (e) {
             const error = e as Error;
             if (error.message.includes('no such file or directory')) {
                 return;
             }
-
             if (Config.DEV_MODE) {
                 console.error(e);
             }
         }
-
         return;
     }
 
