@@ -96,9 +96,7 @@ export class P2PConfigurations extends OPNetPathFinder {
             listenAt.push(`/ip6/${host}/${protocol}/${port}`);
         }
 
-        // Critical: Add announce addresses for external connectivity
         const announce: string[] = [];
-
         if (this.config.P2P.ANNOUNCE_ADDRESSES && this.config.P2P.ANNOUNCE_ADDRESSES.length > 0) {
             announce.push(...this.config.P2P.ANNOUNCE_ADDRESSES);
         } else if (port !== 0 && host !== '0.0.0.0') {
