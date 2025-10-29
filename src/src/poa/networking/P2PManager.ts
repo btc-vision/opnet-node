@@ -13,7 +13,6 @@ import {
 } from '@libp2p/interface';
 import { IdentifyResult } from '@libp2p/interface/src';
 import type { Connection, MultiaddrConnection } from '@libp2p/interface/src/connection.js';
-import { PeerData } from '@libp2p/interface/src/peer-store.js';
 import { IncomingStreamData } from '@libp2p/interface/src/stream-handler.js';
 import { kadDHT } from '@libp2p/kad-dht';
 import { mdns } from '@libp2p/mdns';
@@ -88,7 +87,10 @@ export class P2PManager extends Logger {
 
     private readonly p2pConfigurations: P2PConfigurations;
     private node: Libp2pInstance | undefined;
-    private readonly disableOPNetProtocolPeerDiscovery: boolean = true;
+
+    private readonly removePeer: boolean = false;
+    private readonly removeStalledPeers: boolean = true;
+    private readonly disableOPNetProtocolPeerDiscovery: boolean = false;
 
     private privateKey: PrivateKey | undefined;
 
@@ -351,7 +353,7 @@ export class P2PManager extends Logger {
         for (const peer of allPeers) {
             // If peer has no addresses or only expired addresses, remove it
             if (!peer.addresses || peer.addresses.length === 0) {
-                await this.node.peerStore.delete(peer.id);
+                if (this.removeStalledPeers) await this.node.peerStore.delete(peer.id);
 
                 this.debug(`Removed stale peer ${peer.id.toString()} with no addresses`);
             }
@@ -529,11 +531,19 @@ export class P2PManager extends Logger {
         if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS && !this.isBootstrapNode()) {
             // Trigger peer discovery
             try {
+                this.addBoostrapNodesToPeerStore();
+
                 await this.node.services.aminoDHT.refreshRoutingTable();
 
                 // Try to dial known peers that we're not connected to
                 const knownPeers = await this.node.peerStore.all();
                 const connectedPeerIds = new Set(connections.map((c) => c.remotePeer.toString()));
+
+                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                    this.debug(
+                        `Refreshing routing table. Known peers: ${knownPeers.length}, Connected peers: ${connectedPeerIds.size}`,
+                    );
+                }
 
                 for (const peer of knownPeers.slice(0, 5)) {
                     // Try up to 5 peers
@@ -546,13 +556,51 @@ export class P2PManager extends Logger {
                             }
 
                             // remove peer
-                            await this.node.peerStore.delete(peer.id);
+                            if (this.removePeer) await this.node.peerStore.delete(peer.id);
                         }
                     }
                 }
             } catch (e) {
                 this.error(`Failed to refresh routing table: ${e}`);
             }
+        } else {
+            this.debug('Connection health is good.');
+        }
+    }
+
+    private addBoostrapNodesToPeerStore(): void {
+        if (!this.node) return;
+
+        const bootstrapPeers = this.p2pConfigurations.getBootstrapPeers();
+        const peersToTry: PeerInfo[] = [];
+
+        for (const address of bootstrapPeers) {
+            const addr = multiaddr(address);
+
+            // Extract peer ID from multiaddr using getComponents
+            const components = addr.getComponents();
+            const p2pComponent = components.find((c) => c.name === 'p2p');
+            if (!p2pComponent?.value) {
+                this.warn(`No peer ID found in address ${address}`);
+                continue;
+            }
+
+            const peerId = peerIdFromString(p2pComponent.value);
+            const reachableAddresses = this.filterReachableAddresses([addr]);
+
+            if (reachableAddresses.length === 0) {
+                this.warn(`No reachable addresses found for peer ${peerId.toString()}`);
+                continue;
+            }
+
+            peersToTry.push({
+                id: peerId,
+                multiaddrs: reachableAddresses,
+            });
+        }
+
+        if (peersToTry.length) {
+            this.peerChecker.checkPeers(peersToTry);
         }
     }
 
@@ -564,17 +612,19 @@ export class P2PManager extends Logger {
         // Filter out unreachable addresses before storing
         const reachableAddrs = this.filterReachableAddresses(peerInfo.listenAddrs);
         if (reachableAddrs.length > 0) {
-            const peerData: PeerData = {
-                multiaddrs: reachableAddrs,
-            };
+            //const peerData: PeerData = {
+            //    multiaddrs: reachableAddrs,
+            //};
 
-            await this.node.peerStore.merge(peerInfo.peerId, peerData);
+            //await this.node.peerStore.merge(peerInfo.peerId, peerData);
             this.info(
                 `Identified peer: ${peerInfo.peerId.toString()} with ${reachableAddrs.length} reachable addresses`,
             );
         } else {
             this.warn(`Peer ${peerInfo.peerId.toString()} has no reachable addresses`);
         }
+
+        await Promise.resolve();
     }
 
     private async refreshRouting(): Promise<void> {
@@ -864,7 +914,7 @@ export class P2PManager extends Logger {
 
                 if (peer) {
                     this.blacklistPeerIps(peer, reason);
-                    await this.node.peerStore.delete(peerId);
+                    if (this.removePeer) await this.node.peerStore.delete(peerId);
                 }
             }
         } catch (e) {}

@@ -466,9 +466,23 @@ export class Mempool extends Logger {
                 } as BroadcastRequest,
             };
 
-        return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
-            | BroadcastResponse
-            | undefined;
+        try {
+            return (await this.sendMessageToThread(ThreadTypes.RPC, currentBlockMsg)) as
+                | BroadcastResponse
+                | undefined;
+        } catch (e: unknown) {
+            this.fail(`Error broadcasting transaction to Bitcoin network: ${(e as Error).message}`);
+
+            const err: Error = e as Error;
+
+            return {
+                finalizedTransaction: false,
+                identifier: 0n,
+                peers: 0,
+                success: false,
+                error: err.message,
+            };
+        }
     }
 
     /*private async decodePSBTAndProcess(

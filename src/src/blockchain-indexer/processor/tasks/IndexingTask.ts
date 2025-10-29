@@ -27,6 +27,8 @@ interface DummyMempoolTx {
     inputs: DummyTxInput[];
 }
 
+const BATCH_SIZE = 500;
+
 export class IndexingTask extends Logger {
     public readonly logColor: string = '#9545c5';
 
@@ -258,7 +260,6 @@ export class IndexingTask extends Logger {
             return;
         }
 
-        const BATCH_SIZE = 500;
         const conflictIds = new Set<string>();
 
         for (let i = 0; i < blockTxs.length; i += BATCH_SIZE) {
