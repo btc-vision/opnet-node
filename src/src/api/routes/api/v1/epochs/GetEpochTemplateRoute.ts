@@ -73,29 +73,31 @@ export class GetEpochTemplateRoute extends Route<
         }
 
         // Get the current block height from storage
-        const currentBlock = await this.storage.getLatestBlock();
-        if (!currentBlock) {
-            throw new Error('No blocks found in storage to determine current height');
-        }
-
-        this.pendingBlockHeight = BigInt(currentBlock.height);
-
-        const currentEpoch = OPNetConsensus.calculateCurrentEpoch(this.pendingBlockHeight);
-        if (currentEpoch > 0n) {
-            this.cacheValidForEpoch = currentEpoch;
-            this.cacheTimestamp = Date.now();
-            this.cachedTemplatePromise = this.computeTemplate(this.pendingBlockHeight);
-
-            try {
-                await this.cachedTemplatePromise;
-            } catch (error) {
-                this.error(`Failed to pre-cache template during initialization: ${error}`);
-
-                this.cachedTemplatePromise = undefined;
-                this.cacheValidForEpoch = undefined;
-                this.cacheTimestamp = undefined;
+        try {
+            const currentBlock = await this.storage.getLatestBlock();
+            if (!currentBlock) {
+                throw new Error('No blocks found in storage to determine current height');
             }
-        }
+
+            this.pendingBlockHeight = BigInt(currentBlock.height);
+
+            const currentEpoch = OPNetConsensus.calculateCurrentEpoch(this.pendingBlockHeight);
+            if (currentEpoch > 0n) {
+                this.cacheValidForEpoch = currentEpoch;
+                this.cacheTimestamp = Date.now();
+                this.cachedTemplatePromise = this.computeTemplate(this.pendingBlockHeight);
+
+                try {
+                    await this.cachedTemplatePromise;
+                } catch (error) {
+                    this.error(`Failed to pre-cache template during initialization: ${error}`);
+
+                    this.cachedTemplatePromise = undefined;
+                    this.cacheValidForEpoch = undefined;
+                    this.cacheTimestamp = undefined;
+                }
+            }
+        } catch {}
     }
 
     /**
