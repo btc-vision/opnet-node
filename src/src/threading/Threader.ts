@@ -448,9 +448,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
                 resolve: resolve,
             };
 
-            if (!message.taskId) {
-                message.taskId = taskId;
-            }
+            message.taskId = taskId;
 
             this.tasks.set(taskId, task);
 
