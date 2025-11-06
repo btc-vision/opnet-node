@@ -207,21 +207,14 @@ export class Threader<T extends ThreadTypes> extends Logger {
         const createPromises: Promise<void>[] = [];
 
         for (let i = 0; i < this.maxInstance; i++) {
-            createPromises.push(
-                this.createThread(i).then((worker) => {
-                    // If worker was successfully created, store it at index i
-                    if (worker) {
-                        this.threads[i] = worker;
-                    }
-                }),
-            );
+            createPromises.push(this.createThread(i).then());
         }
 
         await Promise.safeAll(createPromises);
     }
 
     public async createThread(i: number): Promise<Worker | undefined> {
-        return new Promise((resolve) => {
+        const promise: Promise<Worker | undefined> = new Promise((resolve) => {
             setTimeout(() => {
                 if (!this.target) {
                     resolve(undefined);
@@ -325,6 +318,15 @@ export class Threader<T extends ThreadTypes> extends Logger {
                 }
             }, i * 200);
         });
+
+        void promise.then((worker) => {
+            // If worker was successfully created, store it at index i
+            if (worker) {
+                this.threads[i] = worker;
+            }
+        });
+
+        return promise;
     }
 
     private async createThreadLinkBetween(
