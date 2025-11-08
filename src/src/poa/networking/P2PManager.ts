@@ -92,7 +92,7 @@ export class P2PManager extends Logger {
 
     private readonly removePeer: boolean = false;
     private readonly removeStalledPeers: boolean = true;
-    private readonly disableOPNetProtocolPeerDiscovery: boolean = true;
+    private readonly disableOPNetProtocolPeerDiscovery: boolean = false;
 
     private privateKey: PrivateKey | undefined;
 
