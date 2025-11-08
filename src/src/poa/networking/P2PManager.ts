@@ -1081,9 +1081,6 @@ export class P2PManager extends Logger {
             );
         }
 
-        //const agent = `OPNet`;
-        //const version = `1.0.0`;
-
         if (!this.allowConnection(peerId)) {
             this.warn(`Dropping connection to peer: ${peerIdStr} due to agent or version mismatch`);
 
