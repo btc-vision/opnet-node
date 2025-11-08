@@ -25,7 +25,7 @@ export const P2PMajorVersion: TrustedVersion = TrustedVersion.V0_0_1;
 // TODO: Add the trusted checksum for the new version
 export const TRUSTED_CHECKSUM: { [key in TrustedVersion]: string } = {
     [TrustedVersion.V0_0_1]: '0x00000000',
-    [TrustedVersion.V0_0_2]: '0x00000000',
+    [TrustedVersion.V0_0_2]: '0x00000001',
 };
 
 export const TRUSTED_PUBLIC_KEYS: { [key in TrustedVersion]: TrustedPublicKeys } = {
