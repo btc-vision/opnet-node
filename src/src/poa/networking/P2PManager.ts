@@ -1177,6 +1177,8 @@ export class P2PManager extends Logger {
     /** We could return a Uint8Array to send a response. For the protocol v1, we will ignore that. */
     private async onPeerMessage(peerId: PeerId, data: Uint8Array): Promise<void> {
         const id: string = peerId.toString();
+        console.log(id, this.peers);
+
         const peer: OPNetPeer | undefined = this.peers.get(id);
 
         if (!peer) {
