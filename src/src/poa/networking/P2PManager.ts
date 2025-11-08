@@ -1060,7 +1060,6 @@ export class P2PManager extends Logger {
         const peerIdStr: string = evt.detail.toString();
         const peer = this.peers.get(peerIdStr);
         const peerId = peerIdFromString(peerIdStr);
-        console.log('connect', evt.target);
 
         if (peer) {
             return await this.disconnectPeer(
