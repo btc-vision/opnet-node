@@ -164,6 +164,7 @@ export class ReusableStream {
     private async handleMessage(data: Uint8Array | Uint8ArrayList): Promise<void> {
         try {
             const bytes = data instanceof Uint8Array ? data : data.subarray();
+            console.log('Received message', bytes);
 
             // If data is exactly [0x01], treat as ack
             if (bytes.length === 1 && bytes[0] === 0x01) {
