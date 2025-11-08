@@ -79,8 +79,6 @@ export class ReusableStreamManager extends Logger {
      */
     public handleInboundStream(stream: Stream, connection: Connection): void {
         const peerIdStr = connection.remotePeer.toString();
-        this.log(`Creating stream for peer: ${peerIdStr}, ${connection.remoteAddr.toString()}`);
-
         const key = this.makeKey(peerIdStr, this.defaultProtocol + connection.id);
 
         // Create the new inbound ReusableStream
