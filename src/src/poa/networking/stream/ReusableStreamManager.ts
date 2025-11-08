@@ -74,6 +74,8 @@ export class ReusableStreamManager {
      */
     public handleInboundStream(stream: Stream, connection: Connection): void {
         const peerIdStr = connection.remotePeer.toString();
+        console.log(`Creating stream for peer: ${peerIdStr}, ${connection.remoteAddr.toString()}`);
+
         const key = this.makeKey(peerIdStr, this.defaultProtocol + connection.id);
 
         // Create the new inbound ReusableStream
