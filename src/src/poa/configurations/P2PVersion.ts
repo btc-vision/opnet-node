@@ -19,8 +19,8 @@ import { LitecoinTestnetTrustedKeys } from './keys/litecoin/0.0.1/TestnetTrusted
  *
  * This file is used to set the version of the P2P protocol used by OPNet.
  */
-export const P2PVersion: TrustedVersion = TrustedVersion.V0_0_1;
-export const P2PMajorVersion: TrustedVersion = TrustedVersion.V0_0_1;
+export const P2PVersion: TrustedVersion = TrustedVersion.V0_0_2;
+export const P2PMajorVersion: TrustedVersion = TrustedVersion.V0_0_2;
 
 // TODO: Add the trusted checksum for the new version
 export const TRUSTED_CHECKSUM: { [key in TrustedVersion]: string } = {
