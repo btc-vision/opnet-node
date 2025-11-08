@@ -30,7 +30,7 @@ interface BackedUpPeer {
 
 export class P2PConfigurations extends OPNetPathFinder {
     public static readonly protocolName: string = 'opnet';
-    public static readonly protocolVersion: string = '1.0.0';
+    public static readonly protocolVersion: string = '1.0.1';
     public static readonly maxMessageSize: number = 6 * 1024 * 1024; // 6 MiB
 
     private readonly defaultBootstrapNodes: string[];
