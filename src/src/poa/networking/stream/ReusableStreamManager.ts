@@ -5,6 +5,7 @@ import { ReusableStream } from './ReusableStream.js';
 import { PeerId, Stream } from '@libp2p/interface';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 import type { Connection } from '@libp2p/interface/src';
+import { Logger } from '@btc-vision/bsi-common';
 
 const STREAM_IDLE_TIMEOUT_MS = 30_000;
 const MAX_MESSAGE_SIZE_BYTES = 6 * 1024 * 1024;
@@ -14,7 +15,9 @@ const MAX_OUTBOUND_STREAMS_PER_PEER = 1024;
 /**
  * A manager that stores "ReusableStream" objects for both inbound and outbound usage.
  */
-export class ReusableStreamManager {
+export class ReusableStreamManager extends Logger {
+    public readonly logColor: string = `#33ccff`;
+
     private node: Libp2p;
 
     private outboundMap: FastStringMap<ReusableStream> = new FastStringMap();
@@ -26,6 +29,8 @@ export class ReusableStreamManager {
         node: Libp2p,
         onPeerMessage: (peerIdStr: PeerId, data: Uint8Array) => Promise<void>,
     ) {
+        super();
+
         this.node = node;
         this.onPeerMessage = onPeerMessage;
     }
@@ -74,7 +79,7 @@ export class ReusableStreamManager {
      */
     public handleInboundStream(stream: Stream, connection: Connection): void {
         const peerIdStr = connection.remotePeer.toString();
-        console.log(`Creating stream for peer: ${peerIdStr}, ${connection.remoteAddr.toString()}`);
+        this.log(`Creating stream for peer: ${peerIdStr}, ${connection.remoteAddr.toString()}`);
 
         const key = this.makeKey(peerIdStr, this.defaultProtocol + connection.id);
 
@@ -93,7 +98,14 @@ export class ReusableStreamManager {
             key,
             this.onInboundClosed.bind(this),
             async (inboundData, rs) => {
-                await this.onPeerMessage(rs.peerId, inboundData);
+                try {
+                    await this.onPeerMessage(rs.peerId, inboundData);
+                } catch (error) {
+                    this.warn(`Something went wrong reading peer message: ${error}`);
+
+                    await stream.close().catch(() => {});
+                    await connection.close().catch(() => {});
+                }
             },
         );
         this.inboundMap.set(key, streamObj);

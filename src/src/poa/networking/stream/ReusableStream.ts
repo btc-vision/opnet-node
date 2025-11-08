@@ -130,6 +130,7 @@ export class ReusableStream {
         if (this.messageHandler) {
             this.libp2pStream.removeEventListener('message', this.messageHandler);
         }
+
         if (this.closeHandler) {
             this.libp2pStream.removeEventListener('close', this.closeHandler);
         }

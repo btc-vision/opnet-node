@@ -1061,8 +1061,6 @@ export class P2PManager extends Logger {
         const peer = this.peers.get(peerIdStr);
         const peerId = peerIdFromString(peerIdStr);
 
-        console.log('Peer connecting...', peerId);
-
         if (peer) {
             return await this.disconnectPeer(
                 peerId,
@@ -1179,10 +1177,8 @@ export class P2PManager extends Logger {
         console.log(id, this.peers);
 
         const peer: OPNetPeer | undefined = this.peers.get(id);
-
         if (!peer) {
-            this.warn(`Received message from unknown peer: ${id}`);
-            return;
+            throw new Error('Peer not found.');
         }
 
         await peer.onMessage(data);
