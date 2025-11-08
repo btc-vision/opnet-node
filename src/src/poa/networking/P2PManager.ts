@@ -606,7 +606,7 @@ export class P2PManager extends Logger {
         }
     }
 
-    private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
+    private onPeerIdentify(evt: CustomEvent<IdentifyResult>): void {
         if (!this.node) throw new Error('Node not initialized');
 
         const peerInfo: IdentifyResult = evt.detail;
@@ -625,8 +625,6 @@ export class P2PManager extends Logger {
         } else {
             this.warn(`Peer ${peerInfo.peerId.toString()} has no reachable addresses`);
         }
-
-        await Promise.resolve();
     }
 
     private async refreshRouting(): Promise<void> {
@@ -1062,7 +1060,7 @@ export class P2PManager extends Logger {
         const peerIdStr: string = evt.detail.toString();
         const peer = this.peers.get(peerIdStr);
         const peerId = peerIdFromString(peerIdStr);
-        console.log('connect', evt);
+        console.log('connect', evt.target);
 
         if (peer) {
             return await this.disconnectPeer(
@@ -1084,8 +1082,8 @@ export class P2PManager extends Logger {
             );
         }
 
-        const agent = `OPNet`;
-        const version = `1.0.0`;
+        //const agent = `OPNet`;
+        //const version = `1.0.0`;
 
         if (!this.allowConnection(peerId)) {
             this.warn(`Dropping connection to peer: ${peerIdStr} due to agent or version mismatch`);
@@ -1095,16 +1093,16 @@ export class P2PManager extends Logger {
         }
 
         if (this.config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.info(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
+            this.info(`Identified peer: ${peerIdStr}`); //- Agent: ${agent} - Version: ${version}
         }
 
         const identified = await this.identifyPeer(peerId);
         if (identified) {
-            this.success(`Identified peer: ${peerIdStr} - Agent: ${agent} - Version: ${version}`);
+            this.success(`Identified peer: ${peerIdStr}`); // - Agent: ${agent} - Version: ${version}
             await this.createPeer(
                 {
-                    agentVersion: agent,
-                    protocolVersion: version,
+                    agentVersion: `1.0.0`,
+                    protocolVersion: `OPNet`,
                     peerId: peerId,
                 },
                 peerIdStr,
