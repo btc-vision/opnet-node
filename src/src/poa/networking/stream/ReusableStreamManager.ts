@@ -2,9 +2,9 @@ import { Libp2p } from 'libp2p';
 import { P2PConfigurations } from '../../configurations/P2PConfigurations.js';
 import { AuthenticationManager } from '../server/managers/AuthenticationManager.js';
 import { ReusableStream } from './ReusableStream.js';
-import { PeerId } from '@libp2p/interface';
-import { IncomingStreamData } from '@libp2p/interface/src/stream-handler.js';
+import { PeerId, Stream } from '@libp2p/interface';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
+import type { Connection } from '@libp2p/interface/src';
 
 const STREAM_IDLE_TIMEOUT_MS = 30_000;
 const MAX_MESSAGE_SIZE_BYTES = 6 * 1024 * 1024;
@@ -72,8 +72,7 @@ export class ReusableStreamManager {
     /**
      * Called by Libp2p's `node.handle(...)` for inbound streams.
      */
-    public handleInboundStream(incoming: IncomingStreamData): void {
-        const { stream, connection } = incoming;
+    public handleInboundStream(stream: Stream, connection: Connection): void {
         const peerIdStr = connection.remotePeer.toString();
         const key = this.makeKey(peerIdStr, this.defaultProtocol + connection.id);
 

@@ -1,5 +1,5 @@
-import { PeerId, Stream } from '@libp2p/interface';
-import { LengthPrefixedStream, lpStream } from 'it-length-prefixed-stream';
+import { PeerId, Stream, StreamCloseEvent, StreamMessageEvent } from '@libp2p/interface';
+import { Uint8ArrayList } from 'uint8arraylist';
 
 /**
  * Options for controlling stream behavior
@@ -20,9 +20,9 @@ interface ReusableStreamOptions {
 /**
  * A single stream that can handle both inbound and outbound operations.
  *
- * - All reading is done in a single `readLoop()`.
- * - If we see `[0x01]`, it's an ack for an outbound message -> we resolve the next ack waiter.
- * - Otherwise, we always send an ack ourselves, and if `isInbound=true`, call `onInboundData()`.
+ * Uses the MessageStream API directly. The key insight is that MessageStream
+ * already handles message framing - each send() results in one message event.
+ * No manual length-prefixing is needed.
  */
 export class ReusableStream {
     private isClosed = false;
@@ -41,8 +41,6 @@ export class ReusableStream {
 
     private idleTimer: NodeJS.Timeout | undefined;
 
-    private lp: LengthPrefixedStream<Stream>;
-
     /**
      * For `waitForAck = true`, each outbound message has a "waiter" that gets resolved
      * when `[0x01]` arrives. The read loop checks for `[0x01]`.
@@ -52,6 +50,9 @@ export class ReusableStream {
         reject: (err: unknown) => void;
         timer: NodeJS.Timeout;
     }> = [];
+
+    private readonly messageHandler: ((event: StreamMessageEvent) => void) | undefined;
+    private readonly closeHandler: ((event: StreamCloseEvent) => void) | undefined;
 
     constructor(
         public readonly peerId: PeerId,
@@ -71,12 +72,17 @@ export class ReusableStream {
          */
         private readonly onInboundData?: (data: Uint8Array, rs: ReusableStream) => Promise<void>,
     ) {
-        this.lp = lpStream(this.libp2pStream, {
-            maxDataLength: this.opts.maxMessageSize,
-        });
+        // Set up event listeners for the MessageStream interface
+        this.messageHandler = (event: StreamMessageEvent) => {
+            void this.handleMessage(event.data);
+        };
 
-        // Start the single read loop for both inbound and outbound
-        void this.readLoop();
+        this.closeHandler = (_event: StreamCloseEvent) => {
+            void this.closeStream();
+        };
+
+        this.libp2pStream.addEventListener('message', this.messageHandler);
+        this.libp2pStream.addEventListener('close', this.closeHandler);
     }
 
     public get peerIdStr(): string {
@@ -120,6 +126,14 @@ export class ReusableStream {
             this.idleTimer = undefined;
         }
 
+        // Remove event listeners
+        if (this.messageHandler) {
+            this.libp2pStream.removeEventListener('message', this.messageHandler);
+        }
+        if (this.closeHandler) {
+            this.libp2pStream.removeEventListener('close', this.closeHandler);
+        }
+
         try {
             await this.libp2pStream.close();
         } catch (err) {
@@ -145,57 +159,39 @@ export class ReusableStream {
     }
 
     /**
-     * Single read loop. Whenever we see `[0x01]`, that's an ack. Otherwise, we
-     * automatically ack back with `[0x01]`, and if `isInbound` we call `onInboundData()`.
+     * Handle incoming messages from the stream
      */
-    private async readLoop(): Promise<void> {
+    private async handleMessage(data: Uint8Array | Uint8ArrayList): Promise<void> {
         try {
-            while (!this.isClosed) {
-                const chunk = await this.lp.read();
-                if (!chunk) {
-                    break;
-                }
+            const bytes = data instanceof Uint8Array ? data : data.subarray();
 
-                if (chunk.length === 0) {
-                    continue;
+            // If data is exactly [0x01], treat as ack
+            if (bytes.length === 1 && bytes[0] === 0x01) {
+                const w = this.ackWaiters.shift();
+                if (w) {
+                    clearTimeout(w.timer);
+                    w.resolve();
                 }
+                return;
+            }
 
-                // If chunk is exactly [0x01], treat as ack
-                if (chunk.length === 1 && chunk.getInt8(0) === 0x01 && chunk.length === 1) {
-                    const w = this.ackWaiters.shift();
-                    if (w) {
-                        clearTimeout(w.timer);
-                        w.resolve();
-                    }
-                    continue;
-                }
+            // Otherwise, this is a real message. We always ack it:
+            this.sendAck();
 
-                // Otherwise, this is a real message. We always ack it:
-                await this.sendAck().catch(() => {});
-
-                // If inbound, pass data along
-                if (this.opts.isInbound && this.onInboundData) {
-                    await this.onInboundData(chunk.subarray(), this);
-                } else {
-                    //console.log('outbound -> Received data:', chunk);
-                }
+            // If inbound, pass data along
+            if (this.opts.isInbound && this.onInboundData) {
+                await this.onInboundData(bytes, this);
             }
         } catch (err) {
-            //if (!this.isClosed) {
-            //console.log(`Error reading data for ${this.peerIdStr}:`, err);
-            //}
-        } finally {
-            if (!this.isClosed) {
-                await this.closeStream();
-            }
+            console.error(`Error handling message for ${this.peerIdStr}:`, err);
         }
     }
 
     /**
      * Sends a single byte [0x01] as an ack to the remote.
      */
-    private async sendAck(): Promise<void> {
-        await this.lp.write(Uint8Array.of(0x01));
+    private sendAck(): void {
+        this.libp2pStream.send(Uint8Array.of(0x01));
     }
 
     /**
@@ -220,31 +216,24 @@ export class ReusableStream {
     }
 
     /**
-     * Actually writes the data.
+     * Actually writes the data. MessageStream handles message framing.
      */
     private async writeData(data: Uint8Array): Promise<void> {
         this.resetIdleTimer();
 
-        await this.lp.write(data);
+        // Send the data directly - MessageStream handles framing
+        this.libp2pStream.send(data);
 
-        // THIS IS DISABLED ATM. WE DO NOT NEED THIS FOR NOW.
-        //if (!this.opts.waitForAck) {
-        //    return;
-        //}
-
-        /*await new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(() => {
-                reject(new Error('Ack timeout'));
-            }, this.opts.ackTimeoutMs);
-
-            this.ackWaiters.push({ resolve, reject, timer });
-        });*/
+        // Wait for drain if needed
+        if (this.libp2pStream.writableNeedsDrain) {
+            await this.libp2pStream.onDrain();
+        }
     }
 
     /**
      * Reset idle timer after a successful send. If no sends happen for `idleTimeoutMs`, close.
      */
-    private resetIdleTimer() {
+    private resetIdleTimer(): void {
         if (this.idleTimer) {
             clearTimeout(this.idleTimer);
         }
