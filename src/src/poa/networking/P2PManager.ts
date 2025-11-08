@@ -1057,6 +1057,10 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerConnect(evt: CustomEvent<PeerId>): Promise<void> {
+        if (this.blackListedPeerIds.size > 250) {
+            return await this.disconnectPeer(peerId, DisconnectionCode.FLOOD, 'Flood.');
+        }
+
         const peerIdStr: string = evt.detail.toString();
         const peer = this.peers.get(peerIdStr);
         const peerId = peerIdFromString(peerIdStr);
@@ -1067,10 +1071,6 @@ export class P2PManager extends Logger {
                 DisconnectionCode.BAD_BEHAVIOR,
                 'Bad behavior.',
             );
-        }
-
-        if (this.blackListedPeerIds.size > 250) {
-            return await this.disconnectPeer(peerId, DisconnectionCode.FLOOD, 'Flood.');
         }
 
         if (!peerId) {
