@@ -1101,7 +1101,7 @@ export class P2PManager extends Logger {
             this.success(`Identified peer: ${peerIdStr}`); // - Agent: ${agent} - Version: ${version}
             await this.createPeer(
                 {
-                    agentVersion: `1.0.0`,
+                    agentVersion: `1.0.1`,
                     protocolVersion: `OPNet`,
                     peerId: peerId,
                 },
