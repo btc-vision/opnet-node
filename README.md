@@ -55,44 +55,6 @@ manage and execute smart contracts on the Bitcoin or any other UTXO-based blockc
 To get started with the node, follow these setup instructions. OP_NET is designed to run on almost any operating
 system and requires Node.js, npm, a Bitcoin node, and MongoDB.
 
-## Features
-
-- **Consensus Validation System**: OPNet employs a dual-layer consensus validation system integrating **Proof of
-  Calculation (PoC)** and **Proof of Validation (PoV)**, enhancing error detection and defense against manipulation.
-
-- **Data Sourcing from Bitcoin Network**: Data is sourced directly from the Bitcoin network, allowing each peer to
-  independently recalculate and verify any information at any given block.
-
-- **Permissionless Nodes (PoC)**: Nodes handle the initial layer of validation by independently recalculating data from
-  the Bitcoin blockchain. This decentralized verification adds resilience without relying on trusted nodes. **Proof of
-  Calculation** ensures that each node's calculations are accurate and aligned with network standards, fostering
-  consistency across the decentralized network.
-
-- **Bootstrap Nodes (PoV)**: Serving as **Proof of Validation** nodes, bootstrap nodes act as trusted verifiers. They
-  perform independent recalculations and confirm results against official network entries, adding a rigorous validation
-  layer. These nodes review calculations to detect potential errors or manipulations, enhancing trust without altering
-  individual node data directly.
-
-- **Independent State Determination**: Each node arrives at its own state independently based on PoC, without requiring
-  a threshold of nodes to agree. PoV allows nodes to check what the canonical outputs are, which come from trusted nodes
-  such as the OPNet Foundation.
-
-- **Contract Execution**: Execution of smart contracts through the OP-VM, handling sophisticated logic and state
-  changes.
-
-- **State Management and Proofs**: Robust management of contract states, including computing and validating state
-  changes using Merkle proofs.
-
-- **Merkle Root Calculation**: Computation of state roots and transaction receipt roots for comprehensive summaries of
-  contract states and transaction outcomes.
-
-- **Recovery and Reversion**: Capabilities to revert states or initiate full rescans in the event of discrepancies or
-  blockchain reorganizations.
-
-- **Decentralized Network**: OPNet is a decentralized network that leverages the Bitcoin blockchain for security and
-  immutability. Proofs and state changes are validated by a network of nodes, preparing for a future Proof of Stake (
-  PoS) implementation.
-
 ## Installation (Quick)
 
 OPNet provides an automated setup script for quick installation on Ubuntu based systems. To use the script, run the
@@ -166,7 +128,117 @@ parameters, and operational modes as needed.
 
 ## Consensus Mechanism
 
-OPNet utilizes a dual-layer consensus mechanism to maintain network security and data integrity.
+Bitcoin doesn't have a virtual machine. It doesn't have state storage. Its scripting language is intentionally limited.
+So how can you possibly have real smart contracts, actual DeFi, genuine programmable money on Bitcoin itself? Not on a
+sidechain, not through a bridge, but directly on Bitcoin?
+
+The first thing to understand is why every other Bitcoin protocol faces fundamental limitations. BRC-20, Runes, and
+other protocols all operate as meta-protocols that rely on indexers interpreting data. When you "own" BRC-20 tokens,
+those tokens don't exist on Bitcoin; they exist in database entries maintained by indexers. Different indexers can show
+different balances because there's no mechanism forcing them to agree. They're hoping everyone calculates the same
+results, but hope isn't consensus. Alkanes took an interesting approach by introducing WASM smart contracts, which
+represents significant technical progress for Bitcoin protocols. However, like other meta-protocols, contract execution
+happens within indexers without a consensus mechanism to ensure all participants reach identical states. Each indexer
+independently processes contracts, potentially arriving at different results.
+
+OPNet is fundamentally different because it's a consensus layer, not a metaprotocol. A consensus layer provides
+cryptographic proof of correct execution where every participant must arrive at exactly the same result, or their proofs
+won't validate. Think about what this means: when a smart contract executes on OPNet, it's not just describing what
+should happen; it's proving what did happen, with mathematical certainty that makes any other outcome impossible.
+
+To understand how this works, you need to grasp the distinction between consensus and indexing. Consensus means that
+given the same inputs, every participant reaches the same conclusion through deterministic processes, and any
+disagreement can be proven wrong through cryptography. Indexing means each participant maintains their own database and
+hopes others maintain theirs the same way. With consensus, if two nodes disagree about a balance, one is provably wrong.
+With indexing, you just have two different opinions and no way to determine which is correct.
+
+Bitcoin itself achieves consensus on transactions through proof-of-work. Miners compete to add blocks, nodes validate
+according to identical rules, and the chain with the most accumulated work becomes truth. Ethereum extends this to smart
+contracts where every node executes the same code and must reach identical results. Meta-protocols don't have this; they
+have voluntary agreement, which breaks down the moment participants disagree.
+
+OPNet implements consensus by embedding everything directly in Bitcoin's blockchain. Every OPNet transaction, whether
+deploying a contract, calling a function, or making a swap, gets written to Bitcoin. This isn't metadata sitting
+alongside transactions; it's the actual contract bytecode, the function parameters, the execution data, all embedded in
+Bitcoin transactions that get confirmed by Bitcoin miners and become part of Bitcoin's permanent record.
+
+How exactly does OPNet's epoch system works? Let use epoch 113 as a concrete example to explain each step of the
+process.
+
+The system divides time into epochs, where each epoch consists of five consecutive Bitcoin blocks, roughly fifty
+minutes. Epoch 113 specifically covers Bitcoin blocks 565 through 569. During these five blocks, every OPNet transaction
+that gets confirmed becomes part of epoch 113's state. When someone deploys a smart contract in block 566, that
+deployment is part of epoch 113. When someone swaps tokens on Motoswap in block 568, that swap is part of epoch 113.
+Every interaction, every state change, every event that occurs during these five blocks belongs to this epoch.
+
+Here's where OPNet differs from simply reading transactions in order: OPNet has its own deterministic ordering rules
+within each block. Transactions don't execute in the random order they appear; they get sorted first by gas price, then
+by priority fees, then by transaction ID. This creates a canonical ordering that every node must follow. This matters
+because in smart contracts, the order of operations can change outcomes, especially in DeFi where prices and liquidity
+constantly shift.
+
+Every OPNet node processes these transactions through WebAssembly smart contracts. The execution is completely
+deterministic, meaning the same input always produces the same output. If a contract calculates a swap price, every node
+calculates the exact same price. If a function updates balances, every node updates them identically. By the end of
+block 569, every node has processed every transaction and arrived at exactly the same state.
+
+When epoch 113 concludes at block 569, the network must finalize everything that occurred during those five blocks.
+Every node has already reached the same state through deterministic execution, but now we need to create an immutable
+checkpoint that becomes part of Bitcoin's permanent record. This checkpoint, called the checksum root, is a
+cryptographic fingerprint of the entire epoch's final state: every balance, every contract's storage, every single bit
+of data. If anything differs, even by a single bit, the checksum root completely changes.
+
+The finalization process begins with mining. Miners compete to find the best SHA1 near-collision with the checksum root
+from block 564, which was the last block of epoch 112. They take this previous epoch's final checksum, combine it with
+their public key and a random 32-byte salt, and hash it using SHA1. They're searching for a hash that matches a target
+pattern as closely as possible, counting the number of matching bits.
+
+Finding competitive solutions requires significant computational work. A miner might generate millions of attempts,
+adjusting their salt each time, looking for better and better matches. The more bits that match between their hash and
+the target, the better their solution. This is similar to Bitcoin mining, but instead of counting leading zeros, we're
+counting total matching bits, and instead of SHA256, we're using SHA1.
+
+During epoch 114, which covers blocks 570 through 574, miners submit their solutions as actual Bitcoin transactions.
+These submissions contain their SHA1 collision proof, their public key, the salt they used, and critically, an
+attestation to the state from epoch 109. Why epoch 109? Because it ended at block 549, which is now over twenty blocks
+deep in Bitcoin's history. At that depth, every honest node must agree on what that state was because Bitcoin doesn't
+reorganize that deep. The deepest reorganization in Bitcoin's history was actually 53 blocks in March 2013 due to a
+database bug that split the network between different versions. However, this required extraordinary circumstances
+including incompatible software versions running simultaneously, something that modern Bitcoin's consensus rules and
+network monitoring make effectively impossible today. Under normal operations, reorganizations beyond 6 blocks are
+extraordinarily rare, and 20 blocks provides an enormous safety margin.
+
+Since multiple miners typically submit solutions, the protocol needs a deterministic way to select exactly one winner.
+The selection process uses pure mathematics with multiple tiebreakers. First, whoever achieved the most matching bits in
+their SHA1 collision wins. If multiple miners achieved the same number of bits, the miner whose public key has the
+smallest numerical value wins. If somehow that's still tied, the system checks how many bits the last twenty bytes of
+each public key match with the target hash. Then it compares salts numerically, and finally transaction IDs. This
+cascading system ensures that given the same set of submissions, every single node will identify the same winner without
+any communication between them.
+
+The winning miner's solution becomes the official checkpoint for epoch 113, embedded forever in Bitcoin's blockchain.
+But here's the fascinating part: the winner doesn't receive fees from epoch 113. They receive all gas fees from epoch
+116, which hasn't even happened yet. Those transactions literally don't exist when the miner is competing. They're
+mining for the right to collect fees from future network activity. This prevents miners from manipulating their own
+epochs for profit since they don't know which epoch's fees they'll receive, and it incentivizes keeping the network
+healthy since dead networks generate no future fees.
+
+This architecture makes forking OPNet impossible without forking Bitcoin itself. To create an alternative version of
+epoch 113, you would need to rewrite Bitcoin blocks 565 through 569 to change the transactions, then rewrite blocks 570
+through 574 to change the submissions, then continue rewriting every subsequent block to maintain the alternative
+history. After just one day, an epoch is buried under 144 Bitcoin blocks. After a week, it's under 1,008 blocks. The
+cost isn't just millions of dollars; it would require controlling the majority of Bitcoin's global hashrate for days or
+weeks, something that would be immediately visible to the entire world.
+
+This is why OPNet provides stronger finality than Bitcoin transactions themselves. A Bitcoin transaction is considered
+secure after six confirmations. An OPNet epoch becomes practically irreversible after a few hours and mathematically
+impossible to change after a day. The security compounds over time until changing old epochs would literally require
+rewriting months of Bitcoin's history.
+
+OPNet miners aren't validators making decisions about validity. They're witnesses competing to checkpoint deterministic
+execution that has already occurred. They don't choose which transactions are valid; the consensus rules determine that.
+They don't decide transaction ordering; the deterministic algorithm handles that. They compute SHA1 collisions to earn
+future rewards while creating cryptographic proofs that everyone must accept.
 
 ### Proof of Calculation (PoC)
 
@@ -186,61 +258,6 @@ OPNet utilizes a dual-layer consensus mechanism to maintain network security and
   Foundation.
 - **Enhanced Security**: This layer enhances error detection and defends against manipulation without altering
   individual node data.
-
-### Combined PoC and PoV Layers
-
-- **Integrity Assurance**: Nodes validated consistently by both untrusted recalculations and bootstrap node validations
-  are deemed correct.
-- **Preparation for PoS Transition**: This structure strengthens OPNet's security, establishing a trusted foundation for
-  a future Proof of Stake transition.
-- **Consensus Definition**: While consensus doesn't require a threshold of nodes to agree on a state, PoV provides a
-  mechanism for nodes to check against canonical outputs, effectively defining an implied consensus mechanism.
-
-## Feature Implementation Status
-
-### Implemented Features
-
-| Feature                                 | Description                                                                                                                                        |
-|-----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Network Protocol**                    | Comprehensive P2P communication, including encryption (ChaCha20-Poly1305 and X25519), security measures, and node discovery mechanisms.            |
-| **Block Synchronization**               | Supports block recovery, reorganization handling, indexing, and automatic state recovery to maintain network integrity.                            |
-| **VM Evaluation**                       | Manages state, computation, Merkle tree operations, and proof generation and verification within the OP-VM.                                        |
-| **Consensus Validation System**         | Implements dual-layer consensus with Proof of Calculation (PoC) and Proof of Validation (PoV) to enhance error detection and prevent manipulation. |
-| **Data Sourcing from Bitcoin Network**  | Directly sources data from the Bitcoin blockchain, allowing independent recalculation and verification at any block.                               |
-| **Contract Execution**                  | Executes smart contracts via the OP-VM, handling complex logic and state changes.                                                                  |
-| **State Management and Proofs**         | Robust state management, including computing and validating state changes using Merkle proofs.                                                     |
-| **Checksum Calculation**                | Computes state roots and transaction receipt roots for comprehensive summaries of contract states and outcomes.                                    |
-| **Recovery and Reversion Capabilities** | Ability to revert states or initiate full rescans in case of discrepancies or blockchain reorganizations.                                          |
-| **Decentralized Network Structure**     | Operates as a decentralized network leveraging the Bitcoin blockchain for security and immutability.                                               |
-| **P2P Encryption and Security**         | Utilizes advanced encryption protocols to secure P2P communications, ensuring data integrity and confidentiality across the network.               |
-| **Node Discovery Mechanisms**           | Implements efficient algorithms for discovering and connecting to other nodes within the network.                                                  |
-| **Auto State Recovery**                 | Automatically recovers node state after unexpected shutdowns or network issues, minimizing downtime and data loss.                                 |
-| **Proof Generation and Verification**   | Generates and verifies cryptographic proofs to ensure the validity and integrity of transactions and state changes.                                |
-| **Error Detection Mechanisms**          | Incorporates multiple layers of error detection to identify and mitigate discrepancies in data and computations.                                   |
-| **Block Gas System**                    | Implements a gas system to manage computational resources and prevent abuse of the network by limiting resource consumption.                       |
-| **Mempool Tracking (Partial)**          | Tracks and manages transactions in the mempool, ensuring efficient transaction processing and network performance.                                 |
-| **Transaction Validation**              | Validates transactions against network rules and consensus mechanisms to ensure compliance and integrity.                                          |
-| **Relay and Propagation Mechanisms**    | Facilitates the relay and propagation of blocks and transactions across the network, ensuring timely and efficient data distribution.              |
-| **API Integration**                     | Integrates with external APIs to fetch data, validate transactions, and interact with external services and applications.                          |
-
-### Features Left to Implement
-
-| Feature                               | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-|---------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **OP_LINK Integration**               | **OP_LINK** is designed to create a fully decentralized, trustless system for bridging assets between chains. By utilizing **Auxiliary Proof of Work (AuxPoW)** and **OP_NET indexers**, it ensures that asset transfers are secure, tamper-resistant, and synchronized between the parent chain and the child chain.<br><br>In OP_LINK, when an AuxPoW block is mined and detected on the **child chain**, **OP_NET indexers** automatically trigger smart contracts on both the parent and child chains. These contracts manage the burning and minting of assets in a secure, cryptographic manner. OP_LINK ensures that the entire bridging process remains decentralized, with no reliance on centralized authorities. |
-| **Multicall Simulation**              | Implement multicall simulation for batch contract calls, allowing multiple contract interactions within a single transaction. This feature will improve efficiency and reduce gas costs for users interacting with multiple contracts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **UTXO Support Enhancements**         | Add support for UTXO legacy SegWit, UTXO legacy, UTXO P2PK, and enable multiple transactions in one input within the transaction builder. This will expand functionality and support more complex transaction types.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **Recode Mempool with ZeroMQ**        | Replace HTTP-based mempool communication with ZeroMQ to improve performance, efficiency, and real-time transaction propagation. ZeroMQ offers lower latency and better handling of high-throughput messaging.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **P2P Multithreading**                | Implement multithreading in P2P networking to improve performance, scalability, and network throughput.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Generic RPC Methods**               | Develop a set of generic RPC methods for improved node interaction, management, and external application integration.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **State-Aware Transaction Execution** | Enhance transaction execution by incorporating state awareness, this allows the possibility to process multiple opnet transaction all at the same time.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Light Nodes with Peering**          | Implement light nodes that can peer with full nodes, allowing resource-constrained devices to participate in the network without full data storage. Light nodes rely on full nodes for data and transaction verification, enabling broader network participation.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **Websocket Support**                 | Add Websocket support for real-time data streaming, enabling efficient and low-latency communication between nodes and external applications.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-
-## Converting OP20/NFT to BTC
-
-Please consult the [OP_NET Order Book Section](/docs/in-progress/OrderBook.md) for more information on how to convert
-OP20/NFT to BTC.
 
 ## Potential Issues
 
