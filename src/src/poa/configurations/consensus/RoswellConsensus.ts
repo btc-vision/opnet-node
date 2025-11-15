@@ -63,12 +63,12 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         NEXT_CONSENSUS: Consensus.Rachel,
 
         // The block height at which the next consensus will be enabled.
-        NEXT_CONSENSUS_BLOCK: 4_506_0830n,
+        NEXT_CONSENSUS_BLOCK: 40_506_830n,
 
         // Is this node updated to the next consensus?
         IS_READY_FOR_NEXT_CONSENSUS: false,
 
-        // Allow legacy? Hybrid contract address are supported in this version.
+        // Allow legacy?
         ALLOW_LEGACY: false,
     },
 
@@ -78,10 +78,10 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
     CONTRACTS: {
         /** The maximum size of a calldata in bytes. */
-        MAXIMUM_CONTRACT_SIZE_COMPRESSED: 128 * 1024, // max is 128KO compressed.
+        MAXIMUM_CONTRACT_SIZE_COMPRESSED: 128 * 1024, // max is 128Ko compressed.
 
         /** The maximum size of calldata in bytes. */
-        MAXIMUM_CALLDATA_SIZE_COMPRESSED: 380 * 1024, // max is 380KO compressed.
+        MAXIMUM_CALLDATA_SIZE_COMPRESSED: 380 * 1024, // max is 380Ko compressed.
 
         /** Special contracts */
         SPECIAL_CONTRACTS: {
@@ -113,7 +113,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         GAS_PENALTY_FACTOR: 1n,
 
         /** Target block gas limit, a transaction can not pass this limit. */
-        TARGET_GAS: 15_000_000_000_001n, // 1.99 BTC.
+        TARGET_GAS: 15_000_000_000_001n,
 
         /** Smooth out gas increase when equal to gas target. */
         SMOOTH_OUT_GAS_INCREASE: 1_000_000_000n,
@@ -122,7 +122,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
          * Maximum theoretical upper limit, all transactions after this limit will revert for being out of gas.
          * Can overflow up to the value set to TARGET_GAS.
          */
-        MAX_THEORETICAL_GAS: 15_000_000_000_000n, // 2 BTC
+        MAX_THEORETICAL_GAS: 15_000_000_000_000n,
 
         /** Max gas per transactions */
         TRANSACTION_MAX_GAS: 150_000_000_000n, // 0.0015 BTC
@@ -137,7 +137,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         SAT_TO_GAS_RATIO: 1_000_000n,
 
         /** Minimum base gas, sat/gas unit */
-        MIN_BASE_GAS: 1.0,
+        MIN_BASE_GAS: 0.5,
 
         /** Smoothing factor for EMA */
         SMOOTHING_FACTOR: 0.4,
@@ -208,7 +208,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
 
             OP_RETURN: {
                 ENABLED: true,
-                MAXIMUM_SIZE: 80,
+                MAXIMUM_SIZE: 1200,
             },
         },
     },

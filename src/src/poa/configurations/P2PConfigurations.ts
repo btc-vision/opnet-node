@@ -30,7 +30,7 @@ interface BackedUpPeer {
 
 export class P2PConfigurations extends OPNetPathFinder {
     public static readonly protocolName: string = 'opnet';
-    public static readonly protocolVersion: string = '1.0.0';
+    public static readonly protocolVersion: string = '1.0.1';
     public static readonly maxMessageSize: number = 6 * 1024 * 1024; // 6 MiB
 
     private readonly defaultBootstrapNodes: string[];
@@ -47,8 +47,17 @@ export class P2PConfigurations extends OPNetPathFinder {
             inboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
             outboundSocketInactivityTimeout: this.config.P2P.PEER_INACTIVITY_TIMEOUT,
             maxConnections: this.config.P2P.MAXIMUM_PEERS,
-            socketCloseTimeout: 10000,
             backlog: 100,
+            dialOpts: {
+                noDelay: true,
+                keepAlive: true,
+                keepAliveInitialDelay: 5000,
+            },
+            listenOpts: {
+                noDelay: true,
+                keepAlive: true,
+                keepAliveInitialDelay: 5000,
+            },
             closeServerOnMaxConnections: {
                 closeAbove: this.config.P2P.MAXIMUM_PEERS,
                 listenBelow: this.config.P2P.MINIMUM_PEERS,
@@ -75,10 +84,6 @@ export class P2PConfigurations extends OPNetPathFinder {
 
             enableKeepAlive: true,
             keepAliveInterval: 15000,
-
-            initialStreamWindowSize: 256 * 1024,
-
-            maxStreamWindowSize: P2PConfigurations.maxMessageSize,
         };
     }
 
