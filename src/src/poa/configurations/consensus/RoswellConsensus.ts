@@ -68,7 +68,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         // Is this node updated to the next consensus?
         IS_READY_FOR_NEXT_CONSENSUS: false,
 
-        // Allow legacy? Hybrid contract address are supported in this version.
+        // Allow legacy?
         ALLOW_LEGACY: false,
     },
 
