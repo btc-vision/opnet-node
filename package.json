@@ -12,7 +12,7 @@
         "setup": "npm i && npm run build"
     },
     "engines": {
-        "node": ">=21.0.0 <23.0.0"
+        "node": ">=22.0.0 <25.0.0"
     },
     "homepage": "https://opnet.org",
     "keywords": [
@@ -43,7 +43,7 @@
         "@btc-vision/bsi-common": "^1.1.1",
         "@btc-vision/bsi-db": "^1.0.4",
         "@btc-vision/logger": "^1.0.7",
-        "@btc-vision/op-vm": "^0.5.2",
+        "@btc-vision/op-vm": "^0.6.0",
         "@btc-vision/post-quantum": "^0.5.3",
         "@btc-vision/rust-merkle-tree": "^0.0.5",
         "@btc-vision/transaction": "^1.6.19",
@@ -77,7 +77,7 @@
         "datastore-level": "^12.0.2",
         "ecpair": "^2.1.0",
         "eslint-plugin-openapi": "^0.0.4",
-        "figlet": "^1.9.3",
+        "figlet": "^1.9.4",
         "gulp-logger-new": "^1.0.1",
         "hyper-express": "^6.17.3",
         "it-length-prefixed-stream": "^2.0.3",
