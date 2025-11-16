@@ -6,7 +6,10 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { UTXOsByAddressParams } from '../../../../json-rpc/types/interfaces/params/address/UTXOsByAddressParams.js';
 import { UTXOsOutputResult } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputResult.js';
 import {
-    UTXOsOutputTransactions
+    RawUTXOSOutputTransaction,
+    RawUTXOsOutputTransactions,
+    UTXOSOutputTransaction,
+    UTXOsOutputTransactions,
 } from '../../../../json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { Route } from '../../../Route.js';
 import { SafeString } from '../../../safe/BlockParamsConverter.js';
@@ -15,7 +18,7 @@ import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlock
 export class UTXOsRoute extends Route<
     Routes.UTXOS,
     JSONRpcMethods.GET_UTXOS,
-    UTXOsOutputTransactions | undefined
+    RawUTXOsOutputTransactions | undefined
 > {
     private currentBlockHeight: bigint = 0n;
 
@@ -25,7 +28,7 @@ export class UTXOsRoute extends Route<
 
     public async getData(
         params: UTXOsByAddressParams,
-    ): Promise<UTXOsOutputTransactions | undefined> {
+    ): Promise<RawUTXOsOutputTransactions | undefined> {
         if (!this.storage) {
             throw new Error('Storage not initialized');
         }
@@ -41,7 +44,10 @@ export class UTXOsRoute extends Route<
         const targetBlockHeight =
             olderThan !== undefined ? this.currentBlockHeight - olderThan : undefined;
 
-        return await this.storage.getUTXOs(address, optimize, targetBlockHeight);
+        const rawData = await this.storage.getUTXOs(address, optimize, targetBlockHeight);
+        if (!rawData) return undefined;
+
+        return this.deduplicateRawTransactions(rawData);
     }
 
     public onBlockChange(_blockNumber: bigint, _blockHeader: BlockHeaderAPIBlockDocument) {
@@ -99,6 +105,41 @@ export class UTXOsRoute extends Route<
         } catch (err) {
             this.handleDefaultError(res, err as Error);
         }
+    }
+
+    private deduplicateRawTransactions(data: UTXOsOutputTransactions): RawUTXOsOutputTransactions {
+        const rawTxMap = new Map<string, number>();
+        const rawArray: string[] = [];
+
+        const processUTXOs = (utxos: UTXOSOutputTransaction[]): RawUTXOSOutputTransaction[] => {
+            return utxos.map((utxo) => {
+                if (!utxo.raw) {
+                    return { ...utxo, raw: undefined };
+                }
+
+                let index = rawTxMap.get(utxo.transactionId);
+
+                if (index === undefined) {
+                    index = rawArray.length;
+                    rawArray.push(utxo.raw);
+                    rawTxMap.set(utxo.transactionId, index);
+                }
+
+                const { raw: _, ...utxoWithoutRaw } = utxo;
+                return { ...utxoWithoutRaw, raw: index };
+            });
+        };
+
+        const confirmed = processUTXOs(data.confirmed);
+        const spentTransactions = processUTXOs(data.spentTransactions);
+        const pending = processUTXOs(data.pending);
+
+        return {
+            confirmed: confirmed,
+            spentTransactions: spentTransactions,
+            pending: pending,
+            raw: rawArray,
+        };
     }
 
     private getOptimizeParameterAsBoolean(params: UTXOsByAddressParams): boolean {
