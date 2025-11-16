@@ -1,14 +1,5 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
-import {
-    AggregateOptions,
-    Binary,
-    Collection,
-    Db,
-    Document,
-    Filter,
-    FindOptions,
-    Long,
-} from 'mongodb';
+import { AggregateOptions, Binary, Collection, Db, Document, Filter, Long } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { IMempoolTransaction, IMempoolTransactionObj } from '../interfaces/IMempoolTransaction.js';
 import { DataConverter } from '@btc-vision/bsi-db';
@@ -17,7 +8,10 @@ import {
     MempoolTransactionAggregation,
     MempoolTransactionAggregationOutput,
 } from '../../vm/storage/databases/aggregation/MempoolTransactionAggregation.js';
-import { UTXOSOutputTransaction } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import {
+    RawUTXOsAggregationResultV3,
+    SpentUTXOSOutputTransaction,
+} from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 
 export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     public readonly logColor: string = '#afeeee';
@@ -42,7 +36,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         return this.convertToObj(result);
     }
 
-    public async purgeOldTransactions(currentBlock: bigint): Promise<void> {
+    /*public async purgeOldTransactions(currentBlock: bigint): Promise<void> {
         // If the transaction is older than 20 blocks, we must purge it.
         const criteria: Filter<IMempoolTransaction> = {
             blockHeight: {
@@ -53,7 +47,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         };
 
         await this.delete(criteria);
-    }
+    }*/
 
     public async deleteGreaterThanBlockHeight(blockHeight: bigint): Promise<void> {
         if (blockHeight <= 0) {
@@ -105,7 +99,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         const criteria: Filter<IMempoolTransaction> = { $or: orConditions };
         const results = (await collection.find(criteria).toArray()) as IMempoolTransaction[];
 
-        return results.map(this.convertToObj).filter((t) => t.id !== transaction.id);
+        return results.map(this.convertToObj.bind(this)).filter((t) => t.id !== transaction.id);
     }
 
     public async findDirectDescendants(id: string): Promise<IMempoolTransactionObj[]> {
@@ -114,7 +108,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             .find(criteria)
             .toArray()) as IMempoolTransaction[];
 
-        return results.map(this.convertToObj);
+        return results.map(this.convertToObj.bind(this));
     }
 
     public async storeTransactions(txs: IMempoolTransactionObj[]): Promise<void> {
@@ -130,7 +124,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         }
     }
 
-    public async storeIfNotExists(transaction: IMempoolTransactionObj): Promise<boolean> {
+    /*public async storeIfNotExists(transaction: IMempoolTransactionObj): Promise<boolean> {
         const exists = await this.getTransactionById(transaction.id);
 
         if (!exists) {
@@ -138,7 +132,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         }
 
         return !!exists;
-    }
+    }*/
 
     public async deleteTransactionsById(ids: string[]): Promise<void> {
         // If the transaction is older than 20 blocks, we must purge it.
@@ -151,7 +145,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         await this.delete(criteria);
     }
 
-    public async deleteTransactionByIdentifier(id: string, psbt: boolean): Promise<boolean> {
+    /*public async deleteTransactionByIdentifier(id: string, psbt: boolean): Promise<boolean> {
         const filter: Filter<IMempoolTransaction> = {
             id: id,
         };
@@ -162,7 +156,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         } catch (e) {
             return false;
         }
-    }
+    }*/
 
     public async getAllTransactionIncluded(txList: string[]): Promise<string[]> {
         try {
@@ -209,7 +203,185 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         }
     }
 
-    public async getPendingTransactions(address: string): Promise<UTXOSOutputTransaction[]> {
+    public async getPendingTransactions(address: string): Promise<RawUTXOsAggregationResultV3> {
+        const aggregation: Document[] = [
+            {
+                $match: {
+                    'outputs.address': address,
+                    id: { $exists: true },
+                },
+            },
+            {
+                $limit: Config.API.UTXO_LIMIT,
+            },
+            {
+                $project: {
+                    id: 1,
+                    data: 1,
+                    outputs: {
+                        $filter: {
+                            input: '$outputs',
+                            as: 'output',
+                            cond: { $eq: ['$$output.address', address] },
+                        },
+                    },
+                },
+            },
+            {
+                $unwind: '$outputs',
+            },
+            {
+                $group: {
+                    _id: null,
+                    utxos: {
+                        $push: {
+                            transactionId: '$id',
+                            outputIndex: '$outputs.outputIndex',
+                            scriptPubKeyHex: '$outputs.data',
+                            scriptPubKeyAddress: '$outputs.address',
+                            value: '$outputs.value',
+                            raw: '$data',
+                        },
+                    },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    utxos: 1,
+                    raw: {
+                        $reduce: {
+                            input: '$utxos',
+                            initialValue: { seen: {}, arr: [] },
+                            in: {
+                                seen: {
+                                    $cond: [
+                                        {
+                                            $not: [
+                                                {
+                                                    $getField: {
+                                                        field: '$$this.transactionId',
+                                                        input: '$$value.seen',
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                        {
+                                            $mergeObjects: [
+                                                '$$value.seen',
+                                                {
+                                                    $arrayToObject: [
+                                                        [
+                                                            {
+                                                                k: '$$this.transactionId',
+                                                                v: { $size: '$$value.arr' },
+                                                            },
+                                                        ],
+                                                    ],
+                                                },
+                                            ],
+                                        },
+                                        '$$value.seen',
+                                    ],
+                                },
+                                arr: {
+                                    $cond: [
+                                        {
+                                            $not: [
+                                                {
+                                                    $getField: {
+                                                        field: '$$this.transactionId',
+                                                        input: '$$value.seen',
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                        { $concatArrays: ['$$value.arr', ['$$this.raw']] },
+                                        '$$value.arr',
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            {
+                $project: {
+                    utxos: {
+                        $map: {
+                            input: '$utxos',
+                            as: 'utxo',
+                            in: {
+                                transactionId: '$$utxo.transactionId',
+                                outputIndex: '$$utxo.outputIndex',
+                                scriptPubKeyHex: '$$utxo.scriptPubKeyHex',
+                                scriptPubKeyAddress: '$$utxo.scriptPubKeyAddress',
+                                value: '$$utxo.value',
+                                raw: {
+                                    $getField: {
+                                        field: '$$utxo.transactionId',
+                                        input: '$raw.seen',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    raw: '$raw.arr',
+                },
+            },
+        ];
+
+        const collection = this.getCollection();
+        const options: AggregateOptions = this.getOptions() as AggregateOptions;
+        options.allowDiskUse = true;
+
+        try {
+            const aggregatedDocument = collection.aggregate<{
+                utxos: Array<{
+                    transactionId: string;
+                    outputIndex: number;
+                    scriptPubKeyHex: Binary;
+                    scriptPubKeyAddress: string;
+                    value: Long | number;
+                    raw: number;
+                }>;
+                raw: Binary[];
+            }>(aggregation, options);
+
+            const results = await aggregatedDocument.toArray();
+            if (!results.length) {
+                return {
+                    utxos: [],
+                    raw: [],
+                };
+            }
+
+            const result = results[0];
+            return {
+                utxos: result.utxos.map((utxo) => {
+                    return {
+                        transactionId: utxo.transactionId,
+                        outputIndex: utxo.outputIndex,
+                        scriptPubKey: {
+                            hex: utxo.scriptPubKeyHex.toString('hex'),
+                            address: utxo.scriptPubKeyAddress,
+                        },
+                        value:
+                            utxo.value instanceof Long ? utxo.value.toBigInt() : BigInt(utxo.value),
+                        raw: utxo.raw,
+                    };
+                }),
+                raw: result.raw.map((binary) => binary.toString('base64')),
+            };
+        } catch (e) {
+            this.error(
+                `Can not fetch pending transactions for address ${address}: ${(e as Error).stack}`,
+            );
+            throw e;
+        }
+    }
+
+    /*public async getPendingTransactions(address: string): Promise<UTXOSOutputTransaction[]> {
         const criteria: Filter<IMempoolTransaction> = {
             'outputs.address': address,
             id: {
@@ -254,9 +426,87 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         }
 
         return utxos;
-    }
+    }*/
 
     public async fetchSpentUnspentTransactions(
+        txs: SpentUTXOSOutputTransaction[],
+    ): Promise<SpentUTXOSOutputTransaction[]> {
+        const inputMap = txs.map((tx) => ({
+            transactionId: tx.transactionId,
+            outputIndex: tx.outputIndex,
+        }));
+
+        const aggregation: Document[] = [
+            {
+                $match: {
+                    'inputs.transactionId': {
+                        $in: txs.map((tx) => tx.transactionId),
+                    },
+                },
+            },
+            {
+                $limit: Config.API.UTXO_LIMIT,
+            },
+            {
+                $unwind: '$inputs',
+            },
+            {
+                $match: {
+                    'inputs.transactionId': {
+                        $in: txs.map((tx) => tx.transactionId),
+                    },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    transactionId: '$inputs.transactionId',
+                    outputIndex: '$inputs.outputIndex',
+                },
+            },
+            {
+                $group: {
+                    _id: {
+                        transactionId: '$transactionId',
+                        outputIndex: '$outputIndex',
+                    },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    transactionId: '$_id.transactionId',
+                    outputIndex: '$_id.outputIndex',
+                },
+            },
+        ];
+
+        const collection = this.getCollection();
+        const options: AggregateOptions = this.getOptions() as AggregateOptions;
+        options.allowDiskUse = true;
+
+        try {
+            const aggregatedDocument = collection.aggregate<{
+                transactionId: string;
+                outputIndex: number;
+            }>(aggregation, options);
+
+            const results = await aggregatedDocument.toArray();
+
+            const inputSet = new Set(
+                inputMap.map((input) => `${input.transactionId}:${input.outputIndex}`),
+            );
+
+            return results.filter((result) =>
+                inputSet.has(`${result.transactionId}:${result.outputIndex}`),
+            );
+        } catch (e) {
+            this.error(`Can not fetch spent transactions: ${(e as Error).stack}`);
+            throw e;
+        }
+    }
+
+    /*public async fetchSpentUnspentTransactions(
         txs: UTXOSOutputTransaction[],
     ): Promise<UTXOSOutputTransaction[]> {
         const list = txs.map((tx) => tx.transactionId);
@@ -296,7 +546,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
         }
 
         return utxos;
-    }
+    }*/
 
     protected override getCollection(): Collection<IMempoolTransaction> {
         return this._db.collection(OPNetCollections.Mempool);

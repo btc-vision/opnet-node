@@ -72,7 +72,7 @@ class OPNetConsensusConfiguration extends Logger {
             );
         }
 
-        return blockHeight / BigInt(this.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        return blockHeight / this.consensus.EPOCH.BLOCKS_PER_EPOCH;
     }
 
     public addConsensusUpgradeCallback(

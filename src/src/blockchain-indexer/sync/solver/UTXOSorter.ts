@@ -53,10 +53,7 @@ const h256 = (u: Uint8Array) => btcCrypto.sha256(Buffer.from(u)).toString('hex')
 export class UtxoSorter extends Logger {
     public readonly logColor: string = '#ff9100'; // Bright green for UTXO sorter logs
 
-    public async classifyBatch(
-        utxos: readonly Utxo[],
-        chain: ChainContext,
-    ): Promise<Classification[]> {
+    public classifyBatch(utxos: readonly Utxo[], chain: ChainContext): Classification[] {
         const prelim: (Classification | null)[] = utxos.map(({ txid, output }) => {
             if (isStandardScript(output)) {
                 return null;

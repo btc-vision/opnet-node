@@ -143,7 +143,7 @@ class RPCManager extends Logger {
         for (const contract of contracts) {
             const contractAsString: ContractInformationAsString = {
                 blockHeight: contract.blockHeight.toString(),
-                contractAddress: contract.contractAddress.toString(),
+                contractAddress: contract.contractAddress,
                 contractTweakedPublicKey: contract.contractTweakedPublicKey.toString(),
                 contractHybridPublicKey: contract.contractHybridPublicKey.toString(),
                 bytecode: contract.bytecode.toString('hex'),

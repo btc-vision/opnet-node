@@ -57,10 +57,7 @@ export class ChecksumMerkle {
 
         for (let i = 0; i < hashes.length; i++) {
             const hash = hashes[i];
-            result.push([
-                Number(i),
-                this.tree.getProof(this.tree.getIndexHash(hash)).proofHashesHex(),
-            ]);
+            result.push([i, this.tree.getProof(this.tree.getIndexHash(hash)).proofHashesHex()]);
         }
 
         return result;
