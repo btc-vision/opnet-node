@@ -49,7 +49,7 @@ export class Server extends Logger {
 
     private serverPort: number = 0;
     private app: HyperExpress.Server = new HyperExpress.Server({
-        max_body_length: 1024 * 1024 * 4, // 4mb.
+        max_body_length: 1024 * 1024 * 8, // 8mb.
         fast_abort: true,
         max_body_buffer: 1024 * 32, // 32kb.
     });

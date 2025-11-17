@@ -54,6 +54,8 @@ export class RustContract {
                 id: this._id,
                 load: this.params.load,
                 store: this.params.store,
+                tLoad: this.params.tLoad,
+                tStore: this.params.tStore,
                 call: this.params.call,
                 deployContractAtAddress: this.params.deployContractAtAddress,
                 log: this.params.log,
@@ -62,6 +64,7 @@ export class RustContract {
                 outputs: this.params.outputs,
                 accountType: this.params.accountType,
                 blockHash: this.params.blockHash,
+                loadMLDSA: this.params.loadMLDSA,
             });
 
             this.instantiate();
@@ -147,13 +150,13 @@ export class RustContract {
 
         this.contractManager.instantiate(
             BigInt(this._id.toString()),
-            String(this.params.address),
+            this.params.address,
             Buffer.copyBytesFrom(this.params.bytecode),
             BigInt(this.params.gasUsed.toString()),
             BigInt(this.params.gasMax.toString()),
             BigInt(this.params.memoryPagesUsed.toString()),
-            Number(this.params.network),
-            Boolean(this.params.isDebugMode),
+            this.params.network,
+            this.params.isDebugMode,
             //false,
         );
 
@@ -239,6 +242,10 @@ export class RustContract {
                             origin: Buffer.copyBytesFrom(environmentVariables.origin),
                             chainId: getChainId(this.params.network),
                             protocolId: OPNetConsensus.consensus.PROTOCOL_ID,
+                            consensusFlags: BigInt(environmentVariables.consensusFlags.toString()),
+                            originTweakedPublicKey: Buffer.copyBytesFrom(
+                                environmentVariables.originTweakedPublicKey,
+                            ),
                         }),
                     ),
                 ),
@@ -301,7 +308,7 @@ export class RustContract {
         return Object.preventExtensions(
             Object.freeze(
                 Object.seal({
-                    status: Number(result.status),
+                    status: result.status,
                     data: Buffer.copyBytesFrom(result.data),
                     gasUsed: BigInt(result.gasUsed.toString()),
                     proofs: result.proofs?.map((proof) => {

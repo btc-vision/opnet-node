@@ -76,7 +76,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
     protected createTimeoutAuth(): void {
         this.timeoutAuth = setTimeout(() => {
             void this.disconnectPeer(DisconnectionCode.AUTH_TIMED_OUT, 'Authentication timeout.');
-        }, 30000);
+        }, 8000);
     }
 
     protected override onAuthenticated(): void {

@@ -4,7 +4,7 @@ import { IBlockHeaderWitness } from '../../../../../poa/networking/protobuf/pack
 import { RPCMessageData } from './RPCMessage.js';
 
 export interface BlockDataAtHeightData {
-    readonly blockNumber: bigint;
+    readonly blockNumber: bigint | string;
     readonly blockHeader: IBlockHeaderWitness;
 }
 

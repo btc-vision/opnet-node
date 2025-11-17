@@ -67,10 +67,12 @@ class OPNetConsensusConfiguration extends Logger {
         // blockHeight 10-14 / 5 = 2 (epoch 2)
 
         if (blockHeight < 0n) {
-            throw new Error(`Invalid block height: ${blockHeight}. Block height must be non-negative.`);
+            throw new Error(
+                `Invalid block height: ${blockHeight}. Block height must be non-negative.`,
+            );
         }
 
-        return blockHeight / BigInt(this.consensus.EPOCH.BLOCKS_PER_EPOCH);
+        return blockHeight / this.consensus.EPOCH.BLOCKS_PER_EPOCH;
     }
 
     public addConsensusUpgradeCallback(
@@ -125,7 +127,9 @@ class OPNetConsensusConfiguration extends Logger {
 
         if (!this.#consensus) {
             this.updateConfigurations();
-        } else if (this.#consensus.GENERIC.NEXT_CONSENSUS_BLOCK <= blockHeight) {
+        }
+
+        if (this.#consensus && this.#consensus.GENERIC.NEXT_CONSENSUS_BLOCK <= blockHeight) {
             this.enforceNextConsensus();
         }
     }

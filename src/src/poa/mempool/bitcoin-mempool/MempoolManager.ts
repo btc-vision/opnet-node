@@ -77,7 +77,7 @@ export class MempoolManager extends Logger {
         throw new Error('sendMessageToThread not implemented.');
     };
 
-    public async handleRequest(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
+    public handleRequest(m: ThreadMessageBase<MessageType>): ThreadData {
         switch (m.type) {
             case MessageType.RPC_METHOD: {
                 return this.handleMessage(m.data as RPCMessageData<BitcoinRPCThreadMessageType>);

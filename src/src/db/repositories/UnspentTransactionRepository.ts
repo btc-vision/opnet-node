@@ -17,14 +17,14 @@ import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
 import { DataConverter } from '@btc-vision/bsi-db';
-import { UTXOSOutputTransaction } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
-import {
-    UTXOsAggregationV2,
-    UTXOSOutputTransactionFromDBV2,
-} from '../../vm/storage/databases/aggregation/UTXOsAggregationV2.js';
+import { RawUTXOsAggregationResultV3 } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
+import {
+    UTXOsAggregationResultV3,
+    UTXOsAggregationV3,
+} from '../../vm/storage/databases/aggregation/UTXOsAggregationV3.js';
 
 export interface ProcessUnspentTransaction {
     transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[];
@@ -40,7 +40,7 @@ export interface BalanceOfOutputTransactionFromDB {
 export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspentTransaction> {
     public readonly logColor: string = '#afeeee';
 
-    private readonly uxtosAggregation: UTXOsAggregationV2 = new UTXOsAggregationV2();
+    private readonly uxtosAggregation: UTXOsAggregationV3 = new UTXOsAggregationV3();
     private readonly balanceOfAggregation: BalanceOfAggregationV2 = new BalanceOfAggregationV2();
 
     public constructor(db: Db) {
@@ -234,9 +234,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         wallet: string,
         optimize: boolean = false,
         olderThan: bigint | undefined,
-    ): Promise<UTXOSOutputTransaction[]> {
-        // TODO: Add cursor page support.
-        // TODO: Optimize this function so only legacy have raw transaction data added to them. (PERFORMANCE)
+    ): Promise<RawUTXOsAggregationResultV3> {
         const aggregation: Document[] = this.uxtosAggregation.getAggregation(
             wallet,
             true,
@@ -250,26 +248,37 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         options.allowDiskUse = true;
 
         try {
-            const aggregatedDocument = collection.aggregate<UTXOSOutputTransactionFromDBV2>(
+            const aggregatedDocument = collection.aggregate<UTXOsAggregationResultV3>(
                 aggregation,
                 options,
             );
 
-            const results: UTXOSOutputTransactionFromDBV2[] = await aggregatedDocument.toArray();
-            return results.map((result) => {
+            const results: UTXOsAggregationResultV3[] = await aggregatedDocument.toArray();
+            if (!results.length) {
                 return {
-                    transactionId: result.transactionId.toString('hex'),
-                    outputIndex: result.outputIndex,
-                    value: DataConverter.fromDecimal128(result.value),
-                    scriptPubKey: {
-                        hex: result.scriptPubKey.hex.toString('hex'),
-                        address: result.scriptPubKey.address
-                            ? result.scriptPubKey.address
-                            : undefined,
-                    },
-                    raw: result.raw?.toString('base64'),
+                    utxos: [],
+                    raw: [],
                 };
-            });
+            }
+
+            const result = results[0];
+            return {
+                utxos: result.utxos.map((utxo) => {
+                    return {
+                        transactionId: utxo.transactionId.toString('hex'),
+                        outputIndex: utxo.outputIndex,
+                        value: DataConverter.fromDecimal128(utxo.value),
+                        scriptPubKey: {
+                            hex: utxo.scriptPubKey.hex.toString('hex'),
+                            address: utxo.scriptPubKey.address
+                                ? utxo.scriptPubKey.address
+                                : undefined,
+                        },
+                        raw: utxo.raw,
+                    };
+                }),
+                raw: result.raw.map((binary) => binary.toString('base64')),
+            };
         } catch (e) {
             this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
 
@@ -281,7 +290,6 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         return this._db.collection(OPNetCollections.UnspentTransactions);
     }
 
-    // Transactions to delete
     private convertSpentTransactions(
         transactions: ProcessUnspentTransactionList,
     ): ISpentTransaction[] {
@@ -295,7 +303,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                     if (input.originalTransactionId && input.outputTransactionIndex != null) {
                         finalList.push({
                             transactionId: input.originalTransactionId,
-                            outputIndex: input.outputTransactionIndex || 0, // legacy block miner rewards?
+                            outputIndex: input.outputTransactionIndex || 0,
                             deletedAtBlock: blockHeight,
                         });
                     }
@@ -333,7 +341,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                     ) {
                         if (spent) {
                             spent.blockHeight = this.decimal128ToLong(transaction.blockHeight);
-                            spent.value = new Long(output.value, true); //this.decimal128ToLong(output.value);
+                            spent.value = new Long(output.value, true);
                             spent.scriptPubKey = {
                                 hex: Binary.createFromHexString(output.scriptPubKey.hex),
                                 address: output.scriptPubKey.address ?? null,

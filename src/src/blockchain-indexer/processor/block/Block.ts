@@ -64,22 +64,11 @@ export interface DeserializedBlock extends Omit<RawBlockParam, 'abortController'
     readonly addressCache: AddressCacheExport;
 }
 
-/*export interface BlockTransferShape {
-    header: ReturnType<BlockHeader['toJSON']>;
-    rawTransactionData?: TransactionData[];
-    transactionOrder?: string[];
+class BlockLogger extends Logger {}
 
-    allowedPreimages: ArrayBuffer[] | ArrayBufferLike[];
+const sharedBlockLogger = new BlockLogger();
 
-    processEverythingAsGeneric: boolean;
-
-    aborted?: boolean;
-    abortReason?: unknown;
-}*/
-
-//export type BlockTransferTuple = [BlockTransferShape, Transferable[]];
-
-export class Block extends Logger {
+export class Block {
     // Block Header
     public readonly header: BlockHeader;
 
@@ -144,8 +133,6 @@ export class Block extends Logger {
     private transactionOrder: string[] | undefined;
 
     constructor(params: RawBlockParam | DeserializedBlock) {
-        super();
-
         if (!params.abortController) {
             throw new Error('Abort controller not found');
         }
@@ -535,7 +522,7 @@ export class Block extends Logger {
             return true;
         } catch (e) {
             const error: Error = e as Error;
-            this.error(
+            sharedBlockLogger.error(
                 `[FinalizeBlock] Something went wrong while executing the block: ${Config.DEV_MODE ? error.stack : error.message}`,
             );
 
@@ -661,7 +648,7 @@ export class Block extends Logger {
             this.processRevertedTx(transaction);
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
-                this.debug(
+                sharedBlockLogger.debug(
                     `Executed transaction ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${transaction.totalGasUsed} gas used)`,
                 );
             }
@@ -702,7 +689,7 @@ export class Block extends Logger {
             this.processRevertedTx(transaction);
 
             if (Config.DEV.DEBUG_VALID_TRANSACTIONS) {
-                this.debug(
+                sharedBlockLogger.debug(
                     `Executed transaction (deployment) ${transaction.txidHex} for contract ${transaction.contractAddress}. (Took ${Date.now() - start}ms to execute, ${evaluation.totalGasUsed} gas used)`,
                 );
             }
@@ -727,7 +714,7 @@ export class Block extends Logger {
             // Skip if already processed
             if (this.epochSubmissions.has(key)) {
                 if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-                    this.debug(
+                    sharedBlockLogger.debug(
                         `Skipping duplicate epoch submission in tx ${transaction.transactionIdString} (salt+pubkey already seen)`,
                     );
                 }
@@ -767,7 +754,7 @@ export class Block extends Logger {
                 if (exists) {
                     if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
                         const data = this.epochSubmissions.get(key);
-                        this.debug(
+                        sharedBlockLogger.debug(
                             `Epoch submission in tx ${data?.transactionId} already exists in database`,
                         );
                     }
@@ -777,7 +764,7 @@ export class Block extends Logger {
             }
         } catch (error) {
             if (Config.DEBUG_LEVEL >= DebugLevel.ERROR) {
-                this.error(`Failed to check existence for submissions: ${error}`);
+                sharedBlockLogger.error(`Failed to check existence for submissions: ${error}`);
             }
             // Clear all submissions on error to be safe
             this.epochSubmissions.clear();
@@ -799,7 +786,7 @@ export class Block extends Logger {
 
             if (!validationResult.valid) {
                 if (Config.DEBUG_LEVEL >= DebugLevel.WARN) {
-                    this.warn(`Invalid epoch submission in tx ${data.transactionId}`);
+                    sharedBlockLogger.warn(`Invalid epoch submission in tx ${data.transactionId}`);
                 }
 
                 keysToRemove.push(key);
@@ -857,7 +844,7 @@ export class Block extends Logger {
             submissions.push(epochSubmissionDoc);
 
             if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                this.debug(
+                sharedBlockLogger.debug(
                     `Saving epoch submission for tx ${data.transactionId} with ${validationResult.matchingBits} matching bits`,
                 );
             }
@@ -873,12 +860,12 @@ export class Block extends Logger {
                 await Promise.safeAll(savePromises);
 
                 if (Config.DEV_MODE) {
-                    this.debugBright(
+                    sharedBlockLogger.debugBright(
                         `Saved ${submissions.length} epoch submissions for epoch ${currentEpoch} at block ${this.height}`,
                     );
                 }
             } catch (error) {
-                this.error(`Failed to save epoch submissions: ${error}`);
+                sharedBlockLogger.error(`Failed to save epoch submissions: ${error}`);
                 throw error;
             }
         }
@@ -919,7 +906,7 @@ export class Block extends Logger {
         this.blockUsedGas += OPNetConsensus.consensus.GAS.PANIC_GAS_COST;
 
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-            this.error(
+            sharedBlockLogger.error(
                 `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.totalGasUsed})`,
             );
         }
@@ -958,11 +945,11 @@ export class Block extends Logger {
 
         const error = transaction.receipt.revert;
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
-            this.error(
+            sharedBlockLogger.error(
                 `Transaction ${transaction.txidHex} reverted with reason: ${RustContract.decodeRevertData(error).message}`,
             );
         } else if (Config.DEBUG_LEVEL >= DebugLevel.TRACE) {
-            this.error(`Transaction ${transaction.txidHex} reverted.`);
+            sharedBlockLogger.error(`Transaction ${transaction.txidHex} reverted.`);
         }
 
         transaction.revert = error;
@@ -977,7 +964,7 @@ export class Block extends Logger {
     private isOPNetEnabled(): boolean {
         const opnetEnabledAtBlock = OPNetConsensus.opnetEnabled;
 
-        return opnetEnabledAtBlock.ENABLED && this.height >= BigInt(opnetEnabledAtBlock.BLOCK);
+        return opnetEnabledAtBlock.ENABLED && this.height >= opnetEnabledAtBlock.BLOCK;
     }
 
     private async executeSpecialTransactions(specialManager: SpecialManager): Promise<void> {
@@ -1028,7 +1015,7 @@ export class Block extends Logger {
                         .getVMStorage()
                         .addTweakedPublicKey(deploymentTransaction.contractTweakedPublicKey);
                 } catch (e) {
-                    this.warn(
+                    sharedBlockLogger.warn(
                         `Failed to add tweaked public key for contract ${deploymentTransaction.contractAddress}: ${e}`,
                     );
                 }
@@ -1175,7 +1162,9 @@ export class Block extends Logger {
         await Promise.safeAll(promises);
 
         if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
-            this.success(`All OPNet transactions of block ${this.height} saved successfully.`);
+            sharedBlockLogger.success(
+                `All OPNet transactions of block ${this.height} saved successfully.`,
+            );
         }
     }
 
@@ -1276,7 +1265,7 @@ export class Block extends Logger {
             if (Config.DEV.DEBUG_TRANSACTION_PARSE_FAILURE) {
                 const error: Error = e as Error;
 
-                this.error(
+                sharedBlockLogger.error(
                     `Failed to parse transaction ${rawTransactionData.txid}: ${Config.DEV_MODE ? error.stack : error.message}`,
                 );
             }
@@ -1311,7 +1300,7 @@ export class Block extends Logger {
 
             return true;
         } catch (e) {
-            this.panic(
+            sharedBlockLogger.panic(
                 `Failed to parse generic transaction ${rawTransactionData.txid}. This will lead to bad indexing of transactions. Please report this bug.`,
             );
         }

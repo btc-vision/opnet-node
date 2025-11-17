@@ -1,6 +1,5 @@
 import { Address, AddressMap } from '@btc-vision/transaction';
 import { ConfigurableDBManager, DebugLevel } from '@btc-vision/bsi-common';
-import { UTXOsOutputTransactions } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { SafeBigInt } from '../../../api/routes/safe/BlockParamsConverter.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
@@ -40,6 +39,10 @@ import { ITargetEpochDocument } from '../../../db/documents/interfaces/ITargetEp
 import { AttestationProof } from '../../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 import { ChallengeSolution } from '../../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
+import {
+    SpentUTXOSOutputTransaction,
+    UTXOsOutputTransactions,
+} from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -570,19 +573,62 @@ export class VMMongoStorage extends VMStorage {
 
         const utxos = await Promise.safeAll([
             this.unspentTransactionRepository.getWalletUnspentUTXOS(address, optimize, olderThan),
-            olderThan === undefined ? this.mempoolRepository.getPendingTransactions(address) : [],
+            olderThan === undefined
+                ? this.mempoolRepository.getPendingTransactions(address)
+                : { utxos: [], raw: [] },
         ]);
 
-        const confirmed = utxos[0];
-        const spentTransactions = await this.mempoolRepository.fetchSpentUnspentTransactions([
-            ...utxos[0],
-            ...utxos[1],
-        ]);
+        const confirmedResult = utxos[0];
+        const pendingResult = utxos[1];
+
+        const allUtxosForSpentCheck: SpentUTXOSOutputTransaction[] = [
+            ...confirmedResult.utxos.map((u) => ({
+                transactionId: u.transactionId,
+                outputIndex: u.outputIndex,
+            })),
+            ...pendingResult.utxos.map((u) => ({
+                transactionId: u.transactionId,
+                outputIndex: u.outputIndex,
+            })),
+        ];
+
+        const spentIdentifiers =
+            await this.mempoolRepository.fetchSpentUnspentTransactions(allUtxosForSpentCheck);
+
+        const rawTxMap = new Map<string, number>();
+        const rawArray: string[] = [];
+
+        const mapRawIndex = (
+            txId: string,
+            currentIndex: number | undefined,
+            sourceArray: string[],
+        ): number | undefined => {
+            if (currentIndex === undefined) return undefined;
+
+            let globalIndex = rawTxMap.get(txId);
+            if (globalIndex === undefined) {
+                globalIndex = rawArray.length;
+                rawArray.push(sourceArray[currentIndex]);
+                rawTxMap.set(txId, globalIndex);
+            }
+            return globalIndex;
+        };
+
+        const confirmed = confirmedResult.utxos.map((utxo) => ({
+            ...utxo,
+            raw: mapRawIndex(utxo.transactionId, utxo.raw, confirmedResult.raw),
+        }));
+
+        const pending = pendingResult.utxos.map((utxo) => ({
+            ...utxo,
+            raw: mapRawIndex(utxo.transactionId, utxo.raw, pendingResult.raw),
+        }));
 
         return {
-            pending: utxos[1],
-            spentTransactions: spentTransactions,
             confirmed,
+            spentTransactions: spentIdentifiers,
+            pending,
+            raw: rawArray,
         };
     }
 

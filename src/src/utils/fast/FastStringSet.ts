@@ -34,7 +34,7 @@ export class FastStringSet implements Set<string> {
      * Inserts a value into the set. Returns `this` to allow chaining.
      */
     public add(value: string): this {
-        const keyStr = value.toString();
+        const keyStr = value satisfies string;
         if (!this.has(value)) {
             this.items[keyStr] = true;
             this.keyOrder.push(value);
@@ -46,14 +46,14 @@ export class FastStringSet implements Set<string> {
      * Checks if a value exists in the set.
      */
     public has(value: string): boolean {
-        return Object.prototype.hasOwnProperty.call(this.items, value.toString());
+        return Object.prototype.hasOwnProperty.call(this.items, value satisfies string);
     }
 
     /**
      * Removes a value from the set. Returns boolean indicating success.
      */
     public delete(value: string): boolean {
-        const keyStr = value.toString();
+        const keyStr = value satisfies string;
         if (this.has(value)) {
             // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
             delete this.items[keyStr];

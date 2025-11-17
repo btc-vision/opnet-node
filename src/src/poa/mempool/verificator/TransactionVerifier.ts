@@ -2,20 +2,17 @@ import { ConfigurableDBManager, Logger } from '@btc-vision/bsi-common';
 import { TransactionTypes } from '../transaction/TransactionTypes.js';
 import { Network, networks, Psbt, Transaction } from '@btc-vision/bitcoin';
 import { IKnownTransaction } from '../transaction/TransactionVerifierManager.js';
-import { PsbtInput } from 'bip174/src/lib/interfaces.js';
-import { TransactionBuilder, TweakedTransaction } from '@btc-vision/transaction';
-import { TrustedAuthority } from '../../configurations/manager/TrustedAuthority.js';
-import { AuthorityManager } from '../../configurations/manager/AuthorityManager.js';
-import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { BitcoinRPC, TransactionData } from '@btc-vision/bitcoin-rpc';
 
-export abstract class TransactionVerifier<T extends TransactionTypes | TransactionTypes[]> extends Logger {
+export abstract class TransactionVerifier<
+    T extends TransactionTypes | TransactionTypes[],
+> extends Logger {
     public abstract readonly type: T;
 
     public readonly logColor: string = '#e0e0e0';
 
-    protected readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
+    //protected readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
     protected currentBlockHeight: bigint = 0n;
 
     protected constructor(
@@ -42,7 +39,7 @@ export abstract class TransactionVerifier<T extends TransactionTypes | Transacti
 
     protected abstract onBlockChange(blockHeight: bigint): void | Promise<void>;
 
-    protected getInOutAmounts(inputs: PsbtInput[], tx: Transaction): { in: bigint; out: bigint } {
+    /*protected getInOutAmounts(inputs: PsbtInput[], tx: Transaction): { in: bigint; out: bigint } {
         let inputAmount: bigint = 0n;
         inputs.forEach((input, idx) => {
             if (input.witnessUtxo) {
@@ -53,8 +50,8 @@ export abstract class TransactionVerifier<T extends TransactionTypes | Transacti
         });
 
         const outputAmount = tx.outs.reduce((total, o) => total + o.value, 0);
-        return { in: BigInt(inputAmount), out: BigInt(outputAmount) };
-    }
+        return { in: inputAmount, out: BigInt(outputAmount) };
+    }*/
 
     /**
      * Estimate the fees for the transaction.
@@ -64,7 +61,7 @@ export abstract class TransactionVerifier<T extends TransactionTypes | Transacti
      * @private
      * @returns {bigint} The estimated fee.
      */
-    protected estimateFee(data: Psbt, bytes: Psbt, tx: Transaction): bigint {
+    /*protected estimateFee(data: Psbt, bytes: Psbt, tx: Transaction): bigint {
         const amounts = this.getInOutAmounts(data.data.inputs, tx);
         const amountFee: bigint = amounts.in - amounts.out;
         if (amountFee < 0n) {
@@ -151,5 +148,5 @@ export abstract class TransactionVerifier<T extends TransactionTypes | Transacti
         clone.data.inputs = newInputs;
 
         return clone;
-    }
+    }*/
 }

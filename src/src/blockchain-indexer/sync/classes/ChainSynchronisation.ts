@@ -298,14 +298,12 @@ export class ChainSynchronisation extends Logger {
                 })
                 .flat();
 
-            void this.utxoSorter
-                .classifyBatch(toSort, {
-                    height: Number(block.header.height),
-                    mtp: Number(block.header.medianTime),
-                })
-                .then((cls) => {
-                    this.acsClassifications.push(...cls);
-                });
+            const cls = this.utxoSorter.classifyBatch(toSort, {
+                height: Number(block.header.height),
+                mtp: Number(block.header.medianTime),
+            });
+
+            this.acsClassifications.push(...cls);
         }
     }
 
