@@ -6,6 +6,7 @@ import { AccessList } from '../../../api/json-rpc/types/interfaces/results/state
 import { AddressStack } from '../classes/AddressStack.js';
 import { GasTracker } from '../GasTracker.js';
 import { SpecialContract } from '../../../poa/configurations/types/SpecialContracts.js';
+import { MutableNumber } from '../../mutables/MutableNumber.js';
 
 export interface InternalContractCallParameters {
     contractAddress: Address;
@@ -17,6 +18,7 @@ export interface InternalContractCallParameters {
     readonly msgSender?: Address;
 
     readonly memoryPagesUsed?: bigint;
+    readonly mldsaLoadCounter: MutableNumber;
     readonly gasTracker: GasTracker;
 
     readonly calldata: Buffer;
@@ -29,7 +31,7 @@ export interface InternalContractCallParameters {
     readonly blockHeight: bigint;
     readonly blockMedian: bigint;
 
-    readonly contractDeployDepth: number | undefined;
+    readonly contractDeployDepth: MutableNumber | undefined;
 
     readonly callStack: AddressStack | undefined;
     allowCached?: boolean;
@@ -71,7 +73,7 @@ export interface ExecutionParameters {
 
     readonly gasTracker: GasTracker;
 
-    readonly contractDeployDepth: number | undefined;
+    readonly contractDeployDepth: MutableNumber | undefined;
     readonly externalCall: boolean;
 
     readonly storage: AddressMap<PointerStorage>;
@@ -82,6 +84,7 @@ export interface ExecutionParameters {
     readonly callStack: AddressStack | undefined;
 
     readonly memoryPagesUsed: bigint | undefined;
+    readonly mldsaLoadCounter: MutableNumber;
     readonly isDeployment: boolean;
 
     readonly inputs: StrippedTransactionInput[];

@@ -8,6 +8,11 @@ import {
 } from './roswell/SpecialContractsRoswell.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { Address } from '@btc-vision/transaction';
+import { ConsensusRules } from '../../../vm/consensus/ConsensusRules.js';
+import { MLDSASecurityLevel } from '../../../vm/mldsa/MLDSAMetadata.js';
+
+const RoswellConsensusRules: ConsensusRules = new ConsensusRules();
+RoswellConsensusRules.insertFlag(ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWED);
 
 export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     /** Information about the consensus */
@@ -104,6 +109,11 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 0, // Disabled.
     },
 
+    MLDSA: {
+        ENABLED_LEVELS: [MLDSASecurityLevel.Level2],
+        MAX_LOADS: 50,
+    },
+
     GAS: {
         COST: {
             COLD_STORAGE_LOAD: 21_000_000n,
@@ -186,6 +196,8 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     VM: {
+        CONSENSUS_RULES: RoswellConsensusRules,
+
         CURRENT_DEPLOYMENT_VERSION: 0,
 
         UTXOS: {

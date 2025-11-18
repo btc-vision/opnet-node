@@ -3,6 +3,8 @@ import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 import { SpecialContracts } from './SpecialContracts.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { Address } from '@btc-vision/transaction';
+import { ConsensusRules } from '../../../vm/consensus/ConsensusRules.js';
+import { MLDSASecurityLevel } from '../../../vm/mldsa/MLDSAMetadata.js';
 
 export enum TransactionInputFlags {
     hasCoinbase = 0b00000001,
@@ -97,6 +99,11 @@ export interface IOPNetConsensus<T extends Consensus> {
         MAX_DECOMPRESSED_SIZE: number;
     };
 
+    readonly MLDSA: {
+        readonly ENABLED_LEVELS: MLDSASecurityLevel[];
+        readonly MAX_LOADS: number;
+    };
+
     /** Transactions related properties */
     readonly GAS: {
         readonly COST: {
@@ -181,6 +188,8 @@ export interface IOPNetConsensus<T extends Consensus> {
     };
 
     readonly VM: {
+        readonly CONSENSUS_RULES: ConsensusRules;
+
         readonly CURRENT_DEPLOYMENT_VERSION: number;
 
         readonly UTXOS: {
