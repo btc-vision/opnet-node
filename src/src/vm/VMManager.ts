@@ -52,6 +52,7 @@ import { AccessList } from '../api/json-rpc/types/interfaces/results/states/Call
 import { StrippedTransactionInput } from '../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { SpecialContract } from '../poa/configurations/types/SpecialContracts.js';
 import { calculateMaxGas } from '../utils/GasUtils.js';
+import { MutableNumber } from './mutables/MutableNumber.js';
 
 Globals.register();
 
@@ -286,7 +287,8 @@ export class VMManager extends Logger {
                 isDeployment: false,
 
                 callStack: undefined,
-                contractDeployDepth: 0,
+                contractDeployDepth: new MutableNumber(),
+                mldsaLoadCounter: new MutableNumber(),
 
                 blockHash: blockHash,
                 transactionId: SIMULATION_TRANSACTION_ID,
@@ -395,7 +397,8 @@ export class VMManager extends Logger {
                 callStack: undefined,
                 allowCached: false,
                 externalCall: false,
-                contractDeployDepth: 0,
+                contractDeployDepth: new MutableNumber(),
+                mldsaLoadCounter: new MutableNumber(),
 
                 inputs: interactionTransaction.strippedInputs,
                 outputs: interactionTransaction.strippedOutputs,
@@ -496,7 +499,10 @@ export class VMManager extends Logger {
 
                 externalCall: false,
                 memoryPagesUsed: 0n,
-                contractDeployDepth: 1,
+
+                contractDeployDepth: new MutableNumber(1),
+                mldsaLoadCounter: new MutableNumber(),
+
                 deployedContracts: deployedContracts,
                 callStack: undefined,
                 touchedAddresses: undefined,
@@ -629,6 +635,8 @@ export class VMManager extends Logger {
         this.vmEvaluators.clear();
     }
 
+    public async getMLDSAPublicKey(address: Address): Promise<Buffer | Uint8Array> {}
+
     private async onBlockCompleted(): Promise<void> {
         this.purgeAllContractInstances();
 
@@ -719,6 +727,7 @@ export class VMManager extends Logger {
             transactionHash: params.transactionHash,
 
             contractDeployDepth: params.contractDeployDepth,
+            mldsaLoadCounter: params.mldsaLoadCounter,
 
             deployedContracts: params.deployedContracts,
             memoryPagesUsed: params.memoryPagesUsed,
@@ -915,6 +924,7 @@ export class VMManager extends Logger {
         vmEvaluator.isContract = this.isContract.bind(this);
         vmEvaluator.callExternal = this.callExternal.bind(this);
         vmEvaluator.deployContractAtAddress = this.deployContractAtAddress.bind(this);
+        vmEvaluator.getMLDSAPublicKey = this.getMLDSAPublicKey.bind(this);
         vmEvaluator.deployContract = this.deployContractFromInfo.bind(this);
         vmEvaluator.setContractInformation(contractInformation);
 

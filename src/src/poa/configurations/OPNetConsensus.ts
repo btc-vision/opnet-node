@@ -8,6 +8,7 @@ import { RoswellConsensus } from './consensus/RoswellConsensus.js';
 import { Logger } from '@btc-vision/bsi-common';
 import { Config } from '../../config/Config.js';
 import { SpecialContract } from './types/SpecialContracts.js';
+import { ConsensusRules } from '../../vm/consensus/ConsensusRules.js';
 
 class OPNetConsensusConfiguration extends Logger {
     private blockHeight: bigint = 0n;
@@ -32,6 +33,14 @@ class OPNetConsensusConfiguration extends Logger {
         }
 
         return this.#consensus;
+    }
+
+    public get consensusRules(): ConsensusRules {
+        if (!this.#consensus) {
+            throw new Error('Consensus not set.');
+        }
+
+        return this.#consensus.VM.CONSENSUS_RULES;
     }
 
     public get opnetEnabled(): OPNetEnabledConfigs {
