@@ -305,7 +305,9 @@ export class Block extends Logger {
     private get prevBaseGas(): bigint {
         return (
             this._prevBaseGas ||
-            BigInt(OPNetConsensus.consensus.GAS.MIN_BASE_GAS) * BlockGasPredictor.scalingFactor
+            BigInt(
+                OPNetConsensus.consensus.GAS.MIN_BASE_GAS * Number(BlockGasPredictor.scalingFactor),
+            )
         );
     }
 
