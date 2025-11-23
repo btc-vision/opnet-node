@@ -147,7 +147,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         SAT_TO_GAS_RATIO: 1_000_000n,
 
         /** Minimum base gas, sat/gas unit */
-        MIN_BASE_GAS: 0.5,
+        MIN_BASE_GAS: 1.0,
 
         /** Smoothing factor for EMA */
         SMOOTHING_FACTOR: 0.4,
