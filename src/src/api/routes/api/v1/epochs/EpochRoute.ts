@@ -15,7 +15,7 @@ import {
 import { EpochByNumberParams } from '../../../../json-rpc/types/interfaces/params/epochs/EpochByNumberParams.js';
 import { EpochByHashParams } from '../../../../json-rpc/types/interfaces/params/epochs/EpochByHashParams.js';
 import { Decimal128 } from 'mongodb';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import {
     EpochSubmissionAPIResult,
     IEpochSubmissionsDocument,

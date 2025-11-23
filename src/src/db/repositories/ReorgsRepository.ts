@@ -1,5 +1,5 @@
 import { BaseRepository } from '@btc-vision/bsi-common';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Collection, Db, Filter } from 'mongodb';
 import { IReorgData, IReorgDocument } from '../interfaces/IReorgDocument.js';
 

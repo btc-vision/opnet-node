@@ -20,7 +20,7 @@ import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
 import { BlockHeaderAPIBlockDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { P2PMajorVersion, P2PVersion } from '../poa/configurations/P2PVersion.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 
 Globals.register();
 

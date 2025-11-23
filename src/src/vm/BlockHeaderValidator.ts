@@ -2,7 +2,7 @@ import {
     BlockHeaderChecksumProof,
     BlockHeaderDocument,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { VMStorage } from './storage/VMStorage.js';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';

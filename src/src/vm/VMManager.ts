@@ -6,7 +6,7 @@ import {
     TapscriptVerificator,
 } from '@btc-vision/transaction';
 import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';

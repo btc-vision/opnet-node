@@ -1,4 +1,4 @@
-import { DebugLevel } from '@btc-vision/bsi-common';
+import { DataConverter, DebugLevel } from '@btc-vision/bsi-common';
 import {
     AggregateOptions,
     AnyBulkWriteOperation,
@@ -16,7 +16,6 @@ import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
-import { DataConverter } from '@btc-vision/bsi-db';
 import { RawUTXOsAggregationResultV3 } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';

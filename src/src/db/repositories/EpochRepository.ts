@@ -2,7 +2,7 @@ import { BaseRepository } from '@btc-vision/bsi-common';
 import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
 import { IEpochDocument } from '../documents/interfaces/IEpochDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
 import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { Address, AddressMap } from '@btc-vision/transaction';

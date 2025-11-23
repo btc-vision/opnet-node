@@ -4,7 +4,7 @@ import { IndexingTask } from '../tasks/IndexingTask.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { SHA1 } from '../../../utils/SHA1.js';
 import { IEpoch, IEpochDocument } from '../../../db/documents/interfaces/IEpochDocument.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import { EpochDifficultyConverter } from '../../../poa/epoch/EpochDifficultyConverter.js';
 import { EpochValidator } from '../../../poa/epoch/EpochValidator.js';

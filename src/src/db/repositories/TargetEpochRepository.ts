@@ -2,7 +2,7 @@ import { BaseRepository } from '@btc-vision/bsi-common';
 import { Binary, ClientSession, Collection, Db, Filter, FindOptions } from 'mongodb';
 import { ITargetEpochDocument } from '../documents/interfaces/ITargetEpochDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Address } from '@btc-vision/transaction';
 
 export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> {

@@ -2,7 +2,7 @@ import { BaseRepository } from '@btc-vision/bsi-common';
 import { AggregateOptions, Binary, Collection, Db, Document, Filter, Long } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { IMempoolTransaction, IMempoolTransactionObj } from '../interfaces/IMempoolTransaction.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Config } from '../../config/Config.js';
 import {
     MempoolTransactionAggregation,

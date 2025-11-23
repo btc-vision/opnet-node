@@ -1,7 +1,6 @@
 import { AddressMap } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
-import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { Network } from '@btc-vision/bitcoin';
 import { Config } from '../../../config/Config.js';
 import { BlockHeaderChecksumProof, BlockHeaderDocument, } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';

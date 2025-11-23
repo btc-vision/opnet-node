@@ -1,5 +1,5 @@
 import { BaseRepository, DataAccessError, DataAccessErrorType } from '@btc-vision/bsi-common';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import {
     Binary,
     ClientSession,

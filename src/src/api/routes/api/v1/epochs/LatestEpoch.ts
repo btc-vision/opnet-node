@@ -6,7 +6,7 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { EpochResult } from '../../../../json-rpc/types/interfaces/results/epochs/EpochResult.js';
 import { Route } from '../../../Route.js';
 import { IEpochDocument } from '../../../../../db/documents/interfaces/IEpochDocument.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 
 export class LatestEpoch extends Route<
     Routes.LATEST_EPOCH,

@@ -1,5 +1,5 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Network, script, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
 import crypto from 'crypto';
 import { Binary, Long } from 'mongodb';

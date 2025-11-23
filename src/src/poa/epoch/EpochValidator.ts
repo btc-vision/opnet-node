@@ -5,7 +5,7 @@ import {
     ITargetEpochDocument,
     PendingTargetEpoch,
 } from '../../db/documents/interfaces/ITargetEpochDocument.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { Address } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
@@ -268,7 +268,7 @@ export class EpochValidator extends Logger {
         const data = `${params.epochNumber}:${params.targetHash.toString('hex')}:${params.salt.toString('hex')}:${params.publicKey.toHex()}`;
         return crypto.createHash('sha256').update(data).digest('hex');
     }
-    
+
     public async getEpochData(epochNumber: bigint): Promise<PendingTargetEpoch> {
         // Epoch 0 cannot be mined
         if (epochNumber === 0n) {
