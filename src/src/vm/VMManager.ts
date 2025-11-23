@@ -5,8 +5,7 @@ import {
     MemorySlotData,
     TapscriptVerificator,
 } from '@btc-vision/transaction';
-import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
-import { DataConverter } from '@btc-vision/bsi-common';
+import { DataConverter, DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
@@ -635,7 +634,9 @@ export class VMManager extends Logger {
         this.vmEvaluators.clear();
     }
 
-    public async getMLDSAPublicKey(address: Address): Promise<Buffer | Uint8Array> {}
+    public async getMLDSAPublicKey(address: Address): Promise<Buffer | Uint8Array> {
+        throw new Error('Method not implemented');
+    }
 
     private async onBlockCompleted(): Promise<void> {
         this.purgeAllContractInstances();

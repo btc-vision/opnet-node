@@ -43,6 +43,7 @@ class BlockchainBase {
             this.outputsJSFunction,
             this.accountTypeJSFunction,
             this.blockHashJSFunction,
+            this.loadMLDSAJsFunction,
         );
     }
 
@@ -161,6 +162,26 @@ class BlockchainBase {
         }
 
         return c.outputs();
+    };
+
+    private loadMLDSAJsFunction: (
+        _: never,
+        result: ThreadSafeJsImportResponse,
+    ) => Promise<Buffer | Uint8Array> = (
+        _: never,
+        value: ThreadSafeJsImportResponse,
+    ): Promise<Buffer | Uint8Array> => {
+        if (this.enableDebug) console.log('LOAD MLDSA', value.buffer);
+
+        const u = new Uint8Array(value.buffer);
+        const buf = Buffer.from(u.buffer, u.byteOffset, u.byteLength);
+        const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
+
+        if (!c) {
+            throw new Error('Binding not found');
+        }
+
+        return c.loadMLDSA(buf);
     };
 
     private loadJsFunction: (
