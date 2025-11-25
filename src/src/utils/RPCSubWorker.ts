@@ -112,14 +112,10 @@ class RPCManager extends Logger {
                 this.currentVMManagerIndex = (this.currentVMManagerIndex + 1) % this.CONCURRENT_VMS;
 
                 if (!vmManager.busy() && vmManager.initiated) {
-                    break;
+                    resolve(vmManager);
+                    return;
                 }
             } while (this.currentVMManagerIndex !== startNumber);
-
-            if (vmManager) {
-                resolve(vmManager);
-                return;
-            }
 
             this.warn(
                 `High load detected. Try to increase your RPC thread limit or do fewer requests.`,

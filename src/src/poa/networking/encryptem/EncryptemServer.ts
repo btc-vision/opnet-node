@@ -88,7 +88,7 @@ export class EncryptemServer extends Logger {
         return this.sodium.crypto_auth_verify(out, input, k);
     }
 
-    public decrypt(msg: Uint8Array): Uint8Array {
+    public decrypt(msg: Uint8Array): Uint8Array | null {
         if (!(this.#clientPublicKey && this.#serverPrivateKey && this.#clientSignaturePublicKey)) {
             throw new Error('Decryption failed. Client public key or server private key is null.');
         }
@@ -101,7 +101,7 @@ export class EncryptemServer extends Logger {
         }
 
         //try {
-        const decryptedBuffer = this.#decrypt(
+        return this.#decrypt(
             data,
             this.#clientPublicKey,
             this.#serverPrivateKey,
@@ -110,15 +110,9 @@ export class EncryptemServer extends Logger {
             auth,
         );
 
-        if (decryptedBuffer !== null) {
-            msg = decryptedBuffer;
-        }
-
         //} catch {
         //this.error(`[SERVER] Decryption failed.`);
         //}
-
-        return msg;
     }
 
     public reset(): void {
