@@ -1,4 +1,4 @@
-import { DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
+import { DataConverter, DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import cors from 'cors';
 import HyperExpress, {
     MiddlewareHandler,
@@ -20,7 +20,9 @@ import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
 import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
 import { BlockHeaderAPIBlockDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { P2PMajorVersion, P2PVersion } from '../poa/configurations/P2PVersion.js';
-import { DataConverter } from '@btc-vision/bsi-common';
+import { WSManager } from './websocket/WebSocketManager.js';
+import { Handlers } from './websocket/handlers/HandlerRegistry.js';
+import { IEpochDocument } from '../db/documents/interfaces/IEpochDocument.js';
 
 Globals.register();
 
@@ -83,6 +85,9 @@ export class Server extends Logger {
         await this.storage.init();
         await this.setupConsensus();
 
+        // Initialize WebSocket manager
+        this.initializeWebSocket();
+
         // ERROR HANDLING
         this.app.set_error_handler(this.globalErrorHandler.bind(this));
 
@@ -100,12 +105,13 @@ export class Server extends Logger {
         // GET
         this.loadRoutes();
 
-        // WS
+        // WS - Binary protobuf WebSocket endpoint
+        const wsConfig = WSManager.getWSConfig();
         this.app.ws(
-            `${this.apiPrefix}/live`,
+            `${this.apiPrefix}/ws`,
             {
-                maxPayloadLength: 16 * 1024 * 1024,
-                idleTimeout: 4 * 3,
+                maxPayloadLength: wsConfig.maxPayloadLength,
+                idleTimeout: wsConfig.idleTimeout,
             } as WSRouteOptions,
             this.onNewWebsocketConnection.bind(this) as WSRouteHandler,
         );
@@ -121,6 +127,24 @@ export class Server extends Logger {
         }
 
         await this.createServer();
+    }
+
+    /**
+     * Initialize the WebSocket manager and register handlers
+     */
+    private initializeWebSocket(): void {
+        // Get chain ID from config
+        const chainId = Config.BITCOIN.NETWORK ?? 'bitcoin';
+
+        // Initialize the WebSocket manager with config
+        WSManager.initialize(this.storage, chainId, Config.API.WEBSOCKET);
+
+        // Register all opcode handlers
+        Handlers.registerAll();
+
+        if (WSManager.isEnabled()) {
+            this.log('WebSocket API initialized');
+        }
     }
 
     private async setupConsensus(): Promise<void> {
@@ -233,16 +257,23 @@ export class Server extends Logger {
                     );
                 }
             }
+
+            // Notify WebSocket clients
+            this.notifyWebsocketsOfEpochFinalized(finalizedEpochNumber, epochData);
         } catch (e) {
             this.error(`Failed to notify routes of epoch finalization: ${(e as Error).message}`);
         }
     }
 
     private notifyWebsocketsOfBlockChange(
-        _blockHeight: bigint,
-        _blockHeader: BlockHeaderAPIBlockDocument,
+        blockHeight: bigint,
+        blockHeader: BlockHeaderAPIBlockDocument,
     ): void {
-        // TODO: Implement websocket notifications.
+        WSManager.onBlockChange(blockHeight, blockHeader);
+    }
+
+    private notifyWebsocketsOfEpochFinalized(epochNumber: bigint, epochData: IEpochDocument): void {
+        WSManager.onEpochFinalized(epochNumber, epochData);
     }
 
     private loadRoutes(): void {
@@ -264,22 +295,29 @@ export class Server extends Logger {
     /**
      * Handles new websocket connections.
      * @param {Websocket} websocket
+     * @param {Request} request - The upgrade request (contains headers for IP extraction)
      * @private
-     * @async
      */
-    private onNewWebsocketConnection(websocket: Websocket): void {
-        this.log('New websocket connection detected');
+    private onNewWebsocketConnection(websocket: Websocket, request: Request): void {
+        // Register the connection with the WebSocket manager (pass request for IP extraction)
+        WSManager.onConnection(websocket, request);
 
-        /*let newClient = new WebsocketClientManager(req, res, ws);
-        this.websockets.push(newClient);
+        // Set up message handler
+        websocket.on('message', (message: ArrayBuffer) => {
+            WSManager.onMessage(websocket, message).catch((error: unknown) => {
+                this.error(`WebSocket message handling error: ${error}`);
+            });
+        });
 
-        newClient.onDestroy = () => {
-            this.websockets.splice(this.websockets.indexOf(newClient), 1);
-        };
+        // Set up drain handler for backpressure
+        websocket.on('drain', () => {
+            WSManager.onDrain(websocket);
+        });
 
-        newClient.init();*/
-
-        websocket.close(1000, 'Not implemented');
+        // Set up close handler
+        websocket.on('close', (code: number, reason: ArrayBuffer) => {
+            WSManager.onClose(websocket, code, reason);
+        });
     }
 
     private handleAny(_req: Request, res: Response, next: MiddlewareNext): void {

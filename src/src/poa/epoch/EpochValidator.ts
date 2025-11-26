@@ -1,11 +1,10 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { DataConverter, Logger } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import crypto from 'crypto';
 import {
     ITargetEpochDocument,
     PendingTargetEpoch,
 } from '../../db/documents/interfaces/ITargetEpochDocument.js';
-import { DataConverter } from '@btc-vision/bsi-common';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { Address } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';

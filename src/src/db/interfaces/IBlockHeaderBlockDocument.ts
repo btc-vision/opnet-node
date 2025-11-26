@@ -56,7 +56,7 @@ export interface BlockHeaderAPIBlockDocument
 
 export interface BlockHeader extends Omit<BlockHeaderAPIBlockDocument, 'height' | 'hash'> {
     readonly height: bigint;
-    readonly hash: Buffer,
+    readonly hash: Buffer;
 }
 
 export type IBlockHeaderBlockDocument = BlockHeaderDocument & IBaseDocument;
