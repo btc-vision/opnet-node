@@ -37,6 +37,7 @@ export enum Routes {
 
     /** Other */
     PROTOBUF_SCHEMA = 'protobuf/schema',
+    PROTOBUF_API_SCHEMA = 'protobuf/api-schema',
     JSON_RPC = 'json-rpc',
 
     NOT_IMPLEMENTED = 'not-implemented',
