@@ -117,7 +117,7 @@ export class VMMongoStorage extends VMStorage {
         return this.mldsaPublicKeysRepository.exists(hashedPublicKey, legacyPublicKey);
     }
 
-    public getMLDSAByHashedOrLegacy(
+    public getMLDSAByLegacy(
         publicKey: Buffer | Binary,
         blockHeight: bigint,
     ): Promise<IMLDSAPublicKey | null> {
@@ -125,7 +125,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('MLDSA Public Key repository not initialized');
         }
 
-        return this.mldsaPublicKeysRepository.getByHashedOrLegacy(publicKey, blockHeight);
+        return this.mldsaPublicKeysRepository.getByLegacyPublicKey(publicKey, blockHeight);
     }
 
     public targetEpochExists(

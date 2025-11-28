@@ -308,7 +308,7 @@ export abstract class VMStorage extends Logger {
 
     public abstract saveMLDSAPublicKey(publicKey: IMLDSAPublicKey): Promise<void>;
 
-    public abstract getMLDSAByHashedOrLegacy(
+    public abstract getMLDSAByLegacy(
         publicKey: Buffer | Binary,
         blockHeight: bigint,
     ): Promise<IMLDSAPublicKey | null>;

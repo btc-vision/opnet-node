@@ -4,16 +4,30 @@ import {
     AccessListFeature,
     EpochSubmissionFeature,
     Feature,
-    Features,
+    MLDSALinkRequest,
 } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { opcodes, payments } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
-import { Address, AddressMap, BinaryReader } from '@btc-vision/transaction';
+import {
+    Address,
+    AddressMap,
+    BinaryReader,
+    BinaryWriter,
+    Features,
+    MessageSigner,
+    MLDSASecurityLevel,
+    QuantumBIP32Factory,
+} from '@btc-vision/transaction';
 import { SpecialContract } from '../../../../poa/configurations/types/SpecialContracts.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { Submission } from '../features/Submission.js';
 import { timingSafeEqual } from 'node:crypto';
+import { MLDSARequestData } from '../features/MLDSARequestData.js';
+import { MLDSAMetadata } from '../../../../vm/mldsa/MLDSAMetadata.js';
+import { VMManager } from '../../../../vm/VMManager.js';
+import { getChainId } from '../../../../vm/rust/ChainIdHex.js';
+import { NetworkConverter } from '../../../../config/network/NetworkConverter.js';
 
 export abstract class SharedInteractionParameters<
     T extends OPNetTransactionTypes,
@@ -34,6 +48,12 @@ export abstract class SharedInteractionParameters<
         }
 
         return calldata;
+    }
+
+    protected _mldsaLinkRequest: MLDSARequestData | undefined;
+
+    public get mldsaLinkRequest(): MLDSARequestData | undefined {
+        return this._mldsaLinkRequest;
     }
 
     public get preloadStorageList(): AddressMap<Uint8Array[]> {
@@ -148,12 +168,77 @@ export abstract class SharedInteractionParameters<
         return decodedData;
     }
 
-    public getAddress(str: string): Address {
+    public async verifyMLDSA(vmManager: VMManager): Promise<void> {
+        if (!this.mldsaLinkRequest) {
+            await this.regenerateProvenance(vmManager);
+            return;
+        }
+
+        const originalKey = this.from.tweakedPublicKeyToBuffer();
+        const chainId = getChainId(NetworkConverter.networkToBitcoinNetwork(this.network));
+
+        const writer = new BinaryWriter();
+        writer.writeU8(this.mldsaLinkRequest.level);
+        writer.writeBytes(this.mldsaLinkRequest.publicKey);
+        writer.writeBytes(originalKey);
+        writer.writeBytes(OPNetConsensus.consensus.PROTOCOL_ID);
+        writer.writeBytes(chainId);
+
+        const message = writer.getBuffer();
+
+        // First we check the schnorr signature
+        const isValidSchnorr = MessageSigner.verifySignature(
+            originalKey,
+            message,
+            this.mldsaLinkRequest.legacySignature,
+        );
+
+        if (!isValidSchnorr) {
+            throw new Error(`OP_NET: Invalid ML-DSA legacy signature for public key link request.`);
+        }
+
+        // Then we check the ML-DSA signature
+        const mldsaKeyPair = QuantumBIP32Factory.fromPublicKey(
+            this.mldsaLinkRequest.publicKey,
+            Buffer.alloc(32, 0),
+            this.network,
+            this.mldsaLinkRequest.level,
+        );
+
+        const isValidMLDSA = MessageSigner.verifyMLDSASignature(
+            mldsaKeyPair,
+            message,
+            this.mldsaLinkRequest.mldsaSignature,
+        );
+
+        if (!isValidMLDSA) {
+            throw new Error(`OP_NET: Invalid ML-DSA signature for public key link request.`);
+        }
+
+        // From this point, even if the transaction fail, we still record the key link. (as long the provided signatures are valid.)
+        const hashed = MessageSigner.sha256(this.mldsaLinkRequest.publicKey);
+        await vmManager.addMLDSAInfoToStore({
+            hashedPublicKey: hashed,
+            legacyPublicKey: originalKey,
+            blockHeight: this.blockHeight,
+            publicKey: this.mldsaLinkRequest.publicKey,
+        });
+
+        // Regenerate the real from.
+        this._from = new Address(hashed, originalKey);
+    }
+
+    protected safeEq(a: Buffer, b: Buffer): boolean {
+        if (a.length !== b.length) return false;
+        return timingSafeEqual(a, b);
+    }
+
+    /*public getAddress(str: string): Address {
         if (this.addressCache) {
             const addr: string | undefined = this.addressCache.get(str);
 
             if (!addr) {
-                const newAddr = Address.fromString(str);
+                const newAddr = new Address(, str);
                 this.addressCache.set(str, newAddr.toHex());
 
                 return newAddr;
@@ -163,12 +248,7 @@ export abstract class SharedInteractionParameters<
         } else {
             return Address.fromString(str);
         }
-    }
-
-    protected safeEq(a: Buffer, b: Buffer): boolean {
-        if (a.length !== b.length) return false;
-        return timingSafeEqual(a, b);
-    }
+    }*/
 
     protected decodeAddress(outputWitness: TransactionOutput): string | undefined {
         if (!outputWitness?.scriptPubKey.hex.startsWith('60')) {
@@ -201,6 +281,19 @@ export abstract class SharedInteractionParameters<
         }
     }
 
+    private async regenerateProvenance(vmManager: VMManager): Promise<void> {
+        const originalKey = this.from.tweakedPublicKeyToBuffer();
+
+        // Get the key assigned to the legacy address.
+        const keyData = await vmManager.getMLDSAPublicKeyFromLegacyKey(originalKey);
+        if (!keyData) {
+            throw new Error(`OP_NET: No ML-DSA public key linked to the legacy address.`);
+        }
+
+        // Regenerate the real from.
+        this._from = new Address(keyData.hashedPublicKey, originalKey);
+    }
+
     private decodeFeature(feature: Feature<Features>): void {
         switch (feature.opcode) {
             case Features.ACCESS_LIST: {
@@ -213,10 +306,42 @@ export abstract class SharedInteractionParameters<
                 break;
             }
 
+            case Features.MLDSA_LINK_PUBKEY: {
+                this._mldsaLinkRequest = this.decodeMLDSALinkRequest(feature as MLDSALinkRequest);
+                break;
+            }
+
             default: {
                 throw new Error(`Feature ${feature.opcode} not implemented`);
             }
         }
+    }
+
+    private decodeMLDSALinkRequest(feature: MLDSALinkRequest): MLDSARequestData {
+        const data: Buffer = feature.data;
+
+        const reader = new BinaryReader(data);
+        const level: MLDSASecurityLevel = reader.readU8() as MLDSASecurityLevel;
+
+        const publicKeyLength = MLDSAMetadata.fromLevel(level);
+        const signatureLength = MLDSAMetadata.signatureLen(publicKeyLength);
+
+        if (!OPNetConsensus.consensus.MLDSA.ENABLED_LEVELS.includes(level)) {
+            throw new Error(`OP_NET: ML-DSA level ${level} is not enabled.`);
+        }
+
+        const publicKey = reader.readBytes(publicKeyLength);
+        const signature = reader.readBytes(signatureLength);
+
+        // Load schnorr signature (64 bytes)
+        const legacySignature = reader.readBytes(64);
+
+        return {
+            publicKey: Buffer.from(publicKey),
+            level: level,
+            mldsaSignature: Buffer.from(signature),
+            legacySignature: Buffer.from(legacySignature),
+        };
     }
 
     private decodeEpochSubmission(feature: EpochSubmissionFeature): Submission {

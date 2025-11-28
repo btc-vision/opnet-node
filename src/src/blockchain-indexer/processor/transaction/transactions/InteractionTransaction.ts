@@ -14,12 +14,12 @@ import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOPNetTransactions.js';
 import { OPNet_MAGIC } from '../Transaction.js';
-import { Address, AddressVerificator } from '@btc-vision/transaction';
+import { Address, AddressVerificator, Features } from '@btc-vision/transaction';
 import * as ecc from 'tiny-secp256k1';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { SharedInteractionParameters } from './SharedInteractionParameters.js';
-import { Feature, Features } from '../features/Features.js';
+import { Feature } from '../features/Features.js';
 import { AddressCache } from '../../AddressCache.js';
 
 export interface InteractionWitnessData {
@@ -242,12 +242,13 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
 
         this._contractAddress = new Address(doc.contractAddress);
 
-        const from = new Address(doc.from);
+        const from = new Address(doc.from, doc.fromLegacy);
         this._txOrigin = from;
         this._msgSender = from;
 
         this._calldata = Buffer.from(doc.calldata.buffer);
         this.setMiner(Buffer.from(doc.miner.buffer), Buffer.from(doc.preimage.buffer));
+
         this.senderPubKeyHash = Buffer.from(doc.senderPubKeyHash.buffer);
         this.contractSecret = Buffer.from(doc.contractSecret.buffer);
         this.interactionPubKey = Buffer.from(doc.interactionPubKey.buffer);
@@ -266,6 +267,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             ...super.toThreadSafe(),
             contractAddress: this.contractSecret,
             from: this.from,
+            fromLegacy: this.from.tweakedPublicKeyToBuffer(),
             calldata: this.calldata,
             preimage: this.preimage,
             miner: this.miner,
@@ -286,10 +288,10 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             throw new Error(`No receipt proofs found for transaction ${this.txidHex}`);
         }
 
-        const fromPubKey: Uint8Array = this.from.originalPublicKey || this.from;
         return {
             ...super.toDocument(),
-            from: new Binary(fromPubKey),
+            from: new Binary(this.from),
+            fromLegacy: new Binary(this.from.tweakedPublicKeyToBuffer()),
             contractAddress: this.contractAddress,
             contractTweakedPublicKey: new Binary(this.address),
 
@@ -360,8 +362,8 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             throw new Error(`OP_NET: Sender public key hash mismatch.`);
         }
 
-        this._from = this.getAddress(senderPubKeyStr);
-        if (!this._from.isValid(this.network)) {
+        this._from = new Address(Buffer.alloc(32), senderPubKey);
+        if (!this._from.isValidLegacyPublicKey(this.network)) {
             throw new Error(`OP_NET: Invalid sender address.`);
         }
 
@@ -483,7 +485,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             throw new Error(`OP_NET: Invalid contract pubkey specified.`);
         }
 
-        return this.getAddress(str);
+        return new Address(contractSecret);
     }
 
     private verifySpecialContract(): void {

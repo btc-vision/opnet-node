@@ -1,24 +1,17 @@
-import {
-    Address,
-    AddressMap,
-    AddressSet,
-    BufferHelper,
-    MemorySlotData,
-    TapscriptVerificator,
-} from '@btc-vision/transaction';
+import { Address, AddressMap, BufferHelper, MemorySlotData, TapscriptVerificator, } from '@btc-vision/transaction';
 import { DataConverter, DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
-import {
-    BTC_FAKE_ADDRESS,
-    MAX_HASH,
-    MAX_MINUS_ONE,
-} from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import { BTC_FAKE_ADDRESS, MAX_HASH, MAX_MINUS_ONE, } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
-import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import {
+    DeploymentTransaction
+} from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import {
+    InteractionTransaction
+} from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import {
     BlockHeader,
@@ -107,8 +100,10 @@ export class VMManager extends Logger {
         new AddressMap();
 
     private mldsaCache: AddressMap<Promise<IMLDSAPublicKey | null>> = new AddressMap();
+    private mldsaCacheFromLegacy: AddressMap<Promise<IMLDSAPublicKey | null>> = new AddressMap();
+
     private mldsaToStore: AddressMap<IMLDSAPublicKey> = new AddressMap();
-    private mldsaToStoreLegacy: AddressSet = new AddressSet();
+    private mldsaToStoreLegacy: AddressMap<Address> = new AddressMap();
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -637,6 +632,7 @@ export class VMManager extends Logger {
         this.mldsaCache.clear();
         this.mldsaToStore.clear();
         this.mldsaToStoreLegacy.clear();
+        this.mldsaCacheFromLegacy.clear();
 
         for (const vmEvaluator of this.vmEvaluators.values()) {
             await vmEvaluator;
@@ -666,7 +662,32 @@ export class VMManager extends Logger {
         return await publicKeyData;
     }
 
-    private async addMLDSAInfoToStore(mldsaPublicKey: IMLDSAPublicKey): Promise<void> {
+    public async getMLDSAPublicKeyFromLegacyKey(
+        tweakedPublicKey: Buffer,
+    ): Promise<IMLDSAPublicKey | null> {
+        const tweakedAddress = new Address(tweakedPublicKey);
+
+        const cachedAddress = this.mldsaToStoreLegacy.get(tweakedAddress);
+        if (cachedAddress) {
+            return this.mldsaToStore.get(cachedAddress) || null;
+        }
+
+        const cached = this.mldsaCacheFromLegacy.get(tweakedAddress);
+        if (cached !== undefined) {
+            return await cached;
+        }
+
+        const publicKeyData = this.vmStorage.getMLDSAByLegacy(
+            tweakedPublicKey,
+            this.vmBitcoinBlock.height,
+        );
+
+        this.mldsaCacheFromLegacy.set(tweakedAddress, publicKeyData);
+
+        return await publicKeyData;
+    }
+
+    public async addMLDSAInfoToStore(mldsaPublicKey: IMLDSAPublicKey): Promise<void> {
         if (mldsaPublicKey.blockHeight !== this.vmBitcoinBlock.height) {
             throw new Error('MLDSA public key block height mismatch.');
         }
@@ -699,7 +720,7 @@ export class VMManager extends Logger {
         }
 
         this.mldsaToStore.set(address, mldsaPublicKey);
-        this.mldsaToStoreLegacy.add(tweakedAddress);
+        this.mldsaToStoreLegacy.set(tweakedAddress, address);
     }
 
     private async onBlockCompleted(): Promise<void> {

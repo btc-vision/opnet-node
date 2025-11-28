@@ -636,6 +636,9 @@ export class Block {
                 throw new Error('Coinbase transactions are not allowed');
             }
 
+            // Record MLDSA link if present
+            await transaction.verifyMLDSA(vmManager);
+
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.executeTransaction(
                 this.blockHashBuffer,
@@ -678,6 +681,9 @@ export class Block {
             if (!transaction.inputs[0]?.originalTransactionId) {
                 throw new Error('Coinbase transactions are not allowed');
             }
+
+            // Record MLDSA link if present
+            await transaction.verifyMLDSA(vmManager);
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.deployContract(
@@ -1049,6 +1055,7 @@ export class Block {
                 const deploymentTransaction = transaction as DeploymentTransaction;
 
                 await this.executeDeploymentTransaction(deploymentTransaction, vmManager);
+
                 try {
                     await vmManager
                         .getVMStorage()

@@ -1,8 +1,4 @@
-export enum MLDSASecurityLevel {
-    Level2 = 0,
-    Level3 = 1,
-    Level5 = 2,
-}
+import { MLDSASecurityLevel } from '@btc-vision/transaction';
 
 /**
  * ML-DSA Public Key Metadata enum for quantum-resistant signatures
@@ -20,13 +16,13 @@ export class MLDSAMetadata {
     /**
      * Creates metadata from security level
      */
-    static fromLevel(level: MLDSASecurityLevel): MLDSAPublicKeyMetadata {
+    public static fromLevel(level: MLDSASecurityLevel): MLDSAPublicKeyMetadata {
         switch (level) {
-            case MLDSASecurityLevel.Level2:
+            case MLDSASecurityLevel.LEVEL2:
                 return MLDSAPublicKeyMetadata.MLDSA44;
-            case MLDSASecurityLevel.Level3:
+            case MLDSASecurityLevel.LEVEL3:
                 return MLDSAPublicKeyMetadata.MLDSA65;
-            case MLDSASecurityLevel.Level5:
+            case MLDSASecurityLevel.LEVEL5:
                 return MLDSAPublicKeyMetadata.MLDSA87;
             default:
                 throw new Error('Invalid ML-DSA security level');
@@ -36,7 +32,7 @@ export class MLDSAMetadata {
     /**
      * Creates metadata from public key byte length
      */
-    static fromBytesLen(len: number): MLDSAPublicKeyMetadata {
+    public static fromBytesLen(len: number): MLDSAPublicKeyMetadata {
         switch (len) {
             case 1312:
                 return MLDSAPublicKeyMetadata.MLDSA44;
@@ -52,7 +48,7 @@ export class MLDSAMetadata {
     /**
      * Converts metadata to security level
      */
-    static toLevel(metadata: MLDSAPublicKeyMetadata): number {
+    public static toLevel(metadata: MLDSAPublicKeyMetadata): number {
         switch (metadata) {
             case MLDSAPublicKeyMetadata.MLDSA44:
                 return 0;
@@ -68,7 +64,7 @@ export class MLDSAMetadata {
     /**
      * Gets the NIST security level
      */
-    static securityLevel(metadata: MLDSAPublicKeyMetadata): number {
+    public static securityLevel(metadata: MLDSAPublicKeyMetadata): number {
         switch (metadata) {
             case MLDSAPublicKeyMetadata.MLDSA44:
                 return 2;
@@ -84,7 +80,7 @@ export class MLDSAMetadata {
     /**
      * Gets the private key length in bytes
      */
-    static privateKeyLen(metadata: MLDSAPublicKeyMetadata): number {
+    public static privateKeyLen(metadata: MLDSAPublicKeyMetadata): number {
         switch (metadata) {
             case MLDSAPublicKeyMetadata.MLDSA44:
                 return 2560;
@@ -100,7 +96,7 @@ export class MLDSAMetadata {
     /**
      * Gets the signature length in bytes
      */
-    static signatureLen(metadata: MLDSAPublicKeyMetadata): number {
+    public static signatureLen(metadata: MLDSAPublicKeyMetadata): number {
         switch (metadata) {
             case MLDSAPublicKeyMetadata.MLDSA44:
                 return 2420;
@@ -116,7 +112,7 @@ export class MLDSAMetadata {
     /**
      * Gets the algorithm name
      */
-    static name(metadata: MLDSAPublicKeyMetadata): string {
+    public static name(metadata: MLDSAPublicKeyMetadata): string {
         switch (metadata) {
             case MLDSAPublicKeyMetadata.MLDSA44:
                 return 'ML-DSA-44';
@@ -132,14 +128,14 @@ export class MLDSAMetadata {
     /**
      * Attempts to create metadata from u32 value
      */
-    static tryFromU32(value: number): MLDSAPublicKeyMetadata {
+    public static tryFromU32(value: number): MLDSAPublicKeyMetadata {
         return MLDSAMetadata.fromBytesLen(value);
     }
 
     /**
      * Helper to check if a value is valid metadata
      */
-    static isValid(value: number): boolean {
+    public static isValid(value: number): boolean {
         return value === 1312 || value === 1952 || value === 2592;
     }
 }
