@@ -1,23 +1,17 @@
-import {
-    Address,
-    AddressMap,
-    BufferHelper,
-    MemorySlotData,
-    TapscriptVerificator,
-} from '@btc-vision/transaction';
+import { Address, AddressMap, BufferHelper, MemorySlotData, TapscriptVerificator, } from '@btc-vision/transaction';
 import { DataConverter, DebugLevel, Globals, Logger } from '@btc-vision/bsi-common';
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
-import {
-    BTC_FAKE_ADDRESS,
-    MAX_HASH,
-    MAX_MINUS_ONE,
-} from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import { BTC_FAKE_ADDRESS, MAX_HASH, MAX_MINUS_ONE, } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
-import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import {
+    DeploymentTransaction
+} from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import {
+    InteractionTransaction
+} from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import {
     BlockHeader,
@@ -635,7 +629,7 @@ export class VMManager extends Logger {
     }
 
     public async getMLDSAPublicKey(address: Address): Promise<Buffer | Uint8Array> {
-        throw new Error('Method not implemented');
+        return Promise.reject(new Error('Method not implemented'));
     }
 
     private async onBlockCompleted(): Promise<void> {

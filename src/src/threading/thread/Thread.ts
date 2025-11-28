@@ -173,7 +173,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                 break;
             }
             default: {
-                return await this.onLinkMessage(type, m);
+                return this.onLinkMessage(type, m);
             }
         }
     }
@@ -181,7 +181,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
     protected abstract onLinkMessage(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<ThreadData | undefined>;
+    ): Promise<ThreadData | undefined> | ThreadData | undefined;
 
     private getNextAvailableThread(threadType: ThreadTypes): MessagePort | null {
         const relation = this.threadRelationsArray[threadType];

@@ -119,6 +119,17 @@ export interface EpochConfigs {
     readonly LOG_FINALIZATION: boolean;
 }
 
+export interface WebSocketConfig {
+    readonly ENABLED: boolean; // Enable WebSocket API
+    readonly MAX_CONNECTIONS: number; // Maximum concurrent WebSocket connections
+    readonly IDLE_TIMEOUT: number; // Idle timeout in seconds before disconnecting
+    readonly MAX_PAYLOAD_SIZE: number; // Maximum payload size in bytes
+    readonly MAX_PENDING_REQUESTS: number; // Maximum pending requests per client
+    readonly REQUEST_TIMEOUT: number; // Request timeout in milliseconds
+    readonly MAX_REQUESTS_PER_SECOND: number; // Rate limit: max requests per second per client
+    readonly MAX_SUBSCRIPTIONS: number; // Maximum subscriptions per client
+}
+
 export interface APIExtendedConfigurations extends APIConfig {
     readonly MAXIMUM_PENDING_REQUESTS_PER_THREADS: number; // Maximum number of pending requests per thread
     readonly BATCH_PROCESSING_SIZE: number; // Batch processing size
@@ -133,6 +144,8 @@ export interface APIExtendedConfigurations extends APIConfig {
     readonly EPOCH_CACHE_SIZE: number; // Size of the epoch cache
 
     readonly UTXO_LIMIT: number; // UTXO limit
+
+    readonly WEBSOCKET: WebSocketConfig; // WebSocket configuration
 }
 
 export interface DevConfig {

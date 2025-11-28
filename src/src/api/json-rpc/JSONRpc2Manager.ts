@@ -49,6 +49,8 @@ export class JSONRpc2Manager extends Logger {
     }
 
     public async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
+        res.header('Content-Type', 'application/json');
+
         let requestSize: number = 0;
         try {
             const requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined =
@@ -106,20 +108,21 @@ export class JSONRpc2Manager extends Logger {
             //    body: response,
             //});
 
-            if ('error' in response) {
-                res.status(JSONRPCErrorHttpCodes.INVALID_REQUEST);
-            } else {
-                res.status(200);
-            }
+            res.atomic(() => {
+                if ('error' in response) {
+                    res.status(JSONRPCErrorHttpCodes.INVALID_REQUEST);
+                } else {
+                    res.status(200);
+                }
 
-            res.header('Content-Type', 'application/json');
+                //if (stream instanceof Readable) {
+                //    await res.stream(stream);
+                //}
 
-            //if (stream instanceof Readable) {
-            //    await res.stream(stream);
-            //}
+                res.json(response);
 
-            res.json(response);
-            res.end();
+                this.pendingRequests -= requestSize;
+            });
         } catch (err) {
             if (Config.DEV.DEBUG_API_ERRORS) {
                 this.error(`API Error: ${(err as Error).message}`);
@@ -138,9 +141,9 @@ export class JSONRpc2Manager extends Logger {
 
                 this.sendInternalError(res);
             } catch (e) {}
-        }
 
-        this.pendingRequests -= requestSize;
+            this.pendingRequests -= requestSize;
+        }
     }
 
     private sendError(
@@ -377,7 +380,8 @@ export class JSONRpc2Manager extends Logger {
             error: error,
         };
 
-        res.json(response);
-        res.end();
+        res.atomic(() => {
+            res.json(response);
+        });
     }
 }

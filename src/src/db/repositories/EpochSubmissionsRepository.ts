@@ -1,8 +1,7 @@
-import { BaseRepository } from '@btc-vision/bsi-common';
+import { BaseRepository, DataConverter } from '@btc-vision/bsi-common';
 import { Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
 import { IEpochSubmissionsDocument } from '../documents/interfaces/IEpochSubmissionsDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { DataConverter } from '@btc-vision/bsi-common';
 
 export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsDocument> {
     public readonly logColor: string = '#ff6347';
