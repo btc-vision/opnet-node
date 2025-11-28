@@ -105,8 +105,8 @@ export abstract class SharedInteractionParameters<
             return;
         }
 
-        const miner = scriptData.shift();
-        if (!Buffer.isBuffer(miner) || miner.length !== 33) {
+        const minerMLDSAPublicKey = scriptData.shift();
+        if (!Buffer.isBuffer(minerMLDSAPublicKey) || minerMLDSAPublicKey.length !== 32) {
             return;
         }
 
@@ -126,7 +126,7 @@ export abstract class SharedInteractionParameters<
             return;
         }
 
-        return new OPNetHeader(header, miner, preimage);
+        return new OPNetHeader(header, minerMLDSAPublicKey, preimage);
     }
 
     protected static decodeFeatures(
@@ -222,12 +222,12 @@ export abstract class SharedInteractionParameters<
     private decodeEpochSubmission(feature: EpochSubmissionFeature): Submission {
         const data: Buffer = feature.data;
 
-        if (data.length > 32 + 33 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
+        if (data.length > 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
             throw new Error(`OP_NET: Invalid epoch submission feature data length.`);
         }
 
         const binaryReader = new BinaryReader(data);
-        const publicKey = binaryReader.readBytes(33);
+        const mldsaPublicKey = binaryReader.readBytes(32);
         const solution = binaryReader.readBytes(32);
         const bytesLeft = data.length - 65;
 
@@ -237,7 +237,7 @@ export abstract class SharedInteractionParameters<
         }
 
         return {
-            publicKey: Buffer.from(publicKey),
+            mldsaPublicKey: Buffer.from(mldsaPublicKey),
             salt: Buffer.from(solution),
             graffiti: graffiti ? Buffer.from(graffiti) : undefined,
         };

@@ -1,3 +1,6 @@
 import { AddressMap } from '@btc-vision/transaction';
 
-export type ChallengeSolution = AddressMap<Buffer[]>;
+export interface ChallengeSolution {
+    readonly solutions: AddressMap<Buffer[]>;
+    readonly legacyPublicKeys: AddressMap<Buffer>;
+}

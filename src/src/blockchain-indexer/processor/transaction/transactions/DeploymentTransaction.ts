@@ -258,7 +258,10 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             throw new Error(`OP_NET: Invalid contract signer.`);
         }
 
-        this.setMiner(deploymentWitnessData.header.miner, deploymentWitnessData.header.solution);
+        this.setMiner(
+            deploymentWitnessData.header.minerMLDSAPublicKey,
+            deploymentWitnessData.header.solution,
+        );
 
         /** We regenerate the contract address and verify it */
         const input0: TransactionInput = this.inputs[0];
@@ -289,7 +292,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             features.push({
                 opcode: Features.EPOCH_SUBMISSION,
                 data: {
-                    publicKey: new Address(this._submission.publicKey),
+                    mldsaPublicKey: new Address(this._submission.mldsaPublicKey),
                     solution: this._submission.salt,
                     graffiti: this._submission.graffiti,
                 },

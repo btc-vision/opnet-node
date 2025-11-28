@@ -23,6 +23,8 @@ import { ITargetEpochDocument } from '../../db/documents/interfaces/ITargetEpoch
 import { AttestationProof } from '../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { IMempoolTransactionObj } from '../../db/interfaces/IMempoolTransaction.js';
+import { IMLDSAPublicKey } from '../../db/interfaces/IMLDSAPublicKey.js';
+import { MLDSAPublicKeyExists } from '../../db/repositories/MLDSAPublicKeysRepository.js';
 
 export abstract class VMStorage extends Logger {
     public readonly logColor: string = '#ff00ff';
@@ -280,7 +282,7 @@ export abstract class VMStorage extends Logger {
      * Check if a submission exists
      */
     public abstract submissionExists(
-        publicKey: Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
         salt: Buffer | Binary,
         epochNumber: bigint,
     ): Promise<boolean>;
@@ -288,7 +290,7 @@ export abstract class VMStorage extends Logger {
     public abstract targetEpochExists(
         epochNumber: bigint,
         salt: Buffer | Binary,
-        publicKey: Address | Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
     ): Promise<boolean>;
 
     public abstract getBestTargetEpoch(epochNumber: bigint): Promise<ITargetEpochDocument | null>;
@@ -296,4 +298,23 @@ export abstract class VMStorage extends Logger {
     public abstract saveTargetEpoch(targetEpoch: ITargetEpochDocument): Promise<void>;
 
     public abstract deleteOldTargetEpochs(epochNumber: bigint): Promise<void>;
+
+    public abstract getMLDSAPublicKeyFromHash(
+        publicKey: Buffer | Binary,
+        blockHeight: bigint,
+    ): Promise<IMLDSAPublicKey | null>;
+
+    public abstract saveMLDSAPublicKeys(publicKeys: IMLDSAPublicKey[]): Promise<void>;
+
+    public abstract saveMLDSAPublicKey(publicKey: IMLDSAPublicKey): Promise<void>;
+
+    public abstract getMLDSAByHashedOrLegacy(
+        publicKey: Buffer | Binary,
+        blockHeight: bigint,
+    ): Promise<IMLDSAPublicKey | null>;
+
+    public abstract mldsaPublicKeyExists(
+        hashedPublicKey: Buffer | Binary | string,
+        legacyPublicKey: Buffer | Binary | string,
+    ): Promise<MLDSAPublicKeyExists>;
 }

@@ -141,7 +141,7 @@ export abstract class EpochRoute<T extends Routes> extends Route<
                     confirmedAt: this.convertDecimal128ToString(submission.confirmedAt),
                     epochProposed: {
                         solution: '0x' + submission.epochProposed.solution.toString('hex'),
-                        publicKey: '0x' + submission.epochProposed.publicKey.toString('hex'),
+                        publicKey: '0x' + submission.epochProposed.mldsaPublicKey.toString('hex'),
                         salt: '0x' + submission.epochProposed.salt.toString('hex'),
                         graffiti: submission.epochProposed.graffiti
                             ? '0x' + submission.epochProposed.graffiti.toString('hex')
@@ -204,7 +204,7 @@ export abstract class EpochRoute<T extends Routes> extends Route<
             minDifficulty: epoch.minDifficulty,
             targetHash: '0x' + epoch.targetHash.toString('hex'),
             proposer: {
-                publicKey: '0x' + epoch.proposer.publicKey.toString('hex'),
+                publicKey: '0x' + epoch.proposer.mldsaPublicKey.toString('hex'),
                 salt: '0x' + epoch.proposer.salt.toString('hex'),
                 graffiti: epoch.proposer.graffiti
                     ? '0x' + epoch.proposer.graffiti.toString('hex')

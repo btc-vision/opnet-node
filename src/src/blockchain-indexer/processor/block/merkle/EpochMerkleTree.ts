@@ -195,7 +195,7 @@ export class EpochMerkleTree {
                 epochNumber: treeExport.epoch.epochNumber,
                 matchingBits: winner.matchingBits,
                 salt: stringToBuffer(winner.salt),
-                publicKey: Address.fromString(winner.publicKey),
+                mldsaPublicKey: Address.fromString(winner.publicKey),
                 solutionHash: stringToBuffer(winner.solutionHash),
                 graffiti: Buffer.from(winner.graffiti, 'hex'),
             },
@@ -315,7 +315,7 @@ export class EpochMerkleTree {
             ),
         );
 
-        writer.writeAddress(epochData.winner.publicKey); // 32
+        writer.writeAddress(epochData.winner.mldsaPublicKey); // 32
         writer.writeU16(epochData.winner.matchingBits & 0xffff); // 2
         writer.writeBytes(epochData.winner.salt); // 32
         writer.writeBytes(epochData.winner.solutionHash); // 32
@@ -449,7 +449,7 @@ export class EpochMerkleTree {
             attestedChecksumRoot: this.epochData.attestedChecksumRoot.toString('hex'),
             winner: this.epochData.winner
                 ? {
-                      publicKey: this.epochData.winner.publicKey
+                      publicKey: this.epochData.winner.mldsaPublicKey
                           .originalPublicKeyBuffer()
                           .toString('hex'),
                       matchingBits: this.epochData.winner.matchingBits,

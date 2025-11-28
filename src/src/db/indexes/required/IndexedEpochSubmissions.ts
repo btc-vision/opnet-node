@@ -12,7 +12,7 @@ export class IndexedEpochSubmissions extends IndexedCollection<OPNetCollections.
             { key: { startBlock: 1 }, name: 'startBlock_1' },
             { key: { submissionHash: 1 }, name: 'submissionHash_1' },
             {
-                key: { epochNumber: 1, 'epochProposed.publicKey': 1, 'epochProposed.salt': 1 },
+                key: { epochNumber: 1, 'epochProposed.mldsaPublicKey': 1, 'epochProposed.salt': 1 },
                 name: 'epochNumber_1_epochProposedPublicKey_1_epochProposedSalt_1',
             },
         ];

@@ -12,7 +12,7 @@
         "setup": "npm i && npm run build"
     },
     "engines": {
-        "node": ">=22.0.0 <25.0.0"
+        "node": ">=22.0.0 <26.0.0"
     },
     "homepage": "https://opnet.org",
     "keywords": [
@@ -98,7 +98,7 @@
     "devDependencies": {
         "@types/cors": "^2.8.19",
         "@types/debug": "^4.1.12",
-        "@types/node": "^24.10.0",
+        "@types/node": "^24.10.1",
         "@types/sodium-native": "^2.3.9",
         "@types/ssh2": "^1.15.5",
         "@types/swagger-ui-express": "^4.1.8",

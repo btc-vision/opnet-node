@@ -379,7 +379,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
         this.contractSecret = contractSecret;
 
         this.setMiner(
-            this.interactionWitnessData.header.miner,
+            this.interactionWitnessData.header.minerMLDSAPublicKey,
             this.interactionWitnessData.header.solution,
         );
 

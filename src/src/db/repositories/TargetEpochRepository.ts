@@ -2,7 +2,6 @@ import { BaseRepository, DataConverter } from '@btc-vision/bsi-common';
 import { Binary, ClientSession, Collection, Db, Filter, FindOptions } from 'mongodb';
 import { ITargetEpochDocument } from '../documents/interfaces/ITargetEpochDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { Address } from '@btc-vision/transaction';
 
 export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> {
     public readonly logColor: string = '#ff1493';
@@ -17,18 +16,16 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
     public async targetEpochExists(
         epochNumber: bigint,
         salt: Buffer | Binary,
-        publicKey: Address | Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
     ): Promise<boolean> {
         const binarySalt = salt instanceof Binary ? salt : new Binary(salt);
 
         // Handle Address type properly
         let binaryPublicKey: Binary;
-        if (publicKey instanceof Address) {
-            binaryPublicKey = new Binary(publicKey.toBuffer());
-        } else if (publicKey instanceof Binary) {
-            binaryPublicKey = publicKey;
+        if (mldsaPublicKey instanceof Binary) {
+            binaryPublicKey = mldsaPublicKey;
         } else {
-            binaryPublicKey = new Binary(publicKey);
+            binaryPublicKey = new Binary(mldsaPublicKey);
         }
 
         const criteria: Partial<Filter<ITargetEpochDocument>> = {
@@ -66,7 +63,7 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
         const criteria: Partial<Filter<ITargetEpochDocument>> = {
             epochNumber: targetEpoch.epochNumber,
             salt: targetEpoch.salt,
-            publicKey: targetEpoch.publicKey,
+            mldsaPublicKey: targetEpoch.mldsaPublicKey,
         };
 
         const update = {

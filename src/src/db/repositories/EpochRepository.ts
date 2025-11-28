@@ -126,7 +126,7 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
             proposerPublicKey instanceof Binary ? proposerPublicKey : new Binary(proposerPublicKey);
 
         const criteria: Partial<Filter<IEpochDocument>> = {
-            'proposer.publicKey': binaryKey,
+            'proposer.mldsaPublicKey': binaryKey,
         };
 
         return await this.queryMany(criteria, currentSession, {
@@ -178,19 +178,27 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
             adjustedEndBlock,
         );
 
-        const solutions: ChallengeSolution = new AddressMap();
+        const challengeSolution: ChallengeSolution = {
+            solutions: new AddressMap(),
+            legacyPublicKeys: new AddressMap(),
+        };
+
         for (let i = 0; i < epochs.length; i++) {
             const epoch = epochs[i];
 
-            const minerAddress = new Address(epoch.proposer.publicKey.buffer);
-            const solutionArray = solutions.get(minerAddress) || [];
-
+            const minerAddress = new Address(epoch.proposer.mldsaPublicKey.buffer);
+            const solutionArray = challengeSolution.solutions.get(minerAddress) || [];
             solutionArray.push(Buffer.from(epoch.proposer.solution.buffer));
 
-            solutions.set(minerAddress, solutionArray);
+            challengeSolution.legacyPublicKeys.set(
+                minerAddress,
+                Buffer.from(epoch.proposer.legacyPublicKey.buffer),
+            );
+
+            challengeSolution.solutions.set(minerAddress, solutionArray);
         }
 
-        return solutions;
+        return challengeSolution;
     }
 
     /**
@@ -222,7 +230,7 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
             proposerPublicKey instanceof Binary ? proposerPublicKey : new Binary(proposerPublicKey);
 
         const criteria: Partial<Filter<IEpochDocument>> = {
-            'proposer.publicKey': binaryKey,
+            'proposer.mldsaPublicKey': binaryKey,
         };
 
         return await this.count(criteria, currentSession);
