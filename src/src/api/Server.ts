@@ -158,14 +158,16 @@ export class Server extends Logger {
     }
 
     private globalErrorHandler(_request: Request, response: Response, _error: Error): void {
-        response.status(500);
+        response.atomic(() => {
+            response.status(500);
 
-        if (Config.DEV_MODE) {
-            this.error(`Error details: ${_error.stack}`);
-        }
+            if (Config.DEV_MODE) {
+                this.error(`Error details: ${_error.stack}`);
+            }
 
-        response.json({
-            error: 'Something went wrong.',
+            response.json({
+                error: 'Something went wrong.',
+            });
         });
     }
 
