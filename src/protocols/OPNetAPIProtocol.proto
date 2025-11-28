@@ -532,7 +532,7 @@ message SubmitEpochRequest {
     string epochNumber = 2;
     string targetHash = 3;
     string salt = 4;
-    string publicKey = 5;
+    string mldsaPublicKey = 5;
     optional string graffiti = 6;
     string signature = 7;
 }
