@@ -114,6 +114,7 @@ export interface CallRequest extends BaseRequest {
     readonly to: string;
     readonly calldata: string;
     readonly from?: string;
+    readonly fromLegacy?: string;
 }
 
 // ============================================================================

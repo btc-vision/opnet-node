@@ -472,6 +472,7 @@ export class HandlerRegistry extends Logger {
                     to: request.to,
                     calldata: request.calldata,
                     from: request.from,
+                    fromLegacy: request.fromLegacy,
                 });
 
                 if (!result) {
