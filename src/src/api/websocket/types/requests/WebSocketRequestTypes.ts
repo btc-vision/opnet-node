@@ -114,6 +114,7 @@ export interface CallRequest extends BaseRequest {
     readonly to: string;
     readonly calldata: string;
     readonly from?: string;
+    readonly fromLegacy?: string;
 }
 
 // ============================================================================
@@ -136,7 +137,7 @@ export interface SubmitEpochRequest extends BaseRequest {
     readonly epochNumber: string;
     readonly targetHash: string;
     readonly salt: string;
-    readonly publicKey: string;
+    readonly mldsaPublicKey: string;
     readonly graffiti?: string;
     readonly signature: string;
 }

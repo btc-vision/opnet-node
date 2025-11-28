@@ -348,7 +348,11 @@ export class ChainSynchronisation extends Logger {
 
                 // const convertedSolutions = this.convertAllowedSolutions(allowedSolutions);
 
-                const solutions: ChallengeSolution = new AddressMap();
+                const solutions: ChallengeSolution = {
+                    solutions: new AddressMap(),
+                    legacyPublicKeys: new AddressMap(),
+                };
+
                 const block = new Block({
                     network: this.network,
                     abortController: abortController,

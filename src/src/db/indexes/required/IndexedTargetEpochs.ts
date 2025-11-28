@@ -10,6 +10,7 @@ export class IndexedTargetEpochs extends IndexedCollection<OPNetCollections.Targ
         return [
             { key: { targetEpoch: 1 }, name: 'targetEpoch_1' },
             { key: { difficulty: 1 }, name: 'difficulty_1' },
+            { key: { mldsaPublicKey: 1 }, name: 'mldsaPublicKey_1' },
         ];
     }
 }

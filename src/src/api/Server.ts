@@ -195,7 +195,7 @@ export class Server extends Logger {
                     await this.notifyAllRoutesOfEpochFinalized(highestPossibleFinalizedEpoch);
                 }
             } catch (e) {
-                this.error(`Error processing block height change: ${(e as Error).message}`);
+                this.error(`Error processing block height change: ${(e as Error).stack}`);
             }
         });
 

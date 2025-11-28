@@ -50,7 +50,7 @@ class AuthorityManagerBase extends Logger {
                 this.versions.set(version, authority);
             } catch (e) {
                 this.error(
-                    `Failed to load authority for version: ${version}. Error: ${(e as Error).message}`,
+                    `Failed to load authority for version: ${version}. Error: ${(e as Error).stack}`,
                 );
             }
         }

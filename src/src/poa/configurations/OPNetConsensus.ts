@@ -35,6 +35,16 @@ class OPNetConsensusConfiguration extends Logger {
         return this.#consensus;
     }
 
+    public get allowUnsafeSignatures(): boolean {
+        if (!this.#consensus) {
+            throw new Error('Consensus not set.');
+        }
+
+        return this.#consensus.VM.CONSENSUS_RULES.containsFlag(
+            ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWED,
+        );
+    }
+
     public get consensusRules(): ConsensusRules {
         if (!this.#consensus) {
             throw new Error('Consensus not set.');

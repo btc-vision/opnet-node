@@ -4,7 +4,8 @@ import { EpochSubmissionAPIResult } from '../../../../../../db/documents/interfa
 
 export interface APIEpochMiner {
     readonly solution: string;
-    readonly publicKey: string;
+    readonly mldsaPublicKey: string;
+    readonly legacyPublicKey: string;
     readonly salt: string;
     readonly graffiti?: string;
 }

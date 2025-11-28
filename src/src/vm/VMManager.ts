@@ -46,6 +46,7 @@ import { StrippedTransactionInput } from '../blockchain-indexer/processor/transa
 import { SpecialContract } from '../poa/configurations/types/SpecialContracts.js';
 import { calculateMaxGas } from '../utils/GasUtils.js';
 import { MutableNumber } from './mutables/MutableNumber.js';
+import { IMLDSAPublicKey } from '../db/interfaces/IMLDSAPublicKey.js';
 
 Globals.register();
 
@@ -97,6 +98,12 @@ export class VMManager extends Logger {
 
     private pointerCache: AddressMap<Map<MemorySlotData<bigint>, ProvenMemoryValue | null>> =
         new AddressMap();
+
+    private mldsaCache: AddressMap<Promise<IMLDSAPublicKey | null>> = new AddressMap();
+    private mldsaCacheFromLegacy: AddressMap<Promise<IMLDSAPublicKey | null>> = new AddressMap();
+
+    private mldsaToStore: AddressMap<IMLDSAPublicKey> = new AddressMap();
+    private mldsaToStoreLegacy: AddressMap<Address> = new AddressMap();
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -621,6 +628,12 @@ export class VMManager extends Logger {
         this.verifiedBlockHeights.clear();
         this.contractCache.clear();
 
+        // MLDSA caches
+        this.mldsaCache.clear();
+        this.mldsaToStore.clear();
+        this.mldsaToStoreLegacy.clear();
+        this.mldsaCacheFromLegacy.clear();
+
         for (const vmEvaluator of this.vmEvaluators.values()) {
             await vmEvaluator;
         }
@@ -628,8 +641,86 @@ export class VMManager extends Logger {
         this.vmEvaluators.clear();
     }
 
-    public async getMLDSAPublicKey(address: Address): Promise<Buffer | Uint8Array> {
-        return Promise.reject(new Error('Method not implemented'));
+    public async getMLDSAPublicKey(address: Address): Promise<IMLDSAPublicKey | null> {
+        const cacheHitToStore = this.mldsaToStore.get(address);
+        if (cacheHitToStore) {
+            return cacheHitToStore;
+        }
+
+        const cached = this.mldsaCache.get(address);
+        if (cached !== undefined) {
+            return await cached;
+        }
+
+        const publicKeyData = this.vmStorage.getMLDSAPublicKeyFromHash(
+            address.toBuffer(),
+            this.vmBitcoinBlock.height,
+        );
+
+        this.mldsaCache.set(address, publicKeyData);
+
+        return await publicKeyData;
+    }
+
+    public async getMLDSAPublicKeyFromLegacyKey(
+        tweakedPublicKey: Buffer,
+    ): Promise<IMLDSAPublicKey | null> {
+        const tweakedAddress = new Address(tweakedPublicKey);
+
+        const cachedAddress = this.mldsaToStoreLegacy.get(tweakedAddress);
+        if (cachedAddress) {
+            return this.mldsaToStore.get(cachedAddress) || null;
+        }
+
+        const cached = this.mldsaCacheFromLegacy.get(tweakedAddress);
+        if (cached !== undefined) {
+            return await cached;
+        }
+
+        const publicKeyData = this.vmStorage.getMLDSAByLegacy(
+            tweakedPublicKey,
+            this.vmBitcoinBlock.height,
+        );
+
+        this.mldsaCacheFromLegacy.set(tweakedAddress, publicKeyData);
+
+        return await publicKeyData;
+    }
+
+    public async addMLDSAInfoToStore(mldsaPublicKey: IMLDSAPublicKey): Promise<void> {
+        if (mldsaPublicKey.blockHeight !== this.vmBitcoinBlock.height) {
+            throw new Error('MLDSA public key block height mismatch.');
+        }
+
+        // Verify we don't have a pending write on the mldsa public key.
+        const address = new Address(mldsaPublicKey.hashedPublicKey, mldsaPublicKey.legacyPublicKey);
+        if (this.mldsaToStore.has(address)) {
+            return;
+        }
+
+        // Verify we don't have a pending write on this tweaked key.
+        const tweakedAddress = new Address(address.tweakedPublicKeyToBuffer());
+        if (this.mldsaToStoreLegacy.has(tweakedAddress)) {
+            return;
+        }
+
+        // Verify it does not exist in the database.
+        const exists = await this.vmStorage.mldsaPublicKeyExists(
+            mldsaPublicKey.hashedPublicKey,
+            mldsaPublicKey.legacyPublicKey,
+        );
+
+        // Only error if it's a reassignment.
+        if (exists.hashedExists !== exists.legacyExists) {
+            throw new Error('Can not reassign existing MLDSA public key to legacy or hashed key.');
+        }
+
+        if (exists.hashedExists) {
+            return;
+        }
+
+        this.mldsaToStore.set(address, mldsaPublicKey);
+        this.mldsaToStoreLegacy.set(tweakedAddress, address);
     }
 
     private async onBlockCompleted(): Promise<void> {
@@ -1047,6 +1138,12 @@ export class VMManager extends Logger {
 
         if (storageToUpdate.size) {
             await this.vmStorage.setStoragePointers(storageToUpdate, this.vmBitcoinBlock.height);
+        }
+
+        if (this.mldsaToStore.size) {
+            const mldsaToStoreCopy = Array.from(this.mldsaToStore.values());
+
+            await this.vmStorage.saveMLDSAPublicKeys(mldsaToStoreCopy);
         }
     }
 

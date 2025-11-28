@@ -1,7 +1,4 @@
-export enum Features {
-    ACCESS_LIST = 0b1,
-    EPOCH_SUBMISSION = 0b10,
-}
+import { Features } from '@btc-vision/transaction';
 
 export interface Feature<T extends Features> {
     opcode: T;
@@ -13,5 +10,9 @@ export interface AccessListFeature extends Feature<Features.ACCESS_LIST> {
 }
 
 export interface EpochSubmissionFeature extends Feature<Features.EPOCH_SUBMISSION> {
+    data: Buffer;
+}
+
+export interface MLDSALinkRequest extends Feature<Features.MLDSA_LINK_PUBKEY> {
     data: Buffer;
 }

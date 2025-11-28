@@ -2,9 +2,8 @@ import { Consensus } from '../consensus/Consensus.js';
 import { BitcoinNetwork } from '../../../config/network/BitcoinNetwork.js';
 import { SpecialContracts } from './SpecialContracts.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
-import { Address } from '@btc-vision/transaction';
+import { Address, MLDSASecurityLevel } from '@btc-vision/transaction';
 import { ConsensusRules } from '../../../vm/consensus/ConsensusRules.js';
-import { MLDSASecurityLevel } from '../../../vm/mldsa/MLDSAMetadata.js';
 
 export enum TransactionInputFlags {
     hasCoinbase = 0b00000001,

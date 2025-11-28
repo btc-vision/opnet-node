@@ -472,6 +472,7 @@ export class HandlerRegistry extends Logger {
                     to: request.to,
                     calldata: request.calldata,
                     from: request.from,
+                    fromLegacy: request.fromLegacy,
                 });
 
                 if (!result) {
@@ -592,7 +593,7 @@ export class HandlerRegistry extends Logger {
                     epochNumber: request.epochNumber,
                     targetHash: request.targetHash,
                     salt: request.salt,
-                    publicKey: request.publicKey,
+                    mldsaPublicKey: request.mldsaPublicKey,
                     graffiti: request.graffiti,
                     signature: request.signature,
                 });

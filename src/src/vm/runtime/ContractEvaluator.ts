@@ -31,6 +31,7 @@ import {
     UPDATED_STORAGE_SLOT_GAS_COST,
 } from '@btc-vision/op-vm';
 import { MLDSAMetadata } from '../mldsa/MLDSAMetadata.js';
+import { IMLDSAPublicKey } from '../../db/interfaces/IMLDSAPublicKey.js';
 
 //import v8 from 'v8';
 //import * as vm from 'node:vm';
@@ -128,7 +129,7 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [deployContractAtAddress]');
     }
 
-    public getMLDSAPublicKey = (_address: Address): Promise<Buffer | Uint8Array> => {
+    public getMLDSAPublicKey = (_address: Address): Promise<IMLDSAPublicKey | null> => {
         throw new Error('Method not implemented. [getMLDSAPublicKey]');
     };
 
@@ -636,11 +637,11 @@ export class ContractEvaluator extends Logger {
             return response.getBuffer();
         }
 
-        const publicKey = await this.getMLDSAPublicKey(address);
+        const publicKeyData = await this.getMLDSAPublicKey(address);
         const expectedLength = MLDSAMetadata.fromLevel(level) as number;
-        if (publicKey?.length === expectedLength) {
+        if (publicKeyData && publicKeyData.publicKey.length === expectedLength) {
             response.writeBoolean(true);
-            response.writeBytes(publicKey);
+            response.writeBytes(publicKeyData.publicKey);
         } else {
             response.writeBoolean(false);
         }

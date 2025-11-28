@@ -214,13 +214,14 @@ message GetPreimageRequest {
 
 message PreimageResponse {
     string epochNumber = 1;
-    string publicKey = 2;
-    string solution = 3;
-    string salt = 4;
-    string graffiti = 5;
-    uint32 difficulty = 6;
-    PreimageVerification verification = 7;
-    optional ChallengeSubmission submission = 8;
+    string mldsaPublicKey = 2;
+    string legacyPublicKey = 3;
+    string solution = 4;
+    string salt = 5;
+    string graffiti = 6;
+    uint32 difficulty = 7;
+    PreimageVerification verification = 8;
+    optional ChallengeSubmission submission = 9;
 }
 
 message PreimageVerification {
@@ -234,10 +235,11 @@ message PreimageVerification {
 }
 
 message ChallengeSubmission {
-    string publicKey = 1;
-    string solution = 2;
-    string graffiti = 3;
-    string signature = 4;
+    string mldsaPublicKey = 1;
+    string legacyPublicKey = 2;
+    string solution = 3;
+    string graffiti = 4;
+    string signature = 5;
 }
 
 // ============================================================================
@@ -439,6 +441,7 @@ message CallRequest {
     string to = 2;
     string calldata = 3;
     optional string from = 4;
+    optional string fromLegacy = 5;
 }
 
 message CallResponse {
@@ -505,9 +508,10 @@ message EpochResponse {
 
 message EpochMiner {
     string solution = 1;
-    string publicKey = 2;
-    string salt = 3;
-    optional string graffiti = 4;
+    string mldsaPublicKey = 2;
+    string legacyPublicKey = 3;
+    string salt = 4;
+    optional string graffiti = 5;
 }
 
 message EpochSubmission {
@@ -532,7 +536,7 @@ message SubmitEpochRequest {
     string epochNumber = 2;
     string targetHash = 3;
     string salt = 4;
-    string publicKey = 5;
+    string mldsaPublicKey = 5;
     optional string graffiti = 6;
     string signature = 7;
 }
