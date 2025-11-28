@@ -5,7 +5,8 @@ export interface ITargetEpochDocument {
     readonly difficulty: number;
 
     readonly salt: Binary;
-    readonly publicKey: Binary;
+    readonly mldsaPublicKey: Binary;
+    readonly legacyPublicKey: Binary;
 
     graffiti?: Binary;
     readonly signature: Binary;

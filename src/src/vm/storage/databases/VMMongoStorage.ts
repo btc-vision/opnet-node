@@ -690,12 +690,15 @@ export class VMMongoStorage extends VMStorage {
         return this.epochRepository.getActiveEpoch();
     }
 
-    public getEpochsByProposer(proposerPublicKey: Buffer | Binary): Promise<IEpochDocument[]> {
+    public getEpochsByProposer(
+        mldsaPublicKey: Buffer | Binary,
+        legacyPublicKey: Buffer | Binary,
+    ): Promise<IEpochDocument[]> {
         if (!this.epochRepository) {
             throw new Error('Epoch repository not initialized');
         }
 
-        return this.epochRepository.getEpochsByProposer(proposerPublicKey);
+        return this.epochRepository.getEpochsByProposer(mldsaPublicKey, legacyPublicKey);
     }
 
     public getEpochsByTargetHash(targetHash: Buffer | Binary): Promise<IEpochDocument[]> {
@@ -798,7 +801,7 @@ export class VMMongoStorage extends VMStorage {
     }
 
     public submissionExists(
-        publicKey: Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
         salt: Buffer | Binary,
         epochNumber: bigint,
     ): Promise<boolean> {
@@ -806,7 +809,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Epoch submission repository not initialized');
         }
 
-        return this.epochSubmissionRepository.submissionExists(publicKey, salt, epochNumber);
+        return this.epochSubmissionRepository.submissionExists(mldsaPublicKey, salt, epochNumber);
     }
 
     private chunkArray<T>(array: T[], size: number): T[][] {

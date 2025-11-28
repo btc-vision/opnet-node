@@ -235,14 +235,14 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
      * Check if a submission exists
      */
     public async submissionExists(
-        publicKey: Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
         salt: Buffer | Binary,
         epochNumber: bigint,
     ): Promise<boolean> {
         const criteria: Partial<Filter<IEpochSubmissionsDocument>> = {
             epochNumber: DataConverter.toDecimal128(epochNumber),
-            'epochProposed.publicKey':
-                publicKey instanceof Binary ? publicKey : new Binary(publicKey),
+            'epochProposed.mldsaPublicKey':
+                mldsaPublicKey instanceof Binary ? mldsaPublicKey : new Binary(mldsaPublicKey),
             'epochProposed.salt': salt instanceof Binary ? salt : new Binary(salt),
         };
 

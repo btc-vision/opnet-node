@@ -132,7 +132,8 @@ export class GetPreimage extends Route<
 
         // Convert binary data to hex strings
         const epochNumber = DataConverter.fromDecimal128(targetEpoch.epochNumber);
-        const publicKey = this.uint8ArrayToHex(targetEpoch.proposer.publicKey.buffer);
+        const mldsaPublicKey = this.uint8ArrayToHex(targetEpoch.proposer.mldsaPublicKey.buffer);
+        const legacyPublicKey = this.uint8ArrayToHex(targetEpoch.proposer.legacyPublicKey.buffer);
         const solution = this.uint8ArrayToHex(targetEpoch.proposer.solution.buffer);
         const salt = this.uint8ArrayToHex(targetEpoch.proposer.salt.buffer);
         const graffiti = targetEpoch.proposer.graffiti
@@ -162,7 +163,8 @@ export class GetPreimage extends Route<
         const submission = await this.storage.getBestTargetEpoch(currentEpoch);
         const submissionData: ChallengeSubmission | undefined = submission
             ? {
-                  publicKey: this.uint8ArrayToHex(submission.publicKey.buffer),
+                  mldsaPublicKey: this.uint8ArrayToHex(submission.mldsaPublicKey.buffer),
+                  legacyPublicKey: this.uint8ArrayToHex(submission.legacyPublicKey.buffer),
                   solution: this.uint8ArrayToHex(submission.salt.buffer),
                   graffiti: submission.graffiti
                       ? this.uint8ArrayToHex(submission.graffiti.buffer)
@@ -175,7 +177,8 @@ export class GetPreimage extends Route<
 
         return {
             epochNumber: epochNumber.toString(),
-            publicKey,
+            mldsaPublicKey,
+            legacyPublicKey,
             solution,
             salt,
             graffiti,

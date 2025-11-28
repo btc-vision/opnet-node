@@ -1,5 +1,6 @@
 export interface Submission {
-    readonly publicKey: Buffer;
+    readonly mldsaPublicKey: Buffer;
+    readonly legacyPublicKey: Buffer;
     readonly salt: Buffer;
     readonly graffiti?: Buffer;
 }

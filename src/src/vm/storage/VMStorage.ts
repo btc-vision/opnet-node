@@ -182,28 +182,6 @@ export abstract class VMStorage extends Logger {
     public abstract getEpochByHash(epochHash: Buffer | Binary): Promise<IEpochDocument | undefined>;
 
     /**
-     * Get epoch by block height (find which epoch contains this block)
-     */
-    public abstract getEpochByBlockHeight(blockHeight: bigint): Promise<IEpochDocument | undefined>;
-
-    /**
-     * Get active epoch (where endBlock is -1)
-     */
-    public abstract getActiveEpoch(): Promise<IEpochDocument | undefined>;
-
-    /**
-     * Get epochs by proposer public key
-     */
-    public abstract getEpochsByProposer(
-        proposerPublicKey: Buffer | Binary,
-    ): Promise<IEpochDocument[]>;
-
-    /**
-     * Get epochs by target hash
-     */
-    public abstract getEpochsByTargetHash(targetHash: Buffer | Binary): Promise<IEpochDocument[]>;
-
-    /**
      * Save or update an epoch
      */
     public abstract saveEpoch(epoch: IEpochDocument): Promise<void>;
@@ -212,16 +190,6 @@ export abstract class VMStorage extends Logger {
      * Update epoch proofs
      */
     public abstract updateWitnessProofs(attestationProofs: AttestationProof[]): Promise<void>;
-
-    /**
-     * Update epoch end block
-     */
-    public abstract updateEpochEndBlock(epochNumber: bigint, endBlock: bigint): Promise<void>;
-
-    /**
-     * Delete epochs from a specific bitcoin block number onwards
-     */
-    public abstract deleteEpochFromBitcoinBlockNumber(bitcoinBlockNumber: bigint): Promise<void>;
 
     /**
      * Get all submissions for a specific epoch number
@@ -236,51 +204,10 @@ export abstract class VMStorage extends Logger {
     public abstract saveSubmission(submission: IEpochSubmissionsDocument): Promise<void>;
 
     /**
-     * Get submission by transaction hash
-     */
-    public abstract getSubmissionByTxHash(
-        txHash: Buffer | Binary,
-    ): Promise<IEpochSubmissionsDocument | undefined>;
-
-    /**
-     * Get submission by transaction ID
-     */
-    public abstract getSubmissionByTxId(
-        txId: Buffer | Binary,
-    ): Promise<IEpochSubmissionsDocument | undefined>;
-
-    /**
-     * Get submissions accepted within a block range
-     */
-    public abstract getSubmissionsInBlockRange(
-        startBlock: bigint,
-        endBlock: bigint,
-    ): Promise<IEpochSubmissionsDocument[]>;
-
-    /**
-     * Get submissions by proposer public key
-     */
-    public abstract getSubmissionsByProposer(
-        proposerPublicKey: Buffer | Binary,
-    ): Promise<IEpochSubmissionsDocument[]>;
-
-    /**
-     * Get pending submissions (not yet accepted)
-     */
-    public abstract getPendingSubmissions(fromBlock: bigint): Promise<IEpochSubmissionsDocument[]>;
-
-    /**
-     * Get submissions by submission hash
-     */
-    public abstract getSubmissionByHash(
-        submissionHash: Buffer | Binary,
-    ): Promise<IEpochSubmissionsDocument | undefined>;
-
-    /**
      * Check if a submission exists
      */
     public abstract submissionExists(
-        publicKey: Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
         salt: Buffer | Binary,
         epochNumber: bigint,
     ): Promise<boolean>;
@@ -288,7 +215,7 @@ export abstract class VMStorage extends Logger {
     public abstract targetEpochExists(
         epochNumber: bigint,
         salt: Buffer | Binary,
-        publicKey: Address | Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
     ): Promise<boolean>;
 
     public abstract getBestTargetEpoch(epochNumber: bigint): Promise<ITargetEpochDocument | null>;
@@ -296,4 +223,6 @@ export abstract class VMStorage extends Logger {
     public abstract saveTargetEpoch(targetEpoch: ITargetEpochDocument): Promise<void>;
 
     public abstract deleteOldTargetEpochs(epochNumber: bigint): Promise<void>;
+
+    public abstract getMLDSAPublicKeyFromHash(hash: Address | Buffer | Uint8Array): Promise<Buffer>;
 }

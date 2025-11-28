@@ -15,7 +15,16 @@ import {
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
 import { EpochValidationParams, EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { BinaryWriter, MessageSigner } from '@btc-vision/transaction';
+import {
+    BinaryWriter,
+    MessageSigner,
+    MLDSASecurityLevel,
+    QuantumBIP32Factory,
+} from '@btc-vision/transaction';
+import {
+    MLDSA44_PUBLIC_KEY_LEN,
+    MLDSA44_SIGNATURE_LEN,
+} from '../../../../../vm/mldsa/MLDSAMetadata.js';
 
 export class SubmitEpochRoute extends Route<
     Routes.SUBMIT_EPOCH,
@@ -112,18 +121,32 @@ export class SubmitEpochRoute extends Route<
      */
     private validateHexStringLengths(params: SubmitEpochParamsAsObject): void {
         // Public key validation: must be 33 bytes (66 hex characters)
-        if (!params.publicKey || typeof params.publicKey !== 'string') {
-            throw new Error('Public key must be a hex string');
+        if (!params.mldsaPublicKey || typeof params.mldsaPublicKey !== 'string') {
+            throw new Error('MLDSA public key must be a hex string');
+        }
+
+        if (!params.legacyPublicKey || typeof params.legacyPublicKey !== 'string') {
+            throw new Error('Legacy public key must be a hex string');
         }
 
         // Remove '0x' prefix if present for all validations
-        const publicKeyHex = params.publicKey.startsWith('0x')
-            ? params.publicKey.slice(2)
-            : params.publicKey;
+        const mldsaPublicKeyHex = params.mldsaPublicKey.startsWith('0x')
+            ? params.mldsaPublicKey.slice(2)
+            : params.mldsaPublicKey;
 
-        if (publicKeyHex.length !== 66) {
+        if (mldsaPublicKeyHex.length !== 64) {
             throw new Error(
-                `Public key must be 33 bytes (66 hex characters). Received ${publicKeyHex.length} characters`,
+                `MLDSA public key must be 32 bytes (64 hex characters). Received ${mldsaPublicKeyHex.length} characters`,
+            );
+        }
+
+        const legacyPublicKeyHex = params.legacyPublicKey.startsWith('0x')
+            ? params.legacyPublicKey.slice(2)
+            : params.legacyPublicKey;
+
+        if (legacyPublicKeyHex.length !== 66) {
+            throw new Error(
+                `Public key must be 33 bytes (66 hex characters). Received ${legacyPublicKeyHex.length} characters`,
             );
         }
 
@@ -158,8 +181,12 @@ export class SubmitEpochRoute extends Route<
         // Validate that all strings contain only valid hex characters
         const hexRegex = /^[0-9a-fA-F]+$/;
 
-        if (!hexRegex.test(publicKeyHex)) {
-            throw new Error('Public key contains invalid hex characters');
+        if (!hexRegex.test(mldsaPublicKeyHex)) {
+            throw new Error('MLDSA public key contains invalid hex characters');
+        }
+
+        if (!hexRegex.test(legacyPublicKeyHex)) {
+            throw new Error('Legacy Public key contains invalid hex characters');
         }
 
         if (!hexRegex.test(saltHex)) {
@@ -176,10 +203,18 @@ export class SubmitEpochRoute extends Route<
         }
 
         const signatureHex = signature.startsWith('0x') ? signature.slice(2) : signature;
-        if (signatureHex.length !== 128) {
-            throw new Error(
-                `Signature must be 64 bytes (128 hex characters). Received ${signatureHex.length} characters`,
-            );
+        if (OPNetConsensus.allowUnsafeSignatures) {
+            if (signatureHex.length !== 128) {
+                throw new Error(
+                    `Signature must be 64 bytes (128 hex characters). Received ${signatureHex.length} characters`,
+                );
+            }
+        } else {
+            if (signatureHex.length !== MLDSA44_SIGNATURE_LEN * 2) {
+                throw new Error(
+                    `Signature must be ${MLDSA44_SIGNATURE_LEN} bytes (${MLDSA44_SIGNATURE_LEN * 2} hex characters). Received ${signatureHex.length} characters`,
+                );
+            }
         }
 
         if (!hexRegex.test(signatureHex)) {
@@ -199,7 +234,6 @@ export class SubmitEpochRoute extends Route<
             // Check if graffiti length exceeds maximum allowed bytes
             // Each hex pair represents one byte, so divide by 2
             const graffitiByteLength = graffitiHex.length / 2;
-
             if (graffitiByteLength > OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
                 throw new Error(
                     `Graffiti cannot exceed ${OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH} bytes. ` +
@@ -239,7 +273,8 @@ export class SubmitEpochRoute extends Route<
             epochNumber: validatedParams.epochNumber,
             targetHash: validatedParams.targetHash,
             salt: validatedParams.salt,
-            publicKey: validatedParams.publicKey,
+            mldsaPublicKey: validatedParams.mldsaPublicKey,
+            legacyPublicKey: validatedParams.legacyPublicKey,
             graffiti: validatedParams.graffiti,
             signature: validatedParams.signature,
         });
@@ -248,14 +283,13 @@ export class SubmitEpochRoute extends Route<
         const exists = await this.epochValidator.solutionExists(
             validationParams.epochNumber,
             validationParams.salt,
-            validationParams.publicKey,
+            validationParams.address.toBuffer(),
         );
 
         if (exists) {
             throw new Error('Epoch submission with this salt already exists');
         }
 
-        // Validate the solution (this will now check timing)
         const validationResult = await this.epochValidator.validateEpochSolution(
             validationParams,
             this.pendingBlockHeight,
@@ -273,7 +307,7 @@ export class SubmitEpochRoute extends Route<
             };
         }
 
-        this.validateSignature(validationParams);
+        await this.validateSignature(validationParams);
 
         // Save the validated solution
         await this.epochValidator.saveEpochSolution(validationParams, validationResult);
@@ -306,9 +340,13 @@ export class SubmitEpochRoute extends Route<
         };
     }
 
-    private validateSignature(data: EpochValidationParams): void {
+    private async validateSignature(data: EpochValidationParams): Promise<void> {
+        if (!this.storage) {
+            throw new Error('Storage not initialized for signature validation');
+        }
+
         const signatureDataWriter = new BinaryWriter();
-        signatureDataWriter.writeAddress(data.publicKey);
+        signatureDataWriter.writeAddress(data.address);
         signatureDataWriter.writeU64(data.epochNumber);
         signatureDataWriter.writeBytes(data.salt);
 
@@ -317,11 +355,34 @@ export class SubmitEpochRoute extends Route<
         }
 
         const signatureData = signatureDataWriter.getBuffer();
-        const isValid = MessageSigner.verifySignature(
-            data.publicKey,
-            signatureData,
-            data.signature,
-        );
+
+        let isValid: boolean;
+        if (OPNetConsensus.allowUnsafeSignatures) {
+            isValid = MessageSigner.verifySignature(
+                data.address.tweakedPublicKeyToBuffer(),
+                signatureData,
+                data.signature,
+            );
+        } else {
+            const mldsaPublicKey = await this.storage.getMLDSAPublicKeyFromHash(
+                data.address.toBuffer(),
+            );
+
+            if (mldsaPublicKey.length !== MLDSA44_PUBLIC_KEY_LEN) {
+                throw new Error(
+                    'Invalid MLDSA44 public key length. This mldsa public key can not be used for signature verification.',
+                );
+            }
+
+            const keyPair = QuantumBIP32Factory.fromPublicKey(
+                mldsaPublicKey,
+                Buffer.alloc(32),
+                this.network,
+                MLDSASecurityLevel.LEVEL2,
+            );
+
+            isValid = MessageSigner.verifyMLDSASignature(keyPair, signatureData, data.signature);
+        }
 
         if (!isValid) {
             throw new Error('Invalid signature for epoch submission');
@@ -346,8 +407,12 @@ export class SubmitEpochRoute extends Route<
             throw new Error('Epoch number is required');
         }
 
-        if (!params.publicKey) {
+        if (!params.legacyPublicKey) {
             throw new Error('Public key is required');
+        }
+
+        if (!params.mldsaPublicKey) {
+            throw new Error('MLDSA public key is required');
         }
 
         if (!params.targetHash) {

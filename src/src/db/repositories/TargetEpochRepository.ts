@@ -66,7 +66,8 @@ export class TargetEpochRepository extends BaseRepository<ITargetEpochDocument> 
         const criteria: Partial<Filter<ITargetEpochDocument>> = {
             epochNumber: targetEpoch.epochNumber,
             salt: targetEpoch.salt,
-            publicKey: targetEpoch.publicKey,
+            mldsaPublicKey: targetEpoch.mldsaPublicKey,
+            legacyPublicKey: targetEpoch.legacyPublicKey,
         };
 
         const update = {

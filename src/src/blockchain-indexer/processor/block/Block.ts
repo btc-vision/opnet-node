@@ -740,7 +740,7 @@ export class Block {
             promise: epochManager.submissionExists(
                 currentEpoch,
                 data.submission.salt,
-                data.submission.publicKey,
+                data.submission.mldsaPublicKey,
             ),
         }));
 
@@ -803,7 +803,7 @@ export class Block {
     }
 
     private generateSubmissionKey(submission: Submission): string {
-        return `${submission.salt.toString('hex')}-${submission.publicKey.toString('hex')}`;
+        return `${submission.salt.toString('hex')}-${submission.mldsaPublicKey.toString('hex')}`;
     }
 
     private async saveEpochSubmissions(vmStorage: VMStorage): Promise<void> {
@@ -836,7 +836,8 @@ export class Block {
 
                 epochProposed: {
                     solution: new Binary(validationResult.hash),
-                    publicKey: new Binary(submission.publicKey),
+                    mldsaPublicKey: new Binary(submission.mldsaPublicKey),
+                    legacyPublicKey: new Binary(submission.legacyPublicKey),
                     salt: new Binary(submission.salt),
                     graffiti: submission.graffiti ? new Binary(submission.graffiti) : undefined,
                 },

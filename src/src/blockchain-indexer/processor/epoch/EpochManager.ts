@@ -64,9 +64,9 @@ export class EpochManager extends Logger {
     public async submissionExists(
         epochNumber: bigint,
         salt: Buffer,
-        publicKey: Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
     ): Promise<boolean> {
-        return this.storage.submissionExists(publicKey, salt, epochNumber);
+        return this.storage.submissionExists(mldsaPublicKey, salt, epochNumber);
     }
 
     public async getPendingEpochTarget(currentEpoch: bigint): Promise<PendingTargetEpoch> {
@@ -108,7 +108,7 @@ export class EpochManager extends Logger {
         // Reuse the static calculatePreimage method from EpochValidator
         const preimage = EpochValidator.calculatePreimage(
             pendingTarget.target,
-            new Address(submission.publicKey),
+            new Address(submission.mldsaPublicKey, submission.legacyPublicKey),
             submission.salt,
         );
 
@@ -173,7 +173,8 @@ export class EpochManager extends Logger {
             ).toString(),
             proposer: {
                 solution: new Binary(epoch.solution),
-                publicKey: new Binary(epoch.publicKey),
+                mldsaPublicKey: new Binary(epoch.mldsaPublicKey),
+                legacyPublicKey: new Binary(epoch.legacyPublicKey),
                 salt: new Binary(epoch.salt),
                 graffiti: epoch.graffiti ? new Binary(epoch.graffiti) : undefined,
             },
@@ -346,7 +347,10 @@ export class EpochManager extends Logger {
             epochNumber: DataConverter.fromDecimal128(winningSubmission.epochNumber),
             matchingBits: bestMatchingBits,
             salt: Buffer.from(winningSubmission.epochProposed.salt.buffer),
-            publicKey: new Address(Buffer.from(winningSubmission.epochProposed.publicKey.buffer)),
+            address: new Address(
+                Buffer.from(winningSubmission.epochProposed.mldsaPublicKey.buffer),
+                Buffer.from(winningSubmission.epochProposed.legacyPublicKey.buffer),
+            ),
             solutionHash: Buffer.from(winningSubmission.submissionHash.buffer),
             graffiti: winningSubmission.epochProposed.graffiti
                 ? Buffer.from(winningSubmission.epochProposed.graffiti.buffer)
@@ -360,8 +364,8 @@ export class EpochManager extends Logger {
     ): IEpochSubmissionsDocument {
         const winner = [...submissions].sort((a, b) => {
             // Compare public keys (without pairing byte) - lower wins
-            const aPublicKey = Buffer.from(a.epochProposed.publicKey.buffer);
-            const bPublicKey = Buffer.from(b.epochProposed.publicKey.buffer);
+            const aPublicKey = Buffer.from(a.epochProposed.mldsaPublicKey.buffer);
+            const bPublicKey = Buffer.from(b.epochProposed.mldsaPublicKey.buffer);
 
             if (aPublicKey.length < 33 || bPublicKey.length < 33) {
                 throw new Error('Invalid public key length for comparison tiebreaker.');
@@ -463,17 +467,17 @@ export class EpochManager extends Logger {
         }
 
         let salt: Buffer;
-        let publicKey: Address;
+        let address: Address;
         let graffiti: Buffer;
 
         if (!winningSubmission || epochNumber === 0n) {
             // No valid submission or epoch 0, use genesis proposer
             salt = Buffer.alloc(32);
-            publicKey = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY;
+            address = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY;
             graffiti = Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH);
         } else {
             salt = winningSubmission.salt;
-            publicKey = winningSubmission.publicKey;
+            address = winningSubmission.address;
             graffiti = winningSubmission.graffiti;
         }
 
@@ -481,7 +485,7 @@ export class EpochManager extends Logger {
             throw new Error(`Invalid salt length: ${salt.length}. Expected 32 bytes.`);
         }
 
-        const solution = EpochValidator.calculatePreimage(checksumRoot, publicKey, salt);
+        const solution = EpochValidator.calculatePreimage(checksumRoot, address, salt);
         const solutionHash = SHA1.hashBuffer(solution);
         const matchingBits = this.epochValidator.countMatchingBits(solutionHash, targetHash);
 
@@ -500,7 +504,7 @@ export class EpochManager extends Logger {
         // Create winner object
         const epochWinner: EpochSubmissionWinner = {
             epochNumber: epochNumber,
-            publicKey: publicKey,
+            address: address,
             solutionHash: solutionHash,
             salt: salt,
             matchingBits: matchingBits,
@@ -530,7 +534,8 @@ export class EpochManager extends Logger {
 
             solution: solutionHash,
             salt: salt,
-            publicKey: publicKey.originalPublicKeyBuffer(),
+            legacyPublicKey: address.originalPublicKeyBuffer(),
+            mldsaPublicKey: address.toBuffer(),
             graffiti: graffiti,
             solutionBits: matchingBits,
 
@@ -550,7 +555,7 @@ export class EpochManager extends Logger {
 
         if (Config.EPOCH.LOG_FINALIZATION) {
             this.debugBright(
-                `Epoch ${epochNumber} finalized with root: ${epochDocument.epochRoot.toString('hex')} (Hash: ${epochDocument.epochHash.toString('hex')} | Difficulty: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))}) | Winner: ${finalEpoch.publicKey.toString('hex')} | Solution: ${finalEpoch.solution.toString('hex')}) | Salt: ${finalEpoch.salt.toString('hex')} | Graffiti: ${finalEpoch.graffiti ? finalEpoch.graffiti.toString('hex') : 'None'}`,
+                `Epoch ${epochNumber} finalized with root: ${epochDocument.epochRoot.toString('hex')} (Hash: ${epochDocument.epochHash.toString('hex')} | Difficulty: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))}) | Winner MLDSA: ${finalEpoch.mldsaPublicKey.toString('hex')} | Winner Legacy: ${finalEpoch.legacyPublicKey.toString('hex')} | Solution: ${finalEpoch.solution.toString('hex')}) | Salt: ${finalEpoch.salt.toString('hex')} | Graffiti: ${finalEpoch.graffiti ? finalEpoch.graffiti.toString('hex') : 'None'}`,
             );
         }
 

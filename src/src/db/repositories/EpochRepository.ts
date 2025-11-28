@@ -119,14 +119,19 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
      * Get epochs by proposer public key
      */
     public async getEpochsByProposer(
-        proposerPublicKey: Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
+        legacyPublicKey: Buffer | Binary,
         currentSession?: ClientSession,
     ): Promise<IEpochDocument[]> {
         const binaryKey =
-            proposerPublicKey instanceof Binary ? proposerPublicKey : new Binary(proposerPublicKey);
+            mldsaPublicKey instanceof Binary ? mldsaPublicKey : new Binary(mldsaPublicKey);
+
+        const binaryKeyLegacy =
+            legacyPublicKey instanceof Binary ? legacyPublicKey : new Binary(legacyPublicKey);
 
         const criteria: Partial<Filter<IEpochDocument>> = {
-            'proposer.publicKey': binaryKey,
+            'proposer.mldsaPublicKey': binaryKey,
+            'proposer.legacyPublicKey': binaryKeyLegacy,
         };
 
         return await this.queryMany(criteria, currentSession, {
@@ -182,7 +187,11 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         for (let i = 0; i < epochs.length; i++) {
             const epoch = epochs[i];
 
-            const minerAddress = new Address(epoch.proposer.publicKey.buffer);
+            const minerAddress = new Address(
+                epoch.proposer.mldsaPublicKey.buffer,
+                epoch.proposer.legacyPublicKey.buffer,
+            );
+
             const solutionArray = solutions.get(minerAddress) || [];
 
             solutionArray.push(Buffer.from(epoch.proposer.solution.buffer));
@@ -209,23 +218,6 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         return await this.queryMany(criteria, currentSession, {
             epochNumber: -1,
         });
-    }
-
-    /**
-     * Count epochs by proposer
-     */
-    public async countEpochsByProposer(
-        proposerPublicKey: Buffer | Binary,
-        currentSession?: ClientSession,
-    ): Promise<number> {
-        const binaryKey =
-            proposerPublicKey instanceof Binary ? proposerPublicKey : new Binary(proposerPublicKey);
-
-        const criteria: Partial<Filter<IEpochDocument>> = {
-            'proposer.publicKey': binaryKey,
-        };
-
-        return await this.count(criteria, currentSession);
     }
 
     /**

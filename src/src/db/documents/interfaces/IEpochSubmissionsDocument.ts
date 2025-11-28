@@ -20,7 +20,7 @@ export interface EpochSubmissionWinner {
     readonly epochNumber: bigint;
     readonly matchingBits: number;
     readonly salt: Buffer;
-    readonly publicKey: Address;
+    readonly address: Address;
     readonly solutionHash: Buffer;
     readonly graffiti: Buffer;
 }

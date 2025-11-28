@@ -15,7 +15,7 @@ export interface EpochValidationParams {
     readonly epochNumber: bigint;
     readonly targetHash: Buffer;
     readonly salt: Buffer;
-    readonly publicKey: Address;
+    readonly address: Address;
     readonly graffiti?: Buffer;
     readonly signature: Buffer;
 }
@@ -33,7 +33,8 @@ interface ParamsToConvert {
     epochNumber: string;
     targetHash: string;
     salt: string;
-    publicKey: string;
+    mldsaPublicKey: string;
+    legacyPublicKey: string;
     graffiti?: string;
     signature: string;
 }
@@ -50,7 +51,7 @@ export class EpochValidator extends Logger {
             epochNumber: BigInt(params.epochNumber),
             targetHash: stringToBuffer(params.targetHash),
             salt: stringToBuffer(params.salt),
-            publicKey: Address.fromString(params.publicKey),
+            address: Address.fromString(params.mldsaPublicKey, params.legacyPublicKey),
             graffiti: params.graffiti ? stringToBuffer(params.graffiti) : undefined,
             signature: stringToBuffer(params.signature),
         };
@@ -59,17 +60,13 @@ export class EpochValidator extends Logger {
     /**
      * Calculate mining preimage using XOR operations
      */
-    public static calculatePreimage(
-        checksumRoot: Buffer,
-        publicKey: Address,
-        salt: Buffer,
-    ): Buffer {
+    public static calculatePreimage(checksumRoot: Buffer, address: Address, salt: Buffer): Buffer {
         const target32 = Buffer.alloc(32);
         const pubKey32 = Buffer.alloc(32);
         const salt32 = Buffer.alloc(32);
 
         checksumRoot.copy(target32, 0, 0, Math.min(32, checksumRoot.length));
-        publicKey.toBuffer().copy(pubKey32, 0, 0, Math.min(32, publicKey.length));
+        address.toBuffer().copy(pubKey32, 0, 0, Math.min(32, address.length));
         salt.copy(salt32, 0, 0, Math.min(32, salt.length));
 
         const preimage = Buffer.alloc(32);
@@ -146,7 +143,7 @@ export class EpochValidator extends Logger {
             // Calculate the preimage
             const solution = EpochValidator.calculatePreimage(
                 epoch.target,
-                params.publicKey,
+                params.address,
                 params.salt,
             );
 
@@ -198,9 +195,9 @@ export class EpochValidator extends Logger {
     public async solutionExists(
         epochNumber: bigint,
         salt: Buffer,
-        publicKey: Address | Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
     ): Promise<boolean> {
-        return await this.storage.targetEpochExists(epochNumber, salt, publicKey);
+        return await this.storage.targetEpochExists(epochNumber, salt, mldsaPublicKey);
     }
 
     /**
@@ -221,7 +218,8 @@ export class EpochValidator extends Logger {
             epochNumber: DataConverter.toDecimal128(params.epochNumber),
             salt: new Binary(params.salt),
             difficulty: validationResult.matchingBits,
-            publicKey: new Binary(params.publicKey.originalPublicKeyBuffer()),
+            mldsaPublicKey: new Binary(params.address.toBuffer()),
+            legacyPublicKey: new Binary(params.address.originalPublicKeyBuffer()),
             signature: new Binary(params.signature),
         };
 
@@ -264,7 +262,7 @@ export class EpochValidator extends Logger {
      * Calculate submission hash for unique identification
      */
     public calculateSubmissionHash(params: EpochValidationParams): string {
-        const data = `${params.epochNumber}:${params.targetHash.toString('hex')}:${params.salt.toString('hex')}:${params.publicKey.toHex()}`;
+        const data = `${params.epochNumber}:${params.targetHash.toString('hex')}:${params.salt.toString('hex')}:${params.address.toHex()}`;
         return crypto.createHash('sha256').update(data).digest('hex');
     }
 
