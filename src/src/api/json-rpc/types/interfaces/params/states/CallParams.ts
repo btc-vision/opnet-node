@@ -25,6 +25,7 @@ export interface CallParamsAsObject extends JSONRpcParams<JSONRpcMethods.CALL> {
     readonly calldata: string;
 
     readonly from?: string;
+    readonly fromLegacy?: string;
     readonly blockNumber?: string;
 
     readonly transaction?: Partial<SimulatedTransaction>;
@@ -35,6 +36,7 @@ export interface CallParamsAsObject extends JSONRpcParams<JSONRpcMethods.CALL> {
 export type CallParamsAsArray = [
     string,
     string,
+    string?,
     string?,
     string?,
     Partial<SimulatedTransaction>?,

@@ -1,13 +1,11 @@
-import { Logger } from '@btc-vision/bsi-common';
+import { DataConverter, Logger } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import crypto from 'crypto';
 import {
     ITargetEpochDocument,
     PendingTargetEpoch,
 } from '../../db/documents/interfaces/ITargetEpochDocument.js';
-import { DataConverter } from '@btc-vision/bsi-db';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
-import { Address } from '@btc-vision/transaction';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { SHA1 } from '../../utils/SHA1.js';
 import { stringToBuffer } from '../../utils/StringToBuffer.js';
@@ -16,7 +14,7 @@ export interface EpochValidationParams {
     readonly epochNumber: bigint;
     readonly targetHash: Buffer;
     readonly salt: Buffer;
-    readonly publicKey: Address;
+    readonly mldsaPublicKey: Buffer;
     readonly graffiti?: Buffer;
     readonly signature: Buffer;
 }
@@ -34,7 +32,7 @@ interface ParamsToConvert {
     epochNumber: string;
     targetHash: string;
     salt: string;
-    publicKey: string;
+    mldsaPublicKey: string;
     graffiti?: string;
     signature: string;
 }
@@ -51,7 +49,7 @@ export class EpochValidator extends Logger {
             epochNumber: BigInt(params.epochNumber),
             targetHash: stringToBuffer(params.targetHash),
             salt: stringToBuffer(params.salt),
-            publicKey: Address.fromString(params.publicKey),
+            mldsaPublicKey: stringToBuffer(params.mldsaPublicKey),
             graffiti: params.graffiti ? stringToBuffer(params.graffiti) : undefined,
             signature: stringToBuffer(params.signature),
         };
@@ -62,7 +60,7 @@ export class EpochValidator extends Logger {
      */
     public static calculatePreimage(
         checksumRoot: Buffer,
-        publicKey: Address,
+        mldsaPublicKey: Buffer,
         salt: Buffer,
     ): Buffer {
         const target32 = Buffer.alloc(32);
@@ -70,7 +68,7 @@ export class EpochValidator extends Logger {
         const salt32 = Buffer.alloc(32);
 
         checksumRoot.copy(target32, 0, 0, Math.min(32, checksumRoot.length));
-        publicKey.toBuffer().copy(pubKey32, 0, 0, Math.min(32, publicKey.length));
+        mldsaPublicKey.copy(pubKey32, 0, 0, Math.min(32, mldsaPublicKey.length));
         salt.copy(salt32, 0, 0, Math.min(32, salt.length));
 
         const preimage = Buffer.alloc(32);
@@ -147,7 +145,7 @@ export class EpochValidator extends Logger {
             // Calculate the preimage
             const solution = EpochValidator.calculatePreimage(
                 epoch.target,
-                params.publicKey,
+                params.mldsaPublicKey,
                 params.salt,
             );
 
@@ -199,9 +197,9 @@ export class EpochValidator extends Logger {
     public async solutionExists(
         epochNumber: bigint,
         salt: Buffer,
-        publicKey: Address | Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
     ): Promise<boolean> {
-        return await this.storage.targetEpochExists(epochNumber, salt, publicKey);
+        return await this.storage.targetEpochExists(epochNumber, salt, mldsaPublicKey);
     }
 
     /**
@@ -217,12 +215,14 @@ export class EpochValidator extends Logger {
     public async saveEpochSolution(
         params: EpochValidationParams,
         validationResult: EpochValidationResult,
+        legacyPublicKey: Buffer,
     ): Promise<ITargetEpochDocument> {
         const targetEpoch: ITargetEpochDocument = {
             epochNumber: DataConverter.toDecimal128(params.epochNumber),
             salt: new Binary(params.salt),
             difficulty: validationResult.matchingBits,
-            publicKey: new Binary(params.publicKey.originalPublicKeyBuffer()),
+            mldsaPublicKey: new Binary(params.mldsaPublicKey),
+            legacyPublicKey: new Binary(legacyPublicKey),
             signature: new Binary(params.signature),
         };
 
@@ -265,10 +265,10 @@ export class EpochValidator extends Logger {
      * Calculate submission hash for unique identification
      */
     public calculateSubmissionHash(params: EpochValidationParams): string {
-        const data = `${params.epochNumber}:${params.targetHash.toString('hex')}:${params.salt.toString('hex')}:${params.publicKey.toHex()}`;
+        const data = `${params.epochNumber}:${params.targetHash.toString('hex')}:${params.salt.toString('hex')}:${params.mldsaPublicKey.toString('hex')}`;
         return crypto.createHash('sha256').update(data).digest('hex');
     }
-    
+
     public async getEpochData(epochNumber: bigint): Promise<PendingTargetEpoch> {
         // Epoch 0 cannot be mined
         if (epochNumber === 0n) {

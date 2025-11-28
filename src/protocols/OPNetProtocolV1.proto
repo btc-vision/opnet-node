@@ -2,61 +2,61 @@ syntax = "proto3";
 package OPNetProtocolV1;
 
 enum PeerType {
-  ARCHIVE = 0;
-  FULL = 1;
-  LIGHT = 2;
+    ARCHIVE = 0;
+    FULL = 1;
+    LIGHT = 2;
 }
 
 enum ChainIds {
-  Bitcoin = 0;
-  Fractal = 1;
-  Dogecoin = 2;
-  Litecoin = 3;
+    Bitcoin = 0;
+    Fractal = 1;
+    Dogecoin = 2;
+    Litecoin = 3;
 }
 
 enum BitcoinNetworks {
-  Mainnet = 0;
-  Testnet = 1;
-  Regtest = 2;
-  Signet = 3;
-  Custom = 4;
+    Mainnet = 0;
+    Testnet = 1;
+    Regtest = 2;
+    Signet = 3;
+    Custom = 4;
 }
 
 /*
   AUTHENTICATION
 */
 message Authentication {
-  string version = 1;
-  bytes clientAuthCipher = 2;
-  string trustedChecksum = 3;
-  PeerType type = 4;
-  BitcoinNetworks network = 5;
-  ChainIds chainId = 6;
-  optional uint32 magicNumber = 7;
+    string version = 1;
+    bytes clientAuthCipher = 2;
+    string trustedChecksum = 3;
+    PeerType type = 4;
+    BitcoinNetworks network = 5;
+    ChainIds chainId = 6;
+    optional uint32 magicNumber = 7;
 }
 
 enum AuthenticationStatusEnum {
-  SUCCESS = 0;
-  ERROR = 1;
+    SUCCESS = 0;
+    ERROR = 1;
 }
 
 message AuthenticationStatus {
-  AuthenticationStatusEnum status = 1;
-  string message = 2;
-  optional bytes challenge = 3;
+    AuthenticationStatusEnum status = 1;
+    string message = 2;
+    optional bytes challenge = 3;
 }
 
 message ClientKeyCipherExchange {
-  bytes clientKeyCipher = 1;
-  bytes clientAuthCipher = 2;
-  bytes identity = 3;
-  bytes challenge = 4;
+    bytes clientKeyCipher = 1;
+    bytes clientAuthCipher = 2;
+    bytes identity = 3;
+    bytes challenge = 4;
 }
 
 message ServerKeyCipherExchange {
-  bytes serverKeyCipher = 1;
-  bytes serverSigningCipher = 2;
-  bool encryptionEnabled = 3;
+    bytes serverKeyCipher = 1;
+    bytes serverSigningCipher = 2;
+    bool encryptionEnabled = 3;
 }
 
 /*
@@ -64,8 +64,8 @@ message ServerKeyCipherExchange {
 */
 
 message Ping {
-  uint64 timestamp = 1;
-  uint64 lastPing = 2;
+    uint64 timestamp = 1;
+    uint64 lastPing = 2;
 }
 
 /*
@@ -73,72 +73,72 @@ message Ping {
 */
 
 message PeerInfo {
-  string opnetVersion = 1;
-  string identity = 2;
-  uint32 type = 3;
-  uint32 network = 4;
-  ChainIds chainId = 5;
-  bytes peer = 6;
-  repeated bytes addresses = 7;
+    string opnetVersion = 1;
+    string identity = 2;
+    uint32 type = 3;
+    uint32 network = 4;
+    ChainIds chainId = 5;
+    bytes peer = 6;
+    repeated bytes addresses = 7;
 }
 
 message DiscoveryResponse {
-  repeated PeerInfo peers = 1;
+    repeated PeerInfo peers = 1;
 }
 
 message Discover {
-  string version = 1;
-  string trustedChecksum = 2;
+    string version = 1;
+    string trustedChecksum = 2;
 }
 
 /*
   BLOCKCHAIN
 */
 message BroadcastTransaction {
-  bytes transaction = 1;
-  bool psbt = 2;
+    bytes transaction = 1;
+    bool psbt = 2;
 }
 
 /* BLOCKS */
 
 message OPNetBlockWitness {
-  bytes signature = 1;
-  uint64 timestamp = 2;
-  optional bytes publicKey = 3;
-  optional string identity = 4;
+    bytes signature = 1;
+    uint64 timestamp = 2;
+    optional bytes publicKey = 3;
+    optional string identity = 4;
 }
 
 message ChecksumProof {
-  repeated string proof = 1;
+    repeated string proof = 1;
 }
 
 message BlockHeaderWitness {
-  uint64 blockNumber = 1;
-  string blockHash = 2;
-  string previousBlockHash = 3;
+    uint64 blockNumber = 1;
+    string blockHash = 2;
+    string previousBlockHash = 3;
 
-  string merkleRoot = 4;
-  string receiptRoot = 5;
-  string storageRoot = 6;
+    string merkleRoot = 4;
+    string receiptRoot = 5;
+    string storageRoot = 6;
 
-  string checksumHash = 7;
-  repeated ChecksumProof checksumProofs = 8;
-  string previousBlockChecksum = 9;
+    string checksumHash = 7;
+    repeated ChecksumProof checksumProofs = 8;
+    string previousBlockChecksum = 9;
 
-  uint32 txCount = 10;
+    uint32 txCount = 10;
 
-  repeated OPNetBlockWitness validatorWitnesses = 11;
-  repeated OPNetBlockWitness trustedWitnesses = 12;
+    repeated OPNetBlockWitness validatorWitnesses = 11;
+    repeated OPNetBlockWitness trustedWitnesses = 12;
 }
 
 /* SYNC */
 message SyncBlockHeadersRequest {
-  uint64 blockNumber = 1;
+    uint64 blockNumber = 1;
 }
 
 message SyncBlockHeadersResponse {
-  uint64 blockNumber = 1;
+    uint64 blockNumber = 1;
 
-  repeated OPNetBlockWitness validatorWitnesses = 2;
-  repeated OPNetBlockWitness trustedWitnesses = 3;
+    repeated OPNetBlockWitness validatorWitnesses = 2;
+    repeated OPNetBlockWitness trustedWitnesses = 3;
 }

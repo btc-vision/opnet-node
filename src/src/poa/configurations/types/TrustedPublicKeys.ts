@@ -17,6 +17,7 @@ export interface AuthorityKey {
     readonly publicKey: string;
     readonly signature: string;
     readonly walletPubKey: string;
+    readonly mldsaPublicKey: string;
 }
 
 export interface AuthorityBufferKey {

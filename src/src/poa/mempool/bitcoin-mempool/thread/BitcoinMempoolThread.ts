@@ -28,13 +28,13 @@ class BitcoinMempoolThread extends Thread<ThreadTypes.MEMPOOL_MANAGER> {
         this.mempoolManager.sendMessageToThread = this.sendMessageToThread.bind(this);
     }
 
-    protected async onLinkMessage(
+    protected onLinkMessage(
         type: ThreadTypes,
         m: ThreadMessageBase<MessageType>,
-    ): Promise<undefined | ThreadData> {
+    ): undefined | ThreadData {
         switch (type) {
             case ThreadTypes.MEMPOOL: {
-                return await this.handleRequest(m);
+                return this.handleRequest(m);
             }
             default: {
                 throw new Error(`[onLinkMessage] Unknown message sent by thread of type: ${type}`);
@@ -42,8 +42,8 @@ class BitcoinMempoolThread extends Thread<ThreadTypes.MEMPOOL_MANAGER> {
         }
     }
 
-    private async handleRequest(m: ThreadMessageBase<MessageType>): Promise<ThreadData> {
-        return await this.mempoolManager.handleRequest(m);
+    private handleRequest(m: ThreadMessageBase<MessageType>): ThreadData {
+        return this.mempoolManager.handleRequest(m);
     }
 }
 

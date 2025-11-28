@@ -29,16 +29,17 @@ port.on('message', (msg: MsgFromMain): void => {
         );
 
         const buf = msg.allowedPreimages.map((preimage) => Buffer.from(preimage, 'hex'));
-        itx.verifyPreImage = (_miner: Address, preimage: Buffer) => {
+        itx.verifyPreImage = (_miner: Address, preimage: Buffer): Buffer | undefined => {
             console.warn('!!! verifyPreImage is not implemented in TxParseWorker !!!');
 
             const isValid = buf.some((allowedPreimage) => allowedPreimage.equals(preimage));
-
             if (!isValid) {
                 throw new Error('Invalid preimage');
             }
 
             // TODO: ADD NEW IMPLEMENTATION.
+
+            return;
         };
 
         itx.parseTransaction(data.vin, data.vout);

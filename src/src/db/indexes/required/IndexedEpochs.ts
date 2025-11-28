@@ -13,7 +13,7 @@ export class IndexedEpochs extends IndexedCollection<OPNetCollections.Epochs> {
             { key: { targetHash: 1 }, name: 'targetHash_1' },
             { key: { startBlock: 1 }, name: 'startBlock_1' },
             { key: { endBlock: 1 }, name: 'endBlock_1' },
-            { key: { 'proposer.publicKey': 1 }, name: 'publicKey_1' },
+            { key: { 'proposer.mldsaPublicKey': 1 }, name: 'mldsaPublicKey_1' },
             { key: { 'proposer.salt': 1 }, name: 'salt_1' },
         ];
     }

@@ -132,6 +132,17 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             EPOCH_CACHE_SIZE: 15,
             UTXO_LIMIT: 1000,
+
+            WEBSOCKET: {
+                ENABLED: true,
+                MAX_CONNECTIONS: 1000,
+                IDLE_TIMEOUT: 120,
+                MAX_PAYLOAD_SIZE: 16 * 1024 * 1024, // 16MB
+                MAX_PENDING_REQUESTS: 100,
+                REQUEST_TIMEOUT: 30000,
+                MAX_REQUESTS_PER_SECOND: 50,
+                MAX_SUBSCRIPTIONS: 10,
+            },
         },
 
         POC: {
@@ -809,6 +820,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             if (parsedConfig.API.THREADS && typeof parsedConfig.API.THREADS !== 'number') {
                 throw new Error(`Oops the property API.THREADS is not a number.`);
             }
+
+            // Validate WebSocket config
+            if (parsedConfig.API.WEBSOCKET) {
+                this.verifyWebSocketConfig(parsedConfig.API.WEBSOCKET);
+            }
         }
 
         if (parsedConfig.EPOCH) {
@@ -961,6 +977,67 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
         }
     }
 
+    private verifyWebSocketConfig(
+        parsedConfig: Partial<IBtcIndexerConfig['API']['WEBSOCKET']>,
+    ): void {
+        if (parsedConfig.ENABLED !== undefined && typeof parsedConfig.ENABLED !== 'boolean') {
+            throw new Error(`Oops the property API.WEBSOCKET.ENABLED is not a boolean.`);
+        }
+
+        if (
+            parsedConfig.MAX_CONNECTIONS !== undefined &&
+            typeof parsedConfig.MAX_CONNECTIONS !== 'number'
+        ) {
+            throw new Error(`Oops the property API.WEBSOCKET.MAX_CONNECTIONS is not a number.`);
+        }
+
+        if (
+            parsedConfig.IDLE_TIMEOUT !== undefined &&
+            typeof parsedConfig.IDLE_TIMEOUT !== 'number'
+        ) {
+            throw new Error(`Oops the property API.WEBSOCKET.IDLE_TIMEOUT is not a number.`);
+        }
+
+        if (
+            parsedConfig.MAX_PAYLOAD_SIZE !== undefined &&
+            typeof parsedConfig.MAX_PAYLOAD_SIZE !== 'number'
+        ) {
+            throw new Error(`Oops the property API.WEBSOCKET.MAX_PAYLOAD_SIZE is not a number.`);
+        }
+
+        if (
+            parsedConfig.MAX_PENDING_REQUESTS !== undefined &&
+            typeof parsedConfig.MAX_PENDING_REQUESTS !== 'number'
+        ) {
+            throw new Error(
+                `Oops the property API.WEBSOCKET.MAX_PENDING_REQUESTS is not a number.`,
+            );
+        }
+
+        if (
+            parsedConfig.REQUEST_TIMEOUT !== undefined &&
+            typeof parsedConfig.REQUEST_TIMEOUT !== 'number'
+        ) {
+            throw new Error(`Oops the property API.WEBSOCKET.REQUEST_TIMEOUT is not a number.`);
+        }
+
+        if (
+            parsedConfig.MAX_REQUESTS_PER_SECOND !== undefined &&
+            typeof parsedConfig.MAX_REQUESTS_PER_SECOND !== 'number'
+        ) {
+            throw new Error(
+                `Oops the property API.WEBSOCKET.MAX_REQUESTS_PER_SECOND is not a number.`,
+            );
+        }
+
+        if (
+            parsedConfig.MAX_SUBSCRIPTIONS !== undefined &&
+            typeof parsedConfig.MAX_SUBSCRIPTIONS !== 'number'
+        ) {
+            throw new Error(`Oops the property API.WEBSOCKET.MAX_SUBSCRIPTIONS is not a number.`);
+        }
+    }
+
     private verifyBase58Configs(parsedConfig: Partial<IBtcIndexerConfig['BASE58']>): void {
         if (
             typeof parsedConfig.PUBKEY_ADDRESS !== 'string' &&
@@ -1080,10 +1157,36 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             defaultConfigs.SSH,
         );
 
-        this.config.API = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['API']>(
+        // Handle API config with nested WEBSOCKET merge
+        const apiConfig = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['API']>(
             parsedConfig.API,
             defaultConfigs.API,
         );
+
+        // Merge WEBSOCKET config separately to handle nested defaults properly
+        if (defaultConfigs.API?.WEBSOCKET) {
+            const wsConfig = parsedConfig.API?.WEBSOCKET;
+            const defaultWsConfig = defaultConfigs.API.WEBSOCKET;
+            const mergedWsConfig = {
+                ENABLED: wsConfig?.ENABLED ?? defaultWsConfig.ENABLED,
+                MAX_CONNECTIONS: wsConfig?.MAX_CONNECTIONS ?? defaultWsConfig.MAX_CONNECTIONS,
+                IDLE_TIMEOUT: wsConfig?.IDLE_TIMEOUT ?? defaultWsConfig.IDLE_TIMEOUT,
+                MAX_PAYLOAD_SIZE: wsConfig?.MAX_PAYLOAD_SIZE ?? defaultWsConfig.MAX_PAYLOAD_SIZE,
+                MAX_PENDING_REQUESTS:
+                    wsConfig?.MAX_PENDING_REQUESTS ?? defaultWsConfig.MAX_PENDING_REQUESTS,
+                REQUEST_TIMEOUT: wsConfig?.REQUEST_TIMEOUT ?? defaultWsConfig.REQUEST_TIMEOUT,
+                MAX_REQUESTS_PER_SECOND:
+                    wsConfig?.MAX_REQUESTS_PER_SECOND ?? defaultWsConfig.MAX_REQUESTS_PER_SECOND,
+                MAX_SUBSCRIPTIONS: wsConfig?.MAX_SUBSCRIPTIONS ?? defaultWsConfig.MAX_SUBSCRIPTIONS,
+            };
+            // Reconstruct API config with merged WEBSOCKET
+            this.config.API = {
+                ...apiConfig,
+                WEBSOCKET: mergedWsConfig,
+            };
+        } else {
+            this.config.API = apiConfig;
+        }
 
         this.config.BECH32 = this.getConfigModified<
             keyof IBtcIndexerConfig,

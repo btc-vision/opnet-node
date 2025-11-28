@@ -332,7 +332,7 @@ export class IndexingTask extends Logger {
             await this.block.execute(this.vmManager, this.specialTransactionManager);
 
             // Update epoch submissions
-            await this.block.processSubmissions(this.vmManager.getVMStorage(), epochManager);
+            await this.block.processSubmissions(this.vmManager, epochManager);
         } catch (e) {
             await this.revertBlock(e as Error);
 

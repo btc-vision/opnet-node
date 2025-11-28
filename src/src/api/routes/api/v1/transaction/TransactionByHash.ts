@@ -10,7 +10,7 @@ import { TransactionByHashParams } from '../../../../json-rpc/types/interfaces/p
 import { TransactionByHashResult } from '../../../../json-rpc/types/interfaces/results/transactions/TransactionByHashResult.js';
 import { Route } from '../../../Route.js';
 import { DeploymentTxEncoder } from '../shared/DeploymentTxEncoder.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 
 export class TransactionByHash extends Route<
     Routes.TRANSACTION_BY_HASH,

@@ -48,6 +48,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         to: string,
         calldata: string,
         from?: string,
+        fromLegacy?: string,
         blockNumber?: bigint,
         transaction?: SimulatedTransaction,
         accessList?: AccessList,
@@ -61,6 +62,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     to: to,
                     calldata: calldata,
                     from: from,
+                    fromLegacy: fromLegacy,
                     blockNumber: blockNumber,
                     transaction,
                     accessList,
@@ -90,13 +92,14 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw new Error('Storage not initialized');
             }
 
-            const [to, calldata, from, blockNumber, transaction, accessList, preloadStorage] =
+            const [to, calldata, from, fromLegacy, blockNumber, transaction, accessList, preloadStorage] =
                 this.getDecodedParams(params);
 
             const res: CallRequestResponse = await Call.requestThreadExecution(
                 to,
                 calldata,
                 from,
+                fromLegacy,
                 blockNumber,
                 this.verifyPartialTransaction(transaction),
                 accessList as AccessList,
@@ -192,6 +195,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         const to = req.query.to as string;
         const data = req.query.data as string;
         const from = req.query.from as string;
+        const fromLegacy = req.query.fromLegacy as string;
         const blockNumber = req.query.blockNumber as string;
 
         if (!to || to.length < 50) {
@@ -215,6 +219,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             to,
             calldata: data,
             from,
+            fromLegacy,
             blockNumber,
             transaction,
         };
@@ -529,6 +534,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         string,
         string,
         string | undefined,
+        string | undefined,
         bigint | undefined,
         Partial<SimulatedTransaction> | undefined,
         Partial<AccessList> | undefined,
@@ -537,6 +543,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         let address: string | undefined;
         let calldata: string | undefined;
         let from: string | undefined;
+        let fromLegacy: string | undefined;
         let blockNumber: bigint | undefined;
         let transaction: Partial<SimulatedTransaction> | undefined;
         let accessList: Partial<AccessList> | undefined;
@@ -546,6 +553,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             address = params.shift() as string | undefined;
             calldata = params.shift() as string | undefined;
             from = params.shift() as string | undefined;
+            fromLegacy = params.shift() as string | undefined;
 
             const temp: string | undefined = params.shift() as string | undefined;
             if (temp && typeof temp !== 'string') {
@@ -565,6 +573,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             address = params.to;
             calldata = params.calldata;
             from = params.from;
+            fromLegacy = params.fromLegacy;
             blockNumber = params.blockNumber ? BigInt(params.blockNumber) : undefined;
             transaction = params.transaction;
             accessList = params.accessList;
@@ -642,6 +651,6 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             }
         }
 
-        return [address, calldata, from, blockNumber, transaction, accessList, preloadStorage];
+        return [address, calldata, from, fromLegacy, blockNumber, transaction, accessList, preloadStorage];
     }
 }

@@ -11,6 +11,7 @@ import { JSONRpc } from './api/v1/json-rpc/JSONRpc.js';
 import { NotImplemented } from './api/v1/not-implemented/NotImplemented.js';
 import { OPNetWitnessRoute } from './api/v1/opnet/OPNetWitnessRoute.js';
 import { ProtobufSchema } from './api/v1/protobuf/ProtobufSchema.js';
+import { ProtobufAPISchema } from './api/v1/protobuf/ProtobufAPISchema.js';
 import { Call } from './api/v1/states/Call.js';
 import { GetCode } from './api/v1/states/GetCode.js';
 import { GetStorageAt } from './api/v1/states/GetStorageAt.js';
@@ -68,6 +69,7 @@ export const DefinedRoutes: {
 
     /** Others */
     [Routes.PROTOBUF_SCHEMA]: new ProtobufSchema(),
+    [Routes.PROTOBUF_API_SCHEMA]: new ProtobufAPISchema(),
     [Routes.JSON_RPC]: new JSONRpc(),
 
     [Routes.NOT_IMPLEMENTED]: new NotImplemented(),

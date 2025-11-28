@@ -6,7 +6,7 @@ export interface SubmitEpochParamsAsObject extends JSONRpcParams<JSONRpcMethods.
 
     readonly targetHash: string;
     readonly salt: string;
-    readonly publicKey: string;
+    readonly mldsaPublicKey: string;
 
     readonly graffiti?: string;
     readonly signature: string;

@@ -1,5 +1,4 @@
-import { BinaryReader } from '@btc-vision/transaction';
-import { Features } from '../features/Features.js';
+import { BinaryReader, Features } from '@btc-vision/transaction';
 
 export class OPNetHeader {
     public static EXPECTED_HEADER_LENGTH: number = 4 + 8;
@@ -13,7 +12,7 @@ export class OPNetHeader {
 
     constructor(
         header: Buffer,
-        public readonly miner: Buffer,
+        public readonly minerMLDSAPublicKey: Buffer,
         public readonly solution: Buffer,
     ) {
         this.reader = new BinaryReader(header);
@@ -39,13 +38,12 @@ export class OPNetHeader {
         const includesEpochSubmission =
             (this._flags & Features.EPOCH_SUBMISSION) === (Features.EPOCH_SUBMISSION as number);
 
-        if (includesAccessList) {
-            features.push(Features.ACCESS_LIST);
-        }
+        const includesMLDSALinkingRequest =
+            (this._flags & Features.MLDSA_LINK_PUBKEY) === (Features.MLDSA_LINK_PUBKEY as number);
 
-        if (includesEpochSubmission) {
-            features.push(Features.EPOCH_SUBMISSION);
-        }
+        if (includesAccessList) features.push(Features.ACCESS_LIST);
+        if (includesEpochSubmission) features.push(Features.EPOCH_SUBMISSION);
+        if (includesMLDSALinkingRequest) features.push(Features.MLDSA_LINK_PUBKEY);
 
         return features;
     }

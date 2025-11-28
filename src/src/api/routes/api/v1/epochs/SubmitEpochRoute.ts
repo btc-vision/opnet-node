@@ -15,7 +15,13 @@ import {
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
 import { EpochValidationParams, EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { BinaryWriter, MessageSigner } from '@btc-vision/transaction';
+import {
+    BinaryWriter,
+    MessageSigner,
+    MLDSASecurityLevel,
+    QuantumBIP32Factory,
+} from '@btc-vision/transaction';
+import { MLDSA44_PUBLIC_KEY_LEN } from '../../../../../vm/mldsa/MLDSAMetadata.js';
 
 export class SubmitEpochRoute extends Route<
     Routes.SUBMIT_EPOCH,
@@ -112,18 +118,18 @@ export class SubmitEpochRoute extends Route<
      */
     private validateHexStringLengths(params: SubmitEpochParamsAsObject): void {
         // Public key validation: must be 33 bytes (66 hex characters)
-        if (!params.publicKey || typeof params.publicKey !== 'string') {
+        if (!params.mldsaPublicKey || typeof params.mldsaPublicKey !== 'string') {
             throw new Error('Public key must be a hex string');
         }
 
         // Remove '0x' prefix if present for all validations
-        const publicKeyHex = params.publicKey.startsWith('0x')
-            ? params.publicKey.slice(2)
-            : params.publicKey;
+        const publicKeyHex = params.mldsaPublicKey.startsWith('0x')
+            ? params.mldsaPublicKey.slice(2)
+            : params.mldsaPublicKey;
 
-        if (publicKeyHex.length !== 66) {
+        if (publicKeyHex.length !== 64) {
             throw new Error(
-                `Public key must be 33 bytes (66 hex characters). Received ${publicKeyHex.length} characters`,
+                `Public key must be 32 bytes (64 hex characters). Received ${publicKeyHex.length} characters`,
             );
         }
 
@@ -239,7 +245,7 @@ export class SubmitEpochRoute extends Route<
             epochNumber: validatedParams.epochNumber,
             targetHash: validatedParams.targetHash,
             salt: validatedParams.salt,
-            publicKey: validatedParams.publicKey,
+            mldsaPublicKey: validatedParams.mldsaPublicKey,
             graffiti: validatedParams.graffiti,
             signature: validatedParams.signature,
         });
@@ -248,7 +254,7 @@ export class SubmitEpochRoute extends Route<
         const exists = await this.epochValidator.solutionExists(
             validationParams.epochNumber,
             validationParams.salt,
-            validationParams.publicKey,
+            validationParams.mldsaPublicKey,
         );
 
         if (exists) {
@@ -273,10 +279,14 @@ export class SubmitEpochRoute extends Route<
             };
         }
 
-        this.validateSignature(validationParams);
+        const legacyPublicKey = await this.validateSignature(validationParams);
 
         // Save the validated solution
-        await this.epochValidator.saveEpochSolution(validationParams, validationResult);
+        await this.epochValidator.saveEpochSolution(
+            validationParams,
+            validationResult,
+            legacyPublicKey,
+        );
 
         // Get submission hash
         const submissionHash = this.epochValidator.calculateSubmissionHash(validationParams);
@@ -306,9 +316,34 @@ export class SubmitEpochRoute extends Route<
         };
     }
 
-    private validateSignature(data: EpochValidationParams): void {
-        const signatureDataWriter = new BinaryWriter();
-        signatureDataWriter.writeAddress(data.publicKey);
+    private async validateSignature(data: EpochValidationParams): Promise<Buffer> {
+        if (!this.storage) {
+            throw new Error('Storage not initialized for signature validation');
+        }
+
+        if (!this.pendingBlockHeight) {
+            throw new Error('Current block height not set. Ensure blockchain is initialized.');
+        }
+
+        const mldsaPublicKeyData = await this.storage.getMLDSAPublicKeyFromHash(
+            data.mldsaPublicKey,
+            this.pendingBlockHeight,
+        );
+
+        if (!mldsaPublicKeyData) {
+            throw new Error(
+                'Legacy public key not found for the provided MLDSA public key hash. This address is not linked to a ECDSA public key.',
+            );
+        }
+
+        if (mldsaPublicKeyData.publicKey.length !== MLDSA44_PUBLIC_KEY_LEN) {
+            throw new Error(
+                'Invalid MLDSA44 public key length. This mldsa public key can not be used for signature verification.',
+            );
+        }
+
+        const signatureDataWriter = new BinaryWriter(64 + 8);
+        signatureDataWriter.writeBytes(data.mldsaPublicKey);
         signatureDataWriter.writeU64(data.epochNumber);
         signatureDataWriter.writeBytes(data.salt);
 
@@ -317,15 +352,30 @@ export class SubmitEpochRoute extends Route<
         }
 
         const signatureData = signatureDataWriter.getBuffer();
-        const isValid = MessageSigner.verifySignature(
-            data.publicKey,
-            signatureData,
-            data.signature,
-        );
+
+        let isValid: boolean;
+        if (OPNetConsensus.allowUnsafeSignatures) {
+            isValid = MessageSigner.tweakAndVerifySignature(
+                mldsaPublicKeyData.legacyPublicKey,
+                signatureData,
+                data.signature,
+            );
+        } else {
+            const keyPair = QuantumBIP32Factory.fromPublicKey(
+                mldsaPublicKeyData.publicKey,
+                Buffer.alloc(32),
+                this.network,
+                MLDSASecurityLevel.LEVEL2,
+            );
+
+            isValid = MessageSigner.verifyMLDSASignature(keyPair, signatureData, data.signature);
+        }
 
         if (!isValid) {
             throw new Error('Invalid signature for epoch submission');
         }
+
+        return mldsaPublicKeyData.legacyPublicKey;
     }
 
     /**
@@ -346,8 +396,8 @@ export class SubmitEpochRoute extends Route<
             throw new Error('Epoch number is required');
         }
 
-        if (!params.publicKey) {
-            throw new Error('Public key is required');
+        if (!params.mldsaPublicKey) {
+            throw new Error('MLDSA public key is required');
         }
 
         if (!params.targetHash) {

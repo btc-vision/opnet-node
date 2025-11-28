@@ -336,9 +336,13 @@ class RPCManager extends Logger {
         let result: CallRequestResponse | undefined;
         try {
             const parsedTransaction = this.parseTransaction(data.transaction);
+            const fromAddress = data.from
+                ? Address.fromString(data.from, data.fromLegacy)
+                : BTC_FAKE_ADDRESS;
+
             return await vmManager.execute(
                 data.to,
-                data.from ? Address.fromString(data.from) : BTC_FAKE_ADDRESS,
+                fromAddress,
                 Buffer.from(data.calldata, 'hex'),
                 data.blockNumber,
                 parsedTransaction,

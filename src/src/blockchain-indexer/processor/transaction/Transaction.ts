@@ -1,5 +1,5 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Network, script, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
 import crypto from 'crypto';
 import { Binary, Long } from 'mongodb';
@@ -110,13 +110,24 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         return preimage;
     }
 
-    protected _miner: Buffer | undefined;
-    public get miner(): Buffer {
-        const preimage = Buffer.alloc(this._miner?.length || 0);
-        if (this._miner) {
-            this._miner.copy(preimage);
+    protected _minerLegacyPublicKey: Buffer | undefined;
+
+    public get minerLegacyPublicKey(): Buffer {
+        const miner = Buffer.alloc(this._minerLegacyPublicKey?.length || 0);
+        if (this._minerLegacyPublicKey) {
+            this._minerLegacyPublicKey.copy(miner);
         }
-        return preimage;
+        return miner;
+    }
+
+    protected _miner: Buffer | undefined;
+
+    public get miner(): Buffer {
+        const miner = Buffer.alloc(this._miner?.length || 0);
+        if (this._miner) {
+            this._miner.copy(miner);
+        }
+        return miner;
     }
 
     public get strippedInputs(): StrippedTransactionInput[] {
@@ -328,13 +339,14 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     public setMiner(miner: Buffer, preimage: Buffer) {
-        this.verifyPreImage(new Address(miner), preimage);
+        const legacyPublicKey = this.verifyPreImage(new Address(miner), preimage);
 
         this._preimage = preimage;
         this._miner = miner;
+        this._minerLegacyPublicKey = legacyPublicKey;
     }
 
-    public verifyPreImage: (miner: Address, preimage: Buffer) => void = (
+    public verifyPreImage: (miner: Address, preimage: Buffer) => Buffer | undefined = (
         _miner: Address,
         _preimage: Buffer,
     ) => {
@@ -477,6 +489,13 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             return; // no reward output
         }
 
+        if (!OPNetConsensus.allowUnsafeSignatures) {
+            throw new Error(
+                `Node need consensus upgrade. This is only possible once BIP360 is activated.`,
+            );
+        }
+
+        // LEGACY ADDRESS ONLY
         if (
             !rewardOutput.scriptPubKey.address ||
             rewardOutput.scriptPubKey.type !== 'witness_v0_scripthash'
@@ -485,7 +504,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         }
 
         const rewardChallenge = TimeLockGenerator.generateTimeLockAddress(
-            this.miner,
+            this.minerLegacyPublicKey,
             this.network,
             OPNetConsensus.consensus.EPOCH.TIMELOCK_BLOCKS_REWARD,
         );

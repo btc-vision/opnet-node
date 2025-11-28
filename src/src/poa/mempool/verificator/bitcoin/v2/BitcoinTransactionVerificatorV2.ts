@@ -26,7 +26,10 @@ export class BitcoinTransactionVerificatorV2 extends TransactionVerifier<Transac
 
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
 
-    private allowedChallenges: Promise<ChallengeSolution> = Promise.resolve(new AddressMap());
+    private allowedChallenges: Promise<ChallengeSolution> = Promise.resolve({
+        solutions: new AddressMap(),
+        legacyPublicKeys: new AddressMap(),
+    });
 
     public constructor(
         db: ConfigurableDBManager,
