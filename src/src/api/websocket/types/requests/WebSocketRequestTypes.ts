@@ -136,7 +136,7 @@ export interface SubmitEpochRequest extends BaseRequest {
     readonly epochNumber: string;
     readonly targetHash: string;
     readonly salt: string;
-    readonly publicKey: string;
+    readonly mldsaPublicKey: string;
     readonly graffiti?: string;
     readonly signature: string;
 }
