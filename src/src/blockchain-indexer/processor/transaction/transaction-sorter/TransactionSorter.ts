@@ -7,8 +7,8 @@ import { TransactionGroupFeesSorter } from './TransactionGroupFeesSorter.js';
  * The goal of this class is to sort transactions in bitcoin blocks where their position in a block is topologically sorted.
  * We have to sort transactions in a block to ensure that the transactions are processed in the correct order.
  *
- * The chosen strategy if to sort transaction by their fee and priority fee.
- * Transaction with the same fee will get stored via a tie-breaking hash.
+ * The chosen strategy is to sort transactions by their fee and priority fee.
+ * Transactions with the same fee will get stored via a tie-breaking hash.
  */
 export class TransactionSorter {
     public sortTransactions(
