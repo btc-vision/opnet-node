@@ -21,7 +21,6 @@ import {
     MLDSASecurityLevel,
     QuantumBIP32Factory,
 } from '@btc-vision/transaction';
-import { MLDSA44_PUBLIC_KEY_LEN } from '../../../../../vm/mldsa/MLDSAMetadata.js';
 
 export class SubmitEpochRoute extends Route<
     Routes.SUBMIT_EPOCH,
@@ -336,12 +335,6 @@ export class SubmitEpochRoute extends Route<
             );
         }
 
-        if (mldsaPublicKeyData.publicKey.length !== MLDSA44_PUBLIC_KEY_LEN) {
-            throw new Error(
-                'Invalid MLDSA44 public key length. This mldsa public key can not be used for signature verification.',
-            );
-        }
-
         const signatureDataWriter = new BinaryWriter(64 + 8);
         signatureDataWriter.writeBytes(data.mldsaPublicKey);
         signatureDataWriter.writeU64(data.epochNumber);
@@ -361,6 +354,13 @@ export class SubmitEpochRoute extends Route<
                 data.signature,
             );
         } else {
+            // If we are enforcing safe signatures, verify using MLDSA.
+            if (!mldsaPublicKeyData.publicKey) {
+                throw new Error(
+                    `MLDSA public key not exposed. You must make an on-chain transaction that expose your MLDSA public key before submitting epochs.`,
+                );
+            }
+
             const keyPair = QuantumBIP32Factory.fromPublicKey(
                 mldsaPublicKeyData.publicKey,
                 Buffer.alloc(32),

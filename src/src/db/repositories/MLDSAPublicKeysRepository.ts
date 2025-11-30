@@ -1,9 +1,6 @@
-import { BaseRepository, DataAccessError, DataAccessErrorType } from '@btc-vision/bsi-common';
 import {
     AnyBulkWriteOperation,
     Binary,
-    BulkWriteOptions,
-    BulkWriteResult,
     ClientSession,
     Collection,
     Db,
@@ -12,14 +9,22 @@ import {
     Long,
 } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { IMLDSAPublicKey, MLDSAPublicKeyDocument } from '../interfaces/IMLDSAPublicKey.js';
+import {
+    IMLDSAPublicKey,
+    MLDSAPublicKeyDocument,
+    MLDSAUpdateData,
+} from '../interfaces/IMLDSAPublicKey.js';
+import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
+import { MLDSASecurityLevel } from '@btc-vision/transaction';
 
 export interface MLDSAPublicKeyExists {
     readonly hashedExists: boolean;
     readonly legacyExists: boolean;
+    readonly sameId: boolean;
+    readonly level: MLDSASecurityLevel | null;
 }
 
-export class MLDSAPublicKeyRepository extends BaseRepository<MLDSAPublicKeyDocument> {
+export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublicKeyDocument> {
     public readonly logColor: string = '#d4a5ff';
 
     public constructor(db: Db) {
@@ -30,99 +35,74 @@ export class MLDSAPublicKeyRepository extends BaseRepository<MLDSAPublicKeyDocum
         blockHeight: bigint,
         currentSession?: ClientSession,
     ): Promise<void> {
+        // We must null all the elements first before deleting to maintain historical integrity
+        await this.nullPublicKeyFromBlockHeight(blockHeight, currentSession);
+
         const criteria: Partial<Filter<MLDSAPublicKeyDocument>> = {
-            blockHeight: { $gte: Long.fromBigInt(blockHeight) },
+            insertedBlockHeight: { $gte: Long.fromBigInt(blockHeight) },
         };
 
         await this.delete(criteria, currentSession);
     }
 
-    public async bulkWrite(
-        operations: AnyBulkWriteOperation<MLDSAPublicKeyDocument>[],
+    public async nullPublicKeyFromBlockHeight(
+        blockHeight: bigint,
+        currentSession?: ClientSession,
     ): Promise<void> {
-        if (operations.length === 0) {
-            return;
-        }
+        const criteria: Partial<Filter<MLDSAPublicKeyDocument>> = {
+            exposedBlockHeight: { $gte: Long.fromBigInt(blockHeight) },
+        };
 
-        try {
-            const collection = this.getCollection();
-            const options: BulkWriteOptions = this.getOptions();
-            options.ordered = true;
-            options.writeConcern = { w: 1 };
-            options.maxTimeMS = 512_000;
-            options.timeoutMS = 512_000;
+        const update: Partial<MLDSAPublicKeyDocument> = {
+            publicKey: null,
+            exposedBlockHeight: null,
+        };
 
-            const result: BulkWriteResult = await collection.bulkWrite(operations, options);
-
-            if (result.hasWriteErrors()) {
-                for (const error of result.getWriteErrors()) {
-                    if (error.code === 11000) {
-                        throw new Error(`Duplicate key violation: ${error.errmsg}`);
-                    }
-
-                    this.error(`Bulk write error: ${error}`);
-                }
-
-                throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
-            }
-
-            if (!result.isOk()) {
-                throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
-            }
-        } catch (error) {
-            if (error instanceof DataAccessError) {
-                throw error;
-            }
-
-            if (error instanceof Error) {
-                if ('code' in error && error.code === 11000) {
-                    throw new Error(`Duplicate key violation: ${error.message}`);
-                }
-
-                const errorDescription: string = error.stack || error.message;
-                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
-            }
-
-            throw error;
-        }
+        await this.updateMany(criteria, update, currentSession);
     }
 
-    public async savePublicKeys(keys: IMLDSAPublicKey[]): Promise<void> {
+    public async savePublicKeys(keys: MLDSAUpdateData[]): Promise<void> {
         const bulkWriteOperations: AnyBulkWriteOperation<MLDSAPublicKeyDocument>[] = keys.map(
             (key) => {
-                const document: MLDSAPublicKeyDocument = this.toDocument(key);
+                if (!key.exposePublicKey) {
+                    if (key.data.insertedBlockHeight === null) {
+                        throw new Error('Inserted block height is required for new public keys');
+                    }
 
-                return {
-                    insertOne: {
-                        document,
-                    },
-                };
+                    const documentToInsert: MLDSAPublicKeyDocument = this.toDocument(
+                        key.data,
+                        true,
+                    );
+
+                    return {
+                        insertOne: {
+                            document: documentToInsert,
+                        },
+                    };
+                } else {
+                    const documentUpdate: Omit<MLDSAPublicKeyDocument, 'insertedBlockHeight'> =
+                        this.toDocument(key.data, false);
+
+                    return {
+                        updateOne: {
+                            filter: {
+                                hashedPublicKey: documentUpdate.hashedPublicKey,
+                                legacyPublicKey: documentUpdate.legacyPublicKey,
+                            },
+                            update: {
+                                $set: {
+                                    publicKey: documentUpdate.publicKey,
+                                    exposedBlockHeight: documentUpdate.exposedBlockHeight,
+                                },
+                            },
+                            upsert: false,
+                        },
+                    };
+                }
             },
         );
 
         await this.bulkWrite(bulkWriteOperations);
-    }
-
-    public async savePublicKey(key: IMLDSAPublicKey): Promise<void> {
-        const document: MLDSAPublicKeyDocument = this.toDocument(key);
-
-        try {
-            const collection = this.getCollection();
-            await collection.insertOne(document, this.getOptions());
-        } catch (error) {
-            if (error instanceof Error && 'code' in error && error.code === 11000) {
-                throw new Error(
-                    `Duplicate key violation: hashedPublicKey or legacyPublicKey already exists`,
-                );
-            }
-
-            if (error instanceof Error) {
-                const errorDescription: string = error.stack || error.message;
-                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
-            }
-
-            throw error;
-        }
     }
 
     public async getByHashedPublicKey(
@@ -134,10 +114,10 @@ export class MLDSAPublicKeyRepository extends BaseRepository<MLDSAPublicKeyDocum
 
         const criteria: Document = {
             hashedPublicKey: binHash,
-            blockHeight: { $lte: Long.fromBigInt(blockHeight) },
+            insertedBlockHeight: { $lte: Long.fromBigInt(blockHeight) },
         };
-        const result = await this.queryOne(criteria, currentSession);
 
+        const result = await this.queryOne(criteria, currentSession);
         if (result) {
             delete (result as Document)._id;
         }
@@ -154,10 +134,10 @@ export class MLDSAPublicKeyRepository extends BaseRepository<MLDSAPublicKeyDocum
 
         const criteria: Document = {
             legacyPublicKey: binKey,
-            blockHeight: { $lte: Long.fromBigInt(blockHeight) },
+            insertedBlockHeight: { $lte: Long.fromBigInt(blockHeight) },
         };
-        const result = await this.queryOne(criteria, currentSession);
 
+        const result = await this.queryOne(criteria, currentSession);
         if (result) {
             delete (result as Document)._id;
         }
@@ -173,7 +153,7 @@ export class MLDSAPublicKeyRepository extends BaseRepository<MLDSAPublicKeyDocum
         const binKey: Binary = this.toBinary(key);
 
         const criteria: Document = {
-            blockHeight: { $lte: Long.fromBigInt(blockHeight) },
+            insertedBlockHeight: { $lte: Long.fromBigInt(blockHeight) },
             $or: [{ hashedPublicKey: binKey }, { legacyPublicKey: binKey }],
         };
 
@@ -195,25 +175,25 @@ export class MLDSAPublicKeyRepository extends BaseRepository<MLDSAPublicKeyDocum
         const collection = this.getCollection();
 
         const [hashedResult, legacyResult] = await Promise.all([
-            collection.findOne({ hashedPublicKey: binHashed }, { projection: { _id: 1 } }),
-            collection.findOne({ legacyPublicKey: binLegacy }, { projection: { _id: 1 } }),
+            collection.findOne(
+                { hashedPublicKey: binHashed },
+                { projection: { _id: 1, level: 1 } },
+            ),
+            collection.findOne(
+                { legacyPublicKey: binLegacy },
+                { projection: { _id: 1, level: 1 } },
+            ),
         ]);
+
+        const sameId =
+            hashedResult && legacyResult ? hashedResult._id.equals(legacyResult._id) : false;
 
         return {
             hashedExists: hashedResult !== null,
             legacyExists: legacyResult !== null,
+            sameId: sameId,
+            level: hashedResult && sameId ? hashedResult.level : null,
         };
-    }
-
-    public async getPublicKeysByBlockHeight(
-        blockHeight: bigint,
-        currentSession?: ClientSession,
-    ): Promise<MLDSAPublicKeyDocument[]> {
-        const criteria: Partial<MLDSAPublicKeyDocument> = {
-            blockHeight: Long.fromBigInt(blockHeight),
-        };
-
-        return await this.getAll(criteria, currentSession);
     }
 
     protected override getCollection(): Collection<MLDSAPublicKeyDocument> {
@@ -234,19 +214,48 @@ export class MLDSAPublicKeyRepository extends BaseRepository<MLDSAPublicKeyDocum
 
     private parseResult(result: MLDSAPublicKeyDocument): IMLDSAPublicKey {
         return {
+            level: result.level,
             hashedPublicKey: Buffer.from(result.hashedPublicKey.buffer),
             legacyPublicKey: Buffer.from(result.legacyPublicKey.buffer),
-            publicKey: Buffer.from(result.publicKey.buffer),
-            blockHeight: result.blockHeight.toBigInt(),
+            publicKey: result.publicKey ? Buffer.from(result.publicKey.buffer) : null,
+            insertedBlockHeight: result.insertedBlockHeight.toBigInt(),
+            exposedBlockHeight: result.exposedBlockHeight
+                ? result.exposedBlockHeight.toBigInt()
+                : null,
         };
     }
 
-    private toDocument(key: IMLDSAPublicKey): MLDSAPublicKeyDocument {
-        return {
+    private toDocument(
+        key: IMLDSAPublicKey,
+        includeInsertedBlockHeight: true,
+    ): MLDSAPublicKeyDocument;
+
+    private toDocument(
+        key: IMLDSAPublicKey,
+        includeInsertedBlockHeight: false,
+    ): Omit<MLDSAPublicKeyDocument, 'insertedBlockHeight'>;
+
+    private toDocument(
+        key: IMLDSAPublicKey,
+        includeInsertedBlockHeight: boolean,
+    ): MLDSAPublicKeyDocument | Omit<MLDSAPublicKeyDocument, 'insertedBlockHeight'> {
+        const base = {
+            level: key.level,
             hashedPublicKey: new Binary(key.hashedPublicKey),
             legacyPublicKey: new Binary(key.legacyPublicKey),
-            publicKey: new Binary(key.publicKey),
-            blockHeight: Long.fromBigInt(key.blockHeight),
+            publicKey: key.publicKey ? new Binary(key.publicKey) : null,
+            exposedBlockHeight: key.exposedBlockHeight
+                ? Long.fromBigInt(key.exposedBlockHeight)
+                : null,
         };
+
+        if (includeInsertedBlockHeight) {
+            return {
+                ...base,
+                insertedBlockHeight: Long.fromBigInt(key.insertedBlockHeight as bigint),
+            };
+        }
+
+        return base;
     }
 }

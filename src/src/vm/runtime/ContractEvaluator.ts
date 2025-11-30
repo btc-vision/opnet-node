@@ -6,15 +6,13 @@ import {
     BufferHelper,
     MemorySlotData,
     MemorySlotPointer,
+    MLDSASecurityLevel,
     NetEvent,
 } from '@btc-vision/transaction';
 import { MemoryValue, ProvenPointers } from '../storage/types/MemoryValue.js';
 import { StoragePointer } from '../storage/types/StoragePointer.js';
 import { Logger } from '@btc-vision/bsi-common';
-import {
-    ExecutionParameters,
-    InternalContractCallParameters,
-} from './types/InternalContractCallParameters.js';
+import { ExecutionParameters, InternalContractCallParameters, } from './types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
@@ -620,7 +618,7 @@ export class ContractEvaluator extends Logger {
         evaluation: ContractEvaluation,
     ): Promise<Buffer | Uint8Array> {
         const reader = new BinaryReader(data);
-        const level = reader.readU8();
+        const level: MLDSASecurityLevel = reader.readU8() as MLDSASecurityLevel;
         const address = reader.readAddress();
 
         const response = new BinaryWriter();
@@ -638,12 +636,18 @@ export class ContractEvaluator extends Logger {
         }
 
         const publicKeyData = await this.getMLDSAPublicKey(address);
-        const expectedLength = MLDSAMetadata.fromLevel(level) as number;
-        if (publicKeyData && publicKeyData.publicKey.length === expectedLength) {
-            response.writeBoolean(true);
-            response.writeBytes(publicKeyData.publicKey);
-        } else {
+        if (!publicKeyData || publicKeyData.level !== level || !publicKeyData.publicKey) {
+            // Not revealed or wrong level.
             response.writeBoolean(false);
+        } else {
+            const expectedLength = MLDSAMetadata.fromLevel(level) as number;
+
+            if (publicKeyData.publicKey.length === expectedLength) {
+                response.writeBoolean(true);
+                response.writeBytes(publicKeyData.publicKey);
+            } else {
+                response.writeBoolean(false);
+            }
         }
 
         return response.getBuffer();

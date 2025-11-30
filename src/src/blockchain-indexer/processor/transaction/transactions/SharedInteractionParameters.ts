@@ -168,19 +168,19 @@ export abstract class SharedInteractionParameters<
         return decodedData;
     }
 
-    public async verifyMLDSA(vmManager: VMManager): Promise<void> {
+    public async assignMLDSAToLegacy(vmManager: VMManager): Promise<void> {
         if (!this.mldsaLinkRequest) {
             await this.regenerateProvenance(vmManager);
             return;
         }
 
-        const originalKey = this.from.tweakedPublicKeyToBuffer();
+        const tweakedKey = this.from.tweakedPublicKeyToBuffer();
         const chainId = getChainId(NetworkConverter.networkToBitcoinNetwork(this.network));
 
         const writer = new BinaryWriter();
         writer.writeU8(this.mldsaLinkRequest.level);
-        writer.writeBytes(this.mldsaLinkRequest.publicKey);
-        writer.writeBytes(originalKey);
+        writer.writeBytes(this.mldsaLinkRequest.hashedPublicKey);
+        writer.writeBytes(tweakedKey);
         writer.writeBytes(OPNetConsensus.consensus.PROTOCOL_ID);
         writer.writeBytes(chainId);
 
@@ -188,7 +188,7 @@ export abstract class SharedInteractionParameters<
 
         // First we check the schnorr signature
         const isValidSchnorr = MessageSigner.verifySignature(
-            originalKey,
+            tweakedKey,
             message,
             this.mldsaLinkRequest.legacySignature,
         );
@@ -197,35 +197,89 @@ export abstract class SharedInteractionParameters<
             throw new Error(`OP_NET: Invalid ML-DSA legacy signature for public key link request.`);
         }
 
+        if (this.mldsaLinkRequest.verifyRequest) {
+            // Reveal the public key assigned to the hashed version. Once revealed, the user may now use mldsa signatures
+            // in contracts and to authorize their opnet transaction.
+
+            await this.verifyMLDSASignature(this.mldsaLinkRequest, tweakedKey, chainId, vmManager);
+        } else {
+            // Public key is null, this is just a post-quantum safe way to bind the keypair. We do not force users to reveal due to the amount of data
+            // required to do this action on-chain.
+
+            await vmManager.addMLDSAInfoToStore({
+                hashedPublicKey: this.mldsaLinkRequest.hashedPublicKey,
+                legacyPublicKey: tweakedKey,
+                publicKey: null,
+                level: this.mldsaLinkRequest.level,
+                insertedBlockHeight: this.blockHeight,
+                exposedBlockHeight: null,
+            });
+        }
+
+        // From this point, even if the transaction fail, we still record the key link. (as long the provided signatures are valid.)
+
+        // The next action is safe here since if the public key (legacy) is already assigned OR the mldsa hashed value
+        // is already assigned, then this will throw.
+
+        // Regenerate the real from.
+        this._from = new Address(this.mldsaLinkRequest.hashedPublicKey, tweakedKey);
+    }
+
+    public async verifyMLDSASignature(
+        mldsaLinkRequest: MLDSARequestData,
+        tweakedKey: Buffer,
+        chainId: Uint8Array,
+        vmManager: VMManager,
+    ): Promise<void> {
+        if (!mldsaLinkRequest.publicKey) {
+            throw new Error(`MLDSA public key not provided.`);
+        }
+
+        if (!mldsaLinkRequest.mldsaSignature) {
+            throw new Error(`MLDSA signature not provided.`);
+        }
+
+        const hashed = MessageSigner.sha256(mldsaLinkRequest.publicKey);
+        if (!hashed.equals(mldsaLinkRequest.hashedPublicKey)) {
+            throw new Error(`MLDSA public key does not match the hashed public key.`);
+        }
+
+        const writer = new BinaryWriter();
+        writer.writeU8(mldsaLinkRequest.level);
+        writer.writeBytes(mldsaLinkRequest.hashedPublicKey);
+        writer.writeBytes(mldsaLinkRequest.publicKey);
+        writer.writeBytes(tweakedKey);
+        writer.writeBytes(OPNetConsensus.consensus.PROTOCOL_ID);
+        writer.writeBytes(chainId);
+
+        const message = writer.getBuffer();
+
         // Then we check the ML-DSA signature
         const mldsaKeyPair = QuantumBIP32Factory.fromPublicKey(
-            this.mldsaLinkRequest.publicKey,
+            mldsaLinkRequest.publicKey,
             Buffer.alloc(32, 0),
             this.network,
-            this.mldsaLinkRequest.level,
+            mldsaLinkRequest.level,
         );
 
         const isValidMLDSA = MessageSigner.verifyMLDSASignature(
             mldsaKeyPair,
             message,
-            this.mldsaLinkRequest.mldsaSignature,
+            mldsaLinkRequest.mldsaSignature,
         );
 
         if (!isValidMLDSA) {
             throw new Error(`OP_NET: Invalid ML-DSA signature for public key link request.`);
         }
 
-        // From this point, even if the transaction fail, we still record the key link. (as long the provided signatures are valid.)
-        const hashed = MessageSigner.sha256(this.mldsaLinkRequest.publicKey);
-        await vmManager.addMLDSAInfoToStore({
-            hashedPublicKey: hashed,
-            legacyPublicKey: originalKey,
-            blockHeight: this.blockHeight,
-            publicKey: this.mldsaLinkRequest.publicKey,
+        await vmManager.exposeMLDSAPublicKey({
+            hashedPublicKey: mldsaLinkRequest.hashedPublicKey,
+            legacyPublicKey: tweakedKey,
+            publicKey: mldsaLinkRequest.publicKey,
+            level: mldsaLinkRequest.level,
+            insertedBlockHeight: null,
+            exposedBlockHeight: this.blockHeight,
         });
-
-        // Regenerate the real from.
-        this._from = new Address(hashed, originalKey);
     }
 
     protected safeEq(a: Buffer, b: Buffer): boolean {
@@ -323,23 +377,32 @@ export abstract class SharedInteractionParameters<
         const reader = new BinaryReader(data);
         const level: MLDSASecurityLevel = reader.readU8() as MLDSASecurityLevel;
 
-        const publicKeyLength = MLDSAMetadata.fromLevel(level);
-        const signatureLength = MLDSAMetadata.signatureLen(publicKeyLength);
-
         if (!OPNetConsensus.consensus.MLDSA.ENABLED_LEVELS.includes(level)) {
             throw new Error(`OP_NET: ML-DSA level ${level} is not enabled.`);
         }
 
-        const publicKey = reader.readBytes(publicKeyLength);
-        const signature = reader.readBytes(signatureLength);
+        const hashedPublicKey = Buffer.from(reader.readBytes(32));
+        const verifyRequest = reader.readBoolean();
+
+        let publicKey: Buffer | null = null;
+        let signature: Buffer | null = null;
+        if (verifyRequest) {
+            const publicKeyLength = MLDSAMetadata.fromLevel(level);
+            const signatureLength = MLDSAMetadata.signatureLen(publicKeyLength);
+
+            publicKey = Buffer.from(reader.readBytes(publicKeyLength));
+            signature = Buffer.from(reader.readBytes(signatureLength));
+        }
 
         // Load schnorr signature (64 bytes)
         const legacySignature = reader.readBytes(64);
 
         return {
-            publicKey: Buffer.from(publicKey),
+            verifyRequest,
+            hashedPublicKey,
+            publicKey: publicKey,
             level: level,
-            mldsaSignature: Buffer.from(signature),
+            mldsaSignature: signature,
             legacySignature: Buffer.from(legacySignature),
         };
     }

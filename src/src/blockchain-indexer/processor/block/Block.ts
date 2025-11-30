@@ -637,7 +637,7 @@ export class Block {
             }
 
             // Record MLDSA link if present
-            await transaction.verifyMLDSA(vmManager);
+            await transaction.assignMLDSAToLegacy(vmManager);
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.executeTransaction(
@@ -683,7 +683,7 @@ export class Block {
             }
 
             // Record MLDSA link if present
-            await transaction.verifyMLDSA(vmManager);
+            await transaction.assignMLDSAToLegacy(vmManager);
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.deployContract(
@@ -835,14 +835,19 @@ export class Block {
             }
 
             const address = new Address(submissionData.submission.mldsaPublicKey);
-            const legacyPublicKey: IMLDSAPublicKey | null | undefined =
+            const walletInfo: IMLDSAPublicKey | null | undefined =
                 cache.get(address) || (await vmManager.getMLDSAPublicKey(address));
 
-            if (!legacyPublicKey) {
+            if (!walletInfo) {
                 continue;
             }
 
-            if (legacyPublicKey.publicKey.length !== MLDSA44_PUBLIC_KEY_LEN) {
+            // We skip if no public key is found
+            if (!walletInfo.publicKey) {
+                continue;
+            }
+
+            if (walletInfo.publicKey.length !== MLDSA44_PUBLIC_KEY_LEN) {
                 continue;
             }
 
@@ -850,7 +855,7 @@ export class Block {
                 ...submissionData,
                 submission: {
                     ...submissionData.submission,
-                    legacyPublicKey: legacyPublicKey.legacyPublicKey,
+                    legacyPublicKey: walletInfo.legacyPublicKey,
                 },
             });
         }

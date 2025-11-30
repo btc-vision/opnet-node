@@ -530,43 +530,47 @@ export class P2PManager extends Logger {
             `Connection health: ${healthyConnections.length} connections, ${authenticatedPeers} authenticated peers`,
         );
 
-        if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS && !this.isBootstrapNode()) {
-            // Trigger peer discovery
-            try {
-                this.addBoostrapNodesToPeerStore();
+        if (!this.isBootstrapNode()) {
+            if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS) {
+                // Trigger peer discovery
+                try {
+                    this.addBoostrapNodesToPeerStore();
 
-                await this.node.services.aminoDHT.refreshRoutingTable();
+                    await this.node.services.aminoDHT.refreshRoutingTable();
 
-                // Try to dial known peers that we're not connected to
-                const knownPeers = await this.node.peerStore.all();
-                const connectedPeerIds = new Set(connections.map((c) => c.remotePeer.toString()));
-
-                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                    this.debug(
-                        `Refreshing routing table. Known peers: ${knownPeers.length}, Connected peers: ${connectedPeerIds.size}`,
+                    // Try to dial known peers that we're not connected to
+                    const knownPeers = await this.node.peerStore.all();
+                    const connectedPeerIds = new Set(
+                        connections.map((c) => c.remotePeer.toString()),
                     );
-                }
 
-                for (const peer of knownPeers.slice(0, 5)) {
-                    // Try up to 5 peers
-                    if (!connectedPeerIds.has(peer.id.toString())) {
-                        try {
-                            await this.node.dial(peer.id);
-                        } catch (e) {
-                            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                                this.debug(`Failed to dial ${peer.id}: ${e}`);
+                    if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                        this.debug(
+                            `Refreshing routing table. Known peers: ${knownPeers.length}, Connected peers: ${connectedPeerIds.size}`,
+                        );
+                    }
+
+                    for (const peer of knownPeers.slice(0, 5)) {
+                        // Try up to 5 peers
+                        if (!connectedPeerIds.has(peer.id.toString())) {
+                            try {
+                                await this.node.dial(peer.id);
+                            } catch (e) {
+                                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                                    this.debug(`Failed to dial ${peer.id}: ${e}`);
+                                }
+
+                                // remove peer
+                                if (this.removePeer) await this.node.peerStore.delete(peer.id);
                             }
-
-                            // remove peer
-                            if (this.removePeer) await this.node.peerStore.delete(peer.id);
                         }
                     }
+                } catch (e) {
+                    this.error(`Failed to refresh routing table: ${e}`);
                 }
-            } catch (e) {
-                this.error(`Failed to refresh routing table: ${e}`);
+            } else {
+                this.debug('Connection health is good.');
             }
-        } else {
-            this.debug('Connection health is good.');
         }
     }
 

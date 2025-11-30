@@ -23,7 +23,7 @@ import { ITargetEpochDocument } from '../../db/documents/interfaces/ITargetEpoch
 import { AttestationProof } from '../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
 import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { IMempoolTransactionObj } from '../../db/interfaces/IMempoolTransaction.js';
-import { IMLDSAPublicKey } from '../../db/interfaces/IMLDSAPublicKey.js';
+import { IMLDSAPublicKey, MLDSAUpdateData } from '../../db/interfaces/IMLDSAPublicKey.js';
 import { MLDSAPublicKeyExists } from '../../db/repositories/MLDSAPublicKeysRepository.js';
 
 export abstract class VMStorage extends Logger {
@@ -304,9 +304,7 @@ export abstract class VMStorage extends Logger {
         blockHeight: bigint,
     ): Promise<IMLDSAPublicKey | null>;
 
-    public abstract saveMLDSAPublicKeys(publicKeys: IMLDSAPublicKey[]): Promise<void>;
-
-    public abstract saveMLDSAPublicKey(publicKey: IMLDSAPublicKey): Promise<void>;
+    public abstract saveMLDSAPublicKeys(publicKeys: MLDSAUpdateData[]): Promise<void>;
 
     public abstract getMLDSAByLegacy(
         publicKey: Buffer | Binary,

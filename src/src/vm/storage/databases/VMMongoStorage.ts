@@ -43,8 +43,11 @@ import {
     SpentUTXOSOutputTransaction,
     UTXOsOutputTransactions,
 } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
-import { IMLDSAPublicKey } from '../../../db/interfaces/IMLDSAPublicKey.js';
-import { MLDSAPublicKeyRepository } from '../../../db/repositories/MLDSAPublicKeysRepository.js';
+import { IMLDSAPublicKey, MLDSAUpdateData } from '../../../db/interfaces/IMLDSAPublicKey.js';
+import {
+    MLDSAPublicKeyExists,
+    MLDSAPublicKeyRepository,
+} from '../../../db/repositories/MLDSAPublicKeysRepository.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -90,7 +93,7 @@ export class VMMongoStorage extends VMStorage {
         return this.mldsaPublicKeysRepository.getByHashedPublicKey(publicKey, blockHeight);
     }
 
-    public saveMLDSAPublicKeys(keys: IMLDSAPublicKey[]): Promise<void> {
+    public saveMLDSAPublicKeys(keys: MLDSAUpdateData[]): Promise<void> {
         if (!this.mldsaPublicKeysRepository) {
             throw new Error('MLDSA Public Key repository not initialized');
         }
@@ -98,18 +101,10 @@ export class VMMongoStorage extends VMStorage {
         return this.mldsaPublicKeysRepository.savePublicKeys(keys);
     }
 
-    public saveMLDSAPublicKey(key: IMLDSAPublicKey): Promise<void> {
-        if (!this.mldsaPublicKeysRepository) {
-            throw new Error('MLDSA Public Key repository not initialized');
-        }
-
-        return this.mldsaPublicKeysRepository.savePublicKey(key);
-    }
-
     public mldsaPublicKeyExists(
         hashedPublicKey: Buffer | Binary,
         legacyPublicKey: Buffer | Binary,
-    ): Promise<{ hashedExists: boolean; legacyExists: boolean }> {
+    ): Promise<MLDSAPublicKeyExists> {
         if (!this.mldsaPublicKeysRepository) {
             throw new Error('MLDSA Public Key repository not initialized');
         }
