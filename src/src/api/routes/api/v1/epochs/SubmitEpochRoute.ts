@@ -21,6 +21,7 @@ import {
     MLDSASecurityLevel,
     QuantumBIP32Factory,
 } from '@btc-vision/transaction';
+import { isEmptyBuffer } from '../../../../../utils/BufferUtils.js';
 
 export class SubmitEpochRoute extends Route<
     Routes.SUBMIT_EPOCH,
@@ -248,6 +249,22 @@ export class SubmitEpochRoute extends Route<
             graffiti: validatedParams.graffiti,
             signature: validatedParams.signature,
         });
+
+        if (isEmptyBuffer(validationParams.salt)) {
+            throw new Error('Salt cannot be empty');
+        }
+
+        if (isEmptyBuffer(validationParams.mldsaPublicKey)) {
+            throw new Error('MLDSA public key cannot be empty');
+        }
+
+        if (isEmptyBuffer(validationParams.targetHash)) {
+            throw new Error('Target hash cannot be empty');
+        }
+
+        if (isEmptyBuffer(validationParams.signature)) {
+            throw new Error('Signature cannot be empty');
+        }
 
         // Check if this epoch/salt combination already exists
         const exists = await this.epochValidator.solutionExists(

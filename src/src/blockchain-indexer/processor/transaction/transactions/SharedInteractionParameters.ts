@@ -1,11 +1,6 @@
 import { Transaction } from '../Transaction.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
-import {
-    AccessListFeature,
-    EpochSubmissionFeature,
-    Feature,
-    MLDSALinkRequest,
-} from '../features/Features.js';
+import { AccessListFeature, EpochSubmissionFeature, Feature, MLDSALinkRequest, } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { opcodes, payments } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
@@ -28,6 +23,7 @@ import { MLDSAMetadata } from '../../../../vm/mldsa/MLDSAMetadata.js';
 import { VMManager } from '../../../../vm/VMManager.js';
 import { getChainId } from '../../../../vm/rust/ChainIdHex.js';
 import { NetworkConverter } from '../../../../config/network/NetworkConverter.js';
+import { isEmptyBuffer } from '../../../../utils/BufferUtils.js';
 
 export abstract class SharedInteractionParameters<
     T extends OPNetTransactionTypes,
@@ -382,6 +378,10 @@ export abstract class SharedInteractionParameters<
         }
 
         const hashedPublicKey = Buffer.from(reader.readBytes(32));
+        if (isEmptyBuffer(hashedPublicKey)) {
+            throw new Error(`OP_NET: ML-DSA hashed public key cannot be empty.`);
+        }
+
         const verifyRequest = reader.readBoolean();
 
         let publicKey: Buffer | null = null;
@@ -392,6 +392,10 @@ export abstract class SharedInteractionParameters<
 
             publicKey = Buffer.from(reader.readBytes(publicKeyLength));
             signature = Buffer.from(reader.readBytes(signatureLength));
+
+            if (isEmptyBuffer(publicKey)) {
+                throw new Error(`OP_NET: ML-DSA public key cannot be empty.`);
+            }
         }
 
         // Load schnorr signature (64 bytes)
@@ -416,7 +420,7 @@ export abstract class SharedInteractionParameters<
 
         const binaryReader = new BinaryReader(data);
         const mldsaPublicKey = binaryReader.readBytes(32);
-        const solution = binaryReader.readBytes(32);
+        const salt = binaryReader.readBytes(32);
         const bytesLeft = data.length - 65;
 
         let graffiti: Uint8Array | undefined;
@@ -424,9 +428,17 @@ export abstract class SharedInteractionParameters<
             graffiti = binaryReader.readBytesWithLength(bytesLeft);
         }
 
+        if (isEmptyBuffer(mldsaPublicKey)) {
+            throw new Error(`OP_NET: ML-DSA public key in epoch submission cannot be empty.`);
+        }
+
+        if (isEmptyBuffer(salt)) {
+            throw new Error(`OP_NET: Salt in epoch submission cannot be empty.`);
+        }
+
         return {
             mldsaPublicKey: Buffer.from(mldsaPublicKey),
-            salt: Buffer.from(solution),
+            salt: Buffer.from(salt),
             graffiti: graffiti ? Buffer.from(graffiti) : undefined,
         };
     }

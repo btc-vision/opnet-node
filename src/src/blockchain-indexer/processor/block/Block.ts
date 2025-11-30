@@ -838,6 +838,10 @@ export class Block {
             const walletInfo: IMLDSAPublicKey | null | undefined =
                 cache.get(address) || (await vmManager.getMLDSAPublicKey(address));
 
+            if (address.isDead()) {
+                continue;
+            }
+
             if (!walletInfo) {
                 continue;
             }
