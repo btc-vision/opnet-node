@@ -496,6 +496,20 @@ export class P2PManager extends Logger {
         this.node.addEventListener('peer:connect', this.onPeerConnect.bind(this));
         this.node.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
         this.node.addEventListener('peer:reconnect-failure', this.onReconnectFailure.bind(this));
+
+        /*this.node.addEventListener('connection:open', (evt) => {
+            const conn = evt.detail;
+            this.warn(
+                `connection:open: ${conn.remotePeer.toString()} direction=${conn.direction} status=${conn.status}`,
+            );
+        });
+
+        this.node.addEventListener('connection:close', (evt) => {
+            const conn = evt.detail;
+            this.warn(
+                `connection:close: ${conn.remotePeer.toString()} direction=${conn.direction}`,
+            );
+        });*/
     }
 
     /*private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
@@ -644,12 +658,21 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerDisconnect(evt: CustomEvent<PeerId>): Promise<void> {
-        const peerId = evt.detail.toString();
+        const peerId = evt.detail;
+        const peerIdStr = peerId.toString();
 
-        const peer = this.peers.get(peerId);
+        // Check if we still have connections to this peer
+        const connections = this.node?.getConnections(peerId);
+        if (connections && connections.length > 0) {
+            this.debug(
+                `peer:disconnect fired but still have ${connections.length} connections to ${peerIdStr}`,
+            );
+            return;
+        }
+
+        const peer = this.peers.get(peerIdStr);
         if (peer) {
-            this.peers.delete(peerId);
-
+            this.peers.delete(peerIdStr);
             await peer.onDisconnect();
         }
     }
@@ -1067,6 +1090,11 @@ export class P2PManager extends Logger {
 
         if (this.blackListedPeerIds.size > 250) {
             return await this.disconnectPeer(peerId, DisconnectionCode.FLOOD, 'Flood.');
+        }
+
+        if (this.peers.has(peerIdStr)) {
+            this.debug(`Ignoring duplicate connection to ${peerIdStr}`);
+            return;
         }
 
         if (peer) {
