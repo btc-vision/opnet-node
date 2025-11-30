@@ -12,9 +12,7 @@ import {
     ITransactionPacket,
     TransactionPacket,
 } from '../networking/protobuf/packets/blockchain/common/TransactionPacket.js';
-import {
-    ISyncBlockHeaderResponse
-} from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
+import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';

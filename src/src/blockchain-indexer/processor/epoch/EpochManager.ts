@@ -8,12 +8,7 @@ import { DataConverter } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import { EpochDifficultyConverter } from '../../../poa/epoch/EpochDifficultyConverter.js';
 import { EpochValidator } from '../../../poa/epoch/EpochValidator.js';
-import {
-    Attestation,
-    AttestationType,
-    EpochData,
-    EpochMerkleTree,
-} from '../block/merkle/EpochMerkleTree.js';
+import { Attestation, AttestationType, EpochData, EpochMerkleTree, } from '../block/merkle/EpochMerkleTree.js';
 import {
     EpochSubmissionWinner,
     IEpochSubmissionsDocument,
@@ -35,6 +30,8 @@ interface AttestationEpoch {
     readonly root: Buffer;
     readonly epochNumber: bigint;
 }
+
+const GENESIS_SALT = Buffer.alloc(32).fill(255);
 
 export class EpochManager extends Logger {
     public readonly logColor: string = '#009dff';
@@ -444,17 +441,16 @@ export class EpochManager extends Logger {
     ): Promise<void> {
         // For epoch 0, there's no mining target
         let checksumRoot: Buffer;
-        let targetHash: Buffer;
 
         if (epochNumber === 0n || !miningTargetChecksum) {
             // Epoch 0 can't be mined, use a zero hash
             checksumRoot = Buffer.alloc(32);
-            targetHash = SHA1.hashBuffer(checksumRoot);
         } else {
             // Use the mining target checksum (from the first block of the previous epoch)
             checksumRoot = miningTargetChecksum;
-            targetHash = SHA1.hashBuffer(checksumRoot);
         }
+
+        const targetHash: Buffer = SHA1.hashBuffer(checksumRoot);
 
         const winningSubmission = this.getBestSubmission(submissions, targetHash);
         if (winningSubmission && winningSubmission.epochNumber !== epochNumber) {
@@ -470,7 +466,7 @@ export class EpochManager extends Logger {
 
         if (!winningSubmission || epochNumber === 0n) {
             // No valid submission or epoch 0, use genesis proposer
-            salt = Buffer.alloc(32);
+            salt = GENESIS_SALT; // All 0xFF for genesis
             mldsaPublicKey = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.toBuffer();
             legacyPublicKey =
                 OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.originalPublicKeyBuffer();
