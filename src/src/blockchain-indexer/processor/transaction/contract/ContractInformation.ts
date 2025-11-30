@@ -8,7 +8,6 @@ export interface ContractInformationAsString {
     readonly blockHeight: string;
     readonly contractAddress: string;
     readonly contractTweakedPublicKey: string;
-    readonly contractHybridPublicKey: string;
     readonly bytecode: string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: string;
@@ -24,7 +23,6 @@ export class ContractInformation {
         public readonly blockHeight: bigint,
         public readonly contractAddress: string,
         public readonly contractTweakedPublicKey: Address,
-        public readonly contractHybridPublicKey: Buffer,
         public readonly bytecode: Buffer,
         public readonly wasCompressed: boolean,
         public readonly deployedTransactionId: Buffer,
@@ -86,9 +84,6 @@ export class ContractInformation {
             typeof contractDocument.contractTweakedPublicKey === 'string'
                 ? new Address(Buffer.from(contractDocument.contractTweakedPublicKey, 'base64'))
                 : new Address(contractDocument.contractTweakedPublicKey.buffer),
-            typeof contractDocument.contractHybridPublicKey === 'string'
-                ? Buffer.from(contractDocument.contractHybridPublicKey, 'base64')
-                : Buffer.from(contractDocument.contractHybridPublicKey.buffer),
             bytecodeBuffer,
             contractDocument.wasCompressed,
             transactionIdBuffer,
@@ -124,7 +119,6 @@ export class ContractInformation {
             blockHeight,
             transaction.contractAddress,
             transaction.address,
-            transaction.address.toTweakedHybridPublicKeyBuffer(),
             transaction.bytecode,
             transaction.wasCompressed,
             transaction.transactionId,
@@ -141,7 +135,6 @@ export class ContractInformation {
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
             contractAddress: this.contractAddress,
             contractTweakedPublicKey: new Binary(this.contractTweakedPublicKey),
-            contractHybridPublicKey: new Binary(this.contractHybridPublicKey),
             bytecode: new Binary(this.bytecode),
             wasCompressed: this.wasCompressed,
             deployedTransactionId: new Binary(this.deployedTransactionId),

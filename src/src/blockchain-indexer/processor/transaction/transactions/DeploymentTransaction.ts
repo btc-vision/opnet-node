@@ -14,6 +14,7 @@ import {
     ContractAddressVerificationParams,
     EcKeyPair,
     Features,
+    MLDSALinkRequest,
     TapscriptVerificator,
 } from '@btc-vision/transaction';
 import { Binary } from 'mongodb';
@@ -301,16 +302,19 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         }
 
         if (this._mldsaLinkRequest) {
-            features.push({
+            const feature: MLDSALinkRequest = {
                 opcode: Features.MLDSA_LINK_PUBKEY,
                 data: {
+                    verifyRequest: this._mldsaLinkRequest.mldsaSignature !== null,
+                    hashedPublicKey: this._mldsaLinkRequest.hashedPublicKey,
                     publicKey: this._mldsaLinkRequest.publicKey,
-                    legacyPublicKey: this.from.tweakedPublicKeyToBuffer(),
                     level: this._mldsaLinkRequest.level,
                     mldsaSignature: this._mldsaLinkRequest.mldsaSignature,
                     legacySignature: this._mldsaLinkRequest.legacySignature,
                 },
-            });
+            };
+
+            features.push(feature);
         }
 
         /*if (this._accessList) {
@@ -355,7 +359,9 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         try {
             tapContractAddress = TapscriptVerificator.verifyControlBlock(params, controlBlock);
         } catch (e) {
-            throw new Error(`OP_NET: Invalid contract address from control block. ${e}`);
+            throw new Error(
+                `OP_NET: Invalid contract address from control block. ${(e as Error).stack}`,
+            );
         }
 
         if (!tapContractAddress) {
@@ -381,6 +387,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
     ): DeploymentWitnessData | undefined {
         const header = DeploymentTransaction.decodeOPNetHeader(scriptData);
         if (!header) {
+            console.log('No header');
             return;
         }
 

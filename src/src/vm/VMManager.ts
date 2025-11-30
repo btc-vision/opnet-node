@@ -10,15 +10,15 @@ import { DataConverter, DebugLevel, Globals, Logger } from '@btc-vision/bsi-comm
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
-import {
-    BTC_FAKE_ADDRESS,
-    MAX_HASH,
-    MAX_MINUS_ONE,
-} from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import { BTC_FAKE_ADDRESS, MAX_HASH, MAX_MINUS_ONE, } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
-import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import {
+    DeploymentTransaction
+} from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import {
+    InteractionTransaction
+} from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import {
     BlockHeader,
@@ -765,20 +765,23 @@ export class VMManager extends Logger {
         // Verify it does not exist in the database.
         const exists = await this.vmStorage.mldsaPublicKeyExists(hashedPublicKey, legacyPublicKey);
 
+        console.log('exists', exists);
+
         // Only error if it's a reassignment.
-        if (exists.hashedExists !== exists.legacyExists || !exists.sameId) {
+        if (exists.hashedExists !== exists.legacyExists) {
             throw new Error('Can not reassign existing MLDSA public key to legacy or hashed key.');
+        }
+
+        if (exists.hashedExists && exists.legacyExists && !exists.sameId) {
+            throw new Error('Conflicting MLDSA public key exists for legacy and hashed keys.');
         }
 
         if (exists.hashedExists) {
             return;
         }
 
-        if (exists.level === null) {
-            throw new Error('Existing MLDSA public key has an invalid level.');
-        }
-
-        if (exists.level !== level) {
+        const exist = exists.hashedExists || exists.legacyExists;
+        if (exist && exists.level !== level) {
             throw new Error('Existing MLDSA public key level mismatch.');
         }
     }
@@ -1009,7 +1012,6 @@ export class VMManager extends Logger {
             evaluation.blockNumber,
             deployResult.p2op(this.network),
             deployResult,
-            deployResult.toTweakedHybridPublicKeyBuffer(),
             contractInfo.bytecode,
             false,
             evaluation.transactionId || Buffer.alloc(32),

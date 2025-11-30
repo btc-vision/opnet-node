@@ -961,7 +961,7 @@ export class Block {
 
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             sharedBlockLogger.error(
-                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.totalGasUsed})`,
+                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.stack} - (gas: ${transaction.totalGasUsed})`,
             );
         }
 

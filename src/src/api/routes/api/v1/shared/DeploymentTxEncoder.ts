@@ -38,9 +38,6 @@ export class DeploymentTxEncoder {
                 contractTweakedPublicKey: contractData.contractTweakedPublicKey
                     ? contractData.contractTweakedPublicKey.toString('base64')
                     : '',
-                contractHybridPublicKey: contractData.contractHybridPublicKey
-                    ? contractData.contractHybridPublicKey.toString('base64')
-                    : '',
                 deployedTransactionHash: undefined,
                 deployedTransactionId: undefined,
             };
@@ -71,9 +68,6 @@ export class DeploymentTxEncoder {
         return {
             contractAddress: data.contractAddress,
             contractTweakedPublicKey: Buffer.from(data.contractTweakedPublicKey.buffer).toString(
-                'base64',
-            ),
-            contractHybridPublicKey: Buffer.from(data.contractHybridPublicKey.buffer).toString(
                 'base64',
             ),
             deployedTransactionId: Buffer.from(data.deployedTransactionId.buffer).toString('hex'),

@@ -354,7 +354,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             ...this.interactionWitnessData.senderPubKey,
         ]);
 
-        const senderPubKeyStr = senderPubKey.toString('hex');
+        //const senderPubKeyStr = senderPubKey.toString('hex');
 
         /** Verify witness data */
         const hashSenderPubKey = bitcoin.crypto.hash256(this.interactionWitnessData.senderPubKey);
