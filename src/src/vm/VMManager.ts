@@ -10,15 +10,15 @@ import { DataConverter, DebugLevel, Globals, Logger } from '@btc-vision/bsi-comm
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
-import { BTC_FAKE_ADDRESS, MAX_HASH, MAX_MINUS_ONE, } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import {
+    BTC_FAKE_ADDRESS,
+    MAX_HASH,
+    MAX_MINUS_ONE,
+} from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import {
-    DeploymentTransaction
-} from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
-import {
-    InteractionTransaction
-} from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import {
     BlockHeader,
@@ -480,10 +480,7 @@ export class VMManager extends Logger {
             );
 
             const deployedContracts: AddressMap<ContractInformation> = new AddressMap();
-            deployedContracts.set(
-                contractInformation.contractTweakedPublicKey,
-                contractInformation,
-            );
+            deployedContracts.set(contractInformation.contractPublicKey, contractInformation);
 
             const gasTracker = this.getGasTracker(maxGas, 0n, undefined);
             const params: ExecutionParameters = {
@@ -765,8 +762,6 @@ export class VMManager extends Logger {
         // Verify it does not exist in the database.
         const exists = await this.vmStorage.mldsaPublicKeyExists(hashedPublicKey, legacyPublicKey);
 
-        console.log('exists', exists);
-
         // Only error if it's a reassignment.
         if (exists.hashedExists !== exists.legacyExists) {
             throw new Error('Can not reassign existing MLDSA public key to legacy or hashed key.');
@@ -953,13 +948,13 @@ export class VMManager extends Logger {
     }
 
     private generateAddress(salt: Buffer, deployer: Address, bytecode: Buffer): Address {
-        const contractTweakedPublicKey = TapscriptVerificator.getContractSeed(
+        const contractPublicKey = TapscriptVerificator.getContractSeed(
             bitcoin.crypto.hash256(Buffer.from(deployer)),
             bytecode,
             salt,
         );
 
-        return new Address(contractTweakedPublicKey);
+        return new Address(contractPublicKey);
     }
 
     private async deployContractAtAddress(
@@ -1004,7 +999,7 @@ export class VMManager extends Logger {
             });
         }
 
-        const deployerKeyPair = contractInfo.contractTweakedPublicKey;
+        const deployerKeyPair = contractInfo.contractPublicKey;
         const bytecodeLength: number = contractInfo.bytecode.byteLength;
 
         const contractSaltHash = bitcoin.crypto.hash256(salt);
@@ -1148,7 +1143,7 @@ export class VMManager extends Logger {
     }
 
     private async setContractAt(contractData: ContractInformation): Promise<void> {
-        this.contractCache.set(contractData.contractTweakedPublicKey, contractData);
+        this.contractCache.set(contractData.contractPublicKey, contractData);
 
         await this.vmStorage.setContractAt(contractData);
     }

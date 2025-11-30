@@ -3,7 +3,7 @@ import { Binary, Decimal128 } from 'mongodb';
 export interface IContractDocumentBase {
     readonly blockHeight: Decimal128 | string | undefined;
     readonly contractAddress: string;
-    readonly contractTweakedPublicKey: Binary | string;
+    readonly contractPublicKey: Binary | string;
     readonly bytecode: Binary | string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: Binary | string;

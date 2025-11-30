@@ -92,14 +92,14 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         super(rawTransactionData, vInputIndex, blockHash, blockHeight, network, addressCache);
     }
 
-    protected _contractTweakedPublicKey: Buffer | undefined;
+    protected _contractPublicKey: Buffer | undefined;
 
-    public get contractTweakedPublicKey(): Buffer {
-        if (!this._contractTweakedPublicKey) {
+    public get contractPublicKey(): Buffer {
+        if (!this._contractPublicKey) {
             throw new Error(`OP_NET: Contract tweaked public key not found.`);
         }
 
-        return this._contractTweakedPublicKey;
+        return this._contractPublicKey;
     }
 
     protected _contractAddress: Address | undefined;
@@ -149,7 +149,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             from: new Binary(this.from),
             fromLegacy: new Binary(this.from.tweakedPublicKeyToBuffer()),
             contractAddress: this.contractAddress,
-            contractTweakedPublicKey: new Binary(this.address),
+            contractPublicKey: new Binary(this.address),
 
             calldata: new Binary(this.calldata),
             preimage: new Binary(this.preimage),
@@ -239,19 +239,16 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         this._calldata = deploymentWitnessData.calldata;
 
         /** Restore contract seed/address */
-        this._contractTweakedPublicKey = TapscriptVerificator.getContractSeed(
+        this._contractPublicKey = TapscriptVerificator.getContractSeed(
             toXOnly(deployerPubKey),
             this.bytecode,
             hashOriginalSalt,
         );
 
         /** Generate contract segwit address */
-        this._contractAddress = new Address(Buffer.from(this._contractTweakedPublicKey));
+        this._contractAddress = new Address(Buffer.from(this._contractPublicKey));
 
-        this.contractSigner = EcKeyPair.fromSeedKeyPair(
-            this._contractTweakedPublicKey,
-            this.network,
-        );
+        this.contractSigner = EcKeyPair.fromSeedKeyPair(this._contractPublicKey, this.network);
 
         if (
             !this.contractSigner.publicKey ||

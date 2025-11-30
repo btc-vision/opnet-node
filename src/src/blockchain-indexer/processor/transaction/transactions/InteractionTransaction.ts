@@ -293,7 +293,7 @@ export class InteractionTransaction extends SharedInteractionParameters<Interact
             from: new Binary(this.from),
             fromLegacy: new Binary(this.from.tweakedPublicKeyToBuffer()),
             contractAddress: this.contractAddress,
-            contractTweakedPublicKey: new Binary(this.address),
+            contractPublicKey: new Binary(this.address),
 
             calldata: new Binary(this.calldata),
             preimage: new Binary(this.preimage),

@@ -1068,7 +1068,7 @@ export class Block {
                 try {
                     await vmManager
                         .getVMStorage()
-                        .addTweakedPublicKey(deploymentTransaction.contractTweakedPublicKey);
+                        .addTweakedPublicKey(deploymentTransaction.contractPublicKey);
                 } catch (e) {
                     sharedBlockLogger.warn(
                         `Failed to add tweaked public key for contract ${deploymentTransaction.contractAddress}: ${e}`,

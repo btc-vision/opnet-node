@@ -348,11 +348,11 @@ export class ContractEvaluation implements ExecutionParameters {
     }
 
     public addContractInformation(contract: ContractInformation): void {
-        if (this.deployedContracts.has(contract.contractTweakedPublicKey)) {
+        if (this.deployedContracts.has(contract.contractPublicKey)) {
             throw new Error('OP_NET: Contract already deployed.');
         }
 
-        this.deployedContracts.set(contract.contractTweakedPublicKey, contract);
+        this.deployedContracts.set(contract.contractPublicKey, contract);
     }
 
     public preloadedStorage(storage: ProvenPointers | null): void {

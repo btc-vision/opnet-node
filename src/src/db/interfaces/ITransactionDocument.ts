@@ -77,7 +77,7 @@ export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocum
     readonly from: Binary;
     readonly fromLegacy: Binary;
     readonly contractAddress: string;
-    readonly contractTweakedPublicKey: Binary;
+    readonly contractPublicKey: Binary;
     readonly preimage: Binary;
 };
 

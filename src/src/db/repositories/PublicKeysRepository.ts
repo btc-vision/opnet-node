@@ -241,14 +241,14 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             const filter: Filter<IContractDocument> = {
                 $or: [
                     { contractAddress: key },
-                    { contractTweakedPublicKey: new Binary(Buffer.from(key, 'hex')) },
+                    { contractPublicKey: new Binary(Buffer.from(key, 'hex')) },
                 ],
             };
 
             const resp = await this.getContractCollection().findOne(filter, {
                 projection: {
                     contractAddress: 1,
-                    contractTweakedPublicKey: 1,
+                    contractPublicKey: 1,
                 },
             });
 
@@ -268,12 +268,12 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         contract: IContractDocument,
     ): PublicKeyDocument {
         const p2tr = this.tweakedPubKeyToAddress(
-            Buffer.from((contract.contractTweakedPublicKey as Binary).buffer),
+            Buffer.from((contract.contractPublicKey as Binary).buffer),
             this.network,
         );
 
         return {
-            tweakedPublicKey: contract.contractTweakedPublicKey as Binary,
+            tweakedPublicKey: contract.contractPublicKey as Binary,
             p2tr,
             p2op: contract.contractAddress,
         };

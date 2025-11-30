@@ -7,7 +7,7 @@ import { Address } from '@btc-vision/transaction';
 export interface ContractInformationAsString {
     readonly blockHeight: string;
     readonly contractAddress: string;
-    readonly contractTweakedPublicKey: string;
+    readonly contractPublicKey: string;
     readonly bytecode: string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: string;
@@ -22,7 +22,7 @@ export class ContractInformation {
     constructor(
         public readonly blockHeight: bigint,
         public readonly contractAddress: string,
-        public readonly contractTweakedPublicKey: Address,
+        public readonly contractPublicKey: Address,
         public readonly bytecode: Buffer,
         public readonly wasCompressed: boolean,
         public readonly deployedTransactionId: Buffer,
@@ -81,9 +81,9 @@ export class ContractInformation {
         return new ContractInformation(
             DataConverter.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
-            typeof contractDocument.contractTweakedPublicKey === 'string'
-                ? new Address(Buffer.from(contractDocument.contractTweakedPublicKey, 'base64'))
-                : new Address(contractDocument.contractTweakedPublicKey.buffer),
+            typeof contractDocument.contractPublicKey === 'string'
+                ? new Address(Buffer.from(contractDocument.contractPublicKey, 'base64'))
+                : new Address(contractDocument.contractPublicKey.buffer),
             bytecodeBuffer,
             contractDocument.wasCompressed,
             transactionIdBuffer,
@@ -134,7 +134,7 @@ export class ContractInformation {
         return {
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
             contractAddress: this.contractAddress,
-            contractTweakedPublicKey: new Binary(this.contractTweakedPublicKey),
+            contractPublicKey: new Binary(this.contractPublicKey),
             bytecode: new Binary(this.bytecode),
             wasCompressed: this.wasCompressed,
             deployedTransactionId: new Binary(this.deployedTransactionId),
