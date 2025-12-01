@@ -4,10 +4,10 @@ import { MLDSASecurityLevel } from '@btc-vision/transaction';
 
 export interface PublicKeyInfo {
     originalPubKey?: string;
-    readonly tweakedPubkey: string;
+    tweakedPubkey?: string;
 
-    readonly p2tr: string;
-    readonly p2op?: string;
+    p2tr?: string;
+    p2op?: string;
 
     lowByte?: number;
 

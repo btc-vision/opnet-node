@@ -1,4 +1,12 @@
-import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Document, Filter, } from 'mongodb';
+import {
+    AnyBulkWriteOperation,
+    Binary,
+    ClientSession,
+    Collection,
+    Db,
+    Document,
+    Filter,
+} from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
@@ -19,6 +27,11 @@ import { MLDSAPublicKeyDocument } from '../interfaces/IMLDSAPublicKey.js';
 
 interface PublicKeyWithMLDSA extends PublicKeyDocument {
     mldsa?: MLDSAPublicKeyDocument | null;
+}
+
+interface MLDSALookupEntry {
+    type: 'hashed' | 'legacy';
+    key: Binary;
 }
 
 export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocument> {
@@ -46,8 +59,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
         const results = await Promise.safeAll(promises);
 
-        // Collect keys that need MLDSA lookup from fallback path
-        const mldsaLookups: Map<number, Binary> = new Map();
+        const mldsaLookups: Map<number, MLDSALookupEntry> = new Map();
 
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
             const result = results[i];
@@ -57,26 +69,32 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
                 const bufferKey = Buffer.from(key, 'hex');
                 if (key.length === 64) {
-                    mldsaLookups.set(i, new Binary(bufferKey));
+                    // 32 bytes = mldsaHashedPublicKey, lookup by hashedPublicKey
+                    mldsaLookups.set(i, { type: 'hashed', key: new Binary(bufferKey) });
                 } else if (key.length === 66) {
+                    // 33 bytes = compressed EC pubkey, tweak and lookup by legacyPublicKey
                     const tweakedXOnly = toXOnly(this.tweakPublicKey(bufferKey));
-                    mldsaLookups.set(i, new Binary(tweakedXOnly));
+                    mldsaLookups.set(i, { type: 'legacy', key: new Binary(tweakedXOnly) });
                 }
             }
         }
 
-        // Batch fetch all MLDSA data
         const mldsaPromises: Promise<[number, MLDSAPublicKeyDocument | null]>[] = [];
-        for (const [index, legacyKey] of mldsaLookups) {
-            mldsaPromises.push(
-                this.fetchMLDSAByLegacyKey(legacyKey).then((mldsa) => [index, mldsa]),
-            );
+        for (const [index, entry] of mldsaLookups) {
+            if (entry.type === 'hashed') {
+                mldsaPromises.push(
+                    this.fetchMLDSAByHashedKey(entry.key).then((mldsa) => [index, mldsa]),
+                );
+            } else {
+                mldsaPromises.push(
+                    this.fetchMLDSAByLegacyKey(entry.key).then((mldsa) => [index, mldsa]),
+                );
+            }
         }
 
         const mldsaResults = await Promise.safeAll(mldsaPromises);
         const mldsaMap: Map<number, MLDSAPublicKeyDocument | null> = new Map(mldsaResults);
 
-        // Build response
         const pubKeyData: IPublicKeyInfoResult = {};
 
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
@@ -94,8 +112,28 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 const mldsa = mldsaMap.get(i) ?? null;
 
                 if (key.length === 64) {
-                    pubKeyData[key] = this.buildPublicKeyInfo(bufferKey, null, mldsa);
+                    // 32 bytes = mldsaHashedPublicKey input, always derive p2op from it
+                    const info: PublicKeyInfo = {
+                        p2op: this.p2op(bufferKey, this.network),
+                        mldsaHashedPublicKey: key,
+                    };
+
+                    if (mldsa) {
+                        info.mldsaLevel = mldsa.level;
+                        info.mldsaPublicKey = mldsa.publicKey
+                            ? Buffer.from(mldsa.publicKey.buffer).toString('hex')
+                            : null;
+
+                        if (mldsa.legacyPublicKey) {
+                            const legacyKeyBuffer = Buffer.from(mldsa.legacyPublicKey.buffer);
+                            info.tweakedPubkey = legacyKeyBuffer.toString('hex');
+                            info.p2tr = this.tweakedPubKeyToAddress(legacyKeyBuffer, this.network);
+                        }
+                    }
+
+                    pubKeyData[key] = info;
                 } else if (key.length === 66) {
+                    // 33 bytes = compressed EC pubkey, derive all address types
                     pubKeyData[key] = this.buildPublicKeyInfo(bufferKey, key, mldsa);
                 } else {
                     pubKeyData[key] = result;
@@ -111,7 +149,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     public async addTweakedPublicKey(tweaked: Buffer, session?: ClientSession): Promise<void> {
         const filter = {
             tweakedPublicKey: new Binary(tweaked),
-
             p2tr: this.tweakedPubKeyToAddress(tweaked, this.network),
         };
 
@@ -221,29 +258,49 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return this._db.collection(OPNetCollections.PublicKeys);
     }
 
+    private buildPublicKeyInfoFromMLDSA(
+        legacyTweakedKey: Buffer,
+        hashedKey: Buffer,
+        mldsa: MLDSAPublicKeyDocument,
+    ): PublicKeyInfo {
+        // legacyTweakedKey (tweakedPublicKey) -> p2tr
+        // hashedKey (mldsaHashedPublicKey) -> p2op
+        return {
+            tweakedPubkey: legacyTweakedKey.toString('hex'),
+            p2tr: this.tweakedPubKeyToAddress(legacyTweakedKey, this.network),
+            p2op: this.p2op(hashedKey, this.network),
+            mldsaHashedPublicKey: hashedKey.toString('hex'),
+            mldsaLevel: mldsa.level,
+            mldsaPublicKey: mldsa.publicKey
+                ? Buffer.from(mldsa.publicKey.buffer).toString('hex')
+                : null,
+        };
+    }
+
     private buildPublicKeyInfo(
         bufferKey: Buffer,
         originalPubKey: string | null,
         mldsa: MLDSAPublicKeyDocument | null,
     ): PublicKeyInfo {
+        // originalPubKey (33-byte compressed EC) -> p2pkh, p2shp2wpkh, p2wpkh, lowByte
+        // tweaked from originalPubKey -> p2tr
+        // mldsa.hashedPublicKey -> p2op (when MLDSA exists)
         const isCompressed = originalPubKey !== null;
-        const tweakedXOnly = isCompressed ? toXOnly(this.tweakPublicKey(bufferKey)) : bufferKey;
+        const tweakedKey = isCompressed ? this.tweakPublicKey(bufferKey) : null;
+        const tweakedXOnly = tweakedKey ? toXOnly(tweakedKey) : bufferKey;
 
         const info: PublicKeyInfo = {
             tweakedPubkey: tweakedXOnly.toString('hex'),
             p2tr: this.tweakedPubKeyToAddress(tweakedXOnly, this.network),
-            p2op: mldsa?.hashedPublicKey
-                ? this.p2op(Buffer.from(mldsa.hashedPublicKey.buffer), this.network)
-                : undefined,
         };
 
-        if (isCompressed) {
+        if (isCompressed && tweakedKey) {
             const ecKeyPair = EcKeyPair.fromPublicKey(bufferKey, this.network);
             info.originalPubKey = originalPubKey;
             info.p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
             info.p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(ecKeyPair, this.network);
             info.p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
-            info.lowByte = this.tweakPublicKey(bufferKey)[0];
+            info.lowByte = tweakedKey[0];
         }
 
         if (mldsa) {
@@ -252,14 +309,16 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             info.mldsaPublicKey = mldsa.publicKey
                 ? Buffer.from(mldsa.publicKey.buffer).toString('hex')
                 : null;
+            info.p2op = mldsa?.hashedPublicKey
+                ? this.p2op(Buffer.from(mldsa.hashedPublicKey.buffer), this.network)
+                : undefined;
         }
 
         return info;
     }
 
-    private p2op(tweaked: Buffer, network: Network): string {
-        const addy = new Address(tweaked);
-
+    private p2op(hashedKey: Buffer, network: Network): string {
+        const addy = new Address(hashedKey);
         return addy.p2op(network);
     }
 
@@ -356,6 +415,18 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return result ?? null;
     }
 
+    private async fetchMLDSAByHashedKey(
+        hashedPublicKey: Binary,
+    ): Promise<MLDSAPublicKeyDocument | null> {
+        const mldsaCollection = this._db.collection<MLDSAPublicKeyDocument>(
+            OPNetCollections.MLDSAPublicKeys,
+        );
+
+        const result = await mldsaCollection.findOne({ hashedPublicKey });
+
+        return result ?? null;
+    }
+
     private async getKeyInfo(key: string): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
         try {
             const keyBuffer = new Binary(Buffer.from(key, 'hex'));
@@ -420,7 +491,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
         publicKeys.push({
             tweakedPublicKey: new Binary(publicKey),
-
             p2tr: this.tweakedPubKeyToAddress(publicKey, this.network),
             p2op: this.p2op(publicKey, this.network),
         });
