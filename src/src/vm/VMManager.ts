@@ -709,18 +709,20 @@ export class VMManager extends Logger {
         }
 
         // Verify it does not exist in the database.
-        await this.verifyMLDSAPublicKey(
+        const exists = await this.shouldInsertMLDSAKey(
             mldsaPublicKey.hashedPublicKey,
             mldsaPublicKey.legacyPublicKey,
             mldsaPublicKey.level,
         );
 
-        this.mldsaToStore.set(address, {
-            exposePublicKey: false,
-            data: mldsaPublicKey,
-        });
+        if (!exists) {
+            this.mldsaToStore.set(address, {
+                exposePublicKey: false,
+                data: mldsaPublicKey,
+            });
 
-        this.mldsaToStoreLegacy.set(tweakedAddress, address);
+            this.mldsaToStoreLegacy.set(tweakedAddress, address);
+        }
     }
 
     public async exposeMLDSAPublicKey(mldsaPublicKey: IMLDSAPublicKey): Promise<void> {
@@ -740,25 +742,29 @@ export class VMManager extends Logger {
             return;
         }
 
-        await this.verifyMLDSAPublicKey(
+        const exists = await this.shouldInsertMLDSAKey(
             mldsaPublicKey.hashedPublicKey,
             mldsaPublicKey.legacyPublicKey,
             mldsaPublicKey.level,
+            true,
         );
 
-        this.mldsaToStore.set(address, {
-            exposePublicKey: true,
-            data: mldsaPublicKey,
-        });
+        if (!exists) {
+            this.mldsaToStore.set(address, {
+                exposePublicKey: true,
+                data: mldsaPublicKey,
+            });
 
-        this.mldsaToStoreLegacy.set(tweakedAddress, address);
+            this.mldsaToStoreLegacy.set(tweakedAddress, address);
+        }
     }
 
-    private async verifyMLDSAPublicKey(
+    private async shouldInsertMLDSAKey(
         hashedPublicKey: Buffer,
         legacyPublicKey: Buffer,
         level: MLDSASecurityLevel,
-    ): Promise<void> {
+        isExpose: boolean = false,
+    ): Promise<boolean> {
         // Verify it does not exist in the database.
         const exists = await this.vmStorage.mldsaPublicKeyExists(hashedPublicKey, legacyPublicKey);
 
@@ -771,14 +777,18 @@ export class VMManager extends Logger {
             throw new Error('Conflicting MLDSA public key exists for legacy and hashed keys.');
         }
 
-        if (exists.hashedExists) {
-            return;
-        }
-
         const exist = exists.hashedExists || exists.legacyExists;
         if (exist && exists.level !== level) {
             throw new Error('Existing MLDSA public key level mismatch.');
         }
+
+        if (isExpose) {
+            if (!exists.publicKeyExists) {
+                return false;
+            }
+        }
+
+        return exist;
     }
 
     private async onBlockCompleted(): Promise<void> {

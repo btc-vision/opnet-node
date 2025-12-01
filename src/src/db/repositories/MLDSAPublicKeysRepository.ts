@@ -22,6 +22,7 @@ export interface MLDSAPublicKeyExists {
     readonly legacyExists: boolean;
     readonly sameId: boolean;
     readonly level: MLDSASecurityLevel | null;
+    readonly publicKeyExists?: boolean;
 }
 
 export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublicKeyDocument> {
@@ -177,7 +178,7 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
         const [hashedResult, legacyResult] = await Promise.all([
             collection.findOne(
                 { hashedPublicKey: binHashed },
-                { projection: { _id: 1, level: 1 } },
+                { projection: { _id: 1, level: 1, exposedBlockHeight: 1 } },
             ),
             collection.findOne(
                 { legacyPublicKey: binLegacy },
@@ -193,6 +194,8 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
             legacyExists: legacyResult !== null,
             sameId: sameId,
             level: hashedResult && sameId ? hashedResult.level : null,
+            publicKeyExists:
+                hashedResult && sameId ? hashedResult.exposedBlockHeight !== null : undefined,
         };
     }
 
