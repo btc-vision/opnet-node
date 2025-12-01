@@ -1,5 +1,6 @@
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
+import { MLDSASecurityLevel } from '../../../../../../../../../transaction/src/index.js';
 
 export interface PublicKeyInfo {
     readonly originalPubKey?: string;
@@ -16,6 +17,10 @@ export interface PublicKeyInfo {
 
     readonly p2shp2wpkh?: string;
     readonly p2wpkh?: string;
+
+    mldsaHashedPublicKey?: string;
+    mldsaLevel?: MLDSASecurityLevel;
+    mldsaPublicKey?: string | null;
 }
 
 export interface IPubKeyNotFoundError {

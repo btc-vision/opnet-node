@@ -1,4 +1,12 @@
-import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Filter } from 'mongodb';
+import {
+    AnyBulkWriteOperation,
+    Binary,
+    ClientSession,
+    Collection,
+    Db,
+    Document,
+    Filter,
+} from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
@@ -15,6 +23,11 @@ import {
 import fs from 'fs';
 import { Config } from '../../config/Config.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
+import { MLDSAPublicKeyDocument } from '../interfaces/IMLDSAPublicKey.js';
+
+interface PublicKeyWithMLDSA extends PublicKeyDocument {
+    mldsa?: MLDSAPublicKeyDocument | null;
+}
 
 export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocument> {
     public readonly logColor: string = '#afeeee';
@@ -34,7 +47,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     public async getAddressOrPublicKeysInformation(
         addressOrPublicKeys: string[],
     ): Promise<IPublicKeyInfoResult> {
-        const promises: Promise<PublicKeyDocument | IPubKeyNotFoundError>[] = [];
+        const promises: Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError>[] = [];
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
             promises.push(this.getKeyInfo(addressOrPublicKeys[i]));
         }
@@ -44,7 +57,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
         for (let i = 0; i < addressOrPublicKeys.length; i++) {
             let key = addressOrPublicKeys[i];
-            const result: PublicKeyDocument | IPubKeyNotFoundError = results[i];
+            const result: PublicKeyWithMLDSA | IPubKeyNotFoundError = results[i];
 
             if ('error' in result) {
                 key = key.replace('0x', '');
@@ -74,7 +87,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                             originalPubKey: key,
                             tweakedPubkey: tweaked.toString('hex'),
                             p2tr: this.tweakedPubKeyToAddress(tweaked, this.network),
-                            p2op: this.p2op(tweaked, this.network),
+                            //p2op: this.p2op(tweaked, this.network),
                             p2pkh,
                             p2shp2wpkh,
                             p2wpkh,
@@ -128,7 +141,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 for (const input of inputs) {
                     if (input.decodedPubKey) {
                         if (this.isTaprootControlBlock(input.decodedPubKey)) {
-                            // Filter out taproot control blocks
                             continue;
                         }
 
@@ -153,7 +165,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     }
 
     protected tweakedPubKeyToAddress(tweakedPubKeyBuffer: Buffer, network: Network): string {
-        // Generate the Taproot address using the p2tr payment method
         const { address } = payments.p2tr({
             pubkey: toXOnly(tweakedPubKeyBuffer),
             network: network,
@@ -219,8 +230,8 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return this._db.collection(OPNetCollections.Contracts);
     }
 
-    private convertToPublicKeysInfo(publicKey: PublicKeyDocument): PublicKeyInfo {
-        return {
+    private convertToPublicKeysInfo(publicKey: PublicKeyWithMLDSA): PublicKeyInfo {
+        const base: PublicKeyInfo = {
             lowByte: publicKey.lowByte,
             originalPubKey: publicKey.publicKey?.toString('hex'),
             tweakedPubkey: publicKey.tweakedPublicKey.toString('hex'),
@@ -232,11 +243,23 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             p2op: publicKey.p2op,
             p2wpkh: publicKey.p2wpkh,
         };
+
+        if (publicKey.mldsa) {
+            base.mldsaHashedPublicKey = Buffer.from(
+                publicKey.mldsa.hashedPublicKey.buffer,
+            ).toString('hex');
+            base.mldsaLevel = publicKey.mldsa.level;
+            base.mldsaPublicKey = publicKey.mldsa.publicKey
+                ? Buffer.from(publicKey.mldsa.publicKey.buffer).toString('hex')
+                : null;
+        }
+
+        return base;
     }
 
     private async getKeyInfoFromContracts(
         key: string,
-    ): Promise<PublicKeyDocument | IPubKeyNotFoundError> {
+    ): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
         try {
             const filter: Filter<IContractDocument> = {
                 $or: [
@@ -256,7 +279,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 throw new Error('Public key not found');
             }
 
-            return this.convertContractObjectToPublicKeyDocument(resp);
+            return await this.convertContractObjectToPublicKeyDocument(resp);
         } catch {
             return {
                 error: 'Public key not found',
@@ -264,22 +287,39 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         }
     }
 
-    private convertContractObjectToPublicKeyDocument(
+    private async convertContractObjectToPublicKeyDocument(
         contract: IContractDocument,
-    ): PublicKeyDocument {
-        const p2tr = this.tweakedPubKeyToAddress(
-            Buffer.from((contract.contractPublicKey as Binary).buffer),
-            this.network,
-        );
+    ): Promise<PublicKeyWithMLDSA> {
+        const contractPublicKeyBuffer = Buffer.from((contract.contractPublicKey as Binary).buffer);
+        const p2tr = this.tweakedPubKeyToAddress(contractPublicKeyBuffer, this.network);
 
-        return {
+        const baseDocument: PublicKeyWithMLDSA = {
             tweakedPublicKey: contract.contractPublicKey as Binary,
             p2tr,
             p2op: contract.contractAddress,
         };
+
+        const mldsa = await this.fetchMLDSAByLegacyKey(contract.contractPublicKey as Binary);
+        if (mldsa) {
+            baseDocument.mldsa = mldsa;
+        }
+
+        return baseDocument;
     }
 
-    private async getKeyInfo(key: string): Promise<PublicKeyDocument | IPubKeyNotFoundError> {
+    private async fetchMLDSAByLegacyKey(
+        legacyPublicKey: Binary,
+    ): Promise<MLDSAPublicKeyDocument | null> {
+        const mldsaCollection = this._db.collection<MLDSAPublicKeyDocument>(
+            OPNetCollections.MLDSAPublicKeys,
+        );
+
+        const result = await mldsaCollection.findOne({ legacyPublicKey });
+
+        return result ?? null;
+    }
+
+    private async getKeyInfo(key: string): Promise<PublicKeyWithMLDSA | IPubKeyNotFoundError> {
         try {
             const keyBuffer = new Binary(Buffer.from(key, 'hex'));
             const filter: Filter<PublicKeyDocument> = {
@@ -296,20 +336,41 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 ],
             };
 
-            return await this.getOne(filter);
+            return await this.getOneWithMLDSA(filter);
         } catch {
             return await this.getKeyInfoFromContracts(key);
         }
     }
 
-    private async getOne(filter: Filter<PublicKeyDocument>): Promise<PublicKeyDocument> {
-        const resp = await this.getCollection().findOne(filter);
+    private async getOneWithMLDSA(filter: Filter<PublicKeyDocument>): Promise<PublicKeyWithMLDSA> {
+        const pipeline: Document[] = [
+            { $match: filter },
+            { $limit: 1 },
+            {
+                $lookup: {
+                    from: OPNetCollections.MLDSAPublicKeys,
+                    localField: 'tweakedPublicKey',
+                    foreignField: 'legacyPublicKey',
+                    as: 'mldsaData',
+                },
+            },
+            {
+                $addFields: {
+                    mldsa: { $arrayElemAt: ['$mldsaData', 0] },
+                },
+            },
+            { $project: { mldsaData: 0 } },
+        ];
 
-        if (!resp) {
+        const results = await this.getCollection()
+            .aggregate<PublicKeyWithMLDSA>(pipeline)
+            .toArray();
+
+        if (!results.length) {
             throw new Error('Public key not found');
         }
 
-        return resp;
+        return results[0];
     }
 
     private addSchnorrPublicKey(publicKeys: PublicKeyDocument[], publicKey: Buffer): void {
@@ -400,7 +461,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     }
 
     private reportNonStandardScript(type: string, script: string, txId: Buffer): void {
-        // write the data to a file that can be checked later on.
         if (Config.DEV_MODE && !script.endsWith('ae')) {
             fs.appendFileSync('non-standard-scripts.txt', `${txId.toString('hex')}: ${script}\n`);
 
@@ -425,11 +485,9 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 break;
             }
             case 'multisig': {
-                // TODO: Implement
                 break;
             }
             case 'witness_v0_keyhash': {
-                // TODO: Implement
                 break;
             }
             case 'witness_v1_taproot': {
@@ -439,23 +497,18 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 break;
             }
             case 'witness_v0_scripthash': {
-                // TODO: Implement
                 break;
             }
             case 'scripthash': {
-                // TODO: Implement
                 break;
             }
             case 'nulldata': {
-                // ignore.
                 break;
             }
             case 'witness_mweb_hogaddr': {
-                // ignore.
                 break;
             }
             case 'witness_unknown': {
-                // reserved segwit for future use.
                 break;
             }
             case 'nonstandard': {
