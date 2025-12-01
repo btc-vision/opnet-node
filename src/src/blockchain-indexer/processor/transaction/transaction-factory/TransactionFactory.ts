@@ -33,9 +33,10 @@ export class TransactionFactory {
 
         const tx = transactionObj.parse(data, index, blockHash, blockHeight, network, addressCache);
         tx.verifyPreImage = (miner: Address, preimage: Buffer): Buffer | undefined => {
-            if (!enableVerification) {
-                return;
-            }
+            //if (!enableVerification) {
+            //    console.log('allowedChallenges', allowedChallenges);
+            //    return;
+            //}
 
             const hasMiner = allowedChallenges.solutions.get(miner);
             if (!hasMiner) {
@@ -52,8 +53,8 @@ export class TransactionFactory {
 
             if (OPNetConsensus.allowUnsafeSignatures) {
                 const legacyPublicKey = allowedChallenges.legacyPublicKeys.get(miner);
-                if(!legacyPublicKey) {
-                    throw new Error(INVALID_MINER_CHALLENGE_ERROR)
+                if (!legacyPublicKey) {
+                    throw new Error(INVALID_MINER_CHALLENGE_ERROR);
                 }
 
                 return legacyPublicKey;
