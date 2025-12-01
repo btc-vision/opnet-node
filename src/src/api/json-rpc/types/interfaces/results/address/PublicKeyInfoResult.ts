@@ -1,6 +1,6 @@
 import { JSONRpcMethods } from '../../../enums/JSONRpcMethods.js';
 import { JSONRpc2ResultData } from '../../JSONRpc2ResultData.js';
-import { MLDSASecurityLevel } from '../../../../../../../../../transaction/src/index.js';
+import { MLDSASecurityLevel } from '@btc-vision/transaction';
 
 export interface PublicKeyInfo {
     originalPubKey?: string;
