@@ -384,7 +384,6 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
     ): DeploymentWitnessData | undefined {
         const header = DeploymentTransaction.decodeOPNetHeader(scriptData);
         if (!header) {
-            console.log('No header');
             return;
         }
 

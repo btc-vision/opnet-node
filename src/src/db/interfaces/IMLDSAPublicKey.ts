@@ -11,11 +11,6 @@ export interface IMLDSAPublicKey {
     readonly exposedBlockHeight: bigint | null;
 }
 
-export interface IMLDSAPublicKeyWithExposedKey extends IMLDSAPublicKey {
-    readonly publicKey: Buffer;
-    readonly exposedBlockHeight: bigint;
-}
-
 export interface MLDSAPublicKeyDocument {
     readonly level: MLDSASecurityLevel;
     readonly legacyPublicKey: Binary;

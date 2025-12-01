@@ -813,7 +813,7 @@ export class VMManager extends Logger {
     ): Promise<ContractEvaluator | null> {
         return await this.getVMEvaluator(contractAddress, blockHeight, contract).catch(
             (e: unknown) => {
-                this.warn(`Error getting VM evaluator: ${e as Error}`);
+                this.warn(`Error getting VM evaluator: ${(e as Error).stack}`);
                 return null;
             },
         );

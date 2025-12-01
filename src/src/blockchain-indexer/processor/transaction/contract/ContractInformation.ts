@@ -91,7 +91,10 @@ export class ContractInformation {
             deployerPubKeyBuffer,
             contractSeedBuffer,
             contractSaltHashBuffer,
-            new Address(contractDocument.deployerPubKey.buffer),
+            new Address(
+                contractDocument.deployerAddress.buffer,
+                contractDocument.deployerPubKey.buffer,
+            ),
         );
     }
 
@@ -142,6 +145,7 @@ export class ContractInformation {
             deployerPubKey: new Binary(this.deployerPubKey),
             contractSeed: new Binary(this.contractSeed),
             contractSaltHash: new Binary(this.contractSaltHash),
+            deployerAddress: new Binary(this.deployerAddress),
         };
     }
 }

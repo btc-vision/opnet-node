@@ -218,9 +218,13 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
             hashedPublicKey: Buffer.from(result.hashedPublicKey.buffer),
             legacyPublicKey: Buffer.from(result.legacyPublicKey.buffer),
             publicKey: result.publicKey ? Buffer.from(result.publicKey.buffer) : null,
-            insertedBlockHeight: result.insertedBlockHeight.toBigInt(),
+            insertedBlockHeight: Long.isLong(result.insertedBlockHeight)
+                ? result.insertedBlockHeight.toBigInt()
+                : BigInt(result.insertedBlockHeight),
             exposedBlockHeight: result.exposedBlockHeight
-                ? result.exposedBlockHeight.toBigInt()
+                ? Long.isLong(result.exposedBlockHeight)
+                    ? result.exposedBlockHeight.toBigInt()
+                    : BigInt(result.exposedBlockHeight)
                 : null,
         };
     }
