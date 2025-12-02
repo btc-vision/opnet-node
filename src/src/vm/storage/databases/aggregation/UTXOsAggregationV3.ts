@@ -106,6 +106,180 @@ export class UTXOsAggregationV3 extends Aggregation {
             aggregation.push({
                 $project: {
                     utxos: 1,
+                    deduped: {
+                        $reduce: {
+                            input: '$utxos',
+                            initialValue: { ids: [], arr: [] },
+                            in: {
+                                ids: {
+                                    $cond: [
+                                        { $in: ['$$this.transactionId', '$$value.ids'] },
+                                        '$$value.ids',
+                                        {
+                                            $concatArrays: [
+                                                '$$value.ids',
+                                                ['$$this.transactionId'],
+                                            ],
+                                        },
+                                    ],
+                                },
+                                arr: {
+                                    $cond: [
+                                        { $in: ['$$this.transactionId', '$$value.ids'] },
+                                        '$$value.arr',
+                                        { $concatArrays: ['$$value.arr', ['$$this.raw']] },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+
+            aggregation.push({
+                $project: {
+                    utxos: {
+                        $map: {
+                            input: '$utxos',
+                            as: 'utxo',
+                            in: {
+                                transactionId: '$$utxo.transactionId',
+                                outputIndex: '$$utxo.outputIndex',
+                                value: '$$utxo.value',
+                                scriptPubKey: '$$utxo.scriptPubKey',
+                                raw: { $indexOfArray: ['$deduped.ids', '$$utxo.transactionId'] },
+                            },
+                        },
+                    },
+                    raw: '$deduped.arr',
+                },
+            });
+        } else {
+            aggregation.push({
+                $facet: {
+                    results: [
+                        {
+                            $group: {
+                                _id: null,
+                                utxos: {
+                                    $push: {
+                                        transactionId: '$transactionId',
+                                        outputIndex: '$outputIndex',
+                                        value: '$value',
+                                        scriptPubKey: '$scriptPubKey',
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                },
+            });
+
+            aggregation.push({
+                $project: {
+                    _id: 0,
+                    utxos: {
+                        $ifNull: [{ $arrayElemAt: ['$results.utxos', 0] }, []],
+                    },
+                    raw: { $literal: [] },
+                },
+            });
+        }
+
+        console.log(`aggregation`, JSON.stringify(aggregation, null, 4));
+
+        return aggregation;
+    }
+
+    // This version is faster but fail when the array is empty.
+    /*public getAggregation(
+        wallet: string,
+        limit: boolean = true,
+        optimize: boolean = false,
+        pushRawTxs: boolean = true,
+        olderThan: bigint | undefined,
+    ): Document[] {
+        const minValue: number = optimize ? 12000 : 330;
+
+        const aggregation: Document[] = [
+            {
+                $match: {
+                    'scriptPubKey.address': wallet,
+                    value: {
+                        $gte: Long.fromValue(minValue),
+                    },
+                    deletedAtBlock: null,
+                    ...(olderThan !== undefined
+                        ? {
+                              blockHeight: {
+                                  $lte: DataConverter.toDecimal128(olderThan),
+                              },
+                          }
+                        : {}),
+                },
+            },
+            {
+                $sort: {
+                    value: -1,
+                },
+            },
+        ];
+
+        if (limit) {
+            aggregation.push({
+                $limit: Config.API.UTXO_LIMIT,
+            });
+        }
+
+        if (pushRawTxs) {
+            aggregation.push({
+                $lookup: {
+                    from: 'Transactions',
+                    localField: 'transactionId',
+                    foreignField: 'id',
+                    as: 'transactionData',
+                },
+            });
+
+            aggregation.push({
+                $unwind: {
+                    path: '$transactionData',
+                    preserveNullAndEmptyArrays: true,
+                },
+            });
+
+            aggregation.push({
+                $facet: {
+                    results: [
+                        {
+                            $group: {
+                                _id: null,
+                                utxos: {
+                                    $push: {
+                                        transactionId: '$transactionId',
+                                        outputIndex: '$outputIndex',
+                                        value: '$value',
+                                        scriptPubKey: '$scriptPubKey',
+                                        raw: '$transactionData.raw',
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                },
+            });
+
+            aggregation.push({
+                $project: {
+                    utxos: {
+                        $ifNull: [{ $arrayElemAt: ['$results.utxos', 0] }, []],
+                    },
+                },
+            });
+
+            aggregation.push({
+                $project: {
+                    utxos: 1,
                     raw: {
                         $reduce: {
                             input: '$utxos',
@@ -228,5 +402,5 @@ export class UTXOsAggregationV3 extends Aggregation {
         console.log(`aggregation`, JSON.stringify(aggregation, null, 4));
 
         return aggregation;
-    }
+    }*/
 }
