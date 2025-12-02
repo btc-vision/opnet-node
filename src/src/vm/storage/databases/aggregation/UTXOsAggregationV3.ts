@@ -75,23 +75,36 @@ export class UTXOsAggregationV3 extends Aggregation {
             });
 
             aggregation.push({
-                $group: {
-                    _id: null,
-                    utxos: {
-                        $push: {
-                            transactionId: '$transactionId',
-                            outputIndex: '$outputIndex',
-                            value: '$value',
-                            scriptPubKey: '$scriptPubKey',
-                            raw: '$transactionData.raw',
+                $facet: {
+                    results: [
+                        {
+                            $group: {
+                                _id: null,
+                                utxos: {
+                                    $push: {
+                                        transactionId: '$transactionId',
+                                        outputIndex: '$outputIndex',
+                                        value: '$value',
+                                        scriptPubKey: '$scriptPubKey',
+                                        raw: '$transactionData.raw',
+                                    },
+                                },
+                            },
                         },
+                    ],
+                },
+            });
+
+            aggregation.push({
+                $project: {
+                    utxos: {
+                        $ifNull: [{ $arrayElemAt: ['$results.utxos', 0] }, []],
                     },
                 },
             });
 
             aggregation.push({
                 $project: {
-                    _id: 0,
                     utxos: 1,
                     raw: {
                         $reduce: {
@@ -182,23 +195,31 @@ export class UTXOsAggregationV3 extends Aggregation {
             });
         } else {
             aggregation.push({
-                $group: {
-                    _id: null,
-                    utxos: {
-                        $push: {
-                            transactionId: '$transactionId',
-                            outputIndex: '$outputIndex',
-                            value: '$value',
-                            scriptPubKey: '$scriptPubKey',
+                $facet: {
+                    results: [
+                        {
+                            $group: {
+                                _id: null,
+                                utxos: {
+                                    $push: {
+                                        transactionId: '$transactionId',
+                                        outputIndex: '$outputIndex',
+                                        value: '$value',
+                                        scriptPubKey: '$scriptPubKey',
+                                    },
+                                },
+                            },
                         },
-                    },
+                    ],
                 },
             });
 
             aggregation.push({
                 $project: {
                     _id: 0,
-                    utxos: 1,
+                    utxos: {
+                        $ifNull: [{ $arrayElemAt: ['$results.utxos', 0] }, []],
+                    },
                     raw: { $literal: [] },
                 },
             });
