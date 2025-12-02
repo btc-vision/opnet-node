@@ -189,7 +189,7 @@ export class P2PManager extends Logger {
         DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
-        this.blockWitnessManager.init();
+        await this.blockWitnessManager.init();
         await this.blockWitnessManager.setCurrentBlock();
 
         this.node = await this.createNode();

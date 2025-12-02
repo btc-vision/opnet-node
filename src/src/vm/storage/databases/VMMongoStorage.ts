@@ -389,7 +389,7 @@ export class VMMongoStorage extends VMStorage {
 
         this.reorgRepository = new ReorgsRepository(this.databaseManager.db);
         this.blockWitnessRepository = new BlockWitnessRepository(this.databaseManager.db);
-        this.mempoolRepository = new MempoolRepository(this.databaseManager.db);
+        this.mempoolRepository = new MempoolRepository(this.databaseManager.db, dbVersion);
         this.publicKeysRepository = new PublicKeysRepository(this.databaseManager.db);
         this.epochRepository = new EpochRepository(this.databaseManager.db);
         this.epochSubmissionRepository = new EpochSubmissionRepository(this.databaseManager.db);

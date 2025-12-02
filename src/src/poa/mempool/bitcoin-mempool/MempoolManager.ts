@@ -3,12 +3,7 @@ import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
-import {
-    BitcoinRPC,
-    BitcoinVerbosity,
-    TransactionData,
-    TransactionDetail,
-} from '@btc-vision/bitcoin-rpc';
+import { BitcoinRPC, BitcoinVerbosity, TransactionData, TransactionDetail, } from '@btc-vision/bitcoin-rpc';
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
@@ -19,10 +14,13 @@ import { parseAndStoreInputOutputs } from '../../../utils/TransactionMempoolUtil
 import fs from 'fs';
 import { LargeJSONProcessor } from '../../../utils/LargeJSONProcessor.js';
 import { RPCMessageData } from '../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
-import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
+import {
+    BitcoinRPCThreadMessageType
+} from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
 import { Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
+import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 
 export class MempoolManager extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -99,7 +97,9 @@ export class MempoolManager extends Logger {
 
         if (!this.db.db) throw new Error('Database connection not established.');
 
-        this.#mempoolRepository = new MempoolRepository(this.db.db);
+        const version = await getMongodbMajorVersion(this.db.db);
+
+        this.#mempoolRepository = new MempoolRepository(this.db.db, version);
         this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
         await Promise.safeAll([
