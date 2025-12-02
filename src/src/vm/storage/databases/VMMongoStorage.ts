@@ -48,6 +48,7 @@ import {
     MLDSAPublicKeyExists,
     MLDSAPublicKeyRepository,
 } from '../../../db/repositories/MLDSAPublicKeysRepository.js';
+import { getMongodbMajorVersion } from './MongoUtils.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -374,6 +375,8 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Database not connected');
         }
 
+        const dbVersion = await getMongodbMajorVersion(this.databaseManager.db);
+
         this.pointerRepository = new ContractPointerValueRepository(this.databaseManager.db);
         this.contractRepository = new ContractRepository(this.databaseManager.db);
         this.blockRepository = new BlockRepository(this.databaseManager.db);
@@ -381,6 +384,7 @@ export class VMMongoStorage extends VMStorage {
         this.transactionRepository = new TransactionRepository(this.databaseManager.db);
         this.unspentTransactionRepository = new UnspentTransactionRepository(
             this.databaseManager.db,
+            dbVersion,
         );
 
         this.reorgRepository = new ReorgsRepository(this.databaseManager.db);

@@ -14,6 +14,7 @@ export interface UTXOSOutputTransactionFromDBV2 {
 
 export class UTXOsAggregationV2 extends Aggregation {
     public getAggregation(
+        _dbVersion: number,
         wallet: string,
         limit: boolean = true,
         optimize: boolean = false,

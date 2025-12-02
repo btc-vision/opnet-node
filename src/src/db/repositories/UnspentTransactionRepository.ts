@@ -42,7 +42,10 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
     private readonly uxtosAggregation: UTXOsAggregationV3 = new UTXOsAggregationV3();
     private readonly balanceOfAggregation: BalanceOfAggregationV2 = new BalanceOfAggregationV2();
 
-    public constructor(db: Db) {
+    public constructor(
+        db: Db,
+        private readonly dbVersion: number,
+    ) {
         super(db);
     }
 
@@ -210,6 +213,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         currentSession?: ClientSession,
     ): Promise<bigint> {
         const aggregation: Document[] = this.balanceOfAggregation.getAggregation(
+            this.dbVersion,
             wallet,
             filterOrdinals,
         );
@@ -235,6 +239,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         olderThan: bigint | undefined,
     ): Promise<RawUTXOsAggregationResultV3> {
         const aggregation: Document[] = this.uxtosAggregation.getAggregation(
+            this.dbVersion,
             wallet,
             true,
             optimize,

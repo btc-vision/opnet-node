@@ -23,6 +23,7 @@ import { Classification, Utxo, UtxoSorter } from '../solver/UTXOSorter.js';
 import { AnyoneCanSpendRepository } from '../../../db/repositories/AnyoneCanSpendRepository.js';
 import { ChallengeSolution } from '../../processor/interfaces/TransactionPreimage.js';
 import { AddressMap } from '@btc-vision/transaction';
+import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -118,7 +119,12 @@ export class ChainSynchronisation extends Logger {
             rpc: this.rpcClient,
         });
 
-        this._unspentTransactionRepository = new UnspentTransactionRepository(DBManagerInstance.db);
+        const dbVersion = await getMongodbMajorVersion(DBManagerInstance.db);
+
+        this._unspentTransactionRepository = new UnspentTransactionRepository(
+            DBManagerInstance.db,
+            dbVersion,
+        );
         this._anyoneCanSpend = new AnyoneCanSpendRepository(DBManagerInstance.db);
         this._publicKeysRepository = new PublicKeysRepository(DBManagerInstance.db);
         //this._epochRepository = new EpochRepository(DBManagerInstance.db);

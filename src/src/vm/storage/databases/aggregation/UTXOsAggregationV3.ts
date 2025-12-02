@@ -19,6 +19,7 @@ export interface UTXOsAggregationResultV3 {
 
 export class UTXOsAggregationV3 extends Aggregation {
     public getAggregation(
+        dbVersion: number,
         wallet: string,
         limit: boolean = true,
         optimize: boolean = false,
