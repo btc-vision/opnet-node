@@ -219,8 +219,6 @@ export class UTXOsAggregationV3 extends Aggregation {
             });
         }
 
-        console.log(`aggregation mongodb 8`, JSON.stringify(aggregation, null, 4));
-
         return aggregation;
     }
 
@@ -391,8 +389,6 @@ export class UTXOsAggregationV3 extends Aggregation {
                 },
             });
         }
-
-        console.log(`aggregation mongodb 7`, JSON.stringify(aggregation, null, 4));
 
         return aggregation;
     }
