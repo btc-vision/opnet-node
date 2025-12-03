@@ -720,6 +720,8 @@ export class Block {
             }
 
             const submissionData = transaction.submission;
+            console.log('submissionData', submissionData);
+
             const key = this.generateSubmissionKey(submissionData);
 
             // Skip if already processed

@@ -13,6 +13,8 @@ import {
     ChallengeSolution,
     ContractAddressVerificationParams,
     EcKeyPair,
+    Feature,
+    FeaturePriority,
     Features,
     MLDSALinkRequest,
     TapscriptVerificator,
@@ -22,7 +24,6 @@ import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/Evalu
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { SharedInteractionParameters } from './SharedInteractionParameters.js';
-import { Feature } from '../features/Features.js';
 import { AddressCache } from '../../AddressCache.js';
 
 interface DeploymentWitnessData {
@@ -289,6 +290,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         const features: Feature<Features>[] = [];
         if (this._submission) {
             features.push({
+                priority: FeaturePriority.EPOCH_SUBMISSION,
                 opcode: Features.EPOCH_SUBMISSION,
                 data: {
                     mldsaPublicKey: new Address(this._submission.mldsaPublicKey),
@@ -300,6 +302,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         if (this._mldsaLinkRequest) {
             const feature: MLDSALinkRequest = {
+                priority: FeaturePriority.MLDSA_LINK_PUBKEY,
                 opcode: Features.MLDSA_LINK_PUBKEY,
                 data: {
                     verifyRequest: this._mldsaLinkRequest.mldsaSignature !== null,

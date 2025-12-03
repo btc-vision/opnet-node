@@ -1,4 +1,9 @@
-import { BinaryReader, Features } from '@btc-vision/transaction';
+import { BinaryReader, FeaturePriority, Features } from '@btc-vision/transaction';
+
+export interface PriorityOrder {
+    priority: FeaturePriority;
+    feature: Features;
+}
 
 export class OPNetHeader {
     public static EXPECTED_HEADER_LENGTH: number = 4 + 8;
@@ -30,8 +35,8 @@ export class OPNetHeader {
         return this._prefix;
     }
 
-    public decodeFlags(): Features[] {
-        const features: Features[] = [];
+    public decodeFlags(): PriorityOrder[] {
+        const features: PriorityOrder[] = [];
         const includesAccessList =
             (this._flags & Features.ACCESS_LIST) === (Features.ACCESS_LIST as number);
 
@@ -41,9 +46,26 @@ export class OPNetHeader {
         const includesMLDSALinkingRequest =
             (this._flags & Features.MLDSA_LINK_PUBKEY) === (Features.MLDSA_LINK_PUBKEY as number);
 
-        if (includesAccessList) features.push(Features.ACCESS_LIST);
-        if (includesEpochSubmission) features.push(Features.EPOCH_SUBMISSION);
-        if (includesMLDSALinkingRequest) features.push(Features.MLDSA_LINK_PUBKEY);
+        if (includesAccessList) {
+            features.push({
+                priority: FeaturePriority.ACCESS_LIST,
+                feature: Features.ACCESS_LIST,
+            });
+        }
+
+        if (includesEpochSubmission) {
+            features.push({
+                priority: FeaturePriority.EPOCH_SUBMISSION,
+                feature: Features.EPOCH_SUBMISSION,
+            });
+        }
+
+        if (includesMLDSALinkingRequest) {
+            features.push({
+                priority: FeaturePriority.MLDSA_LINK_PUBKEY,
+                feature: Features.MLDSA_LINK_PUBKEY,
+            });
+        }
 
         return features;
     }

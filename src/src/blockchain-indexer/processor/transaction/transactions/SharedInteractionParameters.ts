@@ -1,11 +1,6 @@
 import { Transaction } from '../Transaction.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
-import {
-    AccessListFeature,
-    EpochSubmissionFeature,
-    Feature,
-    MLDSALinkRequest,
-} from '../features/Features.js';
+import { AccessListFeature, EpochSubmissionFeature, MLDSALinkRequest, } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { opcodes, payments } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
@@ -14,6 +9,7 @@ import {
     AddressMap,
     BinaryReader,
     BinaryWriter,
+    Feature,
     Features,
     MessageSigner,
     MLDSASecurityLevel,
@@ -159,7 +155,8 @@ export abstract class SharedInteractionParameters<
         const decodedData: Feature<Features>[] = [];
         for (let i = 0; i < features.length; i++) {
             const feature: Feature<Features> = {
-                opcode: features[i],
+                opcode: features[i].feature,
+                priority: features[i].priority,
                 data: this.getDataUntilBufferEnd(scriptData),
             };
 
@@ -348,7 +345,9 @@ export abstract class SharedInteractionParameters<
         return decompressed.out;
     }
 
-    protected parseFeatures(features: Feature<Features>[]): void {
+    protected parseFeatures(rawFeatures: Feature<Features>[]): void {
+        const features = rawFeatures.sort((a, b) => a.priority - b.priority);
+
         for (let i = 0; i < features.length; i++) {
             const feature = features[i];
 
@@ -440,8 +439,12 @@ export abstract class SharedInteractionParameters<
         const data: Buffer = feature.data;
 
         if (data.length > 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
-            throw new Error(`OP_NET: Invalid epoch submission feature data length.`);
+            throw new Error(
+                `OP_NET: Invalid epoch submission feature data length. (${data.length} bytes)`,
+            );
         }
+
+        console.log('Decoding epoch submission data of length', data.length);
 
         const binaryReader = new BinaryReader(data);
         const mldsaPublicKey = binaryReader.readBytes(32);

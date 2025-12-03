@@ -14,12 +14,11 @@ import { TransactionInput } from '../inputs/TransactionInput.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { TransactionInformation } from '../PossibleOPNetTransactions.js';
 import { OPNet_MAGIC } from '../Transaction.js';
-import { Address, AddressVerificator, Features } from '@btc-vision/transaction';
+import { Address, AddressVerificator, Feature, Features } from '@btc-vision/transaction';
 import * as ecc from 'tiny-secp256k1';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { SharedInteractionParameters } from './SharedInteractionParameters.js';
-import { Feature } from '../features/Features.js';
 import { AddressCache } from '../../AddressCache.js';
 
 export interface InteractionWitnessData {
