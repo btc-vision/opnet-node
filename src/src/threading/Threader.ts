@@ -322,7 +322,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
         void promise.then((worker) => {
             // If worker was successfully created, store it at index i
             if (worker) {
-                this.threads[i] = worker;
+                this.threads.push(worker);
             }
         });
 
