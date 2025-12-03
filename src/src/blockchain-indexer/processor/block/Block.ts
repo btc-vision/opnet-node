@@ -3,20 +3,11 @@ import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { DataConverter, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { Network } from '@btc-vision/bitcoin';
 import { Config } from '../../../config/Config.js';
-import {
-    BlockHeaderChecksumProof,
-    BlockHeaderDocument,
-} from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import {
-    ITransactionDocumentBasic,
-    TransactionDocument,
-} from '../../../db/interfaces/ITransactionDocument.js';
+import { BlockHeaderChecksumProof, BlockHeaderDocument, } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { ITransactionDocumentBasic, TransactionDocument, } from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedStates } from '../../../vm/evaluated/EvaluatedStates.js';
 import { VMManager } from '../../../vm/VMManager.js';
-import {
-    OPNetInteractionTypeValues,
-    OPNetTransactionTypes,
-} from '../transaction/enums/OPNetTransactionTypes.js';
+import { OPNetInteractionTypeValues, OPNetTransactionTypes, } from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
 import { TransactionSorter } from '../transaction/transaction-sorter/TransactionSorter.js';
 import { Transaction } from '../transaction/Transaction.js';
@@ -738,10 +729,6 @@ export class Block {
                 transactionId: transaction.transactionIdString,
                 txHash: transaction.hash.toString('hex'),
             });
-
-            sharedBlockLogger.success(
-                `Extracted epoch submission from tx ${transaction.transactionIdString}`,
-            );
         }
     }
 
@@ -850,13 +837,20 @@ export class Block {
                 continue;
             }
 
-            // We skip if no public key is found
-            if (!walletInfo.publicKey) {
-                continue;
-            }
+            if (!OPNetConsensus.allowUnsafeSignatures) {
+                if (!walletInfo.exposedBlockHeight) {
+                    // If the public key is not exposed yet, we skip
+                    continue;
+                }
 
-            if (walletInfo.publicKey.length !== MLDSA44_PUBLIC_KEY_LEN) {
-                continue;
+                // We skip if no public key is found
+                if (!walletInfo.publicKey) {
+                    continue;
+                }
+
+                if (walletInfo.publicKey.length !== MLDSA44_PUBLIC_KEY_LEN) {
+                    continue;
+                }
             }
 
             extendedSubmissions.push({
