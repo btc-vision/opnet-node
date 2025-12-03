@@ -1,19 +1,6 @@
-import {
-    AnyBulkWriteOperation,
-    Binary,
-    ClientSession,
-    Collection,
-    Db,
-    Document,
-    Filter,
-    Long,
-} from 'mongodb';
+import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Document, Filter, Long, } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import {
-    IMLDSAPublicKey,
-    MLDSAPublicKeyDocument,
-    MLDSAUpdateData,
-} from '../interfaces/IMLDSAPublicKey.js';
+import { IMLDSAPublicKey, MLDSAPublicKeyDocument, MLDSAUpdateData, } from '../interfaces/IMLDSAPublicKey.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { MLDSASecurityLevel } from '@btc-vision/transaction';
 
@@ -179,6 +166,10 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
         hashedPublicKey: Buffer | Binary | string,
         legacyPublicKey: Buffer | Binary | string,
     ): Promise<MLDSAPublicKeyExists> {
+        if (hashedPublicKey.length !== 32 || legacyPublicKey.length !== 33) {
+            throw new Error('Invalid public key lengths provided to compare existence');
+        }
+
         const binHashed: Binary = this.toBinary(hashedPublicKey);
         const binLegacy: Binary = this.toBinary(legacyPublicKey);
 
