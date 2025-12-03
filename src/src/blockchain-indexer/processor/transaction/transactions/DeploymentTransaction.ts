@@ -13,6 +13,7 @@ import {
     ChallengeSolution,
     ContractAddressVerificationParams,
     EcKeyPair,
+    EpochSubmissionFeature,
     Feature,
     FeaturePriority,
     Features,
@@ -289,15 +290,22 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
     private getFeatures(): Feature<Features>[] {
         const features: Feature<Features>[] = [];
         if (this._submission) {
-            features.push({
+            const epochSubmission: EpochSubmissionFeature = {
                 priority: FeaturePriority.EPOCH_SUBMISSION,
                 opcode: Features.EPOCH_SUBMISSION,
                 data: {
-                    mldsaPublicKey: new Address(this._submission.mldsaPublicKey),
+                    publicKey: new Address(this._submission.mldsaPublicKey),
                     solution: this._submission.salt,
                     graffiti: this._submission.graffiti,
+                    epochNumber: 0n,
+                    signature: Buffer.alloc(0),
+                    verifySignature: function (): boolean {
+                        return true;
+                    },
                 },
-            });
+            };
+
+            features.push(epochSubmission);
         }
 
         if (this._mldsaLinkRequest) {
@@ -335,7 +343,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         const unsafePreimage: ChallengeSolution = {
             solution: this.preimage,
-            publicKey: new Address(this.miner),
+            publicKey: new Address(this.miner, this.minerLegacyPublicKey),
         } as unknown as ChallengeSolution;
 
         const features: Feature<Features>[] = this.getFeatures();

@@ -715,12 +715,10 @@ export class Block {
 
     private extractUniqueSubmissions(): void {
         for (const transaction of this.transactions) {
-            if (!transaction.submission) {
+            const submissionData = transaction.submission;
+            if (!submissionData) {
                 continue;
             }
-
-            const submissionData = transaction.submission;
-            console.log('submissionData', submissionData);
 
             const key = this.generateSubmissionKey(submissionData);
 
@@ -740,6 +738,10 @@ export class Block {
                 transactionId: transaction.transactionIdString,
                 txHash: transaction.hash.toString('hex'),
             });
+
+            sharedBlockLogger.success(
+                `Extracted epoch submission from tx ${transaction.transactionIdString}`,
+            );
         }
     }
 

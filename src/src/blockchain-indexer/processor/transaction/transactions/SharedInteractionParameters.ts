@@ -1,6 +1,10 @@
 import { Transaction } from '../Transaction.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
-import { AccessListFeature, EpochSubmissionFeature, MLDSALinkRequest, } from '../features/Features.js';
+import {
+    AccessListFeature,
+    EpochSubmissionFeature,
+    MLDSALinkRequest,
+} from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { opcodes, payments } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
@@ -151,16 +155,28 @@ export abstract class SharedInteractionParameters<
         scriptData: Array<number | Buffer>,
     ): Feature<Features>[] {
         const features = header.decodeFlags();
-
         const decodedData: Feature<Features>[] = [];
-        for (let i = 0; i < features.length; i++) {
-            const feature: Feature<Features> = {
-                opcode: features[i].feature,
-                priority: features[i].priority,
-                data: this.getDataUntilBufferEnd(scriptData),
-            };
 
-            decodedData.push(feature);
+        try {
+            if (features.length) {
+                const data = this.getDataUntilBufferEnd(scriptData);
+                if (!data) {
+                    throw new Error(`OP_NET: Unable to decode features data.`);
+                }
+
+                const reader = new BinaryReader(data);
+                for (let i = 0; i < features.length; i++) {
+                    const feature: Feature<Features> = {
+                        opcode: features[i].feature,
+                        priority: features[i].priority,
+                        data: reader.readBytesWithLength(),
+                    };
+
+                    decodedData.push(feature);
+                }
+            }
+        } catch (e) {
+            throw new Error(`OP_NET: Unable to decode features data.`);
         }
 
         return decodedData;
@@ -443,8 +459,6 @@ export abstract class SharedInteractionParameters<
                 `OP_NET: Invalid epoch submission feature data length. (${data.length} bytes)`,
             );
         }
-
-        console.log('Decoding epoch submission data of length', data.length);
 
         const binaryReader = new BinaryReader(data);
         const mldsaPublicKey = binaryReader.readBytes(32);
