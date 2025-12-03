@@ -10,6 +10,7 @@ export class IndexedMLDSAPublicKeys extends IndexedCollection<OPNetCollections.M
         return [
             { key: { hashedPublicKey: 1 }, unique: true, name: 'hashedPublicKey_1' },
             { key: { legacyPublicKey: 1 }, unique: true, name: 'legacyPublicKey_1' },
+            { key: { tweakedPublicKey: 1 }, unique: true, name: 'tweakedPublicKey_1' },
             { key: { blockHeight: 1 }, name: 'blockHeight_1' },
         ];
     }

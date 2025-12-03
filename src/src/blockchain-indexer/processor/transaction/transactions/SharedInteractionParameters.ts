@@ -1,11 +1,6 @@
 import { Transaction } from '../Transaction.js';
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
-import {
-    AccessListFeature,
-    EpochSubmissionFeature,
-    Feature,
-    MLDSALinkRequest,
-} from '../features/Features.js';
+import { AccessListFeature, EpochSubmissionFeature, Feature, MLDSALinkRequest, } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { opcodes, payments } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
@@ -176,12 +171,14 @@ export abstract class SharedInteractionParameters<
         }
 
         const tweakedKey = this.from.tweakedPublicKeyToBuffer();
+        const originalKey = this.from.originalPublicKeyBuffer();
         const chainId = getChainId(NetworkConverter.networkToBitcoinNetwork(this.network));
 
         const writer = new BinaryWriter();
         writer.writeU8(this.mldsaLinkRequest.level);
         writer.writeBytes(this.mldsaLinkRequest.hashedPublicKey);
         writer.writeBytes(tweakedKey);
+        writer.writeBytes(originalKey);
         writer.writeBytes(OPNetConsensus.consensus.PROTOCOL_ID);
         writer.writeBytes(chainId);
 
@@ -202,14 +199,21 @@ export abstract class SharedInteractionParameters<
             // Reveal the public key assigned to the hashed version. Once revealed, the user may now use mldsa signatures
             // in contracts and to authorize their opnet transaction.
 
-            await this.verifyMLDSASignature(this.mldsaLinkRequest, tweakedKey, chainId, vmManager);
+            await this.verifyMLDSASignature(
+                this.mldsaLinkRequest,
+                originalKey,
+                tweakedKey,
+                chainId,
+                vmManager,
+            );
         } else {
             // Public key is null, this is just a post-quantum safe way to bind the keypair. We do not force users to reveal due to the amount of data
             // required to do this action on-chain.
 
             await vmManager.addMLDSAInfoToStore({
                 hashedPublicKey: this.mldsaLinkRequest.hashedPublicKey,
-                legacyPublicKey: tweakedKey,
+                legacyPublicKey: originalKey,
+                tweakedPublicKey: tweakedKey,
                 publicKey: null,
                 level: this.mldsaLinkRequest.level,
                 insertedBlockHeight: this.blockHeight,
@@ -223,11 +227,12 @@ export abstract class SharedInteractionParameters<
         // is already assigned, then this will throw.
 
         // Regenerate the real from.
-        this._from = new Address(this.mldsaLinkRequest.hashedPublicKey, tweakedKey);
+        this._from = new Address(this.mldsaLinkRequest.hashedPublicKey, originalKey);
     }
 
     public async verifyMLDSASignature(
         mldsaLinkRequest: MLDSARequestData,
+        originalKey: Buffer,
         tweakedKey: Buffer,
         chainId: Uint8Array,
         vmManager: VMManager,
@@ -245,11 +250,20 @@ export abstract class SharedInteractionParameters<
             throw new Error(`MLDSA public key does not match the hashed public key.`);
         }
 
+        if (tweakedKey.length !== 32) {
+            throw new Error(`Invalid tweaked public key length.`);
+        }
+
+        if (originalKey.length !== 33) {
+            throw new Error(`Invalid original public key length.`);
+        }
+
         const writer = new BinaryWriter();
         writer.writeU8(mldsaLinkRequest.level);
         writer.writeBytes(mldsaLinkRequest.hashedPublicKey);
         writer.writeBytes(mldsaLinkRequest.publicKey);
         writer.writeBytes(tweakedKey);
+        writer.writeBytes(originalKey);
         writer.writeBytes(OPNetConsensus.consensus.PROTOCOL_ID);
         writer.writeBytes(chainId);
 
@@ -275,7 +289,8 @@ export abstract class SharedInteractionParameters<
 
         await vmManager.exposeMLDSAPublicKey({
             hashedPublicKey: mldsaLinkRequest.hashedPublicKey,
-            legacyPublicKey: tweakedKey,
+            legacyPublicKey: originalKey,
+            tweakedPublicKey: tweakedKey,
             publicKey: mldsaLinkRequest.publicKey,
             level: mldsaLinkRequest.level,
             insertedBlockHeight: null,

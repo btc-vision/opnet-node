@@ -404,13 +404,13 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     }
 
     private async fetchMLDSAByLegacyKey(
-        legacyPublicKey: Binary,
+        tweakedPublicKey: Binary,
     ): Promise<MLDSAPublicKeyDocument | null> {
         const mldsaCollection = this._db.collection<MLDSAPublicKeyDocument>(
             OPNetCollections.MLDSAPublicKeys,
         );
 
-        const result = await mldsaCollection.findOne({ legacyPublicKey });
+        const result = await mldsaCollection.findOne({ tweakedPublicKey: tweakedPublicKey });
 
         return result ?? null;
     }
@@ -458,7 +458,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 $lookup: {
                     from: OPNetCollections.MLDSAPublicKeys,
                     localField: 'tweakedPublicKey',
-                    foreignField: 'legacyPublicKey',
+                    foreignField: 'tweakedPublicKey',
                     as: 'mldsaData',
                 },
             },

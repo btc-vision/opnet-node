@@ -365,7 +365,7 @@ export class SubmitEpochRoute extends Route<
 
         let isValid: boolean;
         if (OPNetConsensus.allowUnsafeSignatures) {
-            isValid = MessageSigner.tweakAndVerifySignature(
+            isValid = MessageSigner.verifySignature(
                 mldsaPublicKeyData.legacyPublicKey,
                 signatureData,
                 data.signature,

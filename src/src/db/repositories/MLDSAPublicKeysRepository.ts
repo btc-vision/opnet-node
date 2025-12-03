@@ -84,11 +84,16 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
                     const documentUpdate: Omit<MLDSAPublicKeyDocument, 'insertedBlockHeight'> =
                         this.toDocument(key.data, false);
 
+                    if (documentUpdate.legacyPublicKey.length() !== 33) {
+                        throw new Error('Legacy public key must be 33 bytes long');
+                    }
+
                     return {
                         updateOne: {
                             filter: {
                                 hashedPublicKey: documentUpdate.hashedPublicKey,
                                 legacyPublicKey: documentUpdate.legacyPublicKey,
+                                tweakedPublicKey: documentUpdate.tweakedPublicKey,
                             },
                             update: {
                                 $set: {
@@ -155,7 +160,11 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
 
         const criteria: Document = {
             insertedBlockHeight: { $lte: Long.fromBigInt(blockHeight) },
-            $or: [{ hashedPublicKey: binKey }, { legacyPublicKey: binKey }],
+            $or: [
+                { hashedPublicKey: binKey },
+                { legacyPublicKey: binKey },
+                { tweakedPublicKey: binKey },
+            ],
         };
 
         const result = await this.queryOne(criteria, currentSession);
@@ -220,6 +229,7 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
             level: result.level,
             hashedPublicKey: Buffer.from(result.hashedPublicKey.buffer),
             legacyPublicKey: Buffer.from(result.legacyPublicKey.buffer),
+            tweakedPublicKey: Buffer.from(result.tweakedPublicKey.buffer),
             publicKey: result.publicKey ? Buffer.from(result.publicKey.buffer) : null,
             insertedBlockHeight: Long.isLong(result.insertedBlockHeight)
                 ? result.insertedBlockHeight.toBigInt()
@@ -250,6 +260,7 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
             level: key.level,
             hashedPublicKey: new Binary(key.hashedPublicKey),
             legacyPublicKey: new Binary(key.legacyPublicKey),
+            tweakedPublicKey: new Binary(key.tweakedPublicKey),
             publicKey: key.publicKey ? new Binary(key.publicKey) : null,
             exposedBlockHeight: key.exposedBlockHeight
                 ? Long.fromBigInt(key.exposedBlockHeight)

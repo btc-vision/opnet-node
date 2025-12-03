@@ -5,6 +5,7 @@ export interface IMLDSAPublicKey {
     readonly level: MLDSASecurityLevel;
     readonly hashedPublicKey: Buffer;
     readonly legacyPublicKey: Buffer;
+    readonly tweakedPublicKey: Buffer;
     // If null, wallet owner did not expose his public key on-chain yet.
     readonly publicKey: Buffer | null;
     readonly insertedBlockHeight: bigint | null;
@@ -14,6 +15,7 @@ export interface IMLDSAPublicKey {
 export interface MLDSAPublicKeyDocument {
     readonly level: MLDSASecurityLevel;
     readonly legacyPublicKey: Binary;
+    readonly tweakedPublicKey: Binary;
     readonly publicKey: Binary | null;
     readonly hashedPublicKey: Binary;
     readonly insertedBlockHeight: Long;
