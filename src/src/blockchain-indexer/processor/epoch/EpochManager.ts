@@ -362,14 +362,11 @@ export class EpochManager extends Logger {
             const aPublicKey = Buffer.from(a.epochProposed.mldsaPublicKey.buffer);
             const bPublicKey = Buffer.from(b.epochProposed.mldsaPublicKey.buffer);
 
-            if (aPublicKey.length < 33 || bPublicKey.length < 33) {
+            if (aPublicKey.length < 32 || bPublicKey.length < 32) {
                 throw new Error('Invalid public key length for comparison tiebreaker.');
             }
 
-            const aPublicKeyWithoutPairing = aPublicKey.subarray(1, 33);
-            const bPublicKeyWithoutPairing = bPublicKey.subarray(1, 33);
-
-            const pubKeyComparison = aPublicKeyWithoutPairing.compare(bPublicKeyWithoutPairing);
+            const pubKeyComparison = aPublicKey.compare(bPublicKey);
             if (pubKeyComparison !== 0) {
                 return pubKeyComparison; // Lower public key wins
             }
@@ -385,8 +382,8 @@ export class EpochManager extends Logger {
 
             // If public keys are equal, use public key matching bits as secondary tiebreaker
             // This adds an element of "mining luck" even among equal solutions
-            const aPublicKeySlice = aPublicKey.subarray(13); // Last 20 bytes
-            const bPublicKeySlice = bPublicKey.subarray(13);
+            const aPublicKeySlice = aPublicKey.subarray(12); // Last 20 bytes
+            const bPublicKeySlice = bPublicKey.subarray(12);
 
             if (aPublicKeySlice.length === 20 && bPublicKeySlice.length === 20) {
                 const aPublicKeyBits = this.epochValidator.countMatchingBits(
