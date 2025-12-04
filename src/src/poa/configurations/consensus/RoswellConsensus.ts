@@ -7,7 +7,11 @@ import {
     SPECIAL_CONTRACTS_ROSWELL_TESTNET,
 } from './roswell/SpecialContractsRoswell.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
-import { Address } from '@btc-vision/transaction';
+import { Address, MLDSASecurityLevel } from '@btc-vision/transaction';
+import { ConsensusRules } from '../../../vm/consensus/ConsensusRules.js';
+
+const RoswellConsensusRules: ConsensusRules = new ConsensusRules();
+RoswellConsensusRules.insertFlag(ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWED);
 
 export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     /** Information about the consensus */
@@ -104,6 +108,11 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         PSBT_MAXIMUM_TRANSACTION_BROADCAST_SIZE: 0, // Disabled.
     },
 
+    MLDSA: {
+        ENABLED_LEVELS: [MLDSASecurityLevel.LEVEL2],
+        MAX_LOADS: 50,
+    },
+
     GAS: {
         COST: {
             COLD_STORAGE_LOAD: 21_000_000n,
@@ -137,7 +146,7 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         SAT_TO_GAS_RATIO: 1_000_000n,
 
         /** Minimum base gas, sat/gas unit */
-        MIN_BASE_GAS: 0.5,
+        MIN_BASE_GAS: 1.0,
 
         /** Smoothing factor for EMA */
         SMOOTHING_FACTOR: 0.4,
@@ -186,6 +195,8 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     },
 
     VM: {
+        CONSENSUS_RULES: RoswellConsensusRules,
+
         CURRENT_DEPLOYMENT_VERSION: 0,
 
         UTXOS: {

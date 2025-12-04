@@ -24,7 +24,7 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
 
     readonly contractAddress?: string;
     from?: string;
-    contractTweakedPublicKey?: string;
+    contractPublicKey?: string;
     contractHybridPublicKey?: string;
 
     pow?: {

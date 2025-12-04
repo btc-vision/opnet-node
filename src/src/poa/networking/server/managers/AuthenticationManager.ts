@@ -134,7 +134,10 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
     private async createFullAuthentication(): Promise<void> {
         if (!this.encryptem) return;
         if (this.encryptionStarted) {
-            await this.disconnectPeer(DisconnectionCode.BAD_ENCRYPTION);
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_ENCRYPTION,
+                'Encryption already started.',
+            );
             return;
         }
 
@@ -169,7 +172,10 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         if (!this.protocol) return;
 
         if (this.encryptionStarted) {
-            await this.disconnectPeer(DisconnectionCode.BAD_ENCRYPTION);
+            await this.disconnectPeer(
+                DisconnectionCode.BAD_ENCRYPTION,
+                'Encryption already started.',
+            );
             return;
         }
 
@@ -177,7 +183,7 @@ export abstract class AuthenticationManager extends SharedAuthenticationManager 
         const serverSigningCipher = this.encryptem.getServerSignaturePublicKey();
 
         if (!serverKey || !serverSigningCipher) {
-            await this.disconnectPeer(DisconnectionCode.BAD_PACKET);
+            await this.disconnectPeer(DisconnectionCode.BAD_PACKET, 'Server handshake failed.');
 
             this.warn(
                 `Failed to send server handshake. Server key or server signing cipher is null.`,

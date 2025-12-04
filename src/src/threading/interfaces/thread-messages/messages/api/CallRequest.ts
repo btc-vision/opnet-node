@@ -13,6 +13,7 @@ export interface CallRequestData {
     readonly to: string;
     readonly calldata: string;
     readonly from?: string;
+    readonly fromLegacy?: string;
     readonly blockNumber?: bigint;
     readonly transaction?: SimulatedTransaction;
     readonly accessList?: AccessList;

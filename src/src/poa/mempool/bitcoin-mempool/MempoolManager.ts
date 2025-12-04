@@ -23,6 +23,7 @@ import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thr
 import { TransactionVerifierManager } from '../transaction/TransactionVerifierManager.js';
 import { Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
+import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 
 export class MempoolManager extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -99,7 +100,9 @@ export class MempoolManager extends Logger {
 
         if (!this.db.db) throw new Error('Database connection not established.');
 
-        this.#mempoolRepository = new MempoolRepository(this.db.db);
+        const version = await getMongodbMajorVersion(this.db.db);
+
+        this.#mempoolRepository = new MempoolRepository(this.db.db, version);
         this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
         await Promise.safeAll([

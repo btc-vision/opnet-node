@@ -1,7 +1,6 @@
-import { AddressMap } from '@btc-vision/transaction';
+import { Address, AddressMap } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
-import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { Network } from '@btc-vision/bitcoin';
 import { Config } from '../../../config/Config.js';
 import {
@@ -38,11 +37,12 @@ import { RustContract } from '../../../vm/rust/RustContract.js';
 import { SharedInteractionParameters } from '../transaction/transactions/SharedInteractionParameters.js';
 import { AddressCache, AddressCacheExport } from '../AddressCache.js';
 import { ChallengeSolution } from '../interfaces/TransactionPreimage.js';
-import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { EpochManager, ValidatedSolutionResult } from '../epoch/EpochManager.js';
-import { Submission } from '../transaction/features/Submission.js';
+import { ExtendedSubmission, Submission } from '../transaction/features/Submission.js';
 import { PendingTargetEpoch } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
 import { IEpochSubmissionsDocument } from '../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
+import { MLDSA44_PUBLIC_KEY_LEN } from '../../../vm/mldsa/MLDSAMetadata.js';
+import { IMLDSAPublicKey } from '../../../db/interfaces/IMLDSAPublicKey.js';
 
 export interface RawBlockParam {
     header: BlockDataWithoutTransactionData;
@@ -67,6 +67,17 @@ export interface DeserializedBlock extends Omit<RawBlockParam, 'abortController'
 class BlockLogger extends Logger {}
 
 const sharedBlockLogger = new BlockLogger();
+
+interface EpochSubmission {
+    submission: Submission;
+    validationResult: ValidatedSolutionResult | null;
+    transactionId: string;
+    txHash: string;
+}
+
+interface ExtendedEpochSubmission extends EpochSubmission {
+    submission: ExtendedSubmission;
+}
 
 export class Block {
     // Block Header
@@ -120,15 +131,7 @@ export class Block {
     private readonly _blockHashBuffer: Buffer;
     private readonly addressCache: AddressCache;
 
-    private epochSubmissions: Map<
-        string,
-        {
-            submission: Submission;
-            validationResult: ValidatedSolutionResult | null;
-            transactionId: string;
-            txHash: string;
-        }
-    > = new Map();
+    private epochSubmissions: Map<string, EpochSubmission> = new Map();
 
     private transactionOrder: string[] | undefined;
 
@@ -292,7 +295,9 @@ export class Block {
     private get prevBaseGas(): bigint {
         return (
             this._prevBaseGas ||
-            BigInt(OPNetConsensus.consensus.GAS.MIN_BASE_GAS) * BlockGasPredictor.scalingFactor
+            BigInt(
+                OPNetConsensus.consensus.GAS.MIN_BASE_GAS * Number(BlockGasPredictor.scalingFactor),
+            )
         );
     }
 
@@ -559,7 +564,7 @@ export class Block {
     }
 
     public async processSubmissions(
-        vmStorage: VMStorage,
+        vmManager: VMManager,
         epochManager: EpochManager,
     ): Promise<void> {
         const currentEpoch = this.height / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
@@ -575,7 +580,7 @@ export class Block {
         // Validate submissions synchronously and remove invalid ones
         this.validateSubmissions(epochManager, pendingTarget);
 
-        await this.saveEpochSubmissions(vmStorage);
+        await this.saveEpochSubmissions(vmManager);
     }
 
     /** Block States Processing */
@@ -631,6 +636,9 @@ export class Block {
                 throw new Error('Coinbase transactions are not allowed');
             }
 
+            // Record MLDSA link if present
+            await transaction.assignMLDSAToLegacy(vmManager);
+
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.executeTransaction(
                 this.blockHashBuffer,
@@ -674,6 +682,9 @@ export class Block {
                 throw new Error('Coinbase transactions are not allowed');
             }
 
+            // Record MLDSA link if present
+            await transaction.assignMLDSAToLegacy(vmManager);
+
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.deployContract(
                 this.blockHashBuffer,
@@ -704,11 +715,11 @@ export class Block {
 
     private extractUniqueSubmissions(): void {
         for (const transaction of this.transactions) {
-            if (!transaction.submission) {
+            const submissionData = transaction.submission;
+            if (!submissionData) {
                 continue;
             }
 
-            const submissionData = transaction.submission;
             const key = this.generateSubmissionKey(submissionData);
 
             // Skip if already processed
@@ -739,7 +750,7 @@ export class Block {
             promise: epochManager.submissionExists(
                 currentEpoch,
                 data.submission.salt,
-                data.submission.publicKey,
+                data.submission.mldsaPublicKey,
             ),
         }));
 
@@ -802,18 +813,65 @@ export class Block {
     }
 
     private generateSubmissionKey(submission: Submission): string {
-        return `${submission.salt.toString('hex')}-${submission.publicKey.toString('hex')}`;
+        return `${submission.salt.toString('hex')}-${submission.mldsaPublicKey.toString('hex')}`;
     }
 
-    private async saveEpochSubmissions(vmStorage: VMStorage): Promise<void> {
+    private async saveEpochSubmissions(vmManager: VMManager): Promise<void> {
         if (this.epochSubmissions.size === 0) {
             return;
         }
 
+        const vmStorage = vmManager.getVMStorage();
         const currentEpoch = this.height / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH;
         const submissions: IEpochSubmissionsDocument[] = [];
 
-        for (const data of this.epochSubmissions.values()) {
+        const epochSubmissions = this.epochSubmissions.values();
+
+        const extendedSubmissions: ExtendedEpochSubmission[] = [];
+        const cache: AddressMap<IMLDSAPublicKey | null> = new AddressMap();
+        for (const submissionData of epochSubmissions) {
+            if (!submissionData.validationResult || !submissionData.validationResult.valid) {
+                continue;
+            }
+
+            const address = new Address(submissionData.submission.mldsaPublicKey);
+            const walletInfo: IMLDSAPublicKey | null | undefined =
+                cache.get(address) || (await vmManager.getMLDSAPublicKey(address));
+
+            if (address.isDead()) {
+                continue;
+            }
+
+            if (!walletInfo) {
+                continue;
+            }
+
+            if (!OPNetConsensus.allowUnsafeSignatures) {
+                if (!walletInfo.exposedBlockHeight) {
+                    // If the public key is not exposed yet, we skip
+                    continue;
+                }
+
+                // We skip if no public key is found
+                if (!walletInfo.publicKey) {
+                    continue;
+                }
+
+                if (walletInfo.publicKey.length !== MLDSA44_PUBLIC_KEY_LEN) {
+                    continue;
+                }
+            }
+
+            extendedSubmissions.push({
+                ...submissionData,
+                submission: {
+                    ...submissionData.submission,
+                    legacyPublicKey: walletInfo.legacyPublicKey,
+                },
+            });
+        }
+
+        for (const data of extendedSubmissions) {
             if (!data.validationResult || !data.validationResult.valid) {
                 continue;
             }
@@ -835,7 +893,8 @@ export class Block {
 
                 epochProposed: {
                     solution: new Binary(validationResult.hash),
-                    publicKey: new Binary(submission.publicKey),
+                    mldsaPublicKey: new Binary(submission.mldsaPublicKey),
+                    legacyPublicKey: new Binary(submission.legacyPublicKey),
                     salt: new Binary(submission.salt),
                     graffiti: submission.graffiti ? new Binary(submission.graffiti) : undefined,
                 },
@@ -849,6 +908,8 @@ export class Block {
                 );
             }
         }
+
+        cache.clear();
 
         if (submissions.length > 0) {
             try {
@@ -907,7 +968,7 @@ export class Block {
 
         if (Config.DEV.DEBUG_TRANSACTION_FAILURE) {
             sharedBlockLogger.error(
-                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.message} - (gas: ${transaction.totalGasUsed})`,
+                `Failed to execute transaction ${transaction.txidHex} (took ${Date.now() - start}): ${error.stack} - (gas: ${transaction.totalGasUsed})`,
             );
         }
 
@@ -1010,10 +1071,11 @@ export class Block {
                 const deploymentTransaction = transaction as DeploymentTransaction;
 
                 await this.executeDeploymentTransaction(deploymentTransaction, vmManager);
+
                 try {
                     await vmManager
                         .getVMStorage()
-                        .addTweakedPublicKey(deploymentTransaction.contractTweakedPublicKey);
+                        .addTweakedPublicKey(deploymentTransaction.contractPublicKey);
                 } catch (e) {
                     sharedBlockLogger.warn(
                         `Failed to add tweaked public key for contract ${deploymentTransaction.contractAddress}: ${e}`,

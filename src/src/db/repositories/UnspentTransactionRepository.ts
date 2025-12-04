@@ -1,4 +1,4 @@
-import { DebugLevel } from '@btc-vision/bsi-common';
+import { DataConverter, DebugLevel } from '@btc-vision/bsi-common';
 import {
     AggregateOptions,
     AnyBulkWriteOperation,
@@ -16,7 +16,6 @@ import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
-import { DataConverter } from '@btc-vision/bsi-db';
 import { RawUTXOsAggregationResultV3 } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
@@ -43,7 +42,10 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
     private readonly uxtosAggregation: UTXOsAggregationV3 = new UTXOsAggregationV3();
     private readonly balanceOfAggregation: BalanceOfAggregationV2 = new BalanceOfAggregationV2();
 
-    public constructor(db: Db) {
+    public constructor(
+        db: Db,
+        private readonly dbVersion: number,
+    ) {
         super(db);
     }
 
@@ -211,6 +213,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         currentSession?: ClientSession,
     ): Promise<bigint> {
         const aggregation: Document[] = this.balanceOfAggregation.getAggregation(
+            this.dbVersion,
             wallet,
             filterOrdinals,
         );
@@ -236,6 +239,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         olderThan: bigint | undefined,
     ): Promise<RawUTXOsAggregationResultV3> {
         const aggregation: Document[] = this.uxtosAggregation.getAggregation(
+            this.dbVersion,
             wallet,
             true,
             optimize,

@@ -6,6 +6,7 @@ import {
     BufferHelper,
     MemorySlotData,
     MemorySlotPointer,
+    MLDSASecurityLevel,
     NetEvent,
 } from '@btc-vision/transaction';
 import { MemoryValue, ProvenPointers } from '../storage/types/MemoryValue.js';
@@ -30,6 +31,8 @@ import {
     NEW_STORAGE_SLOT_GAS_COST,
     UPDATED_STORAGE_SLOT_GAS_COST,
 } from '@btc-vision/op-vm';
+import { MLDSAMetadata } from '../mldsa/MLDSAMetadata.js';
+import { IMLDSAPublicKey } from '../../db/interfaces/IMLDSAPublicKey.js';
 
 //import v8 from 'v8';
 //import * as vm from 'node:vm';
@@ -127,12 +130,16 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [deployContractAtAddress]');
     }
 
+    public getMLDSAPublicKey = (_address: Address): Promise<IMLDSAPublicKey | null> => {
+        throw new Error('Method not implemented. [getMLDSAPublicKey]');
+    };
+
     public setContractInformation(contractInformation: ContractInformation): void {
         // We use pub the pub key as the deployer address.
         this.deployerAddress = contractInformation.deployerAddress;
-        this.contractAddress = contractInformation.contractTweakedPublicKey;
+        this.contractAddress = contractInformation.contractPublicKey;
         this.bytecode = contractInformation.bytecode.subarray(1);
-        this.version = contractInformation.bytecode.subarray(0, 1)[0];
+        this.version = contractInformation.bytecode.subarray(0, 1)[0] as number | undefined;
 
         if (
             !this.deployerAddress ||
@@ -450,6 +457,7 @@ export class ContractEvaluator extends Logger {
             transactionHash: evaluation.transactionHash,
 
             contractDeployDepth: evaluation.contractDeployDepth,
+            mldsaLoadCounter: evaluation.mldsaLoadCounter,
             memoryPagesUsed: evaluation.memoryPagesUsed,
 
             deployedContracts: evaluation.deployedContracts,
@@ -526,7 +534,7 @@ export class ContractEvaluator extends Logger {
                 throw new Error('OP_NET: Unable to deploy contract.');
             }
 
-            if (deployResult.contractAddress.equals(Address.zero())) {
+            if (deployResult.contractAddress.equals(Address.dead())) {
                 throw new Error('OP_NET: Deployment failed.');
             }
 
@@ -558,7 +566,7 @@ export class ContractEvaluator extends Logger {
 
             const difference = evaluation.gasUsed - usedGas;
             return this.buildDeployFromAddressResponse(
-                Address.zero(),
+                Address.dead(),
                 0,
                 difference,
                 1,
@@ -606,6 +614,46 @@ export class ContractEvaluator extends Logger {
 
     private onOutputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
         return Promise.resolve(evaluation.getSerializeOutputUTXOs());
+    }
+
+    private async loadMLDSA(
+        data: Buffer,
+        evaluation: ContractEvaluation,
+    ): Promise<Buffer | Uint8Array> {
+        const reader = new BinaryReader(data);
+        const level: MLDSASecurityLevel = reader.readU8() as MLDSASecurityLevel;
+        const address = reader.readAddress();
+
+        const response = new BinaryWriter();
+        if (evaluation.mldsaLoadCounter.value >= OPNetConsensus.consensus.MLDSA.MAX_LOADS) {
+            response.writeBoolean(false);
+            return response.getBuffer();
+        }
+
+        evaluation.incrementMLDSALoadCounter();
+
+        if (!OPNetConsensus.consensus.MLDSA.ENABLED_LEVELS.includes(level)) {
+            response.writeBoolean(false);
+
+            return response.getBuffer();
+        }
+
+        const publicKeyData = await this.getMLDSAPublicKey(address);
+        if (!publicKeyData || publicKeyData.level !== level || !publicKeyData.publicKey) {
+            // Not revealed or wrong level.
+            response.writeBoolean(false);
+        } else {
+            const expectedLength = MLDSAMetadata.fromLevel(level) as number;
+
+            if (publicKeyData.publicKey.length === expectedLength) {
+                response.writeBoolean(true);
+                response.writeBytes(publicKeyData.publicKey);
+            } else {
+                response.writeBoolean(false);
+            }
+        }
+
+        return response.getBuffer();
     }
 
     private async getAccountType(
@@ -701,6 +749,17 @@ export class ContractEvaluator extends Logger {
             },
             outputs: () => {
                 return this.onOutputsRequested(evaluation);
+            },
+            loadMLDSA: async (data: Buffer) => {
+                return await this.loadMLDSA(data, evaluation);
+            },
+
+            // NOT SUPPORTED YET.
+            tLoad(_: Buffer): Promise<Buffer | Uint8Array> {
+                return Promise.resolve(Buffer.alloc(0));
+            },
+            tStore(_: Buffer): Promise<Buffer | Uint8Array> {
+                return Promise.resolve(Buffer.alloc(0));
             },
         };
     }
@@ -842,6 +901,8 @@ export class ContractEvaluator extends Logger {
             contractDeployer: this.deployerAddress,
             caller: evaluation.msgSender,
             origin: evaluation.txOrigin, // "leftmost thing in the call chain"
+            originTweakedPublicKey: evaluation.txOrigin.tweakedPublicKeyToBuffer(),
+            consensusFlags: OPNetConsensus.consensusRules.asBigInt(),
         });
     }
 

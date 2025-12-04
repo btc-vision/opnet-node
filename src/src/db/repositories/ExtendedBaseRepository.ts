@@ -56,24 +56,29 @@ export abstract class ExtendedBaseRepository<T extends IBaseDocument> extends Ba
         }
     }
 
-    public async bulkWrite(
-        operations: AnyBulkWriteOperation<T>[],
-        currentSession?: ClientSession,
-    ): Promise<void> {
+    public async bulkWrite(operations: AnyBulkWriteOperation<T>[]): Promise<void> {
+        if (operations.length === 0) {
+            return;
+        }
+
         try {
             const collection = this.getCollection();
-            const options: BulkWriteOptions = this.getOptions(currentSession);
-            options.ordered = false;
-            options.bypassDocumentValidation = true;
+            const options: BulkWriteOptions = this.getOptions();
+            options.ordered = true;
             options.writeConcern = { w: 1 };
             options.maxTimeMS = 512_000;
             options.timeoutMS = 512_000;
 
             const result: BulkWriteResult = await collection.bulkWrite(operations, options);
+
             if (result.hasWriteErrors()) {
-                result.getWriteErrors().forEach((error) => {
+                for (const error of result.getWriteErrors()) {
+                    if (error.code === 11000) {
+                        throw new Error(`Duplicate key violation: ${error.errmsg}`);
+                    }
+
                     this.error(`Bulk write error: ${error}`);
-                });
+                }
 
                 throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
             }
@@ -82,13 +87,20 @@ export abstract class ExtendedBaseRepository<T extends IBaseDocument> extends Ba
                 throw new DataAccessError('Failed to bulk write.', DataAccessErrorType.Unknown, '');
             }
         } catch (error) {
-            if (error instanceof Error) {
-                const errorDescription: string = error.stack || error.message;
-
-                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
-            } else {
+            if (error instanceof DataAccessError) {
                 throw error;
             }
+
+            if (error instanceof Error) {
+                if ('code' in error && error.code === 11000) {
+                    throw new Error(`Duplicate key violation: ${error.message}`);
+                }
+
+                const errorDescription: string = error.stack || error.message;
+                throw new DataAccessError(errorDescription, DataAccessErrorType.Unknown, '');
+            }
+
+            throw error;
         }
     }
 

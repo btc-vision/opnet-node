@@ -157,7 +157,10 @@ export class TrustedAuthority extends Logger {
                         publicKey: Buffer.from(key.publicKey, 'base64'),
                         opnet: Buffer.from(key.opnet, 'base64'),
                         signature: Buffer.from(key.signature, 'base64'),
-                        wallet: new Address(Buffer.from(key.walletPubKey.replace('0x', ''), 'hex')),
+                        wallet: new Address(
+                            Buffer.from(key.mldsaPublicKey.replace('0x', ''), 'hex'),
+                            Buffer.from(key.walletPubKey.replace('0x', ''), 'hex'),
+                        ),
                     };
                 })
                 .filter((key: AuthorityBufferKey) => {

@@ -189,7 +189,7 @@ export class P2PManager extends Logger {
         DBManagerInstance.setup();
         await DBManagerInstance.connect();
 
-        this.blockWitnessManager.init();
+        await this.blockWitnessManager.init();
         await this.blockWitnessManager.setCurrentBlock();
 
         this.node = await this.createNode();
@@ -496,6 +496,20 @@ export class P2PManager extends Logger {
         this.node.addEventListener('peer:connect', this.onPeerConnect.bind(this));
         this.node.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
         this.node.addEventListener('peer:reconnect-failure', this.onReconnectFailure.bind(this));
+
+        /*this.node.addEventListener('connection:open', (evt) => {
+            const conn = evt.detail;
+            this.warn(
+                `connection:open: ${conn.remotePeer.toString()} direction=${conn.direction} status=${conn.status}`,
+            );
+        });
+
+        this.node.addEventListener('connection:close', (evt) => {
+            const conn = evt.detail;
+            this.warn(
+                `connection:close: ${conn.remotePeer.toString()} direction=${conn.direction}`,
+            );
+        });*/
     }
 
     /*private async onPeerIdentify(evt: CustomEvent<IdentifyResult>): Promise<void> {
@@ -530,43 +544,47 @@ export class P2PManager extends Logger {
             `Connection health: ${healthyConnections.length} connections, ${authenticatedPeers} authenticated peers`,
         );
 
-        if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS && !this.isBootstrapNode()) {
-            // Trigger peer discovery
-            try {
-                this.addBoostrapNodesToPeerStore();
+        if (!this.isBootstrapNode()) {
+            if (healthyConnections.length < this.config.P2P.MINIMUM_PEERS) {
+                // Trigger peer discovery
+                try {
+                    this.addBoostrapNodesToPeerStore();
 
-                await this.node.services.aminoDHT.refreshRoutingTable();
+                    await this.node.services.aminoDHT.refreshRoutingTable();
 
-                // Try to dial known peers that we're not connected to
-                const knownPeers = await this.node.peerStore.all();
-                const connectedPeerIds = new Set(connections.map((c) => c.remotePeer.toString()));
-
-                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                    this.debug(
-                        `Refreshing routing table. Known peers: ${knownPeers.length}, Connected peers: ${connectedPeerIds.size}`,
+                    // Try to dial known peers that we're not connected to
+                    const knownPeers = await this.node.peerStore.all();
+                    const connectedPeerIds = new Set(
+                        connections.map((c) => c.remotePeer.toString()),
                     );
-                }
 
-                for (const peer of knownPeers.slice(0, 5)) {
-                    // Try up to 5 peers
-                    if (!connectedPeerIds.has(peer.id.toString())) {
-                        try {
-                            await this.node.dial(peer.id);
-                        } catch (e) {
-                            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                                this.debug(`Failed to dial ${peer.id}: ${e}`);
+                    if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                        this.debug(
+                            `Refreshing routing table. Known peers: ${knownPeers.length}, Connected peers: ${connectedPeerIds.size}`,
+                        );
+                    }
+
+                    for (const peer of knownPeers.slice(0, 5)) {
+                        // Try up to 5 peers
+                        if (!connectedPeerIds.has(peer.id.toString())) {
+                            try {
+                                await this.node.dial(peer.id);
+                            } catch (e) {
+                                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                                    this.debug(`Failed to dial ${peer.id}: ${e}`);
+                                }
+
+                                // remove peer
+                                if (this.removePeer) await this.node.peerStore.delete(peer.id);
                             }
-
-                            // remove peer
-                            if (this.removePeer) await this.node.peerStore.delete(peer.id);
                         }
                     }
+                } catch (e) {
+                    this.error(`Failed to refresh routing table: ${e}`);
                 }
-            } catch (e) {
-                this.error(`Failed to refresh routing table: ${e}`);
+            } else {
+                this.debug('Connection health is good.');
             }
-        } else {
-            this.debug('Connection health is good.');
         }
     }
 
@@ -640,12 +658,21 @@ export class P2PManager extends Logger {
     }
 
     private async onPeerDisconnect(evt: CustomEvent<PeerId>): Promise<void> {
-        const peerId = evt.detail.toString();
+        const peerId = evt.detail;
+        const peerIdStr = peerId.toString();
 
-        const peer = this.peers.get(peerId);
+        // Check if we still have connections to this peer
+        const connections = this.node?.getConnections(peerId);
+        if (connections && connections.length > 0) {
+            this.debug(
+                `peer:disconnect fired but still have ${connections.length} connections to ${peerIdStr}`,
+            );
+            return;
+        }
+
+        const peer = this.peers.get(peerIdStr);
         if (peer) {
-            this.peers.delete(peerId);
-
+            this.peers.delete(peerIdStr);
             await peer.onDisconnect();
         }
     }
@@ -1063,6 +1090,11 @@ export class P2PManager extends Logger {
 
         if (this.blackListedPeerIds.size > 250) {
             return await this.disconnectPeer(peerId, DisconnectionCode.FLOOD, 'Flood.');
+        }
+
+        if (this.peers.has(peerIdStr)) {
+            this.debug(`Ignoring duplicate connection to ${peerIdStr}`);
+            return;
         }
 
         if (peer) {

@@ -69,13 +69,15 @@ export interface InteractionTransactionSafeThread extends TransactionSafeThread 
     readonly interactionPubKey: Buffer;
     readonly contractAddress: Uint8Array;
     readonly from: Uint8Array;
+    readonly fromLegacy: Uint8Array;
     readonly wasCompressed: boolean;
 }
 
 export type ExtendedBaseInfo<T extends OPNetTransactionTypes> = TransactionDocument<T> & {
     readonly from: Binary;
+    readonly fromLegacy: Binary;
     readonly contractAddress: string;
-    readonly contractTweakedPublicKey: Binary;
+    readonly contractPublicKey: Binary;
     readonly preimage: Binary;
 };
 

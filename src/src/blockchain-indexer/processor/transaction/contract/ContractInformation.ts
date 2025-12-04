@@ -1,4 +1,4 @@
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import { IContractDocument } from '../../../../db/documents/interfaces/IContractDocument.js';
 import { DeploymentTransaction } from '../transactions/DeploymentTransaction.js';
@@ -7,8 +7,7 @@ import { Address } from '@btc-vision/transaction';
 export interface ContractInformationAsString {
     readonly blockHeight: string;
     readonly contractAddress: string;
-    readonly contractTweakedPublicKey: string;
-    readonly contractHybridPublicKey: string;
+    readonly contractPublicKey: string;
     readonly bytecode: string;
     readonly wasCompressed: boolean;
     readonly deployedTransactionId: string;
@@ -23,8 +22,7 @@ export class ContractInformation {
     constructor(
         public readonly blockHeight: bigint,
         public readonly contractAddress: string,
-        public readonly contractTweakedPublicKey: Address,
-        public readonly contractHybridPublicKey: Buffer,
+        public readonly contractPublicKey: Address,
         public readonly bytecode: Buffer,
         public readonly wasCompressed: boolean,
         public readonly deployedTransactionId: Buffer,
@@ -83,12 +81,9 @@ export class ContractInformation {
         return new ContractInformation(
             DataConverter.fromDecimal128(contractDocument.blockHeight),
             contractDocument.contractAddress,
-            typeof contractDocument.contractTweakedPublicKey === 'string'
-                ? new Address(Buffer.from(contractDocument.contractTweakedPublicKey, 'base64'))
-                : new Address(contractDocument.contractTweakedPublicKey.buffer),
-            typeof contractDocument.contractHybridPublicKey === 'string'
-                ? Buffer.from(contractDocument.contractHybridPublicKey, 'base64')
-                : Buffer.from(contractDocument.contractHybridPublicKey.buffer),
+            typeof contractDocument.contractPublicKey === 'string'
+                ? new Address(Buffer.from(contractDocument.contractPublicKey, 'base64'))
+                : new Address(contractDocument.contractPublicKey.buffer),
             bytecodeBuffer,
             contractDocument.wasCompressed,
             transactionIdBuffer,
@@ -96,7 +91,10 @@ export class ContractInformation {
             deployerPubKeyBuffer,
             contractSeedBuffer,
             contractSaltHashBuffer,
-            new Address(contractDocument.deployerPubKey.buffer),
+            new Address(
+                contractDocument.deployerAddress.buffer,
+                contractDocument.deployerPubKey.buffer,
+            ),
         );
     }
 
@@ -124,7 +122,6 @@ export class ContractInformation {
             blockHeight,
             transaction.contractAddress,
             transaction.address,
-            transaction.address.toTweakedHybridPublicKeyBuffer(),
             transaction.bytecode,
             transaction.wasCompressed,
             transaction.transactionId,
@@ -140,8 +137,7 @@ export class ContractInformation {
         return {
             blockHeight: DataConverter.toDecimal128(this.blockHeight),
             contractAddress: this.contractAddress,
-            contractTweakedPublicKey: new Binary(this.contractTweakedPublicKey),
-            contractHybridPublicKey: new Binary(this.contractHybridPublicKey),
+            contractPublicKey: new Binary(this.contractPublicKey),
             bytecode: new Binary(this.bytecode),
             wasCompressed: this.wasCompressed,
             deployedTransactionId: new Binary(this.deployedTransactionId),
@@ -149,6 +145,7 @@ export class ContractInformation {
             deployerPubKey: new Binary(this.deployerPubKey),
             contractSeed: new Binary(this.contractSeed),
             contractSaltHash: new Binary(this.contractSaltHash),
+            deployerAddress: new Binary(this.deployerAddress),
         };
     }
 }

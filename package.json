@@ -12,7 +12,7 @@
         "setup": "npm i && npm run build"
     },
     "engines": {
-        "node": ">=22.0.0 <25.0.0"
+        "node": ">=22.0.0 <26.0.0"
     },
     "homepage": "https://opnet.org",
     "keywords": [
@@ -40,13 +40,12 @@
         "@btc-vision/bip32": "^6.0.3",
         "@btc-vision/bitcoin": "^6.4.11",
         "@btc-vision/bitcoin-rpc": "^1.0.5",
-        "@btc-vision/bsi-common": "^1.1.1",
-        "@btc-vision/bsi-db": "^1.0.4",
+        "@btc-vision/bsi-common": "^1.2.0",
         "@btc-vision/logger": "^1.0.7",
         "@btc-vision/op-vm": "^0.6.0",
         "@btc-vision/post-quantum": "^0.5.3",
         "@btc-vision/rust-merkle-tree": "^0.0.5",
-        "@btc-vision/transaction": "^1.6.19",
+        "@btc-vision/transaction": "^1.7.17",
         "@chainsafe/libp2p-noise": "^17.0.0",
         "@chainsafe/libp2p-quic": "^1.1.3",
         "@chainsafe/libp2p-yamux": "^8.0.1",
@@ -84,7 +83,7 @@
         "libp2p": "^3.1.0",
         "long": "^5.3.2",
         "lru-cache": "^11.2.2",
-        "mongodb": "^6.20.0",
+        "mongodb": "^7.0.0",
         "openapi-comment-parser": "^1.0.0",
         "protobufjs": "^7.5.4",
         "sodium-native": "^5.0.9",
@@ -99,7 +98,7 @@
     "devDependencies": {
         "@types/cors": "^2.8.19",
         "@types/debug": "^4.1.12",
-        "@types/node": "^24.10.0",
+        "@types/node": "^24.10.1",
         "@types/sodium-native": "^2.3.9",
         "@types/ssh2": "^1.15.5",
         "@types/swagger-ui-express": "^4.1.8",

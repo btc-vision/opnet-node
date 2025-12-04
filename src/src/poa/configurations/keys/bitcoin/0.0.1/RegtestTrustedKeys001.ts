@@ -19,12 +19,14 @@ export const RegTestTrustedKeys001: NetworkAuthorityConfiguration = {
         [TrustedEntities.OPNet]: {
             keys: [
                 {
-                    opnet: 'bV6cUEZ59pCaJatFWsyFnwGW9lC2Ywc9iUIfOJQc3Xg=',
-                    publicKey: 'A2sbw/zMrNq1SDE5LY8n5wq69G4ieDRyzSL8VZiJ1R8/',
+                    opnet: 'do6HCM3EoGpPSC++D9i0quUiTaEkt9icgI9Pja60KtE=',
+                    publicKey: 'AgIWCrJBWmkAe0L2MsQV34sNb/4pC7Jj/RabWQc05pv0',
                     signature:
-                        '44Jrlflm/rY/j5lrq4f7uT9y69mEw4Q8Olfy0TQJDkqmm+doEDXd7QBPBmYXJJKMQ70QNp04dLnYw0zidM+nDA==',
+                        'BPde2pIgm5U+UJN1NSLOWYjn8rxx879daG+7pM4W3fS9Gv88E+znFmtl74xY9MfORKamq8W01kFR8TeMqNZxBQ==',
                     walletPubKey:
-                        '0x036b1bc3fcccacdab54831392d8f27e70abaf46e22783472cd22fc559889d51f3f',
+                        '0x0202160ab2415a69007b42f632c415df8b0d6ffe290bb263fd169b590734e69bf4',
+                    mldsaPublicKey:
+                        '0x02160ab2415a69007b42f632c415df8b0d6ffe290bb263fd169b590734e69bf4',
                 },
             ],
         },

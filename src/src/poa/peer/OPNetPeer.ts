@@ -12,9 +12,7 @@ import {
     ITransactionPacket,
     TransactionPacket,
 } from '../networking/protobuf/packets/blockchain/common/TransactionPacket.js';
-import {
-    ISyncBlockHeaderResponse
-} from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
+import { ISyncBlockHeaderResponse } from '../networking/protobuf/packets/blockchain/responses/SyncBlockHeadersResponse.js';
 import { OPNetPeerInfo } from '../networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ServerPeerNetworking } from '../networking/server/ServerPeerNetworking.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
@@ -161,7 +159,7 @@ export class OPNetPeer extends Logger {
 
     public async init(): Promise<void> {
         // We wait just a bit to ensure that the connection is established.
-        await this.sleep(1500);
+        await this.sleep(500);
 
         await this.authenticate();
     }
@@ -278,7 +276,7 @@ export class OPNetPeer extends Logger {
         await Promise.safeAll(promises);
     }
 
-    protected async disconnect(code: DisconnectionCode, reason?: string): Promise<void> {
+    protected async disconnect(code: DisconnectionCode, reason: string): Promise<void> {
         if (this.isDestroyed) return;
         this.isClientAuthenticated = false;
 

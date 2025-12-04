@@ -43,7 +43,7 @@ export class GetCode extends Route<
 
             result = {
                 contractAddress: document.contractAddress,
-                contractTweakedPublicKey: document.contractTweakedPublicKey.toString('base64'),
+                contractPublicKey: document.contractPublicKey.toString('base64'),
 
                 contractSeed: document.contractSeed.toString('base64'),
                 contractSaltHash: document.contractSaltHash.toString('hex'),

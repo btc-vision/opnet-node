@@ -25,7 +25,7 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
                 BlockParamsConverter.getParameterAsStringForBlock(params);
 
             blockChecksum = blockChecksum ? blockChecksum.replace('0x', '').toLowerCase() : null;
-            
+
             const includeTransactions: boolean = this.getParameterAsBoolean(params);
             if (!blockChecksum) {
                 throw new Error(

@@ -1,4 +1,4 @@
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
@@ -83,9 +83,9 @@ export class TransactionConverterForAPI {
             };
         }
 
-        if ('contractTweakedPublicKey' in transaction) {
+        if ('contractPublicKey' in transaction) {
             const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
-            newTx.contractTweakedPublicKey = tx.contractTweakedPublicKey.toString('base64');
+            newTx.contractPublicKey = tx.contractPublicKey.toString('base64');
         }
 
         if ('from' in transaction) {

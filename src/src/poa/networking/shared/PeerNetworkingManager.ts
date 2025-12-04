@@ -5,7 +5,7 @@ export abstract class PeerNetworkingManager extends Logger {
         throw new Error('Method not implemented.');
     };
 
-    public disconnectPeer: (code: number, reason?: string) => Promise<void> = () => {
+    public disconnectPeer: (code: number, reason: string) => Promise<void> = () => {
         throw new Error('Method not implemented.');
     };
 

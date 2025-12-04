@@ -11,8 +11,6 @@ export class AnyoneCanSpendRepository extends ExtendedBaseRepository<Classificat
     }
 
     public async tagAnyoneCanSpend(txs: Classification[]): Promise<void> {
-        console.log('tagAnyoneCanSpend', txs);
-
         const collection = this.getCollection();
         const operations: AnyBulkWriteOperation<Classification>[] = txs.map((tx) => {
             return {
