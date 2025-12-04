@@ -3,7 +3,7 @@ import { SpecialContract, SpecialContracts } from '../../types/SpecialContracts.
 
 // APPLIED @ BLOCK 16706
 const nativeSwapRegtest: Address = Address.fromString(
-    '0x6004859145101618343602ddf4e1018299fbe782d5dfe0355e1be441d6829b48',
+    '0x9c452bd5f9d0245c96fa8ce3a824b7986a6b5c3cafcf5b91090bc97a67cdc145',
 );
 
 /*const nativeSwapTestnet: Address = Address.fromString(
