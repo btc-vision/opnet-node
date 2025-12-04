@@ -3,12 +3,7 @@ import { SpecialContract, SpecialContracts } from '../../types/SpecialContracts.
 
 // APPLIED @ BLOCK 16706
 const nativeSwapRegtest: Address = Address.fromString(
-    '0x32d5c3490be026cda337526b72bc13036d278400ce823e29a00cb5aef15b5d53',
-);
-
-// 0x483363dcadfa49ad0a3ae7841c3ebc3b38bf9b73478987ae092191af87b9cdb7
-const nativeSwapRegtestRedeploy: Address = Address.fromString(
-    '0x483363dcadfa49ad0a3ae7841c3ebc3b38bf9b73478987ae092191af87b9cdb7',
+    '0x6004859145101618343602ddf4e1018299fbe782d5dfe0355e1be441d6829b48',
 );
 
 /*const nativeSwapTestnet: Address = Address.fromString(
@@ -31,11 +26,11 @@ export const SPECIAL_CONTRACTS_ROSWELL_REGTEST: SpecialContracts = {
 
         address: nativeSwapRegtest,
     },
-    [nativeSwapRegtestRedeploy.toHex()]: {
+    /*[nativeSwapRegtestRedeploy.toHex()]: {
         ...nativeSwapContractSettings,
 
         address: nativeSwapRegtestRedeploy,
-    },
+    },*/
 };
 
 export const SPECIAL_CONTRACTS_ROSWELL_TESTNET: SpecialContracts = {

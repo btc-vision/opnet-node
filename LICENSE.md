@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2024 [ORANGE PILLS INC, 2140 S DUPONT HWY CAMDEN, DE 19934]
+Copyright (c) 2025 [Orange Pill Labs Holding Ltd.]
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
