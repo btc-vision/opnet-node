@@ -10,6 +10,7 @@ import {
     PluginSyncStatus,
     ReindexAction,
 } from '../interfaces/IPluginInstallState.js';
+import { IPluginBlockchainAPI } from '../api/PluginBlockchainAPI.js';
 
 /**
  * Plugin logger interface
@@ -149,6 +150,9 @@ export class PluginContext {
     /** Database API (if permitted) */
     public readonly db?: IPluginDatabaseAPI;
 
+    /** Blockchain query API (if permitted) */
+    public readonly blockchain?: IPluginBlockchainAPI;
+
     /** Filesystem API */
     public readonly fs: IPluginFilesystemAPI;
 
@@ -190,6 +194,7 @@ export class PluginContext {
         dataDir: string,
         networkInfo: INetworkInfo,
         db: IPluginDatabaseAPI | undefined,
+        blockchain: IPluginBlockchainAPI | undefined,
         fs: IPluginFilesystemAPI,
         logger: IPluginLogger,
         config: IPluginConfig,
@@ -208,6 +213,7 @@ export class PluginContext {
         this.permissions = metadata.permissions ?? {};
         this.network = networkInfo;
         this.db = db;
+        this.blockchain = blockchain;
         this.fs = fs;
         this.logger = logger;
         this.config = config;

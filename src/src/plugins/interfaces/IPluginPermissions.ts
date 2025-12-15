@@ -108,6 +108,21 @@ export interface IFilesystemPermissions {
 }
 
 /**
+ * Blockchain query permissions
+ * Controls what historical data plugins can query
+ */
+export interface IBlockchainPermissions {
+    /** Allow querying block headers and data */
+    readonly blocks: boolean;
+    /** Allow querying transactions */
+    readonly transactions: boolean;
+    /** Allow querying contract state and events */
+    readonly contracts: boolean;
+    /** Allow querying UTXOs */
+    readonly utxos: boolean;
+}
+
+/**
  * Complete plugin permissions configuration
  */
 export interface IPluginPermissions {
@@ -118,6 +133,7 @@ export interface IPluginPermissions {
     readonly api?: IApiPermissions;
     readonly threading?: IThreadingPermissions;
     readonly filesystem?: IFilesystemPermissions;
+    readonly blockchain?: IBlockchainPermissions;
 }
 
 /**
@@ -152,5 +168,11 @@ export const DEFAULT_PERMISSIONS: IPluginPermissions = {
     filesystem: {
         configDir: false,
         tempDir: false,
+    },
+    blockchain: {
+        blocks: false,
+        transactions: false,
+        contracts: false,
+        utxos: false,
     },
 };

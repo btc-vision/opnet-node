@@ -327,6 +327,16 @@ export class PluginValidator extends Logger {
             }
         }
 
+        // Blockchain permissions
+        if (permissions.blockchain) {
+            const bc = permissions.blockchain;
+            if (!bc.blocks && !bc.transactions && !bc.contracts && !bc.utxos) {
+                warnings.push(
+                    'Blockchain permission declared but no specific queries enabled',
+                );
+            }
+        }
+
         return { valid: errors.length === 0, errors, warnings };
     }
 

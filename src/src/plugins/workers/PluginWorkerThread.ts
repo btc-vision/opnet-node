@@ -2,37 +2,33 @@ import { parentPort, workerData } from 'worker_threads';
 import * as path from 'path';
 import * as fs from 'fs';
 import { Db } from 'mongodb';
-import { Logger, Globals } from '@btc-vision/bsi-common';
-
-Globals.register();
-
+import { Globals, Logger } from '@btc-vision/bsi-common';
 import {
-    WorkerMessage,
-    WorkerMessageType,
-    WorkerResponseType,
-    ILoadPluginMessage,
-    IUnloadPluginMessage,
-    IEnablePluginMessage,
     IDisablePluginMessage,
+    IEnablePluginMessage,
     IExecuteHookMessage,
     IExecuteRouteHandlerMessage,
     IExecuteWsHandlerMessage,
     IGetSyncStateMessage,
-    IResetSyncStateMessage,
-    IWorkerResponse,
-    IPluginLoadedResponse,
-    IHookResultResponse,
-    IRouteResultResponse,
-    IWsResultResponse,
-    IPluginErrorResponse,
-    IPluginCrashedResponse,
-    IWorkerReadyResponse,
-    IPongResponse,
-    ISyncStateUpdateResponse,
     IGetSyncStateResponse,
+    IHookResultResponse,
+    ILoadPluginMessage,
+    IPluginCrashedResponse,
+    IPluginErrorResponse,
+    IPluginLoadedResponse,
+    IResetSyncStateMessage,
     IResetSyncStateResponse,
+    IRouteResultResponse,
     ISerializedNetworkInfo,
     ISerializedPluginInstallState,
+    ISyncStateUpdateResponse,
+    IUnloadPluginMessage,
+    IWorkerReadyResponse,
+    IWorkerResponse,
+    IWsResultResponse,
+    WorkerMessage,
+    WorkerMessageType,
+    WorkerResponseType,
 } from './WorkerMessages.js';
 import { IPlugin } from '../interfaces/IPlugin.js';
 import { IPluginMetadata } from '../interfaces/IPluginMetadata.js';
@@ -40,8 +36,12 @@ import { HookType } from '../interfaces/IPluginHooks.js';
 import { PluginContext } from '../context/PluginContext.js';
 import { PluginFilesystemAPI } from '../api/PluginFilesystemAPI.js';
 import { PluginDatabaseAPI } from '../api/PluginDatabaseAPI.js';
+import { PluginBlockchainAPI } from '../api/PluginBlockchainAPI.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
 import { INetworkInfo, IPluginInstallState } from '../interfaces/IPluginInstallState.js';
+import { getMongodbMajorVersion } from '../../vm/storage/databases/MongoUtils.js';
+
+Globals.register();
 
 /**
  * Worker data passed from parent thread
@@ -322,6 +322,28 @@ async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
             }
         }
 
+        // Create blockchain API if plugin has blockchain permissions
+        let blockchainApi: PluginBlockchainAPI | undefined;
+        const blockchainPerms = metadata.permissions?.blockchain;
+        if (
+            blockchainPerms &&
+            (blockchainPerms.blocks ||
+                blockchainPerms.transactions ||
+                blockchainPerms.contracts ||
+                blockchainPerms.utxos)
+        ) {
+            const db = await initializeDatabase();
+
+            if (db) {
+                const dbVersion = await getMongodbMajorVersion(db);
+                blockchainApi = new PluginBlockchainAPI(pluginId, blockchainPerms, db, dbVersion);
+            } else {
+                logger.warn(
+                    `Plugin ${pluginId}: Blockchain API requested but database connection failed`,
+                );
+            }
+        }
+
         // Plugin getter for inter-plugin communication
         const pluginGetter = (name: string): IPlugin | undefined => {
             const plugin = loadedPlugins.get(name);
@@ -337,9 +359,7 @@ async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
         // Sync state setter - updates local state and notifies main thread
         // Note: This is thread-safe within a worker since JS is single-threaded per worker.
         // The synchronous read-modify-write happens in one tick without await points.
-        const syncStateSetter = (
-            updates: Partial<IPluginInstallState>,
-        ): Promise<void> => {
+        const syncStateSetter = (updates: Partial<IPluginInstallState>): Promise<void> => {
             const plugin = loadedPlugins.get(pluginId);
             if (!plugin || !plugin.syncState) {
                 logger.warn(`Sync state setter called for non-existent plugin: ${pluginId}`);
@@ -380,6 +400,7 @@ async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
             dataDir,
             networkInfo,
             dbApi,
+            blockchainApi,
             fsApi,
             pluginLogger,
             pluginConfig,
@@ -755,12 +776,7 @@ async function executeWsHandler(message: IExecuteWsHandlerMessage): Promise<void
 
         // Call handler with wsRequestId (client's request ID)
         const typedHandler = handlerMethod as WsHandler;
-        const result = await typedHandler.call(
-            plugin.instance,
-            request,
-            wsRequestId,
-            clientId,
-        );
+        const result = await typedHandler.call(plugin.instance, request, wsRequestId, clientId);
 
         const response: IWsResultResponse = {
             type: WorkerResponseType.WS_RESULT,
