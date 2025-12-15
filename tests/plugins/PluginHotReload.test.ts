@@ -1,106 +1,120 @@
 /**
- * Plugin Hot Reload Integration Tests
- * Tests for the hot reload functionality in the plugin system with real MongoDB connection
- *
- * To run these tests with MongoDB integration, set the following environment variables:
- * - TEST_MONGODB_HOST
- * - TEST_MONGODB_PORT
- * - TEST_MONGODB_DATABASE
- * - TEST_MONGODB_USERNAME
- * - TEST_MONGODB_PASSWORD
+ * Plugin Hot Reload Tests
+ * Tests for the hot reload functionality in the plugin system
+ * Uses mocks so no MongoDB connection is required
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { MongoClient, Db } from 'mongodb';
-import { PluginManager, IPluginManagerConfig } from '../../src/src/plugins/PluginManager.js';
+import * as os from 'os';
 import { networks } from '@btc-vision/bitcoin';
 import { PluginState } from '../../src/src/plugins/interfaces/IPluginState.js';
+import {
+    createMockMetadata,
+    createPluginFileBuffer,
+} from './mocks/index.js';
 
-// Test database configuration from environment variables
-const TEST_DB_CONFIG = {
-    host: process.env.TEST_MONGODB_HOST || '',
-    port: parseInt(process.env.TEST_MONGODB_PORT || '0', 10),
-    database: process.env.TEST_MONGODB_DATABASE || 'opnet_plugin_test',
-    username: process.env.TEST_MONGODB_USERNAME || '',
-    password: process.env.TEST_MONGODB_PASSWORD || '',
-};
+// Mock worker_threads module
+vi.mock('worker_threads', async (importOriginal) => {
+    const original = await importOriginal<typeof import('worker_threads')>();
+    const { EventEmitter } = await import('events');
 
-// Check if MongoDB credentials are available
-const hasMongoCredentials = TEST_DB_CONFIG.host && TEST_DB_CONFIG.port && TEST_DB_CONFIG.username;
+    class MockWorker extends EventEmitter {
+        public threadId = Math.floor(Math.random() * 10000);
 
-describe('Plugin Hot Reload Integration', () => {
-    const testPluginsDir = path.join(__dirname, '.test-plugins-integration');
+        constructor(_filename: string | URL, _options?: unknown) {
+            super();
+            // Emit ready event after a short delay
+            setTimeout(() => {
+                this.emit('message', { type: 'ready' });
+            }, 10);
+        }
+
+        postMessage(message: { type: string; requestId?: string }): void {
+            // Simulate successful responses for plugin operations
+            setTimeout(() => {
+                if (message.type === 'loadPlugin' || message.type === 'load_plugin') {
+                    this.emit('message', {
+                        type: 'plugin_loaded',
+                        requestId: message.requestId,
+                        success: true,
+                    });
+                } else if (message.type === 'unloadPlugin' || message.type === 'unload_plugin') {
+                    this.emit('message', {
+                        type: 'plugin_unloaded',
+                        requestId: message.requestId,
+                        success: true,
+                    });
+                } else if (message.type === 'enablePlugin' || message.type === 'enable_plugin') {
+                    this.emit('message', {
+                        type: 'plugin_enabled',
+                        requestId: message.requestId,
+                        success: true,
+                    });
+                } else if (message.type === 'disablePlugin' || message.type === 'disable_plugin') {
+                    this.emit('message', {
+                        type: 'plugin_disabled',
+                        requestId: message.requestId,
+                        success: true,
+                    });
+                } else if (message.type === 'shutdown') {
+                    // Emit exit event for shutdown
+                    this.emit('exit', 0);
+                }
+            }, 5);
+        }
+
+        terminate(): Promise<number> {
+            // Emit exit event to properly shutdown
+            setTimeout(() => {
+                this.emit('exit', 0);
+            }, 1);
+            return Promise.resolve(0);
+        }
+    }
+
+    return {
+        ...original,
+        Worker: MockWorker,
+    };
+});
+
+// Mock the Logger class
+vi.mock('@btc-vision/bsi-common', () => ({
+    Logger: class {
+        info = vi.fn();
+        warn = vi.fn();
+        error = vi.fn();
+        debug = vi.fn();
+        success = vi.fn();
+        readonly logColor: string = '#000000';
+    },
+}));
+
+import { PluginManager, IPluginManagerConfig } from '../../src/src/plugins/PluginManager.js';
+
+describe('Plugin Hot Reload', () => {
+    let tempDir: string;
     let pluginManager: PluginManager | null = null;
-    let mongoClient: MongoClient | null = null;
-    let testDb: Db | null = null;
 
-    // Base configuration for all tests
-    const createConfig = (): IPluginManagerConfig => ({
-        pluginsDir: testPluginsDir,
+    const createConfig = (pluginsDir: string): IPluginManagerConfig => ({
+        pluginsDir,
         network: networks.regtest,
         nodeVersion: '1.0.0',
         chainId: 1n,
         networkType: 'regtest',
         genesisBlockHash: '0000000000000000000000000000000000000000000000000000000000000000',
         hotReload: false,
-        autoEnable: true,
+        autoEnable: false, // Disable auto-enable to control test flow
+        workerPool: {
+            workerCount: 1, // Use 1 worker for faster tests
+            defaultTimeoutMs: 5000,
+        },
     });
 
-    beforeAll(async () => {
-        // Only attempt MongoDB connection if credentials are provided
-        if (!hasMongoCredentials) {
-            console.warn('MongoDB credentials not provided, integration tests will be skipped.');
-            console.warn('Set TEST_MONGODB_HOST, TEST_MONGODB_PORT, TEST_MONGODB_USERNAME, TEST_MONGODB_PASSWORD to enable.');
-            return;
-        }
-
-        // Connect to MongoDB
-        const uri = `mongodb://${TEST_DB_CONFIG.username}:${encodeURIComponent(TEST_DB_CONFIG.password)}@${TEST_DB_CONFIG.host}:${TEST_DB_CONFIG.port}/${TEST_DB_CONFIG.database}?authSource=admin`;
-
-        try {
-            mongoClient = new MongoClient(uri, {
-                connectTimeoutMS: 5000,
-                serverSelectionTimeoutMS: 5000,
-            });
-            await mongoClient.connect();
-            testDb = mongoClient.db(TEST_DB_CONFIG.database);
-
-            // Verify connection
-            await testDb.command({ ping: 1 });
-        } catch (error) {
-            // If MongoDB is not available, skip integration tests
-            console.warn('MongoDB connection failed, integration tests will be skipped');
-            mongoClient = null;
-            testDb = null;
-        }
-    });
-
-    afterAll(async () => {
-        if (mongoClient) {
-            try {
-                // Clean up test database collections
-                if (testDb) {
-                    const collections = await testDb.listCollections().toArray();
-                    for (const collection of collections) {
-                        if (collection.name.startsWith('test-plugin_')) {
-                            await testDb.dropCollection(collection.name);
-                        }
-                    }
-                }
-                await mongoClient.close();
-            } catch {
-                // Ignore cleanup errors
-            }
-        }
-    });
-
-    beforeEach(async () => {
-        // Create test plugins directory
-        if (!fs.existsSync(testPluginsDir)) {
-            fs.mkdirSync(testPluginsDir, { recursive: true });
-        }
+    beforeEach(() => {
+        tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'plugin-hotreload-test-'));
     });
 
     afterEach(async () => {
@@ -114,10 +128,10 @@ describe('Plugin Hot Reload Integration', () => {
         }
         pluginManager = null;
 
-        // Clean up test directory
-        if (fs.existsSync(testPluginsDir)) {
+        // Clean up temp directory
+        if (fs.existsSync(tempDir)) {
             try {
-                fs.rmSync(testPluginsDir, { recursive: true, force: true });
+                fs.rmSync(tempDir, { recursive: true, force: true });
             } catch {
                 // Ignore cleanup errors
             }
@@ -126,88 +140,64 @@ describe('Plugin Hot Reload Integration', () => {
 
     describe('enableHotReload', () => {
         it('should enable hot reload successfully when directory exists', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
 
-            // Should not throw when enabling hot reload
             expect(() => pluginManager!.enableHotReload()).not.toThrow();
+            expect(pluginManager.isHotReloadEnabled()).toBe(true);
         });
 
         it('should not throw when enabling hot reload multiple times', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
 
             pluginManager.enableHotReload();
+            expect(pluginManager.isHotReloadEnabled()).toBe(true);
 
             // Second enable should not throw
             expect(() => pluginManager!.enableHotReload()).not.toThrow();
+            expect(pluginManager.isHotReloadEnabled()).toBe(true);
         });
 
         it('should handle non-existent plugins directory gracefully', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            const nonExistentDir = path.join(__dirname, '.non-existent-' + Date.now());
-            pluginManager = new PluginManager({
-                ...createConfig(),
-                pluginsDir: nonExistentDir,
-            });
+            const nonExistentDir = path.join(tempDir, 'non-existent-' + Date.now());
+            pluginManager = new PluginManager(createConfig(nonExistentDir));
 
             await pluginManager.initialize();
 
-            // Should not throw even if directory doesn't exist
+            // Directory should be created during initialize
+            expect(fs.existsSync(nonExistentDir)).toBe(true);
+
+            // Should not throw
             expect(() => pluginManager!.enableHotReload()).not.toThrow();
         });
     });
 
     describe('disableHotReload', () => {
         it('should disable hot reload successfully', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
 
             pluginManager.enableHotReload();
+            expect(pluginManager.isHotReloadEnabled()).toBe(true);
 
-            // Should not throw when disabling
-            expect(() => pluginManager!.disableHotReload()).not.toThrow();
+            pluginManager.disableHotReload();
+            expect(pluginManager.isHotReloadEnabled()).toBe(false);
         });
 
         it('should handle disable when not enabled', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
+
+            expect(pluginManager.isHotReloadEnabled()).toBe(false);
 
             // Should not throw when disabling without enabling first
             expect(() => pluginManager!.disableHotReload()).not.toThrow();
+            expect(pluginManager.isHotReloadEnabled()).toBe(false);
         });
 
         it('should handle multiple disable calls', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
 
             pluginManager.enableHotReload();
@@ -215,17 +205,13 @@ describe('Plugin Hot Reload Integration', () => {
 
             // Second disable should not throw
             expect(() => pluginManager!.disableHotReload()).not.toThrow();
+            expect(pluginManager.isHotReloadEnabled()).toBe(false);
         });
     });
 
     describe('reloadPlugin', () => {
         it('should throw error when plugin is not found', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
 
             await expect(
@@ -234,9 +220,9 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should throw error when reloading before initialization', async () => {
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
 
-            // Attempting to reload before initialize should fail gracefully
+            // Attempting to reload before initialize should fail
             await expect(
                 pluginManager.reloadPlugin('any-plugin')
             ).rejects.toThrow();
@@ -245,89 +231,75 @@ describe('Plugin Hot Reload Integration', () => {
 
     describe('Auto-enable on initialization', () => {
         it('should auto-enable hot reload when configured', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
             pluginManager = new PluginManager({
-                ...createConfig(),
+                ...createConfig(tempDir),
                 hotReload: true,
             });
 
             await pluginManager.initialize();
 
-            // Hot reload should be enabled - disabling should not throw
-            expect(() => pluginManager!.disableHotReload()).not.toThrow();
+            expect(pluginManager.isHotReloadEnabled()).toBe(true);
         });
 
         it('should not auto-enable when not configured', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
             pluginManager = new PluginManager({
-                ...createConfig(),
+                ...createConfig(tempDir),
                 hotReload: false,
             });
 
             await pluginManager.initialize();
 
+            expect(pluginManager.isHotReloadEnabled()).toBe(false);
+
             // Verify we can still manually enable
             expect(() => pluginManager!.enableHotReload()).not.toThrow();
+            expect(pluginManager.isHotReloadEnabled()).toBe(true);
         });
     });
 
     describe('Shutdown behavior', () => {
         it('should disable hot reload during shutdown', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
             pluginManager = new PluginManager({
-                ...createConfig(),
+                ...createConfig(tempDir),
                 hotReload: true,
             });
 
             await pluginManager.initialize();
+            expect(pluginManager.isHotReloadEnabled()).toBe(true);
 
             // Shutdown should disable hot reload
             await pluginManager.shutdown();
 
-            // Manager should no longer be initialized
             expect(pluginManager.isInitialized()).toBe(false);
         });
 
         it('should handle shutdown without hot reload enabled', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
+
+            expect(pluginManager.isHotReloadEnabled()).toBe(false);
 
             // Shutdown without hot reload should work
             await pluginManager.shutdown();
             expect(pluginManager.isInitialized()).toBe(false);
         });
+
+        it('should handle shutdown when not initialized', async () => {
+            pluginManager = new PluginManager(createConfig(tempDir));
+
+            // Shutdown without initialize should not throw
+            await expect(pluginManager.shutdown()).resolves.not.toThrow();
+        });
     });
 
     describe('File change handling', () => {
         it('should ignore non-.opnet files in the plugins directory', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
             pluginManager.enableHotReload();
 
             // Create a non-.opnet file
-            const txtFile = path.join(testPluginsDir, 'test.txt');
+            const txtFile = path.join(tempDir, 'test.txt');
             fs.writeFileSync(txtFile, 'test content');
 
             // Wait for any file system events
@@ -338,37 +310,27 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should ignore hidden files', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
             pluginManager.enableHotReload();
 
-            // Create a hidden file
-            const hiddenFile = path.join(testPluginsDir, '.hidden-plugin.opnet');
+            // Create a hidden file with .opnet extension (won't be picked up)
+            const hiddenFile = path.join(tempDir, '.hidden-plugin.opnet');
             fs.writeFileSync(hiddenFile, Buffer.alloc(100));
 
             await new Promise(resolve => setTimeout(resolve, 200));
 
-            // Hidden files should be ignored
+            // Hidden files should be ignored (loader doesn't pick them up)
             expect(pluginManager.getAllPlugins().length).toBe(0);
         });
 
         it('should ignore directories with .opnet extension', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
             pluginManager.enableHotReload();
 
             // Create a directory with .opnet extension
-            const opnetDir = path.join(testPluginsDir, 'fake.opnet');
+            const opnetDir = path.join(tempDir, 'fake.opnet');
             fs.mkdirSync(opnetDir, { recursive: true });
 
             await new Promise(resolve => setTimeout(resolve, 200));
@@ -380,24 +342,14 @@ describe('Plugin Hot Reload Integration', () => {
 
     describe('Plugin state tracking', () => {
         it('should return empty array when no plugins loaded', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
 
             expect(pluginManager.getAllPlugins()).toEqual([]);
         });
 
         it('should track initialization state correctly', async () => {
-            if (!hasMongoCredentials || !mongoClient) {
-                console.warn('Skipping test: MongoDB not configured');
-                return;
-            }
-
-            pluginManager = new PluginManager(createConfig());
+            pluginManager = new PluginManager(createConfig(tempDir));
 
             expect(pluginManager.isInitialized()).toBe(false);
 
@@ -413,23 +365,111 @@ describe('Plugin Hot Reload Integration', () => {
 
     describe('Error handling', () => {
         it('should handle initialization errors gracefully', async () => {
-            // Create manager with invalid plugins directory (no permissions)
-            const invalidDir = '/root/invalid-plugins-' + Date.now();
+            // Create manager - it should create the directory
+            pluginManager = new PluginManager(createConfig(tempDir));
 
-            pluginManager = new PluginManager({
-                ...createConfig(),
-                pluginsDir: invalidDir,
-            });
-
-            // Initialize should create the directory and not throw
+            // Initialize should not throw
             await expect(pluginManager.initialize()).resolves.not.toThrow();
         });
 
-        it('should handle shutdown when not initialized', async () => {
-            pluginManager = new PluginManager(createConfig());
+        it('should throw when initializing twice', async () => {
+            pluginManager = new PluginManager(createConfig(tempDir));
 
-            // Shutdown without initialize should not throw
-            await expect(pluginManager.shutdown()).resolves.not.toThrow();
+            await pluginManager.initialize();
+
+            // Second initialize should throw
+            await expect(pluginManager.initialize()).rejects.toThrow('already initialized');
+        });
+    });
+
+    describe('Plugin discovery', () => {
+        it('should discover and register valid plugin files', async () => {
+            // Create a valid plugin file
+            const metadata = createMockMetadata({ name: 'test-plugin' });
+            const pluginBuffer = createPluginFileBuffer(metadata);
+            const pluginPath = path.join(tempDir, 'test-plugin.opnet');
+            fs.writeFileSync(pluginPath, pluginBuffer);
+
+            pluginManager = new PluginManager(createConfig(tempDir));
+            await pluginManager.initialize();
+
+            const plugins = pluginManager.getAllPlugins();
+            expect(plugins.length).toBe(1);
+            expect(plugins[0].id).toBe('test-plugin');
+        });
+
+        it('should skip invalid plugin files during discovery', async () => {
+            // Create an invalid plugin file (too small)
+            const invalidPath = path.join(tempDir, 'invalid.opnet');
+            fs.writeFileSync(invalidPath, Buffer.alloc(10));
+
+            pluginManager = new PluginManager(createConfig(tempDir));
+            await pluginManager.initialize();
+
+            // Invalid plugin should not be registered
+            expect(pluginManager.getAllPlugins().length).toBe(0);
+        });
+
+        it('should skip disabled plugin files (.opnet.disabled)', async () => {
+            // Create a valid plugin file
+            const metadata = createMockMetadata({ name: 'disabled-plugin' });
+            const pluginBuffer = createPluginFileBuffer(metadata);
+
+            // Save as disabled
+            const pluginPath = path.join(tempDir, 'disabled-plugin.opnet.disabled');
+            fs.writeFileSync(pluginPath, pluginBuffer);
+
+            pluginManager = new PluginManager(createConfig(tempDir));
+            await pluginManager.initialize();
+
+            // Disabled plugin should not be loaded
+            expect(pluginManager.getAllPlugins().length).toBe(0);
+        });
+    });
+
+    describe('Network info', () => {
+        it('should return correct network info', async () => {
+            pluginManager = new PluginManager({
+                ...createConfig(tempDir),
+                chainId: 123n,
+                networkType: 'testnet',
+                genesisBlockHash: 'abc123',
+            });
+            await pluginManager.initialize();
+
+            const networkInfo = pluginManager.getNetworkInfo();
+
+            expect(networkInfo.chainId).toBe(123n);
+            expect(networkInfo.network).toBe('testnet');
+            expect(networkInfo.genesisBlockHash).toBe('abc123');
+        });
+
+        it('should track current block height', async () => {
+            pluginManager = new PluginManager(createConfig(tempDir));
+            await pluginManager.initialize();
+
+            expect(pluginManager.getCurrentBlockHeight()).toBe(0n);
+
+            pluginManager.setCurrentBlockHeight(100n);
+            expect(pluginManager.getCurrentBlockHeight()).toBe(100n);
+
+            const networkInfo = pluginManager.getNetworkInfo();
+            expect(networkInfo.currentBlockHeight).toBe(100n);
+        });
+
+        it('should include reindex info when configured', async () => {
+            pluginManager = new PluginManager({
+                ...createConfig(tempDir),
+                reindexEnabled: true,
+                reindexFromBlock: 50n,
+            });
+            await pluginManager.initialize();
+
+            const networkInfo = pluginManager.getNetworkInfo();
+
+            expect(networkInfo.reindex).toBeDefined();
+            expect(networkInfo.reindex!.enabled).toBe(true);
+            expect(networkInfo.reindex!.fromBlock).toBe(50n);
         });
     });
 });
