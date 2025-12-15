@@ -118,8 +118,8 @@ export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
                     `Plugin system initialized: ${pluginCount} plugin(s) loaded, ${enabledCount} enabled`,
                 );
 
-                // Broadcast registered routes and opcodes to API threads
-                await this.broadcastInitialRegistrations();
+                // Note: Route/opcode broadcasting happens when Core sends ALL_THREADS_READY
+                // This ensures API threads exist before we try to send them messages
             } else {
                 this.info('Plugin system is disabled');
             }
@@ -139,6 +139,11 @@ export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
             case MessageType.EXIT_THREAD:
                 await this.shutdown();
                 process.exit(0);
+                break;
+            case MessageType.ALL_THREADS_READY:
+                // Now that all threads are started, broadcast routes/opcodes to API threads
+                this.info('All threads ready, broadcasting route and opcode registrations...');
+                await this.broadcastInitialRegistrations();
                 break;
             default:
                 this.warn(`Unknown message type received: ${m.type}`);

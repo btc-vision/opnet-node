@@ -17,6 +17,7 @@ export enum MessageType {
 
     // Plugin messages
     PLUGIN_READY, // Sent by PluginThread when initialization is complete
+    ALL_THREADS_READY, // Sent by Core to plugin thread after all threads are started
     PLUGIN_BLOCK_PRE_PROCESS,
     PLUGIN_BLOCK_POST_PROCESS,
     PLUGIN_BLOCK_CHANGE,

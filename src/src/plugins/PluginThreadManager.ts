@@ -38,6 +38,20 @@ export class PluginThreadManager extends ThreadManager<ThreadTypes.PLUGIN> {
         }
     }
 
+    /**
+     * Handle additional messages from parent (Core)
+     */
+    protected onAdditionalParentMessage(msg: ThreadMessageBase<MessageType>): boolean {
+        switch (msg.type) {
+            case MessageType.ALL_THREADS_READY:
+                this.log('Forwarding ALL_THREADS_READY to plugin threads');
+                this.threadManager.sendToAllThreads(msg);
+                return true;
+            default:
+                return false;
+        }
+    }
+
     protected async createLinkBetweenThreads(): Promise<void> {
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.INDEXER);
         await this.threadManager.createLinkBetweenThreads(ThreadTypes.API);

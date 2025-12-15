@@ -23,7 +23,7 @@ import { P2PMajorVersion, P2PVersion } from '../poa/configurations/P2PVersion.js
 import { WSManager } from './websocket/WebSocketManager.js';
 import { Handlers } from './websocket/handlers/HandlerRegistry.js';
 import { IEpochDocument } from '../db/documents/interfaces/IEpochDocument.js';
-import { IPluginOpcodeInfo, IPluginRouteInfo } from '../plugins/interfaces/IPluginMessages.js';
+import { IPluginRouteInfo, IPluginOpcodeInfo } from '../plugins/interfaces/IPluginMessages.js';
 
 Globals.register();
 
@@ -84,14 +84,6 @@ export class Server extends Logger {
         super();
     }
 
-    private get blockchainInformationRepository(): BlockchainInfoRepository {
-        if (!this.#blockchainInformationRepository) {
-            throw new Error('BlockchainInformationRepository not initialized');
-        }
-
-        return this.#blockchainInformationRepository;
-    }
-
     /**
      * Set the plugin route executor callback
      * Called by ServerThread to enable plugin route execution
@@ -104,6 +96,14 @@ export class Server extends Logger {
         ) => Promise<{ success: boolean; status?: number; body?: unknown; error?: string }>,
     ): void {
         this.pluginRouteExecutor = executor;
+    }
+
+    private get blockchainInformationRepository(): BlockchainInfoRepository {
+        if (!this.#blockchainInformationRepository) {
+            throw new Error('BlockchainInformationRepository not initialized');
+        }
+
+        return this.#blockchainInformationRepository;
     }
 
     public async createServer(): Promise<void> {
@@ -152,68 +152,6 @@ export class Server extends Logger {
         }
 
         await this.createServer();
-    }
-
-    public registerPluginRoutes(routes: IPluginRouteInfo[]): void {
-        for (const route of routes) {
-            const fullPath = `${this.apiPrefix}/plugins/${route.pluginId}/${route.path}`;
-            const handler = this.createPluginRouteHandler(route);
-
-            const method = route.method.toLowerCase() as HyperExpressRoute;
-            this.app[method](fullPath, handler);
-
-            let pluginRouteList = this.pluginRoutes.get(route.pluginId);
-            if (!pluginRouteList) {
-                pluginRouteList = [];
-                this.pluginRoutes.set(route.pluginId, pluginRouteList);
-            }
-            pluginRouteList.push(route);
-
-            this.log(`Registered plugin route: ${route.method} ${fullPath}`);
-        }
-    }
-
-    public unregisterPluginRoutes(pluginId: string): void {
-        const routes = this.pluginRoutes.get(pluginId);
-        if (!routes) {
-            return;
-        }
-
-        // Note: HyperExpress doesn't support route removal at runtime
-        // We mark the routes as inactive so the handler returns 404
-        this.pluginRoutes.delete(pluginId);
-        this.warn(`Plugin ${pluginId} routes marked as inactive`);
-    }
-
-    public registerPluginOpcodes(opcodes: IPluginOpcodeInfo[]): void {
-        for (const opcode of opcodes) {
-            let opcodeList = this.pluginOpcodes.get(opcode.pluginId);
-            if (!opcodeList) {
-                opcodeList = [];
-                this.pluginOpcodes.set(opcode.pluginId, opcodeList);
-            }
-            opcodeList.push(opcode);
-
-            this.log(
-                `Registered plugin opcode: ${opcode.pluginId}/${opcode.opcodeName} -> 0x${opcode.requestOpcode.toString(16)}`,
-            );
-        }
-
-        // Register with WebSocket manager
-        WSManager.registerPluginOpcodes(opcodes);
-    }
-
-    public unregisterPluginOpcodes(pluginId: string): void {
-        const opcodes = this.pluginOpcodes.get(pluginId);
-        if (!opcodes) {
-            return;
-        }
-
-        // Unregister from WebSocket manager
-        WSManager.unregisterPluginOpcodes(pluginId);
-
-        this.pluginOpcodes.delete(pluginId);
-        this.log(`Unregistered opcodes for plugin ${pluginId}`);
     }
 
     /**
@@ -424,6 +362,68 @@ export class Server extends Logger {
         if (typeof next === 'function') {
             next();
         }
+    }
+
+    public registerPluginRoutes(routes: IPluginRouteInfo[]): void {
+        for (const route of routes) {
+            const fullPath = `${this.apiPrefix}/plugins/${route.pluginId}/${route.path}`;
+            const handler = this.createPluginRouteHandler(route);
+
+            const method = route.method.toLowerCase() as HyperExpressRoute;
+            this.app[method](fullPath, handler);
+
+            let pluginRouteList = this.pluginRoutes.get(route.pluginId);
+            if (!pluginRouteList) {
+                pluginRouteList = [];
+                this.pluginRoutes.set(route.pluginId, pluginRouteList);
+            }
+            pluginRouteList.push(route);
+
+            this.log(`Registered plugin route: ${route.method} ${fullPath}`);
+        }
+    }
+
+    public unregisterPluginRoutes(pluginId: string): void {
+        const routes = this.pluginRoutes.get(pluginId);
+        if (!routes) {
+            return;
+        }
+
+        // Note: HyperExpress doesn't support route removal at runtime
+        // We mark the routes as inactive so the handler returns 404
+        this.pluginRoutes.delete(pluginId);
+        this.warn(`Plugin ${pluginId} routes marked as inactive`);
+    }
+
+    public registerPluginOpcodes(opcodes: IPluginOpcodeInfo[]): void {
+        for (const opcode of opcodes) {
+            let opcodeList = this.pluginOpcodes.get(opcode.pluginId);
+            if (!opcodeList) {
+                opcodeList = [];
+                this.pluginOpcodes.set(opcode.pluginId, opcodeList);
+            }
+            opcodeList.push(opcode);
+
+            this.log(
+                `Registered plugin opcode: ${opcode.pluginId}/${opcode.opcodeName} -> 0x${opcode.requestOpcode.toString(16)}`,
+            );
+        }
+
+        // Register with WebSocket manager
+        WSManager.registerPluginOpcodes(opcodes);
+    }
+
+    public unregisterPluginOpcodes(pluginId: string): void {
+        const opcodes = this.pluginOpcodes.get(pluginId);
+        if (!opcodes) {
+            return;
+        }
+
+        // Unregister from WebSocket manager
+        WSManager.unregisterPluginOpcodes(pluginId);
+
+        this.pluginOpcodes.delete(pluginId);
+        this.log(`Unregistered opcodes for plugin ${pluginId}`);
     }
 
     private createPluginRouteHandler(route: IPluginRouteInfo): MiddlewareHandler {

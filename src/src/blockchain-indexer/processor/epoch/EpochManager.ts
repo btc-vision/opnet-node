@@ -47,12 +47,6 @@ export class EpochManager extends Logger {
 
     private readonly epochValidator: EpochValidator;
 
-    public constructor(private readonly storage: VMStorage) {
-        super();
-
-        this.epochValidator = new EpochValidator(this.storage);
-    }
-
     /**
      * Callback to send messages to other threads
      * Assigned by BlockIndexer
@@ -63,6 +57,12 @@ export class EpochManager extends Logger {
     ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
+
+    public constructor(private readonly storage: VMStorage) {
+        super();
+
+        this.epochValidator = new EpochValidator(this.storage);
+    }
 
     public async updateEpoch(task: IndexingTask): Promise<void> {
         const currentHeight = task.tip;

@@ -73,18 +73,22 @@ export class Core extends Logger {
         if (Config.SSH.ENABLED) {
             await this.createThread(ThreadTypes.SSH);
         }
+
+        // Notify plugin thread that all threads are ready
+        // This allows it to broadcast routes/opcodes to API threads
+        if (Config.PLUGINS.PLUGINS_ENABLED) {
+            this.notifyPluginThreadAllReady();
+        }
     }
 
-    public async start(): Promise<void> {
-        this.log(`Starting up core...`);
-
-        const dbOk = await this.setupDB();
-        if (!dbOk) {
-            process.exit(0);
-        }
-
-        this.createIdentity();
-        await this.createThreads();
+    /**
+     * Notify plugin thread that all threads are started
+     */
+    private notifyPluginThreadAllReady(): void {
+        this.info('Notifying plugin thread that all threads are ready...');
+        this.sendMessageToThread(ThreadTypes.PLUGIN, {
+            type: MessageType.ALL_THREADS_READY,
+        });
     }
 
     /**
@@ -113,6 +117,18 @@ export class Core extends Logger {
         clearTimeout(timeout);
 
         this.info('Plugin thread ready, continuing with other threads...');
+    }
+
+    public async start(): Promise<void> {
+        this.log(`Starting up core...`);
+
+        const dbOk = await this.setupDB();
+        if (!dbOk) {
+            process.exit(0);
+        }
+
+        this.createIdentity();
+        await this.createThreads();
     }
 
     private createIdentity(): void {
@@ -201,6 +217,22 @@ export class Core extends Logger {
             this.pluginReadyResolver();
             this.pluginReadyResolver = undefined;
         }
+    }
+
+    /**
+     * Send a message to a specific thread type
+     */
+    private sendMessageToThread(
+        threadType: ThreadTypes,
+        msg: ThreadMessageBase<MessageType>,
+    ): void {
+        const thread = this.masterThreads[threadType];
+        if (!thread) {
+            this.error(`Cannot send message to thread ${threadType}: thread not found`);
+            return;
+        }
+
+        thread.postMessage(msg);
     }
 
     private listenEvents(): void {
