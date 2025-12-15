@@ -15,12 +15,7 @@ import {
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
 import { EpochValidationParams, EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import {
-    BinaryWriter,
-    MessageSigner,
-    MLDSASecurityLevel,
-    QuantumBIP32Factory,
-} from '@btc-vision/transaction';
+import { BinaryWriter, MessageSigner, MLDSASecurityLevel, QuantumBIP32Factory, } from '@btc-vision/transaction';
 import { isEmptyBuffer } from '../../../../../utils/BufferUtils.js';
 
 export class SubmitEpochRoute extends Route<
@@ -66,12 +61,16 @@ export class SubmitEpochRoute extends Route<
         // Initialize epoch validator with configured minimum difficulty
         this._epochValidator = new EpochValidator(this.storage);
 
-        const currentBlock = await this.storage.getLatestBlock();
-        if (!currentBlock) {
-            throw new Error('No blocks found in storage to determine current height');
-        }
+        try {
+            const currentBlock = await this.storage.getLatestBlock();
+            if (!currentBlock) {
+                return;
+            }
 
-        this.pendingBlockHeight = BigInt(currentBlock.height);
+            this.pendingBlockHeight = BigInt(currentBlock.height);
+        } catch {
+            this.pendingBlockHeight = 0n;
+        }
     }
 
     /**
