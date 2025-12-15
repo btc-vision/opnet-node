@@ -1,6 +1,7 @@
 import { BlockDataWithTransactionData } from '@btc-vision/bitcoin-rpc';
 import { BlockProcessedData } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { IEpochData, IMempoolTransaction, IReorgData } from './IPlugin.js';
+import { IReindexCheck } from './IPluginInstallState.js';
 
 /**
  * Hook execution mode
@@ -36,6 +37,10 @@ export enum HookType {
 
     // Reorg (CRITICAL - BLOCKING)
     REORG = 'onReorg',
+
+    // Reindex (CRITICAL - BLOCKING)
+    REINDEX_REQUIRED = 'onReindexRequired',
+    PURGE_BLOCKS = 'onPurgeBlocks',
 }
 
 /**
@@ -68,6 +73,14 @@ export interface IHookDispatchOptions {
 }
 
 /**
+ * Purge blocks payload
+ */
+export interface IPurgeBlocksPayload {
+    fromBlock: bigint;
+    toBlock?: bigint;
+}
+
+/**
  * Union type for all hook payloads
  * Uses existing OPNet interfaces directly to minimize serialization overhead
  */
@@ -77,6 +90,8 @@ export type HookPayload =
     | IEpochData                      // Epoch data
     | IMempoolTransaction             // Mempool transaction
     | IReorgData                      // Reorg data
+    | IReindexCheck                   // Reindex check data
+    | IPurgeBlocksPayload             // Purge blocks data
     | undefined;                      // Lifecycle hooks (no payload)
 
 /**
@@ -153,5 +168,18 @@ export const HOOK_CONFIGS: Record<HookType, IHookConfig> = {
         type: HookType.REORG,
         executionMode: HookExecutionMode.SEQUENTIAL,
         timeoutMs: 300000, // 5 minutes - reorg can take time
+    },
+
+    // Reindex hooks - SEQUENTIAL and BLOCKING
+    // Called at startup when reindex is required
+    [HookType.REINDEX_REQUIRED]: {
+        type: HookType.REINDEX_REQUIRED,
+        executionMode: HookExecutionMode.SEQUENTIAL,
+        timeoutMs: 600000, // 10 minutes - reindex setup can take time
+    },
+    [HookType.PURGE_BLOCKS]: {
+        type: HookType.PURGE_BLOCKS,
+        executionMode: HookExecutionMode.SEQUENTIAL,
+        timeoutMs: 600000, // 10 minutes - purging can take time for large datasets
     },
 };

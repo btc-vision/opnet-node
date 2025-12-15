@@ -136,10 +136,10 @@ class ServerThreadBase extends Thread<ThreadTypes.API> {
         }
     }
 
-    protected async onLinkMessage(
+    protected onLinkMessage(
         type: ThreadTypes,
         msg: ThreadMessageBase<MessageType>,
-    ): Promise<ThreadData | undefined> {
+    ): ThreadData | undefined {
         if (type === ThreadTypes.PLUGIN) {
             return this.handlePluginMessage(msg);
         }

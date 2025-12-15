@@ -1,5 +1,6 @@
 import { IPluginMetadata } from './IPluginMetadata.js';
 import { IParsedPluginFile } from './IPluginFile.js';
+import { IPluginInstallState } from './IPluginInstallState.js';
 
 /**
  * Plugin lifecycle states
@@ -16,6 +17,9 @@ export enum PluginState {
 
     /** Plugin loaded in worker */
     LOADED = 'loaded',
+
+    /** Plugin is syncing/catching up with chain (BLOCKING) */
+    SYNCING = 'syncing',
 
     /** Plugin active and receiving hooks */
     ENABLED = 'enabled',
@@ -74,11 +78,23 @@ export interface IRegisteredPlugin {
     /** Timestamp when plugin was enabled */
     enabledAt?: number;
 
+    /** Block height when plugin was enabled (0 = genesis) */
+    enabledAtBlock?: bigint;
+
     /** Plugins that depend on this one */
     dependents: Set<string>;
 
     /** Plugins this one depends on */
     dependencies: Set<string>;
+
+    /** Whether this is the first installation of this plugin */
+    isFirstInstall?: boolean;
+
+    /** Persisted install state (from database) */
+    installState?: IPluginInstallState;
+
+    /** Whether the plugin file is disabled (.opnet.disabled) */
+    isFileDisabled?: boolean;
 }
 
 /**
@@ -99,10 +115,11 @@ export const VALID_STATE_TRANSITIONS: Record<PluginState, readonly PluginState[]
     [PluginState.DISCOVERED]: [PluginState.VALIDATED, PluginState.ERROR],
     [PluginState.VALIDATED]: [PluginState.LOADING, PluginState.ERROR],
     [PluginState.LOADING]: [PluginState.LOADED, PluginState.ERROR],
-    [PluginState.LOADED]: [PluginState.ENABLED, PluginState.DISABLED, PluginState.UNLOADING],
+    [PluginState.LOADED]: [PluginState.SYNCING, PluginState.ENABLED, PluginState.DISABLED, PluginState.UNLOADING],
+    [PluginState.SYNCING]: [PluginState.ENABLED, PluginState.ERROR, PluginState.CRASHED],
     [PluginState.ENABLED]: [PluginState.DISABLED, PluginState.CRASHED, PluginState.UNLOADING],
-    [PluginState.DISABLED]: [PluginState.ENABLED, PluginState.UNLOADING],
-    [PluginState.CRASHED]: [PluginState.ENABLED, PluginState.UNLOADING],
+    [PluginState.DISABLED]: [PluginState.ENABLED, PluginState.SYNCING, PluginState.UNLOADING],
+    [PluginState.CRASHED]: [PluginState.ENABLED, PluginState.SYNCING, PluginState.UNLOADING],
     [PluginState.ERROR]: [PluginState.DISCOVERED], // Can retry after fixing
     [PluginState.UNLOADING]: [PluginState.DISCOVERED], // Can reload
 };

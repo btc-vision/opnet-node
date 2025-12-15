@@ -21,6 +21,11 @@ import { IEpochData, IMempoolTransaction, IReorgData } from './interfaces/IPlugi
 import { BlockDataWithTransactionData } from '@btc-vision/bitcoin-rpc';
 import { BlockProcessedData } from '../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import { IHookResult, IHookDispatchOptions } from './interfaces/IPluginHooks.js';
+import {
+    INetworkInfo,
+    IReindexCheck,
+    ReindexAction,
+} from './interfaces/IPluginInstallState.js';
 
 /**
  * Plugin manager configuration
@@ -38,6 +43,16 @@ export interface IPluginManagerConfig {
     autoEnable?: boolean;
     /** Whether to enable hot reload (default: false) */
     hotReload?: boolean;
+    /** Chain ID for network awareness */
+    chainId: bigint;
+    /** Network type for network awareness */
+    networkType: 'mainnet' | 'testnet' | 'regtest';
+    /** Genesis block hash */
+    genesisBlockHash: string;
+    /** Whether reindex mode is enabled */
+    reindexEnabled?: boolean;
+    /** Block height to reindex from (0 = full reindex) */
+    reindexFromBlock?: bigint;
 }
 
 /**
@@ -56,6 +71,7 @@ export class PluginManager extends Logger {
     private readonly routeRegistry: PluginRouteRegistry;
 
     private initialized = false;
+    private currentBlockHeight: bigint = 0n;
 
     // Hot reload
     private hotReloadEnabled = false;
@@ -151,6 +167,39 @@ export class PluginManager extends Logger {
 
         this.initialized = false;
         this.info('Plugin system shutdown complete');
+    }
+
+    /**
+     * Get current network information
+     */
+    public getNetworkInfo(): INetworkInfo {
+        return {
+            chainId: this.config.chainId,
+            network: this.config.networkType,
+            currentBlockHeight: this.currentBlockHeight,
+            genesisBlockHash: this.config.genesisBlockHash,
+            reindex: this.config.reindexEnabled
+                ? {
+                      enabled: true,
+                      fromBlock: this.config.reindexFromBlock ?? 0n,
+                      inProgress: false,
+                  }
+                : undefined,
+        };
+    }
+
+    /**
+     * Get current block height
+     */
+    public getCurrentBlockHeight(): bigint {
+        return this.currentBlockHeight;
+    }
+
+    /**
+     * Set current block height (called by indexer on new blocks)
+     */
+    public setCurrentBlockHeight(height: bigint): void {
+        this.currentBlockHeight = height;
     }
 
     /**
@@ -271,8 +320,11 @@ export class PluginManager extends Logger {
             // Load config (from data directory if exists)
             const config = this.loadPluginConfig(pluginId, dataDir);
 
-            // Load into worker pool
-            await this.workerPool.loadPlugin(plugin, config);
+            // Build network info
+            const networkInfo = this.getNetworkInfo();
+
+            // Load into worker pool with network info
+            await this.workerPool.loadPlugin(plugin, config, networkInfo);
 
             // Register WebSocket handlers if the plugin has them
             this.opcodeRegistry.registerPlugin(plugin);
@@ -787,6 +839,135 @@ export class PluginManager extends Logger {
         options?: IHookDispatchOptions,
     ): Promise<IHookResult[]> {
         return this.hookDispatcher.dispatchReorg(reorg, options);
+    }
+
+    /**
+     * Handle reindex requirements for all plugins (BLOCKING)
+     * CRITICAL: This method MUST be called at startup when reindex is enabled.
+     * It blocks until ALL plugins have completed their reindex handling.
+     *
+     * @throws Error if any plugin cannot handle the required reindex action
+     */
+    public async handleReindex(): Promise<void> {
+        if (!this.config.reindexEnabled) {
+            return;
+        }
+
+        const reindexFromBlock = this.config.reindexFromBlock ?? 0n;
+        this.info(`Reindex mode enabled - handling plugin reindex from block ${reindexFromBlock}`);
+
+        const enabledPlugins = this.registry.getEnabled();
+        if (enabledPlugins.length === 0) {
+            this.info('No enabled plugins to handle reindex');
+            return;
+        }
+
+        for (const plugin of enabledPlugins) {
+            const pluginId = plugin.id;
+
+            // Get plugin's sync state from worker
+            const syncState = await this.workerPool.getPluginSyncState(pluginId);
+            const lastSyncedBlock = syncState?.lastSyncedBlock ?? 0n;
+
+            // Build reindex check
+            const reindexCheck = this.buildReindexCheck(lastSyncedBlock, reindexFromBlock);
+
+            if (reindexCheck.action === ReindexAction.NONE) {
+                this.info(`Plugin ${pluginId}: No reindex action required (lastSynced=${lastSyncedBlock})`);
+                continue;
+            }
+
+            this.info(
+                `Plugin ${pluginId}: Reindex action=${reindexCheck.action}, ` +
+                    `lastSynced=${lastSyncedBlock}, reindexFrom=${reindexFromBlock}`,
+            );
+
+            // Call onReindexRequired hook (BLOCKING)
+            const result = await this.hookDispatcher.dispatchReindexRequired(pluginId, reindexCheck);
+
+            if (!result.success) {
+                throw new Error(
+                    `Plugin ${pluginId} failed to handle reindex: ${result.error || 'Unknown error'}`,
+                );
+            }
+
+            // If plugin returned false (cannot handle), abort startup
+            if (result.result === false) {
+                throw new Error(
+                    `Plugin ${pluginId} cannot handle required reindex action: ${reindexCheck.action}`,
+                );
+            }
+
+            // If purge is required and plugin didn't handle it via onReindexRequired,
+            // call onPurgeBlocks explicitly
+            if (reindexCheck.requiresPurge && reindexCheck.purgeToBlock !== undefined) {
+                this.info(`Plugin ${pluginId}: Purging data from block ${reindexCheck.purgeToBlock} onwards`);
+
+                const purgeResult = await this.hookDispatcher.dispatchPurgeBlocks(
+                    pluginId,
+                    reindexCheck.purgeToBlock,
+                    undefined, // toBlock: undefined means purge all blocks >= fromBlock
+                );
+
+                if (!purgeResult.success) {
+                    throw new Error(
+                        `Plugin ${pluginId} failed to purge blocks: ${purgeResult.error || 'Unknown error'}`,
+                    );
+                }
+
+                // Reset plugin's sync state to the reindex block
+                await this.workerPool.resetPluginSyncState(pluginId, reindexCheck.purgeToBlock);
+                this.info(`Plugin ${pluginId}: Sync state reset to block ${reindexCheck.purgeToBlock}`);
+            }
+
+            this.success(`Plugin ${pluginId}: Reindex handling complete`);
+        }
+
+        this.success('All plugins handled reindex requirements');
+    }
+
+    /**
+     * Build a reindex check for a plugin based on its sync state
+     */
+    private buildReindexCheck(lastSyncedBlock: bigint, reindexFromBlock: bigint): IReindexCheck {
+        let action: ReindexAction;
+        let requiresPurge = false;
+        let purgeToBlock: bigint | undefined;
+        let requiresSync = false;
+        let syncFromBlock: bigint | undefined;
+        let syncToBlock: bigint | undefined;
+
+        if (lastSyncedBlock > reindexFromBlock) {
+            // Plugin has data beyond reindex point - needs to purge
+            action = ReindexAction.PURGE;
+            requiresPurge = true;
+            purgeToBlock = reindexFromBlock;
+            // After purge, will need to sync from reindex point
+            requiresSync = true;
+            syncFromBlock = reindexFromBlock;
+            syncToBlock = reindexFromBlock;
+        } else if (lastSyncedBlock < reindexFromBlock) {
+            // Plugin is behind reindex point - just needs to sync up to it
+            action = ReindexAction.SYNC;
+            requiresSync = true;
+            syncFromBlock = lastSyncedBlock;
+            syncToBlock = reindexFromBlock;
+        } else {
+            // Plugin is exactly at reindex point - no action needed
+            action = ReindexAction.NONE;
+        }
+
+        return {
+            reindexEnabled: true,
+            reindexFromBlock,
+            pluginLastSyncedBlock: lastSyncedBlock,
+            action,
+            requiresPurge,
+            purgeToBlock,
+            requiresSync,
+            syncFromBlock,
+            syncToBlock,
+        };
     }
 
     /**

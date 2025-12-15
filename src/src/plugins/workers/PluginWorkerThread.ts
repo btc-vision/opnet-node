@@ -16,6 +16,8 @@ import {
     IExecuteHookMessage,
     IExecuteRouteHandlerMessage,
     IExecuteWsHandlerMessage,
+    IGetSyncStateMessage,
+    IResetSyncStateMessage,
     IWorkerResponse,
     IPluginLoadedResponse,
     IHookResultResponse,
@@ -25,6 +27,11 @@ import {
     IPluginCrashedResponse,
     IWorkerReadyResponse,
     IPongResponse,
+    ISyncStateUpdateResponse,
+    IGetSyncStateResponse,
+    IResetSyncStateResponse,
+    ISerializedNetworkInfo,
+    ISerializedPluginInstallState,
 } from './WorkerMessages.js';
 import { IPlugin } from '../interfaces/IPlugin.js';
 import { IPluginMetadata } from '../interfaces/IPluginMetadata.js';
@@ -33,6 +40,7 @@ import { PluginContext } from '../context/PluginContext.js';
 import { PluginFilesystemAPI } from '../api/PluginFilesystemAPI.js';
 import { PluginDatabaseAPI } from '../api/PluginDatabaseAPI.js';
 import { DBManagerInstance } from '../../db/DBManager.js';
+import { INetworkInfo, IPluginInstallState } from '../interfaces/IPluginInstallState.js';
 
 /**
  * Worker data passed from parent thread
@@ -50,6 +58,10 @@ interface ILoadedPlugin {
     metadata: IPluginMetadata;
     context: PluginContext;
     enabled: boolean;
+    networkInfo: INetworkInfo;
+    syncState: IPluginInstallState | undefined;
+    enabledAtBlock: bigint;
+    isFirstInstall: boolean;
 }
 
 /**
@@ -164,6 +176,39 @@ function sendCrash(pluginId: string, code: string, message: string, stack?: stri
 }
 
 /**
+ * Deserialize network info from message
+ */
+function deserializeNetworkInfo(serialized: ISerializedNetworkInfo): INetworkInfo {
+    return {
+        chainId: BigInt(serialized.chainId),
+        network: serialized.network,
+        currentBlockHeight: BigInt(serialized.currentBlockHeight),
+        genesisBlockHash: serialized.genesisBlockHash,
+    };
+}
+
+/**
+ * Deserialize install state from message
+ */
+function deserializeInstallState(
+    serialized: ISerializedPluginInstallState | undefined,
+): IPluginInstallState | undefined {
+    if (!serialized) return undefined;
+    return {
+        pluginId: serialized.pluginId,
+        installedVersion: serialized.installedVersion,
+        chainId: BigInt(serialized.chainId),
+        network: serialized.network,
+        installedAt: serialized.installedAt,
+        enabledAtBlock: BigInt(serialized.enabledAtBlock),
+        lastSyncedBlock: BigInt(serialized.lastSyncedBlock),
+        syncCompleted: serialized.syncCompleted,
+        collections: serialized.collections,
+        updatedAt: serialized.updatedAt,
+    };
+}
+
+/**
  * Load a plugin from bytenode-compiled bytecode
  */
 async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
@@ -175,12 +220,21 @@ async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
         dataDir,
         config: configJson,
         emitErrorOrWarning,
+        networkInfo: serializedNetworkInfo,
+        isFirstInstall,
+        enabledAtBlock: enabledAtBlockStr,
+        installState: serializedInstallState,
     } = message;
 
     try {
         // Parse metadata and config
         const metadata = JSON.parse(metadataJson) as unknown as IPluginMetadata;
         const config = JSON.parse(configJson) as unknown as Record<string, unknown>;
+
+        // Deserialize network info and install state
+        const networkInfo = deserializeNetworkInfo(serializedNetworkInfo);
+        const enabledAtBlock = BigInt(enabledAtBlockStr);
+        const syncState = deserializeInstallState(serializedInstallState);
 
         // Create plugin logger
         const pluginLogger = new Logger();
@@ -223,16 +277,59 @@ async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
             return plugin?.instance;
         };
 
-        // Create plugin context
+        // Sync state getter - returns the local sync state
+        const syncStateGetter = (): IPluginInstallState | undefined => {
+            const plugin = loadedPlugins.get(pluginId);
+            return plugin?.syncState;
+        };
+
+        // Sync state setter - updates local state and notifies main thread
+        const syncStateSetter = (
+            updates: Partial<IPluginInstallState>,
+        ): Promise<void> => {
+            const plugin = loadedPlugins.get(pluginId);
+            if (plugin && plugin.syncState) {
+                plugin.syncState = {
+                    ...plugin.syncState,
+                    ...updates,
+                    updatedAt: Date.now(),
+                };
+            }
+            // Send update to main thread
+            const updateResponse: ISyncStateUpdateResponse = {
+                type: WorkerResponseType.SYNC_STATE_UPDATE,
+                requestId: '',
+                pluginId,
+                success: true,
+                lastSyncedBlock: updates.lastSyncedBlock?.toString(),
+                syncCompleted: updates.syncCompleted,
+            };
+            sendResponse(updateResponse);
+            return Promise.resolve();
+        };
+
+        // Block height getter - returns current network height
+        const blockHeightGetter = (): bigint => {
+            const plugin = loadedPlugins.get(pluginId);
+            return plugin?.networkInfo?.currentBlockHeight ?? 0n;
+        };
+
+        // Create plugin context with all new parameters
         const context = new PluginContext(
             metadata,
             dataDir,
+            networkInfo,
             dbApi,
             fsApi,
             pluginLogger,
             pluginConfig,
             pluginGetter,
-            undefined,
+            syncStateGetter,
+            syncStateSetter,
+            blockHeightGetter,
+            isFirstInstall,
+            enabledAtBlock,
+            undefined, // workerFactory
             { emitErrorOrWarning },
         );
 
@@ -263,6 +360,10 @@ async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
             metadata,
             context,
             enabled: false,
+            networkInfo,
+            syncState,
+            enabledAtBlock,
+            isFirstInstall,
         };
         loadedPlugins.set(pluginId, loadedPlugin);
 
@@ -423,7 +524,7 @@ async function executeHook(message: IExecuteHookMessage): Promise<void> {
 
         // Call the hook based on type
         // Payload is passed directly (not wrapped) to minimize serialization overhead
-        let hookPromise: Promise<void>;
+        let hookPromise: Promise<unknown>;
         switch (hookType) {
             case HookType.BLOCK_PRE_PROCESS:
             case HookType.BLOCK_POST_PROCESS:
@@ -438,19 +539,39 @@ async function executeHook(message: IExecuteHookMessage): Promise<void> {
                     payload,
                 );
                 break;
+            case HookType.REINDEX_REQUIRED:
+                // Returns boolean
+                hookPromise = (hookMethod as (data: unknown) => Promise<boolean>).call(
+                    plugin.instance,
+                    payload,
+                );
+                break;
+            case HookType.PURGE_BLOCKS: {
+                // Receives fromBlock and toBlock
+                const purgePayload = payload as { fromBlock: string; toBlock?: string };
+                hookPromise = (
+                    hookMethod as (fromBlock: bigint, toBlock?: bigint) => Promise<void>
+                ).call(
+                    plugin.instance,
+                    BigInt(purgePayload.fromBlock),
+                    purgePayload.toBlock ? BigInt(purgePayload.toBlock) : undefined,
+                );
+                break;
+            }
             default:
                 hookPromise = Promise.resolve();
         }
 
-        await Promise.race([hookPromise, timeoutPromise]);
+        const hookResult = await Promise.race([hookPromise, timeoutPromise]);
 
-        const response: IHookResultResponse = {
+        const response: IHookResultResponse & { result?: unknown } = {
             type: WorkerResponseType.HOOK_RESULT,
             requestId,
             pluginId,
             hookType,
             success: true,
             durationMs: Date.now() - startTime,
+            result: hookResult,
         };
         sendResponse(response);
     } catch (error) {
@@ -607,6 +728,100 @@ async function executeWsHandler(message: IExecuteWsHandlerMessage): Promise<void
 }
 
 /**
+ * Get plugin sync state
+ */
+function getSyncState(message: IGetSyncStateMessage): void {
+    const { requestId, pluginId } = message;
+
+    const plugin = loadedPlugins.get(pluginId);
+    if (!plugin) {
+        const response: IGetSyncStateResponse = {
+            type: WorkerResponseType.GET_SYNC_STATE_RESULT,
+            requestId,
+            pluginId,
+            success: false,
+            error: 'Plugin not loaded',
+        };
+        sendResponse(response);
+        return;
+    }
+
+    const response: IGetSyncStateResponse = {
+        type: WorkerResponseType.GET_SYNC_STATE_RESULT,
+        requestId,
+        pluginId,
+        success: true,
+        lastSyncedBlock: plugin.syncState?.lastSyncedBlock?.toString(),
+        syncCompleted: plugin.syncState?.syncCompleted,
+    };
+    sendResponse(response);
+}
+
+/**
+ * Reset plugin sync state to a specific block
+ */
+function resetSyncState(message: IResetSyncStateMessage): void {
+    const { requestId, pluginId, blockHeight } = message;
+
+    const plugin = loadedPlugins.get(pluginId);
+    if (!plugin) {
+        const response: IResetSyncStateResponse = {
+            type: WorkerResponseType.RESET_SYNC_STATE_RESULT,
+            requestId,
+            pluginId,
+            success: false,
+            error: 'Plugin not loaded',
+        };
+        sendResponse(response);
+        return;
+    }
+
+    // Update local sync state
+    if (plugin.syncState) {
+        plugin.syncState = {
+            ...plugin.syncState,
+            lastSyncedBlock: BigInt(blockHeight),
+            syncCompleted: false,
+            updatedAt: Date.now(),
+        };
+    } else {
+        // Create new sync state if none exists
+        plugin.syncState = {
+            pluginId,
+            installedVersion: plugin.metadata.version,
+            chainId: plugin.networkInfo.chainId,
+            network: plugin.networkInfo.network,
+            installedAt: Date.now(),
+            enabledAtBlock: plugin.enabledAtBlock,
+            lastSyncedBlock: BigInt(blockHeight),
+            syncCompleted: false,
+            collections: [],
+            updatedAt: Date.now(),
+        };
+    }
+
+    // Notify main thread of the update
+    const updateResponse: ISyncStateUpdateResponse = {
+        type: WorkerResponseType.SYNC_STATE_UPDATE,
+        requestId: '',
+        pluginId,
+        success: true,
+        lastSyncedBlock: blockHeight,
+        syncCompleted: false,
+    };
+    sendResponse(updateResponse);
+
+    // Send success response
+    const response: IResetSyncStateResponse = {
+        type: WorkerResponseType.RESET_SYNC_STATE_RESULT,
+        requestId,
+        pluginId,
+        success: true,
+    };
+    sendResponse(response);
+}
+
+/**
  * Handle shutdown
  */
 async function shutdown(): Promise<void> {
@@ -657,6 +872,12 @@ function handleMessage(message: WorkerMessage): void {
             break;
         case WorkerMessageType.EXECUTE_WS_HANDLER:
             void executeWsHandler(message);
+            break;
+        case WorkerMessageType.GET_SYNC_STATE:
+            getSyncState(message);
+            break;
+        case WorkerMessageType.RESET_SYNC_STATE:
+            resetSyncState(message);
             break;
         case WorkerMessageType.SHUTDOWN:
             void shutdown();

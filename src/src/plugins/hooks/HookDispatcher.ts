@@ -10,9 +10,19 @@ import {
     IHookResult,
     IHookDispatchOptions,
     HOOK_CONFIGS,
+    IPurgeBlocksPayload,
 } from '../interfaces/IPluginHooks.js';
 import { IEpochData, IMempoolTransaction, IReorgData } from '../interfaces/IPlugin.js';
+import { IReindexCheck } from '../interfaces/IPluginInstallState.js';
+
 import { BlockProcessedData } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
+
+/**
+ * Extended hook result that includes the return value from the plugin
+ */
+export interface IHookResultWithValue<T = unknown> extends IHookResult {
+    result?: T;
+}
 
 /**
  * Hook Dispatcher
@@ -114,6 +124,104 @@ export class HookDispatcher extends Logger {
 
         this.info(`Reorg dispatch complete: ${results.length} plugins processed`);
         return results;
+    }
+
+    /**
+     * Dispatch reindex required hook to a specific plugin (BLOCKING)
+     * CRITICAL: This method blocks until the plugin has completed its reindex handling.
+     * Returns the plugin's response (true = handled successfully, false = cannot handle).
+     *
+     * @param pluginId - The plugin to dispatch to
+     * @param reindexCheck - Reindex requirements and actions
+     * @returns Hook result with the plugin's boolean response
+     */
+    public async dispatchReindexRequired(
+        pluginId: string,
+        reindexCheck: IReindexCheck,
+    ): Promise<IHookResultWithValue<boolean>> {
+        this.info(
+            `Dispatching reindex required to plugin ${pluginId}: ` +
+                `action=${reindexCheck.action}, fromBlock=${reindexCheck.reindexFromBlock}`,
+        );
+
+        try {
+            const config = HOOK_CONFIGS[HookType.REINDEX_REQUIRED];
+            const response = await this.workerPool.executeHookWithResult(
+                pluginId,
+                HookType.REINDEX_REQUIRED,
+                reindexCheck,
+                config.timeoutMs,
+            );
+
+            return {
+                success: response.success,
+                pluginName: pluginId,
+                hookType: HookType.REINDEX_REQUIRED,
+                durationMs: response.durationMs,
+                error: response.error,
+                result: response.result as boolean | undefined,
+            };
+        } catch (error) {
+            const err = error as Error;
+            this.error(`Plugin ${pluginId} failed reindex required: ${err.message}`);
+            return {
+                success: false,
+                pluginName: pluginId,
+                hookType: HookType.REINDEX_REQUIRED,
+                durationMs: 0,
+                error: err.message,
+            };
+        }
+    }
+
+    /**
+     * Dispatch purge blocks hook to a specific plugin (BLOCKING)
+     * CRITICAL: This method blocks until the plugin has purged data for the block range.
+     *
+     * @param pluginId - The plugin to dispatch to
+     * @param fromBlock - Start block to purge (inclusive)
+     * @param toBlock - End block to purge (inclusive, or undefined for all blocks >= fromBlock)
+     * @returns Hook result
+     */
+    public async dispatchPurgeBlocks(
+        pluginId: string,
+        fromBlock: bigint,
+        toBlock?: bigint,
+    ): Promise<IHookResult> {
+        this.info(
+            `Dispatching purge blocks to plugin ${pluginId}: ` +
+                `from=${fromBlock}, to=${toBlock ?? 'end'}`,
+        );
+
+        const payload: IPurgeBlocksPayload = { fromBlock, toBlock };
+
+        try {
+            const config = HOOK_CONFIGS[HookType.PURGE_BLOCKS];
+            const response = await this.workerPool.executeHook(
+                pluginId,
+                HookType.PURGE_BLOCKS,
+                payload,
+                config.timeoutMs,
+            );
+
+            return {
+                success: response.success,
+                pluginName: pluginId,
+                hookType: HookType.PURGE_BLOCKS,
+                durationMs: response.durationMs,
+                error: response.error,
+            };
+        } catch (error) {
+            const err = error as Error;
+            this.error(`Plugin ${pluginId} failed purge blocks: ${err.message}`);
+            return {
+                success: false,
+                pluginName: pluginId,
+                hookType: HookType.PURGE_BLOCKS,
+                durationMs: 0,
+                error: err.message,
+            };
+        }
     }
 
     /**

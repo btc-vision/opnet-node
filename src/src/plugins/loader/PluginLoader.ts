@@ -34,6 +34,18 @@ export class PluginLoadError extends Error {
 }
 
 /**
+ * Plugin discovery result
+ */
+export interface IDiscoveredPlugin {
+    /** Full file path */
+    filePath: string;
+    /** Whether the plugin is disabled via filename (.opnet.disabled) */
+    isDisabled: boolean;
+    /** Plugin ID extracted from filename */
+    pluginId: string;
+}
+
+/**
  * Plugin Loader
  * Discovers and parses .opnet plugin files
  */
@@ -49,8 +61,19 @@ export class PluginLoader extends Logger {
 
     /**
      * Discover all .opnet files in the plugins directory
+     * Returns paths to enabled plugins only (excludes .opnet.disabled files)
      */
     public discoverPlugins(): string[] {
+        const discovered = this.discoverAllPlugins();
+        const enabled = discovered.filter((p) => !p.isDisabled);
+        this.info(`Discovered ${discovered.length} plugin file(s), ${enabled.length} enabled`);
+        return enabled.map((p) => p.filePath);
+    }
+
+    /**
+     * Discover all .opnet files including disabled ones
+     */
+    public discoverAllPlugins(): IDiscoveredPlugin[] {
         try {
             // Ensure plugins directory exists
             if (!fs.existsSync(this.pluginsDir)) {
@@ -60,11 +83,29 @@ export class PluginLoader extends Logger {
             }
 
             const files = fs.readdirSync(this.pluginsDir);
-            const pluginFiles = files
-                .filter((f) => f.endsWith('.opnet'))
-                .map((f) => path.join(this.pluginsDir, f));
+            const pluginFiles: IDiscoveredPlugin[] = [];
 
-            this.info(`Discovered ${pluginFiles.length} plugin file(s)`);
+            for (const f of files) {
+                // Check for .opnet.disabled (disabled plugin)
+                if (f.endsWith('.opnet.disabled')) {
+                    const pluginId = f.replace('.opnet.disabled', '');
+                    pluginFiles.push({
+                        filePath: path.join(this.pluginsDir, f),
+                        isDisabled: true,
+                        pluginId,
+                    });
+                }
+                // Check for .opnet (enabled plugin)
+                else if (f.endsWith('.opnet')) {
+                    const pluginId = f.replace('.opnet', '');
+                    pluginFiles.push({
+                        filePath: path.join(this.pluginsDir, f),
+                        isDisabled: false,
+                        pluginId,
+                    });
+                }
+            }
+
             return pluginFiles;
         } catch (error) {
             this.error(`Failed to discover plugins: ${error}`);
@@ -73,6 +114,41 @@ export class PluginLoader extends Logger {
                 'DISCOVERY_FAILED',
             );
         }
+    }
+
+    /**
+     * Check if a plugin file is disabled
+     */
+    public isPluginFileDisabled(filePath: string): boolean {
+        return filePath.endsWith('.opnet.disabled');
+    }
+
+    /**
+     * Disable a plugin by renaming its file
+     */
+    public disablePluginFile(filePath: string): string {
+        if (this.isPluginFileDisabled(filePath)) {
+            return filePath; // Already disabled
+        }
+
+        const disabledPath = filePath + '.disabled';
+        fs.renameSync(filePath, disabledPath);
+        this.info(`Disabled plugin file: ${path.basename(filePath)}`);
+        return disabledPath;
+    }
+
+    /**
+     * Enable a plugin by renaming its file
+     */
+    public enablePluginFile(filePath: string): string {
+        if (!this.isPluginFileDisabled(filePath)) {
+            return filePath; // Already enabled
+        }
+
+        const enabledPath = filePath.replace('.opnet.disabled', '.opnet');
+        fs.renameSync(filePath, enabledPath);
+        this.info(`Enabled plugin file: ${path.basename(enabledPath)}`);
+        return enabledPath;
     }
 
     /**

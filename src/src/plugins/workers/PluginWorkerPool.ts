@@ -19,16 +19,23 @@ import {
     IExecuteHookMessage,
     IExecuteRouteHandlerMessage,
     IExecuteWsHandlerMessage,
+    IGetSyncStateMessage,
+    IResetSyncStateMessage,
+    IGetSyncStateResponse,
     IPluginLoadedResponse,
     IHookResultResponse,
     IRouteResultResponse,
     IWsResultResponse,
     IPluginErrorResponse,
     IPluginCrashedResponse,
+    ISyncStateUpdateResponse,
+    ISerializedNetworkInfo,
+    ISerializedPluginInstallState,
     generateRequestId,
 } from './WorkerMessages.js';
 import { HookType, HookPayload } from '../interfaces/IPluginHooks.js';
 import { IRegisteredPlugin, PluginState } from '../interfaces/IPluginState.js';
+import { INetworkInfo, IPluginInstallState } from '../interfaces/IPluginInstallState.js';
 
 /**
  * Pending request tracking
@@ -82,6 +89,9 @@ export class PluginWorkerPool extends Logger {
     /** Callback when a plugin crashes */
     public onPluginCrash?: (pluginId: string, error: string) => void;
 
+    /** Callback when a plugin updates its sync state */
+    public onSyncStateUpdate?: (pluginId: string, lastSyncedBlock?: bigint, syncCompleted?: boolean) => void;
+
     constructor(config: IWorkerPoolConfig = {}) {
         super();
 
@@ -131,9 +141,46 @@ export class PluginWorkerPool extends Logger {
     }
 
     /**
+     * Serialize network info for worker message
+     */
+    private serializeNetworkInfo(networkInfo: INetworkInfo): ISerializedNetworkInfo {
+        return {
+            chainId: networkInfo.chainId.toString(),
+            network: networkInfo.network,
+            currentBlockHeight: networkInfo.currentBlockHeight.toString(),
+            genesisBlockHash: networkInfo.genesisBlockHash,
+        };
+    }
+
+    /**
+     * Serialize install state for worker message
+     */
+    private serializeInstallState(
+        state: IPluginInstallState | undefined,
+    ): ISerializedPluginInstallState | undefined {
+        if (!state) return undefined;
+        return {
+            pluginId: state.pluginId,
+            installedVersion: state.installedVersion,
+            chainId: state.chainId.toString(),
+            network: state.network,
+            installedAt: state.installedAt,
+            enabledAtBlock: state.enabledAtBlock.toString(),
+            lastSyncedBlock: state.lastSyncedBlock.toString(),
+            syncCompleted: state.syncCompleted,
+            collections: state.collections,
+            updatedAt: state.updatedAt,
+        };
+    }
+
+    /**
      * Load a plugin into a worker
      */
-    public async loadPlugin(plugin: IRegisteredPlugin, config: Record<string, unknown>): Promise<void> {
+    public async loadPlugin(
+        plugin: IRegisteredPlugin,
+        config: Record<string, unknown>,
+        networkInfo: INetworkInfo,
+    ): Promise<void> {
         const workerId = this.selectWorkerForPlugin(plugin);
         const workerInfo = this.workers.get(workerId);
 
@@ -150,6 +197,10 @@ export class PluginWorkerPool extends Logger {
             dataDir: plugin.filePath.replace(/\.opnet$/, ''),
             config: JSON.stringify(config),
             emitErrorOrWarning: this.config.emitErrorOrWarning,
+            networkInfo: this.serializeNetworkInfo(networkInfo),
+            isFirstInstall: plugin.isFirstInstall ?? false,
+            enabledAtBlock: (plugin.enabledAtBlock ?? 0n).toString(),
+            installState: this.serializeInstallState(plugin.installState),
         };
 
         const response = await this.sendMessage(workerInfo, message);
@@ -312,6 +363,82 @@ export class PluginWorkerPool extends Logger {
     }
 
     /**
+     * Execute a hook on a plugin and return the result value
+     * Used for hooks that return values (like onReindexRequired which returns boolean)
+     */
+    public async executeHookWithResult(
+        pluginId: string,
+        hookType: HookType,
+        payload: HookPayload,
+        timeoutMs?: number,
+    ): Promise<IHookResultResponse & { result?: unknown }> {
+        const workerInfo = this.getWorkerForPlugin(pluginId);
+
+        const message: IExecuteHookMessage = {
+            type: WorkerMessageType.EXECUTE_HOOK,
+            requestId: generateRequestId(),
+            pluginId,
+            hookType,
+            payload: JSON.stringify(payload),
+            timeoutMs: timeoutMs ?? this.config.defaultTimeoutMs,
+        };
+
+        const response = await this.sendMessage(
+            workerInfo,
+            message,
+            timeoutMs ?? this.config.defaultTimeoutMs,
+        );
+
+        return response as IHookResultResponse & { result?: unknown };
+    }
+
+    /**
+     * Get a plugin's sync state from its worker
+     */
+    public async getPluginSyncState(
+        pluginId: string,
+    ): Promise<{ lastSyncedBlock: bigint; syncCompleted: boolean } | undefined> {
+        const workerInfo = this.getWorkerForPlugin(pluginId);
+
+        const message: IGetSyncStateMessage = {
+            type: WorkerMessageType.GET_SYNC_STATE,
+            requestId: generateRequestId(),
+            pluginId,
+        };
+
+        const response = (await this.sendMessage(workerInfo, message)) as IGetSyncStateResponse;
+
+        if (!response.success || response.lastSyncedBlock === undefined) {
+            return undefined;
+        }
+
+        return {
+            lastSyncedBlock: BigInt(response.lastSyncedBlock),
+            syncCompleted: response.syncCompleted ?? false,
+        };
+    }
+
+    /**
+     * Reset a plugin's sync state to a specific block
+     */
+    public async resetPluginSyncState(pluginId: string, blockHeight: bigint): Promise<void> {
+        const workerInfo = this.getWorkerForPlugin(pluginId);
+
+        const message: IResetSyncStateMessage = {
+            type: WorkerMessageType.RESET_SYNC_STATE,
+            requestId: generateRequestId(),
+            pluginId,
+            blockHeight: blockHeight.toString(),
+        };
+
+        const response = await this.sendMessage(workerInfo, message);
+
+        if (!response.success) {
+            throw new Error(response.error || `Failed to reset sync state for ${pluginId}`);
+        }
+    }
+
+    /**
      * Get statistics about the worker pool
      */
     public getStats(): {
@@ -458,12 +585,37 @@ export class PluginWorkerPool extends Logger {
             this.handlePluginCrash(crashResponse.pluginId, crashResponse.errorMessage);
         }
 
+        // Handle sync state updates
+        if (response.type === WorkerResponseType.SYNC_STATE_UPDATE) {
+            const syncResponse = response as ISyncStateUpdateResponse;
+            this.handleSyncStateUpdate(
+                syncResponse.pluginId,
+                syncResponse.lastSyncedBlock,
+                syncResponse.syncCompleted,
+            );
+        }
+
         // Handle pending request responses
         const pending = workerInfo.pendingRequests.get(response.requestId);
         if (pending) {
             clearTimeout(pending.timeoutId);
             workerInfo.pendingRequests.delete(response.requestId);
             pending.resolve(response);
+        }
+    }
+
+    /**
+     * Handle a sync state update from a plugin
+     */
+    private handleSyncStateUpdate(
+        pluginId: string,
+        lastSyncedBlockStr?: string,
+        syncCompleted?: boolean,
+    ): void {
+        const lastSyncedBlock = lastSyncedBlockStr ? BigInt(lastSyncedBlockStr) : undefined;
+
+        if (this.onSyncStateUpdate) {
+            this.onSyncStateUpdate(pluginId, lastSyncedBlock, syncCompleted);
         }
     }
 

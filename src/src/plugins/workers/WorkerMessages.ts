@@ -19,6 +19,10 @@ export enum WorkerMessageType {
     // WebSocket handling
     EXECUTE_WS_HANDLER = 'execute_ws_handler',
 
+    // Sync state
+    GET_SYNC_STATE = 'get_sync_state',
+    RESET_SYNC_STATE = 'reset_sync_state',
+
     // Worker control
     SHUTDOWN = 'shutdown',
     PING = 'ping',
@@ -40,6 +44,11 @@ export enum WorkerResponseType {
     // API responses
     ROUTE_RESULT = 'route_result',
     WS_RESULT = 'ws_result',
+
+    // Sync state updates
+    SYNC_STATE_UPDATE = 'sync_state_update',
+    GET_SYNC_STATE_RESULT = 'get_sync_state_result',
+    RESET_SYNC_STATE_RESULT = 'reset_sync_state_result',
 
     // Error reporting
     PLUGIN_ERROR = 'plugin_error',
@@ -72,6 +81,32 @@ export interface IWorkerResponse {
 }
 
 /**
+ * Network info passed to worker (serializable version)
+ */
+export interface ISerializedNetworkInfo {
+    readonly chainId: string; // bigint as string
+    readonly network: 'mainnet' | 'testnet' | 'regtest';
+    readonly currentBlockHeight: string; // bigint as string
+    readonly genesisBlockHash: string;
+}
+
+/**
+ * Serialized plugin install state
+ */
+export interface ISerializedPluginInstallState {
+    readonly pluginId: string;
+    readonly installedVersion: string;
+    readonly chainId: string; // bigint as string
+    readonly network: string;
+    readonly installedAt: number;
+    readonly enabledAtBlock: string; // bigint as string
+    readonly lastSyncedBlock: string; // bigint as string
+    readonly syncCompleted: boolean;
+    readonly collections: readonly string[];
+    readonly updatedAt: number;
+}
+
+/**
  * Load plugin message
  */
 export interface ILoadPluginMessage extends IWorkerMessage {
@@ -82,6 +117,11 @@ export interface ILoadPluginMessage extends IWorkerMessage {
     readonly dataDir: string;
     readonly config: string; // JSON serialized
     readonly emitErrorOrWarning: boolean;
+    // New fields for network/sync awareness
+    readonly networkInfo: ISerializedNetworkInfo;
+    readonly isFirstInstall: boolean;
+    readonly enabledAtBlock: string; // bigint as string
+    readonly installState?: ISerializedPluginInstallState;
 }
 
 /**
@@ -153,6 +193,41 @@ export interface IShutdownMessage extends IWorkerMessage {
  */
 export interface IPingMessage extends IWorkerMessage {
     readonly type: WorkerMessageType.PING;
+}
+
+/**
+ * Get sync state message
+ */
+export interface IGetSyncStateMessage extends IWorkerMessage {
+    readonly type: WorkerMessageType.GET_SYNC_STATE;
+    readonly pluginId: string;
+}
+
+/**
+ * Reset sync state message
+ */
+export interface IResetSyncStateMessage extends IWorkerMessage {
+    readonly type: WorkerMessageType.RESET_SYNC_STATE;
+    readonly pluginId: string;
+    readonly blockHeight: string; // bigint as string
+}
+
+/**
+ * Get sync state response
+ */
+export interface IGetSyncStateResponse extends IWorkerResponse {
+    readonly type: WorkerResponseType.GET_SYNC_STATE_RESULT;
+    readonly pluginId: string;
+    readonly lastSyncedBlock?: string; // bigint as string
+    readonly syncCompleted?: boolean;
+}
+
+/**
+ * Reset sync state response
+ */
+export interface IResetSyncStateResponse extends IWorkerResponse {
+    readonly type: WorkerResponseType.RESET_SYNC_STATE_RESULT;
+    readonly pluginId: string;
 }
 
 /**
@@ -232,6 +307,16 @@ export interface IPongResponse extends IWorkerResponse {
 }
 
 /**
+ * Sync state update response (sent from worker to update sync state)
+ */
+export interface ISyncStateUpdateResponse extends IWorkerResponse {
+    readonly type: WorkerResponseType.SYNC_STATE_UPDATE;
+    readonly pluginId: string;
+    readonly lastSyncedBlock?: string; // bigint as string
+    readonly syncCompleted?: boolean;
+}
+
+/**
  * Union type for all worker messages
  */
 export type WorkerMessage =
@@ -242,6 +327,8 @@ export type WorkerMessage =
     | IExecuteHookMessage
     | IExecuteRouteHandlerMessage
     | IExecuteWsHandlerMessage
+    | IGetSyncStateMessage
+    | IResetSyncStateMessage
     | IShutdownMessage
     | IPingMessage;
 
@@ -253,6 +340,9 @@ export type WorkerResponse =
     | IHookResultResponse
     | IRouteResultResponse
     | IWsResultResponse
+    | ISyncStateUpdateResponse
+    | IGetSyncStateResponse
+    | IResetSyncStateResponse
     | IPluginErrorResponse
     | IPluginCrashedResponse
     | IWorkerReadyResponse

@@ -16,6 +16,7 @@ import {
     IPluginRouteInfo,
     IPluginOpcodeInfo,
 } from './interfaces/IPluginMessages.js';
+import { BitcoinNetwork } from '../config/network/BitcoinNetwork.js';
 
 export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
     public readonly threadType: ThreadTypes.PLUGIN = ThreadTypes.PLUGIN;
@@ -26,6 +27,23 @@ export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
         super();
 
         void this.init();
+    }
+
+    /**
+     * Convert BitcoinNetwork enum to the plugin network type
+     */
+    private getNetworkType(): 'mainnet' | 'testnet' | 'regtest' {
+        switch (Config.BITCOIN.NETWORK) {
+            case BitcoinNetwork.mainnet:
+                return 'mainnet';
+            case BitcoinNetwork.testnet:
+            case BitcoinNetwork.signet:
+                return 'testnet';
+            case BitcoinNetwork.regtest:
+            case BitcoinNetwork.custom:
+            default:
+                return 'regtest';
+        }
     }
 
     protected async init(): Promise<void> {
@@ -43,9 +61,19 @@ export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
                         emitErrorOrWarning: Config.PLUGINS.EMIT_ERROR_OR_WARNING,
                     },
                     autoEnable: true,
+                    chainId: BigInt(Config.BITCOIN.CHAIN_ID),
+                    networkType: this.getNetworkType(),
+                    genesisBlockHash: '', // Will be updated when first block is received
+                    reindexEnabled: Config.OP_NET.REINDEX,
+                    reindexFromBlock: BigInt(Config.OP_NET.REINDEX_FROM_BLOCK),
                 });
 
                 await this.pluginManager.initialize();
+
+                // Handle reindex if enabled (BLOCKING)
+                if (Config.OP_NET.REINDEX) {
+                    await this.pluginManager.handleReindex();
+                }
 
                 const pluginCount = this.pluginManager.getAllPlugins().length;
                 const enabledCount = this.pluginManager.getEnabledPlugins().length;
