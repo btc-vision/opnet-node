@@ -125,6 +125,9 @@ describe('PluginRegistry', () => {
 
             registry.register('/path/a.opnet', file1);
             registry.register('/path/b.opnet', file2);
+            // Follow valid transition chain: DISCOVERED -> VALIDATED -> LOADING -> LOADED
+            registry.setState('plugin-a', PluginState.VALIDATED);
+            registry.setState('plugin-a', PluginState.LOADING);
             registry.setState('plugin-a', PluginState.LOADED);
 
             const discovered = registry.getByState(PluginState.DISCOVERED);
@@ -144,6 +147,9 @@ describe('PluginRegistry', () => {
 
             registry.register('/path/a.opnet', file1);
             registry.register('/path/b.opnet', file2);
+            // Follow valid transition chain
+            registry.setState('plugin-a', PluginState.VALIDATED);
+            registry.setState('plugin-a', PluginState.LOADING);
             registry.setState('plugin-a', PluginState.LOADED);
             registry.setState('plugin-a', PluginState.ENABLED);
 
@@ -170,8 +176,14 @@ describe('PluginRegistry', () => {
 
             registry.register('/path/a.opnet', file1);
             registry.register('/path/b.opnet', file2);
+            // Follow valid transition chain for plugin-a
+            registry.setState('plugin-a', PluginState.VALIDATED);
+            registry.setState('plugin-a', PluginState.LOADING);
             registry.setState('plugin-a', PluginState.LOADED);
             registry.setState('plugin-a', PluginState.ENABLED);
+            // Follow valid transition chain for plugin-b
+            registry.setState('plugin-b', PluginState.VALIDATED);
+            registry.setState('plugin-b', PluginState.LOADING);
             registry.setState('plugin-b', PluginState.LOADED);
             registry.setState('plugin-b', PluginState.ENABLED);
 
@@ -207,6 +219,9 @@ describe('PluginRegistry', () => {
             });
 
             registry.register('/path/a.opnet', file);
+            // Follow valid transition chain
+            registry.setState('plugin-a', PluginState.VALIDATED);
+            registry.setState('plugin-a', PluginState.LOADING);
             registry.setState('plugin-a', PluginState.LOADED);
             registry.setState('plugin-a', PluginState.ENABLED);
 
@@ -220,6 +235,9 @@ describe('PluginRegistry', () => {
             const file = createMockParsedPluginFile({ name: 'test-plugin' });
             registry.register('/path/to/plugin.opnet', file);
 
+            // Follow valid transition chain
+            registry.setState('test-plugin', PluginState.VALIDATED);
+            registry.setState('test-plugin', PluginState.LOADING);
             registry.setState('test-plugin', PluginState.LOADED);
 
             expect(registry.get('test-plugin')?.state).toBe(PluginState.LOADED);
@@ -244,6 +262,9 @@ describe('PluginRegistry', () => {
             const file = createMockParsedPluginFile({ name: 'test-plugin' });
             registry.register('/path/to/plugin.opnet', file);
 
+            // Follow valid transition chain
+            registry.setState('test-plugin', PluginState.VALIDATED);
+            registry.setState('test-plugin', PluginState.LOADING);
             const before = Date.now();
             registry.setState('test-plugin', PluginState.LOADED);
             const after = Date.now();
@@ -256,6 +277,9 @@ describe('PluginRegistry', () => {
         it('should set enabledAt timestamp when entering ENABLED state', () => {
             const file = createMockParsedPluginFile({ name: 'test-plugin' });
             registry.register('/path/to/plugin.opnet', file);
+            // Follow valid transition chain
+            registry.setState('test-plugin', PluginState.VALIDATED);
+            registry.setState('test-plugin', PluginState.LOADING);
             registry.setState('test-plugin', PluginState.LOADED);
 
             const before = Date.now();
@@ -286,14 +310,15 @@ describe('PluginRegistry', () => {
             const listener = vi.fn();
             registry.onStateChange(listener);
 
-            registry.setState('test-plugin', PluginState.LOADED);
+            // First valid transition
+            registry.setState('test-plugin', PluginState.VALIDATED);
 
             expect(listener).toHaveBeenCalledTimes(1);
             expect(listener).toHaveBeenCalledWith(
                 expect.objectContaining({
                     pluginId: 'test-plugin',
                     previousState: PluginState.DISCOVERED,
-                    newState: PluginState.LOADED,
+                    newState: PluginState.VALIDATED,
                 }),
             );
         });
@@ -306,7 +331,7 @@ describe('PluginRegistry', () => {
             registry.onStateChange(listener);
             registry.offStateChange(listener);
 
-            registry.setState('test-plugin', PluginState.LOADED);
+            registry.setState('test-plugin', PluginState.VALIDATED);
 
             expect(listener).not.toHaveBeenCalled();
         });
@@ -324,7 +349,7 @@ describe('PluginRegistry', () => {
             registry.onStateChange(goodListener);
 
             expect(() => {
-                registry.setState('test-plugin', PluginState.LOADED);
+                registry.setState('test-plugin', PluginState.VALIDATED);
             }).not.toThrow();
 
             expect(goodListener).toHaveBeenCalled();
@@ -544,6 +569,9 @@ describe('PluginRegistry', () => {
             registry.register('/app.opnet', app);
             registry.resolveDependencies();
 
+            // Follow valid transition chain
+            registry.setState('lib', PluginState.VALIDATED);
+            registry.setState('lib', PluginState.LOADING);
             registry.setState('lib', PluginState.LOADED);
             registry.setState('lib', PluginState.ENABLED);
 

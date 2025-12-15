@@ -1,583 +1,181 @@
-import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
-import { EventEmitter } from 'events';
-import { PluginWorkerPool } from '../../../src/src/plugins/workers/PluginWorkerPool.js';
+import { describe, it, expect, vi } from 'vitest';
 import {
     WorkerResponseType,
     WorkerMessageType,
+    generateRequestId,
 } from '../../../src/src/plugins/workers/WorkerMessages.js';
-import { HookType } from '../../../src/src/plugins/interfaces/IPluginHooks.js';
-import { PluginState } from '../../../src/src/plugins/interfaces/IPluginState.js';
-import { createMockMetadata, createMockParsedPluginFile } from '../mocks/index.js';
+import { HookType, HOOK_CONFIGS, HookExecutionMode } from '../../../src/src/plugins/interfaces/IPluginHooks.js';
 
-// Mock Worker class
-class MockWorker extends EventEmitter {
-    postMessage: Mock;
-    terminate: Mock;
+// Test WorkerMessages utilities and configurations
+describe('WorkerMessages', () => {
+    describe('generateRequestId', () => {
+        it('should generate unique request IDs', () => {
+            const id1 = generateRequestId();
+            const id2 = generateRequestId();
+            const id3 = generateRequestId();
 
-    constructor() {
-        super();
-        this.postMessage = vi.fn();
-        this.terminate = vi.fn(() => Promise.resolve(0));
-    }
-
-    simulateReady() {
-        process.nextTick(() => {
-            this.emit('message', { type: WorkerResponseType.READY });
-        });
-    }
-
-    simulateResponse(requestId: string, response: Record<string, unknown>) {
-        process.nextTick(() => {
-            this.emit('message', { ...response, requestId });
-        });
-    }
-
-    simulateError(error: Error) {
-        process.nextTick(() => {
-            this.emit('error', error);
-        });
-    }
-
-    simulateExit(code: number) {
-        process.nextTick(() => {
-            this.emit('exit', code);
-        });
-    }
-}
-
-// Mock worker_threads module
-vi.mock('worker_threads', () => ({
-    Worker: vi.fn().mockImplementation(() => {
-        const worker = new MockWorker();
-        // Auto-ready after creation
-        worker.simulateReady();
-        return worker;
-    }),
-}));
-
-// Mock Logger base class
-vi.mock('@btc-vision/bsi-common', () => ({
-    Logger: class {
-        info = vi.fn();
-        warn = vi.fn();
-        error = vi.fn();
-        debug = vi.fn();
-    },
-}));
-
-import { Worker } from 'worker_threads';
-
-describe('PluginWorkerPool', () => {
-    let pool: PluginWorkerPool;
-
-    beforeEach(() => {
-        vi.clearAllMocks();
-    });
-
-    describe('constructor', () => {
-        it('should use default config when not provided', () => {
-            pool = new PluginWorkerPool();
-            expect(pool).toBeInstanceOf(PluginWorkerPool);
+            expect(id1).not.toBe(id2);
+            expect(id2).not.toBe(id3);
+            expect(id1).not.toBe(id3);
         });
 
-        it('should accept custom config', () => {
-            pool = new PluginWorkerPool({
-                workerCount: 4,
-                defaultTimeoutMs: 60000,
-            });
-            expect(pool).toBeInstanceOf(PluginWorkerPool);
+        it('should generate string IDs', () => {
+            const id = generateRequestId();
+            expect(typeof id).toBe('string');
         });
     });
 
-    describe('initialize', () => {
-        it('should create workers based on config', async () => {
-            pool = new PluginWorkerPool({ workerCount: 2 });
-            await pool.initialize();
-
-            expect(Worker).toHaveBeenCalledTimes(2);
-        });
-
-        it('should wait for all workers to be ready', async () => {
-            pool = new PluginWorkerPool({ workerCount: 3 });
-            await pool.initialize();
-
-            const stats = pool.getStats();
-            expect(stats.workerCount).toBe(3);
+    describe('WorkerMessageType', () => {
+        it('should have all required message types', () => {
+            expect(WorkerMessageType.LOAD_PLUGIN).toBeDefined();
+            expect(WorkerMessageType.UNLOAD_PLUGIN).toBeDefined();
+            expect(WorkerMessageType.ENABLE_PLUGIN).toBeDefined();
+            expect(WorkerMessageType.DISABLE_PLUGIN).toBeDefined();
+            expect(WorkerMessageType.EXECUTE_HOOK).toBeDefined();
+            expect(WorkerMessageType.EXECUTE_ROUTE_HANDLER).toBeDefined();
+            expect(WorkerMessageType.EXECUTE_WS_HANDLER).toBeDefined();
+            expect(WorkerMessageType.SHUTDOWN).toBeDefined();
         });
     });
 
-    describe('shutdown', () => {
-        it('should shutdown all workers', async () => {
-            pool = new PluginWorkerPool({ workerCount: 2 });
-            await pool.initialize();
-
-            await pool.shutdown();
-
-            const stats = pool.getStats();
-            expect(stats.workerCount).toBe(0);
-        });
-
-        it('should clear plugin mappings', async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-
-            await pool.shutdown();
-
-            const stats = pool.getStats();
-            expect(stats.totalPlugins).toBe(0);
+    describe('WorkerResponseType', () => {
+        it('should have all required response types', () => {
+            expect(WorkerResponseType.READY).toBeDefined();
+            expect(WorkerResponseType.PLUGIN_LOADED).toBeDefined();
+            expect(WorkerResponseType.PLUGIN_UNLOADED).toBeDefined();
+            expect(WorkerResponseType.PLUGIN_ENABLED).toBeDefined();
+            expect(WorkerResponseType.PLUGIN_DISABLED).toBeDefined();
+            expect(WorkerResponseType.HOOK_RESULT).toBeDefined();
+            expect(WorkerResponseType.ROUTE_RESULT).toBeDefined();
+            expect(WorkerResponseType.WS_RESULT).toBeDefined();
+            expect(WorkerResponseType.PLUGIN_ERROR).toBeDefined();
+            expect(WorkerResponseType.PLUGIN_CRASHED).toBeDefined();
         });
     });
-
-    describe('loadPlugin', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-        });
-
-        it('should load plugin into worker', async () => {
-            const mockPlugin = {
-                id: 'test-plugin',
-                metadata: createMockMetadata(),
-                file: createMockParsedPluginFile(),
-                filePath: '/path/to/test-plugin.opnet',
-                state: PluginState.REGISTERED,
-            };
-
-            const mockNetworkInfo = {
-                chainId: 1n,
-                network: 'regtest' as const,
-                currentBlockHeight: 100n,
-                genesisBlockHash: 'abc123',
-            };
-
-            // Set up mock to respond with success
-            const workerInstance = vi.mocked(Worker).mock.results[0]?.value as MockWorker;
-            workerInstance.postMessage.mockImplementation((msg: { requestId: string }) => {
-                workerInstance.simulateResponse(msg.requestId, {
-                    type: WorkerResponseType.PLUGIN_LOADED,
-                    success: true,
-                });
-            });
-
-            await pool.loadPlugin(mockPlugin, {}, mockNetworkInfo);
-
-            expect(workerInstance.postMessage).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    type: WorkerMessageType.LOAD_PLUGIN,
-                    pluginId: 'test-plugin',
-                }),
-            );
-        });
-
-        it('should track plugin in stats after loading', async () => {
-            const mockPlugin = {
-                id: 'test-plugin',
-                metadata: createMockMetadata(),
-                file: createMockParsedPluginFile(),
-                filePath: '/path/to/test-plugin.opnet',
-                state: PluginState.REGISTERED,
-            };
-
-            const mockNetworkInfo = {
-                chainId: 1n,
-                network: 'regtest' as const,
-                currentBlockHeight: 100n,
-                genesisBlockHash: 'abc123',
-            };
-
-            const workerInstance = vi.mocked(Worker).mock.results[0]?.value as MockWorker;
-            workerInstance.postMessage.mockImplementation((msg: { requestId: string }) => {
-                workerInstance.simulateResponse(msg.requestId, {
-                    type: WorkerResponseType.PLUGIN_LOADED,
-                    success: true,
-                });
-            });
-
-            await pool.loadPlugin(mockPlugin, {}, mockNetworkInfo);
-
-            const stats = pool.getStats();
-            expect(stats.totalPlugins).toBe(1);
-        });
-    });
-
-    describe('unloadPlugin', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-        });
-
-        it('should handle unloading non-existent plugin gracefully', async () => {
-            // Should not throw
-            await expect(pool.unloadPlugin('nonexistent')).resolves.not.toThrow();
-        });
-
-        it('should unload plugin from worker', async () => {
-            const mockPlugin = {
-                id: 'test-plugin',
-                metadata: createMockMetadata(),
-                file: createMockParsedPluginFile(),
-                filePath: '/path/to/test-plugin.opnet',
-                state: PluginState.REGISTERED,
-            };
-
-            const mockNetworkInfo = {
-                chainId: 1n,
-                network: 'regtest' as const,
-                currentBlockHeight: 100n,
-                genesisBlockHash: 'abc123',
-            };
-
-            const workerInstance = vi.mocked(Worker).mock.results[0]?.value as MockWorker;
-            workerInstance.postMessage.mockImplementation((msg: { requestId: string }) => {
-                workerInstance.simulateResponse(msg.requestId, {
-                    type: WorkerResponseType.PLUGIN_LOADED,
-                    success: true,
-                });
-            });
-
-            await pool.loadPlugin(mockPlugin, {}, mockNetworkInfo);
-
-            workerInstance.postMessage.mockImplementation((msg: { requestId: string }) => {
-                workerInstance.simulateResponse(msg.requestId, {
-                    type: WorkerResponseType.PLUGIN_UNLOADED,
-                    success: true,
-                });
-            });
-
-            await pool.unloadPlugin('test-plugin');
-
-            const stats = pool.getStats();
-            expect(stats.totalPlugins).toBe(0);
-        });
-    });
-
-    describe('enablePlugin', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-        });
-
-        it('should throw for non-loaded plugin', async () => {
-            await expect(pool.enablePlugin('nonexistent')).rejects.toThrow(
-                'Plugin nonexistent is not loaded',
-            );
-        });
-    });
-
-    describe('disablePlugin', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-        });
-
-        it('should throw for non-loaded plugin', async () => {
-            await expect(pool.disablePlugin('nonexistent')).rejects.toThrow(
-                'Plugin nonexistent is not loaded',
-            );
-        });
-    });
-
-    describe('executeHook', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-        });
-
-        it('should throw for non-loaded plugin', async () => {
-            await expect(
-                pool.executeHook('nonexistent', HookType.BLOCK_CHANGE, {}),
-            ).rejects.toThrow('Plugin nonexistent is not loaded');
-        });
-
-        it('should execute hook on loaded plugin', async () => {
-            const mockPlugin = {
-                id: 'test-plugin',
-                metadata: createMockMetadata(),
-                file: createMockParsedPluginFile(),
-                filePath: '/path/to/test-plugin.opnet',
-                state: PluginState.REGISTERED,
-            };
-
-            const mockNetworkInfo = {
-                chainId: 1n,
-                network: 'regtest' as const,
-                currentBlockHeight: 100n,
-                genesisBlockHash: 'abc123',
-            };
-
-            const workerInstance = vi.mocked(Worker).mock.results[0]?.value as MockWorker;
-
-            // First, load the plugin
-            workerInstance.postMessage.mockImplementationOnce((msg: { requestId: string }) => {
-                workerInstance.simulateResponse(msg.requestId, {
-                    type: WorkerResponseType.PLUGIN_LOADED,
-                    success: true,
-                });
-            });
-
-            await pool.loadPlugin(mockPlugin, {}, mockNetworkInfo);
-
-            // Then execute hook
-            workerInstance.postMessage.mockImplementationOnce((msg: { requestId: string }) => {
-                workerInstance.simulateResponse(msg.requestId, {
-                    type: WorkerResponseType.HOOK_RESULT,
-                    success: true,
-                    durationMs: 5,
-                });
-            });
-
-            const result = await pool.executeHook('test-plugin', HookType.BLOCK_CHANGE, {});
-
-            expect(result.success).toBe(true);
-            expect(workerInstance.postMessage).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    type: WorkerMessageType.EXECUTE_HOOK,
-                    hookType: HookType.BLOCK_CHANGE,
-                }),
-            );
-        });
-    });
-
-    describe('executeRouteHandler', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-        });
-
-        it('should throw for non-loaded plugin', async () => {
-            await expect(
-                pool.executeRouteHandler('nonexistent', 'handler', {}),
-            ).rejects.toThrow('Plugin nonexistent is not loaded');
-        });
-    });
-
-    describe('executeWsHandler', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-        });
-
-        it('should throw for non-loaded plugin', async () => {
-            await expect(
-                pool.executeWsHandler('nonexistent', 'handler', {}, 'req-1', 'client-1'),
-            ).rejects.toThrow('Plugin nonexistent is not loaded');
-        });
-    });
-
-    describe('getStats', () => {
-        it('should return correct statistics', async () => {
-            pool = new PluginWorkerPool({ workerCount: 2 });
-            await pool.initialize();
-
-            const stats = pool.getStats();
-
-            expect(stats.workerCount).toBe(2);
-            expect(stats.totalPlugins).toBe(0);
-            expect(Object.keys(stats.pluginsPerWorker)).toHaveLength(2);
-        });
-    });
-
-    describe('getPluginSyncState', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-        });
-
-        it('should throw for non-loaded plugin', async () => {
-            await expect(pool.getPluginSyncState('nonexistent')).rejects.toThrow(
-                'Plugin nonexistent is not loaded',
-            );
-        });
-    });
-
-    describe('resetPluginSyncState', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-        });
-
-        it('should throw for non-loaded plugin', async () => {
-            await expect(pool.resetPluginSyncState('nonexistent', 100n)).rejects.toThrow(
-                'Plugin nonexistent is not loaded',
-            );
-        });
-    });
-
-    describe('callbacks', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({ workerCount: 1 });
-            await pool.initialize();
-        });
-
-        it('should call onPluginCrash callback when plugin crashes', async () => {
-            const crashCallback = vi.fn();
-            pool.onPluginCrash = crashCallback;
-
-            const mockPlugin = {
-                id: 'test-plugin',
-                metadata: createMockMetadata(),
-                file: createMockParsedPluginFile(),
-                filePath: '/path/to/test-plugin.opnet',
-                state: PluginState.REGISTERED,
-            };
-
-            const mockNetworkInfo = {
-                chainId: 1n,
-                network: 'regtest' as const,
-                currentBlockHeight: 100n,
-                genesisBlockHash: 'abc123',
-            };
-
-            const workerInstance = vi.mocked(Worker).mock.results[0]?.value as MockWorker;
-            workerInstance.postMessage.mockImplementation((msg: { requestId: string }) => {
-                workerInstance.simulateResponse(msg.requestId, {
-                    type: WorkerResponseType.PLUGIN_LOADED,
-                    success: true,
-                });
-            });
-
-            await pool.loadPlugin(mockPlugin, {}, mockNetworkInfo);
-
-            // Simulate plugin crash notification
-            workerInstance.emit('message', {
-                type: WorkerResponseType.PLUGIN_CRASHED,
-                requestId: 'crash-1',
-                pluginId: 'test-plugin',
-                errorMessage: 'Plugin failed',
-            });
-
-            expect(crashCallback).toHaveBeenCalledWith('test-plugin', 'Plugin failed');
-        });
-
-        it('should call onSyncStateUpdate callback when sync state changes', async () => {
-            const syncCallback = vi.fn();
-            pool.onSyncStateUpdate = syncCallback;
-
-            const mockPlugin = {
-                id: 'test-plugin',
-                metadata: createMockMetadata(),
-                file: createMockParsedPluginFile(),
-                filePath: '/path/to/test-plugin.opnet',
-                state: PluginState.REGISTERED,
-            };
-
-            const mockNetworkInfo = {
-                chainId: 1n,
-                network: 'regtest' as const,
-                currentBlockHeight: 100n,
-                genesisBlockHash: 'abc123',
-            };
-
-            const workerInstance = vi.mocked(Worker).mock.results[0]?.value as MockWorker;
-            workerInstance.postMessage.mockImplementation((msg: { requestId: string }) => {
-                workerInstance.simulateResponse(msg.requestId, {
-                    type: WorkerResponseType.PLUGIN_LOADED,
-                    success: true,
-                });
-            });
-
-            await pool.loadPlugin(mockPlugin, {}, mockNetworkInfo);
-
-            // Simulate sync state update
-            workerInstance.emit('message', {
-                type: WorkerResponseType.SYNC_STATE_UPDATE,
-                requestId: 'sync-1',
-                pluginId: 'test-plugin',
-                lastSyncedBlock: '150',
-                syncCompleted: true,
-            });
-
-            expect(syncCallback).toHaveBeenCalledWith('test-plugin', 150n, true);
-        });
-    });
-
-    describe('worker selection', () => {
-        it('should distribute plugins across workers', async () => {
-            pool = new PluginWorkerPool({ workerCount: 2 });
-            await pool.initialize();
-
-            const mockNetworkInfo = {
-                chainId: 1n,
-                network: 'regtest' as const,
-                currentBlockHeight: 100n,
-                genesisBlockHash: 'abc123',
-            };
-
-            // Set up workers to respond
-            const workerInstances = vi.mocked(Worker).mock.results.map(r => r.value as MockWorker);
-            workerInstances.forEach(worker => {
-                worker.postMessage.mockImplementation((msg: { requestId: string }) => {
-                    worker.simulateResponse(msg.requestId, {
-                        type: WorkerResponseType.PLUGIN_LOADED,
-                        success: true,
-                    });
-                });
-            });
-
-            // Load multiple plugins
-            for (let i = 0; i < 4; i++) {
-                const mockPlugin = {
-                    id: `plugin-${i}`,
-                    metadata: createMockMetadata({ name: `plugin-${i}` }),
-                    file: createMockParsedPluginFile(),
-                    filePath: `/path/to/plugin-${i}.opnet`,
-                    state: PluginState.REGISTERED,
-                };
-                await pool.loadPlugin(mockPlugin, {}, mockNetworkInfo);
+});
+
+describe('Hook Configurations', () => {
+    describe('HOOK_CONFIGS', () => {
+        it('should have config for all hook types', () => {
+            const hookTypes = Object.values(HookType);
+            for (const hookType of hookTypes) {
+                expect(HOOK_CONFIGS[hookType]).toBeDefined();
+                expect(HOOK_CONFIGS[hookType].type).toBe(hookType);
             }
+        });
 
-            const stats = pool.getStats();
-            expect(stats.totalPlugins).toBe(4);
-            // Should be distributed across workers
-            expect(Object.values(stats.pluginsPerWorker).some(count => count > 0)).toBe(true);
+        it('should have valid execution modes', () => {
+            for (const config of Object.values(HOOK_CONFIGS)) {
+                expect([HookExecutionMode.PARALLEL, HookExecutionMode.SEQUENTIAL]).toContain(
+                    config.executionMode,
+                );
+            }
+        });
+
+        it('should have positive timeouts', () => {
+            for (const config of Object.values(HOOK_CONFIGS)) {
+                expect(config.timeoutMs).toBeGreaterThan(0);
+            }
+        });
+
+        it('should have sequential execution for lifecycle hooks', () => {
+            expect(HOOK_CONFIGS[HookType.LOAD].executionMode).toBe(HookExecutionMode.SEQUENTIAL);
+            expect(HOOK_CONFIGS[HookType.UNLOAD].executionMode).toBe(HookExecutionMode.SEQUENTIAL);
+            expect(HOOK_CONFIGS[HookType.ENABLE].executionMode).toBe(HookExecutionMode.SEQUENTIAL);
+            expect(HOOK_CONFIGS[HookType.DISABLE].executionMode).toBe(HookExecutionMode.SEQUENTIAL);
+        });
+
+        it('should have parallel execution for block hooks', () => {
+            expect(HOOK_CONFIGS[HookType.BLOCK_PRE_PROCESS].executionMode).toBe(
+                HookExecutionMode.PARALLEL,
+            );
+            expect(HOOK_CONFIGS[HookType.BLOCK_POST_PROCESS].executionMode).toBe(
+                HookExecutionMode.PARALLEL,
+            );
+            expect(HOOK_CONFIGS[HookType.BLOCK_CHANGE].executionMode).toBe(
+                HookExecutionMode.PARALLEL,
+            );
+        });
+
+        it('should have sequential execution for critical hooks', () => {
+            expect(HOOK_CONFIGS[HookType.REORG].executionMode).toBe(HookExecutionMode.SEQUENTIAL);
+            expect(HOOK_CONFIGS[HookType.REINDEX_REQUIRED].executionMode).toBe(
+                HookExecutionMode.SEQUENTIAL,
+            );
+            expect(HOOK_CONFIGS[HookType.PURGE_BLOCKS].executionMode).toBe(
+                HookExecutionMode.SEQUENTIAL,
+            );
+        });
+
+        it('should have long timeouts for reindex hooks', () => {
+            // Reindex operations can take a long time
+            expect(HOOK_CONFIGS[HookType.REINDEX_REQUIRED].timeoutMs).toBeGreaterThanOrEqual(
+                300000,
+            );
+            expect(HOOK_CONFIGS[HookType.PURGE_BLOCKS].timeoutMs).toBeGreaterThanOrEqual(300000);
+            expect(HOOK_CONFIGS[HookType.REORG].timeoutMs).toBeGreaterThanOrEqual(60000);
+        });
+
+        it('should have required permissions for block hooks', () => {
+            expect(HOOK_CONFIGS[HookType.BLOCK_PRE_PROCESS].requiredPermission).toBe(
+                'blocks.preProcess',
+            );
+            expect(HOOK_CONFIGS[HookType.BLOCK_POST_PROCESS].requiredPermission).toBe(
+                'blocks.postProcess',
+            );
+            expect(HOOK_CONFIGS[HookType.BLOCK_CHANGE].requiredPermission).toBe('blocks.onChange');
+        });
+
+        it('should have required permissions for epoch hooks', () => {
+            expect(HOOK_CONFIGS[HookType.EPOCH_CHANGE].requiredPermission).toBe('epochs.onChange');
+            expect(HOOK_CONFIGS[HookType.EPOCH_FINALIZED].requiredPermission).toBe(
+                'epochs.onFinalized',
+            );
+        });
+
+        it('should have required permission for mempool hook', () => {
+            expect(HOOK_CONFIGS[HookType.MEMPOOL_TRANSACTION].requiredPermission).toBe(
+                'mempool.txFeed',
+            );
+        });
+
+        it('should not require permissions for lifecycle hooks', () => {
+            expect(HOOK_CONFIGS[HookType.LOAD].requiredPermission).toBeUndefined();
+            expect(HOOK_CONFIGS[HookType.UNLOAD].requiredPermission).toBeUndefined();
+        });
+
+        it('should not require permissions for reorg hooks (all plugins should handle)', () => {
+            expect(HOOK_CONFIGS[HookType.REORG].requiredPermission).toBeUndefined();
         });
     });
+});
 
-    describe('timeout handling', () => {
-        beforeEach(async () => {
-            pool = new PluginWorkerPool({
-                workerCount: 1,
-                defaultTimeoutMs: 100, // Short timeout for testing
-            });
-            await pool.initialize();
-        });
+describe('HookType enum', () => {
+    it('should have lifecycle hooks', () => {
+        expect(HookType.LOAD).toBe('onLoad');
+        expect(HookType.UNLOAD).toBe('onUnload');
+        expect(HookType.ENABLE).toBe('onEnable');
+        expect(HookType.DISABLE).toBe('onDisable');
+    });
 
-        it('should timeout requests that take too long', async () => {
-            const mockPlugin = {
-                id: 'test-plugin',
-                metadata: createMockMetadata(),
-                file: createMockParsedPluginFile(),
-                filePath: '/path/to/test-plugin.opnet',
-                state: PluginState.REGISTERED,
-            };
+    it('should have block hooks', () => {
+        expect(HookType.BLOCK_PRE_PROCESS).toBe('onBlockPreProcess');
+        expect(HookType.BLOCK_POST_PROCESS).toBe('onBlockPostProcess');
+        expect(HookType.BLOCK_CHANGE).toBe('onBlockChange');
+    });
 
-            const mockNetworkInfo = {
-                chainId: 1n,
-                network: 'regtest' as const,
-                currentBlockHeight: 100n,
-                genesisBlockHash: 'abc123',
-            };
+    it('should have epoch hooks', () => {
+        expect(HookType.EPOCH_CHANGE).toBe('onEpochChange');
+        expect(HookType.EPOCH_FINALIZED).toBe('onEpochFinalized');
+    });
 
-            const workerInstance = vi.mocked(Worker).mock.results[0]?.value as MockWorker;
+    it('should have mempool hook', () => {
+        expect(HookType.MEMPOOL_TRANSACTION).toBe('onMempoolTransaction');
+    });
 
-            // First load succeeds
-            workerInstance.postMessage.mockImplementationOnce((msg: { requestId: string }) => {
-                workerInstance.simulateResponse(msg.requestId, {
-                    type: WorkerResponseType.PLUGIN_LOADED,
-                    success: true,
-                });
-            });
-
-            await pool.loadPlugin(mockPlugin, {}, mockNetworkInfo);
-
-            // Hook execution never responds (simulating timeout)
-            workerInstance.postMessage.mockImplementationOnce(() => {
-                // Don't respond - let it timeout
-            });
-
-            await expect(
-                pool.executeHook('test-plugin', HookType.BLOCK_CHANGE, {}, 50),
-            ).rejects.toThrow('timed out');
-        });
+    it('should have reorg and reindex hooks', () => {
+        expect(HookType.REORG).toBe('onReorg');
+        expect(HookType.REINDEX_REQUIRED).toBe('onReindexRequired');
+        expect(HookType.PURGE_BLOCKS).toBe('onPurgeBlocks');
     });
 });

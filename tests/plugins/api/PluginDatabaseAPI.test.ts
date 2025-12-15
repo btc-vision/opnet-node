@@ -94,7 +94,7 @@ describe('PluginDatabaseAPI', () => {
             const api = new PluginDatabaseAPI('test-plugin', ['users'], mockDb as never);
 
             expect(() => api.collection('posts')).toThrow(PluginDatabaseError);
-            expect(() => api.collection('posts')).toThrow('COLLECTION_NOT_PERMITTED');
+            expect(() => api.collection('posts')).toThrow('not permitted');
         });
 
         it('should return collection when permitted', () => {

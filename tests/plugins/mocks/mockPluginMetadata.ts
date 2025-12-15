@@ -10,7 +10,8 @@ export function createMockAuthor(overrides: Partial<IPluginAuthor> = {}): IPlugi
 }
 
 export function createMockPermissions(overrides: Partial<IPluginPermissions> = {}): IPluginPermissions {
-    return {
+    // Don't include blockchain by default to avoid triggering "no queries enabled" warning
+    const base: IPluginPermissions = {
         database: {
             enabled: false,
             collections: [],
@@ -40,12 +41,9 @@ export function createMockPermissions(overrides: Partial<IPluginPermissions> = {
             configDir: false,
             tempDir: false,
         },
-        blockchain: {
-            blocks: false,
-            transactions: false,
-            contracts: false,
-            utxos: false,
-        },
+    };
+    return {
+        ...base,
         ...overrides,
     };
 }
