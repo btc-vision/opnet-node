@@ -14,16 +14,15 @@ import {
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
+import { ISpentTransaction, IUnspentTransaction, ShortScriptPubKey, } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
-import { RawUTXOsAggregationResultV3 } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import {
+    RawUTXOsAggregationResultV3
+} from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
-import {
-    UTXOsAggregationResultV3,
-    UTXOsAggregationV3,
-} from '../../vm/storage/databases/aggregation/UTXOsAggregationV3.js';
+import { UTXOsAggregationV3 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV3.js';
 
 export interface ProcessUnspentTransaction {
     transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[];
@@ -252,6 +251,66 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         options.allowDiskUse = true;
 
         try {
+            const cursor = collection.aggregate<{
+                transactionId: Binary;
+                outputIndex: number;
+                value: Decimal128;
+                scriptPubKey: ShortScriptPubKey;
+                raw?: Binary;
+            }>(aggregation, options);
+
+            const utxos: RawUTXOsAggregationResultV3['utxos'] = [];
+            const rawTxMap = new Map<string, number>();
+            const rawTxs: string[] = [];
+
+            for await (const doc of cursor) {
+                const txIdHex = doc.transactionId.toString('hex');
+
+                let rawIndex = rawTxMap.get(txIdHex);
+                if (rawIndex === undefined && doc.raw) {
+                    rawIndex = rawTxs.length;
+                    rawTxMap.set(txIdHex, rawIndex);
+                    rawTxs.push(doc.raw.toString('base64'));
+                }
+
+                utxos.push({
+                    transactionId: txIdHex,
+                    outputIndex: doc.outputIndex,
+                    value: DataConverter.fromDecimal128(doc.value),
+                    scriptPubKey: {
+                        hex: doc.scriptPubKey.hex.toString('hex'),
+                        address: doc.scriptPubKey.address ?? undefined,
+                    },
+                    raw: rawIndex,
+                });
+            }
+
+            return { utxos, raw: rawTxs };
+        } catch (e) {
+            this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
+            throw e;
+        }
+    }
+
+    /*public async getWalletUnspentUTXOS(
+        wallet: string,
+        optimize: boolean = false,
+        olderThan: bigint | undefined,
+    ): Promise<RawUTXOsAggregationResultV3> {
+        const aggregation: Document[] = this.uxtosAggregation.getAggregation(
+            this.dbVersion,
+            wallet,
+            true,
+            optimize,
+            true,
+            olderThan,
+        );
+
+        const collection = this.getCollection();
+        const options = this.getOptions() as AggregateOptions;
+        options.allowDiskUse = true;
+
+        try {
             const aggregatedDocument = collection.aggregate<UTXOsAggregationResultV3>(
                 aggregation,
                 options,
@@ -288,7 +347,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
 
             throw e;
         }
-    }
+    }*/
 
     protected override getCollection(): Collection<IUnspentTransaction> {
         return this._db.collection(OPNetCollections.UnspentTransactions);
