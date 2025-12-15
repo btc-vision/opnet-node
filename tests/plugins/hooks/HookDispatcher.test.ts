@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HookDispatcher } from '../../../src/src/plugins/hooks/HookDispatcher.js';
 import { PluginRegistry } from '../../../src/src/plugins/registry/PluginRegistry.js';
 import { PluginWorkerPool } from '../../../src/src/plugins/workers/PluginWorkerPool.js';
 import {
-    HookType,
-    HookExecutionMode,
     HOOK_CONFIGS,
+    HookExecutionMode,
+    HookType,
 } from '../../../src/src/plugins/interfaces/IPluginHooks.js';
 import { ReindexAction } from '../../../src/src/plugins/interfaces/IPluginInstallState.js';
 
@@ -193,14 +193,18 @@ describe('HookDispatcher', () => {
                 .mockRejectedValueOnce(new Error('Plugin A failed'))
                 .mockResolvedValueOnce({ success: true, durationMs: 10 });
 
-            const results = await dispatcher.dispatch(HookType.BLOCK_CHANGE, {}, {
-                continueOnError: true,
-            });
+            const results = await dispatcher.dispatch(
+                HookType.BLOCK_CHANGE,
+                {},
+                {
+                    continueOnError: true,
+                },
+            );
 
             expect(results).toHaveLength(2);
             // Both should be in results
-            const failedResult = results.find(r => !r.success);
-            const successResult = results.find(r => r.success);
+            const failedResult = results.find((r) => !r.success);
+            const successResult = results.find((r) => r.success);
             expect(failedResult).toBeDefined();
             expect(successResult).toBeDefined();
         });
@@ -468,11 +472,7 @@ describe('HookDispatcher', () => {
         it('should handle errors', async () => {
             vi.mocked(mockWorkerPool.executeHook).mockRejectedValue(new Error('Plugin error'));
 
-            const result = await dispatcher.dispatchToPlugin(
-                'plugin-a',
-                HookType.BLOCK_CHANGE,
-                {},
-            );
+            const result = await dispatcher.dispatchToPlugin('plugin-a', HookType.BLOCK_CHANGE, {});
 
             expect(result.success).toBe(false);
             expect(result.error).toBe('Plugin error');

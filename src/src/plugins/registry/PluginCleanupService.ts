@@ -86,6 +86,72 @@ export class PluginCleanupService extends Logger {
     }
 
     /**
+     * List all collections that belong to a plugin
+     */
+    public async listPluginCollections(pluginId: string): Promise<string[]> {
+        if (!this.db) {
+            return [];
+        }
+
+        const prefix = `plugin_${pluginId}_`;
+        const allCollections = await this.db.listCollections().toArray();
+
+        return allCollections.map((c) => c.name).filter((name) => name.startsWith(prefix));
+    }
+
+    /**
+     * Get the size of all plugin collections combined
+     */
+    public async getPluginStorageSize(pluginId: string): Promise<bigint> {
+        if (!this.db) {
+            return 0n;
+        }
+
+        const collections = await this.listPluginCollections(pluginId);
+        let totalSize = 0n;
+
+        for (const collectionName of collections) {
+            try {
+                const stats = (await this.db.command({ collStats: collectionName })) as {
+                    storageSize?: number;
+                };
+                const storageSize = typeof stats.storageSize === 'number' ? stats.storageSize : 0;
+                totalSize += BigInt(storageSize);
+            } catch {
+                // Collection might not exist or be empty
+            }
+        }
+
+        return totalSize;
+    }
+
+    /**
+     * Perform a dry run of cleanup (show what would be deleted)
+     */
+    public async previewCleanup(pluginId: string): Promise<{
+        collections: string[];
+        dataDirectory: string | null;
+        state: IPluginInstallState | undefined;
+    }> {
+        const state = this.stateStore?.get(pluginId);
+        const collections = await this.listPluginCollections(pluginId);
+
+        let dataDirectory: string | null = null;
+        if (this.pluginsDir) {
+            const dataDir = path.join(this.pluginsDir, pluginId);
+            if (fs.existsSync(dataDir)) {
+                dataDirectory = dataDir;
+            }
+        }
+
+        return {
+            collections,
+            dataDirectory,
+            state,
+        };
+    }
+
+    /**
      * Drop collections created by a plugin
      */
     private async dropCollections(
@@ -112,7 +178,9 @@ export class PluginCleanupService extends Logger {
                 }
 
                 // Check if collection exists
-                const collectionsList = await this.db.listCollections({ name: collectionName }).toArray();
+                const collectionsList = await this.db
+                    .listCollections({ name: collectionName })
+                    .toArray();
                 if (collectionsList.length === 0) {
                     this.info(`Collection ${collectionName} does not exist, skipping`);
                     continue;
@@ -159,71 +227,5 @@ export class PluginCleanupService extends Logger {
             this.error(`Failed to delete data directory ${dataDir}: ${err.message}`);
             return false;
         }
-    }
-
-    /**
-     * List all collections that belong to a plugin
-     */
-    public async listPluginCollections(pluginId: string): Promise<string[]> {
-        if (!this.db) {
-            return [];
-        }
-
-        const prefix = `plugin_${pluginId}_`;
-        const allCollections = await this.db.listCollections().toArray();
-
-        return allCollections
-            .map((c) => c.name)
-            .filter((name) => name.startsWith(prefix));
-    }
-
-    /**
-     * Get the size of all plugin collections combined
-     */
-    public async getPluginStorageSize(pluginId: string): Promise<bigint> {
-        if (!this.db) {
-            return 0n;
-        }
-
-        const collections = await this.listPluginCollections(pluginId);
-        let totalSize = 0n;
-
-        for (const collectionName of collections) {
-            try {
-                const stats = await this.db.command({ collStats: collectionName }) as { storageSize?: number };
-                const storageSize = typeof stats.storageSize === 'number' ? stats.storageSize : 0;
-                totalSize += BigInt(storageSize);
-            } catch {
-                // Collection might not exist or be empty
-            }
-        }
-
-        return totalSize;
-    }
-
-    /**
-     * Perform a dry run of cleanup (show what would be deleted)
-     */
-    public async previewCleanup(pluginId: string): Promise<{
-        collections: string[];
-        dataDirectory: string | null;
-        state: IPluginInstallState | undefined;
-    }> {
-        const state = this.stateStore?.get(pluginId);
-        const collections = await this.listPluginCollections(pluginId);
-
-        let dataDirectory: string | null = null;
-        if (this.pluginsDir) {
-            const dataDir = path.join(this.pluginsDir, pluginId);
-            if (fs.existsSync(dataDir)) {
-                dataDirectory = dataDir;
-            }
-        }
-
-        return {
-            collections,
-            dataDirectory,
-            state,
-        };
     }
 }

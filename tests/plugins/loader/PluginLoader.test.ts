@@ -1,16 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { PluginLoader, PluginLoadError } from '../../../src/src/plugins/loader/PluginLoader.js';
-import {
-    PLUGIN_MAGIC_BYTES,
-    MIN_PLUGIN_FILE_SIZE,
-    MAX_METADATA_SIZE,
-    MAX_BYTECODE_SIZE,
-    MAX_PROTO_SIZE,
-    MLDSALevel,
-} from '../../../src/src/plugins/interfaces/IPluginFile.js';
+import { MLDSALevel, PLUGIN_MAGIC_BYTES } from '../../../src/src/plugins/interfaces/IPluginFile.js';
 import {
     createMockMetadata,
     createPluginFileBuffer,
@@ -99,8 +92,8 @@ describe('PluginLoader', () => {
             const plugins = loader.discoverAllPlugins();
             expect(plugins).toHaveLength(2);
 
-            const enabledPlugin = plugins.find(p => !p.isDisabled);
-            const disabledPlugin = plugins.find(p => p.isDisabled);
+            const enabledPlugin = plugins.find((p) => !p.isDisabled);
+            const disabledPlugin = plugins.find((p) => p.isDisabled);
 
             expect(enabledPlugin).toBeDefined();
             expect(enabledPlugin?.pluginId).toBe('enabled');

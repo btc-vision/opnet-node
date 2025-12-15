@@ -4,12 +4,12 @@ import { BlockDataWithTransactionData } from '@btc-vision/bitcoin-rpc';
 import { PluginRegistry } from '../registry/PluginRegistry.js';
 import { PluginWorkerPool } from '../workers/PluginWorkerPool.js';
 import {
-    HookType,
+    HOOK_CONFIGS,
     HookExecutionMode,
     HookPayload,
-    IHookResult,
+    HookType,
     IHookDispatchOptions,
-    HOOK_CONFIGS,
+    IHookResult,
     IPurgeBlocksPayload,
 } from '../interfaces/IPluginHooks.js';
 import { IEpochData, IMempoolTransaction, IReorgData } from '../interfaces/IPlugin.js';
@@ -115,7 +115,7 @@ export class HookDispatcher extends Logger {
         });
 
         // Check for failures
-        const failures = results.filter(r => !r.success);
+        const failures = results.filter((r) => !r.success);
         if (failures.length > 0) {
             for (const failure of failures) {
                 this.error(`Plugin ${failure.pluginName} failed reorg: ${failure.error}`);
@@ -252,9 +252,60 @@ export class HookDispatcher extends Logger {
 
         // Execute based on mode
         if (config.executionMode === HookExecutionMode.PARALLEL) {
-            return this.dispatchParallel(hookType, payload, plugins.map((p) => p.id), timeoutMs, continueOnError);
+            return this.dispatchParallel(
+                hookType,
+                payload,
+                plugins.map((p) => p.id),
+                timeoutMs,
+                continueOnError,
+            );
         } else {
-            return this.dispatchSequential(hookType, payload, plugins.map((p) => p.id), timeoutMs, continueOnError);
+            return this.dispatchSequential(
+                hookType,
+                payload,
+                plugins.map((p) => p.id),
+                timeoutMs,
+                continueOnError,
+            );
+        }
+    }
+
+    /**
+     * Dispatch to a single specific plugin
+     */
+    public async dispatchToPlugin(
+        pluginId: string,
+        hookType: HookType,
+        payload: HookPayload,
+        timeoutMs?: number,
+    ): Promise<IHookResult> {
+        const config = HOOK_CONFIGS[hookType];
+        const timeout = timeoutMs ?? config?.timeoutMs ?? 5000;
+
+        try {
+            const response = await this.workerPool.executeHook(
+                pluginId,
+                hookType,
+                payload,
+                timeout,
+            );
+
+            return {
+                success: response.success,
+                pluginName: pluginId,
+                hookType,
+                durationMs: response.durationMs,
+                error: response.error,
+            };
+        } catch (error) {
+            const err = error as Error;
+            return {
+                success: false,
+                pluginName: pluginId,
+                hookType,
+                durationMs: 0,
+                error: err.message,
+            };
         }
     }
 
@@ -385,44 +436,5 @@ export class HookDispatcher extends Logger {
         }
 
         return results;
-    }
-
-    /**
-     * Dispatch to a single specific plugin
-     */
-    public async dispatchToPlugin(
-        pluginId: string,
-        hookType: HookType,
-        payload: HookPayload,
-        timeoutMs?: number,
-    ): Promise<IHookResult> {
-        const config = HOOK_CONFIGS[hookType];
-        const timeout = timeoutMs ?? config?.timeoutMs ?? 5000;
-
-        try {
-            const response = await this.workerPool.executeHook(
-                pluginId,
-                hookType,
-                payload,
-                timeout,
-            );
-
-            return {
-                success: response.success,
-                pluginName: pluginId,
-                hookType,
-                durationMs: response.durationMs,
-                error: response.error,
-            };
-        } catch (error) {
-            const err = error as Error;
-            return {
-                success: false,
-                pluginName: pluginId,
-                hookType,
-                durationMs: 0,
-                error: err.message,
-            };
-        }
     }
 }

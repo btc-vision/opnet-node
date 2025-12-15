@@ -1,9 +1,5 @@
 import { Collection, Db, Document, Filter, FindCursor, Sort } from 'mongodb';
-import {
-    IPluginDatabaseAPI,
-    IPluginCollection,
-    IPluginCursor,
-} from '../context/PluginContext.js';
+import { IPluginCollection, IPluginCursor, IPluginDatabaseAPI } from '../context/PluginContext.js';
 
 /**
  * Plugin database error

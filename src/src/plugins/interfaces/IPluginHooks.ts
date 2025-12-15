@@ -85,14 +85,14 @@ export interface IPurgeBlocksPayload {
  * Uses existing OPNet interfaces directly to minimize serialization overhead
  */
 export type HookPayload =
-    | BlockDataWithTransactionData    // Raw block for pre-process
-    | BlockProcessedData              // Processed block for post-process/change
-    | IEpochData                      // Epoch data
-    | IMempoolTransaction             // Mempool transaction
-    | IReorgData                      // Reorg data
-    | IReindexCheck                   // Reindex check data
-    | IPurgeBlocksPayload             // Purge blocks data
-    | undefined;                      // Lifecycle hooks (no payload)
+    | BlockDataWithTransactionData // Raw block for pre-process
+    | BlockProcessedData // Processed block for post-process/change
+    | IEpochData // Epoch data
+    | IMempoolTransaction // Mempool transaction
+    | IReorgData // Reorg data
+    | IReindexCheck // Reindex check data
+    | IPurgeBlocksPayload // Purge blocks data
+    | undefined; // Lifecycle hooks (no payload)
 
 /**
  * Hook configurations for all hook types

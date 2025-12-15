@@ -75,6 +75,18 @@ export class Core extends Logger {
         }
     }
 
+    public async start(): Promise<void> {
+        this.log(`Starting up core...`);
+
+        const dbOk = await this.setupDB();
+        if (!dbOk) {
+            process.exit(0);
+        }
+
+        this.createIdentity();
+        await this.createThreads();
+    }
+
     /**
      * Start the plugin thread and wait for it to signal ready
      */
@@ -101,18 +113,6 @@ export class Core extends Logger {
         clearTimeout(timeout);
 
         this.info('Plugin thread ready, continuing with other threads...');
-    }
-
-    public async start(): Promise<void> {
-        this.log(`Starting up core...`);
-
-        const dbOk = await this.setupDB();
-        if (!dbOk) {
-            process.exit(0);
-        }
-
-        this.createIdentity();
-        await this.createThreads();
     }
 
     private createIdentity(): void {

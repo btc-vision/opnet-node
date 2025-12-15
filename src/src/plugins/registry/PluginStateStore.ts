@@ -25,10 +25,8 @@ interface IPluginStateDocument extends Document {
  * Persists plugin installation state to MongoDB
  */
 export class PluginStateStore extends Logger {
-    public readonly logColor: string = '#FF9800';
-
     private static readonly COLLECTION_NAME = 'plugin_states';
-
+    public readonly logColor: string = '#FF9800';
     private collection?: Collection<IPluginStateDocument>;
     private readonly stateCache: Map<string, IPluginInstallState> = new Map();
 
@@ -118,7 +116,9 @@ export class PluginStateStore extends Logger {
      */
     public async updateState(
         pluginId: string,
-        updates: Partial<Omit<IPluginInstallState, 'pluginId' | 'installedAt' | 'chainId' | 'network'>>,
+        updates: Partial<
+            Omit<IPluginInstallState, 'pluginId' | 'installedAt' | 'chainId' | 'network'>
+        >,
     ): Promise<IPluginInstallState> {
         const existing = this.stateCache.get(pluginId);
         if (!existing) {
@@ -136,10 +136,7 @@ export class PluginStateStore extends Logger {
         }
 
         const doc = this.stateToDocument(updatedState);
-        await this.collection.updateOne(
-            { _id: pluginId },
-            { $set: doc },
-        );
+        await this.collection.updateOne({ _id: pluginId }, { $set: doc });
 
         this.stateCache.set(pluginId, updatedState);
         return updatedState;

@@ -115,7 +115,12 @@ export const VALID_STATE_TRANSITIONS: Record<PluginState, readonly PluginState[]
     [PluginState.DISCOVERED]: [PluginState.VALIDATED, PluginState.ERROR],
     [PluginState.VALIDATED]: [PluginState.LOADING, PluginState.ERROR],
     [PluginState.LOADING]: [PluginState.LOADED, PluginState.ERROR],
-    [PluginState.LOADED]: [PluginState.SYNCING, PluginState.ENABLED, PluginState.DISABLED, PluginState.UNLOADING],
+    [PluginState.LOADED]: [
+        PluginState.SYNCING,
+        PluginState.ENABLED,
+        PluginState.DISABLED,
+        PluginState.UNLOADING,
+    ],
     [PluginState.SYNCING]: [PluginState.ENABLED, PluginState.ERROR, PluginState.CRASHED],
     [PluginState.ENABLED]: [PluginState.DISABLED, PluginState.CRASHED, PluginState.UNLOADING],
     [PluginState.DISABLED]: [PluginState.ENABLED, PluginState.SYNCING, PluginState.UNLOADING],

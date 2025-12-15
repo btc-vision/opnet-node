@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
+import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { ObjectId } from 'mongodb';
 import {
     PluginDatabaseAPI,
@@ -80,11 +80,7 @@ describe('PluginDatabaseAPI', () => {
 
     describe('constructor', () => {
         it('should initialize with plugin ID and permitted collections', () => {
-            const api = new PluginDatabaseAPI(
-                'test-plugin',
-                ['users', 'posts'],
-                mockDb as never,
-            );
+            const api = new PluginDatabaseAPI('test-plugin', ['users', 'posts'], mockDb as never);
             expect(api).toBeInstanceOf(PluginDatabaseAPI);
         });
     });
@@ -207,7 +203,10 @@ describe('PluginDatabaseAPI', () => {
                 });
 
                 const collection = api.collection('users');
-                const result = await collection.insertMany([{ name: 'User 1' }, { name: 'User 2' }]);
+                const result = await collection.insertMany([
+                    { name: 'User 1' },
+                    { name: 'User 2' },
+                ]);
 
                 expect(result.insertedIds).toHaveLength(2);
                 expect(result.insertedIds).toContain(id1.toString());

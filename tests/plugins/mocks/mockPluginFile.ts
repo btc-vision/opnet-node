@@ -1,11 +1,11 @@
 import * as crypto from 'crypto';
 import {
     IParsedPluginFile,
-    MLDSALevel,
     MLDSA_PUBLIC_KEY_SIZES,
     MLDSA_SIGNATURE_SIZES,
-    PLUGIN_MAGIC_BYTES,
+    MLDSALevel,
     PLUGIN_FORMAT_VERSION,
+    PLUGIN_MAGIC_BYTES,
 } from '../../../src/src/plugins/interfaces/IPluginFile.js';
 import { IPluginMetadata } from '../../../src/src/plugins/interfaces/IPluginMetadata.js';
 import { createMockMetadata } from './mockPluginMetadata.js';

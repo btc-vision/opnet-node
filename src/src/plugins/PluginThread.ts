@@ -11,10 +11,10 @@ import { PluginManager } from './PluginManager.js';
 import { IEpochData, IReorgData } from './interfaces/IPlugin.js';
 import { BlockProcessedData } from '../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import {
-    IPluginRouteExecuteRequest,
-    IPluginWsExecuteRequest,
-    IPluginRouteInfo,
     IPluginOpcodeInfo,
+    IPluginRouteExecuteRequest,
+    IPluginRouteInfo,
+    IPluginWsExecuteRequest,
 } from './interfaces/IPluginMessages.js';
 import { BitcoinNetwork } from '../config/network/BitcoinNetwork.js';
 
@@ -29,20 +29,51 @@ export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
         void this.init();
     }
 
-    /**
-     * Convert BitcoinNetwork enum to the plugin network type
-     */
-    private getNetworkType(): 'mainnet' | 'testnet' | 'regtest' {
-        switch (Config.BITCOIN.NETWORK) {
-            case BitcoinNetwork.mainnet:
-                return 'mainnet';
-            case BitcoinNetwork.testnet:
-            case BitcoinNetwork.signet:
-                return 'testnet';
-            case BitcoinNetwork.regtest:
-            case BitcoinNetwork.custom:
-            default:
-                return 'regtest';
+    public async broadcastRouteRegistration(routes: IPluginRouteInfo[]): Promise<void> {
+        try {
+            await this.sendMessageToAllThreads(ThreadTypes.API, {
+                type: MessageType.PLUGIN_REGISTER_ROUTES,
+                data: { routes },
+            });
+            this.info(`Broadcasted ${routes.length} route(s) to API threads`);
+        } catch (error) {
+            this.error(`Failed to broadcast route registration: ${error}`);
+        }
+    }
+
+    public async broadcastRouteUnregistration(pluginId: string): Promise<void> {
+        try {
+            await this.sendMessageToAllThreads(ThreadTypes.API, {
+                type: MessageType.PLUGIN_UNREGISTER_ROUTES,
+                data: { pluginId },
+            });
+            this.info(`Broadcasted route unregistration for plugin ${pluginId}`);
+        } catch (error) {
+            this.error(`Failed to broadcast route unregistration: ${error}`);
+        }
+    }
+
+    public async broadcastOpcodeRegistration(opcodes: IPluginOpcodeInfo[]): Promise<void> {
+        try {
+            await this.sendMessageToAllThreads(ThreadTypes.API, {
+                type: MessageType.PLUGIN_REGISTER_OPCODES,
+                data: { opcodes },
+            });
+            this.info(`Broadcasted ${opcodes.length} opcode(s) to API threads`);
+        } catch (error) {
+            this.error(`Failed to broadcast opcode registration: ${error}`);
+        }
+    }
+
+    public async broadcastOpcodeUnregistration(pluginId: string): Promise<void> {
+        try {
+            await this.sendMessageToAllThreads(ThreadTypes.API, {
+                type: MessageType.PLUGIN_UNREGISTER_OPCODES,
+                data: { pluginId },
+            });
+            this.info(`Broadcasted opcode unregistration for plugin ${pluginId}`);
+        } catch (error) {
+            this.error(`Failed to broadcast opcode unregistration: ${error}`);
         }
     }
 
@@ -97,15 +128,6 @@ export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
         }
     }
 
-    private notifyReady(success: boolean = true, error?: string): void {
-        if (parentPort) {
-            parentPort.postMessage({
-                type: MessageType.PLUGIN_READY,
-                data: { success, error },
-            } as ThreadMessageBase<MessageType>);
-        }
-    }
-
     protected async onMessage(m: ThreadMessageBase<MessageType>): Promise<void> {
         switch (m.type) {
             case MessageType.EXIT_THREAD:
@@ -130,6 +152,32 @@ export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
             default:
                 this.warn(`Unknown thread type sent message: ${type}`);
                 return undefined;
+        }
+    }
+
+    /**
+     * Convert BitcoinNetwork enum to the plugin network type
+     */
+    private getNetworkType(): 'mainnet' | 'testnet' | 'regtest' {
+        switch (Config.BITCOIN.NETWORK) {
+            case BitcoinNetwork.mainnet:
+                return 'mainnet';
+            case BitcoinNetwork.testnet:
+            case BitcoinNetwork.signet:
+                return 'testnet';
+            case BitcoinNetwork.regtest:
+            case BitcoinNetwork.custom:
+            default:
+                return 'regtest';
+        }
+    }
+
+    private notifyReady(success: boolean = true, error?: string): void {
+        if (parentPort) {
+            parentPort.postMessage({
+                type: MessageType.PLUGIN_READY,
+                data: { success, error },
+            } as ThreadMessageBase<MessageType>);
         }
     }
 
@@ -320,54 +368,6 @@ export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
             const err = error as Error;
             this.error(`Failed to execute WebSocket handler: ${err.message}`);
             return { success: false, error: err.message };
-        }
-    }
-
-    public async broadcastRouteRegistration(routes: IPluginRouteInfo[]): Promise<void> {
-        try {
-            await this.sendMessageToAllThreads(ThreadTypes.API, {
-                type: MessageType.PLUGIN_REGISTER_ROUTES,
-                data: { routes },
-            });
-            this.info(`Broadcasted ${routes.length} route(s) to API threads`);
-        } catch (error) {
-            this.error(`Failed to broadcast route registration: ${error}`);
-        }
-    }
-
-    public async broadcastRouteUnregistration(pluginId: string): Promise<void> {
-        try {
-            await this.sendMessageToAllThreads(ThreadTypes.API, {
-                type: MessageType.PLUGIN_UNREGISTER_ROUTES,
-                data: { pluginId },
-            });
-            this.info(`Broadcasted route unregistration for plugin ${pluginId}`);
-        } catch (error) {
-            this.error(`Failed to broadcast route unregistration: ${error}`);
-        }
-    }
-
-    public async broadcastOpcodeRegistration(opcodes: IPluginOpcodeInfo[]): Promise<void> {
-        try {
-            await this.sendMessageToAllThreads(ThreadTypes.API, {
-                type: MessageType.PLUGIN_REGISTER_OPCODES,
-                data: { opcodes },
-            });
-            this.info(`Broadcasted ${opcodes.length} opcode(s) to API threads`);
-        } catch (error) {
-            this.error(`Failed to broadcast opcode registration: ${error}`);
-        }
-    }
-
-    public async broadcastOpcodeUnregistration(pluginId: string): Promise<void> {
-        try {
-            await this.sendMessageToAllThreads(ThreadTypes.API, {
-                type: MessageType.PLUGIN_UNREGISTER_OPCODES,
-                data: { pluginId },
-            });
-            this.info(`Broadcasted opcode unregistration for plugin ${pluginId}`);
-        } catch (error) {
-            this.error(`Failed to broadcast opcode unregistration: ${error}`);
         }
     }
 

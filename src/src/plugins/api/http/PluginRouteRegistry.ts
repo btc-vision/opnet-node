@@ -4,7 +4,6 @@ import { Response } from 'hyper-express/types/components/http/Response.js';
 
 import { PluginWorkerPool } from '../../workers/PluginWorkerPool.js';
 import { PluginRegistry } from '../../registry/PluginRegistry.js';
-import { IPluginRouteDefinition } from '../../interfaces/IPluginPermissions.js';
 import { IRegisteredPlugin, PluginState } from '../../interfaces/IPluginState.js';
 
 /**
@@ -158,7 +157,9 @@ export class PluginRouteRegistry extends Logger {
                 try {
                     responseBody = JSON.parse(result.result) as unknown;
                 } catch (parseError) {
-                    this.error(`Invalid JSON response from plugin ${instance.pluginId}/${instance.handler}: ${(parseError as Error).message}`);
+                    this.error(
+                        `Invalid JSON response from plugin ${instance.pluginId}/${instance.handler}: ${(parseError as Error).message}`,
+                    );
                     res.status(500);
                     res.json({
                         error: 'Plugin returned invalid JSON response',
@@ -170,7 +171,9 @@ export class PluginRouteRegistry extends Logger {
                 res.json(responseBody);
             } catch (error) {
                 const err = error as Error;
-                this.error(`Plugin route error for ${instance.pluginId}/${instance.handler}: ${err.message}`);
+                this.error(
+                    `Plugin route error for ${instance.pluginId}/${instance.handler}: ${err.message}`,
+                );
                 res.status(500);
                 res.json({
                     error: 'Internal plugin error',
@@ -196,6 +199,22 @@ export class PluginRouteRegistry extends Logger {
     }
 
     /**
+     * Notify all plugin routes of block change
+     * Block notifications are dispatched through the HookDispatcher to plugin workers
+     */
+    public async notifyBlockChange(_blockHeight: bigint, _blockHash: string): Promise<void> {
+        // Block notifications handled via HookDispatcher -> BLOCK_CHANGE hook
+    }
+
+    /**
+     * Notify all plugin routes of epoch finalization
+     * Epoch notifications are dispatched through the HookDispatcher to plugin workers
+     */
+    public async notifyEpochFinalized(_epochNumber: bigint): Promise<void> {
+        // Epoch notifications handled via HookDispatcher -> EPOCH_FINALIZED hook
+    }
+
+    /**
      * Parse request body
      */
     private async parseBody(req: Request): Promise<unknown> {
@@ -216,21 +235,5 @@ export class PluginRouteRegistry extends Logger {
      */
     private getHeaders(req: Request): Record<string, string> {
         return req.headers;
-    }
-
-    /**
-     * Notify all plugin routes of block change
-     * Block notifications are dispatched through the HookDispatcher to plugin workers
-     */
-    public async notifyBlockChange(_blockHeight: bigint, _blockHash: string): Promise<void> {
-        // Block notifications handled via HookDispatcher -> BLOCK_CHANGE hook
-    }
-
-    /**
-     * Notify all plugin routes of epoch finalization
-     * Epoch notifications are dispatched through the HookDispatcher to plugin workers
-     */
-    public async notifyEpochFinalized(_epochNumber: bigint): Promise<void> {
-        // Epoch notifications handled via HookDispatcher -> EPOCH_FINALIZED hook
     }
 }

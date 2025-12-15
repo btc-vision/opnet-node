@@ -1,13 +1,15 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { networks } from '@btc-vision/bitcoin';
-import { PluginValidator, PluginValidationError } from '../../../src/src/plugins/validator/PluginValidator.js';
-import { IPluginMetadata, MAX_PLUGIN_NAME_LENGTH, MAX_DESCRIPTION_LENGTH } from '../../../src/src/plugins/interfaces/IPluginMetadata.js';
-import { IPluginPermissions } from '../../../src/src/plugins/interfaces/IPluginPermissions.js';
 import {
-    createMockMetadata,
-    createMockPermissions,
-    createMockParsedPluginFile,
-} from '../mocks/index.js';
+    PluginValidationError,
+    PluginValidator,
+} from '../../../src/src/plugins/validator/PluginValidator.js';
+import {
+    MAX_DESCRIPTION_LENGTH,
+    MAX_PLUGIN_NAME_LENGTH,
+} from '../../../src/src/plugins/interfaces/IPluginMetadata.js';
+import { IPluginPermissions } from '../../../src/src/plugins/interfaces/IPluginPermissions.js';
+import { createMockMetadata, createMockPermissions } from '../mocks/index.js';
 
 describe('PluginValidator', () => {
     let validator: PluginValidator;
@@ -52,35 +54,37 @@ describe('PluginValidator', () => {
                 const metadata = createMockMetadata({ name: '' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'MISSING_NAME')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'MISSING_NAME')).toBe(true);
             });
 
             it('should reject name starting with number', () => {
                 const metadata = createMockMetadata({ name: '1plugin' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_NAME_FORMAT')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_NAME_FORMAT')).toBe(true);
             });
 
             it('should reject name with uppercase letters', () => {
                 const metadata = createMockMetadata({ name: 'PluginName' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_NAME_FORMAT')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_NAME_FORMAT')).toBe(true);
             });
 
             it('should reject name with special characters', () => {
                 const metadata = createMockMetadata({ name: 'plugin_name' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_NAME_FORMAT')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_NAME_FORMAT')).toBe(true);
             });
 
             it('should reject name exceeding max length', () => {
-                const metadata = createMockMetadata({ name: 'a'.repeat(MAX_PLUGIN_NAME_LENGTH + 1) });
+                const metadata = createMockMetadata({
+                    name: 'a'.repeat(MAX_PLUGIN_NAME_LENGTH + 1),
+                });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'NAME_TOO_LONG')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'NAME_TOO_LONG')).toBe(true);
             });
 
             it('should accept name at max length', () => {
@@ -113,14 +117,14 @@ describe('PluginValidator', () => {
                 const metadata = createMockMetadata({ version: '' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'MISSING_VERSION')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'MISSING_VERSION')).toBe(true);
             });
 
             it('should reject invalid semver', () => {
                 const metadata = createMockMetadata({ version: 'invalid' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_VERSION')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_VERSION')).toBe(true);
             });
 
             it('should reject version with v prefix', () => {
@@ -160,14 +164,14 @@ describe('PluginValidator', () => {
                 const metadata = createMockMetadata({ opnetVersion: '' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'MISSING_OPNET_VERSION')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'MISSING_OPNET_VERSION')).toBe(true);
             });
 
             it('should reject invalid range', () => {
                 const metadata = createMockMetadata({ opnetVersion: 'invalid-range' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_OPNET_VERSION')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_OPNET_VERSION')).toBe(true);
             });
         });
 
@@ -182,7 +186,7 @@ describe('PluginValidator', () => {
                 const metadata = createMockMetadata({ main: '' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'MISSING_MAIN')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'MISSING_MAIN')).toBe(true);
             });
         });
 
@@ -197,7 +201,7 @@ describe('PluginValidator', () => {
                 const metadata = createMockMetadata({ target: 'invalid' as 'bytenode' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_TARGET')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_TARGET')).toBe(true);
             });
         });
 
@@ -212,7 +216,7 @@ describe('PluginValidator', () => {
                 const metadata = createMockMetadata({ type: 'library' as 'plugin' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_TYPE')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_TYPE')).toBe(true);
             });
         });
 
@@ -237,14 +241,14 @@ describe('PluginValidator', () => {
                 const metadata = createMockMetadata({ checksum: '' });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'MISSING_CHECKSUM')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'MISSING_CHECKSUM')).toBe(true);
             });
 
             it('should reject checksum without sha256 prefix', () => {
                 const metadata = createMockMetadata({ checksum: 'a'.repeat(64) });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_CHECKSUM_FORMAT')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_CHECKSUM_FORMAT')).toBe(true);
             });
 
             it('should reject checksum with wrong length', () => {
@@ -253,7 +257,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_CHECKSUM_HEX')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_CHECKSUM_HEX')).toBe(true);
             });
 
             it('should reject checksum with invalid characters', () => {
@@ -262,7 +266,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_CHECKSUM_HEX')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_CHECKSUM_HEX')).toBe(true);
             });
         });
 
@@ -281,7 +285,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'MISSING_AUTHOR')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'MISSING_AUTHOR')).toBe(true);
             });
         });
 
@@ -304,7 +308,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INVALID_PLUGIN_TYPE')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INVALID_PLUGIN_TYPE')).toBe(true);
             });
         });
 
@@ -315,7 +319,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validateMetadata(metadata);
                 expect(result.valid).toBe(true);
-                expect(result.warnings.some(w => w.includes('Description'))).toBe(true);
+                expect(result.warnings.some((w) => w.includes('Description'))).toBe(true);
             });
 
             it('should not warn for description at max length', () => {
@@ -361,7 +365,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validatePermissions(permissions);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'NO_COLLECTIONS')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'NO_COLLECTIONS')).toBe(true);
             });
 
             it('should reject index for undeclared collection', () => {
@@ -376,7 +380,9 @@ describe('PluginValidator', () => {
                 };
                 const result = validator.validatePermissions(permissions);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'INDEX_UNDECLARED_COLLECTION')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'INDEX_UNDECLARED_COLLECTION')).toBe(
+                    true,
+                );
             });
 
             it('should accept index for declared collection', () => {
@@ -404,7 +410,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validatePermissions(permissions);
                 expect(result.valid).toBe(true);
-                expect(result.warnings.some(w => w.includes('basePath'))).toBe(true);
+                expect(result.warnings.some((w) => w.includes('basePath'))).toBe(true);
             });
 
             it('should not warn for endpoints with basePath', () => {
@@ -429,7 +435,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validatePermissions(permissions);
                 expect(result.valid).toBe(false);
-                expect(result.errors.some(e => e.code === 'NO_PROTO_FILE')).toBe(true);
+                expect(result.errors.some((e) => e.code === 'NO_PROTO_FILE')).toBe(true);
             });
 
             it('should accept websocket with protoFile', () => {
@@ -458,7 +464,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validatePermissions(permissions);
                 expect(result.valid).toBe(true);
-                expect(result.warnings.some(w => w.includes('worker count'))).toBe(true);
+                expect(result.warnings.some((w) => w.includes('worker count'))).toBe(true);
             });
 
             it('should warn for high memory limit', () => {
@@ -470,7 +476,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validatePermissions(permissions);
                 expect(result.valid).toBe(true);
-                expect(result.warnings.some(w => w.includes('memory limit'))).toBe(true);
+                expect(result.warnings.some((w) => w.includes('memory limit'))).toBe(true);
             });
 
             it('should not warn for reasonable limits', () => {
@@ -498,7 +504,7 @@ describe('PluginValidator', () => {
                 });
                 const result = validator.validatePermissions(permissions);
                 expect(result.valid).toBe(true);
-                expect(result.warnings.some(w => w.includes('Blockchain'))).toBe(true);
+                expect(result.warnings.some((w) => w.includes('Blockchain'))).toBe(true);
             });
 
             it('should not warn when at least one blockchain permission is enabled', () => {
@@ -534,7 +540,7 @@ describe('PluginValidator', () => {
             const metadata = createMockMetadata({ opnetVersion: '>=2.0.0' });
             const result = validator.validateVersionCompatibility(metadata);
             expect(result.valid).toBe(false);
-            expect(result.errors.some(e => e.code === 'VERSION_INCOMPATIBLE')).toBe(true);
+            expect(result.errors.some((e) => e.code === 'VERSION_INCOMPATIBLE')).toBe(true);
         });
 
         it('should fail when caret range excludes current version', () => {

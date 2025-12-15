@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    PluginContext,
-    IPluginLogger,
+    BlockHeightGetter,
+    EventHandler,
     IPluginConfig,
     IPluginDatabaseAPI,
     IPluginFilesystemAPI,
-    EventHandler,
+    IPluginLogger,
+    PluginContext,
     SyncStateGetter,
     SyncStateSetter,
-    BlockHeightGetter,
 } from '../../../src/src/plugins/context/PluginContext.js';
 import { IPluginMetadata } from '../../../src/src/plugins/interfaces/IPluginMetadata.js';
 import {

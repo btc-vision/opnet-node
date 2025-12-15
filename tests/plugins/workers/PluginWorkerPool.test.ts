@@ -1,10 +1,14 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-    WorkerResponseType,
-    WorkerMessageType,
     generateRequestId,
+    WorkerMessageType,
+    WorkerResponseType,
 } from '../../../src/src/plugins/workers/WorkerMessages.js';
-import { HookType, HOOK_CONFIGS, HookExecutionMode } from '../../../src/src/plugins/interfaces/IPluginHooks.js';
+import {
+    HOOK_CONFIGS,
+    HookExecutionMode,
+    HookType,
+} from '../../../src/src/plugins/interfaces/IPluginHooks.js';
 
 // Test WorkerMessages utilities and configurations
 describe('WorkerMessages', () => {

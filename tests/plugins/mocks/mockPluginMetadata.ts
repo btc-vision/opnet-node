@@ -1,4 +1,7 @@
-import { IPluginMetadata, IPluginAuthor } from '../../../src/src/plugins/interfaces/IPluginMetadata.js';
+import {
+    IPluginAuthor,
+    IPluginMetadata,
+} from '../../../src/src/plugins/interfaces/IPluginMetadata.js';
 import { IPluginPermissions } from '../../../src/src/plugins/interfaces/IPluginPermissions.js';
 
 export function createMockAuthor(overrides: Partial<IPluginAuthor> = {}): IPluginAuthor {
@@ -9,7 +12,9 @@ export function createMockAuthor(overrides: Partial<IPluginAuthor> = {}): IPlugi
     };
 }
 
-export function createMockPermissions(overrides: Partial<IPluginPermissions> = {}): IPluginPermissions {
+export function createMockPermissions(
+    overrides: Partial<IPluginPermissions> = {},
+): IPluginPermissions {
     // Don't include blockchain by default to avoid triggering "no queries enabled" warning
     const base: IPluginPermissions = {
         database: {

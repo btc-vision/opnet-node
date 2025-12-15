@@ -4,18 +4,18 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 
 import {
+    calculateHeaderSize,
     IParsedPluginFile,
     IPluginFileHeader,
-    MLDSALevel,
+    MAX_BYTECODE_SIZE,
+    MAX_METADATA_SIZE,
+    MAX_PROTO_SIZE,
+    MIN_PLUGIN_FILE_SIZE,
     MLDSA_PUBLIC_KEY_SIZES,
     MLDSA_SIGNATURE_SIZES,
-    PLUGIN_MAGIC_BYTES,
+    MLDSALevel,
     PLUGIN_FORMAT_VERSION,
-    MIN_PLUGIN_FILE_SIZE,
-    MAX_METADATA_SIZE,
-    MAX_BYTECODE_SIZE,
-    MAX_PROTO_SIZE,
-    calculateHeaderSize,
+    PLUGIN_MAGIC_BYTES,
 } from '../interfaces/IPluginFile.js';
 import { IPluginMetadata } from '../interfaces/IPluginMetadata.js';
 
@@ -162,7 +162,11 @@ export class PluginLoader extends Logger {
         try {
             buffer = fs.readFileSync(filePath);
         } catch (error) {
-            throw new PluginLoadError(`Failed to read plugin file: ${error}`, 'READ_FAILED', filePath);
+            throw new PluginLoadError(
+                `Failed to read plugin file: ${error}`,
+                'READ_FAILED',
+                filePath,
+            );
         }
 
         // Validate minimum size
@@ -320,6 +324,24 @@ export class PluginLoader extends Logger {
     }
 
     /**
+     * Create plugin data directory
+     */
+    public createPluginDataDir(pluginName: string): string {
+        const dataDir = path.join(this.pluginsDir, pluginName);
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+        }
+        return dataDir;
+    }
+
+    /**
+     * Get plugin data directory path
+     */
+    public getPluginDataDir(pluginName: string): string {
+        return path.join(this.pluginsDir, pluginName);
+    }
+
+    /**
      * Parse the file header
      */
     private parseHeader(buffer: Buffer, filePath: string): IPluginFileHeader {
@@ -413,23 +435,5 @@ export class PluginLoader extends Logger {
             hash.update(proto);
         }
         return hash.digest();
-    }
-
-    /**
-     * Create plugin data directory
-     */
-    public createPluginDataDir(pluginName: string): string {
-        const dataDir = path.join(this.pluginsDir, pluginName);
-        if (!fs.existsSync(dataDir)) {
-            fs.mkdirSync(dataDir, { recursive: true });
-        }
-        return dataDir;
-    }
-
-    /**
-     * Get plugin data directory path
-     */
-    public getPluginDataDir(pluginName: string): string {
-        return path.join(this.pluginsDir, pluginName);
     }
 }

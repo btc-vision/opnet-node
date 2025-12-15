@@ -2,14 +2,13 @@ import { Logger } from '@btc-vision/bsi-common';
 import * as semver from 'semver';
 
 import {
-    IRegisteredPlugin,
-    IPluginStateChange,
     IPluginError,
-    PluginState,
+    IPluginStateChange,
+    IRegisteredPlugin,
     isValidStateTransition,
+    PluginState,
 } from '../interfaces/IPluginState.js';
 import { IParsedPluginFile } from '../interfaces/IPluginFile.js';
-import { IPluginMetadata } from '../interfaces/IPluginMetadata.js';
 
 /**
  * Dependency resolution error
@@ -38,12 +37,20 @@ export class PluginRegistry extends Logger {
     private readonly stateListeners: Set<(change: IPluginStateChange) => void> = new Set();
 
     /**
+     * Get the namespace for a plugin (used for WebSocket proto)
+     */
+    public static getPluginNamespace(pluginId: string): string {
+        // Convert plugin-name to PluginName
+        return pluginId
+            .split('-')
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join('');
+    }
+
+    /**
      * Register a plugin
      */
-    public register(
-        filePath: string,
-        file: IParsedPluginFile,
-    ): IRegisteredPlugin {
+    public register(filePath: string, file: IParsedPluginFile): IRegisteredPlugin {
         const metadata = file.metadata;
         const id = metadata.name;
 
@@ -138,11 +145,7 @@ export class PluginRegistry extends Logger {
     /**
      * Update plugin state
      */
-    public setState(
-        id: string,
-        newState: PluginState,
-        error?: IPluginError,
-    ): void {
+    public setState(id: string, newState: PluginState, error?: IPluginError): void {
         const plugin = this.plugins.get(id);
         if (!plugin) {
             throw new Error(`Plugin not found: ${id}`);
@@ -151,9 +154,7 @@ export class PluginRegistry extends Logger {
         const previousState = plugin.state;
 
         if (!isValidStateTransition(previousState, newState)) {
-            throw new Error(
-                `Invalid state transition for ${id}: ${previousState} -> ${newState}`,
-            );
+            throw new Error(`Invalid state transition for ${id}: ${previousState} -> ${newState}`);
         }
 
         plugin.state = newState;
@@ -243,6 +244,30 @@ export class PluginRegistry extends Logger {
         return Array.from(plugin.dependencies)
             .map((depId) => this.plugins.get(depId))
             .filter((p): p is IRegisteredPlugin => p !== undefined);
+    }
+
+    /**
+     * Get the reverse unload order (dependents before dependencies)
+     */
+    public getUnloadOrder(): IRegisteredPlugin[] {
+        return this.resolveDependencies().reverse();
+    }
+
+    /**
+     * Check if all dependencies of a plugin are loaded and enabled
+     */
+    public areDependenciesReady(id: string): boolean {
+        const plugin = this.plugins.get(id);
+        if (!plugin) return false;
+
+        for (const depId of plugin.dependencies) {
+            const dep = this.plugins.get(depId);
+            if (!dep || dep.state !== PluginState.ENABLED) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -398,40 +423,5 @@ export class PluginRegistry extends Logger {
         }
 
         return result;
-    }
-
-    /**
-     * Get the reverse unload order (dependents before dependencies)
-     */
-    public getUnloadOrder(): IRegisteredPlugin[] {
-        return this.resolveDependencies().reverse();
-    }
-
-    /**
-     * Check if all dependencies of a plugin are loaded and enabled
-     */
-    public areDependenciesReady(id: string): boolean {
-        const plugin = this.plugins.get(id);
-        if (!plugin) return false;
-
-        for (const depId of plugin.dependencies) {
-            const dep = this.plugins.get(depId);
-            if (!dep || dep.state !== PluginState.ENABLED) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Get the namespace for a plugin (used for WebSocket proto)
-     */
-    public static getPluginNamespace(pluginId: string): string {
-        // Convert plugin-name to PluginName
-        return pluginId
-            .split('-')
-            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-            .join('');
     }
 }

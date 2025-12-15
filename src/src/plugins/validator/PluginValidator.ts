@@ -1,18 +1,14 @@
 import { Logger } from '@btc-vision/bsi-common';
-import {
-    MessageSigner,
-    MLDSASecurityLevel,
-    QuantumBIP32Factory,
-} from '@btc-vision/transaction';
+import { MessageSigner, MLDSASecurityLevel, QuantumBIP32Factory } from '@btc-vision/transaction';
 import { Network } from '@btc-vision/bitcoin';
 import * as semver from 'semver';
 
 import { IParsedPluginFile, MLDSALevel } from '../interfaces/IPluginFile.js';
 import {
     IPluginMetadata,
-    PLUGIN_NAME_REGEX,
-    MAX_PLUGIN_NAME_LENGTH,
     MAX_DESCRIPTION_LENGTH,
+    MAX_PLUGIN_NAME_LENGTH,
+    PLUGIN_NAME_REGEX,
 } from '../interfaces/IPluginMetadata.js';
 import { IPluginPermissions } from '../interfaces/IPluginPermissions.js';
 
@@ -76,10 +72,7 @@ export class PluginValidator extends Logger {
             const signatureValid = this.validateSignature(plugin);
             if (!signatureValid) {
                 errors.push(
-                    new PluginValidationError(
-                        'Invalid MLDSA signature',
-                        'INVALID_SIGNATURE',
-                    ),
+                    new PluginValidationError('Invalid MLDSA signature', 'INVALID_SIGNATURE'),
                 );
             }
         } catch (error) {
@@ -112,7 +105,9 @@ export class PluginValidator extends Logger {
 
         // Required fields
         if (!metadata.name) {
-            errors.push(new PluginValidationError('Plugin name is required', 'MISSING_NAME', 'name'));
+            errors.push(
+                new PluginValidationError('Plugin name is required', 'MISSING_NAME', 'name'),
+            );
         } else {
             if (!PLUGIN_NAME_REGEX.test(metadata.name)) {
                 errors.push(
@@ -136,7 +131,11 @@ export class PluginValidator extends Logger {
 
         if (!metadata.version) {
             errors.push(
-                new PluginValidationError('Plugin version is required', 'MISSING_VERSION', 'version'),
+                new PluginValidationError(
+                    'Plugin version is required',
+                    'MISSING_VERSION',
+                    'version',
+                ),
             );
         } else if (!semver.valid(metadata.version)) {
             errors.push(
@@ -167,7 +166,9 @@ export class PluginValidator extends Logger {
         }
 
         if (!metadata.main) {
-            errors.push(new PluginValidationError('Main entry point is required', 'MISSING_MAIN', 'main'));
+            errors.push(
+                new PluginValidationError('Main entry point is required', 'MISSING_MAIN', 'main'),
+            );
         }
 
         if (metadata.target !== 'bytenode') {
@@ -316,9 +317,7 @@ export class PluginValidator extends Logger {
         // Threading permissions
         if (permissions.threading) {
             if (permissions.threading.maxWorkers > 16) {
-                warnings.push(
-                    `High worker count requested: ${permissions.threading.maxWorkers}`,
-                );
+                warnings.push(`High worker count requested: ${permissions.threading.maxWorkers}`);
             }
             if (permissions.threading.maxMemoryMB > 2048) {
                 warnings.push(
@@ -331,9 +330,7 @@ export class PluginValidator extends Logger {
         if (permissions.blockchain) {
             const bc = permissions.blockchain;
             if (!bc.blocks && !bc.transactions && !bc.contracts && !bc.utxos) {
-                warnings.push(
-                    'Blockchain permission declared but no specific queries enabled',
-                );
+                warnings.push('Blockchain permission declared but no specific queries enabled');
             }
         }
 
@@ -354,11 +351,7 @@ export class PluginValidator extends Logger {
                 securityLevel,
             );
 
-            return MessageSigner.verifyMLDSASignature(
-                keyPair,
-                plugin.checksum,
-                plugin.signature,
-            );
+            return MessageSigner.verifyMLDSASignature(keyPair, plugin.checksum, plugin.signature);
         } catch (error) {
             this.error(`MLDSA verification error: ${error}`);
             return false;

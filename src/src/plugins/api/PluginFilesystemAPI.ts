@@ -209,10 +209,7 @@ export class PluginFilesystemAPI implements IPluginFilesystemAPI {
             ? normalizedDir
             : normalizedDir + path.sep;
 
-        return (
-            normalizedTarget === normalizedDir ||
-            normalizedTarget.startsWith(dirWithSep)
-        );
+        return normalizedTarget === normalizedDir || normalizedTarget.startsWith(dirWithSep);
     }
 
     /**

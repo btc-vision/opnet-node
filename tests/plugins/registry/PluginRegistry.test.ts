@@ -1,16 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    PluginRegistry,
     DependencyResolutionError,
+    PluginRegistry,
 } from '../../../src/src/plugins/registry/PluginRegistry.js';
-import {
-    PluginState,
-    IPluginStateChange,
-} from '../../../src/src/plugins/interfaces/IPluginState.js';
-import {
-    createMockMetadata,
-    createMockParsedPluginFile,
-} from '../mocks/index.js';
+import { PluginState } from '../../../src/src/plugins/interfaces/IPluginState.js';
+import { createMockParsedPluginFile } from '../mocks/index.js';
 
 describe('PluginRegistry', () => {
     let registry: PluginRegistry;

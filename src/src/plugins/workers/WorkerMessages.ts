@@ -1,4 +1,4 @@
-import { HookType, HookPayload } from '../interfaces/IPluginHooks.js';
+import { HookType } from '../interfaces/IPluginHooks.js';
 
 /**
  * Message types from main thread to worker

@@ -3,11 +3,10 @@ import { BlockDataWithTransactionData } from '@btc-vision/bitcoin-rpc';
 import { BlockProcessedData } from '../../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
 import {
     INetworkInfo,
-    ISyncBlockData,
-    ISyncProgress,
-    ISyncOptions,
     IPluginSyncCheck,
     IReindexCheck,
+    ISyncBlockData,
+    ISyncProgress,
 } from './IPluginInstallState.js';
 
 /**

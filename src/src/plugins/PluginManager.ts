@@ -1,31 +1,23 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { Network } from '@btc-vision/bitcoin';
+import type { FSWatcher } from 'fs';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { FSWatcher } from 'fs';
 
 import { PluginLoader, PluginLoadError } from './loader/PluginLoader.js';
-import { PluginValidator, PluginValidationError } from './validator/PluginValidator.js';
-import { PluginRegistry, DependencyResolutionError } from './registry/PluginRegistry.js';
-import { PluginWorkerPool, IWorkerPoolConfig } from './workers/PluginWorkerPool.js';
+import { PluginValidationError, PluginValidator } from './validator/PluginValidator.js';
+import { DependencyResolutionError, PluginRegistry } from './registry/PluginRegistry.js';
+import { IWorkerPoolConfig, PluginWorkerPool } from './workers/PluginWorkerPool.js';
 import { HookDispatcher } from './hooks/HookDispatcher.js';
 import { PluginOpcodeRegistry } from './api/websocket/PluginOpcodeRegistry.js';
 import { PluginRouteRegistry } from './api/http/PluginRouteRegistry.js';
-import {
-    IRegisteredPlugin,
-    PluginState,
-    IPluginError,
-} from './interfaces/IPluginState.js';
+import { IRegisteredPlugin, PluginState } from './interfaces/IPluginState.js';
 import { IParsedPluginFile } from './interfaces/IPluginFile.js';
 import { IEpochData, IMempoolTransaction, IReorgData } from './interfaces/IPlugin.js';
 import { BlockDataWithTransactionData } from '@btc-vision/bitcoin-rpc';
 import { BlockProcessedData } from '../threading/interfaces/thread-messages/messages/indexer/BlockProcessed.js';
-import { IHookResult, IHookDispatchOptions } from './interfaces/IPluginHooks.js';
-import {
-    INetworkInfo,
-    IReindexCheck,
-    ReindexAction,
-} from './interfaces/IPluginInstallState.js';
+import { IHookDispatchOptions, IHookResult } from './interfaces/IPluginHooks.js';
+import { INetworkInfo, IReindexCheck, ReindexAction } from './interfaces/IPluginInstallState.js';
 
 /**
  * Plugin manager configuration
@@ -97,6 +89,27 @@ export class PluginManager extends Logger {
 
         // Set up crash handler
         this.workerPool.onPluginCrash = this.handlePluginCrash.bind(this);
+    }
+
+    /**
+     * Get the hook dispatcher for direct hook calls
+     */
+    public get hooks(): HookDispatcher {
+        return this.hookDispatcher;
+    }
+
+    /**
+     * Get the WebSocket opcode registry
+     */
+    public get websocketOpcodes(): PluginOpcodeRegistry {
+        return this.opcodeRegistry;
+    }
+
+    /**
+     * Get the HTTP route registry
+     */
+    public get httpRoutes(): PluginRouteRegistry {
+        return this.routeRegistry;
     }
 
     /**
@@ -200,53 +213,6 @@ export class PluginManager extends Logger {
      */
     public setCurrentBlockHeight(height: bigint): void {
         this.currentBlockHeight = height;
-    }
-
-    /**
-     * Discover and load all plugins
-     */
-    private async discoverAndLoadPlugins(): Promise<void> {
-        // Discover plugin files
-        const pluginFiles = this.loader.discoverPlugins();
-
-        if (pluginFiles.length === 0) {
-            this.info('No plugins found');
-            return;
-        }
-
-        // Parse and register each plugin
-        for (const filePath of pluginFiles) {
-            try {
-                this.registerPlugin(filePath);
-            } catch (error) {
-                this.error(`Failed to register plugin from ${filePath}: ${error}`);
-            }
-        }
-
-        // Resolve dependencies and get load order
-        let loadOrder: IRegisteredPlugin[];
-        try {
-            loadOrder = this.registry.resolveDependencies();
-        } catch (error) {
-            if (error instanceof DependencyResolutionError) {
-                this.error(`Dependency resolution failed: ${error.message}`);
-            }
-            throw error;
-        }
-
-        // Load plugins in dependency order
-        for (const plugin of loadOrder) {
-            try {
-                await this.loadPlugin(plugin.id);
-
-                // Auto-enable if configured
-                if (this.config.autoEnable && plugin.metadata.lifecycle?.enabledByDefault !== false) {
-                    await this.enablePlugin(plugin.id);
-                }
-            } catch (error) {
-                this.error(`Failed to load plugin ${plugin.id}: ${error}`);
-            }
-        }
     }
 
     /**
@@ -542,7 +508,9 @@ export class PluginManager extends Logger {
         }
 
         if (!fs.existsSync(this.config.pluginsDir)) {
-            this.warn(`Cannot enable hot reload: plugins directory does not exist: ${this.config.pluginsDir}`);
+            this.warn(
+                `Cannot enable hot reload: plugins directory does not exist: ${this.config.pluginsDir}`,
+            );
             return;
         }
 
@@ -556,7 +524,7 @@ export class PluginManager extends Logger {
                     if (filename) {
                         this.handleFileChange(eventType, filename);
                     }
-                }
+                },
             );
 
             this.hotReloadEnabled = true;
@@ -594,142 +562,6 @@ export class PluginManager extends Logger {
     }
 
     /**
-     * Handle file system change events
-     */
-    private handleFileChange(eventType: string, filename: string): void {
-        // Only process .opnet files
-        if (!filename.endsWith('.opnet')) {
-            return;
-        }
-
-        const filePath = path.join(this.config.pluginsDir, filename);
-        const pluginId = filename.replace('.opnet', '');
-
-        // Clear existing debounce timer for this file
-        const existingTimer = this.reloadDebounceTimers.get(filename);
-        if (existingTimer) {
-            clearTimeout(existingTimer);
-        }
-
-        // Debounce the file change event
-        const timer = setTimeout(() => {
-            this.reloadDebounceTimers.delete(filename);
-            this.processFileChange(eventType, filePath, pluginId, filename).catch((error: unknown) => {
-                this.error(`Hot reload error for ${filename}: ${error}`);
-            });
-        }, this.reloadDebounceMs);
-
-        this.reloadDebounceTimers.set(filename, timer);
-    }
-
-    /**
-     * Process file change after debounce
-     */
-    private async processFileChange(
-        eventType: string,
-        filePath: string,
-        pluginId: string,
-        filename: string
-    ): Promise<void> {
-        const fileExists = fs.existsSync(filePath);
-        const pluginExists = this.registry.get(pluginId) !== undefined;
-
-        this.info(`File change detected: ${filename} (event: ${eventType}, exists: ${fileExists})`);
-
-        try {
-            if (eventType === 'rename' && !fileExists && pluginExists) {
-                // File was deleted
-                await this.handlePluginRemoved(pluginId);
-            } else if (eventType === 'rename' && fileExists && !pluginExists) {
-                // File was added
-                await this.handlePluginAdded(filePath);
-            } else if (eventType === 'change' && fileExists && pluginExists) {
-                // File was modified
-                await this.handlePluginModified(pluginId);
-            } else if (fileExists && pluginExists) {
-                // Generic change - treat as modification
-                await this.handlePluginModified(pluginId);
-            }
-        } catch (error) {
-            this.error(`Error processing file change for ${filename}: ${error}`);
-        }
-    }
-
-    /**
-     * Handle plugin file added
-     */
-    private async handlePluginAdded(filePath: string): Promise<void> {
-        this.info(`New plugin detected: ${path.basename(filePath)}`);
-
-        try {
-            await this.loadNewPlugin(filePath);
-            this.info(`Successfully loaded new plugin from ${path.basename(filePath)}`);
-        } catch (error) {
-            this.error(`Failed to load new plugin from ${path.basename(filePath)}: ${error}`);
-        }
-    }
-
-    /**
-     * Handle plugin file modified
-     */
-    private async handlePluginModified(pluginId: string): Promise<void> {
-        this.info(`Plugin modification detected: ${pluginId}`);
-
-        try {
-            await this.reloadPlugin(pluginId);
-        } catch (error) {
-            this.error(`Failed to reload modified plugin ${pluginId}: ${error}`);
-            // Note: Old version is still running if reload failed
-        }
-    }
-
-    /**
-     * Handle plugin file removed
-     */
-    private async handlePluginRemoved(pluginId: string): Promise<void> {
-        this.info(`Plugin removal detected: ${pluginId}`);
-
-        const plugin = this.registry.get(pluginId);
-        if (!plugin) {
-            return;
-        }
-
-        try {
-            // Get all dependents
-            const dependents = this.registry.getDependents(pluginId);
-
-            if (dependents.length > 0) {
-                this.warn(
-                    `Plugin ${pluginId} has dependents: ${dependents.map(d => d.id).join(', ')}. ` +
-                    `They will be disabled.`
-                );
-
-                // Disable and unload dependents first
-                for (const dep of [...dependents].reverse()) {
-                    if (dep.state === PluginState.ENABLED) {
-                        await this.disablePlugin(dep.id);
-                    }
-                    if (dep.state === PluginState.LOADED || dep.state === PluginState.DISABLED) {
-                        await this.unloadPlugin(dep.id);
-                    }
-                }
-            }
-
-            // Disable and unload the plugin
-            if (plugin.state === PluginState.ENABLED) {
-                await this.disablePlugin(pluginId);
-            }
-            if (plugin.state === PluginState.LOADED || plugin.state === PluginState.DISABLED) {
-                await this.unloadPlugin(pluginId);
-            }
-
-            this.info(`Successfully removed plugin: ${pluginId}`);
-        } catch (error) {
-            this.error(`Failed to remove plugin ${pluginId}: ${error}`);
-        }
-    }
-
-    /**
      * Load a new plugin file at runtime
      */
     public async loadNewPlugin(filePath: string): Promise<IRegisteredPlugin> {
@@ -741,27 +573,6 @@ export class PluginManager extends Logger {
         }
 
         return plugin;
-    }
-
-    /**
-     * Get the hook dispatcher for direct hook calls
-     */
-    public get hooks(): HookDispatcher {
-        return this.hookDispatcher;
-    }
-
-    /**
-     * Get the WebSocket opcode registry
-     */
-    public get websocketOpcodes(): PluginOpcodeRegistry {
-        return this.opcodeRegistry;
-    }
-
-    /**
-     * Get the HTTP route registry
-     */
-    public get httpRoutes(): PluginRouteRegistry {
-        return this.routeRegistry;
     }
 
     /**
@@ -875,7 +686,9 @@ export class PluginManager extends Logger {
             const reindexCheck = this.buildReindexCheck(lastSyncedBlock, reindexFromBlock);
 
             if (reindexCheck.action === ReindexAction.NONE) {
-                this.info(`Plugin ${pluginId}: No reindex action required (lastSynced=${lastSyncedBlock})`);
+                this.info(
+                    `Plugin ${pluginId}: No reindex action required (lastSynced=${lastSyncedBlock})`,
+                );
                 continue;
             }
 
@@ -885,7 +698,10 @@ export class PluginManager extends Logger {
             );
 
             // Call onReindexRequired hook (BLOCKING)
-            const result = await this.hookDispatcher.dispatchReindexRequired(pluginId, reindexCheck);
+            const result = await this.hookDispatcher.dispatchReindexRequired(
+                pluginId,
+                reindexCheck,
+            );
 
             if (!result.success) {
                 throw new Error(
@@ -903,7 +719,9 @@ export class PluginManager extends Logger {
             // If purge is required and plugin didn't handle it via onReindexRequired,
             // call onPurgeBlocks explicitly
             if (reindexCheck.requiresPurge && reindexCheck.purgeToBlock !== undefined) {
-                this.info(`Plugin ${pluginId}: Purging data from block ${reindexCheck.purgeToBlock} onwards`);
+                this.info(
+                    `Plugin ${pluginId}: Purging data from block ${reindexCheck.purgeToBlock} onwards`,
+                );
 
                 const purgeResult = await this.hookDispatcher.dispatchPurgeBlocks(
                     pluginId,
@@ -919,57 +737,15 @@ export class PluginManager extends Logger {
 
                 // Reset plugin's sync state to the reindex block
                 await this.workerPool.resetPluginSyncState(pluginId, reindexCheck.purgeToBlock);
-                this.info(`Plugin ${pluginId}: Sync state reset to block ${reindexCheck.purgeToBlock}`);
+                this.info(
+                    `Plugin ${pluginId}: Sync state reset to block ${reindexCheck.purgeToBlock}`,
+                );
             }
 
             this.success(`Plugin ${pluginId}: Reindex handling complete`);
         }
 
         this.success('All plugins handled reindex requirements');
-    }
-
-    /**
-     * Build a reindex check for a plugin based on its sync state
-     */
-    private buildReindexCheck(lastSyncedBlock: bigint, reindexFromBlock: bigint): IReindexCheck {
-        let action: ReindexAction;
-        let requiresPurge = false;
-        let purgeToBlock: bigint | undefined;
-        let requiresSync = false;
-        let syncFromBlock: bigint | undefined;
-        let syncToBlock: bigint | undefined;
-
-        if (lastSyncedBlock > reindexFromBlock) {
-            // Plugin has data beyond reindex point - needs to purge
-            action = ReindexAction.PURGE;
-            requiresPurge = true;
-            purgeToBlock = reindexFromBlock;
-            // After purge, will need to sync from reindex point
-            requiresSync = true;
-            syncFromBlock = reindexFromBlock;
-            syncToBlock = reindexFromBlock;
-        } else if (lastSyncedBlock < reindexFromBlock) {
-            // Plugin is behind reindex point - just needs to sync up to it
-            action = ReindexAction.SYNC;
-            requiresSync = true;
-            syncFromBlock = lastSyncedBlock;
-            syncToBlock = reindexFromBlock;
-        } else {
-            // Plugin is exactly at reindex point - no action needed
-            action = ReindexAction.NONE;
-        }
-
-        return {
-            reindexEnabled: true,
-            reindexFromBlock,
-            pluginLastSyncedBlock: lastSyncedBlock,
-            action,
-            requiresPurge,
-            purgeToBlock,
-            requiresSync,
-            syncFromBlock,
-            syncToBlock,
-        };
     }
 
     /**
@@ -1096,6 +872,238 @@ export class PluginManager extends Logger {
      */
     public isHotReloadEnabled(): boolean {
         return this.hotReloadEnabled;
+    }
+
+    /**
+     * Discover and load all plugins
+     */
+    private async discoverAndLoadPlugins(): Promise<void> {
+        // Discover plugin files
+        const pluginFiles = this.loader.discoverPlugins();
+
+        if (pluginFiles.length === 0) {
+            this.info('No plugins found');
+            return;
+        }
+
+        // Parse and register each plugin
+        for (const filePath of pluginFiles) {
+            try {
+                this.registerPlugin(filePath);
+            } catch (error) {
+                this.error(`Failed to register plugin from ${filePath}: ${error}`);
+            }
+        }
+
+        // Resolve dependencies and get load order
+        let loadOrder: IRegisteredPlugin[];
+        try {
+            loadOrder = this.registry.resolveDependencies();
+        } catch (error) {
+            if (error instanceof DependencyResolutionError) {
+                this.error(`Dependency resolution failed: ${error.message}`);
+            }
+            throw error;
+        }
+
+        // Load plugins in dependency order
+        for (const plugin of loadOrder) {
+            try {
+                await this.loadPlugin(plugin.id);
+
+                // Auto-enable if configured
+                if (
+                    this.config.autoEnable &&
+                    plugin.metadata.lifecycle?.enabledByDefault !== false
+                ) {
+                    await this.enablePlugin(plugin.id);
+                }
+            } catch (error) {
+                this.error(`Failed to load plugin ${plugin.id}: ${error}`);
+            }
+        }
+    }
+
+    /**
+     * Handle file system change events
+     */
+    private handleFileChange(eventType: string, filename: string): void {
+        // Only process .opnet files
+        if (!filename.endsWith('.opnet')) {
+            return;
+        }
+
+        const filePath = path.join(this.config.pluginsDir, filename);
+        const pluginId = filename.replace('.opnet', '');
+
+        // Clear existing debounce timer for this file
+        const existingTimer = this.reloadDebounceTimers.get(filename);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
+        }
+
+        // Debounce the file change event
+        const timer = setTimeout(() => {
+            this.reloadDebounceTimers.delete(filename);
+            this.processFileChange(eventType, filePath, pluginId, filename).catch(
+                (error: unknown) => {
+                    this.error(`Hot reload error for ${filename}: ${error}`);
+                },
+            );
+        }, this.reloadDebounceMs);
+
+        this.reloadDebounceTimers.set(filename, timer);
+    }
+
+    /**
+     * Process file change after debounce
+     */
+    private async processFileChange(
+        eventType: string,
+        filePath: string,
+        pluginId: string,
+        filename: string,
+    ): Promise<void> {
+        const fileExists = fs.existsSync(filePath);
+        const pluginExists = this.registry.get(pluginId) !== undefined;
+
+        this.info(`File change detected: ${filename} (event: ${eventType}, exists: ${fileExists})`);
+
+        try {
+            if (eventType === 'rename' && !fileExists && pluginExists) {
+                // File was deleted
+                await this.handlePluginRemoved(pluginId);
+            } else if (eventType === 'rename' && fileExists && !pluginExists) {
+                // File was added
+                await this.handlePluginAdded(filePath);
+            } else if (eventType === 'change' && fileExists && pluginExists) {
+                // File was modified
+                await this.handlePluginModified(pluginId);
+            } else if (fileExists && pluginExists) {
+                // Generic change - treat as modification
+                await this.handlePluginModified(pluginId);
+            }
+        } catch (error) {
+            this.error(`Error processing file change for ${filename}: ${error}`);
+        }
+    }
+
+    /**
+     * Handle plugin file added
+     */
+    private async handlePluginAdded(filePath: string): Promise<void> {
+        this.info(`New plugin detected: ${path.basename(filePath)}`);
+
+        try {
+            await this.loadNewPlugin(filePath);
+            this.info(`Successfully loaded new plugin from ${path.basename(filePath)}`);
+        } catch (error) {
+            this.error(`Failed to load new plugin from ${path.basename(filePath)}: ${error}`);
+        }
+    }
+
+    /**
+     * Handle plugin file modified
+     */
+    private async handlePluginModified(pluginId: string): Promise<void> {
+        this.info(`Plugin modification detected: ${pluginId}`);
+
+        try {
+            await this.reloadPlugin(pluginId);
+        } catch (error) {
+            this.error(`Failed to reload modified plugin ${pluginId}: ${error}`);
+            // Note: Old version is still running if reload failed
+        }
+    }
+
+    /**
+     * Handle plugin file removed
+     */
+    private async handlePluginRemoved(pluginId: string): Promise<void> {
+        this.info(`Plugin removal detected: ${pluginId}`);
+
+        const plugin = this.registry.get(pluginId);
+        if (!plugin) {
+            return;
+        }
+
+        try {
+            // Get all dependents
+            const dependents = this.registry.getDependents(pluginId);
+
+            if (dependents.length > 0) {
+                this.warn(
+                    `Plugin ${pluginId} has dependents: ${dependents.map((d) => d.id).join(', ')}. ` +
+                        `They will be disabled.`,
+                );
+
+                // Disable and unload dependents first
+                for (const dep of [...dependents].reverse()) {
+                    if (dep.state === PluginState.ENABLED) {
+                        await this.disablePlugin(dep.id);
+                    }
+                    if (dep.state === PluginState.LOADED || dep.state === PluginState.DISABLED) {
+                        await this.unloadPlugin(dep.id);
+                    }
+                }
+            }
+
+            // Disable and unload the plugin
+            if (plugin.state === PluginState.ENABLED) {
+                await this.disablePlugin(pluginId);
+            }
+            if (plugin.state === PluginState.LOADED || plugin.state === PluginState.DISABLED) {
+                await this.unloadPlugin(pluginId);
+            }
+
+            this.info(`Successfully removed plugin: ${pluginId}`);
+        } catch (error) {
+            this.error(`Failed to remove plugin ${pluginId}: ${error}`);
+        }
+    }
+
+    /**
+     * Build a reindex check for a plugin based on its sync state
+     */
+    private buildReindexCheck(lastSyncedBlock: bigint, reindexFromBlock: bigint): IReindexCheck {
+        let action: ReindexAction;
+        let requiresPurge = false;
+        let purgeToBlock: bigint | undefined;
+        let requiresSync = false;
+        let syncFromBlock: bigint | undefined;
+        let syncToBlock: bigint | undefined;
+
+        if (lastSyncedBlock > reindexFromBlock) {
+            // Plugin has data beyond reindex point - needs to purge
+            action = ReindexAction.PURGE;
+            requiresPurge = true;
+            purgeToBlock = reindexFromBlock;
+            // After purge, will need to sync from reindex point
+            requiresSync = true;
+            syncFromBlock = reindexFromBlock;
+            syncToBlock = reindexFromBlock;
+        } else if (lastSyncedBlock < reindexFromBlock) {
+            // Plugin is behind reindex point - just needs to sync up to it
+            action = ReindexAction.SYNC;
+            requiresSync = true;
+            syncFromBlock = lastSyncedBlock;
+            syncToBlock = reindexFromBlock;
+        } else {
+            // Plugin is exactly at reindex point - no action needed
+            action = ReindexAction.NONE;
+        }
+
+        return {
+            reindexEnabled: true,
+            reindexFromBlock,
+            pluginLastSyncedBlock: lastSyncedBlock,
+            action,
+            requiresPurge,
+            purgeToBlock,
+            requiresSync,
+            syncFromBlock,
+            syncToBlock,
+        };
     }
 
     /**

@@ -3,7 +3,7 @@ import * as protobuf from 'protobufjs';
 
 import { PluginWorkerPool } from '../../workers/PluginWorkerPool.js';
 import { PluginRegistry } from '../../registry/PluginRegistry.js';
-import { IPluginWebSocketHandler, IWebSocketPermissions } from '../../interfaces/IPluginPermissions.js';
+import { IPluginWebSocketHandler } from '../../interfaces/IPluginPermissions.js';
 import { IRegisteredPlugin, PluginState } from '../../interfaces/IPluginState.js';
 
 /**
@@ -105,7 +105,9 @@ export class PluginOpcodeRegistry extends Logger {
                 );
                 registeredHandlers.push(handler);
             } catch (error) {
-                this.error(`Failed to register handler ${handlerDef.opcode} for ${plugin.id}: ${error}`);
+                this.error(
+                    `Failed to register handler ${handlerDef.opcode} for ${plugin.id}: ${error}`,
+                );
             }
         }
 
@@ -215,6 +217,37 @@ export class PluginOpcodeRegistry extends Logger {
     }
 
     /**
+     * Get proto type for a plugin
+     */
+    public getProtoType(pluginId: string, typeName: string): protobuf.Type | undefined {
+        const root = this.protoRoots.get(pluginId);
+        if (!root) {
+            return undefined;
+        }
+
+        try {
+            return root.lookupType(typeName);
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * Decode a request message
+     */
+    public decodeRequest(handler: IRegisteredHandler, data: Uint8Array): unknown {
+        return handler.requestType.decode(data);
+    }
+
+    /**
+     * Encode a response message
+     */
+    public encodeResponse(handler: IRegisteredHandler, data: unknown): Uint8Array {
+        const message = handler.responseType.create(data as object);
+        return handler.responseType.encode(message).finish();
+    }
+
+    /**
      * Allocate opcodes for a plugin
      */
     private allocateOpcodes(pluginId: string, handlerCount: number): IOpcodeAllocation {
@@ -248,11 +281,7 @@ export class PluginOpcodeRegistry extends Logger {
     /**
      * Load a plugin's proto schema
      */
-    private loadProtoSchema(
-        pluginId: string,
-        protoContent: Buffer,
-        _namespace?: string,
-    ): void {
+    private loadProtoSchema(pluginId: string, protoContent: Buffer, _namespace?: string): void {
         try {
             const protoString = protoContent.toString('utf8');
             const root = protobuf.parse(protoString).root;
@@ -307,36 +336,5 @@ export class PluginOpcodeRegistry extends Logger {
         );
 
         return handler;
-    }
-
-    /**
-     * Get proto type for a plugin
-     */
-    public getProtoType(pluginId: string, typeName: string): protobuf.Type | undefined {
-        const root = this.protoRoots.get(pluginId);
-        if (!root) {
-            return undefined;
-        }
-
-        try {
-            return root.lookupType(typeName);
-        } catch {
-            return undefined;
-        }
-    }
-
-    /**
-     * Decode a request message
-     */
-    public decodeRequest(handler: IRegisteredHandler, data: Uint8Array): unknown {
-        return handler.requestType.decode(data);
-    }
-
-    /**
-     * Encode a response message
-     */
-    public encodeResponse(handler: IRegisteredHandler, data: unknown): Uint8Array {
-        const message = handler.responseType.create(data as object);
-        return handler.responseType.encode(message).finish();
     }
 }

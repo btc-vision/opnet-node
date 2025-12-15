@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -44,7 +44,9 @@ describe('PluginFilesystemAPI', () => {
         });
 
         it('should reject directory traversal attempts', async () => {
-            await expect(api.readFile('../../../etc/passwd')).rejects.toThrow(PluginFilesystemError);
+            await expect(api.readFile('../../../etc/passwd')).rejects.toThrow(
+                PluginFilesystemError,
+            );
             await expect(api.readFile('../../../etc/passwd')).rejects.toThrow('Access denied');
         });
 

@@ -3,39 +3,36 @@ import { Worker } from 'worker_threads';
 import * as path from 'path';
 import * as os from 'os';
 import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 import {
-    WorkerMessage,
-    WorkerResponse,
-    WorkerMessageType,
-    WorkerResponseType,
-    ILoadPluginMessage,
-    IUnloadPluginMessage,
-    IEnablePluginMessage,
+    generateRequestId,
     IDisablePluginMessage,
+    IEnablePluginMessage,
     IExecuteHookMessage,
     IExecuteRouteHandlerMessage,
     IExecuteWsHandlerMessage,
     IGetSyncStateMessage,
-    IResetSyncStateMessage,
     IGetSyncStateResponse,
-    IPluginLoadedResponse,
     IHookResultResponse,
-    IRouteResultResponse,
-    IWsResultResponse,
-    IPluginErrorResponse,
+    ILoadPluginMessage,
     IPluginCrashedResponse,
-    ISyncStateUpdateResponse,
+    IResetSyncStateMessage,
+    IRouteResultResponse,
     ISerializedNetworkInfo,
     ISerializedPluginInstallState,
-    generateRequestId,
+    ISyncStateUpdateResponse,
+    IUnloadPluginMessage,
+    IWsResultResponse,
+    WorkerMessage,
+    WorkerMessageType,
+    WorkerResponse,
+    WorkerResponseType,
 } from './WorkerMessages.js';
-import { HookType, HookPayload } from '../interfaces/IPluginHooks.js';
-import { IRegisteredPlugin, PluginState } from '../interfaces/IPluginState.js';
+import { HookPayload, HookType } from '../interfaces/IPluginHooks.js';
+import { IRegisteredPlugin } from '../interfaces/IPluginState.js';
 import { INetworkInfo, IPluginInstallState } from '../interfaces/IPluginInstallState.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Pending request tracking
@@ -78,19 +75,19 @@ export interface IWorkerPoolConfig {
  */
 export class PluginWorkerPool extends Logger {
     public readonly logColor: string = '#2196F3';
-
+    /** Callback when a plugin crashes */
+    public onPluginCrash?: (pluginId: string, error: string) => void;
+    /** Callback when a plugin updates its sync state */
+    public onSyncStateUpdate?: (
+        pluginId: string,
+        lastSyncedBlock?: bigint,
+        syncCompleted?: boolean,
+    ) => void;
     private readonly workers: Map<number, IWorkerInfo> = new Map();
     private readonly pluginWorkerMap: Map<string, number> = new Map();
     private readonly config: Required<IWorkerPoolConfig>;
-
     private nextWorkerId = 0;
     private isShuttingDown = false;
-
-    /** Callback when a plugin crashes */
-    public onPluginCrash?: (pluginId: string, error: string) => void;
-
-    /** Callback when a plugin updates its sync state */
-    public onSyncStateUpdate?: (pluginId: string, lastSyncedBlock?: bigint, syncCompleted?: boolean) => void;
 
     constructor(config: IWorkerPoolConfig = {}) {
         super();
@@ -98,9 +95,7 @@ export class PluginWorkerPool extends Logger {
         this.config = {
             workerCount: config.workerCount ?? Math.max(1, Math.floor(os.cpus().length / 2)),
             defaultTimeoutMs: config.defaultTimeoutMs ?? 30000,
-            workerScript:
-                config.workerScript ??
-                path.join(__dirname, 'PluginWorkerThread.js'),
+            workerScript: config.workerScript ?? path.join(__dirname, 'PluginWorkerThread.js'),
             emitErrorOrWarning: config.emitErrorOrWarning ?? false,
         };
     }
@@ -138,39 +133,6 @@ export class PluginWorkerPool extends Logger {
         this.workers.clear();
         this.pluginWorkerMap.clear();
         this.info('Worker pool shutdown complete');
-    }
-
-    /**
-     * Serialize network info for worker message
-     */
-    private serializeNetworkInfo(networkInfo: INetworkInfo): ISerializedNetworkInfo {
-        return {
-            chainId: networkInfo.chainId.toString(),
-            network: networkInfo.network,
-            currentBlockHeight: networkInfo.currentBlockHeight.toString(),
-            genesisBlockHash: networkInfo.genesisBlockHash,
-        };
-    }
-
-    /**
-     * Serialize install state for worker message
-     */
-    private serializeInstallState(
-        state: IPluginInstallState | undefined,
-    ): ISerializedPluginInstallState | undefined {
-        if (!state) return undefined;
-        return {
-            pluginId: state.pluginId,
-            installedVersion: state.installedVersion,
-            chainId: state.chainId.toString(),
-            network: state.network,
-            installedAt: state.installedAt,
-            enabledAtBlock: state.enabledAtBlock.toString(),
-            lastSyncedBlock: state.lastSyncedBlock.toString(),
-            syncCompleted: state.syncCompleted,
-            collections: state.collections,
-            updatedAt: state.updatedAt,
-        };
     }
 
     /**
@@ -462,6 +424,39 @@ export class PluginWorkerPool extends Logger {
     }
 
     /**
+     * Serialize network info for worker message
+     */
+    private serializeNetworkInfo(networkInfo: INetworkInfo): ISerializedNetworkInfo {
+        return {
+            chainId: networkInfo.chainId.toString(),
+            network: networkInfo.network,
+            currentBlockHeight: networkInfo.currentBlockHeight.toString(),
+            genesisBlockHash: networkInfo.genesisBlockHash,
+        };
+    }
+
+    /**
+     * Serialize install state for worker message
+     */
+    private serializeInstallState(
+        state: IPluginInstallState | undefined,
+    ): ISerializedPluginInstallState | undefined {
+        if (!state) return undefined;
+        return {
+            pluginId: state.pluginId,
+            installedVersion: state.installedVersion,
+            chainId: state.chainId.toString(),
+            network: state.network,
+            installedAt: state.installedAt,
+            enabledAtBlock: state.enabledAtBlock.toString(),
+            lastSyncedBlock: state.lastSyncedBlock.toString(),
+            syncCompleted: state.syncCompleted,
+            collections: state.collections,
+            updatedAt: state.updatedAt,
+        };
+    }
+
+    /**
      * Create a new worker
      */
     private async createWorker(): Promise<void> {
@@ -496,7 +491,10 @@ export class PluginWorkerPool extends Logger {
             worker.on('exit', (code) => {
                 if (code !== 0 && !this.isShuttingDown) {
                     this.error(`Worker ${workerId} exited with code ${code}`);
-                    this.handleWorkerCrash(workerInfo, new Error(`Worker exited with code ${code}`));
+                    this.handleWorkerCrash(
+                        workerInfo,
+                        new Error(`Worker exited with code ${code}`),
+                    );
                 }
             });
 

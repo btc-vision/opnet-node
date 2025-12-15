@@ -4,16 +4,13 @@
  * Uses mocks so no MongoDB connection is required
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi, beforeAll, afterAll } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { networks } from '@btc-vision/bitcoin';
-import { PluginState } from '../../src/src/plugins/interfaces/IPluginState.js';
-import {
-    createMockMetadata,
-    createPluginFileBuffer,
-} from './mocks/index.js';
+import { createMockMetadata, createPluginFileBuffer } from './mocks/index.js';
+import { IPluginManagerConfig, PluginManager } from '../../src/src/plugins/PluginManager.js';
 
 // Mock worker_threads module
 vi.mock('worker_threads', async (importOriginal) => {
@@ -91,8 +88,6 @@ vi.mock('@btc-vision/bsi-common', () => ({
         readonly logColor: string = '#000000';
     },
 }));
-
-import { PluginManager, IPluginManagerConfig } from '../../src/src/plugins/PluginManager.js';
 
 describe('Plugin Hot Reload', () => {
     let tempDir: string;
@@ -214,18 +209,16 @@ describe('Plugin Hot Reload', () => {
             pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
 
-            await expect(
-                pluginManager.reloadPlugin('non-existent-plugin')
-            ).rejects.toThrow('Plugin not found');
+            await expect(pluginManager.reloadPlugin('non-existent-plugin')).rejects.toThrow(
+                'Plugin not found',
+            );
         });
 
         it('should throw error when reloading before initialization', async () => {
             pluginManager = new PluginManager(createConfig(tempDir));
 
             // Attempting to reload before initialize should fail
-            await expect(
-                pluginManager.reloadPlugin('any-plugin')
-            ).rejects.toThrow();
+            await expect(pluginManager.reloadPlugin('any-plugin')).rejects.toThrow();
         });
     });
 
@@ -303,7 +296,7 @@ describe('Plugin Hot Reload', () => {
             fs.writeFileSync(txtFile, 'test content');
 
             // Wait for any file system events
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
             // No plugins should be registered
             expect(pluginManager.getAllPlugins().length).toBe(0);
@@ -318,7 +311,7 @@ describe('Plugin Hot Reload', () => {
             const hiddenFile = path.join(tempDir, '.hidden-plugin.opnet');
             fs.writeFileSync(hiddenFile, Buffer.alloc(100));
 
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
             // Hidden files should be ignored (loader doesn't pick them up)
             expect(pluginManager.getAllPlugins().length).toBe(0);
@@ -333,7 +326,7 @@ describe('Plugin Hot Reload', () => {
             const opnetDir = path.join(tempDir, 'fake.opnet');
             fs.mkdirSync(opnetDir, { recursive: true });
 
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
             // Directories should be ignored
             expect(pluginManager.getAllPlugins().length).toBe(0);
