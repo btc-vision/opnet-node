@@ -188,7 +188,7 @@ describe('PluginLoader', () => {
             const filePath = path.join(tempDir, 'non-existent.opnet');
 
             expect(() => loader.parsePluginFile(filePath)).toThrow(PluginLoadError);
-            expect(() => loader.parsePluginFile(filePath)).toThrow('READ_FAILED');
+            expect(() => loader.parsePluginFile(filePath)).toThrow('Failed to read plugin file');
         });
 
         it('should throw for file too small', () => {
@@ -205,7 +205,7 @@ describe('PluginLoader', () => {
             fs.writeFileSync(filePath, buffer);
 
             expect(() => loader.parsePluginFile(filePath)).toThrow(PluginLoadError);
-            expect(() => loader.parsePluginFile(filePath)).toThrow('INVALID_MAGIC');
+            expect(() => loader.parsePluginFile(filePath)).toThrow('Invalid magic bytes');
         });
 
         it('should throw for unsupported version', () => {
@@ -215,7 +215,7 @@ describe('PluginLoader', () => {
             fs.writeFileSync(filePath, buffer);
 
             expect(() => loader.parsePluginFile(filePath)).toThrow(PluginLoadError);
-            expect(() => loader.parsePluginFile(filePath)).toThrow('UNSUPPORTED_VERSION');
+            expect(() => loader.parsePluginFile(filePath)).toThrow('Unsupported format version');
         });
 
         it('should throw for checksum mismatch', () => {
@@ -225,7 +225,7 @@ describe('PluginLoader', () => {
             fs.writeFileSync(filePath, buffer);
 
             expect(() => loader.parsePluginFile(filePath)).toThrow(PluginLoadError);
-            expect(() => loader.parsePluginFile(filePath)).toThrow('CHECKSUM_MISMATCH');
+            expect(() => loader.parsePluginFile(filePath)).toThrow('Checksum mismatch');
         });
 
         it('should parse file with proto', () => {
@@ -300,7 +300,7 @@ describe('PluginLoader', () => {
             fs.writeFileSync(filePath, Buffer.concat(parts));
 
             expect(() => loader.parsePluginFile(filePath)).toThrow(PluginLoadError);
-            expect(() => loader.parsePluginFile(filePath)).toThrow('INVALID_METADATA_JSON');
+            expect(() => loader.parsePluginFile(filePath)).toThrow('Invalid metadata JSON');
         });
     });
 

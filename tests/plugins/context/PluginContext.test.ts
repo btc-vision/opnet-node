@@ -674,8 +674,25 @@ describe('PluginContext', () => {
             expect(context.db).toBe(mockDb);
         });
 
-        it('should expose undefined db when not provided', () => {
-            const context = createContext({}, { db: undefined });
+        it('should not have db API when not permitted', () => {
+            // Test that we can create context without db API
+            const metadata = createMockMetadata();
+            const context = new PluginContext(
+                metadata,
+                '/data',
+                mockNetworkInfo,
+                undefined, // No db API
+                undefined,
+                mockFs,
+                mockLogger,
+                mockConfig,
+                mockPluginGetter,
+                mockSyncStateGetter,
+                mockSyncStateSetter,
+                mockBlockHeightGetter,
+                false,
+                0n,
+            );
             expect(context.db).toBeUndefined();
         });
 

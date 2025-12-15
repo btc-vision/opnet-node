@@ -40,12 +40,12 @@ describe('PluginFilesystemAPI', () => {
     describe('path validation', () => {
         it('should reject paths outside plugin directories', async () => {
             await expect(api.readFile('/etc/passwd')).rejects.toThrow(PluginFilesystemError);
-            await expect(api.readFile('/etc/passwd')).rejects.toThrow('ACCESS_DENIED');
+            await expect(api.readFile('/etc/passwd')).rejects.toThrow('Access denied');
         });
 
         it('should reject directory traversal attempts', async () => {
             await expect(api.readFile('../../../etc/passwd')).rejects.toThrow(PluginFilesystemError);
-            await expect(api.readFile('../../../etc/passwd')).rejects.toThrow('ACCESS_DENIED');
+            await expect(api.readFile('../../../etc/passwd')).rejects.toThrow('Access denied');
         });
 
         it('should reject path with .. in the middle', async () => {
@@ -88,7 +88,7 @@ describe('PluginFilesystemAPI', () => {
 
         it('should throw for non-existent file', async () => {
             await expect(api.readFile('nonexistent.txt')).rejects.toThrow(PluginFilesystemError);
-            await expect(api.readFile('nonexistent.txt')).rejects.toThrow('READ_FAILED');
+            await expect(api.readFile('nonexistent.txt')).rejects.toThrow('Failed to read file');
         });
 
         it('should read binary files', async () => {
@@ -218,7 +218,7 @@ describe('PluginFilesystemAPI', () => {
 
         it('should throw for non-existent directory', async () => {
             await expect(api.readdir('nonexistent')).rejects.toThrow(PluginFilesystemError);
-            await expect(api.readdir('nonexistent')).rejects.toThrow('READDIR_FAILED');
+            await expect(api.readdir('nonexistent')).rejects.toThrow('Failed to read directory');
         });
     });
 
@@ -234,7 +234,7 @@ describe('PluginFilesystemAPI', () => {
 
         it('should throw for non-existent file', async () => {
             await expect(api.unlink('nonexistent.txt')).rejects.toThrow(PluginFilesystemError);
-            await expect(api.unlink('nonexistent.txt')).rejects.toThrow('UNLINK_FAILED');
+            await expect(api.unlink('nonexistent.txt')).rejects.toThrow('Failed to delete file');
         });
 
         it('should throw when trying to delete directory', async () => {
@@ -265,7 +265,7 @@ describe('PluginFilesystemAPI', () => {
 
         it('should throw for non-existent path', async () => {
             await expect(api.stat('nonexistent')).rejects.toThrow(PluginFilesystemError);
-            await expect(api.stat('nonexistent')).rejects.toThrow('STAT_FAILED');
+            await expect(api.stat('nonexistent')).rejects.toThrow('Failed to get file stats');
         });
     });
 
