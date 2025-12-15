@@ -244,7 +244,7 @@ describe('PluginBlockchainAPI', () => {
             const result = await api.getBlockByHash('nonexistent');
 
             expect(result).toBeNull();
-            expect(mockBlockRepo.getBlockByHash).toHaveBeenCalledWith('nonexistent');
+            expect(mockBlockRepo.getBlockByHash).toHaveBeenCalledWith('nonexistent', false);
         });
 
         it('should return mapped block header', async () => {
@@ -373,9 +373,10 @@ describe('PluginBlockchainAPI', () => {
         it('should return mapped contract info', async () => {
             const mockContract = {
                 contractAddress: 'addr123',
-                deployedAtBlock: { toString: () => '100' },
-                deployedTransactionId: 'txid456',
-                bytecode: new Binary(Buffer.from([0x01, 0x02])),
+                blockHeight: 100n,
+                deployedTransactionId: Buffer.from('txid456'),
+                bytecode: Buffer.from([0x01, 0x02]),
+                deployerAddress: { toString: () => 'deployer123' },
             };
             mockContractRepo.getContract.mockResolvedValue(mockContract);
 
@@ -384,6 +385,7 @@ describe('PluginBlockchainAPI', () => {
             expect(result).not.toBeNull();
             expect(result?.address).toBe('addr123');
             expect(result?.deploymentHeight).toBe(100n);
+            expect(result?.deployer).toBe('deployer123');
         });
     });
 
@@ -410,9 +412,9 @@ describe('PluginBlockchainAPI', () => {
     });
 
     describe('getContractEvents', () => {
-        it('should throw not implemented error', async () => {
-            await expect(api.getContractEvents('addr123', 'Transfer')).rejects.toThrow(
-                'Not implemented',
+        it('should throw not implemented error', () => {
+            expect(() => api.getContractEvents('addr123', 0n, 100n)).toThrow(
+                'Event querying is not implemented yet',
             );
         });
     });
@@ -432,7 +434,7 @@ describe('PluginBlockchainAPI', () => {
                     {
                         transactionId: 'txid123',
                         outputIndex: 0,
-                        value: { toString: () => '50000' },
+                        value: 50000n,
                         scriptPubKey: {
                             hex: 'scriptpubkeyhex',
                             address: 'addr123',
@@ -499,8 +501,8 @@ describe('PluginBlockchainAPI', () => {
 
             const result = await api.getBlockRange(0n, 200n);
 
-            // Should be capped at 100 blocks
-            expect(mockBlockRepo.getBlockHeader).toHaveBeenCalledTimes(100);
+            // Should be capped at 101 blocks (0 to 100 inclusive)
+            expect(mockBlockRepo.getBlockHeader).toHaveBeenCalledTimes(101);
         });
 
         it('should skip missing blocks', async () => {

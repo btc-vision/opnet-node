@@ -6,13 +6,25 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PluginManager } from '../../src/src/plugins/PluginManager.js';
+import { PluginManager, IPluginManagerConfig } from '../../src/src/plugins/PluginManager.js';
 import { Network } from '@btc-vision/bitcoin';
 import { PluginState } from '../../src/src/plugins/interfaces/IPluginState.js';
 
 describe('Plugin Hot Reload', () => {
     const testPluginsDir = path.join(__dirname, '.test-plugins');
     let pluginManager: PluginManager;
+
+    // Base configuration for all tests
+    const baseConfig: IPluginManagerConfig = {
+        pluginsDir: testPluginsDir,
+        network: Network.regtest,
+        nodeVersion: '1.0.0',
+        chainId: 1n,
+        networkType: 'regtest',
+        genesisBlockHash: '0000000000000000000000000000000000000000000000000000000000000000',
+        hotReload: false, // Start with hot reload disabled for controlled tests
+        autoEnable: true,
+    };
 
     beforeEach(async () => {
         // Create test plugins directory
@@ -21,18 +33,12 @@ describe('Plugin Hot Reload', () => {
         }
 
         // Create plugin manager with hot reload enabled
-        pluginManager = new PluginManager({
-            pluginsDir: testPluginsDir,
-            network: Network.REGTEST,
-            nodeVersion: '1.0.0',
-            hotReload: false, // Start with hot reload disabled for controlled tests
-            autoEnable: true,
-        });
+        pluginManager = new PluginManager(baseConfig);
     });
 
     afterEach(async () => {
         // Shutdown plugin manager
-        if (pluginManager.isInitialized()) {
+        if (pluginManager?.isInitialized()) {
             await pluginManager.shutdown();
         }
 
@@ -63,10 +69,8 @@ describe('Plugin Hot Reload', () => {
             // Create manager with non-existent directory
             const nonExistentDir = path.join(__dirname, '.non-existent');
             const manager = new PluginManager({
+                ...baseConfig,
                 pluginsDir: nonExistentDir,
-                network: Network.REGTEST,
-                nodeVersion: '1.0.0',
-                hotReload: false,
             });
 
             await manager.initialize();
@@ -121,9 +125,7 @@ describe('Plugin Hot Reload', () => {
     describe('Auto-enable on initialization', () => {
         it('should enable hot reload when configured', async () => {
             const manager = new PluginManager({
-                pluginsDir: testPluginsDir,
-                network: Network.REGTEST,
-                nodeVersion: '1.0.0',
+                ...baseConfig,
                 hotReload: true,
             });
 
@@ -136,9 +138,7 @@ describe('Plugin Hot Reload', () => {
 
         it('should not enable hot reload when not configured', async () => {
             const manager = new PluginManager({
-                pluginsDir: testPluginsDir,
-                network: Network.REGTEST,
-                nodeVersion: '1.0.0',
+                ...baseConfig,
                 hotReload: false,
             });
 
@@ -153,9 +153,7 @@ describe('Plugin Hot Reload', () => {
     describe('Shutdown behavior', () => {
         it('should disable hot reload during shutdown', async () => {
             const manager = new PluginManager({
-                pluginsDir: testPluginsDir,
-                network: Network.REGTEST,
-                nodeVersion: '1.0.0',
+                ...baseConfig,
                 hotReload: true,
             });
 
