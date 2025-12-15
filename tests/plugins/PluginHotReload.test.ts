@@ -139,8 +139,8 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should not throw when enabling hot reload multiple times', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -154,8 +154,8 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should handle non-existent plugins directory gracefully', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -174,8 +174,8 @@ describe('Plugin Hot Reload Integration', () => {
 
     describe('disableHotReload', () => {
         it('should disable hot reload successfully', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -189,8 +189,8 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should handle disable when not enabled', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -202,8 +202,8 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should handle multiple disable calls', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -220,8 +220,8 @@ describe('Plugin Hot Reload Integration', () => {
 
     describe('reloadPlugin', () => {
         it('should throw error when plugin is not found', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -245,8 +245,8 @@ describe('Plugin Hot Reload Integration', () => {
 
     describe('Auto-enable on initialization', () => {
         it('should auto-enable hot reload when configured', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -262,8 +262,8 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should not auto-enable when not configured', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -281,8 +281,8 @@ describe('Plugin Hot Reload Integration', () => {
 
     describe('Shutdown behavior', () => {
         it('should disable hot reload during shutdown', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -301,8 +301,8 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should handle shutdown without hot reload enabled', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -317,8 +317,8 @@ describe('Plugin Hot Reload Integration', () => {
 
     describe('File change handling', () => {
         it('should ignore non-.opnet files in the plugins directory', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -338,8 +338,8 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should ignore hidden files', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
