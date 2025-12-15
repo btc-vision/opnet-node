@@ -1,5 +1,5 @@
 import { Address, AddressMap } from '@btc-vision/transaction';
-import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bitcoin-rpc';
+import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { DataConverter, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { Network } from '@btc-vision/bitcoin';
 import { Config } from '../../../config/Config.js';

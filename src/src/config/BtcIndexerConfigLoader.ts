@@ -266,7 +266,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 parsedConfig.PLUGINS.EMIT_ERROR_OR_WARNING !== undefined &&
                 typeof parsedConfig.PLUGINS.EMIT_ERROR_OR_WARNING !== 'boolean'
             ) {
-                throw new Error(`Oops the property PLUGINS.EMIT_ERROR_OR_WARNING is not a boolean.`);
+                throw new Error(
+                    `Oops the property PLUGINS.EMIT_ERROR_OR_WARNING is not a boolean.`,
+                );
             }
         }
 

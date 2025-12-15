@@ -17,6 +17,12 @@ import {
     IPluginWsExecuteRequest,
 } from './interfaces/IPluginMessages.js';
 import { BitcoinNetwork } from '../config/network/BitcoinNetwork.js';
+import { createRequire } from 'module';
+
+// Get OPNet node version from package.json
+const require = createRequire(import.meta.url);
+const packageJson = require('../../../package.json') as { version: string };
+const OPNET_NODE_VERSION = packageJson.version;
 
 export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
     public readonly threadType: ThreadTypes.PLUGIN = ThreadTypes.PLUGIN;
@@ -86,7 +92,7 @@ export class PluginThread extends Thread<ThreadTypes.PLUGIN> {
                 this.pluginManager = new PluginManager({
                     pluginsDir: Config.PLUGINS.PLUGINS_DIR,
                     network: Config.BITCOIN.NETWORK as unknown as Network,
-                    nodeVersion: process.version,
+                    nodeVersion: OPNET_NODE_VERSION,
                     workerPool: {
                         workerCount: Config.PLUGINS.WORKER_POOL_SIZE,
                         emitErrorOrWarning: Config.PLUGINS.EMIT_ERROR_OR_WARNING,

@@ -415,10 +415,17 @@ async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
         );
 
         // Load plugin bytecode using bytenode
-        const bytenode = await import('bytenode');
+        const bytenodeModule = await import('bytenode');
+        // Handle both ESM default export and CommonJS export
+        const bytenode =
+            (bytenodeModule as unknown as { default?: typeof bytenodeModule }).default ??
+            bytenodeModule;
+
+        // Convert bytecode to Buffer if it was serialized as Uint8Array during postMessage
+        const bytecodeBuffer = Buffer.isBuffer(bytecode) ? bytecode : Buffer.from(bytecode);
 
         // runBytecode executes the V8 bytecode buffer and returns the module exports
-        const moduleExports = bytenode.runBytecode(bytecode) as Record<string, unknown>;
+        const moduleExports = bytenode.runBytecode(bytecodeBuffer) as Record<string, unknown>;
 
         // Get the plugin class from exports
         let pluginInstance: IPlugin;

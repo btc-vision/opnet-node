@@ -9,10 +9,10 @@ import { Thread } from '../threading/thread/Thread.js';
 import { Server } from './Server.js';
 import { ThreadData } from '../threading/interfaces/ThreadData.js';
 import {
-    IPluginRoutesData,
     IPluginOpcodesData,
-    IPluginUnregisterData,
     IPluginRouteExecuteRequest,
+    IPluginRoutesData,
+    IPluginUnregisterData,
     IPluginWsExecuteRequest,
 } from '../plugins/interfaces/IPluginMessages.js';
 import { WSManager } from './websocket/WebSocketManager.js';
@@ -51,6 +51,18 @@ class ServerThreadBase extends Thread<ThreadTypes.API> {
         WSManager.setPluginWsExecutor(this.executePluginWsHandler.bind(this));
 
         await this.server.init(Config.API.PORT);
+    }
+
+    protected onLinkMessage(
+        type: ThreadTypes,
+        msg: ThreadMessageBase<MessageType>,
+    ): ThreadData | undefined {
+        if (type === ThreadTypes.PLUGIN) {
+            return this.handlePluginMessage(msg);
+        }
+
+        this.warn(`Unhandled link message from thread type: ${type}`);
+        return undefined;
     }
 
     /**
@@ -136,21 +148,7 @@ class ServerThreadBase extends Thread<ThreadTypes.API> {
         }
     }
 
-    protected onLinkMessage(
-        type: ThreadTypes,
-        msg: ThreadMessageBase<MessageType>,
-    ): ThreadData | undefined {
-        if (type === ThreadTypes.PLUGIN) {
-            return this.handlePluginMessage(msg);
-        }
-
-        this.warn(`Unhandled link message from thread type: ${type}`);
-        return undefined;
-    }
-
-    private handlePluginMessage(
-        msg: ThreadMessageBase<MessageType>,
-    ): ThreadData | undefined {
+    private handlePluginMessage(msg: ThreadMessageBase<MessageType>): ThreadData | undefined {
         switch (msg.type) {
             case MessageType.PLUGIN_REGISTER_ROUTES: {
                 const data = msg.data as IPluginRoutesData;

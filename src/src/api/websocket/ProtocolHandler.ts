@@ -307,7 +307,9 @@ export class ProtocolHandler extends Logger {
                 requestId = decoded.requestId as number;
             }
         } catch (error) {
-            this.warn(`Failed to decode plugin request for opcode 0x${opcode.toString(16)}: ${error}`);
+            this.warn(
+                `Failed to decode plugin request for opcode 0x${opcode.toString(16)}: ${error}`,
+            );
             client.sendError(0, ProtocolError.MALFORMED_MESSAGE, 'Failed to deserialize request');
             return false;
         }

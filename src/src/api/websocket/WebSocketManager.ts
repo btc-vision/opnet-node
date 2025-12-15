@@ -106,7 +106,12 @@ export class WebSocketManager extends Logger {
         payload: Uint8Array,
         requestId: number,
         clientId: string,
-    ): Promise<{ success: boolean; responseOpcode?: number; response?: Uint8Array; error?: string }> {
+    ): Promise<{
+        success: boolean;
+        responseOpcode?: number;
+        response?: Uint8Array;
+        error?: string;
+    }> {
         const opcodeInfo = this.opcodeToPlugin.get(opcode);
         if (!opcodeInfo) {
             return { success: false, error: 'Unknown plugin opcode' };

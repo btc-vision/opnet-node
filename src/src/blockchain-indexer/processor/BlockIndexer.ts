@@ -439,7 +439,9 @@ export class BlockIndexer extends Logger {
         const response = await this.sendMessageToThread(ThreadTypes.PLUGIN, pluginReorgMsg);
 
         if (response && (response as { error?: string }).error) {
-            this.error(`Plugin reorg notification failed: ${(response as { error?: string }).error}`);
+            this.error(
+                `Plugin reorg notification failed: ${(response as { error?: string }).error}`,
+            );
         } else {
             this.info(`Plugin reorg notification complete`);
         }
