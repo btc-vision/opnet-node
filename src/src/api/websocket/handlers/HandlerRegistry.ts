@@ -4,13 +4,11 @@ import { WebSocketRequestOpcode } from '../types/opcodes/WebSocketOpcodes.js';
 import { WSManager } from '../WebSocketManager.js';
 import { SubscriptionType } from '../types/enums/SubscriptionType.js';
 import { InternalError, ResourceError } from '../types/errors/WebSocketErrorCodes.js';
-import { WebSocketAPIError } from '../ProtocolHandler.js';
+import { PROTOCOL_VERSION, WebSocketAPIError } from '../ProtocolHandler.js';
 import { DefinedRoutes } from '../../routes/DefinedRoutes.js';
 import { Routes } from '../../enums/Routes.js';
 import { PackedMessage } from '../packets/APIPacket.js';
-import {
-    BlockHeaderAPIDocumentWithTransactions
-} from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
+import { BlockHeaderAPIDocumentWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
 
 // Import typed request interfaces
 import {
@@ -149,6 +147,9 @@ export class HandlerRegistry extends Logger {
         this.registerSubscriptionHandlers();
 
         this.log('All WebSocket API handlers registered');
+
+        // Validate all opcode handlers are registered
+        APIRegistry.validateHandlers();
     }
 
     private registerBlockHandlers(): void {

@@ -66,12 +66,16 @@ export class SubmitEpochRoute extends Route<
         // Initialize epoch validator with configured minimum difficulty
         this._epochValidator = new EpochValidator(this.storage);
 
-        const currentBlock = await this.storage.getLatestBlock();
-        if (!currentBlock) {
-            throw new Error('No blocks found in storage to determine current height');
-        }
+        try {
+            const currentBlock = await this.storage.getLatestBlock();
+            if (!currentBlock) {
+                return;
+            }
 
-        this.pendingBlockHeight = BigInt(currentBlock.height);
+            this.pendingBlockHeight = BigInt(currentBlock.height);
+        } catch {
+            this.pendingBlockHeight = 0n;
+        }
     }
 
     /**

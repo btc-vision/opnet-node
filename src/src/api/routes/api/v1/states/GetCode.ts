@@ -7,6 +7,7 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { GetCodeParams } from '../../../../json-rpc/types/interfaces/params/states/GetCodeParams.js';
 import { GetCodeResult } from '../../../../json-rpc/types/interfaces/results/states/GetCodeResult.js';
 import { Route } from '../../../Route.js';
+import { IContractAPIDocument } from '../../../../../db/documents/interfaces/IContractDocument.js';
 
 export class GetCode extends Route<
     Routes.GET_CODE,
@@ -51,11 +52,12 @@ export class GetCode extends Route<
                 deployedTransactionId: document.deployedTransactionId.toString('hex'),
                 deployedTransactionHash: document.deployedTransactionHash.toString('hex'),
                 deployerPubKey: document.deployerPubKey.toString('base64'),
+                deployerAddress: document.deployerAddress.toString('base64'),
 
                 bytecode: contract.bytecode.toString('base64'),
 
                 wasCompressed: document.wasCompressed,
-            };
+            } satisfies IContractAPIDocument;
         }
 
         return result;

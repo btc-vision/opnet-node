@@ -76,9 +76,6 @@ export class WebSocketManager extends Logger {
             return;
         }
 
-        // Validate all opcode handlers are registered
-        APIRegistry.validateHandlers();
-
         this.log(
             `WebSocket manager initialized (protocol v${PROTOCOL_VERSION}, max connections: ${config.MAX_CONNECTIONS})`,
         );
