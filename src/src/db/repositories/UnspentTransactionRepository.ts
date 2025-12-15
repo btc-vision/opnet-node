@@ -14,15 +14,16 @@ import {
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { ISpentTransaction, IUnspentTransaction, ShortScriptPubKey, } from '../interfaces/IUnspentTransaction.js';
+import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
-import {
-    RawUTXOsAggregationResultV3
-} from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import { RawUTXOsAggregationResultV3 } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
-import { UTXOsAggregationV3 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV3.js';
+import {
+    UTXOsAggregationResultV3,
+    UTXOsAggregationV3,
+} from '../../vm/storage/databases/aggregation/UTXOsAggregationV3.js';
 
 export interface ProcessUnspentTransaction {
     transactions: ITransactionDocumentBasic<OPNetTransactionTypes>[];
@@ -232,7 +233,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         return DataConverter.fromDecimal128(balance);
     }
 
-    public async getWalletUnspentUTXOS(
+    /*public async getWalletUnspentUTXOS(
         wallet: string,
         optimize: boolean = false,
         olderThan: bigint | undefined,
@@ -290,9 +291,9 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
             throw e;
         }
-    }
+    }*/
 
-    /*public async getWalletUnspentUTXOS(
+    public async getWalletUnspentUTXOS(
         wallet: string,
         optimize: boolean = false,
         olderThan: bigint | undefined,
@@ -347,7 +348,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
 
             throw e;
         }
-    }*/
+    }
 
     protected override getCollection(): Collection<IUnspentTransaction> {
         return this._db.collection(OPNetCollections.UnspentTransactions);

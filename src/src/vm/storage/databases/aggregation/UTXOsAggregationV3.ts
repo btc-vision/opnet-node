@@ -27,9 +27,9 @@ export class UTXOsAggregationV3 extends Aggregation {
         olderThan: bigint | undefined,
     ): Document[] {
         //if (dbVersion >= 8) {
-        return this.buildQueryMongodb8(wallet, limit, optimize, pushRawTxs, olderThan);
+        //return this.buildQueryMongodb8(wallet, limit, optimize, pushRawTxs, olderThan);
         //} else {
-        //    return this.buildQueryMongodb7(wallet, limit, optimize, pushRawTxs, olderThan);
+        return this.buildQueryMongodb7(wallet, limit, optimize, pushRawTxs, olderThan);
         //}
     }
 
