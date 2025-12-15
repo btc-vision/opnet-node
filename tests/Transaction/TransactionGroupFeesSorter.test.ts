@@ -13,18 +13,18 @@ describe('TransactionGroupFeesSorter', () => {
     });
 
     describe('sortGroupsByBurnedFees', () => {
-        test('should sort transaction groups in descending order based on the total burned fees', () => {
+        test('should sort transaction groups in descending order based on the total burned fees', async () => {
             // Given
             const groupA: Transaction<OPNetTransactionTypes>[] = [];
             const groupB: Transaction<OPNetTransactionTypes>[] = [];
             const groupC: Transaction<OPNetTransactionTypes>[] = [];
 
-            groupA.push(CreateFakeTransaction(networks.regtest, BigInt(20000000)));
-            groupA.push(CreateFakeTransaction(networks.regtest, BigInt(20000000)));
-            groupB.push(CreateFakeTransaction(networks.regtest, BigInt(30000000)));
-            groupB.push(CreateFakeTransaction(networks.regtest, BigInt(30000000)));
-            groupC.push(CreateFakeTransaction(networks.regtest, BigInt(10000000)));
-            groupC.push(CreateFakeTransaction(networks.regtest, BigInt(10000000)));
+            groupA.push(await CreateFakeTransaction(networks.regtest, BigInt(20000000)));
+            groupA.push(await CreateFakeTransaction(networks.regtest, BigInt(20000000)));
+            groupB.push(await CreateFakeTransaction(networks.regtest, BigInt(30000000)));
+            groupB.push(await CreateFakeTransaction(networks.regtest, BigInt(30000000)));
+            groupC.push(await CreateFakeTransaction(networks.regtest, BigInt(10000000)));
+            groupC.push(await CreateFakeTransaction(networks.regtest, BigInt(10000000)));
 
             const groups: Transaction<OPNetTransactionTypes>[][] = [groupA, groupB, groupC];
 
@@ -37,13 +37,13 @@ describe('TransactionGroupFeesSorter', () => {
             expect(sortedGroups[2]).toMatchObject(groupC);
         });
 
-        test('should use hash comparison for sorting when burned fees are equal', () => {
+        test('should use hash comparison for sorting when burned fees are equal', async () => {
             // Given
             const groupA: Transaction<OPNetTransactionTypes>[] = [];
             const groupB: Transaction<OPNetTransactionTypes>[] = [];
 
             groupA.push(
-                CreateFakeTransaction(
+                await CreateFakeTransaction(
                     networks.regtest,
                     BigInt(30000000),
                     null,
@@ -53,7 +53,7 @@ describe('TransactionGroupFeesSorter', () => {
                 ),
             );
             groupB.push(
-                CreateFakeTransaction(
+                await CreateFakeTransaction(
                     networks.regtest,
                     BigInt(30000000),
                     null,
@@ -73,12 +73,12 @@ describe('TransactionGroupFeesSorter', () => {
             expect(sortedGroups[1]).toMatchObject(groupA);
         });
 
-        test('should handle empty groups', () => {
+        test('should handle empty groups', async () => {
             // Given
             const groupA: Transaction<OPNetTransactionTypes>[] = [];
             const groupB: Transaction<OPNetTransactionTypes>[] = [];
 
-            groupB.push(CreateFakeTransaction(networks.regtest, BigInt(30000000)));
+            groupB.push(await CreateFakeTransaction(networks.regtest, BigInt(30000000)));
             const groups = [groupA, groupB];
 
             // When
