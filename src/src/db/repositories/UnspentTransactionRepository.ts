@@ -14,9 +14,11 @@ import {
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
+import { ISpentTransaction, IUnspentTransaction, ShortScriptPubKey, } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
-import { RawUTXOsAggregationResultV3 } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import {
+    RawUTXOsAggregationResultV3
+} from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
@@ -233,13 +235,12 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         return DataConverter.fromDecimal128(balance);
     }
 
-    /*public async getWalletUnspentUTXOS(
+    public async getWalletUnspentUTXOSFallBack(
         wallet: string,
         optimize: boolean = false,
         olderThan: bigint | undefined,
     ): Promise<RawUTXOsAggregationResultV3> {
-        const aggregation: Document[] = this.uxtosAggregation.getAggregation(
-            this.dbVersion,
+        const aggregation: Document[] = this.uxtosAggregation.buildQueryMongodbFallBack(
             wallet,
             true,
             optimize,
@@ -291,7 +292,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
             throw e;
         }
-    }*/
+    }
 
     public async getWalletUnspentUTXOS(
         wallet: string,
@@ -346,7 +347,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         } catch (e) {
             this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
 
-            throw e;
+            return await this.getWalletUnspentUTXOSFallBack(wallet, optimize, olderThan);
         }
     }
 

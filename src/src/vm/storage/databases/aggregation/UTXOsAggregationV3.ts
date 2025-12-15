@@ -26,14 +26,77 @@ export class UTXOsAggregationV3 extends Aggregation {
         pushRawTxs: boolean = true,
         olderThan: bigint | undefined,
     ): Document[] {
-        //if (dbVersion >= 8) {
-        //return this.buildQueryMongodb8(wallet, limit, optimize, pushRawTxs, olderThan);
-        //} else {
-        return this.buildQueryMongodb7(wallet, limit, optimize, pushRawTxs, olderThan);
-        //}
+        if (dbVersion >= 8) {
+            return this.buildQueryMongodb8(wallet, limit, optimize, pushRawTxs, olderThan);
+        } else {
+            return this.buildQueryMongodb7(wallet, limit, optimize, pushRawTxs, olderThan);
+        }
     }
 
-    /*private buildQueryMongodb8(
+    public buildQueryMongodbFallBack(
+        wallet: string,
+        limit: boolean = true,
+        optimize: boolean = false,
+        pushRawTxs: boolean = true,
+        olderThan: bigint | undefined,
+    ): Document[] {
+        const minValue: number = optimize ? 12000 : 330;
+
+        const aggregation: Document[] = [
+            {
+                $match: {
+                    'scriptPubKey.address': wallet,
+                    value: { $gte: Long.fromValue(minValue) },
+                    deletedAtBlock: null,
+                    ...(olderThan !== undefined
+                        ? { blockHeight: { $lte: DataConverter.toDecimal128(olderThan) } }
+                        : {}),
+                },
+            },
+            { $sort: { value: -1 } },
+        ];
+
+        if (limit) {
+            aggregation.push({ $limit: Config.API.UTXO_LIMIT });
+        }
+
+        if (pushRawTxs) {
+            aggregation.push({
+                $lookup: {
+                    from: 'Transactions',
+                    localField: 'transactionId',
+                    foreignField: 'id',
+                    pipeline: [{ $project: { _id: 0, raw: 1 } }],
+                    as: 'tx',
+                },
+            });
+
+            aggregation.push({
+                $project: {
+                    _id: 0,
+                    transactionId: 1,
+                    outputIndex: 1,
+                    value: 1,
+                    scriptPubKey: 1,
+                    raw: { $arrayElemAt: ['$tx.raw', 0] },
+                },
+            });
+        } else {
+            aggregation.push({
+                $project: {
+                    _id: 0,
+                    transactionId: 1,
+                    outputIndex: 1,
+                    value: 1,
+                    scriptPubKey: 1,
+                },
+            });
+        }
+
+        return aggregation;
+    }
+
+    private buildQueryMongodb8(
         wallet: string,
         limit: boolean = true,
         optimize: boolean = false,
@@ -215,69 +278,6 @@ export class UTXOsAggregationV3 extends Aggregation {
                     _id: 0,
                     utxos: 1,
                     raw: { $literal: [] },
-                },
-            });
-        }
-
-        return aggregation;
-    }*/
-
-    private buildQueryMongodb8(
-        wallet: string,
-        limit: boolean = true,
-        optimize: boolean = false,
-        pushRawTxs: boolean = true,
-        olderThan: bigint | undefined,
-    ): Document[] {
-        const minValue: number = optimize ? 12000 : 330;
-
-        const aggregation: Document[] = [
-            {
-                $match: {
-                    'scriptPubKey.address': wallet,
-                    value: { $gte: Long.fromValue(minValue) },
-                    deletedAtBlock: null,
-                    ...(olderThan !== undefined
-                        ? { blockHeight: { $lte: DataConverter.toDecimal128(olderThan) } }
-                        : {}),
-                },
-            },
-            { $sort: { value: -1 } },
-        ];
-
-        if (limit) {
-            aggregation.push({ $limit: Config.API.UTXO_LIMIT });
-        }
-
-        if (pushRawTxs) {
-            aggregation.push({
-                $lookup: {
-                    from: 'Transactions',
-                    localField: 'transactionId',
-                    foreignField: 'id',
-                    pipeline: [{ $project: { _id: 0, raw: 1 } }],
-                    as: 'tx',
-                },
-            });
-
-            aggregation.push({
-                $project: {
-                    _id: 0,
-                    transactionId: 1,
-                    outputIndex: 1,
-                    value: 1,
-                    scriptPubKey: 1,
-                    raw: { $arrayElemAt: ['$tx.raw', 0] },
-                },
-            });
-        } else {
-            aggregation.push({
-                $project: {
-                    _id: 0,
-                    transactionId: 1,
-                    outputIndex: 1,
-                    value: 1,
-                    scriptPubKey: 1,
                 },
             });
         }
