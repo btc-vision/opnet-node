@@ -424,8 +424,39 @@ async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
         // Convert bytecode to Buffer if it was serialized as Uint8Array during postMessage
         const bytecodeBuffer = Buffer.isBuffer(bytecode) ? bytecode : Buffer.from(bytecode);
 
-        // runBytecode executes the V8 bytecode buffer and returns the module exports
-        const moduleExports = bytenode.runBytecode(bytecodeBuffer) as Record<string, unknown>;
+        // runBytecode returns a wrapper function when compiled as module
+        // The wrapper signature is: (exports, require, module, __filename, __dirname) => void
+        const { createRequire } = await import('module');
+        // createRequire needs an absolute path
+        const absoluteDataDir = path.resolve(dataDir);
+        const pluginRequire = createRequire(path.join(absoluteDataDir, 'plugin.js'));
+
+        // Create module context for the plugin
+        const pluginModule = { exports: {} as Record<string, unknown> };
+        const pluginExports = pluginModule.exports;
+        const pluginFilename = path.join(absoluteDataDir, 'plugin.jsc');
+        const pluginDirname = absoluteDataDir;
+
+        // Execute the bytecode - it returns a wrapper function for module code
+        const wrapperFn = bytenode.runBytecode(bytecodeBuffer);
+
+        // If it's a function (compiled as module), invoke it with module context
+        let moduleExports: Record<string, unknown>;
+        if (typeof wrapperFn === 'function') {
+            (
+                wrapperFn as (
+                    exports: Record<string, unknown>,
+                    require: NodeJS.Require,
+                    module: { exports: Record<string, unknown> },
+                    filename: string,
+                    dirname: string,
+                ) => void
+            )(pluginExports, pluginRequire, pluginModule, pluginFilename, pluginDirname);
+            moduleExports = pluginModule.exports;
+        } else {
+            // If not a function, it's the direct exports (non-module bytecode)
+            moduleExports = wrapperFn as Record<string, unknown>;
+        }
 
         // Get the plugin class from exports
         let pluginInstance: IPlugin;
