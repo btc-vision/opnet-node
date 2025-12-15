@@ -3,10 +3,18 @@ import { OPNetTransactionTypes } from '../../src/src/blockchain-indexer/processo
 import { TransactionGroupFeesSorter } from '../../src/src/blockchain-indexer/processor/transaction/transaction-sorter/TransactionGroupFeesSorter.js';
 import { Transaction } from '../../src/src/blockchain-indexer/processor/transaction/Transaction.js';
 import { CreateFakeTransaction } from './TransactionCreatorHelper.js';
-import { beforeEach, describe, test } from 'vitest';
+import { beforeAll, beforeEach, describe, test } from 'vitest';
+import { OPNetConsensus } from '../../src/src/poa/configurations/OPNetConsensus.js';
 
 describe('TransactionGroupFeesSorter', () => {
     let sorter: TransactionGroupFeesSorter;
+
+    beforeAll(() => {
+        // Initialize OPNetConsensus before tests run
+        if (!OPNetConsensus.hasConsensus()) {
+            OPNetConsensus.setBlockHeight(0n);
+        }
+    });
 
     beforeEach(() => {
         sorter = new TransactionGroupFeesSorter();

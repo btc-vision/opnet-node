@@ -358,8 +358,8 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should ignore directories with .opnet extension', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -380,8 +380,8 @@ describe('Plugin Hot Reload Integration', () => {
 
     describe('Plugin state tracking', () => {
         it('should return empty array when no plugins loaded', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
@@ -392,8 +392,8 @@ describe('Plugin Hot Reload Integration', () => {
         });
 
         it('should track initialization state correctly', async () => {
-            if (!mongoClient) {
-                console.warn('Skipping test: MongoDB not available');
+            if (!hasMongoCredentials || !mongoClient) {
+                console.warn('Skipping test: MongoDB not configured');
                 return;
             }
 
