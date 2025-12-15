@@ -1,4 +1,4 @@
-import { Worker } from 'worker_threads';
+import { parentPort, Worker } from 'worker_threads';
 import { MessageType } from '../threading/enum/MessageType.js';
 import {
     LinkThreadMessage,
@@ -27,6 +27,10 @@ export class PluginThreadManager extends ThreadManager<ThreadTypes.PLUGIN> {
         switch (msg.type) {
             case MessageType.PLUGIN_READY:
                 this.log('Plugin thread ready');
+                // Forward to Core so it can continue starting other threads
+                if (parentPort) {
+                    parentPort.postMessage(msg);
+                }
                 break;
             default:
                 this.warn(`Unknown message type: ${msg.type}`);
