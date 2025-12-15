@@ -239,6 +239,37 @@ export interface IPluginLoadedResponse extends IWorkerResponse {
 }
 
 /**
+ * Plugin unloaded response
+ */
+export interface IPluginUnloadedResponse extends IWorkerResponse {
+    readonly type: WorkerResponseType.PLUGIN_UNLOADED;
+    readonly pluginId: string;
+}
+
+/**
+ * Plugin enabled response
+ */
+export interface IPluginEnabledResponse extends IWorkerResponse {
+    readonly type: WorkerResponseType.PLUGIN_ENABLED;
+    readonly pluginId: string;
+}
+
+/**
+ * Plugin disabled response
+ */
+export interface IPluginDisabledResponse extends IWorkerResponse {
+    readonly type: WorkerResponseType.PLUGIN_DISABLED;
+    readonly pluginId: string;
+}
+
+/**
+ * Shutdown complete response
+ */
+export interface IShutdownCompleteResponse extends IWorkerResponse {
+    readonly type: WorkerResponseType.SHUTDOWN_COMPLETE;
+}
+
+/**
  * Hook result response
  */
 export interface IHookResultResponse extends IWorkerResponse {
@@ -337,6 +368,9 @@ export type WorkerMessage =
  */
 export type WorkerResponse =
     | IPluginLoadedResponse
+    | IPluginUnloadedResponse
+    | IPluginEnabledResponse
+    | IPluginDisabledResponse
     | IHookResultResponse
     | IRouteResultResponse
     | IWsResultResponse
@@ -347,6 +381,7 @@ export type WorkerResponse =
     | IPluginCrashedResponse
     | IWorkerReadyResponse
     | IPongResponse
+    | IShutdownCompleteResponse
     | IWorkerResponse;
 
 /**

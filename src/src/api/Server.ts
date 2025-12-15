@@ -447,6 +447,7 @@ export class Server extends Logger {
                     method: req.method,
                     path: req.path,
                     query: req.query_parameters || {},
+                    params: req.path_parameters || {},
                     body,
                     headers: this.extractHeaders(req),
                 };

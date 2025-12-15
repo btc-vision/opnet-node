@@ -181,7 +181,14 @@ export class PluginLoader extends Logger {
         const headerSize = calculateHeaderSize(header.mldsaLevel);
         let offset = headerSize;
 
-        // Parse metadata
+        // Parse metadata - check buffer bounds before reading length
+        if (offset + 4 > buffer.length) {
+            throw new PluginLoadError(
+                `Buffer overflow: need ${offset + 4} bytes for metadata length, but buffer is ${buffer.length} bytes`,
+                'BUFFER_OVERFLOW',
+                filePath,
+            );
+        }
         const metadataLength = buffer.readUInt32LE(offset);
         offset += 4;
 
@@ -193,6 +200,14 @@ export class PluginLoader extends Logger {
             );
         }
 
+        // Check buffer bounds before reading metadata
+        if (offset + metadataLength > buffer.length) {
+            throw new PluginLoadError(
+                `Buffer overflow: need ${offset + metadataLength} bytes for metadata, but buffer is ${buffer.length} bytes`,
+                'BUFFER_OVERFLOW',
+                filePath,
+            );
+        }
         const rawMetadata = buffer.subarray(offset, offset + metadataLength).toString('utf8');
         offset += metadataLength;
 
@@ -207,7 +222,14 @@ export class PluginLoader extends Logger {
             );
         }
 
-        // Parse bytecode
+        // Parse bytecode - check buffer bounds before reading length
+        if (offset + 4 > buffer.length) {
+            throw new PluginLoadError(
+                `Buffer overflow: need ${offset + 4} bytes for bytecode length, but buffer is ${buffer.length} bytes`,
+                'BUFFER_OVERFLOW',
+                filePath,
+            );
+        }
         const bytecodeLength = buffer.readUInt32LE(offset);
         offset += 4;
 
@@ -219,10 +241,25 @@ export class PluginLoader extends Logger {
             );
         }
 
+        // Check buffer bounds before reading bytecode
+        if (offset + bytecodeLength > buffer.length) {
+            throw new PluginLoadError(
+                `Buffer overflow: need ${offset + bytecodeLength} bytes for bytecode, but buffer is ${buffer.length} bytes`,
+                'BUFFER_OVERFLOW',
+                filePath,
+            );
+        }
         const bytecode = buffer.subarray(offset, offset + bytecodeLength);
         offset += bytecodeLength;
 
-        // Parse proto (optional)
+        // Parse proto (optional) - check buffer bounds before reading length
+        if (offset + 4 > buffer.length) {
+            throw new PluginLoadError(
+                `Buffer overflow: need ${offset + 4} bytes for proto length, but buffer is ${buffer.length} bytes`,
+                'BUFFER_OVERFLOW',
+                filePath,
+            );
+        }
         const protoLength = buffer.readUInt32LE(offset);
         offset += 4;
 
@@ -235,19 +272,27 @@ export class PluginLoader extends Logger {
                     filePath,
                 );
             }
+            // Check buffer bounds before reading proto
+            if (offset + protoLength > buffer.length) {
+                throw new PluginLoadError(
+                    `Buffer overflow: need ${offset + protoLength} bytes for proto, but buffer is ${buffer.length} bytes`,
+                    'BUFFER_OVERFLOW',
+                    filePath,
+                );
+            }
             proto = buffer.subarray(offset, offset + protoLength);
             offset += protoLength;
         }
 
-        // Parse checksum (last 32 bytes)
-        const checksum = buffer.subarray(offset, offset + 32);
-        if (checksum.length !== 32) {
+        // Parse checksum (last 32 bytes) - check buffer bounds first
+        if (offset + 32 > buffer.length) {
             throw new PluginLoadError(
-                `Invalid checksum length: ${checksum.length} (expected: 32)`,
-                'INVALID_CHECKSUM_LENGTH',
+                `Buffer overflow: need ${offset + 32} bytes for checksum, but buffer is ${buffer.length} bytes`,
+                'BUFFER_OVERFLOW',
                 filePath,
             );
         }
+        const checksum = buffer.subarray(offset, offset + 32);
 
         // Verify checksum
         const computedChecksum = this.computeChecksum(rawMetadata, bytecode, proto);
@@ -279,6 +324,15 @@ export class PluginLoader extends Logger {
      */
     private parseHeader(buffer: Buffer, filePath: string): IPluginFileHeader {
         let offset = 0;
+
+        // Minimum header size check (magic + version + mldsa level = 13 bytes)
+        if (buffer.length < 13) {
+            throw new PluginLoadError(
+                `File too small: ${buffer.length} bytes (minimum header: 13 bytes)`,
+                'FILE_TOO_SMALL',
+                filePath,
+            );
+        }
 
         // Magic bytes
         const magic = buffer.subarray(offset, offset + 8);
@@ -316,30 +370,28 @@ export class PluginLoader extends Logger {
             );
         }
 
-        // Public key
+        // Public key - check buffer bounds before reading
         const publicKeySize = MLDSA_PUBLIC_KEY_SIZES[mldsaLevel];
+        if (offset + publicKeySize > buffer.length) {
+            throw new PluginLoadError(
+                `Buffer overflow: need ${offset + publicKeySize} bytes for public key, but buffer is ${buffer.length} bytes`,
+                'BUFFER_OVERFLOW',
+                filePath,
+            );
+        }
         const publicKey = buffer.subarray(offset, offset + publicKeySize);
         offset += publicKeySize;
 
-        if (publicKey.length !== publicKeySize) {
-            throw new PluginLoadError(
-                `Invalid public key size: ${publicKey.length} (expected: ${publicKeySize})`,
-                'INVALID_PUBLIC_KEY_SIZE',
-                filePath,
-            );
-        }
-
-        // Signature
+        // Signature - check buffer bounds before reading
         const signatureSize = MLDSA_SIGNATURE_SIZES[mldsaLevel];
-        const signature = buffer.subarray(offset, offset + signatureSize);
-
-        if (signature.length !== signatureSize) {
+        if (offset + signatureSize > buffer.length) {
             throw new PluginLoadError(
-                `Invalid signature size: ${signature.length} (expected: ${signatureSize})`,
-                'INVALID_SIGNATURE_SIZE',
+                `Buffer overflow: need ${offset + signatureSize} bytes for signature, but buffer is ${buffer.length} bytes`,
+                'BUFFER_OVERFLOW',
                 filePath,
             );
         }
+        const signature = buffer.subarray(offset, offset + signatureSize);
 
         return {
             magic,

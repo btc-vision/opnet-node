@@ -154,7 +154,18 @@ export class PluginRouteRegistry extends Logger {
                 }
 
                 // Parse result and send response
-                const responseBody = JSON.parse(result.result) as unknown;
+                let responseBody: unknown;
+                try {
+                    responseBody = JSON.parse(result.result) as unknown;
+                } catch (parseError) {
+                    this.error(`Invalid JSON response from plugin ${instance.pluginId}/${instance.handler}: ${(parseError as Error).message}`);
+                    res.status(500);
+                    res.json({
+                        error: 'Plugin returned invalid JSON response',
+                        code: 'INVALID_RESPONSE_JSON',
+                    });
+                    return;
+                }
                 res.status(result.status || 200);
                 res.json(responseBody);
             } catch (error) {

@@ -393,22 +393,22 @@ export class BlockIndexer extends Logger {
             // Stop all tasks, if one is still running.
             await this.stopAllTasks(reorged);
 
-            // CRITICAL: Notify plugins of reorg BEFORE reverting data
-            // This is BLOCKING - we wait for all plugins to complete their reorg handling
-            await this.notifyPluginsOfReorg(fromHeight, toHeight, newBest);
-
             // Notify thread.
             await this.notifyThreadReorg(fromHeight, toHeight, newBest);
 
             // Await all pending writes.
             await this.vmStorage.killAllPendingWrites();
 
-            // Revert block
+            // Revert block data FIRST - main thread work must complete before plugins
             await this.vmStorage.revertDataUntilBlock(fromHeight);
             await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
 
             // Revert data.
             if (reorged) await this.reorgFromHeight(fromHeight, toHeight);
+
+            // AFTER main thread completes reorg, notify plugins
+            // This is BLOCKING - we wait for all plugins to complete their reorg handling
+            await this.notifyPluginsOfReorg(fromHeight, toHeight, newBest);
         } finally {
             // Unlock tasks.
             this.chainReorged = false;
@@ -418,7 +418,7 @@ export class BlockIndexer extends Logger {
     /**
      * Notify plugins of a chain reorg (BLOCKING)
      * This sends a message to the Plugin thread which dispatches to PluginManager
-     * We MUST wait for all plugins to complete their reorg handling before continuing
+     * Called AFTER main thread completes its reorg work so plugins see consistent state
      */
     private async notifyPluginsOfReorg(
         fromHeight: bigint,

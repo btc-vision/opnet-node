@@ -202,6 +202,18 @@ export class PluginValidator extends Logger {
                     'checksum',
                 ),
             );
+        } else {
+            // Validate hex portion is valid and has correct length (64 chars for SHA256)
+            const hashPart = metadata.checksum.slice(7);
+            if (!/^[a-f0-9]{64}$/i.test(hashPart)) {
+                errors.push(
+                    new PluginValidationError(
+                        'Checksum must be valid SHA256 hex (64 lowercase/uppercase hex characters)',
+                        'INVALID_CHECKSUM_HEX',
+                        'checksum',
+                    ),
+                );
+            }
         }
 
         // Author

@@ -614,7 +614,9 @@ export class PluginManager extends Logger {
         // Debounce the file change event
         const timer = setTimeout(() => {
             this.reloadDebounceTimers.delete(filename);
-            void this.processFileChange(eventType, filePath, pluginId, filename);
+            this.processFileChange(eventType, filePath, pluginId, filename).catch((error: unknown) => {
+                this.error(`Hot reload error for ${filename}: ${error}`);
+            });
         }, this.reloadDebounceMs);
 
         this.reloadDebounceTimers.set(filename, timer);

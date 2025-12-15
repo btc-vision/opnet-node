@@ -1,5 +1,6 @@
 import { parentPort, workerData } from 'worker_threads';
 import * as path from 'path';
+import * as fs from 'fs';
 import { Db } from 'mongodb';
 import { Logger, Globals } from '@btc-vision/bsi-common';
 
@@ -62,6 +63,7 @@ interface ILoadedPlugin {
     syncState: IPluginInstallState | undefined;
     enabledAtBlock: bigint;
     isFirstInstall: boolean;
+    dataDir: string;
 }
 
 /**
@@ -159,9 +161,10 @@ function sendError(
 }
 
 /**
- * Send crash notification
+ * Send crash notification and write crash report to plugin directory
  */
 function sendCrash(pluginId: string, code: string, message: string, stack?: string): void {
+    // Send crash notification to main thread
     const response: IPluginCrashedResponse = {
         type: WorkerResponseType.PLUGIN_CRASHED,
         requestId: '',
@@ -173,6 +176,54 @@ function sendCrash(pluginId: string, code: string, message: string, stack?: stri
         errorStack: stack,
     };
     sendResponse(response);
+
+    // Write crash report to plugin's crashreports directory
+    const plugin = loadedPlugins.get(pluginId);
+    if (plugin?.dataDir) {
+        try {
+            const crashReportsDir = path.join(plugin.dataDir, 'crashreports');
+
+            // Ensure crashreports directory exists
+            if (!fs.existsSync(crashReportsDir)) {
+                fs.mkdirSync(crashReportsDir, { recursive: true });
+            }
+
+            // Generate crash report filename with timestamp
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const crashReportPath = path.join(crashReportsDir, `crash-${timestamp}.log`);
+
+            // Build crash report content
+            const crashReport = [
+                `=== PLUGIN CRASH REPORT ===`,
+                `Timestamp: ${new Date().toISOString()}`,
+                `Plugin ID: ${pluginId}`,
+                `Plugin Version: ${plugin.metadata.version}`,
+                `Error Code: ${code}`,
+                ``,
+                `=== ERROR MESSAGE ===`,
+                message,
+                ``,
+                `=== STACK TRACE ===`,
+                stack || 'No stack trace available',
+                ``,
+                `=== PLUGIN STATE ===`,
+                `Enabled: ${plugin.enabled}`,
+                `Network: ${plugin.networkInfo.network}`,
+                `Chain ID: ${plugin.networkInfo.chainId}`,
+                `Current Block Height: ${plugin.networkInfo.currentBlockHeight}`,
+                `Last Synced Block: ${plugin.syncState?.lastSyncedBlock ?? 'N/A'}`,
+                `Sync Completed: ${plugin.syncState?.syncCompleted ?? 'N/A'}`,
+                ``,
+                `=== END CRASH REPORT ===`,
+            ].join('\n');
+
+            // Write crash report
+            fs.writeFileSync(crashReportPath, crashReport, 'utf8');
+            logger.info(`Crash report written to: ${crashReportPath}`);
+        } catch (writeError) {
+            logger.error(`Failed to write crash report for ${pluginId}: ${writeError}`);
+        }
+    }
 }
 
 /**
@@ -284,25 +335,34 @@ async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
         };
 
         // Sync state setter - updates local state and notifies main thread
+        // Note: This is thread-safe within a worker since JS is single-threaded per worker.
+        // The synchronous read-modify-write happens in one tick without await points.
         const syncStateSetter = (
             updates: Partial<IPluginInstallState>,
         ): Promise<void> => {
             const plugin = loadedPlugins.get(pluginId);
-            if (plugin && plugin.syncState) {
-                plugin.syncState = {
-                    ...plugin.syncState,
-                    ...updates,
-                    updatedAt: Date.now(),
-                };
+            if (!plugin || !plugin.syncState) {
+                logger.warn(`Sync state setter called for non-existent plugin: ${pluginId}`);
+                return Promise.resolve();
             }
-            // Send update to main thread
+
+            // Atomically update local state
+            const newState: IPluginInstallState = {
+                ...plugin.syncState,
+                ...updates,
+                updatedAt: Date.now(),
+            };
+            plugin.syncState = newState;
+
+            // Send complete state update to main thread to prevent state divergence
             const updateResponse: ISyncStateUpdateResponse = {
                 type: WorkerResponseType.SYNC_STATE_UPDATE,
                 requestId: '',
                 pluginId,
                 success: true,
-                lastSyncedBlock: updates.lastSyncedBlock?.toString(),
-                syncCompleted: updates.syncCompleted,
+                // Send the actual current state values, not the partial updates
+                lastSyncedBlock: newState.lastSyncedBlock.toString(),
+                syncCompleted: newState.syncCompleted,
             };
             sendResponse(updateResponse);
             return Promise.resolve();
@@ -364,6 +424,7 @@ async function loadPlugin(message: ILoadPluginMessage): Promise<void> {
             syncState,
             enabledAtBlock,
             isFirstInstall,
+            dataDir,
         };
         loadedPlugins.set(pluginId, loadedPlugin);
 
@@ -578,10 +639,8 @@ async function executeHook(message: IExecuteHookMessage): Promise<void> {
         const err = error as Error;
         const durationMs = Date.now() - startTime;
 
-        // Check if this is a crash-worthy error
-        if (err.message.includes('timed out') || err.message.includes('out of memory')) {
-            sendCrash(pluginId, 'HOOK_CRASH', err.message, err.stack);
-        }
+        // Report ALL errors as crashes - any hook failure is significant
+        sendCrash(pluginId, 'HOOK_CRASH', `${err.name}: ${err.message}`, err.stack);
 
         const response: IHookResultResponse = {
             type: WorkerResponseType.HOOK_RESULT,
@@ -836,6 +895,18 @@ async function shutdown(): Promise<void> {
         }
     }
     loadedPlugins.clear();
+
+    // Close database connection if it was initialized
+    if (dbInstance) {
+        try {
+            await DBManagerInstance.close();
+            dbInstance = null;
+            dbInitializing = null;
+            logger.info('Database connection closed');
+        } catch (error) {
+            logger.error(`Error closing database connection: ${error}`);
+        }
+    }
 
     sendResponse({
         type: WorkerResponseType.SHUTDOWN_COMPLETE,
