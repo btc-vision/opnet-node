@@ -15,7 +15,12 @@ import {
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
 import { EpochValidationParams, EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { BinaryWriter, MessageSigner, MLDSASecurityLevel, QuantumBIP32Factory, } from '@btc-vision/transaction';
+import {
+    BinaryWriter,
+    MessageSigner,
+    MLDSASecurityLevel,
+    QuantumBIP32Factory,
+} from '@btc-vision/transaction';
 import { isEmptyBuffer } from '../../../../../utils/BufferUtils.js';
 
 export class SubmitEpochRoute extends Route<
