@@ -386,7 +386,7 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
         this.checkPermission('blocks');
 
         const block = await this.blockRepo.getBlockHeader(height);
-        return block !== undefined;
+        return block != null;
     }
 
     /**
@@ -406,7 +406,7 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
      */
     private async getChainTipInternal(): Promise<bigint> {
         const info = await this.blockchainInfoRepo.getByNetwork(Config.BITCOIN.NETWORK);
-        return BigInt(info.inProgressBlock || 0);
+        return BigInt(info?.inProgressBlock || 0);
     }
 
     /**
