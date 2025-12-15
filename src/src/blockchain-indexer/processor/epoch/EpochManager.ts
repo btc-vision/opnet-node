@@ -24,6 +24,10 @@ import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDoc
 import { BlockHeaderDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { Submission } from '../transaction/features/Submission.js';
 import { PendingTargetEpoch } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
+import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
+import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import { MessageType } from '../../../threading/enum/MessageType.js';
+import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 
 export interface ValidatedSolutionResult {
     readonly valid: boolean;
@@ -43,6 +47,17 @@ export class EpochManager extends Logger {
 
     private readonly epochValidator: EpochValidator;
 
+    /**
+     * Callback to send messages to other threads
+     * Assigned by BlockIndexer
+     */
+    public sendMessageToThread: (
+        type: ThreadTypes,
+        message: ThreadMessageBase<MessageType>,
+    ) => Promise<ThreadData | null> = () => {
+        throw new Error('sendMessageToThread not implemented.');
+    };
+
     public constructor(private readonly storage: VMStorage) {
         super();
 
@@ -59,6 +74,18 @@ export class EpochManager extends Logger {
         if (currentHeight % epochsPerBlock === 0n && currentHeight > 0n) {
             // We are at the first block of a new epoch, finalize the previous one
             const epochToFinalize = currentHeight / epochsPerBlock - 1n;
+
+            // Dispatch onEpochChange hook - epoch number has changed
+            const newEpochNumber = currentHeight / epochsPerBlock;
+            const newEpochStartBlock = newEpochNumber * epochsPerBlock;
+            const newEpochEndBlock = newEpochStartBlock + epochsPerBlock - 1n;
+
+            await this.dispatchEpochChange({
+                epochNumber: newEpochNumber,
+                startBlock: newEpochStartBlock,
+                endBlock: newEpochEndBlock,
+            });
+
             await this.finalizeEpochCompletion(epochToFinalize);
         }
     }
@@ -562,6 +589,14 @@ export class EpochManager extends Logger {
         this.log(
             `!! -- Finalized epoch ${epochNumber} [${epochDocument.proposer.solution.toString('hex')} (Diff: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))})] (${epochDocument.epochHash.toString('hex')}) -- !!`,
         );
+
+        // Dispatch onEpochFinalized hook - epoch merkle tree is complete
+        await this.dispatchEpochFinalized({
+            epochNumber,
+            startBlock,
+            endBlock,
+            checksumRoot: epochDocument.epochRoot.toString('hex'),
+        });
     }
 
     private witnessToAttestation(
@@ -621,5 +656,45 @@ export class EpochManager extends Logger {
         }
 
         return { root, epochNumber: targetEpochNumber };
+    }
+
+    /**
+     * Dispatch onEpochChange hook to plugins via thread messaging
+     */
+    private async dispatchEpochChange(epochData: {
+        epochNumber: bigint;
+        startBlock: bigint;
+        endBlock: bigint;
+        checksumRoot?: string;
+    }): Promise<void> {
+        try {
+            const msg: ThreadMessageBase<MessageType> = {
+                type: MessageType.PLUGIN_EPOCH_CHANGE,
+                data: epochData,
+            };
+            await this.sendMessageToThread(ThreadTypes.PLUGIN, msg);
+        } catch (error) {
+            this.error(`Error dispatching onEpochChange to plugin thread: ${error}`);
+        }
+    }
+
+    /**
+     * Dispatch onEpochFinalized hook to plugins via thread messaging
+     */
+    private async dispatchEpochFinalized(epochData: {
+        epochNumber: bigint;
+        startBlock: bigint;
+        endBlock: bigint;
+        checksumRoot?: string;
+    }): Promise<void> {
+        try {
+            const msg: ThreadMessageBase<MessageType> = {
+                type: MessageType.PLUGIN_EPOCH_FINALIZED,
+                data: epochData,
+            };
+            await this.sendMessageToThread(ThreadTypes.PLUGIN, msg);
+        } catch (error) {
+            this.error(`Error dispatching onEpochFinalized to plugin thread: ${error}`);
+        }
     }
 }

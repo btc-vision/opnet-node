@@ -10,6 +10,8 @@ import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js'
 import { APIPacketType } from './packets/types/APIPacketTypes.js';
 import { WebSocketConfig } from '../../config/interfaces/IBtcIndexerConfig.js';
 import { P2PVersion } from '../../poa/configurations/P2PVersion.js';
+import type { PluginOpcodeRegistry } from '../../plugins/api/websocket/PluginOpcodeRegistry.js';
+import type { IPluginOpcodeInfo } from '../../plugins/interfaces/IPluginMessages.js';
 
 /**
  * Manager metrics
@@ -58,8 +60,84 @@ export class WebSocketManager extends Logger {
     /** Whether WebSocket is enabled */
     private enabled: boolean = false;
 
+    /** Registered plugin opcodes by plugin ID */
+    private readonly pluginOpcodes: Map<string, IPluginOpcodeInfo[]> = new Map();
+
+    /** Opcode to plugin info mapping for quick lookup */
+    private readonly opcodeToPlugin: Map<number, IPluginOpcodeInfo> = new Map();
+
+    /** Callback to execute plugin WebSocket handlers via ServerThread */
+    private pluginWsExecutor?: (
+        pluginId: string,
+        handler: string,
+        requestOpcode: number,
+        request: Uint8Array,
+        requestId: number,
+        clientId: string,
+    ) => Promise<{ success: boolean; response?: Uint8Array; error?: string }>;
+
     public constructor() {
         super();
+    }
+
+    /**
+     * Set the plugin WebSocket handler executor callback
+     * Called by ServerThread to enable plugin opcode execution
+     */
+    public setPluginWsExecutor(
+        executor: (
+            pluginId: string,
+            handler: string,
+            requestOpcode: number,
+            request: Uint8Array,
+            requestId: number,
+            clientId: string,
+        ) => Promise<{ success: boolean; response?: Uint8Array; error?: string }>,
+    ): void {
+        this.pluginWsExecutor = executor;
+    }
+
+    /**
+     * Execute a plugin WebSocket handler
+     * Used by ProtocolHandler when handling plugin opcodes
+     */
+    public async executePluginHandler(
+        opcode: number,
+        payload: Uint8Array,
+        requestId: number,
+        clientId: string,
+    ): Promise<{ success: boolean; responseOpcode?: number; response?: Uint8Array; error?: string }> {
+        const opcodeInfo = this.opcodeToPlugin.get(opcode);
+        if (!opcodeInfo) {
+            return { success: false, error: 'Unknown plugin opcode' };
+        }
+
+        if (!this.pluginWsExecutor) {
+            return { success: false, error: 'Plugin system not initialized' };
+        }
+
+        try {
+            const result = await this.pluginWsExecutor(
+                opcodeInfo.pluginId,
+                opcodeInfo.handler,
+                opcodeInfo.requestOpcode,
+                payload,
+                requestId,
+                clientId,
+            );
+
+            if (!result.success) {
+                return { success: false, error: result.error };
+            }
+
+            return {
+                success: true,
+                responseOpcode: opcodeInfo.responseOpcode,
+                response: result.response,
+            };
+        } catch (error) {
+            return { success: false, error: (error as Error).message };
+        }
     }
 
     /**
@@ -79,6 +157,66 @@ export class WebSocketManager extends Logger {
         this.log(
             `WebSocket manager initialized (protocol v${PROTOCOL_VERSION}, max connections: ${config.MAX_CONNECTIONS})`,
         );
+    }
+
+    /**
+     * Register plugin opcode registry with the protocol handler
+     * This should be called by the plugin manager when it initializes
+     */
+    public registerPluginOpcodeRegistry(registry: PluginOpcodeRegistry): void {
+        Protocol.setPluginRegistry(registry);
+        this.log('Plugin opcode registry registered with WebSocket manager');
+    }
+
+    /**
+     * Register plugin opcodes from cross-thread communication
+     */
+    public registerPluginOpcodes(opcodes: IPluginOpcodeInfo[]): void {
+        for (const opcode of opcodes) {
+            let opcodeList = this.pluginOpcodes.get(opcode.pluginId);
+            if (!opcodeList) {
+                opcodeList = [];
+                this.pluginOpcodes.set(opcode.pluginId, opcodeList);
+            }
+            opcodeList.push(opcode);
+            this.opcodeToPlugin.set(opcode.requestOpcode, opcode);
+
+            this.log(
+                `Registered plugin opcode: ${opcode.pluginId}/${opcode.opcodeName} -> 0x${opcode.requestOpcode.toString(16)}`,
+            );
+        }
+    }
+
+    /**
+     * Unregister plugin opcodes
+     */
+    public unregisterPluginOpcodes(pluginId: string): void {
+        const opcodes = this.pluginOpcodes.get(pluginId);
+        if (!opcodes) {
+            return;
+        }
+
+        // Remove from opcode lookup
+        for (const opcode of opcodes) {
+            this.opcodeToPlugin.delete(opcode.requestOpcode);
+        }
+
+        this.pluginOpcodes.delete(pluginId);
+        this.log(`Unregistered opcodes for plugin ${pluginId}`);
+    }
+
+    /**
+     * Get plugin opcode info by request opcode
+     */
+    public getPluginOpcodeInfo(requestOpcode: number): IPluginOpcodeInfo | undefined {
+        return this.opcodeToPlugin.get(requestOpcode);
+    }
+
+    /**
+     * Check if an opcode is a registered plugin opcode
+     */
+    public isPluginOpcode(opcode: number): boolean {
+        return this.opcodeToPlugin.has(opcode);
     }
 
     /**

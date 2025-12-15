@@ -11,6 +11,7 @@ import {
 } from './types/errors/WebSocketErrorCodes.js';
 import { APIPacketType } from './packets/types/APIPacketTypes.js';
 import { WSManager } from './WebSocketManager.js';
+import type { PluginOpcodeRegistry } from '../../plugins/api/websocket/PluginOpcodeRegistry.js';
 
 /**
  * Current protocol version
@@ -35,8 +36,19 @@ export const MAX_PROTOCOL_VERSION = 1;
 export class ProtocolHandler extends Logger {
     public readonly logColor: string = '#9370db';
 
+    /** Plugin opcode registry (optional, set by WebSocketManager) */
+    private pluginRegistry: PluginOpcodeRegistry | undefined;
+
     public constructor() {
         super();
+    }
+
+    /**
+     * Set the plugin opcode registry
+     */
+    public setPluginRegistry(registry: PluginOpcodeRegistry): void {
+        this.pluginRegistry = registry;
+        this.log('Plugin opcode registry registered');
     }
 
     /**
@@ -57,7 +69,12 @@ export class ProtocolHandler extends Logger {
             return false;
         }
 
-        // Check if opcode is registered
+        // Check if it's a plugin opcode
+        if (this.pluginRegistry && this.pluginRegistry.isPluginOpcode(opcode)) {
+            return this.handlePluginOpcode(client, opcode, payload);
+        }
+
+        // Check if opcode is registered in core registry
         if (!APIRegistry.isOpcodeRegistered(opcode)) {
             const opcodeName = OpcodeNames[opcode] ?? `0x${opcode.toString(16)}`;
             this.warn(`Unknown opcode ${opcodeName} from client ${client.clientId}`);
@@ -230,6 +247,165 @@ export class ProtocolHandler extends Logger {
             this.error(`Handshake failed: ${error}`);
             client.closeWithError(ProtocolError.MALFORMED_MESSAGE);
             return false;
+        }
+    }
+
+    /**
+     * Handle plugin opcode request
+     */
+    private async handlePluginOpcode(
+        client: WebSocketClient,
+        opcode: number,
+        payload: Buffer,
+    ): Promise<boolean> {
+        // Check handshake requirement (all plugin opcodes require handshake)
+        if (!client.isHandshakeCompleted()) {
+            client.sendError(0, ProtocolError.HANDSHAKE_REQUIRED);
+            client.close(1002, 'Handshake required');
+            return false;
+        }
+
+        // If we have a local plugin registry (same-process), use it directly
+        if (this.pluginRegistry) {
+            return this.handlePluginOpcodeLocal(client, opcode, payload);
+        }
+
+        // Otherwise, use WSManager to forward to PluginThread via cross-thread communication
+        return this.handlePluginOpcodeCrossThread(client, opcode, payload);
+    }
+
+    /**
+     * Handle plugin opcode using local PluginOpcodeRegistry (same-process)
+     */
+    private async handlePluginOpcodeLocal(
+        client: WebSocketClient,
+        opcode: number,
+        payload: Buffer,
+    ): Promise<boolean> {
+        if (!this.pluginRegistry) {
+            client.closeWithError(InternalError.INTERNAL_ERROR);
+            return false;
+        }
+
+        // Get handler
+        const handler = this.pluginRegistry.getHandler(opcode);
+        if (!handler) {
+            this.warn(`No handler registered for plugin opcode 0x${opcode.toString(16)}`);
+            client.closeWithError(ProtocolError.UNKNOWN_OPCODE);
+            return false;
+        }
+
+        // Decode request
+        let request: unknown;
+        let requestId = 0;
+        try {
+            const decoded = this.pluginRegistry.decodeRequest(handler, payload);
+            request = decoded;
+
+            // Extract request ID if present
+            if (decoded && typeof decoded === 'object' && 'requestId' in decoded) {
+                requestId = decoded.requestId as number;
+            }
+        } catch (error) {
+            this.warn(`Failed to decode plugin request for opcode 0x${opcode.toString(16)}: ${error}`);
+            client.sendError(0, ProtocolError.MALFORMED_MESSAGE, 'Failed to deserialize request');
+            return false;
+        }
+
+        // Validate request ID
+        if (requestId === undefined || typeof requestId !== 'number' || requestId < 0) {
+            client.sendError(0, ProtocolError.INVALID_REQUEST_ID);
+            return false;
+        }
+
+        // Check rate limit
+        if (!client.startRequest()) {
+            client.sendError(requestId, ProtocolError.TOO_MANY_PENDING_REQUESTS);
+            return false;
+        }
+
+        try {
+            // Execute plugin handler
+            const result = await this.pluginRegistry.executeHandler(
+                handler,
+                request,
+                requestId.toString(),
+                client.clientId,
+            );
+
+            if (!result.success) {
+                client.sendError(requestId, InternalError.INTERNAL_ERROR, result.error);
+                return false;
+            }
+
+            // Encode and send response
+            const responsePayload = this.pluginRegistry.encodeResponse(handler, result.result);
+            client.sendResponse(handler.responseOpcode, responsePayload);
+
+            return true;
+        } catch (error) {
+            this.handleError(client, requestId, error);
+            return false;
+        } finally {
+            client.endRequest();
+        }
+    }
+
+    /**
+     * Handle plugin opcode via cross-thread communication to PluginThread
+     */
+    private async handlePluginOpcodeCrossThread(
+        client: WebSocketClient,
+        opcode: number,
+        payload: Buffer,
+    ): Promise<boolean> {
+        // Check if WSManager has this opcode registered
+        if (!WSManager.isPluginOpcode(opcode)) {
+            this.warn(`No handler registered for plugin opcode 0x${opcode.toString(16)}`);
+            client.closeWithError(ProtocolError.UNKNOWN_OPCODE);
+            return false;
+        }
+
+        // Try to extract request ID from the raw payload (first 4 bytes after potential header)
+        // This is a best-effort extraction; the actual parsing happens in PluginThread
+        let requestId = 0;
+        if (payload.length >= 4) {
+            // Protobuf typically has requestId early in the message
+            // We'll extract it on the PluginThread side; use 0 for now
+            requestId = 0;
+        }
+
+        // Check rate limit
+        if (!client.startRequest()) {
+            client.sendError(requestId, ProtocolError.TOO_MANY_PENDING_REQUESTS);
+            return false;
+        }
+
+        try {
+            // Forward to PluginThread via WSManager
+            const result = await WSManager.executePluginHandler(
+                opcode,
+                payload,
+                requestId,
+                client.clientId,
+            );
+
+            if (!result.success) {
+                client.sendError(requestId, InternalError.INTERNAL_ERROR, result.error);
+                return false;
+            }
+
+            // Send response with the opcode and payload from PluginThread
+            if (result.responseOpcode !== undefined && result.response) {
+                client.sendResponse(result.responseOpcode, result.response);
+            }
+
+            return true;
+        } catch (error) {
+            this.handleError(client, requestId, error);
+            return false;
+        } finally {
+            client.endRequest();
         }
     }
 

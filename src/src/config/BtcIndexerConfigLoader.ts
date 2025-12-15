@@ -15,6 +15,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             PORT: 7000,
         },
 
+        PLUGINS: {
+            PLUGINS_DIR: './plugins',
+            PLUGINS_ENABLED: true,
+            WORKER_POOL_SIZE: 4,
+            EMIT_ERROR_OR_WARNING: false,
+        },
+
         EPOCH: {
             MAX_ATTESTATION_PER_BLOCK: 100_000,
             LOG_FINALIZATION: false,
@@ -230,6 +237,36 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             if (parsedConfig.DOCS.ENABLED && typeof parsedConfig.DOCS.PORT !== 'number') {
                 throw new Error(`Oops the property DOCS.PORT is not a number.`);
+            }
+        }
+
+        if (parsedConfig.PLUGINS) {
+            if (
+                parsedConfig.PLUGINS.PLUGINS_DIR !== undefined &&
+                typeof parsedConfig.PLUGINS.PLUGINS_DIR !== 'string'
+            ) {
+                throw new Error(`Oops the property PLUGINS.PLUGINS_DIR is not a string.`);
+            }
+
+            if (
+                parsedConfig.PLUGINS.PLUGINS_ENABLED !== undefined &&
+                typeof parsedConfig.PLUGINS.PLUGINS_ENABLED !== 'boolean'
+            ) {
+                throw new Error(`Oops the property PLUGINS.PLUGINS_ENABLED is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.PLUGINS.WORKER_POOL_SIZE !== undefined &&
+                typeof parsedConfig.PLUGINS.WORKER_POOL_SIZE !== 'number'
+            ) {
+                throw new Error(`Oops the property PLUGINS.WORKER_POOL_SIZE is not a number.`);
+            }
+
+            if (
+                parsedConfig.PLUGINS.EMIT_ERROR_OR_WARNING !== undefined &&
+                typeof parsedConfig.PLUGINS.EMIT_ERROR_OR_WARNING !== 'boolean'
+            ) {
+                throw new Error(`Oops the property PLUGINS.EMIT_ERROR_OR_WARNING is not a boolean.`);
             }
         }
 
@@ -1151,6 +1188,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             keyof IBtcIndexerConfig,
             IBtcIndexerConfig['DOCS']
         >(parsedConfig.DOCS, defaultConfigs.DOCS);
+
+        this.config.PLUGINS = this.getConfigModified<
+            keyof IBtcIndexerConfig,
+            IBtcIndexerConfig['PLUGINS']
+        >(parsedConfig.PLUGINS, defaultConfigs.PLUGINS);
 
         this.config.SSH = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['SSH']>(
             parsedConfig.SSH,

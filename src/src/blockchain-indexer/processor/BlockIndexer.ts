@@ -136,6 +136,9 @@ export class BlockIndexer extends Logger {
     private async init(): Promise<void> {
         this.debugBright(`Starting up blockchain indexer thread...`);
 
+        // Wire up epoch manager's messaging capability
+        this.epochManager.sendMessageToThread = this.sendMessageToThread;
+
         await this.rpcClient.init(Config.BLOCKCHAIN);
 
         this._blockFetcher = new RPCBlockFetcher({
@@ -390,6 +393,10 @@ export class BlockIndexer extends Logger {
             // Stop all tasks, if one is still running.
             await this.stopAllTasks(reorged);
 
+            // CRITICAL: Notify plugins of reorg BEFORE reverting data
+            // This is BLOCKING - we wait for all plugins to complete their reorg handling
+            await this.notifyPluginsOfReorg(fromHeight, toHeight, newBest);
+
             // Notify thread.
             await this.notifyThreadReorg(fromHeight, toHeight, newBest);
 
@@ -405,6 +412,36 @@ export class BlockIndexer extends Logger {
         } finally {
             // Unlock tasks.
             this.chainReorged = false;
+        }
+    }
+
+    /**
+     * Notify plugins of a chain reorg (BLOCKING)
+     * This sends a message to the Plugin thread which dispatches to PluginManager
+     * We MUST wait for all plugins to complete their reorg handling before continuing
+     */
+    private async notifyPluginsOfReorg(
+        fromHeight: bigint,
+        toHeight: bigint,
+        reason: string,
+    ): Promise<void> {
+        const pluginReorgMsg: ThreadMessageBase<MessageType> = {
+            type: MessageType.PLUGIN_REORG,
+            data: {
+                fromBlock: fromHeight,
+                toBlock: toHeight,
+                reason: reason,
+            },
+        };
+
+        // Send blocking message to plugin thread - MUST wait for response
+        this.info(`Notifying plugins of reorg: from ${fromHeight} to ${toHeight}`);
+        const response = await this.sendMessageToThread(ThreadTypes.PLUGIN, pluginReorgMsg);
+
+        if (response && (response as { error?: string }).error) {
+            this.error(`Plugin reorg notification failed: ${(response as { error?: string }).error}`);
+        } else {
+            this.info(`Plugin reorg notification complete`);
         }
     }
 
@@ -457,6 +494,13 @@ export class BlockIndexer extends Logger {
         };
 
         await this.sendMessageToThread(ThreadTypes.P2P, msg);
+
+        // Send plugin block change notification to plugin thread
+        const pluginMsg: ThreadMessageBase<MessageType> = {
+            type: MessageType.PLUGIN_BLOCK_CHANGE,
+            data: blockHeader,
+        };
+        await this.sendMessageToThread(ThreadTypes.PLUGIN, pluginMsg);
     }
 
     private getVMStorage(): VMStorage {
