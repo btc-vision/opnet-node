@@ -175,6 +175,22 @@ export class BlockIndexer extends Logger {
 
         await this.chainObserver.setNewHeight(purgeFromBlock);
 
+        // Notify plugins of the startup purge so they can also clean their data
+        // Always notify when plugins enabled - the purge always happens for safety
+        if (Config.PLUGINS.PLUGINS_ENABLED) {
+            const reason = Config.OP_NET.REINDEX ? 'reindex' : 'startup-purge';
+            try {
+                await this.notifyPluginsOfReorg(purgeFromBlock, originalHeight, reason);
+            } catch (error) {
+                // Link to plugin thread may not be established yet during startup
+                // Log warning but continue - plugins should handle missing data on their own
+                this.warn(
+                    `Could not notify plugins of startup purge: ${error}. ` +
+                        `Plugins may need to resync data from block ${purgeFromBlock}.`,
+                );
+            }
+        }
+
         this.log(`Starting watchdog...`);
 
         await this.reorgWatchdog.init(originalHeight);
