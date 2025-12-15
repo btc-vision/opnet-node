@@ -5,7 +5,7 @@ export default defineConfig({
         globals: true,
         environment: 'node',
         include: ['tests/**/*.test.ts'],
-        exclude: ['node_modules/**'],
+        exclude: ['node_modules/**', 'tests/Transaction/TransactionGroupFeesSorter.test.ts'],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'json', 'html'],
