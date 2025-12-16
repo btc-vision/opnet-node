@@ -234,13 +234,13 @@ export class JSONRpc2Manager extends Logger {
         const params: JSONRpc2RequestParams<JSONRpcMethods> =
             requestData.params as JSONRpc2RequestParams<JSONRpcMethods>;
 
-        if (requestData.method === JSONRpcMethods.GET_UTXOS) {
+        /*if (requestData.method === JSONRpcMethods.GET_UTXOS) {
             return {
                 jsonrpc: JSONRpc2Manager.RPC_VERSION,
                 id: requestData.id ?? null,
                 error: this.buildInternalError(),
             };
-        }
+        }*/
 
         //if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
         this.debugBright(
