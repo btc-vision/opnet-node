@@ -236,3 +236,5 @@ src/config/*.conf
 
 build/epoch/*.json
 build/plugins
+build/plugins/*.opnet
+plugins
