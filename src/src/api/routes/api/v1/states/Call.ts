@@ -41,7 +41,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     private pendingRequests: number = 0;
 
     constructor() {
-        super(Routes.CALL, RouteType.POST);
+        super(Routes.CALL, RouteType.GET);
     }
 
     public static async requestThreadExecution(
