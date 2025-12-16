@@ -5,11 +5,7 @@ import { MiddlewareNext } from 'hyper-express/types/components/middleware/Middle
 import { JSONRpcRouter } from './JSONRpcRouter.js';
 import { JSONRPCErrorCode, JSONRPCErrorHttpCodes } from './types/enums/JSONRPCErrorCode.js';
 import { JSONRpcMethods } from './types/enums/JSONRpcMethods.js';
-import {
-    JSONRpc2Request,
-    JSONRpc2RequestParams,
-    JSONRpcId,
-} from './types/interfaces/JSONRpc2Request.js';
+import { JSONRpc2Request, JSONRpc2RequestParams, JSONRpcId, } from './types/interfaces/JSONRpc2Request.js';
 import { JSONRpc2ResponseError, JSONRpc2Result } from './types/interfaces/JSONRpc2Result.js';
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
@@ -104,7 +100,7 @@ export class JSONRpc2Manager extends Logger {
                 }
             }
 
-            if (Config.DEV_MODE && Config.DEV.DEBUG_API_CALLS && 'error' in response) {
+            if (Config.DEV_MODE && Config.DEV.DEBUG_API_ERRORS && 'error' in response) {
                 this.warn(
                     `Something went wrong in ${requestData?.method} -> ${response.error?.message}`,
                 );
@@ -240,19 +236,11 @@ export class JSONRpc2Manager extends Logger {
         const params: JSONRpc2RequestParams<JSONRpcMethods> =
             requestData.params as JSONRpc2RequestParams<JSONRpcMethods>;
 
-        /*if (requestData.method === JSONRpcMethods.GET_UTXOS) {
-            return {
-                jsonrpc: JSONRpc2Manager.RPC_VERSION,
-                id: requestData.id ?? null,
-                error: this.buildInternalError(),
-            };
-        }*/
-
-        //if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
-        this.debugBright(
-            `JSON-RPC requested method: ${requestData.method} - ${JSON.stringify(params)}`,
-        );
-        //}
+        if (Config.DEV.DEBUG_API_CALLS) {
+            this.debugBright(
+                `JSON-RPC requested method: ${requestData.method} - ${JSON.stringify(params)}`,
+            );
+        }
 
         const method: JSONRpcMethods = requestData.method as JSONRpcMethods;
         const result = await this.router.requestResponse(method, params);
