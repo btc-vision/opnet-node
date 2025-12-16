@@ -8,4 +8,5 @@ export enum ThreadTypes {
     MEMPOOL_MANAGER = `mempool-manager`,
     SSH = `ssh`,
     SYNCHRONISATION = `sync`,
+    PLUGIN = `plugin`,
 }

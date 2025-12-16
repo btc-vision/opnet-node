@@ -13,6 +13,7 @@ import {
     MempoolConfig,
     OPNetConfig,
     P2P,
+    PluginsConfig,
     PoC,
     RPCConfig,
     SSHConfig,
@@ -47,6 +48,8 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
 
     public readonly DOCS: DocsConfig;
 
+    public readonly PLUGINS: PluginsConfig;
+
     constructor(config: IConfig<IBtcIndexerConfig>) {
         super(config);
 
@@ -69,6 +72,8 @@ export class BtcIndexerConfig extends ConfigBase<IConfig<IBtcIndexerConfig>> {
 
         this.BLOCKCHAIN = config.BLOCKCHAIN;
         this.DOCS = config.DOCS;
+
+        this.PLUGINS = config.PLUGINS;
 
         this.P2P = config.P2P;
         this.POC = config.POC;

@@ -189,6 +189,13 @@ export interface DocsConfig {
     PORT: number;
 }
 
+export interface PluginsConfig {
+    readonly PLUGINS_DIR: string;
+    readonly PLUGINS_ENABLED: boolean;
+    readonly WORKER_POOL_SIZE: number;
+    readonly EMIT_ERROR_OR_WARNING: boolean;
+}
+
 export interface APIConfig {
     ENABLED: boolean;
     PORT: number;
@@ -220,6 +227,8 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     BLOCKCHAIN: BlockchainConfig;
 
     DOCS: DocsConfig;
+
+    PLUGINS: PluginsConfig;
 
     POC: PoC;
     P2P: P2P;

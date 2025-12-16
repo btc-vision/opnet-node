@@ -92,8 +92,16 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw new Error('Storage not initialized');
             }
 
-            const [to, calldata, from, fromLegacy, blockNumber, transaction, accessList, preloadStorage] =
-                this.getDecodedParams(params);
+            const [
+                to,
+                calldata,
+                from,
+                fromLegacy,
+                blockNumber,
+                transaction,
+                accessList,
+                preloadStorage,
+            ] = this.getDecodedParams(params);
 
             const res: CallRequestResponse = await Call.requestThreadExecution(
                 to,
@@ -651,6 +659,15 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             }
         }
 
-        return [address, calldata, from, fromLegacy, blockNumber, transaction, accessList, preloadStorage];
+        return [
+            address,
+            calldata,
+            from,
+            fromLegacy,
+            blockNumber,
+            transaction,
+            accessList,
+            preloadStorage,
+        ];
     }
 }

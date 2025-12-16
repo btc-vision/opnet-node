@@ -136,6 +136,9 @@ export class BlockIndexer extends Logger {
     private async init(): Promise<void> {
         this.debugBright(`Starting up blockchain indexer thread...`);
 
+        // Wire up epoch manager's messaging capability
+        this.epochManager.sendMessageToThread = this.sendMessageToThread;
+
         await this.rpcClient.init(Config.BLOCKCHAIN);
 
         this._blockFetcher = new RPCBlockFetcher({
@@ -171,6 +174,22 @@ export class BlockIndexer extends Logger {
         this.log(`Setting new height... ${purgeFromBlock}`);
 
         await this.chainObserver.setNewHeight(purgeFromBlock);
+
+        // Notify plugins of the startup purge so they can also clean their data
+        // Always notify when plugins enabled - the purge always happens for safety
+        if (Config.PLUGINS.PLUGINS_ENABLED) {
+            const reason = Config.OP_NET.REINDEX ? 'reindex' : 'startup-purge';
+            try {
+                await this.notifyPluginsOfReorg(purgeFromBlock, originalHeight, reason);
+            } catch (error) {
+                // Link to plugin thread may not be established yet during startup
+                // Log warning but continue - plugins should handle missing data on their own
+                this.warn(
+                    `Could not notify plugins of startup purge: ${error}. ` +
+                        `Plugins may need to resync data from block ${purgeFromBlock}.`,
+                );
+            }
+        }
 
         this.log(`Starting watchdog...`);
 
@@ -396,15 +415,51 @@ export class BlockIndexer extends Logger {
             // Await all pending writes.
             await this.vmStorage.killAllPendingWrites();
 
-            // Revert block
+            // Revert block data FIRST - main thread work must complete before plugins
             await this.vmStorage.revertDataUntilBlock(fromHeight);
             await this.chainObserver.onChainReorganisation(fromHeight, toHeight, newBest);
 
             // Revert data.
             if (reorged) await this.reorgFromHeight(fromHeight, toHeight);
+
+            // AFTER main thread completes reorg, notify plugins
+            // This is BLOCKING - we wait for all plugins to complete their reorg handling
+            await this.notifyPluginsOfReorg(fromHeight, toHeight, newBest);
         } finally {
             // Unlock tasks.
             this.chainReorged = false;
+        }
+    }
+
+    /**
+     * Notify plugins of a chain reorg (BLOCKING)
+     * This sends a message to the Plugin thread which dispatches to PluginManager
+     * Called AFTER main thread completes its reorg work so plugins see consistent state
+     */
+    private async notifyPluginsOfReorg(
+        fromHeight: bigint,
+        toHeight: bigint,
+        reason: string,
+    ): Promise<void> {
+        const pluginReorgMsg: ThreadMessageBase<MessageType> = {
+            type: MessageType.PLUGIN_REORG,
+            data: {
+                fromBlock: fromHeight,
+                toBlock: toHeight,
+                reason: reason,
+            },
+        };
+
+        // Send blocking message to plugin thread - MUST wait for response
+        this.info(`Notifying plugins of reorg: from ${fromHeight} to ${toHeight}`);
+        const response = await this.sendMessageToThread(ThreadTypes.PLUGIN, pluginReorgMsg);
+
+        if (response && (response as { error?: string }).error) {
+            this.error(
+                `Plugin reorg notification failed: ${(response as { error?: string }).error}`,
+            );
+        } else {
+            this.info(`Plugin reorg notification complete`);
         }
     }
 
@@ -457,6 +512,13 @@ export class BlockIndexer extends Logger {
         };
 
         await this.sendMessageToThread(ThreadTypes.P2P, msg);
+
+        // Send plugin block change notification to plugin thread
+        const pluginMsg: ThreadMessageBase<MessageType> = {
+            type: MessageType.PLUGIN_BLOCK_CHANGE,
+            data: blockHeader,
+        };
+        await this.sendMessageToThread(ThreadTypes.PLUGIN, pluginMsg);
     }
 
     private getVMStorage(): VMStorage {

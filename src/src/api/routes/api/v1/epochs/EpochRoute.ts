@@ -141,8 +141,10 @@ export abstract class EpochRoute<T extends Routes> extends Route<
                     confirmedAt: this.convertDecimal128ToString(submission.confirmedAt),
                     epochProposed: {
                         solution: '0x' + submission.epochProposed.solution.toString('hex'),
-                        mldsaPublicKey: '0x' + submission.epochProposed.mldsaPublicKey.toString('hex'),
-                        legacyPublicKey: '0x' + submission.epochProposed.legacyPublicKey.toString('hex'),
+                        mldsaPublicKey:
+                            '0x' + submission.epochProposed.mldsaPublicKey.toString('hex'),
+                        legacyPublicKey:
+                            '0x' + submission.epochProposed.legacyPublicKey.toString('hex'),
                         salt: '0x' + submission.epochProposed.salt.toString('hex'),
                         graffiti: submission.epochProposed.graffiti
                             ? '0x' + submission.epochProposed.graffiti.toString('hex')
