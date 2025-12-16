@@ -28,7 +28,7 @@ export class JSONRpc2Manager extends Logger {
 
     public incrementPendingRequests(res: Response, requestSize: number): boolean {
         this.info(
-            `Increment pending requests for ${requestSize}, total pending is now ${(this.pendingRequests += requestSize)}.`,
+            `Increment pending requests for ${requestSize}, total pending is now ${this.pendingRequests + requestSize}.`,
         );
 
         // Check if the number of pending requests is too high
