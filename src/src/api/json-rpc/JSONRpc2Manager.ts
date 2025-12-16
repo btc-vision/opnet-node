@@ -5,7 +5,11 @@ import { MiddlewareNext } from 'hyper-express/types/components/middleware/Middle
 import { JSONRpcRouter } from './JSONRpcRouter.js';
 import { JSONRPCErrorCode, JSONRPCErrorHttpCodes } from './types/enums/JSONRPCErrorCode.js';
 import { JSONRpcMethods } from './types/enums/JSONRpcMethods.js';
-import { JSONRpc2Request, JSONRpc2RequestParams, JSONRpcId, } from './types/interfaces/JSONRpc2Request.js';
+import {
+    JSONRpc2Request,
+    JSONRpc2RequestParams,
+    JSONRpcId,
+} from './types/interfaces/JSONRpc2Request.js';
 import { JSONRpc2ResponseError, JSONRpc2Result } from './types/interfaces/JSONRpc2Result.js';
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
@@ -27,10 +31,6 @@ export class JSONRpc2Manager extends Logger {
     }
 
     public incrementPendingRequests(res: Response, requestSize: number): boolean {
-        this.info(
-            `Increment pending requests for ${requestSize}, total pending is now ${this.pendingRequests + requestSize}.`,
-        );
-
         // Check if the number of pending requests is too high
         if (this.pendingRequests + requestSize > Config.API.MAXIMUM_PENDING_REQUESTS_PER_THREADS) {
             this.sendError(
@@ -102,6 +102,12 @@ export class JSONRpc2Manager extends Logger {
                 } else {
                     response = resp;
                 }
+            }
+
+            if (Config.DEV_MODE && Config.DEV.DEBUG_API_CALLS && 'error' in response) {
+                this.warn(
+                    `Something went wrong in ${requestData?.method} -> ${response.error?.message}`,
+                );
             }
 
             //const stream = json.createStringifyStream({
