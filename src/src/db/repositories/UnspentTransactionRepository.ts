@@ -14,11 +14,13 @@ import {
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import { ISpentTransaction, IUnspentTransaction, ShortScriptPubKey, } from '../interfaces/IUnspentTransaction.js';
-import { Config } from '../../config/Config.js';
 import {
-    RawUTXOsAggregationResultV3
-} from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+    ISpentTransaction,
+    IUnspentTransaction,
+    ShortScriptPubKey,
+} from '../interfaces/IUnspentTransaction.js';
+import { Config } from '../../config/Config.js';
+import { RawUTXOsAggregationResultV3 } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
