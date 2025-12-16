@@ -108,21 +108,19 @@ export class JSONRpc2Manager extends Logger {
             //    body: response,
             //});
 
-            res.atomic(() => {
-                if ('error' in response) {
-                    res.status(JSONRPCErrorHttpCodes.INVALID_REQUEST);
-                } else {
-                    res.status(200);
-                }
+            //res.atomic(() => {
+            if ('error' in response) {
+                res.status(JSONRPCErrorHttpCodes.INVALID_REQUEST);
+            } else {
+                res.status(200);
+            }
 
-                //if (stream instanceof Readable) {
-                //    await res.stream(stream);
-                //}
+            //if (stream instanceof Readable) {
+            //    await res.stream(stream);
+            //}
 
-                res.json(response);
-
-                this.pendingRequests -= requestSize;
-            });
+            res.json(response);
+            //});
         } catch (err) {
             if (Config.DEV.DEBUG_API_ERRORS) {
                 this.error(`API Error: ${(err as Error).message}`);
@@ -141,7 +139,7 @@ export class JSONRpc2Manager extends Logger {
 
                 this.sendInternalError(res);
             } catch (e) {}
-
+        } finally {
             this.pendingRequests -= requestSize;
         }
     }
@@ -236,11 +234,11 @@ export class JSONRpc2Manager extends Logger {
         const params: JSONRpc2RequestParams<JSONRpcMethods> =
             requestData.params as JSONRpc2RequestParams<JSONRpcMethods>;
 
-        /*if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
-            this.debugBright(
-                `JSON-RPC requested method: ${requestData.method} - ${JSON.stringify(params)}`,
-            );
-        }*/
+        //if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        this.debugBright(
+            `JSON-RPC requested method: ${requestData.method} - ${JSON.stringify(params)}`,
+        );
+        //}
 
         const method: JSONRpcMethods = requestData.method as JSONRpcMethods;
         const result = await this.router.requestResponse(method, params);
