@@ -109,9 +109,11 @@ export class JSONRpc2Manager extends Logger {
             }
 
             if (Config.DEV_MODE && Config.DEV.DEBUG_API_ERRORS && 'error' in response) {
-                this.warn(
-                    `Something went wrong in ${requestData?.method} -> ${response.error?.message}`,
-                );
+                if (requestData?.method !== JSONRpcMethods.GET_TRANSACTION_BY_HASH) {
+                    this.warn(
+                        `Something went wrong in ${requestData?.method} -> ${response.error?.message}`,
+                    );
+                }
             }
 
             //const stream = json.createStringifyStream({
