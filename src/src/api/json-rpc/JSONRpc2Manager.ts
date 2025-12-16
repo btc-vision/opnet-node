@@ -5,11 +5,7 @@ import { MiddlewareNext } from 'hyper-express/types/components/middleware/Middle
 import { JSONRpcRouter } from './JSONRpcRouter.js';
 import { JSONRPCErrorCode, JSONRPCErrorHttpCodes } from './types/enums/JSONRPCErrorCode.js';
 import { JSONRpcMethods } from './types/enums/JSONRpcMethods.js';
-import {
-    JSONRpc2Request,
-    JSONRpc2RequestParams,
-    JSONRpcId,
-} from './types/interfaces/JSONRpc2Request.js';
+import { JSONRpc2Request, JSONRpc2RequestParams, JSONRpcId, } from './types/interfaces/JSONRpc2Request.js';
 import { JSONRpc2ResponseError, JSONRpc2Result } from './types/interfaces/JSONRpc2Result.js';
 import { JSONRpcResultError } from './types/interfaces/JSONRpcResultError.js';
 import { Config } from '../../config/Config.js';
@@ -158,6 +154,11 @@ export class JSONRpc2Manager extends Logger {
         };
 
         res.status(type);
+
+        if (Config.DEV_MODE && Config.DEV.DEBUG_API_ERRORS) {
+            this.warn(`API Error: ${type} - ${msg}`);
+        }
+
         this.sendErrorResponse(errorData, res);
     }
 
