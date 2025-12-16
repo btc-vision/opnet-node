@@ -83,6 +83,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             ALWAYS_ENABLE_REORG_VERIFICATION: false,
             ENABLE_REORG_NIGHTMARE: false,
             DEBUG_API_CALLS: false,
+            DEBUG_PENDING_REQUESTS: false,
         },
 
         BASE58: {},
@@ -992,6 +993,13 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.DEV.DEBUG_API_CALLS !== 'boolean'
             ) {
                 throw new Error(`Oops the property DEV.DEBUG_API_CALLS is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.DEV.DEBUG_PENDING_REQUESTS !== undefined &&
+                typeof parsedConfig.DEV.DEBUG_PENDING_REQUESTS !== 'boolean'
+            ) {
+                throw new Error(`Oops the property DEV.DEBUG_PENDING_REQUESTS is not a boolean.`);
             }
         }
 

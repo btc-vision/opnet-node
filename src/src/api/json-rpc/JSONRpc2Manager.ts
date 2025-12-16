@@ -27,6 +27,10 @@ export class JSONRpc2Manager extends Logger {
     }
 
     public incrementPendingRequests(res: Response, requestSize: number): boolean {
+        if (Config.DEV.DEBUG_PENDING_REQUESTS) {
+            this.info(`Pending requests ${this.pendingRequests + requestSize}`);
+        }
+
         // Check if the number of pending requests is too high
         if (this.pendingRequests + requestSize > Config.API.MAXIMUM_PENDING_REQUESTS_PER_THREADS) {
             this.sendError(
