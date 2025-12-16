@@ -235,3 +235,4 @@ src/config/ltc.conf
 src/config/*.conf
 
 build/epoch/*.json
+build/plugins
