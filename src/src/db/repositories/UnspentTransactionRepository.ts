@@ -345,9 +345,14 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                 raw: result.raw.map((binary) => binary.toString('base64')),
             };
         } catch (e) {
+            const msg = (e as Error).message ?? '';
+            if (msg.includes('$push used too much memory')) {
+                return await this.getWalletUnspentUTXOSFallBack(wallet, optimize, olderThan);
+            }
+
             this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
 
-            return await this.getWalletUnspentUTXOSFallBack(wallet, optimize, olderThan);
+            throw e;
         }
     }
 
