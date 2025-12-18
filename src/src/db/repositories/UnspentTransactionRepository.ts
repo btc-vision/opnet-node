@@ -14,19 +14,17 @@ import {
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
-import {
-    ISpentTransaction,
-    IUnspentTransaction,
-    ShortScriptPubKey,
-} from '../interfaces/IUnspentTransaction.js';
+import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
-import { RawUTXOsAggregationResultV3 } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import {
+    RawUTXOsAggregationResultV3
+} from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import {
-    UTXOsAggregationResultV3,
     UTXOsAggregationV3,
+    UTXOSOutputTransactionFromDBV3,
 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV3.js';
 
 export interface ProcessUnspentTransaction {
@@ -237,16 +235,15 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         return DataConverter.fromDecimal128(balance);
     }
 
-    public async getWalletUnspentUTXOSFallBack(
+    public async getWalletUnspentUTXOS(
         wallet: string,
         optimize: boolean = false,
         olderThan: bigint | undefined,
     ): Promise<RawUTXOsAggregationResultV3> {
-        const aggregation: Document[] = this.uxtosAggregation.buildQueryMongodbFallBack(
+        const aggregation: Document[] = this.uxtosAggregation.getAggregation(
             wallet,
             true,
             optimize,
-            true,
             olderThan,
         );
 
@@ -255,26 +252,23 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         options.allowDiskUse = true;
 
         try {
-            const cursor = collection.aggregate<{
-                transactionId: Binary;
-                outputIndex: number;
-                value: Decimal128;
-                scriptPubKey: ShortScriptPubKey;
-                raw?: Binary;
-            }>(aggregation, options);
+            const cursor = collection.aggregate<UTXOSOutputTransactionFromDBV3>(
+                aggregation,
+                options,
+            );
 
             const utxos: RawUTXOsAggregationResultV3['utxos'] = [];
-            const rawTxMap = new Map<string, number>();
-            const rawTxs: string[] = [];
+            const txIdToIndex = new Map<string, number>();
+            const uniqueTxIds: Binary[] = [];
 
             for await (const doc of cursor) {
                 const txIdHex = doc.transactionId.toString('hex');
 
-                let rawIndex = rawTxMap.get(txIdHex);
-                if (rawIndex === undefined && doc.raw) {
-                    rawIndex = rawTxs.length;
-                    rawTxMap.set(txIdHex, rawIndex);
-                    rawTxs.push(doc.raw.toString('base64'));
+                let rawIndex = txIdToIndex.get(txIdHex);
+                if (rawIndex === undefined) {
+                    rawIndex = uniqueTxIds.length;
+                    txIdToIndex.set(txIdHex, rawIndex);
+                    uniqueTxIds.push(doc.transactionId);
                 }
 
                 utxos.push({
@@ -289,6 +283,12 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
                 });
             }
 
+            if (uniqueTxIds.length === 0) {
+                return { utxos, raw: [] };
+            }
+
+            const rawTxs = await this.fetchRawTransactions(uniqueTxIds, txIdToIndex);
+
             return { utxos, raw: rawTxs };
         } catch (e) {
             this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
@@ -296,70 +296,31 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         }
     }
 
-    public async getWalletUnspentUTXOS(
-        wallet: string,
-        optimize: boolean = false,
-        olderThan: bigint | undefined,
-    ): Promise<RawUTXOsAggregationResultV3> {
-        const aggregation: Document[] = this.uxtosAggregation.getAggregation(
-            this.dbVersion,
-            wallet,
-            true,
-            optimize,
-            true,
-            olderThan,
-        );
-
-        const collection = this.getCollection();
-        const options = this.getOptions() as AggregateOptions;
-        options.allowDiskUse = true;
-
-        try {
-            const aggregatedDocument = collection.aggregate<UTXOsAggregationResultV3>(
-                aggregation,
-                options,
-            );
-
-            const results: UTXOsAggregationResultV3[] = await aggregatedDocument.toArray();
-            if (!results.length) {
-                return {
-                    utxos: [],
-                    raw: [],
-                };
-            }
-
-            const result = results[0];
-            return {
-                utxos: result.utxos.map((utxo) => {
-                    return {
-                        transactionId: utxo.transactionId.toString('hex'),
-                        outputIndex: utxo.outputIndex,
-                        value: DataConverter.fromDecimal128(utxo.value),
-                        scriptPubKey: {
-                            hex: utxo.scriptPubKey.hex.toString('hex'),
-                            address: utxo.scriptPubKey.address
-                                ? utxo.scriptPubKey.address
-                                : undefined,
-                        },
-                        raw: utxo.raw,
-                    };
-                }),
-                raw: result.raw.map((binary) => binary.toString('base64')),
-            };
-        } catch (e) {
-            const msg = (e as Error).message ?? '';
-            if (msg.includes('$push used too much memory')) {
-                return await this.getWalletUnspentUTXOSFallBack(wallet, optimize, olderThan);
-            }
-
-            this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
-
-            throw e;
-        }
-    }
-
     protected override getCollection(): Collection<IUnspentTransaction> {
         return this._db.collection(OPNetCollections.UnspentTransactions);
+    }
+
+    private async fetchRawTransactions(
+        uniqueTxIds: Binary[],
+        txIdToIndex: Map<string, number>,
+    ): Promise<string[]> {
+        const txCollection = this._db.collection(OPNetCollections.Transactions);
+
+        const rawResults = await txCollection
+            .find({ id: { $in: uniqueTxIds } }, { projection: { _id: 0, id: 1, raw: 1 } })
+            .toArray();
+
+        const rawTxs: string[] = new Array<string>(uniqueTxIds.length);
+
+        for (const result of rawResults) {
+            const txIdHex = (result.id as Binary).toString('hex');
+            const index = txIdToIndex.get(txIdHex);
+            if (index !== undefined && result.raw) {
+                rawTxs[index] = (result.raw as Binary).toString('base64');
+            }
+        }
+
+        return rawTxs;
     }
 
     private convertSpentTransactions(
