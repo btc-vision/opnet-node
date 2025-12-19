@@ -393,7 +393,6 @@ export class PluginManager extends Logger {
         try {
             await this.workerPool.disablePlugin(pluginId);
             this.registry.setState(pluginId, PluginState.DISABLED);
-            this.info(`Disabled plugin: ${pluginId}`);
         } catch (error) {
             const err = error as Error;
             this.error(`Failed to disable plugin ${pluginId}: ${err.message}`);
@@ -508,8 +507,6 @@ export class PluginManager extends Logger {
             return;
         }
 
-        this.info('Enabling hot reload for plugins directory');
-
         try {
             this.fileWatcher = fs.watch(
                 this.config.pluginsDir,
@@ -537,8 +534,6 @@ export class PluginManager extends Logger {
             return;
         }
 
-        this.info('Disabling hot reload');
-
         // Clear all pending debounce timers
         for (const timer of this.reloadDebounceTimers.values()) {
             clearTimeout(timer);
@@ -552,7 +547,6 @@ export class PluginManager extends Logger {
         }
 
         this.hotReloadEnabled = false;
-        this.info('Hot reload disabled');
     }
 
     /**
@@ -661,7 +655,7 @@ export class PluginManager extends Logger {
         }
 
         const reindexFromBlock = this.config.reindexFromBlock ?? 0n;
-        this.info(`Reindex mode enabled - handling plugin reindex from block ${reindexFromBlock}`);
+        this.warn(`Reindex mode enabled - handling plugin reindex from block ${reindexFromBlock}`);
 
         const enabledPlugins = this.registry.getEnabled();
         if (enabledPlugins.length === 0) {
