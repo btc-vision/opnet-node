@@ -219,8 +219,6 @@ export class PluginManager extends Logger {
      * Register a plugin from file
      */
     public registerPlugin(filePath: string): IRegisteredPlugin {
-        this.info(`Registering plugin from: ${filePath}`);
-
         // Parse plugin file
         let parsedFile: IParsedPluginFile;
         try {
@@ -299,7 +297,6 @@ export class PluginManager extends Logger {
             this.routeRegistry.registerPlugin(plugin);
 
             this.registry.setState(pluginId, PluginState.LOADED);
-            this.info(`Loaded plugin: ${pluginId}`);
         } catch (error) {
             const err = error as Error;
             this.registry.setState(pluginId, PluginState.ERROR, {
@@ -341,7 +338,6 @@ export class PluginManager extends Logger {
 
             await this.workerPool.unloadPlugin(pluginId);
             this.registry.unregister(pluginId);
-            this.info(`Unloaded plugin: ${pluginId}`);
         } catch (error) {
             // Even on error, mark as unloaded
             this.registry.unregister(pluginId);
@@ -490,8 +486,6 @@ export class PluginManager extends Logger {
                     }
                 }
             }
-
-            this.info(`Successfully reloaded plugin: ${pluginId}`);
         } catch (error) {
             this.error(`Failed to reload plugin ${pluginId}: ${error}`);
             throw error;
