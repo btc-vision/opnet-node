@@ -9,6 +9,7 @@ import { DefinedRoutes } from '../../routes/DefinedRoutes.js';
 import { Routes } from '../../enums/Routes.js';
 import { PackedMessage } from '../packets/APIPacket.js';
 import { BlockHeaderAPIDocumentWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
+import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 // Import typed request interfaces
 import {
@@ -82,18 +83,18 @@ function bigintToNumber(value: bigint | string | undefined): number {
 }
 
 /**
- * Convert OPNetTransactionTypes string enum to protobuf uint32.
- * Proto expects: 0 = Generic, 1 = Deployment, 2 = Interaction
+ * Convert OPNetTransactionTypes string enum to protobuf enum value.
+ * Proto enum OPNetTransactionType: GENERIC=0, DEPLOYMENT=1, INTERACTION=2
  */
-function convertOPNetTypeToNumber(type: string | undefined): number {
+function convertOPNetTypeToProtoEnum(type: OPNetTransactionTypes | string | undefined): number {
     switch (type) {
-        case 'Deployment':
-            return 1;
-        case 'Interaction':
-            return 2;
-        case 'Generic':
+        case OPNetTransactionTypes.Deployment:
+            return 1; // DEPLOYMENT
+        case OPNetTransactionTypes.Interaction:
+            return 2; // INTERACTION
+        case OPNetTransactionTypes.Generic:
         default:
-            return 0;
+            return 0; // GENERIC
     }
 }
 
@@ -137,7 +138,7 @@ function convertBlockResponse(block: BlockHeaderAPIDocumentWithTransactions): Pa
                 ...tx,
                 raw: tx.raw ? Buffer.from(tx.raw) : Buffer.alloc(0),
                 index: tx.index ?? 0,
-                OPNetType: convertOPNetTypeToNumber(tx.OPNetType),
+                OPNetType: convertOPNetTypeToProtoEnum(tx.OPNetType),
                 gasUsed: tx.gasUsed ?? '0',
                 specialGasUsed: tx.specialGasUsed ?? '0',
                 priorityFee: tx.priorityFee ?? '0',
@@ -293,7 +294,14 @@ export class HandlerRegistry extends Logger {
                 const route = DefinedRoutes[Routes.TRANSACTION_BY_HASH] as TransactionByHash;
                 const result = await route.getData({ hash: request.txHash });
 
-                return { transaction: result ?? null };
+                if (!result) {
+                    return { transaction: null };
+                }
+
+                // Convert OPNetType from string to proto enum
+                const tx = result as Record<string, unknown>;
+                tx.OPNetType = convertOPNetTypeToProtoEnum(result.OPNetType);
+                return { transaction: tx };
             },
         );
 
@@ -402,8 +410,8 @@ export class HandlerRegistry extends Logger {
             WebSocketRequestOpcode.GET_PUBLIC_KEY_INFO,
             async (request: PackedMessage<GetPublicKeyInfoRequest>) => {
                 const route = DefinedRoutes[Routes.PUBLIC_KEY_INFO] as PublicKeyInfoRoute;
-                // The route expects an array as the param
-                const result = await route.getData([request.addresses]);
+                // The route expects a tuple [string[]] for array form
+                const result = await route.getData([request.addresses] as [string[]]);
 
                 if (!result) {
                     throw new WebSocketAPIError(ResourceError.ADDRESS_NOT_FOUND);
