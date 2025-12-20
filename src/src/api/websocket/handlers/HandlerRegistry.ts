@@ -82,6 +82,22 @@ function bigintToNumber(value: bigint | string | undefined): number {
 }
 
 /**
+ * Convert OPNetTransactionTypes string enum to protobuf uint32.
+ * Proto expects: 0 = Generic, 1 = Deployment, 2 = Interaction
+ */
+function convertOPNetTypeToNumber(type: string | undefined): number {
+    switch (type) {
+        case 'Deployment':
+            return 1;
+        case 'Interaction':
+            return 2;
+        case 'Generic':
+        default:
+            return 0;
+    }
+}
+
+/**
  * Parse a block identifier from the request
  */
 function parseBlockIdentifier(
@@ -103,7 +119,8 @@ function parseBlockIdentifier(
 }
 
 /**
- * Convert block response to protobuf-compatible format
+ * Convert block response to protobuf-compatible format.
+ * Ensures all required fields have default values to avoid protobuf verification errors.
  */
 function convertBlockResponse(block: BlockHeaderAPIDocumentWithTransactions): PackedMessage {
     return {
@@ -119,6 +136,15 @@ function convertBlockResponse(block: BlockHeaderAPIDocumentWithTransactions): Pa
             block.transactions?.map((tx) => ({
                 ...tx,
                 raw: tx.raw ? Buffer.from(tx.raw) : Buffer.alloc(0),
+                index: tx.index ?? 0,
+                OPNetType: convertOPNetTypeToNumber(tx.OPNetType),
+                gasUsed: tx.gasUsed ?? '0',
+                specialGasUsed: tx.specialGasUsed ?? '0',
+                priorityFee: tx.priorityFee ?? '0',
+                burnedBitcoin: tx.burnedBitcoin ?? '0',
+                events: tx.events ?? [],
+                outputs: tx.outputs ?? [],
+                inputs: tx.inputs ?? [],
             })) ?? [],
     };
 }
