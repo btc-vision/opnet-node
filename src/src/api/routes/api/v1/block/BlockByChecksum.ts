@@ -78,8 +78,7 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
 
             const hash = req.query.hash as string | undefined;
             if (!hash) {
-                res.status(400);
-                res.json({ error: 'Block hash not provided' });
+                this.safeJson(res, 400, { error: 'Block hash not provided' });
                 return;
             }
 
@@ -90,11 +89,9 @@ export class BlockByChecksum extends BlockRoute<Routes.BLOCK_BY_CHECKSUM> {
             });
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Could not fetch latest block header. Is this node synced?' });
+                this.safeJson(res, 400, { error: 'Could not fetch latest block header. Is this node synced?' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

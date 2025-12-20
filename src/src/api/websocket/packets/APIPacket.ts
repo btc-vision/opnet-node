@@ -7,6 +7,38 @@ import {
 } from '../types/opcodes/WebSocketOpcodes.js';
 
 /**
+ * Convert bigint values to Long recursively for protobuf compatibility.
+ * This allows the rest of the codebase to use bigint while protobuf uses Long.
+ */
+function convertBigIntToLong(obj: unknown): unknown {
+    if (obj === null || obj === undefined) {
+        return obj;
+    }
+
+    if (typeof obj === 'bigint') {
+        return Long.fromString(obj.toString(), true);
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(convertBigIntToLong);
+    }
+
+    if (obj instanceof Long || obj instanceof Buffer || obj instanceof Uint8Array) {
+        return obj;
+    }
+
+    if (typeof obj === 'object') {
+        const result: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(obj)) {
+            result[key] = convertBigIntToLong(value);
+        }
+        return result;
+    }
+
+    return obj;
+}
+
+/**
  * Base type for all packed/unpacked WebSocket messages.
  * Use specific request/response types that extend this for type safety.
  */
@@ -57,12 +89,15 @@ export abstract class APIPacket<
 
     /**
      * Serialize a message object to a binary buffer with opcode prefix.
+     * Automatically converts bigint to Long for protobuf compatibility.
      *
      * @param msgToPack - The message object to serialize
      * @returns Uint8Array with opcode as first byte followed by protobuf payload
      */
     public pack(msgToPack: T): Uint8Array {
-        const convertedMsgToPack = this.castInputAs(msgToPack as unknown as T);
+        // Convert bigint to Long before casting/verification
+        const withLongValues = convertBigIntToLong(msgToPack) as T;
+        const convertedMsgToPack = this.castInputAs(withLongValues as unknown as T);
         const verificationError = this.packet.verify(convertedMsgToPack);
 
         if (verificationError) {
@@ -82,12 +117,15 @@ export abstract class APIPacket<
     /**
      * Serialize a message without the opcode prefix.
      * Useful when you need to control the opcode separately.
+     * Automatically converts bigint to Long for protobuf compatibility.
      *
      * @param msgToPack - The message object to serialize
      * @returns Uint8Array containing only the protobuf payload
      */
     public packPayload(msgToPack: T): Uint8Array {
-        const convertedMsgToPack = this.castInputAs(msgToPack as unknown as T);
+        // Convert bigint to Long before casting/verification
+        const withLongValues = convertBigIntToLong(msgToPack) as T;
+        const convertedMsgToPack = this.castInputAs(withLongValues as unknown as T);
         const verificationError = this.packet.verify(convertedMsgToPack);
 
         if (verificationError) {

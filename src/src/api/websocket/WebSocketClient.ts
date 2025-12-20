@@ -329,10 +329,18 @@ export class WebSocketClient extends Logger {
     }
 
     /**
-     * Send a response with a specific opcode
+     * Send a response with a specific opcode and requestId
+     * Format: [opcode (1)] [requestId (4 bytes LE)] [payload]
      */
-    public sendResponse(opcode: WebSocketResponseOpcode, payload: Uint8Array): boolean {
-        const message = new Uint8Array([opcode, ...payload]);
+    public sendResponse(opcode: WebSocketResponseOpcode, requestId: number, payload: Uint8Array): boolean {
+        const message = new Uint8Array(1 + 4 + payload.length);
+        message[0] = opcode;
+        // Write requestId as little-endian uint32
+        message[1] = requestId & 0xff;
+        message[2] = (requestId >> 8) & 0xff;
+        message[3] = (requestId >> 16) & 0xff;
+        message[4] = (requestId >> 24) & 0xff;
+        message.set(payload, 5);
         return this.send(message);
     }
 

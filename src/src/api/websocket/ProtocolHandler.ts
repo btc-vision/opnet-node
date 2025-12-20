@@ -111,22 +111,25 @@ export class ProtocolHandler extends Logger {
             return this.handleHandshake(client, payload);
         }
 
-        // For all other requests, deserialize and validate request ID
+        // Client sends [requestId (4 bytes LE)] [protobuf payload]
+        if (payload.length < 4) {
+            client.sendError(0, ProtocolError.MALFORMED_MESSAGE);
+            return false;
+        }
+
+        // Extract requestId from first 4 bytes (little-endian)
+        const requestId = payload[0] | (payload[1] << 8) | (payload[2] << 16) | (payload[3] << 24);
+        const protobufPayload = payload.subarray(4);
+
+        // Deserialize the protobuf payload
         let request: Record<string, unknown>;
         try {
-            request = registration.requestPacket.unpack(payload) as Record<string, unknown>;
+            request = registration.requestPacket.unpack(protobufPayload) as Record<string, unknown>;
         } catch (error) {
             const opcodeName =
                 OpcodeNames[opcode as WebSocketRequestOpcode] ?? `0x${opcode.toString(16)}`;
             this.warn(`Failed to deserialize ${opcodeName}: ${error}`);
-            client.sendError(0, ProtocolError.MALFORMED_MESSAGE, 'Failed to deserialize request');
-            return false;
-        }
-
-        // Extract and validate request ID
-        const requestId = request.requestId as number | undefined;
-        if (requestId === undefined || typeof requestId !== 'number' || requestId < 0) {
-            client.sendError(0, ProtocolError.INVALID_REQUEST_ID);
+            client.sendError(requestId, ProtocolError.MALFORMED_MESSAGE, 'Failed to deserialize request');
             return false;
         }
 
@@ -146,9 +149,9 @@ export class ProtocolHandler extends Logger {
             // Execute the handler
             const response = await registration.handler(request, requestId, client.clientId);
 
-            // Serialize and send response
+            // Serialize and send response with requestId
             const responsePayload = registration.responsePacket.packPayload(response);
-            client.sendResponse(registration.responseOpcode, responsePayload);
+            client.sendResponse(registration.responseOpcode, requestId, responsePayload);
 
             return true;
         } catch (error) {
@@ -160,7 +163,7 @@ export class ProtocolHandler extends Logger {
     }
 
     /**
-     * Handle ping request (no request ID)
+     * Handle ping request
      */
     private handlePing(client: WebSocketClient, payload: Buffer): boolean {
         try {
@@ -171,14 +174,29 @@ export class ProtocolHandler extends Logger {
                 return false;
             }
 
-            const pingData = pingPacket.unpack(payload) as { timestamp: bigint | number };
+            // Client sends [requestId (4 bytes)] [protobuf payload]
+            if (payload.length < 4) {
+                return false;
+            }
+
+            // Extract requestId to echo back in response
+            const requestId = payload.subarray(0, 4);
+            const protobufPayload = payload.subarray(4);
+
+            const pingData = pingPacket.unpack(protobufPayload) as { timestamp: bigint | number };
             const pongData = {
                 timestamp: pingData.timestamp,
                 serverTimestamp: BigInt(Date.now()),
             };
 
-            const packed = pongPacket.pack(pongData);
-            client.send(packed);
+            // Response format: [opcode (1)] [requestId (4)] [protobuf payload]
+            const packedPayload = pongPacket.packPayload(pongData);
+            const fullResponse = new Uint8Array(1 + 4 + packedPayload.length);
+            fullResponse[0] = pongPacket.getOpcode();
+            fullResponse.set(requestId, 1);
+            fullResponse.set(packedPayload, 5);
+            client.send(fullResponse);
+
             return true;
         } catch (error) {
             this.warn(`Failed to handle ping: ${error}`);
@@ -205,7 +223,17 @@ export class ProtocolHandler extends Logger {
                 return false;
             }
 
-            const handshakeData = handshakePacket.unpack(payload) as {
+            // Client sends [requestId (4 bytes)] [protobuf payload]
+            if (payload.length < 4) {
+                client.closeWithError(ProtocolError.MALFORMED_MESSAGE);
+                return false;
+            }
+
+            // Extract requestId to echo back in response
+            const requestId = payload.subarray(0, 4);
+            const protobufPayload = payload.subarray(4);
+
+            const handshakeData = handshakePacket.unpack(protobufPayload) as {
                 protocolVersion: number;
                 clientName: string;
                 clientVersion: string;
@@ -244,8 +272,13 @@ export class ProtocolHandler extends Logger {
                 chainId: WSManager.getChainId(),
             };
 
-            const packed = responsePacket.pack(response);
-            client.send(packed);
+            // Response format: [opcode (1)] [requestId (4)] [protobuf payload]
+            const packedPayload = responsePacket.packPayload(response);
+            const fullResponse = new Uint8Array(1 + 4 + packedPayload.length);
+            fullResponse[0] = responsePacket.getOpcode();
+            fullResponse.set(requestId, 1);
+            fullResponse.set(packedPayload, 5);
+            client.send(fullResponse);
 
             return true;
         } catch (error) {
@@ -301,28 +334,25 @@ export class ProtocolHandler extends Logger {
             return false;
         }
 
+        // Client sends [requestId (4 bytes LE)] [protobuf payload]
+        if (payload.length < 4) {
+            client.sendError(0, ProtocolError.MALFORMED_MESSAGE);
+            return false;
+        }
+
+        // Extract requestId from first 4 bytes (little-endian)
+        const requestId = payload[0] | (payload[1] << 8) | (payload[2] << 16) | (payload[3] << 24);
+        const protobufPayload = payload.subarray(4);
+
         // Decode request
         let request: unknown;
-        let requestId = 0;
         try {
-            const decoded = this.pluginRegistry.decodeRequest(handler, payload);
-            request = decoded;
-
-            // Extract request ID if present
-            if (decoded && typeof decoded === 'object' && 'requestId' in decoded) {
-                requestId = decoded.requestId as number;
-            }
+            request = this.pluginRegistry.decodeRequest(handler, protobufPayload);
         } catch (error) {
             this.warn(
                 `Failed to decode plugin request for opcode 0x${opcode.toString(16)}: ${error}`,
             );
-            client.sendError(0, ProtocolError.MALFORMED_MESSAGE, 'Failed to deserialize request');
-            return false;
-        }
-
-        // Validate request ID
-        if (requestId === undefined || typeof requestId !== 'number' || requestId < 0) {
-            client.sendError(0, ProtocolError.INVALID_REQUEST_ID);
+            client.sendError(requestId, ProtocolError.MALFORMED_MESSAGE, 'Failed to deserialize request');
             return false;
         }
 
@@ -346,9 +376,9 @@ export class ProtocolHandler extends Logger {
                 return false;
             }
 
-            // Encode and send response
+            // Encode and send response with requestId
             const responsePayload = this.pluginRegistry.encodeResponse(handler, result.result);
-            client.sendResponse(handler.responseOpcode, responsePayload);
+            client.sendResponse(handler.responseOpcode, requestId, responsePayload);
 
             return true;
         } catch (error) {
@@ -374,14 +404,15 @@ export class ProtocolHandler extends Logger {
             return false;
         }
 
-        // Try to extract request ID from the raw payload (first 4 bytes after potential header)
-        // This is a best-effort extraction; the actual parsing happens in PluginThread
-        let requestId = 0;
-        if (payload.length >= 4) {
-            // Protobuf typically has requestId early in the message
-            // We'll extract it on the PluginThread side; use 0 for now
-            requestId = 0;
+        // Client sends [requestId (4 bytes LE)] [protobuf payload]
+        if (payload.length < 4) {
+            client.sendError(0, ProtocolError.MALFORMED_MESSAGE);
+            return false;
         }
+
+        // Extract requestId from first 4 bytes (little-endian)
+        const requestId = payload[0] | (payload[1] << 8) | (payload[2] << 16) | (payload[3] << 24);
+        const protobufPayload = payload.subarray(4);
 
         // Check rate limit
         if (!client.startRequest()) {
@@ -393,7 +424,7 @@ export class ProtocolHandler extends Logger {
             // Forward to PluginThread via WSManager
             const result = await WSManager.executePluginHandler(
                 opcode,
-                payload,
+                protobufPayload,
                 requestId,
                 client.clientId,
             );
@@ -403,9 +434,9 @@ export class ProtocolHandler extends Logger {
                 return false;
             }
 
-            // Send response with the opcode and payload from PluginThread
+            // Send response with the opcode, requestId, and payload from PluginThread
             if (result.responseOpcode !== undefined && result.response) {
-                client.sendResponse(result.responseOpcode, result.response);
+                client.sendResponse(result.responseOpcode, requestId, result.response);
             }
 
             return true;

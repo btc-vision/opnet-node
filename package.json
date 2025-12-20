@@ -87,7 +87,7 @@
         "lru-cache": "^11.2.2",
         "mongodb": "^7.0.0",
         "openapi-comment-parser": "^1.0.0",
-        "protobufjs": "^7.5.4",
+        "protobufjs": "^8.0.0",
         "sodium-native": "^5.0.9",
         "ssh2": "^1.17.0",
         "swagger-ui-express": "^5.0.1",

@@ -137,6 +137,8 @@ export class Server extends Logger {
             {
                 maxPayloadLength: wsConfig.maxPayloadLength,
                 idleTimeout: wsConfig.idleTimeout,
+                max_backpressure: wsConfig.maxPayloadLength * 2, // Allow buffering 2x max payload before considering socket full
+                message_type: 'ArrayBuffer', // Keep binary data as ArrayBuffer, don't convert to String
             } as WSRouteOptions,
             this.onNewWebsocketConnection.bind(this) as WSRouteHandler,
         );
@@ -183,13 +185,15 @@ export class Server extends Logger {
     }
 
     private globalErrorHandler(_request: Request, response: Response, _error: Error): void {
+        if (Config.DEV_MODE) {
+            this.error(`Error details: ${_error.stack}`);
+        }
+
+        // Check if socket is still open before writing
+        if (response.closed) return;
+
         response.atomic(() => {
             response.status(500);
-
-            if (Config.DEV_MODE) {
-                this.error(`Error details: ${_error.stack}`);
-            }
-
             response.json({
                 error: 'Something went wrong.',
             });
@@ -430,13 +434,17 @@ export class Server extends Logger {
         return async (req: Request, res: Response) => {
             // Check if plugin route is still active
             if (!this.pluginRoutes.has(route.pluginId)) {
-                res.status(404).json({ error: 'Plugin route not available' });
+                if (!res.closed) {
+                    res.status(404).json({ error: 'Plugin route not available' });
+                }
                 return;
             }
 
             // Check if executor is available
             if (!this.pluginRouteExecutor) {
-                res.status(503).json({ error: 'Plugin system not initialized' });
+                if (!res.closed) {
+                    res.status(503).json({ error: 'Plugin system not initialized' });
+                }
                 return;
             }
 
@@ -459,16 +467,27 @@ export class Server extends Logger {
                     pluginRequest as Record<string, unknown>,
                 );
 
+                // Check if socket is still open after async operation
+                if (res.closed) return;
+
                 if (!result.success) {
-                    res.status(result.status || 500).json({
-                        error: result.error || 'Plugin handler failed',
+                    res.atomic(() => {
+                        res.status(result.status || 500).json({
+                            error: result.error || 'Plugin handler failed',
+                        });
                     });
                     return;
                 }
 
-                res.status(result.status || 200).json(result.body || {});
+                res.atomic(() => {
+                    res.status(result.status || 200).json(result.body || {});
+                });
             } catch (error) {
-                res.status(500).json({ error: (error as Error).message });
+                if (!res.closed) {
+                    res.atomic(() => {
+                        res.status(500).json({ error: (error as Error).message });
+                    });
+                }
             }
         };
     }

@@ -44,11 +44,9 @@ export class ChainId extends Route<Routes.CHAIN_ID, JSONRpcMethods.CHAIN_ID, Cha
             const data = this.getData();
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Something went wrong.' });
+                this.safeJson(res, 400, { error: 'Something went wrong.' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

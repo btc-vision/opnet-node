@@ -66,12 +66,11 @@ export class TransactionReceipt extends Route<
         try {
             const params = this.getParams(req, res);
             if (!params) {
-                throw new Error('Invalid params.');
+                return; // getParams already sent error response
             }
 
             const data = await this.getData(params);
-            res.status(200);
-            res.json(data);
+            this.safeJson(res, 200, data);
         } catch (err) {
             this.handleDefaultError(res, err as Error);
         }
@@ -85,8 +84,7 @@ export class TransactionReceipt extends Route<
         const hash = req.query.hash as string;
 
         if (!hash || (hash && hash.length !== 64)) {
-            res.status(400);
-            res.json({ error: 'Invalid hash.' });
+            this.safeJson(res, 400, { error: 'Invalid hash.' });
             return;
         }
 
