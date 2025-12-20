@@ -99,6 +99,86 @@ function convertOPNetTypeToProtoEnum(type: OPNetTransactionTypes | string | unde
 }
 
 /**
+ * Convert a transaction response to protobuf-compatible format.
+ * Ensures all fields are properly formatted for protobuf encoding.
+ */
+function convertTransactionResponse(tx: Record<string, unknown>): PackedMessage {
+    // Helper to safely convert to Buffer for bytes fields
+    const toBuffer = (value: unknown): Buffer => {
+        if (!value) return Buffer.alloc(0);
+        if (Buffer.isBuffer(value)) return value;
+        if (typeof value === 'string') return Buffer.from(value, 'base64');
+        if (value instanceof Uint8Array) return Buffer.from(value);
+        // Handle MongoDB Binary
+        if (typeof value === 'object' && 'buffer' in value) {
+            return Buffer.from((value as { buffer: Buffer }).buffer);
+        }
+        return Buffer.alloc(0);
+    };
+
+    // Convert inputs to ensure all fields are proper types
+    // For optional fields, only include them if they have actual values (not null/undefined)
+    const inputs = Array.isArray(tx.inputs)
+        ? tx.inputs.map((input: Record<string, unknown>) => {
+              const converted: Record<string, unknown> = {
+                  outputIndex: typeof input.outputIndex === 'number' ? input.outputIndex : 0,
+                  witnesses: Array.isArray(input.witnesses) ? input.witnesses : [],
+              };
+              // Only include optional string fields if they have actual string values
+              if (typeof input.originalTransactionId === 'string') {
+                  converted.originalTransactionId = input.originalTransactionId;
+              }
+              if (typeof input.scriptSignature === 'string') {
+                  converted.scriptSignature = input.scriptSignature;
+              }
+              return converted;
+          })
+        : [];
+
+    // Convert outputs to ensure all fields are proper types
+    const outputs = Array.isArray(tx.outputs)
+        ? tx.outputs.map((output: Record<string, unknown>) => ({
+              value: typeof output.value === 'string' ? output.value : '0',
+              index: typeof output.index === 'number' ? output.index : 0,
+              scriptPubKey: output.scriptPubKey,
+          }))
+        : [];
+
+    return {
+        // Base transaction fields
+        hash: tx.hash ?? '',
+        id: tx.id ?? '',
+        blockNumber: tx.blockNumber ?? '',
+        burnedBitcoin: tx.burnedBitcoin ?? '0x0',
+        revert: tx.revert,
+        contractAddress: tx.contractAddress,
+        from: tx.from,
+        contractPublicKey: tx.contractPublicKey,
+        contractHybridPublicKey: tx.contractHybridPublicKey,
+        pow: tx.pow,
+        events: tx.events ?? [],
+        gasUsed: tx.gasUsed ?? '0x0',
+        specialGasUsed: tx.specialGasUsed ?? '0x0',
+        priorityFee: tx.priorityFee ?? '0x0',
+        outputs,
+        inputs,
+        raw: toBuffer(tx.raw),
+        index: typeof tx.index === 'number' ? tx.index : 0,
+        OPNetType: convertOPNetTypeToProtoEnum(tx.OPNetType as OPNetTransactionTypes | string),
+
+        // Interaction transaction specific fields
+        calldata: tx.calldata,
+        senderPubKeyHash: tx.senderPubKeyHash,
+        contractSecret: tx.contractSecret,
+        interactionPubKey: tx.interactionPubKey,
+        wasCompressed: tx.wasCompressed,
+        fromLegacy: tx.fromLegacy,
+        receipt: tx.receipt,
+        receiptProofs: tx.receiptProofs ?? [],
+    };
+}
+
+/**
  * Parse a block identifier from the request
  */
 function parseBlockIdentifier(
@@ -134,19 +214,9 @@ function convertBlockResponse(block: BlockHeaderAPIDocumentWithTransactions): Pa
                 proofs,
             })) ?? [],
         transactions:
-            block.transactions?.map((tx) => ({
-                ...tx,
-                raw: tx.raw ? Buffer.from(tx.raw) : Buffer.alloc(0),
-                index: tx.index ?? 0,
-                OPNetType: convertOPNetTypeToProtoEnum(tx.OPNetType),
-                gasUsed: tx.gasUsed ?? '0',
-                specialGasUsed: tx.specialGasUsed ?? '0',
-                priorityFee: tx.priorityFee ?? '0',
-                burnedBitcoin: tx.burnedBitcoin ?? '0',
-                events: tx.events ?? [],
-                outputs: tx.outputs ?? [],
-                inputs: tx.inputs ?? [],
-            })) ?? [],
+            block.transactions?.map((tx) =>
+                convertTransactionResponse(tx as unknown as Record<string, unknown>),
+            ) ?? [],
     };
 }
 
@@ -298,9 +368,8 @@ export class HandlerRegistry extends Logger {
                     return { transaction: null };
                 }
 
-                // Convert OPNetType from string to proto enum
-                const tx = result as Record<string, unknown>;
-                tx.OPNetType = convertOPNetTypeToProtoEnum(result.OPNetType);
+                // Convert transaction to protobuf-compatible format
+                const tx = convertTransactionResponse(result as Record<string, unknown>);
                 return { transaction: tx };
             },
         );

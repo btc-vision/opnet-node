@@ -103,6 +103,12 @@ message ChecksumProofEntry {
 // Transaction Types (matches TransactionDocumentForAPI)
 // ============================================================================
 
+enum OPNetTransactionType {
+    GENERIC = 0;
+    DEPLOYMENT = 1;
+    INTERACTION = 2;
+}
+
 message TransactionForAPI {
     string hash = 1;
     string id = 2;
@@ -111,7 +117,7 @@ message TransactionForAPI {
     optional string revert = 5;
     optional string contractAddress = 6;
     optional string from = 7;
-    optional string contractTweakedPublicKey = 8;
+    optional string contractPublicKey = 8;
     optional string contractHybridPublicKey = 9;
     optional TransactionPow pow = 10;
     repeated EventReceiptData events = 11;
@@ -122,7 +128,16 @@ message TransactionForAPI {
     repeated TransactionInput inputs = 16;
     bytes raw = 17;
     uint32 index = 18;
-    uint32 OPNetType = 19;
+    OPNetTransactionType OPNetType = 19;
+    // Interaction transaction specific fields
+    optional string calldata = 20;
+    optional string senderPubKeyHash = 21;
+    optional string contractSecret = 22;
+    optional string interactionPubKey = 23;
+    optional bool wasCompressed = 24;
+    optional string fromLegacy = 25;
+    optional string receipt = 26;
+    repeated string receiptProofs = 27;
 }
 
 message TransactionPow {
@@ -145,7 +160,7 @@ message TransactionOutput {
 message TransactionInput {
     optional string originalTransactionId = 1;
     uint32 outputIndex = 2;
-    string scriptSignature = 3;
+    optional string scriptSignature = 3;
     repeated string witnesses = 4;
 }
 
@@ -386,7 +401,8 @@ message GetChainIdResponse {
 
 message GetReorgRequest {
     uint32 requestId = 1;
-    optional uint32 limit = 2;
+    optional string fromBlock = 2;
+    optional string toBlock = 3;
 }
 
 message GetReorgResponse {
