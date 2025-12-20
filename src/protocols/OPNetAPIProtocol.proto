@@ -109,7 +109,31 @@ enum OPNetTransactionType {
     INTERACTION = 2;
 }
 
+// Interaction transaction specific data
+message InteractionTransactionData {
+    string calldata = 1;
+    optional string senderPubKeyHash = 2;
+    optional string contractSecret = 3;
+    optional string interactionPubKey = 4;
+    bool wasCompressed = 5;
+    string fromLegacy = 6;
+    optional string receipt = 7;
+    repeated string receiptProofs = 8;
+}
+
+// Deployment transaction specific data
+message DeploymentTransactionData {
+    string bytecode = 1;
+    string deployerPubKey = 2;
+    string contractSeed = 3;
+    string contractSaltHash = 4;
+    string deployerAddress = 5;
+    bool wasCompressed = 6;
+    string fromLegacy = 7;
+}
+
 message TransactionForAPI {
+    // Common fields for all transaction types
     string hash = 1;
     string id = 2;
     optional string blockNumber = 3;
@@ -129,15 +153,12 @@ message TransactionForAPI {
     bytes raw = 17;
     uint32 index = 18;
     OPNetTransactionType OPNetType = 19;
-    // Interaction transaction specific fields
-    optional string calldata = 20;
-    optional string senderPubKeyHash = 21;
-    optional string contractSecret = 22;
-    optional string interactionPubKey = 23;
-    optional bool wasCompressed = 24;
-    optional string fromLegacy = 25;
-    optional string receipt = 26;
-    repeated string receiptProofs = 27;
+
+    // Type-specific data (only one will be set based on OPNetType)
+    oneof typeData {
+        InteractionTransactionData interaction = 20;
+        DeploymentTransactionData deployment = 21;
+    }
 }
 
 message TransactionPow {

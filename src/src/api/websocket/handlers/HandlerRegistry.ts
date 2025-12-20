@@ -101,6 +101,7 @@ function convertOPNetTypeToProtoEnum(type: OPNetTransactionTypes | string | unde
 /**
  * Convert a transaction response to protobuf-compatible format.
  * Ensures all fields are properly formatted for protobuf encoding.
+ * Uses oneof for type-specific data (interaction vs deployment).
  */
 function convertTransactionResponse(tx: Record<string, unknown>): PackedMessage {
     // Helper to safely convert to Buffer for bytes fields
@@ -144,8 +145,14 @@ function convertTransactionResponse(tx: Record<string, unknown>): PackedMessage 
           }))
         : [];
 
-    return {
-        // Base transaction fields
+    // Proto enum values: GENERIC=0, DEPLOYMENT=1, INTERACTION=2
+    const opnetType = convertOPNetTypeToProtoEnum(
+        tx.OPNetType as OPNetTransactionTypes | string,
+    );
+
+    // Build the base transaction response
+    const response: Record<string, unknown> = {
+        // Common fields for all transaction types
         hash: tx.hash ?? '',
         id: tx.id ?? '',
         blockNumber: tx.blockNumber ?? '',
@@ -164,18 +171,37 @@ function convertTransactionResponse(tx: Record<string, unknown>): PackedMessage 
         inputs,
         raw: toBuffer(tx.raw),
         index: typeof tx.index === 'number' ? tx.index : 0,
-        OPNetType: convertOPNetTypeToProtoEnum(tx.OPNetType as OPNetTransactionTypes | string),
-
-        // Interaction transaction specific fields
-        calldata: tx.calldata,
-        senderPubKeyHash: tx.senderPubKeyHash,
-        contractSecret: tx.contractSecret,
-        interactionPubKey: tx.interactionPubKey,
-        wasCompressed: tx.wasCompressed,
-        fromLegacy: tx.fromLegacy,
-        receipt: tx.receipt,
-        receiptProofs: tx.receiptProofs ?? [],
+        OPNetType: opnetType,
     };
+
+    // Add type-specific data based on transaction type (oneof typeData)
+    // Proto enum: INTERACTION=2
+    if (opnetType === 2) {
+        response.interaction = {
+            calldata: tx.calldata ?? '',
+            senderPubKeyHash: tx.senderPubKeyHash,
+            contractSecret: tx.contractSecret,
+            interactionPubKey: tx.interactionPubKey,
+            wasCompressed: tx.wasCompressed ?? false,
+            fromLegacy: tx.fromLegacy ?? '',
+            receipt: tx.receipt,
+            receiptProofs: tx.receiptProofs ?? [],
+        };
+    } else if (opnetType === 1) {
+        // Proto enum: DEPLOYMENT=1
+        response.deployment = {
+            bytecode: tx.bytecode ?? '',
+            deployerPubKey: tx.deployerPubKey ?? '',
+            contractSeed: tx.contractSeed ?? '',
+            contractSaltHash: tx.contractSaltHash ?? '',
+            deployerAddress: tx.deployerAddress ?? '',
+            wasCompressed: tx.wasCompressed ?? false,
+            fromLegacy: tx.fromLegacy ?? '',
+        };
+    }
+    // Proto enum: GENERIC=0 has no type-specific data
+
+    return response as PackedMessage;
 }
 
 /**
