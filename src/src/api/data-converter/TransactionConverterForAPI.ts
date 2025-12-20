@@ -93,6 +93,53 @@ export class TransactionConverterForAPI {
             newTx.from = tx.from ? tx.from.toString('base64') : undefined;
         }
 
+        if ('fromLegacy' in transaction) {
+            const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
+            newTx.fromLegacy = tx.fromLegacy ? tx.fromLegacy.toString('base64') : undefined;
+        }
+
+        // Interaction transaction specific fields
+        if ('calldata' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.calldata = tx.calldata ? tx.calldata.toString('base64') : undefined;
+        }
+
+        if ('senderPubKeyHash' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.senderPubKeyHash = tx.senderPubKeyHash
+                ? tx.senderPubKeyHash.toString('base64')
+                : undefined;
+        }
+
+        if ('contractSecret' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.contractSecret = tx.contractSecret
+                ? tx.contractSecret.toString('base64')
+                : undefined;
+        }
+
+        if ('interactionPubKey' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.interactionPubKey = tx.interactionPubKey
+                ? tx.interactionPubKey.toString('base64')
+                : undefined;
+        }
+
+        if ('wasCompressed' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.wasCompressed = tx.wasCompressed;
+        }
+
+        if ('receipt' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.receipt = tx.receipt ? tx.receipt.toString('base64') : undefined;
+        }
+
+        if ('receiptProofs' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.receiptProofs = tx.receiptProofs;
+        }
+
         delete newTx._id;
         delete newTx.blockHeight;
 
