@@ -1,7 +1,7 @@
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { JSONRpcRouter } from './JSONRpcRouter.js';
 import { JSONRPCErrorCode, JSONRPCErrorHttpCodes } from './types/enums/JSONRPCErrorCode.js';
 import { JSONRpcMethods } from './types/enums/JSONRpcMethods.js';

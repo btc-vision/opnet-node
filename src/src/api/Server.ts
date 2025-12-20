@@ -8,7 +8,7 @@ import HyperExpress, {
     Router,
     WSRouteHandler,
     WSRouteOptions,
-} from 'hyper-express';
+} from '@btc-vision/hyper-express';
 import { Config } from '../config/Config.js';
 import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
 import { VMStorage } from '../vm/storage/VMStorage.js';
@@ -17,7 +17,7 @@ import { DefinedRoutes } from './routes/DefinedRoutes.js';
 import { DBManagerInstance } from '../db/DBManager.js';
 import { BlockchainInfoRepository } from '../db/repositories/BlockchainInfoRepository.js';
 import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
-import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
+import { Websocket } from '@btc-vision/hyper-express/types/components/ws/Websocket.js';
 import { BlockHeaderAPIBlockDocument } from '../db/interfaces/IBlockHeaderBlockDocument.js';
 import { P2PMajorVersion, P2PVersion } from '../poa/configurations/P2PVersion.js';
 import { WSManager } from './websocket/WebSocketManager.js';
@@ -55,6 +55,8 @@ export class Server extends Logger {
         max_body_length: 1024 * 1024 * 8, // 8mb.
         fast_abort: true,
         max_body_buffer: 1024 * 32, // 32kb.
+        idle_timeout: 60,     // HTTP idle timeout: 60 seconds
+        response_timeout: 120, // HTTP response timeout: 120 seconds (for large responses with backpressure)
     });
 
     private readonly storage: VMStorage = new VMMongoStorage(Config);

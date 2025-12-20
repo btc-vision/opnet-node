@@ -1,10 +1,10 @@
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import { MiddlewareHandler } from 'hyper-express';
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewarePromise } from 'hyper-express/types/components/middleware/MiddlewareHandler.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import { Router } from 'hyper-express/types/components/router/Router.js';
+import { MiddlewareHandler } from '@btc-vision/hyper-express';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewarePromise } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareHandler.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Router } from '@btc-vision/hyper-express/types/components/router/Router.js';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { Routes, RouteType } from '../enums/Routes.js';
 import { JSONRpcMethods } from '../json-rpc/types/enums/JSONRpcMethods.js';

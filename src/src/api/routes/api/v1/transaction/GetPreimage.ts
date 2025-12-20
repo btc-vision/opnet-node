@@ -5,11 +5,11 @@ import {
     PreimageResult,
 } from '../../../../json-rpc/types/interfaces/results/transactions/PreimageResult.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { MiddlewareNext } from 'hyper-express';
+import { MiddlewareNext } from '@btc-vision/hyper-express';
 import { DataConverter } from '@btc-vision/bsi-common';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
 import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
 
 export class GetPreimage extends Route<

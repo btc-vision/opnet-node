@@ -1,6 +1,6 @@
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { IParsedBlockWitnessDocument } from '../../../../../db/models/IBlockWitnessDocument.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';

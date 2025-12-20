@@ -1,6 +1,6 @@
 import { Logger } from '@btc-vision/bsi-common';
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
 
 import { PluginWorkerPool } from '../../workers/PluginWorkerPool.js';
 import { PluginRegistry } from '../../registry/PluginRegistry.js';
