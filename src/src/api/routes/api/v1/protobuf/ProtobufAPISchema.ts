@@ -39,6 +39,8 @@ export class ProtobufAPISchema extends Route<
      * @responseContent {string} 200.plain/text
      */
     protected onRequest(_req: Request, res: Response, _next?: MiddlewareNext): undefined {
+        if (res.closed) return;
+
         const response: string | undefined = this.getData();
 
         if (response === null || !response) {

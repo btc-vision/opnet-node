@@ -56,6 +56,8 @@ export class JSONRpc2Manager extends Logger {
         res.header('Content-Type', 'application/json');
 
         let requestSize: number = 0;
+        let pendingIncremented: boolean = false;
+
         try {
             const requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined =
                 await req.json();
@@ -77,10 +79,11 @@ export class JSONRpc2Manager extends Logger {
                     return;
                 }
 
-                requestSize += length + 1;
+                requestSize = length + 1;
                 if (!this.incrementPendingRequests(res, requestSize)) {
                     return; // already sent error
                 }
+                pendingIncremented = true;
 
                 response = await this.requestInBatchOf(
                     requestData,
@@ -88,10 +91,11 @@ export class JSONRpc2Manager extends Logger {
                     Config.API.BATCH_PROCESSING_SIZE,
                 );
             } else {
-                requestSize += 1;
+                requestSize = 1;
                 if (!this.incrementPendingRequests(res, requestSize)) {
                     return; // already sent error
                 }
+                pendingIncremented = true;
 
                 const resp = await this.processSingleRequest(res, requestData);
                 if (!resp) {
@@ -116,23 +120,20 @@ export class JSONRpc2Manager extends Logger {
                 }
             }
 
-            //const stream = json.createStringifyStream({
-            //    body: response,
-            //});
-
-            //res.atomic(() => {
-            if ('error' in response) {
-                res.status(JSONRPCErrorHttpCodes.INVALID_REQUEST);
-            } else {
-                res.status(200);
+            // Check if socket is still open before writing response
+            if (res.closed) {
+                return;
             }
 
-            //if (stream instanceof Readable) {
-            //    await res.stream(stream);
-            //}
+            res.atomic(() => {
+                if ('error' in response) {
+                    res.status(JSONRPCErrorHttpCodes.INVALID_REQUEST);
+                } else {
+                    res.status(200);
+                }
 
-            res.json(response);
-            //});
+                res.json(response);
+            });
         } catch (err) {
             if (Config.DEV.DEBUG_API_ERRORS) {
                 this.error(`API Error: ${(err as Error).message}`);
@@ -152,7 +153,10 @@ export class JSONRpc2Manager extends Logger {
                 this.sendInternalError(res);
             } catch (e) {}
         } finally {
-            this.pendingRequests -= requestSize;
+            // Only decrement if we actually incremented
+            if (pendingIncremented) {
+                this.pendingRequests -= requestSize;
+            }
         }
     }
 
@@ -162,6 +166,8 @@ export class JSONRpc2Manager extends Logger {
         code: JSONRPCErrorCode,
         res: Response,
     ): void {
+        if (res.closed) return;
+
         const errorData: JSONRpcResultError<JSONRpcMethods> = {
             code: code,
             message: msg,

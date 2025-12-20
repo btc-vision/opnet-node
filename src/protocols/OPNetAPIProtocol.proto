@@ -103,7 +103,37 @@ message ChecksumProofEntry {
 // Transaction Types (matches TransactionDocumentForAPI)
 // ============================================================================
 
+enum OPNetTransactionType {
+    GENERIC = 0;
+    DEPLOYMENT = 1;
+    INTERACTION = 2;
+}
+
+// Interaction transaction specific data
+message InteractionTransactionData {
+    string calldata = 1;
+    optional string senderPubKeyHash = 2;
+    optional string contractSecret = 3;
+    optional string interactionPubKey = 4;
+    bool wasCompressed = 5;
+    string fromLegacy = 6;
+    optional string receipt = 7;
+    repeated string receiptProofs = 8;
+}
+
+// Deployment transaction specific data
+message DeploymentTransactionData {
+    string bytecode = 1;
+    string deployerPubKey = 2;
+    string contractSeed = 3;
+    string contractSaltHash = 4;
+    string deployerAddress = 5;
+    bool wasCompressed = 6;
+    string fromLegacy = 7;
+}
+
 message TransactionForAPI {
+    // Common fields for all transaction types
     string hash = 1;
     string id = 2;
     optional string blockNumber = 3;
@@ -111,7 +141,7 @@ message TransactionForAPI {
     optional string revert = 5;
     optional string contractAddress = 6;
     optional string from = 7;
-    optional string contractTweakedPublicKey = 8;
+    optional string contractPublicKey = 8;
     optional string contractHybridPublicKey = 9;
     optional TransactionPow pow = 10;
     repeated EventReceiptData events = 11;
@@ -122,7 +152,13 @@ message TransactionForAPI {
     repeated TransactionInput inputs = 16;
     bytes raw = 17;
     uint32 index = 18;
-    uint32 OPNetType = 19;
+    OPNetTransactionType OPNetType = 19;
+
+    // Type-specific data (only one will be set based on OPNetType)
+    oneof typeData {
+        InteractionTransactionData interaction = 20;
+        DeploymentTransactionData deployment = 21;
+    }
 }
 
 message TransactionPow {
@@ -145,7 +181,7 @@ message TransactionOutput {
 message TransactionInput {
     optional string originalTransactionId = 1;
     uint32 outputIndex = 2;
-    string scriptSignature = 3;
+    optional string scriptSignature = 3;
     repeated string witnesses = 4;
 }
 
@@ -386,7 +422,8 @@ message GetChainIdResponse {
 
 message GetReorgRequest {
     uint32 requestId = 1;
-    optional uint32 limit = 2;
+    optional string fromBlock = 2;
+    optional string toBlock = 3;
 }
 
 message GetReorgResponse {

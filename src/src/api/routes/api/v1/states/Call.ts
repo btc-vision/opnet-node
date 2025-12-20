@@ -177,16 +177,14 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         try {
             const params = await this.getParams(req, res);
             if (!params) {
-                throw new Error('Invalid params.');
+                return; // getParams already sent error response
             }
 
             const data = await this.getData(params);
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({
+                this.safeJson(res, 400, {
                     error: 'Could not execute the given calldata at the requested contract.',
                 });
             }
@@ -207,14 +205,12 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         const blockNumber = req.query.blockNumber as string;
 
         if (!to || to.length < 50) {
-            res.status(400);
-            res.json({ error: 'Invalid address. Address must be P2TR (taproot).' });
+            this.safeJson(res, 400, { error: 'Invalid address. Address must be P2TR (taproot).' });
             return;
         }
 
         if (!data || data.length < 4) {
-            res.status(400);
-            res.json({ error: 'Invalid calldata.' });
+            this.safeJson(res, 400, { error: 'Invalid calldata.' });
             return;
         }
 

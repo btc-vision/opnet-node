@@ -301,6 +301,7 @@ export class WebSocketClient extends Logger {
 
     /**
      * Send an error response
+     * Format: [opcode (1)] [requestId (4 bytes LE)] [protobuf payload]
      */
     public sendError(
         requestId: number,
@@ -320,8 +321,10 @@ export class WebSocketClient extends Logger {
         };
 
         try {
-            const packed = errorPacket.pack(errorData);
-            return this.send(packed);
+            // Use packPayload to get just the protobuf bytes (no opcode)
+            const payload = errorPacket.packPayload(errorData);
+            // Send using sendResponse to ensure consistent format: [opcode][requestId][payload]
+            return this.sendResponse(errorPacket.getOpcode() as WebSocketResponseOpcode, requestId, payload);
         } catch (error) {
             this.error(`Failed to send error response: ${error}`);
             return false;
@@ -329,10 +332,18 @@ export class WebSocketClient extends Logger {
     }
 
     /**
-     * Send a response with a specific opcode
+     * Send a response with a specific opcode and requestId
+     * Format: [opcode (1)] [requestId (4 bytes LE)] [payload]
      */
-    public sendResponse(opcode: WebSocketResponseOpcode, payload: Uint8Array): boolean {
-        const message = new Uint8Array([opcode, ...payload]);
+    public sendResponse(opcode: WebSocketResponseOpcode, requestId: number, payload: Uint8Array): boolean {
+        const message = new Uint8Array(1 + 4 + payload.length);
+        message[0] = opcode;
+        // Write requestId as little-endian uint32
+        message[1] = requestId & 0xff;
+        message[2] = (requestId >> 8) & 0xff;
+        message[3] = (requestId >> 16) & 0xff;
+        message[4] = (requestId >> 24) & 0xff;
+        message.set(payload, 5);
         return this.send(message);
     }
 

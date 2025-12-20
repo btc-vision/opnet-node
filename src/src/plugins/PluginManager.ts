@@ -219,8 +219,6 @@ export class PluginManager extends Logger {
      * Register a plugin from file
      */
     public registerPlugin(filePath: string): IRegisteredPlugin {
-        this.info(`Registering plugin from: ${filePath}`);
-
         // Parse plugin file
         let parsedFile: IParsedPluginFile;
         try {
@@ -299,7 +297,6 @@ export class PluginManager extends Logger {
             this.routeRegistry.registerPlugin(plugin);
 
             this.registry.setState(pluginId, PluginState.LOADED);
-            this.info(`Loaded plugin: ${pluginId}`);
         } catch (error) {
             const err = error as Error;
             this.registry.setState(pluginId, PluginState.ERROR, {
@@ -341,7 +338,6 @@ export class PluginManager extends Logger {
 
             await this.workerPool.unloadPlugin(pluginId);
             this.registry.unregister(pluginId);
-            this.info(`Unloaded plugin: ${pluginId}`);
         } catch (error) {
             // Even on error, mark as unloaded
             this.registry.unregister(pluginId);
@@ -397,7 +393,6 @@ export class PluginManager extends Logger {
         try {
             await this.workerPool.disablePlugin(pluginId);
             this.registry.setState(pluginId, PluginState.DISABLED);
-            this.info(`Disabled plugin: ${pluginId}`);
         } catch (error) {
             const err = error as Error;
             this.error(`Failed to disable plugin ${pluginId}: ${err.message}`);
@@ -490,8 +485,6 @@ export class PluginManager extends Logger {
                     }
                 }
             }
-
-            this.info(`Successfully reloaded plugin: ${pluginId}`);
         } catch (error) {
             this.error(`Failed to reload plugin ${pluginId}: ${error}`);
             throw error;
@@ -513,8 +506,6 @@ export class PluginManager extends Logger {
             );
             return;
         }
-
-        this.info('Enabling hot reload for plugins directory');
 
         try {
             this.fileWatcher = fs.watch(
@@ -543,8 +534,6 @@ export class PluginManager extends Logger {
             return;
         }
 
-        this.info('Disabling hot reload');
-
         // Clear all pending debounce timers
         for (const timer of this.reloadDebounceTimers.values()) {
             clearTimeout(timer);
@@ -558,7 +547,6 @@ export class PluginManager extends Logger {
         }
 
         this.hotReloadEnabled = false;
-        this.info('Hot reload disabled');
     }
 
     /**
@@ -667,7 +655,7 @@ export class PluginManager extends Logger {
         }
 
         const reindexFromBlock = this.config.reindexFromBlock ?? 0n;
-        this.info(`Reindex mode enabled - handling plugin reindex from block ${reindexFromBlock}`);
+        this.warn(`Reindex mode enabled - handling plugin reindex from block ${reindexFromBlock}`);
 
         const enabledPlugins = this.registry.getEnabled();
         if (enabledPlugins.length === 0) {

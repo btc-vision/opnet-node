@@ -124,10 +124,29 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                             ? Buffer.from(mldsa.publicKey.buffer).toString('hex')
                             : null;
 
+                        if (mldsa.tweakedPublicKey) {
+                            const tweakedKeyBuffer = Buffer.from(mldsa.tweakedPublicKey.buffer);
+                            info.tweakedPubkey = tweakedKeyBuffer.toString('hex');
+                            info.p2tr = this.tweakedPubKeyToAddress(tweakedKeyBuffer, this.network);
+                        }
+
                         if (mldsa.legacyPublicKey) {
                             const legacyKeyBuffer = Buffer.from(mldsa.legacyPublicKey.buffer);
-                            info.tweakedPubkey = legacyKeyBuffer.toString('hex');
-                            info.p2tr = this.tweakedPubKeyToAddress(legacyKeyBuffer, this.network);
+                            if (legacyKeyBuffer.length === 33) {
+                                const ecKeyPair = EcKeyPair.fromPublicKey(
+                                    legacyKeyBuffer,
+                                    this.network,
+                                );
+                                const tweakedKey = this.tweakPublicKey(legacyKeyBuffer);
+                                info.originalPubKey = legacyKeyBuffer.toString('hex');
+                                info.p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
+                                info.p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(
+                                    ecKeyPair,
+                                    this.network,
+                                );
+                                info.p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
+                                info.lowByte = tweakedKey[0];
+                            }
                         }
                     }
 

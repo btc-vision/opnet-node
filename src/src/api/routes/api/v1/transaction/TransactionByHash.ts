@@ -69,17 +69,15 @@ export class TransactionByHash extends Route<
         try {
             const params = this.getParams(_req, res);
             if (!params) {
-                throw new Error('Invalid params.');
+                return; // getParams already sent error response
             }
 
             const data = await this.getData(params);
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Transaction not found.' });
+                this.safeJson(res, 400, { error: 'Transaction not found.' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);
@@ -94,8 +92,7 @@ export class TransactionByHash extends Route<
         const hash = req.query.hash as string;
 
         if (!hash || (hash && hash.length !== 64)) {
-            res.status(400);
-            res.json({ error: 'Invalid hash.' });
+            this.safeJson(res, 400, { error: 'Invalid hash.' });
             return;
         }
 

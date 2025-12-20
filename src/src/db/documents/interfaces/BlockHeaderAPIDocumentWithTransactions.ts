@@ -24,6 +24,7 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
 
     readonly contractAddress?: string;
     from?: string;
+    fromLegacy?: string;
     contractPublicKey?: string;
     contractHybridPublicKey?: string;
 
@@ -39,6 +40,15 @@ export interface TransactionDocumentForAPI<T extends OPNetTransactionTypes>
 
     readonly outputs: APIDocumentOutput[];
     readonly inputs: APIDocumentInput[];
+
+    // Interaction transaction specific fields
+    calldata?: string;
+    senderPubKeyHash?: string;
+    contractSecret?: string;
+    interactionPubKey?: string;
+    wasCompressed?: boolean;
+    receipt?: string;
+    receiptProofs?: string[];
 
     blockHeight: undefined;
     deployedTransactionHash: undefined;

@@ -100,8 +100,27 @@ export abstract class Route<
             this.error(`Error in route ${this.routePath}: ${error.stack}`);
         }
 
-        res.status(500);
-        res.json({ error: `Something went wrong: ${error.message}` });
+        // Check if socket is still open before writing
+        if (res.closed) return;
+
+        res.atomic(() => {
+            res.status(500);
+            res.json({ error: `Something went wrong: ${error.message}` });
+        });
+    }
+
+    /**
+     * Safe response helper - checks if socket is still open before writing
+     * Use this for all async responses to prevent "socket closed" errors
+     */
+    protected safeJson(res: Response, status: number, data: unknown): boolean {
+        if (res.closed) return false;
+
+        res.atomic(() => {
+            res.status(status);
+            res.json(data);
+        });
+        return true;
     }
 
     protected abstract onRequest(

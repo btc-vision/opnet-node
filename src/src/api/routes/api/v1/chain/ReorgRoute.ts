@@ -53,17 +53,15 @@ export class ReorgRoute extends Route<Routes.REORG, JSONRpcMethods.REORG, ReorgR
         try {
             const params = this.getParams(req, res);
             if (!params) {
-                throw new Error('Invalid params.');
+                return; // getParams already sent error response
             }
 
             const data = await this.getData(params);
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Could not fetch latest block header. Is this node synced?' });
+                this.safeJson(res, 400, { error: 'Could not fetch latest block header. Is this node synced?' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

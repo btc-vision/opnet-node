@@ -88,17 +88,15 @@ export class GetCode extends Route<
         try {
             const params = this.getParams(req, res);
             if (!params) {
-                throw new Error('Invalid params.');
+                return; // getParams already sent error response
             }
 
             const data = await this.getData(params);
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Could not fetch latest block header. Is this node synced?' });
+                this.safeJson(res, 400, { error: 'Contract not found at specified address.' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);
@@ -113,8 +111,7 @@ export class GetCode extends Route<
         const address = req.query.address as string;
 
         if (!address || address.length < 20) {
-            res.status(400);
-            res.json({ error: 'Invalid address.' });
+            this.safeJson(res, 400, { error: 'Invalid address.' });
             return;
         }
 

@@ -68,11 +68,9 @@ export class PublicKeyInfoRoute extends Route<
 
             const data = await this.getDataRPC(body);
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Could not fetch balance for the given address.' });
+                this.safeJson(res, 400, { error: 'Could not fetch balance for the given address.' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

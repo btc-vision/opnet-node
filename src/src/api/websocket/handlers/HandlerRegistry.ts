@@ -9,6 +9,7 @@ import { DefinedRoutes } from '../../routes/DefinedRoutes.js';
 import { Routes } from '../../enums/Routes.js';
 import { PackedMessage } from '../packets/APIPacket.js';
 import { BlockHeaderAPIDocumentWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
+import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 // Import typed request interfaces
 import {
@@ -82,6 +83,128 @@ function bigintToNumber(value: bigint | string | undefined): number {
 }
 
 /**
+ * Convert OPNetTransactionTypes string enum to protobuf enum value.
+ * Proto enum OPNetTransactionType: GENERIC=0, DEPLOYMENT=1, INTERACTION=2
+ */
+function convertOPNetTypeToProtoEnum(type: OPNetTransactionTypes | string | undefined): number {
+    switch (type) {
+        case OPNetTransactionTypes.Deployment:
+            return 1; // DEPLOYMENT
+        case OPNetTransactionTypes.Interaction:
+            return 2; // INTERACTION
+        case OPNetTransactionTypes.Generic:
+        default:
+            return 0; // GENERIC
+    }
+}
+
+/**
+ * Convert a transaction response to protobuf-compatible format.
+ * Ensures all fields are properly formatted for protobuf encoding.
+ * Uses oneof for type-specific data (interaction vs deployment).
+ */
+function convertTransactionResponse(tx: Record<string, unknown>): PackedMessage {
+    // Helper to safely convert to Buffer for bytes fields
+    const toBuffer = (value: unknown): Buffer => {
+        if (!value) return Buffer.alloc(0);
+        if (Buffer.isBuffer(value)) return value;
+        if (typeof value === 'string') return Buffer.from(value, 'base64');
+        if (value instanceof Uint8Array) return Buffer.from(value);
+        // Handle MongoDB Binary
+        if (typeof value === 'object' && 'buffer' in value) {
+            return Buffer.from((value as { buffer: Buffer }).buffer);
+        }
+        return Buffer.alloc(0);
+    };
+
+    // Convert inputs to ensure all fields are proper types
+    // For optional fields, only include them if they have actual values (not null/undefined)
+    const inputs = Array.isArray(tx.inputs)
+        ? tx.inputs.map((input: Record<string, unknown>) => {
+              const converted: Record<string, unknown> = {
+                  outputIndex: typeof input.outputIndex === 'number' ? input.outputIndex : 0,
+                  witnesses: Array.isArray(input.witnesses) ? input.witnesses : [],
+              };
+              // Only include optional string fields if they have actual string values
+              if (typeof input.originalTransactionId === 'string') {
+                  converted.originalTransactionId = input.originalTransactionId;
+              }
+              if (typeof input.scriptSignature === 'string') {
+                  converted.scriptSignature = input.scriptSignature;
+              }
+              return converted;
+          })
+        : [];
+
+    // Convert outputs to ensure all fields are proper types
+    const outputs = Array.isArray(tx.outputs)
+        ? tx.outputs.map((output: Record<string, unknown>) => ({
+              value: typeof output.value === 'string' ? output.value : '0',
+              index: typeof output.index === 'number' ? output.index : 0,
+              scriptPubKey: output.scriptPubKey,
+          }))
+        : [];
+
+    // Proto enum values: GENERIC=0, DEPLOYMENT=1, INTERACTION=2
+    const opnetType = convertOPNetTypeToProtoEnum(
+        tx.OPNetType as OPNetTransactionTypes | string,
+    );
+
+    // Build the base transaction response
+    const response: Record<string, unknown> = {
+        // Common fields for all transaction types
+        hash: tx.hash ?? '',
+        id: tx.id ?? '',
+        blockNumber: tx.blockNumber ?? '',
+        burnedBitcoin: tx.burnedBitcoin ?? '0x0',
+        revert: tx.revert,
+        contractAddress: tx.contractAddress,
+        from: tx.from,
+        contractPublicKey: tx.contractPublicKey,
+        contractHybridPublicKey: tx.contractHybridPublicKey,
+        pow: tx.pow,
+        events: tx.events ?? [],
+        gasUsed: tx.gasUsed ?? '0x0',
+        specialGasUsed: tx.specialGasUsed ?? '0x0',
+        priorityFee: tx.priorityFee ?? '0x0',
+        outputs,
+        inputs,
+        raw: toBuffer(tx.raw),
+        index: typeof tx.index === 'number' ? tx.index : 0,
+        OPNetType: opnetType,
+    };
+
+    // Add type-specific data based on transaction type (oneof typeData)
+    // Proto enum: INTERACTION=2
+    if (opnetType === 2) {
+        response.interaction = {
+            calldata: tx.calldata ?? '',
+            senderPubKeyHash: tx.senderPubKeyHash,
+            contractSecret: tx.contractSecret,
+            interactionPubKey: tx.interactionPubKey,
+            wasCompressed: tx.wasCompressed ?? false,
+            fromLegacy: tx.fromLegacy ?? '',
+            receipt: tx.receipt,
+            receiptProofs: tx.receiptProofs ?? [],
+        };
+    } else if (opnetType === 1) {
+        // Proto enum: DEPLOYMENT=1
+        response.deployment = {
+            bytecode: tx.bytecode ?? '',
+            deployerPubKey: tx.deployerPubKey ?? '',
+            contractSeed: tx.contractSeed ?? '',
+            contractSaltHash: tx.contractSaltHash ?? '',
+            deployerAddress: tx.deployerAddress ?? '',
+            wasCompressed: tx.wasCompressed ?? false,
+            fromLegacy: tx.fromLegacy ?? '',
+        };
+    }
+    // Proto enum: GENERIC=0 has no type-specific data
+
+    return response as PackedMessage;
+}
+
+/**
  * Parse a block identifier from the request
  */
 function parseBlockIdentifier(
@@ -103,7 +226,8 @@ function parseBlockIdentifier(
 }
 
 /**
- * Convert block response to protobuf-compatible format
+ * Convert block response to protobuf-compatible format.
+ * Ensures all required fields have default values to avoid protobuf verification errors.
  */
 function convertBlockResponse(block: BlockHeaderAPIDocumentWithTransactions): PackedMessage {
     return {
@@ -116,10 +240,9 @@ function convertBlockResponse(block: BlockHeaderAPIDocumentWithTransactions): Pa
                 proofs,
             })) ?? [],
         transactions:
-            block.transactions?.map((tx) => ({
-                ...tx,
-                raw: tx.raw ? Buffer.from(tx.raw) : Buffer.alloc(0),
-            })) ?? [],
+            block.transactions?.map((tx) =>
+                convertTransactionResponse(tx as unknown as Record<string, unknown>),
+            ) ?? [],
     };
 }
 
@@ -267,7 +390,13 @@ export class HandlerRegistry extends Logger {
                 const route = DefinedRoutes[Routes.TRANSACTION_BY_HASH] as TransactionByHash;
                 const result = await route.getData({ hash: request.txHash });
 
-                return { transaction: result ?? null };
+                if (!result) {
+                    return { transaction: null };
+                }
+
+                // Convert transaction to protobuf-compatible format
+                const tx = convertTransactionResponse(result as Record<string, unknown>);
+                return { transaction: tx };
             },
         );
 
@@ -376,8 +505,8 @@ export class HandlerRegistry extends Logger {
             WebSocketRequestOpcode.GET_PUBLIC_KEY_INFO,
             async (request: PackedMessage<GetPublicKeyInfoRequest>) => {
                 const route = DefinedRoutes[Routes.PUBLIC_KEY_INFO] as PublicKeyInfoRoute;
-                // The route expects an array as the param
-                const result = await route.getData([request.addresses]);
+                // The route expects a tuple [string[]] for array form
+                const result = await route.getData([request.addresses] as [string[]]);
 
                 if (!result) {
                     throw new WebSocketAPIError(ResourceError.ADDRESS_NOT_FOUND);

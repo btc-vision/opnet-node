@@ -98,8 +98,7 @@ export class SubmitEpochRoute extends Route<
         try {
             // Validate that this is a POST request with body
             if (!req.body) {
-                res.status(400);
-                res.json({
+                this.safeJson(res, 400, {
                     error: 'Request body required',
                     code: 'MISSING_BODY',
                 });
@@ -109,8 +108,7 @@ export class SubmitEpochRoute extends Route<
             const params = req.body as SubmitEpochParams;
             const result = await this.getData(params);
 
-            res.status(200);
-            res.json(result);
+            this.safeJson(res, 200, result);
         } catch (err) {
             this.handleSubmissionError(res, err as Error);
         }
@@ -436,26 +434,25 @@ export class SubmitEpochRoute extends Route<
      * Handle submission-specific errors
      */
     private handleSubmissionError(res: Response, error: Error): void {
+        if (res.closed) return;
+
         // Handle validation errors
         if (
             error.message.includes('bytes') ||
             error.message.includes('hex') ||
             error.message.includes('must be')
         ) {
-            res.status(400);
-            res.json({
+            this.safeJson(res, 400, {
                 error: error.message,
                 code: 'INVALID_FORMAT',
             });
         } else if (error.message.includes('already exists')) {
-            res.status(409);
-            res.json({
+            this.safeJson(res, 409, {
                 error: error.message,
                 code: 'DUPLICATE_SUBMISSION',
             });
         } else if (error.message.includes('Invalid')) {
-            res.status(400);
-            res.json({
+            this.safeJson(res, 400, {
                 error: error.message,
                 code: 'INVALID_PARAMETERS',
             });

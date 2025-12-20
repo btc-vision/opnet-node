@@ -62,8 +62,7 @@ export class GetBalanceRoute extends Route<
 
             const address = req.query.address as string | undefined;
             if (!address) {
-                res.status(400);
-                res.json({ error: 'Address not provided' });
+                this.safeJson(res, 400, { error: 'Address not provided' });
                 return;
             }
 
@@ -72,11 +71,9 @@ export class GetBalanceRoute extends Route<
             });
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Could not fetch balance for the given address.' });
+                this.safeJson(res, 400, { error: 'Could not fetch balance for the given address.' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

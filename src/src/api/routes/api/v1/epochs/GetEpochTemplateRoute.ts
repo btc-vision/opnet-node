@@ -114,8 +114,7 @@ export class GetEpochTemplateRoute extends Route<
     protected async onRequest(_req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
         try {
             const result = await this.getData();
-            res.status(200);
-            res.json(result);
+            this.safeJson(res, 200, result);
         } catch (err) {
             this.handleDefaultError(res, err as Error);
         }
