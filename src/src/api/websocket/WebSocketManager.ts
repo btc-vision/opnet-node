@@ -1,6 +1,6 @@
 import { Logger } from '@btc-vision/bsi-common';
-import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
-import { Request } from 'hyper-express/types/components/http/Request.js';
+import { Websocket } from '@btc-vision/hyper-express/types/components/ws/Websocket.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
 import { SubscriptionType, WebSocketClient, WebSocketClientConfig } from './WebSocketClient.js';
 import { Protocol, PROTOCOL_VERSION } from './ProtocolHandler.js';
 import { APIRegistry } from './OpcodeRegistry.js';

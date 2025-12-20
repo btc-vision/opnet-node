@@ -1,5 +1,5 @@
 import { Logger } from '@btc-vision/bsi-common';
-import { Websocket } from 'hyper-express/types/components/ws/Websocket.js';
+import { Websocket } from '@btc-vision/hyper-express/types/components/ws/Websocket.js';
 import { randomBytes } from 'crypto';
 import {
     AuthError,
