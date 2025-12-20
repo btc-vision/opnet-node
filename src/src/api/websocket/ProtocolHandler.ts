@@ -12,6 +12,7 @@ import {
 import { APIPacketType } from './packets/types/APIPacketTypes.js';
 import { WSManager } from './WebSocketManager.js';
 import type { PluginOpcodeRegistry } from '../../plugins/api/websocket/PluginOpcodeRegistry.js';
+import { Config } from '../../config/Config.js';
 
 /**
  * Current protocol version
@@ -65,6 +66,10 @@ export class ProtocolHandler extends Logger {
             opcode = parsed.opcode as WebSocketRequestOpcode;
             payload = parsed.payload;
         } catch (error) {
+            if (Config.DEV_MODE && Config.DEV.DEBUG_API_ERRORS) {
+                this.error(`Failed to parse message from client ${client.clientId}: ${error}`);
+            }
+
             client.closeWithError(ProtocolError.MALFORMED_MESSAGE);
             return false;
         }
@@ -245,6 +250,7 @@ export class ProtocolHandler extends Logger {
             return true;
         } catch (error) {
             this.error(`Handshake failed: ${error}`);
+
             client.closeWithError(ProtocolError.MALFORMED_MESSAGE);
             return false;
         }
