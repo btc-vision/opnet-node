@@ -141,16 +141,12 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         return data;
     }
 
-    protected checkRateLimit(): boolean {
-        return this.pendingRequests + 1 <= Config.API.MAXIMUM_PENDING_CALL_REQUESTS;
-    }
-
     protected incrementPendingRequests(): void {
-        if (!this.checkRateLimit()) {
+        this.pendingRequests++;
+        if (this.pendingRequests > Config.API.MAXIMUM_PENDING_CALL_REQUESTS) {
+            this.pendingRequests--;
             throw new Error(`Too many pending call requests.`);
         }
-
-        this.pendingRequests++;
     }
 
     protected decrementPendingRequests(): void {

@@ -105,11 +105,11 @@ export class OPNetWitnessRoute extends Route<
             : undefined;
 
         const limit: number | undefined = req.query.limit
-            ? parseInt(req.query.limit as string)
+            ? parseInt(req.query.limit as string, 10)
             : undefined;
 
         const page: number | undefined = req.query.page
-            ? parseInt(req.query.page as string)
+            ? parseInt(req.query.page as string, 10)
             : undefined;
 
         return {

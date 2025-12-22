@@ -128,16 +128,12 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         return this.convertToBlockHeaderAPIDocumentWithTransactions(transactions);
     }
 
-    protected checkRateLimit(): boolean {
-        return this.pendingRequests + 1 <= Config.API.MAXIMUM_PARALLEL_BLOCK_QUERY;
-    }
-
     protected incrementPendingRequests(): void {
-        if (!this.checkRateLimit()) {
+        this.pendingRequests++;
+        if (this.pendingRequests > Config.API.MAXIMUM_PARALLEL_BLOCK_QUERY) {
+            this.pendingRequests--;
             throw new Error('Too many block pending requests');
         }
-
-        this.pendingRequests++;
     }
 
     protected decrementPendingRequests(): void {

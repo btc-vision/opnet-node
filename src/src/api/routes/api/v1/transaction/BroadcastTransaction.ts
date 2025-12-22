@@ -125,16 +125,12 @@ export class BroadcastTransaction extends Route<
         return data;
     }
 
-    protected checkRateLimit(): boolean {
-        return this.pendingRequests + 1 <= Config.API.MAXIMUM_TRANSACTION_BROADCAST;
-    }
-
     protected incrementPendingRequests(): void {
-        if (!this.checkRateLimit()) {
+        this.pendingRequests++;
+        if (this.pendingRequests > Config.API.MAXIMUM_TRANSACTION_BROADCAST) {
+            this.pendingRequests--;
             throw new Error(`Too many broadcast pending requests.`);
         }
-
-        this.pendingRequests++;
     }
 
     protected decrementPendingRequests(): void {
