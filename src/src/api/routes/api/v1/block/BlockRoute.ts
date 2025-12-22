@@ -162,7 +162,7 @@ export abstract class BlockRoute<T extends Routes> extends Route<
         height: SafeBigInt | string,
         data: Promise<BlockHeaderAPIDocumentWithTransactions>,
     ) {
-        if (this.cachedBlocks.size() === 100) {
+        if (this.cachedBlocks.size() >= 100) {
             this.purgeCache();
         }
 

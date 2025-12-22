@@ -48,16 +48,16 @@ export class MLDSAMetadata {
     /**
      * Converts metadata to security level
      */
-    public static toLevel(metadata: MLDSAPublicKeyMetadata): number {
+    public static toLevel(metadata: MLDSAPublicKeyMetadata): MLDSASecurityLevel {
         switch (metadata) {
             case MLDSAPublicKeyMetadata.MLDSA44:
-                return 0;
+                return MLDSASecurityLevel.LEVEL2;
             case MLDSAPublicKeyMetadata.MLDSA65:
-                return 1;
+                return MLDSASecurityLevel.LEVEL3;
             case MLDSAPublicKeyMetadata.MLDSA87:
-                return 2;
+                return MLDSASecurityLevel.LEVEL5;
             default:
-                return 0;
+                throw new Error('Invalid ML-DSA metadata');
         }
     }
 

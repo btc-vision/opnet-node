@@ -21,8 +21,14 @@ export class MLDSAPublicKeyCache {
         this.cache.set(address, publicKey);
 
         if (exists) {
+            // Move to end of insertion order (LRU behavior)
             const index = this.insertionOrder.indexOf(address);
+            if (index !== -1) {
+                this.insertionOrder.splice(index, 1);
+            }
         }
+
+        this.insertionOrder.push(address);
     }
 
     public has(address: Address): boolean {

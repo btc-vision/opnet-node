@@ -1194,9 +1194,9 @@ export class VMManager extends Logger {
         }
 
         const stateChanges = this.blockState.getEverythingWithProofs();
-
-        /** Nothing to save. */
-        if (!stateChanges) return;
+        if (!stateChanges) {
+            return;
+        }
 
         const storageToUpdate: AddressMap<Map<StoragePointer, [MemoryValue, string[]]>> =
             new AddressMap();
