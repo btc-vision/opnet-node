@@ -208,13 +208,15 @@ export class SSHClient extends Logger {
         const key: ssh2.PublicKey = ctx.key;
         const algo = key.algo;
 
-        const allowedKey = this.allowedKeys.find((k) => k.type === algo);
-        if (!allowedKey) {
+        // Filter all keys with matching type, then find one that matches the provided key
+        const matchingKeys = this.allowedKeys.filter((k) => k.type === algo);
+        if (matchingKeys.length === 0) {
             this.rejectAuth(ctx);
             return;
         }
 
-        if (!this.verifySafeBuffer(key.data, allowedKey.getPublicSSH())) {
+        const allowedKey = matchingKeys.find((k) => this.verifySafeBuffer(key.data, k.getPublicSSH()));
+        if (!allowedKey) {
             return this.rejectAuth(ctx);
         }
 

@@ -640,8 +640,11 @@ export class VMManager extends Logger {
         this.mldsaToStoreByHash.clear();
         this.mldsaCacheFromLegacy.clear();
 
-        for (const vmEvaluator of this.vmEvaluators.values()) {
-            await vmEvaluator;
+        for (const vmEvaluatorPromise of this.vmEvaluators.values()) {
+            const vmEvaluator = await vmEvaluatorPromise;
+            if (vmEvaluator) {
+                vmEvaluator.delete();
+            }
         }
 
         this.vmEvaluators.clear();
