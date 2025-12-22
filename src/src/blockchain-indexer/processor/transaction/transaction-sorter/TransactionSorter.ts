@@ -80,57 +80,67 @@ export class TransactionSorter {
         const effectiveRankCache = new Map<string, bigint>();
         const visiting = new Set<string>();
 
-        const compareByPriority = (aId: string, bId: string): number => {
-            const effA = this.computeEffectiveRank(aId, graph, effectiveRankCache, visiting);
-            const effB = this.computeEffectiveRank(bId, graph, effectiveRankCache, visiting);
+        const compareByPriority = (
+            a: Transaction<OPNetTransactionTypes>,
+            b: Transaction<OPNetTransactionTypes>,
+        ): number => {
+            const effA = this.computeEffectiveRank(a, graph, effectiveRankCache, visiting);
+            const effB = this.computeEffectiveRank(b, graph, effectiveRankCache, visiting);
             if (effA !== effB) {
                 return effA < effB ? -1 : 1; // lower rank is better
             }
 
-            const rankA = this.getTransactionRank(graph.transactionsById.get(aId)!);
-            const rankB = this.getTransactionRank(graph.transactionsById.get(bId)!);
+            const rankA = this.getTransactionRank(a);
+            const rankB = this.getTransactionRank(b);
             if (rankA !== rankB) {
                 return rankA < rankB ? -1 : 1;
             }
 
-            return this.compareHashes(aId, bId, graph);
+            return this.compareHashes(a, b);
         };
 
-        const available: string[] = [];
+        const availableTxs: Transaction<OPNetTransactionTypes>[] = [];
         graph.inDegree.forEach((degree, txId) => {
             if (degree === 0) {
-                available.push(txId);
+                const tx = this.getTx(txId, graph);
+                availableTxs.push(tx);
             }
         });
 
-        const resultIds: string[] = [];
-        while (available.length > 0) {
-            available.sort(compareByPriority);
-            const nextId = available.shift();
-            if (!nextId) break;
+        const resultTxs: Transaction<OPNetTransactionTypes>[] = [];
+        while (availableTxs.length > 0) {
+            availableTxs.sort(compareByPriority);
+            const nextTx = availableTxs.shift();
+            if (!nextTx) break;
 
-            resultIds.push(nextId);
-            const children = graph.adjacency.get(nextId);
+            resultTxs.push(nextTx);
+            const children = graph.adjacency.get(nextTx.transactionIdString);
             children?.forEach((childId) => {
                 const updated = (graph.inDegree.get(childId) || 0) - 1;
                 graph.inDegree.set(childId, updated);
                 if (updated === 0) {
-                    available.push(childId);
+                    const child = this.getTx(childId, graph);
+                    availableTxs.push(child);
                 }
             });
         }
 
-        if (resultIds.length !== graph.transactionsById.size) {
-            const remaining = [...graph.transactionsById.keys()].filter(
-                (id) => !resultIds.includes(id),
+        if (resultTxs.length !== graph.transactionsById.size) {
+            const remaining = [...graph.transactionsById.values()].filter(
+                (txA) =>
+                    !resultTxs.some((txB) => txA.transactionIdString === txB.transactionIdString),
             );
             remaining.sort(compareByPriority);
-            resultIds.push(...remaining);
+            resultTxs.push(...remaining);
         }
 
-        return resultIds
-            .map((id) => graph.transactionsById.get(id))
-            .filter((tx): tx is Transaction<OPNetTransactionTypes> => !!tx);
+        return resultTxs.filter((tx): tx is Transaction<OPNetTransactionTypes> => !!tx);
+    }
+
+    private getTx(txId: string, graph: DependencyGraph) {
+        const tx = graph.transactionsById.get(txId);
+        if (!tx) throw new Error(`Transaction ${txId} not found in graph.`);
+        return tx;
     }
 
     private buildDependencyGraph(
@@ -168,25 +178,29 @@ export class TransactionSorter {
     }
 
     private computeEffectiveRank(
-        txId: string,
+        tx: Transaction<OPNetTransactionTypes>,
         graph: DependencyGraph,
         cache: Map<string, bigint>,
         visiting: Set<string>,
     ): bigint {
-        if (cache.has(txId)) {
-            return cache.get(txId)!;
+        const txId = tx.transactionIdString;
+
+        const cachedRank = cache.get(txId);
+        if (cachedRank != null) {
+            return cachedRank;
         }
 
         if (visiting.has(txId)) {
-            return this.getTransactionRank(graph.transactionsById.get(txId)!);
+            return this.getTransactionRank(tx);
         }
 
         visiting.add(txId);
 
-        let bestRank = this.getTransactionRank(graph.transactionsById.get(txId)!);
+        let bestRank = this.getTransactionRank(tx);
         const children = graph.adjacency.get(txId);
         children?.forEach((childId) => {
-            const childRank = this.computeEffectiveRank(childId, graph, cache, visiting);
+            const child = this.getTx(childId, graph);
+            const childRank = this.computeEffectiveRank(child, graph, cache, visiting);
             if (childRank < bestRank) {
                 bestRank = childRank;
             }
@@ -197,14 +211,11 @@ export class TransactionSorter {
         return bestRank;
     }
 
-    private compareHashes(aId: string, bId: string, graph: DependencyGraph): number {
-        const txA = graph.transactionsById.get(aId);
-        const txB = graph.transactionsById.get(bId);
-        if (txA?.computedIndexingHash && txB?.computedIndexingHash) {
-            const cmp = Buffer.compare(txA.computedIndexingHash, txB.computedIndexingHash);
-            if (cmp !== 0) return cmp;
-        }
-        return aId.localeCompare(bId);
+    private compareHashes(
+        txA: Transaction<OPNetTransactionTypes>,
+        txB: Transaction<OPNetTransactionTypes>,
+    ): number {
+        return Buffer.compare(txA.computedIndexingHash, txB.computedIndexingHash);
     }
 
     private getInputTransactionId(originalTransactionId?: Buffer): string | undefined {
