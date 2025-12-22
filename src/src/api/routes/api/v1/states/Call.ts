@@ -114,11 +114,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 preloadStorage as LoadedStorageList,
             );
 
-            this.decrementPendingRequests();
             return this.convertDataToResult(res);
         } catch (e) {
-            this.decrementPendingRequests();
-
             if (
                 (e as Error).message.includes('mongo') ||
                 (e as Error).message.includes('database')
@@ -131,6 +128,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             }
 
             throw `Something went wrong while simulating call (${e})`;
+        } finally {
+            this.decrementPendingRequests();
         }
     }
 
