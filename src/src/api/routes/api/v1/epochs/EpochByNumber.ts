@@ -1,6 +1,6 @@
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes } from '../../../../enums/Routes.js';
 import { EpochByNumberParams } from '../../../../json-rpc/types/interfaces/params/epochs/EpochByNumberParams.js';
 import { EpochAPIResult } from '../../../../json-rpc/types/interfaces/results/epochs/EpochResult.js';
@@ -69,11 +69,9 @@ export class EpochByNumber extends EpochRoute<Routes.EPOCH_BY_NUMBER> {
             });
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Could not fetch epoch. Does it exist?' });
+                this.safeJson(res, 400, { error: 'Could not fetch epoch. Does it exist?' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

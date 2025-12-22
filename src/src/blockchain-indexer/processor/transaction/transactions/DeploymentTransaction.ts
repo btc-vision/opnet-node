@@ -13,6 +13,11 @@ import {
     ChallengeSolution,
     ContractAddressVerificationParams,
     EcKeyPair,
+    EpochSubmissionFeature,
+    Feature,
+    FeaturePriority,
+    Features,
+    MLDSALinkRequest,
     TapscriptVerificator,
 } from '@btc-vision/transaction';
 import { Binary } from 'mongodb';
@@ -20,7 +25,6 @@ import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/Evalu
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { SharedInteractionParameters } from './SharedInteractionParameters.js';
-import { Feature, Features } from '../features/Features.js';
 import { AddressCache } from '../../AddressCache.js';
 
 interface DeploymentWitnessData {
@@ -90,14 +94,14 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         super(rawTransactionData, vInputIndex, blockHash, blockHeight, network, addressCache);
     }
 
-    protected _contractTweakedPublicKey: Buffer | undefined;
+    protected _contractPublicKey: Buffer | undefined;
 
-    public get contractTweakedPublicKey(): Buffer {
-        if (!this._contractTweakedPublicKey) {
+    public get contractPublicKey(): Buffer {
+        if (!this._contractPublicKey) {
             throw new Error(`OP_NET: Contract tweaked public key not found.`);
         }
 
-        return this._contractTweakedPublicKey;
+        return this._contractPublicKey;
     }
 
     protected _contractAddress: Address | undefined;
@@ -142,12 +146,12 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             throw new Error(`OP_NET: No contract address found.`);
         }
 
-        const fromPubKey: Uint8Array = this.from.originalPublicKey || this.from;
         return {
             ...super.toDocument(),
-            from: new Binary(fromPubKey),
+            from: new Binary(this.from),
+            fromLegacy: new Binary(this.from.tweakedPublicKeyToBuffer()),
             contractAddress: this.contractAddress,
-            contractTweakedPublicKey: new Binary(this.address),
+            contractPublicKey: new Binary(this.address),
 
             calldata: new Binary(this.calldata),
             preimage: new Binary(this.preimage),
@@ -212,8 +216,8 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         // end of verify sender pubkey
 
         // regenerate address
-        this._from = new Address(this.deployerPubKey);
-        if (!this._from.isValid(this.network)) {
+        this._from = new Address(Buffer.alloc(32), this.deployerPubKey);
+        if (!this._from.isValidLegacyPublicKey(this.network)) {
             throw new Error(`OP_NET: Invalid sender address.`);
         }
 
@@ -237,19 +241,16 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         this._calldata = deploymentWitnessData.calldata;
 
         /** Restore contract seed/address */
-        this._contractTweakedPublicKey = TapscriptVerificator.getContractSeed(
+        this._contractPublicKey = TapscriptVerificator.getContractSeed(
             toXOnly(deployerPubKey),
             this.bytecode,
             hashOriginalSalt,
         );
 
         /** Generate contract segwit address */
-        this._contractAddress = new Address(Buffer.from(this._contractTweakedPublicKey));
+        this._contractAddress = new Address(Buffer.from(this._contractPublicKey));
 
-        this.contractSigner = EcKeyPair.fromSeedKeyPair(
-            this._contractTweakedPublicKey,
-            this.network,
-        );
+        this.contractSigner = EcKeyPair.fromSeedKeyPair(this._contractPublicKey, this.network);
 
         if (
             !this.contractSigner.publicKey ||
@@ -258,7 +259,10 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
             throw new Error(`OP_NET: Invalid contract signer.`);
         }
 
-        this.setMiner(deploymentWitnessData.header.miner, deploymentWitnessData.header.solution);
+        this.setMiner(
+            deploymentWitnessData.header.minerMLDSAPublicKey,
+            deploymentWitnessData.header.solution,
+        );
 
         /** We regenerate the contract address and verify it */
         const input0: TransactionInput = this.inputs[0];
@@ -286,14 +290,39 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
     private getFeatures(): Feature<Features>[] {
         const features: Feature<Features>[] = [];
         if (this._submission) {
-            features.push({
+            const epochSubmission: EpochSubmissionFeature = {
+                priority: FeaturePriority.EPOCH_SUBMISSION,
                 opcode: Features.EPOCH_SUBMISSION,
                 data: {
-                    publicKey: new Address(this._submission.publicKey),
+                    publicKey: new Address(this._submission.mldsaPublicKey),
                     solution: this._submission.salt,
                     graffiti: this._submission.graffiti,
+                    epochNumber: 0n,
+                    signature: Buffer.alloc(0),
+                    verifySignature: function (): boolean {
+                        return true;
+                    },
                 },
-            });
+            };
+
+            features.push(epochSubmission);
+        }
+
+        if (this._mldsaLinkRequest) {
+            const feature: MLDSALinkRequest = {
+                priority: FeaturePriority.MLDSA_LINK_PUBKEY,
+                opcode: Features.MLDSA_LINK_PUBKEY,
+                data: {
+                    verifyRequest: this._mldsaLinkRequest.mldsaSignature !== null,
+                    hashedPublicKey: this._mldsaLinkRequest.hashedPublicKey,
+                    publicKey: this._mldsaLinkRequest.publicKey,
+                    level: this._mldsaLinkRequest.level,
+                    mldsaSignature: this._mldsaLinkRequest.mldsaSignature,
+                    legacySignature: this._mldsaLinkRequest.legacySignature,
+                },
+            };
+
+            features.push(feature);
         }
 
         /*if (this._accessList) {
@@ -314,7 +343,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         const unsafePreimage: ChallengeSolution = {
             solution: this.preimage,
-            publicKey: new Address(this.miner),
+            publicKey: new Address(this.miner, this.minerLegacyPublicKey),
         } as unknown as ChallengeSolution;
 
         const features: Feature<Features>[] = this.getFeatures();
@@ -338,7 +367,9 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
         try {
             tapContractAddress = TapscriptVerificator.verifyControlBlock(params, controlBlock);
         } catch (e) {
-            throw new Error(`OP_NET: Invalid contract address from control block. ${e}`);
+            throw new Error(
+                `OP_NET: Invalid contract address from control block. ${(e as Error).stack}`,
+            );
         }
 
         if (!tapContractAddress) {

@@ -1,6 +1,6 @@
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes } from '../../../../enums/Routes.js';
 import { EpochByHashParams } from '../../../../json-rpc/types/interfaces/params/epochs/EpochByHashParams.js';
 import { EpochAPIResult } from '../../../../json-rpc/types/interfaces/results/epochs/EpochResult.js';
@@ -61,8 +61,7 @@ export class EpochByHash extends EpochRoute<Routes.EPOCH_BY_HASH> {
 
             const hash = req.query.hash as string | undefined;
             if (!hash) {
-                res.status(400);
-                res.json({ error: 'Epoch hash not provided' });
+                this.safeJson(res, 400, { error: 'Epoch hash not provided' });
                 return;
             }
 
@@ -74,11 +73,9 @@ export class EpochByHash extends EpochRoute<Routes.EPOCH_BY_HASH> {
             });
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Could not fetch epoch with the provided hash.' });
+                this.safeJson(res, 400, { error: 'Could not fetch epoch with the provided hash.' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);

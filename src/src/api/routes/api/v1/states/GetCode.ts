@@ -1,12 +1,13 @@
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { ContractInformation } from '../../../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { GetCodeParams } from '../../../../json-rpc/types/interfaces/params/states/GetCodeParams.js';
 import { GetCodeResult } from '../../../../json-rpc/types/interfaces/results/states/GetCodeResult.js';
 import { Route } from '../../../Route.js';
+import { IContractAPIDocument } from '../../../../../db/documents/interfaces/IContractDocument.js';
 
 export class GetCode extends Route<
     Routes.GET_CODE,
@@ -43,7 +44,7 @@ export class GetCode extends Route<
 
             result = {
                 contractAddress: document.contractAddress,
-                contractTweakedPublicKey: document.contractTweakedPublicKey.toString('base64'),
+                contractPublicKey: document.contractPublicKey.toString('base64'),
 
                 contractSeed: document.contractSeed.toString('base64'),
                 contractSaltHash: document.contractSaltHash.toString('hex'),
@@ -51,11 +52,12 @@ export class GetCode extends Route<
                 deployedTransactionId: document.deployedTransactionId.toString('hex'),
                 deployedTransactionHash: document.deployedTransactionHash.toString('hex'),
                 deployerPubKey: document.deployerPubKey.toString('base64'),
+                deployerAddress: document.deployerAddress.toString('base64'),
 
                 bytecode: contract.bytecode.toString('base64'),
 
                 wasCompressed: document.wasCompressed,
-            };
+            } satisfies IContractAPIDocument;
         }
 
         return result;
@@ -86,17 +88,15 @@ export class GetCode extends Route<
         try {
             const params = this.getParams(req, res);
             if (!params) {
-                throw new Error('Invalid params.');
+                return; // getParams already sent error response
             }
 
             const data = await this.getData(params);
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Could not fetch latest block header. Is this node synced?' });
+                this.safeJson(res, 400, { error: 'Contract not found at specified address.' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);
@@ -111,8 +111,7 @@ export class GetCode extends Route<
         const address = req.query.address as string;
 
         if (!address || address.length < 20) {
-            res.status(400);
-            res.json({ error: 'Invalid address.' });
+            this.safeJson(res, 400, { error: 'Invalid address.' });
             return;
         }
 

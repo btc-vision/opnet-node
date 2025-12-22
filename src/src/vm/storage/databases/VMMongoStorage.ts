@@ -43,6 +43,12 @@ import {
     SpentUTXOSOutputTransaction,
     UTXOsOutputTransactions,
 } from '../../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
+import { IMLDSAPublicKey, MLDSAUpdateData } from '../../../db/interfaces/IMLDSAPublicKey.js';
+import {
+    MLDSAPublicKeyExists,
+    MLDSAPublicKeyRepository,
+} from '../../../db/repositories/MLDSAPublicKeysRepository.js';
+import { getMongodbMajorVersion } from './MongoUtils.js';
 
 export class VMMongoStorage extends VMStorage {
     private databaseManager: ConfigurableDBManager;
@@ -59,6 +65,7 @@ export class VMMongoStorage extends VMStorage {
     private epochRepository: EpochRepository | undefined;
     private epochSubmissionRepository: EpochSubmissionRepository | undefined;
     private targetEpochRepository: TargetEpochRepository | undefined;
+    private mldsaPublicKeysRepository: MLDSAPublicKeyRepository | undefined;
     private initialized: boolean = false;
 
     constructor(
@@ -76,16 +83,57 @@ export class VMMongoStorage extends VMStorage {
         return this.blockchainInfoRepository;
     }
 
+    public getMLDSAPublicKeyFromHash(
+        publicKey: Buffer | Binary,
+        blockHeight: bigint,
+    ): Promise<IMLDSAPublicKey | null> {
+        if (!this.mldsaPublicKeysRepository) {
+            throw new Error('MLDSA Public Key repository not initialized');
+        }
+
+        return this.mldsaPublicKeysRepository.getByHashedPublicKey(publicKey, blockHeight);
+    }
+
+    public saveMLDSAPublicKeys(keys: MLDSAUpdateData[]): Promise<void> {
+        if (!this.mldsaPublicKeysRepository) {
+            throw new Error('MLDSA Public Key repository not initialized');
+        }
+
+        return this.mldsaPublicKeysRepository.savePublicKeys(keys);
+    }
+
+    public mldsaPublicKeyExists(
+        hashedPublicKey: Buffer | Binary,
+        legacyPublicKey: Buffer | Binary,
+    ): Promise<MLDSAPublicKeyExists> {
+        if (!this.mldsaPublicKeysRepository) {
+            throw new Error('MLDSA Public Key repository not initialized');
+        }
+
+        return this.mldsaPublicKeysRepository.exists(hashedPublicKey, legacyPublicKey);
+    }
+
+    public getMLDSAByLegacy(
+        publicKey: Buffer | Binary,
+        blockHeight: bigint,
+    ): Promise<IMLDSAPublicKey | null> {
+        if (!this.mldsaPublicKeysRepository) {
+            throw new Error('MLDSA Public Key repository not initialized');
+        }
+
+        return this.mldsaPublicKeysRepository.getByLegacyPublicKey(publicKey, blockHeight);
+    }
+
     public targetEpochExists(
         epochNumber: bigint,
         salt: Buffer | Binary,
-        publicKey: Address | Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
     ): Promise<boolean> {
         if (!this.targetEpochRepository) {
             throw new Error('Target epoch repository not initialized');
         }
 
-        return this.targetEpochRepository.targetEpochExists(epochNumber, salt, publicKey);
+        return this.targetEpochRepository.targetEpochExists(epochNumber, salt, mldsaPublicKey);
     }
 
     public getBestTargetEpoch(epochNumber: bigint): Promise<ITargetEpochDocument | null> {
@@ -180,6 +228,10 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Target epoch repository not initialized');
         }
 
+        if (!this.mldsaPublicKeysRepository) {
+            throw new Error('MLDSA Public Key repository not initialized');
+        }
+
         if (Config.DEV_MODE) {
             this.info(`Purging data until block ${blockId}`);
 
@@ -214,6 +266,9 @@ export class VMMongoStorage extends VMStorage {
 
             this.log(`Purging target epochs...`);
             await this.targetEpochRepository.deleteAllTargetEpochs();
+
+            this.log(`Purging MLDSA public keys...`);
+            await this.mldsaPublicKeysRepository.deleteFromBlockHeight(blockId);
         } else {
             const promises: Promise<void>[] = [
                 this.transactionRepository.deleteTransactionsFromBlockHeight(blockId),
@@ -226,6 +281,7 @@ export class VMMongoStorage extends VMStorage {
                 this.epochRepository.deleteEpochFromBitcoinBlockNumber(blockId),
                 this.epochSubmissionRepository.deleteSubmissionsFromBlock(blockId),
                 this.targetEpochRepository.deleteAllTargetEpochs(),
+                this.mldsaPublicKeysRepository.deleteFromBlockHeight(blockId),
             ];
 
             await Promise.safeAll(promises);
@@ -319,6 +375,8 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Database not connected');
         }
 
+        const dbVersion = await getMongodbMajorVersion(this.databaseManager.db);
+
         this.pointerRepository = new ContractPointerValueRepository(this.databaseManager.db);
         this.contractRepository = new ContractRepository(this.databaseManager.db);
         this.blockRepository = new BlockRepository(this.databaseManager.db);
@@ -326,15 +384,17 @@ export class VMMongoStorage extends VMStorage {
         this.transactionRepository = new TransactionRepository(this.databaseManager.db);
         this.unspentTransactionRepository = new UnspentTransactionRepository(
             this.databaseManager.db,
+            dbVersion,
         );
 
         this.reorgRepository = new ReorgsRepository(this.databaseManager.db);
         this.blockWitnessRepository = new BlockWitnessRepository(this.databaseManager.db);
-        this.mempoolRepository = new MempoolRepository(this.databaseManager.db);
+        this.mempoolRepository = new MempoolRepository(this.databaseManager.db, dbVersion);
         this.publicKeysRepository = new PublicKeysRepository(this.databaseManager.db);
         this.epochRepository = new EpochRepository(this.databaseManager.db);
         this.epochSubmissionRepository = new EpochSubmissionRepository(this.databaseManager.db);
         this.targetEpochRepository = new TargetEpochRepository(this.databaseManager.db);
+        this.mldsaPublicKeysRepository = new MLDSAPublicKeyRepository(this.databaseManager.db);
     }
 
     public async deleteTransactionsById(ids: string[]): Promise<void> {

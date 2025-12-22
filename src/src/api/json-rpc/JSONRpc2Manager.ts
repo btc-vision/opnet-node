@@ -1,7 +1,7 @@
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { JSONRpcRouter } from './JSONRpcRouter.js';
 import { JSONRPCErrorCode, JSONRPCErrorHttpCodes } from './types/enums/JSONRPCErrorCode.js';
 import { JSONRpcMethods } from './types/enums/JSONRpcMethods.js';
@@ -31,6 +31,10 @@ export class JSONRpc2Manager extends Logger {
     }
 
     public incrementPendingRequests(res: Response, requestSize: number): boolean {
+        if (Config.DEV.DEBUG_PENDING_REQUESTS) {
+            this.info(`Pending requests ${this.pendingRequests + requestSize}`);
+        }
+
         // Check if the number of pending requests is too high
         if (this.pendingRequests + requestSize > Config.API.MAXIMUM_PENDING_REQUESTS_PER_THREADS) {
             this.sendError(
@@ -49,7 +53,11 @@ export class JSONRpc2Manager extends Logger {
     }
 
     public async onRequest(req: Request, res: Response, _next?: MiddlewareNext): Promise<void> {
+        res.header('Content-Type', 'application/json');
+
         let requestSize: number = 0;
+        let pendingIncremented: boolean = false;
+
         try {
             const requestData: Partial<JSONRpc2Request<JSONRpcMethods>> | undefined =
                 await req.json();
@@ -71,10 +79,11 @@ export class JSONRpc2Manager extends Logger {
                     return;
                 }
 
-                requestSize += length + 1;
+                requestSize = length + 1;
                 if (!this.incrementPendingRequests(res, requestSize)) {
                     return; // already sent error
                 }
+                pendingIncremented = true;
 
                 response = await this.requestInBatchOf(
                     requestData,
@@ -82,10 +91,11 @@ export class JSONRpc2Manager extends Logger {
                     Config.API.BATCH_PROCESSING_SIZE,
                 );
             } else {
-                requestSize += 1;
+                requestSize = 1;
                 if (!this.incrementPendingRequests(res, requestSize)) {
                     return; // already sent error
                 }
+                pendingIncremented = true;
 
                 const resp = await this.processSingleRequest(res, requestData);
                 if (!resp) {
@@ -102,24 +112,28 @@ export class JSONRpc2Manager extends Logger {
                 }
             }
 
-            //const stream = json.createStringifyStream({
-            //    body: response,
-            //});
-
-            if ('error' in response) {
-                res.status(JSONRPCErrorHttpCodes.INVALID_REQUEST);
-            } else {
-                res.status(200);
+            if (Config.DEV_MODE && Config.DEV.DEBUG_API_ERRORS && 'error' in response) {
+                if (requestData?.method !== JSONRpcMethods.GET_TRANSACTION_BY_HASH) {
+                    this.warn(
+                        `Something went wrong in ${requestData?.method} -> ${response.error?.message}`,
+                    );
+                }
             }
 
-            res.header('Content-Type', 'application/json');
+            // Check if socket is still open before writing response
+            if (res.closed) {
+                return;
+            }
 
-            //if (stream instanceof Readable) {
-            //    await res.stream(stream);
-            //}
+            res.atomic(() => {
+                if ('error' in response) {
+                    res.status(JSONRPCErrorHttpCodes.INVALID_REQUEST);
+                } else {
+                    res.status(200);
+                }
 
-            res.json(response);
-            res.end();
+                res.json(response);
+            });
         } catch (err) {
             if (Config.DEV.DEBUG_API_ERRORS) {
                 this.error(`API Error: ${(err as Error).message}`);
@@ -138,9 +152,12 @@ export class JSONRpc2Manager extends Logger {
 
                 this.sendInternalError(res);
             } catch (e) {}
+        } finally {
+            // Only decrement if we actually incremented
+            if (pendingIncremented) {
+                this.pendingRequests -= requestSize;
+            }
         }
-
-        this.pendingRequests -= requestSize;
     }
 
     private sendError(
@@ -149,12 +166,19 @@ export class JSONRpc2Manager extends Logger {
         code: JSONRPCErrorCode,
         res: Response,
     ): void {
+        if (res.closed) return;
+
         const errorData: JSONRpcResultError<JSONRpcMethods> = {
             code: code,
             message: msg,
         };
 
         res.status(type);
+
+        if (Config.DEV_MODE && Config.DEV.DEBUG_API_ERRORS) {
+            this.warn(`API Error: ${type} - ${msg}`);
+        }
+
         this.sendErrorResponse(errorData, res);
     }
 
@@ -228,11 +252,11 @@ export class JSONRpc2Manager extends Logger {
         const params: JSONRpc2RequestParams<JSONRpcMethods> =
             requestData.params as JSONRpc2RequestParams<JSONRpcMethods>;
 
-        /*if (Config.DEBUG_LEVEL >= DebugLevel.ALL) {
+        if (Config.DEV.DEBUG_API_CALLS) {
             this.debugBright(
                 `JSON-RPC requested method: ${requestData.method} - ${JSON.stringify(params)}`,
             );
-        }*/
+        }
 
         const method: JSONRpcMethods = requestData.method as JSONRpcMethods;
         const result = await this.router.requestResponse(method, params);
@@ -377,7 +401,8 @@ export class JSONRpc2Manager extends Logger {
             error: error,
         };
 
-        res.json(response);
-        res.end();
+        res.atomic(() => {
+            res.json(response);
+        });
     }
 }

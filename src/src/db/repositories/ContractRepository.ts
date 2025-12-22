@@ -1,5 +1,9 @@
-import { BaseRepository, DataAccessError, DataAccessErrorType } from '@btc-vision/bsi-common';
-import { DataConverter } from '@btc-vision/bsi-db';
+import {
+    BaseRepository,
+    DataAccessError,
+    DataAccessErrorType,
+    DataConverter,
+} from '@btc-vision/bsi-common';
 import {
     Binary,
     ClientSession,
@@ -42,21 +46,21 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         };
 
         const projection = {
-            contractTweakedPublicKey: 1,
+            contractPublicKey: 1,
         };
 
         const collection = this.getCollection();
         const data = await collection.find(criteria, { projection }).toArray();
 
         const contractAddresses = data.map((doc) => {
-            if (typeof doc.contractTweakedPublicKey === 'string') {
-                return new Address(Buffer.from(doc.contractTweakedPublicKey, 'base64'));
+            if (typeof doc.contractPublicKey === 'string') {
+                return new Address(Buffer.from(doc.contractPublicKey, 'base64'));
             } else {
-                if (!doc.contractTweakedPublicKey) {
+                if (!doc.contractPublicKey) {
                     throw new Error('Contract tweaked public key is undefined');
                 }
 
-                return new Address(doc.contractTweakedPublicKey.buffer);
+                return new Address(doc.contractPublicKey.buffer);
             }
         });
 
@@ -101,7 +105,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
                 );
 
                 if (contract) {
-                    return contract.contractTweakedPublicKey;
+                    return contract.contractPublicKey;
                 } else {
                     return;
                 }
@@ -117,11 +121,11 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
         }
 
         const contract: {
-            contractTweakedPublicKey: Binary;
+            contractPublicKey: Binary;
         } | null = await this.queryOneAndProject(
             criteria,
             {
-                contractTweakedPublicKey: 1,
+                contractPublicKey: 1,
             },
             currentSession,
         );
@@ -130,7 +134,7 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
             return;
         }
 
-        return new Address(contract.contractTweakedPublicKey.buffer);
+        return new Address(contract.contractPublicKey.buffer);
     }
 
     public async setContract(
@@ -151,17 +155,17 @@ export class ContractRepository extends BaseRepository<IContractDocument> {
     }
 
     public async getContractFromTweakedPubKey(
-        contractTweakedPublicKey: string,
+        contractPublicKey: string,
         height?: bigint,
         currentSession?: ClientSession,
     ): Promise<ContractInformation | undefined> {
-        const key = Binary.createFromHexString(contractTweakedPublicKey.replace('0x', ''));
+        const key = Binary.createFromHexString(contractPublicKey.replace('0x', ''));
         if ((key.buffer[0] === 0x06 || key.buffer[0] === 0x07) && key.buffer.length === 65) {
             return await this.getContractFromTweakedHybridPubKey(key, height, currentSession);
         }
 
         const criteria: Filter<Document> = {
-            contractTweakedPublicKey: key,
+            contractPublicKey: key,
         };
 
         if (height !== undefined) {

@@ -1,10 +1,10 @@
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
-import { MiddlewareHandler } from 'hyper-express';
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewarePromise } from 'hyper-express/types/components/middleware/MiddlewareHandler.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
-import { Router } from 'hyper-express/types/components/router/Router.js';
+import { MiddlewareHandler } from '@btc-vision/hyper-express';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewarePromise } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareHandler.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Router } from '@btc-vision/hyper-express/types/components/router/Router.js';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { Routes, RouteType } from '../enums/Routes.js';
 import { JSONRpcMethods } from '../json-rpc/types/enums/JSONRpcMethods.js';
@@ -100,8 +100,27 @@ export abstract class Route<
             this.error(`Error in route ${this.routePath}: ${error.stack}`);
         }
 
-        res.status(500);
-        res.json({ error: `Something went wrong: ${error.message}` });
+        // Check if socket is still open before writing
+        if (res.closed) return;
+
+        res.atomic(() => {
+            res.status(500);
+            res.json({ error: `Something went wrong: ${error.message}` });
+        });
+    }
+
+    /**
+     * Safe response helper - checks if socket is still open before writing
+     * Use this for all async responses to prevent "socket closed" errors
+     */
+    protected safeJson(res: Response, status: number, data: unknown): boolean {
+        if (res.closed) return false;
+
+        res.atomic(() => {
+            res.status(status);
+            res.json(data);
+        });
+        return true;
     }
 
     protected abstract onRequest(

@@ -6,9 +6,13 @@ import { Transaction } from '../Transaction.js';
 import { AddressCache } from '../../AddressCache.js';
 import { ChallengeSolution } from '../../interfaces/TransactionPreimage.js';
 import { Address } from '@btc-vision/transaction';
+import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 
 const EXPIRED_TRANSACTION_ERROR: string =
     'Transaction was pending in the mempool for too long. It is no longer valid.';
+
+const INVALID_MINER_CHALLENGE_ERROR: string =
+    'The provided miner address does not have a valid challenge solution.';
 
 export class TransactionFactory {
     public readonly genericTransactionType: OPNetTransactionTypes.Generic =
@@ -28,12 +32,13 @@ export class TransactionFactory {
         const index = parser.vInIndex;
 
         const tx = transactionObj.parse(data, index, blockHash, blockHeight, network, addressCache);
-        tx.verifyPreImage = (miner: Address, preimage: Buffer) => {
-            if (!enableVerification) {
-                return;
-            }
+        tx.verifyPreImage = (miner: Address, preimage: Buffer): Buffer | undefined => {
+            //if (!enableVerification) {
+            //    console.log('allowedChallenges', allowedChallenges);
+            //    return;
+            //}
 
-            const hasMiner = allowedChallenges.get(miner);
+            const hasMiner = allowedChallenges.solutions.get(miner);
             if (!hasMiner) {
                 throw new Error(EXPIRED_TRANSACTION_ERROR);
             }
@@ -44,6 +49,15 @@ export class TransactionFactory {
 
             if (!hasSolution) {
                 throw new Error(EXPIRED_TRANSACTION_ERROR);
+            }
+
+            if (OPNetConsensus.allowUnsafeSignatures) {
+                const legacyPublicKey = allowedChallenges.legacyPublicKeys.get(miner);
+                if (!legacyPublicKey) {
+                    throw new Error(INVALID_MINER_CHALLENGE_ERROR);
+                }
+
+                return legacyPublicKey;
             }
         };
 

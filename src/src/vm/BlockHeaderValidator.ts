@@ -2,10 +2,9 @@ import {
     BlockHeaderChecksumProof,
     BlockHeaderDocument,
 } from '../db/interfaces/IBlockHeaderBlockDocument.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import { VMStorage } from './storage/VMStorage.js';
-import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { BufferHelper } from '@btc-vision/transaction';
 import { ChecksumMerkle } from '../blockchain-indexer/processor/block/merkle/ChecksumMerkle.js';
 import { ZERO_HASH } from '../blockchain-indexer/processor/block/types/ZeroValue.js';

@@ -1,7 +1,7 @@
 import { Address, AddressVerificator, BufferHelper } from '@btc-vision/transaction';
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Binary } from 'mongodb';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
@@ -64,17 +64,15 @@ export class GetStorageAt extends Route<
         try {
             const params = this.getParams(req, res);
             if (!params) {
-                throw new Error('Invalid params.');
+                return; // getParams already sent error response
             }
 
             const data = await this.getData(params);
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: `Requested data not found.` });
+                this.safeJson(res, 400, { error: `Requested data not found.` });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);
@@ -89,15 +87,13 @@ export class GetStorageAt extends Route<
         const address = req.query.address as string;
 
         if (!address || (address && address.length !== 64)) {
-            res.status(400);
-            res.json({ error: 'Invalid hash.' });
+            this.safeJson(res, 400, { error: 'Invalid hash.' });
             return;
         }
 
         const pointer = req.query.pointer as string;
         if (!pointer) {
-            res.status(400);
-            res.json({ error: 'Invalid pointer.' });
+            this.safeJson(res, 400, { error: 'Invalid pointer.' });
             return;
         }
 
@@ -106,8 +102,7 @@ export class GetStorageAt extends Route<
 
         if (height) {
             if (isNaN(parseInt(height))) {
-                res.status(400);
-                res.json({ error: 'Invalid height.' });
+                this.safeJson(res, 400, { error: 'Invalid height.' });
                 return;
             }
         }

@@ -1,4 +1,4 @@
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
@@ -83,14 +83,61 @@ export class TransactionConverterForAPI {
             };
         }
 
-        if ('contractTweakedPublicKey' in transaction) {
+        if ('contractPublicKey' in transaction) {
             const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
-            newTx.contractTweakedPublicKey = tx.contractTweakedPublicKey.toString('base64');
+            newTx.contractPublicKey = tx.contractPublicKey.toString('base64');
         }
 
         if ('from' in transaction) {
             const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
             newTx.from = tx.from ? tx.from.toString('base64') : undefined;
+        }
+
+        if ('fromLegacy' in transaction) {
+            const tx = transaction as ExtendedBaseInfo<OPNetTransactionTypes>;
+            newTx.fromLegacy = tx.fromLegacy ? tx.fromLegacy.toString('base64') : undefined;
+        }
+
+        // Interaction transaction specific fields
+        if ('calldata' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.calldata = tx.calldata ? tx.calldata.toString('base64') : undefined;
+        }
+
+        if ('senderPubKeyHash' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.senderPubKeyHash = tx.senderPubKeyHash
+                ? tx.senderPubKeyHash.toString('base64')
+                : undefined;
+        }
+
+        if ('contractSecret' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.contractSecret = tx.contractSecret
+                ? tx.contractSecret.toString('base64')
+                : undefined;
+        }
+
+        if ('interactionPubKey' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.interactionPubKey = tx.interactionPubKey
+                ? tx.interactionPubKey.toString('base64')
+                : undefined;
+        }
+
+        if ('wasCompressed' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.wasCompressed = tx.wasCompressed;
+        }
+
+        if ('receipt' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.receipt = tx.receipt ? tx.receipt.toString('base64') : undefined;
+        }
+
+        if ('receiptProofs' in transaction) {
+            const tx = transaction as InteractionTransactionDocument;
+            newTx.receiptProofs = tx.receiptProofs;
         }
 
         delete newTx._id;

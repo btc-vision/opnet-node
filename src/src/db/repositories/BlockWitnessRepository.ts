@@ -1,6 +1,9 @@
-import { BaseRepository, PagingQueryInfo, PagingQueryResult } from '@btc-vision/bsi-common';
-
-import { DataConverter } from '@btc-vision/bsi-db';
+import {
+    BaseRepository,
+    DataConverter,
+    PagingQueryInfo,
+    PagingQueryResult,
+} from '@btc-vision/bsi-common';
 import { Binary, BulkWriteOptions, BulkWriteResult, Collection, Db, Filter } from 'mongodb';
 import { OPNetBlockWitness } from '../../poa/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import {

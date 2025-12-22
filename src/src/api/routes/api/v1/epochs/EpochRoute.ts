@@ -1,6 +1,6 @@
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { Route } from '../../../Route.js';
@@ -15,7 +15,7 @@ import {
 import { EpochByNumberParams } from '../../../../json-rpc/types/interfaces/params/epochs/EpochByNumberParams.js';
 import { EpochByHashParams } from '../../../../json-rpc/types/interfaces/params/epochs/EpochByHashParams.js';
 import { Decimal128 } from 'mongodb';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import {
     EpochSubmissionAPIResult,
     IEpochSubmissionsDocument,
@@ -141,7 +141,10 @@ export abstract class EpochRoute<T extends Routes> extends Route<
                     confirmedAt: this.convertDecimal128ToString(submission.confirmedAt),
                     epochProposed: {
                         solution: '0x' + submission.epochProposed.solution.toString('hex'),
-                        publicKey: '0x' + submission.epochProposed.publicKey.toString('hex'),
+                        mldsaPublicKey:
+                            '0x' + submission.epochProposed.mldsaPublicKey.toString('hex'),
+                        legacyPublicKey:
+                            '0x' + submission.epochProposed.legacyPublicKey.toString('hex'),
                         salt: '0x' + submission.epochProposed.salt.toString('hex'),
                         graffiti: submission.epochProposed.graffiti
                             ? '0x' + submission.epochProposed.graffiti.toString('hex')
@@ -204,7 +207,8 @@ export abstract class EpochRoute<T extends Routes> extends Route<
             minDifficulty: epoch.minDifficulty,
             targetHash: '0x' + epoch.targetHash.toString('hex'),
             proposer: {
-                publicKey: '0x' + epoch.proposer.publicKey.toString('hex'),
+                mldsaPublicKey: '0x' + epoch.proposer.mldsaPublicKey.toString('hex'),
+                legacyPublicKey: '0x' + epoch.proposer.legacyPublicKey.toString('hex'),
                 salt: '0x' + epoch.proposer.salt.toString('hex'),
                 graffiti: epoch.proposer.graffiti
                     ? '0x' + epoch.proposer.graffiti.toString('hex')

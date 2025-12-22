@@ -1,4 +1,4 @@
-import { DebugLevel } from '@btc-vision/bsi-common';
+import { DataConverter, DebugLevel } from '@btc-vision/bsi-common';
 import {
     AggregateOptions,
     AnyBulkWriteOperation,
@@ -16,14 +16,13 @@ import { ITransactionDocumentBasic } from '../interfaces/ITransactionDocument.js
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { ISpentTransaction, IUnspentTransaction } from '../interfaces/IUnspentTransaction.js';
 import { Config } from '../../config/Config.js';
-import { DataConverter } from '@btc-vision/bsi-db';
 import { RawUTXOsAggregationResultV3 } from '../../api/json-rpc/types/interfaces/results/address/UTXOsOutputTransactions.js';
 import { BalanceOfAggregationV2 } from '../../vm/storage/databases/aggregation/BalanceOfAggregationV2.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { FastStringMap } from '../../utils/fast/FastStringMap.js';
 import {
-    UTXOsAggregationResultV3,
     UTXOsAggregationV3,
+    UTXOSOutputTransactionFromDBV3,
 } from '../../vm/storage/databases/aggregation/UTXOsAggregationV3.js';
 
 export interface ProcessUnspentTransaction {
@@ -43,7 +42,10 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
     private readonly uxtosAggregation: UTXOsAggregationV3 = new UTXOsAggregationV3();
     private readonly balanceOfAggregation: BalanceOfAggregationV2 = new BalanceOfAggregationV2();
 
-    public constructor(db: Db) {
+    public constructor(
+        db: Db,
+        private readonly dbVersion: number,
+    ) {
         super(db);
     }
 
@@ -211,6 +213,7 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         currentSession?: ClientSession,
     ): Promise<bigint> {
         const aggregation: Document[] = this.balanceOfAggregation.getAggregation(
+            this.dbVersion,
             wallet,
             filterOrdinals,
         );
@@ -239,7 +242,6 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
             wallet,
             true,
             optimize,
-            true,
             olderThan,
         );
 
@@ -248,46 +250,75 @@ export class UnspentTransactionRepository extends ExtendedBaseRepository<IUnspen
         options.allowDiskUse = true;
 
         try {
-            const aggregatedDocument = collection.aggregate<UTXOsAggregationResultV3>(
+            const cursor = collection.aggregate<UTXOSOutputTransactionFromDBV3>(
                 aggregation,
                 options,
             );
 
-            const results: UTXOsAggregationResultV3[] = await aggregatedDocument.toArray();
-            if (!results.length) {
-                return {
-                    utxos: [],
-                    raw: [],
-                };
+            const utxos: RawUTXOsAggregationResultV3['utxos'] = [];
+            const txIdToIndex = new Map<string, number>();
+            const uniqueTxIds: Binary[] = [];
+
+            for await (const doc of cursor) {
+                const txIdHex = doc.transactionId.toString('hex');
+
+                let rawIndex = txIdToIndex.get(txIdHex);
+                if (rawIndex === undefined) {
+                    rawIndex = uniqueTxIds.length;
+                    txIdToIndex.set(txIdHex, rawIndex);
+                    uniqueTxIds.push(doc.transactionId);
+                }
+
+                utxos.push({
+                    transactionId: txIdHex,
+                    outputIndex: doc.outputIndex,
+                    value: DataConverter.fromDecimal128(doc.value),
+                    scriptPubKey: {
+                        hex: doc.scriptPubKey.hex.toString('hex'),
+                        address: doc.scriptPubKey.address ?? undefined,
+                    },
+                    raw: rawIndex,
+                });
             }
 
-            const result = results[0];
-            return {
-                utxos: result.utxos.map((utxo) => {
-                    return {
-                        transactionId: utxo.transactionId.toString('hex'),
-                        outputIndex: utxo.outputIndex,
-                        value: DataConverter.fromDecimal128(utxo.value),
-                        scriptPubKey: {
-                            hex: utxo.scriptPubKey.hex.toString('hex'),
-                            address: utxo.scriptPubKey.address
-                                ? utxo.scriptPubKey.address
-                                : undefined,
-                        },
-                        raw: utxo.raw,
-                    };
-                }),
-                raw: result.raw.map((binary) => binary.toString('base64')),
-            };
+            if (uniqueTxIds.length === 0) {
+                return { utxos, raw: [] };
+            }
+
+            const rawTxs = await this.fetchRawTransactions(uniqueTxIds, txIdToIndex);
+
+            return { utxos, raw: rawTxs };
         } catch (e) {
             this.error(`Can not fetch UTXOs for wallet ${wallet}: ${(e as Error).stack}`);
-
             throw e;
         }
     }
 
     protected override getCollection(): Collection<IUnspentTransaction> {
         return this._db.collection(OPNetCollections.UnspentTransactions);
+    }
+
+    private async fetchRawTransactions(
+        uniqueTxIds: Binary[],
+        txIdToIndex: Map<string, number>,
+    ): Promise<string[]> {
+        const txCollection = this._db.collection(OPNetCollections.Transactions);
+
+        const rawResults = await txCollection
+            .find({ id: { $in: uniqueTxIds } }, { projection: { _id: 0, id: 1, raw: 1 } })
+            .toArray();
+
+        const rawTxs: string[] = new Array<string>(uniqueTxIds.length);
+
+        for (const result of rawResults) {
+            const txIdHex = (result.id as Binary).toString('hex');
+            const index = txIdToIndex.get(txIdHex);
+            if (index !== undefined && result.raw) {
+                rawTxs[index] = (result.raw as Binary).toString('base64');
+            }
+        }
+
+        return rawTxs;
     }
 
     private convertSpentTransactions(

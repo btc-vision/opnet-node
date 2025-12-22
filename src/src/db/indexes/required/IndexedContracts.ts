@@ -11,8 +11,8 @@ export class IndexedContracts extends IndexedCollection<OPNetCollections.Contrac
             { key: { contractAddress: 1 }, name: 'contractAddress_1', unique: true },
             { key: { p2trAddress: 1 }, name: 'p2trAddress_1' },
             {
-                key: { contractTweakedPublicKey: 1 },
-                name: 'contractTweakedPublicKey_1',
+                key: { contractPublicKey: 1 },
+                name: 'contractPublicKey_1',
                 unique: true,
             },
             { key: { blockHeight: 1 }, name: 'blockHeight_1' },

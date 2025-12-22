@@ -30,6 +30,7 @@ import { ISyncBlockHeaderResponse } from '../protobuf/packets/blockchain/respons
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { ZERO_HASH } from '../../../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
+import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 
 interface ValidWitnesses {
     validTrustedWitnesses: OPNetBlockWitness[];
@@ -67,12 +68,14 @@ export class BlockWitnessManager extends Logger {
         }, 30000);
     }
 
-    public init(): void {
+    public async init(): Promise<void> {
         if (!DBManagerInstance.db) throw new Error('Database not initialized.');
+
+        const version = await getMongodbMajorVersion(DBManagerInstance.db);
 
         this.blockWitnessRepository = new BlockWitnessRepository(DBManagerInstance.db);
         this.blockHeaderRepository = new BlockRepository(DBManagerInstance.db);
-        this.mempoolRepository = new MempoolRepository(DBManagerInstance.db);
+        this.mempoolRepository = new MempoolRepository(DBManagerInstance.db, version);
     }
 
     public async hasTransactionInMempool(txId: string): Promise<boolean> {

@@ -112,14 +112,10 @@ class RPCManager extends Logger {
                 this.currentVMManagerIndex = (this.currentVMManagerIndex + 1) % this.CONCURRENT_VMS;
 
                 if (!vmManager.busy() && vmManager.initiated) {
-                    break;
+                    resolve(vmManager);
+                    return;
                 }
             } while (this.currentVMManagerIndex !== startNumber);
-
-            if (vmManager) {
-                resolve(vmManager);
-                return;
-            }
 
             this.warn(
                 `High load detected. Try to increase your RPC thread limit or do fewer requests.`,
@@ -144,8 +140,7 @@ class RPCManager extends Logger {
             const contractAsString: ContractInformationAsString = {
                 blockHeight: contract.blockHeight.toString(),
                 contractAddress: contract.contractAddress,
-                contractTweakedPublicKey: contract.contractTweakedPublicKey.toString(),
-                contractHybridPublicKey: contract.contractHybridPublicKey.toString(),
+                contractPublicKey: contract.contractPublicKey.toString(),
                 bytecode: contract.bytecode.toString('hex'),
                 wasCompressed: contract.wasCompressed,
                 deployedTransactionId: contract.deployedTransactionId.toString('hex'),
@@ -336,9 +331,13 @@ class RPCManager extends Logger {
         let result: CallRequestResponse | undefined;
         try {
             const parsedTransaction = this.parseTransaction(data.transaction);
+            const fromAddress = data.from
+                ? Address.fromString(data.from, data.fromLegacy)
+                : BTC_FAKE_ADDRESS;
+
             return await vmManager.execute(
                 data.to,
-                data.from ? Address.fromString(data.from) : BTC_FAKE_ADDRESS,
+                fromAddress,
                 Buffer.from(data.calldata, 'hex'),
                 data.blockNumber,
                 parsedTransaction,

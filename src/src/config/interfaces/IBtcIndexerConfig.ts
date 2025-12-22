@@ -119,6 +119,17 @@ export interface EpochConfigs {
     readonly LOG_FINALIZATION: boolean;
 }
 
+export interface WebSocketConfig {
+    readonly ENABLED: boolean; // Enable WebSocket API
+    readonly MAX_CONNECTIONS: number; // Maximum concurrent WebSocket connections
+    readonly IDLE_TIMEOUT: number; // Idle timeout in seconds before disconnecting
+    readonly MAX_PAYLOAD_SIZE: number; // Maximum payload size in bytes
+    readonly MAX_PENDING_REQUESTS: number; // Maximum pending requests per client
+    readonly REQUEST_TIMEOUT: number; // Request timeout in milliseconds
+    readonly MAX_REQUESTS_PER_SECOND: number; // Rate limit: max requests per second per client
+    readonly MAX_SUBSCRIPTIONS: number; // Maximum subscriptions per client
+}
+
 export interface APIExtendedConfigurations extends APIConfig {
     readonly MAXIMUM_PENDING_REQUESTS_PER_THREADS: number; // Maximum number of pending requests per thread
     readonly BATCH_PROCESSING_SIZE: number; // Batch processing size
@@ -133,6 +144,8 @@ export interface APIExtendedConfigurations extends APIConfig {
     readonly EPOCH_CACHE_SIZE: number; // Size of the epoch cache
 
     readonly UTXO_LIMIT: number; // UTXO limit
+
+    readonly WEBSOCKET: WebSocketConfig; // WebSocket configuration
 }
 
 export interface DevConfig {
@@ -146,6 +159,8 @@ export interface DevConfig {
     readonly SIMULATE_HIGH_GAS_USAGE: boolean;
     readonly DEBUG_VALID_TRANSACTIONS: boolean;
     readonly DEBUG_API_ERRORS: boolean;
+    readonly DEBUG_PENDING_REQUESTS: boolean;
+    readonly DEBUG_API_CALLS: boolean;
     readonly ENABLE_CONTRACT_DEBUG: boolean;
     readonly ALWAYS_ENABLE_REORG_VERIFICATION: boolean;
     readonly ENABLE_REORG_NIGHTMARE: boolean;
@@ -174,6 +189,13 @@ export interface BitcoinConfig {
 export interface DocsConfig {
     ENABLED: boolean;
     PORT: number;
+}
+
+export interface PluginsConfig {
+    readonly PLUGINS_DIR: string;
+    readonly PLUGINS_ENABLED: boolean;
+    readonly WORKER_POOL_SIZE: number;
+    readonly EMIT_ERROR_OR_WARNING: boolean;
 }
 
 export interface APIConfig {
@@ -207,6 +229,8 @@ export interface IBtcIndexerConfig extends IConfig<IConfigTemplate> {
     BLOCKCHAIN: BlockchainConfig;
 
     DOCS: DocsConfig;
+
+    PLUGINS: PluginsConfig;
 
     POC: PoC;
     P2P: P2P;

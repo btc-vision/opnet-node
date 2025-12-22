@@ -1,12 +1,12 @@
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { Routes, RouteType } from '../../../../enums/Routes.js';
 import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.js';
 import { EpochResult } from '../../../../json-rpc/types/interfaces/results/epochs/EpochResult.js';
 import { Route } from '../../../Route.js';
 import { IEpochDocument } from '../../../../../db/documents/interfaces/IEpochDocument.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 
 export class LatestEpoch extends Route<
     Routes.LATEST_EPOCH,
@@ -55,11 +55,9 @@ export class LatestEpoch extends Route<
             const data = await this.getData();
 
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({ error: 'Could not fetch latest epoch. Is this node synced?' });
+                this.safeJson(res, 400, { error: 'Could not fetch latest epoch. Is this node synced?' });
             }
         } catch (err) {
             this.handleDefaultError(res, err as Error);
@@ -115,7 +113,8 @@ export class LatestEpoch extends Route<
             minDifficulty: epoch.minDifficulty,
             targetHash: '0x' + epoch.targetHash.toString('hex'),
             proposer: {
-                publicKey: '0x' + epoch.proposer.publicKey.toString('hex'),
+                mldsaPublicKey: '0x' + epoch.proposer.mldsaPublicKey.toString('hex'),
+                legacyPublicKey: '0x' + epoch.proposer.legacyPublicKey.toString('hex'),
                 salt: '0x' + epoch.proposer.salt.toString('hex'),
                 graffiti: epoch.proposer.graffiti
                     ? '0x' + epoch.proposer.graffiti.toString('hex')

@@ -82,6 +82,16 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
 
     protected abstract onExitRequested(): Promise<void> | void;
 
+    /**
+     * Override this method in subclasses to handle additional message types from parent.
+     * Return true if the message was handled, false otherwise.
+     */
+    protected onAdditionalParentMessage(
+        _msg: ThreadMessageBase<MessageType>,
+    ): Promise<boolean> | boolean {
+        return false;
+    }
+
     private async onParentMessage(msg: ThreadMessageBase<MessageType>): Promise<void> {
         switch (msg.type) {
             case MessageType.LINK_THREAD_REQUEST: {
@@ -93,7 +103,10 @@ export abstract class ThreadManager<T extends ThreadTypes> extends Logger {
                 break;
             }
             default: {
-                this.error(`[MANAGER] Unknown message type: ${msg.type}`);
+                const handled = await this.onAdditionalParentMessage(msg);
+                if (!handled) {
+                    this.error(`[MANAGER] Unknown message type: ${msg.type}`);
+                }
                 break;
             }
         }

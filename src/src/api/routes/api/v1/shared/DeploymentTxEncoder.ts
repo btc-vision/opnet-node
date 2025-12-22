@@ -35,11 +35,8 @@ export class DeploymentTxEncoder {
             tx = {
                 ...tx,
                 ...contractData,
-                contractTweakedPublicKey: contractData.contractTweakedPublicKey
-                    ? contractData.contractTweakedPublicKey.toString('base64')
-                    : '',
-                contractHybridPublicKey: contractData.contractHybridPublicKey
-                    ? contractData.contractHybridPublicKey.toString('base64')
+                contractPublicKey: contractData.contractPublicKey
+                    ? contractData.contractPublicKey.toString('base64')
                     : '',
                 deployedTransactionHash: undefined,
                 deployedTransactionId: undefined,
@@ -70,12 +67,7 @@ export class DeploymentTxEncoder {
     private convertToBlockHeaderAPIDocument(data: ContractInformation): IContractAPIDocument {
         return {
             contractAddress: data.contractAddress,
-            contractTweakedPublicKey: Buffer.from(data.contractTweakedPublicKey.buffer).toString(
-                'base64',
-            ),
-            contractHybridPublicKey: Buffer.from(data.contractHybridPublicKey.buffer).toString(
-                'base64',
-            ),
+            contractPublicKey: Buffer.from(data.contractPublicKey.buffer).toString('base64'),
             deployedTransactionId: Buffer.from(data.deployedTransactionId.buffer).toString('hex'),
             deployedTransactionHash: Buffer.from(data.deployedTransactionHash.buffer).toString(
                 'hex',
@@ -85,6 +77,7 @@ export class DeploymentTxEncoder {
             contractSeed: data.contractSeed.toString('base64'),
             contractSaltHash: data.contractSaltHash.toString('hex'),
             wasCompressed: data.wasCompressed,
+            deployerAddress: data.deployerAddress.toHex(),
         };
     }
 }

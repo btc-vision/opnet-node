@@ -705,34 +705,80 @@ install_and_configure_mongodb() {
     echo -e "${YELLOW}Please make sure to save the MongoDB admin username and password securely.${NC}"
 }
 
-# Function to install Node.js 22
+# Function to install Node.js (version depends on Ubuntu version)
 install_nodejs() {
-    echo -e "${BLUE}Starting Node.js 22 installation...${NC}"
+    echo -e "${BLUE}Starting Node.js installation...${NC}"
+
+    # Detect Ubuntu version
+    ubuntu_version=$(lsb_release -rs)
+    ubuntu_major=$(echo "$ubuntu_version" | cut -d. -f1)
+    echo -e "${BLUE}Detected Ubuntu version: $ubuntu_version${NC}"
+
+    # Determine appropriate Node.js version based on Ubuntu version
+    # Node.js 24+ requires Ubuntu 24+ glibc
+    # Node.js 22 is the minimum supported version, requires Ubuntu 20+ (glibc 2.28)
+    if [[ "$ubuntu_major" -ge 24 ]]; then
+        nodejs_version="25"
+        echo -e "${GREEN}Ubuntu $ubuntu_version supports Node.js 25. Installing Node.js 25...${NC}"
+    elif [[ "$ubuntu_major" -ge 20 ]]; then
+        nodejs_version="22"
+        echo -e "${YELLOW}Ubuntu $ubuntu_version detected. Node.js 24+ requires Ubuntu 24+.${NC}"
+        echo -e "${YELLOW}Installing Node.js 22 (LTS) for compatibility.${NC}"
+    else
+        echo -e "${RED}Ubuntu $ubuntu_version is not supported.${NC}"
+        echo -e "${RED}Node.js 22 (minimum supported) requires glibc 2.28 which is only available in Ubuntu 20.04+.${NC}"
+        echo -e "${RED}Please upgrade to Ubuntu 24.04 or later for full support.${NC}"
+        exit 1
+    fi
 
     if command_exists node; then
         node_version=$(node -v)
         echo -e "${YELLOW}Node.js is already installed (Version: $node_version).${NC}"
-        read -p "Do you want to uninstall it and proceed with fresh installation? [y/N]: " uninstall_node
+        read -p "Do you want to uninstall it and proceed with Node.js $nodejs_version installation? [y/N]: " uninstall_node
         if [[ "$uninstall_node" =~ ^[Yy]$ ]]; then
             echo -e "${BLUE}Uninstalling existing Node.js installation...${NC}"
             sudo apt-get remove -y nodejs
+            sudo rm -f /etc/apt/sources.list.d/nodesource.list
+            sudo rm -f /etc/apt/keyrings/nodesource.gpg
         else
             echo -e "${RED}Canceled by user.${NC}"
             exit 1
         fi
     fi
 
-    sudo apt-get install -y build-essential gcc g++ make python3.6 git manpages-dev libcairo2-dev libatk1.0-0 libatk-bridge2.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates fonts-liberation libnss3 lsb-release xdg-utils libtool autoconf software-properties-common gcc-12 g++-12 gcc-13 g++-13 cmake
+    # Install build dependencies
+    sudo apt-get update
+    sudo apt-get install -y build-essential gcc g++ make python3 git manpages-dev \
+        libcairo2-dev libatk1.0-0 libatk-bridge2.0-0 libc6 libcairo2 libcups2 \
+        libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgdk-pixbuf2.0-0 libglib2.0-0 \
+        libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 \
+        libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 \
+        libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates \
+        fonts-liberation libnss3 lsb-release xdg-utils libtool autoconf \
+        software-properties-common cmake curl gnupg
 
-    echo -e "${BLUE}Installing Node.js 22...${NC}"
-    curl -fsSL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
-    sudo -E bash nodesource_setup.sh
+    # Install available GCC versions
+    sudo apt-get install -y gcc-12 g++-12 2>/dev/null || true
+    sudo apt-get install -y gcc-13 g++-13 2>/dev/null || true
+    sudo apt-get install -y gcc-14 g++-14 2>/dev/null || true
+
+    echo -e "${BLUE}Installing Node.js $nodejs_version...${NC}"
+
+    # Modern NodeSource installation method
+    sudo mkdir -p /etc/apt/keyrings
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${nodejs_version}.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
+
+    sudo apt-get update
     sudo apt-get install -y nodejs
 
     # Verify installation
     if command_exists node; then
         node_version=$(node -v)
+        npm_version=$(npm -v)
         echo -e "${GREEN}Node.js $node_version installed successfully.${NC}"
+        echo -e "${GREEN}npm $npm_version installed successfully.${NC}"
     else
         echo -e "${RED}Node.js installation failed. Exiting.${NC}"
         exit 1

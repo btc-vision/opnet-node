@@ -30,6 +30,7 @@ import {
     FeeRecommendation,
 } from '../../../threading/interfaces/thread-messages/messages/api/FeeRequest.js';
 import { RawMempoolInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/MempoolInfo.js';
+import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
 
 const btcPerKvBtoSatPerVByte = (btcPerKvB: number): number => (btcPerKvB * 1e8) / 1_000;
 
@@ -114,7 +115,9 @@ export class Mempool extends Logger {
 
         if (!this.db.db) throw new Error('Database connection not established.');
 
-        this.#mempoolRepository = new MempoolRepository(this.db.db);
+        const version = await getMongodbMajorVersion(this.db.db);
+
+        this.#mempoolRepository = new MempoolRepository(this.db.db, version);
         this.#blockchainInformationRepository = new BlockchainInfoRepository(this.db.db);
 
         await Promise.safeAll([

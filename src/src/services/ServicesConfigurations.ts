@@ -55,6 +55,12 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
         managerTarget: './src/blockchain-indexer/sync/SynchronisationManager.js',
         target: './src/blockchain-indexer/sync/SynchronisationThread.js',
     },
+
+    [ThreadTypes.PLUGIN]: {
+        maxInstance: 1,
+        managerTarget: './src/plugins/PluginThreadManager.js',
+        target: './src/plugins/PluginThread.js',
+    },
 };
 
 export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
@@ -126,6 +132,14 @@ export const WorkerConfigurations: { [key in ThreadTypes]: WorkerOptions } = {
         resourceLimits: {
             maxOldGenerationSizeMb: 1024 * 6,
             maxYoungGenerationSizeMb: 1024 * 3,
+            stackSizeMb: 256,
+        },
+    },
+
+    [ThreadTypes.PLUGIN]: {
+        resourceLimits: {
+            maxOldGenerationSizeMb: 1024 * 4,
+            maxYoungGenerationSizeMb: 1024 * 2,
             stackSizeMb: 256,
         },
     },

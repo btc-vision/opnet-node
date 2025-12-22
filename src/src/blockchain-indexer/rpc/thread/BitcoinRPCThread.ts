@@ -1,5 +1,5 @@
 import { BitcoinRawTransactionParams, BitcoinRPC } from '@btc-vision/bitcoin-rpc';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Config } from '../../../config/Config.js';
 import {
     BlockHeaderChecksumProof,

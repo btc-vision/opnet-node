@@ -2,8 +2,13 @@ import { Document } from 'mongodb';
 import { UTXOsAggregationV2 } from './UTXOsAggregationV2.js';
 
 export class BalanceOfAggregationV2 extends UTXOsAggregationV2 {
-    public getAggregation(wallet: string, filterOrdinals: boolean = true): Document[] {
+    public getAggregation(
+        dbVersion: number,
+        wallet: string,
+        filterOrdinals: boolean = true,
+    ): Document[] {
         const aggregation: Document[] = super.getAggregation(
+            dbVersion,
             wallet,
             false,
             filterOrdinals,

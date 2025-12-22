@@ -1,0 +1,647 @@
+syntax = "proto3";
+package OPNetAPIProtocol;
+
+// ============================================================================
+// Common Types
+// ============================================================================
+
+message BlockIdentifier {
+    oneof identifier {
+        uint64 height = 1;
+        string hash = 2;
+        string checksum = 3;
+    }
+}
+
+// ============================================================================
+// Connection Management
+// ============================================================================
+
+message HandshakeRequest {
+    uint32 protocolVersion = 1;
+    string clientName = 2;
+    string clientVersion = 3;
+}
+
+message HandshakeResponse {
+    uint32 protocolVersion = 1;
+    bytes sessionId = 2;
+    string serverVersion = 3;
+    uint64 currentBlockHeight = 4;
+    string chainId = 5;
+}
+
+message ErrorResponse {
+    uint32 requestId = 1;
+    uint32 errorCode = 2;
+    string errorMessage = 3;
+}
+
+message PingRequest {
+    uint64 timestamp = 1;
+}
+
+message PongResponse {
+    uint64 timestamp = 1;
+    uint64 serverTimestamp = 2;
+}
+
+// ============================================================================
+// Block Methods
+// ============================================================================
+
+message GetBlockNumberRequest {
+    uint32 requestId = 1;
+}
+
+message GetBlockNumberResponse {
+    uint64 blockNumber = 1;
+}
+
+message GetBlockByNumberRequest {
+    uint32 requestId = 1;
+    BlockIdentifier identifier = 2;
+    bool includeTransactions = 3;
+}
+
+// Matches BlockHeaderAPIDocumentWithTransactions
+message BlockResponse {
+    // Base block fields from BlockHeaderAPIBlockDocument
+    string checksumRoot = 1;
+    string hash = 2;
+    string previousBlockHash = 3;
+    string previousBlockChecksum = 4;
+    string bits = 5;
+    uint32 nonce = 6;
+    int32 version = 7;
+    uint32 size = 8;
+    uint32 txCount = 9;
+    uint32 weight = 10;
+    uint32 strippedSize = 11;
+    string merkleRoot = 12;
+    string storageRoot = 13;
+    string receiptRoot = 14;
+    repeated ChecksumProofEntry checksumProofs = 15;
+    string ema = 16;
+    string baseGas = 17;
+    string gasUsed = 18;
+    string height = 19;
+    uint64 time = 20;
+    uint64 medianTime = 21;
+
+    // Extended fields
+    repeated TransactionForAPI transactions = 22;
+    repeated string deployments = 23;
+}
+
+message ChecksumProofEntry {
+    uint32 index = 1;
+    repeated string proofs = 2;
+}
+
+// ============================================================================
+// Transaction Types (matches TransactionDocumentForAPI)
+// ============================================================================
+
+enum OPNetTransactionType {
+    GENERIC = 0;
+    DEPLOYMENT = 1;
+    INTERACTION = 2;
+}
+
+// Interaction transaction specific data
+message InteractionTransactionData {
+    string calldata = 1;
+    optional string senderPubKeyHash = 2;
+    optional string contractSecret = 3;
+    optional string interactionPubKey = 4;
+    bool wasCompressed = 5;
+    string fromLegacy = 6;
+    optional string receipt = 7;
+    repeated string receiptProofs = 8;
+}
+
+// Deployment transaction specific data
+message DeploymentTransactionData {
+    string bytecode = 1;
+    string deployerPubKey = 2;
+    string contractSeed = 3;
+    string contractSaltHash = 4;
+    string deployerAddress = 5;
+    bool wasCompressed = 6;
+    string fromLegacy = 7;
+}
+
+message TransactionForAPI {
+    // Common fields for all transaction types
+    string hash = 1;
+    string id = 2;
+    optional string blockNumber = 3;
+    string burnedBitcoin = 4;
+    optional string revert = 5;
+    optional string contractAddress = 6;
+    optional string from = 7;
+    optional string contractPublicKey = 8;
+    optional string contractHybridPublicKey = 9;
+    optional TransactionPow pow = 10;
+    repeated EventReceiptData events = 11;
+    string gasUsed = 12;
+    string specialGasUsed = 13;
+    string priorityFee = 14;
+    repeated TransactionOutput outputs = 15;
+    repeated TransactionInput inputs = 16;
+    bytes raw = 17;
+    uint32 index = 18;
+    OPNetTransactionType OPNetType = 19;
+
+    // Type-specific data (only one will be set based on OPNetType)
+    oneof typeData {
+        InteractionTransactionData interaction = 20;
+        DeploymentTransactionData deployment = 21;
+    }
+}
+
+message TransactionPow {
+    optional string preimage = 1;
+    optional string reward = 2;
+}
+
+message EventReceiptData {
+    string contractAddress = 1;
+    string type = 2;
+    string data = 3;
+}
+
+message TransactionOutput {
+    string value = 1;
+    uint32 index = 2;
+    optional ScriptPubKey scriptPubKey = 3;
+}
+
+message TransactionInput {
+    optional string originalTransactionId = 1;
+    uint32 outputIndex = 2;
+    optional string scriptSignature = 3;
+    repeated string witnesses = 4;
+}
+
+message ScriptPubKey {
+    string asm = 1;
+    string hex = 2;
+    string type = 3;
+    optional string address = 4;
+}
+
+// ============================================================================
+// Transaction Receipt (matches TransactionReceiptResultAPI)
+// ============================================================================
+
+message GetTransactionByHashRequest {
+    uint32 requestId = 1;
+    string txHash = 2;
+}
+
+message TransactionResponse {
+    optional TransactionForAPI transaction = 1;
+}
+
+message GetTransactionReceiptRequest {
+    uint32 requestId = 1;
+    string txHash = 2;
+}
+
+message TransactionReceiptResponse {
+    optional string receipt = 1;
+    repeated string receiptProofs = 2;
+    repeated EventReceiptData events = 3;
+    optional string revert = 4;
+    string gasUsed = 5;
+    string specialGasUsed = 6;
+}
+
+message BroadcastTransactionRequest {
+    uint32 requestId = 1;
+    bytes transaction = 2;
+    bool psbt = 3;
+}
+
+message BroadcastTransactionResponse {
+    bool success = 1;
+    optional string result = 2;
+    optional string error = 3;
+    optional uint32 peers = 4;
+    optional uint64 identifier = 5;
+    optional string modifiedTransaction = 6;
+    optional bool finalizedTransaction = 7;
+}
+
+// ============================================================================
+// Preimage (matches PreimageResult)
+// ============================================================================
+
+message GetPreimageRequest {
+    uint32 requestId = 1;
+    bytes publicKey = 2;
+    bytes solution = 3;
+    bytes salt = 4;
+    bytes graffiti = 5;
+    uint32 targetDifficulty = 6;
+}
+
+message PreimageResponse {
+    string epochNumber = 1;
+    string mldsaPublicKey = 2;
+    string legacyPublicKey = 3;
+    string solution = 4;
+    string salt = 5;
+    string graffiti = 6;
+    uint32 difficulty = 7;
+    PreimageVerification verification = 8;
+    optional ChallengeSubmission submission = 9;
+}
+
+message PreimageVerification {
+    string epochHash = 1;
+    string epochRoot = 2;
+    string targetHash = 3;
+    string targetChecksum = 4;
+    string startBlock = 5;
+    string endBlock = 6;
+    repeated string proofs = 7;
+}
+
+message ChallengeSubmission {
+    string mldsaPublicKey = 1;
+    string legacyPublicKey = 2;
+    string solution = 3;
+    string graffiti = 4;
+    string signature = 5;
+}
+
+// ============================================================================
+// Block Witness (matches BlockWitnessResult)
+// ============================================================================
+
+message GetBlockWitnessRequest {
+    uint32 requestId = 1;
+    uint64 height = 2;
+    optional bool trusted = 3;
+    optional uint32 limit = 4;
+    optional uint32 page = 5;
+}
+
+message BlockWitnessResponse {
+    repeated BlockWitnessEntry entries = 1;
+}
+
+message BlockWitnessEntry {
+    string blockNumber = 1;
+    repeated BlockWitness witnesses = 2;
+}
+
+message BlockWitness {
+    bool trusted = 1;
+    string signature = 2;
+    uint64 timestamp = 3;
+    repeated string proofs = 4;
+    optional string identity = 5;
+    optional string publicKey = 6;
+}
+
+// ============================================================================
+// Gas (matches BlockGasInformation)
+// ============================================================================
+
+message GetGasRequest {
+    uint32 requestId = 1;
+}
+
+message GasResponse {
+    string blockNumber = 1;
+    string gasUsed = 2;
+    string targetGasLimit = 3;
+    string gasLimit = 4;
+    string ema = 5;
+    string baseGas = 6;
+    string gasPerSat = 7;
+    BitcoinFees bitcoin = 8;
+}
+
+message BitcoinFees {
+    string conservative = 1;
+    FeeRecommendation recommended = 2;
+}
+
+message FeeRecommendation {
+    string low = 1;
+    string medium = 2;
+    string high = 3;
+}
+
+// ============================================================================
+// Address Methods
+// ============================================================================
+
+message GetBalanceRequest {
+    uint32 requestId = 1;
+    string address = 2;
+    optional bool filterOrdinals = 3;
+}
+
+message GetBalanceResponse {
+    string balance = 1;
+}
+
+message GetUTXOsRequest {
+    uint32 requestId = 1;
+    string address = 2;
+    optional bool optimize = 3;
+    optional bool pending = 4;
+}
+
+message GetUTXOsResponse {
+    repeated UTXOEntry confirmed = 1;
+    repeated SpentUTXOEntry spentTransactions = 2;
+    repeated UTXOEntry pending = 3;
+    repeated string raw = 4;
+}
+
+message UTXOEntry {
+    string transactionId = 1;
+    uint32 outputIndex = 2;
+    uint64 value = 3;
+    ScriptPubKey scriptPubKey = 4;
+    optional uint32 raw = 5;
+}
+
+message SpentUTXOEntry {
+    string transactionId = 1;
+    uint32 outputIndex = 2;
+}
+
+message GetPublicKeyInfoRequest {
+    uint32 requestId = 1;
+    repeated string addresses = 2;
+}
+
+message GetPublicKeyInfoResponse {
+    map<string, PublicKeyInfoEntry> info = 1;
+}
+
+message PublicKeyInfoEntry {
+    oneof result {
+        PublicKeyInfo info = 1;
+        string error = 2;
+    }
+}
+
+message PublicKeyInfo {
+    optional string originalPubKey = 1;
+    string tweakedPubkey = 2;
+    string p2tr = 3;
+    optional string p2op = 4;
+    optional uint32 lowByte = 5;
+    optional string p2pkh = 6;
+    optional string p2pkhUncompressed = 7;
+    optional string p2pkhHybrid = 8;
+    optional string p2shp2wpkh = 9;
+    optional string p2wpkh = 10;
+}
+
+// ============================================================================
+// Chain Methods
+// ============================================================================
+
+message GetChainIdRequest {
+    uint32 requestId = 1;
+}
+
+message GetChainIdResponse {
+    string chainId = 1;
+}
+
+message GetReorgRequest {
+    uint32 requestId = 1;
+    optional string fromBlock = 2;
+    optional string toBlock = 3;
+}
+
+message GetReorgResponse {
+    repeated ReorgEntry reorgs = 1;
+}
+
+message ReorgEntry {
+    string fromBlock = 1;
+    string toBlock = 2;
+    uint64 timestamp = 3;
+}
+
+// ============================================================================
+// State Methods
+// ============================================================================
+
+message GetCodeRequest {
+    uint32 requestId = 1;
+    string contractAddress = 2;
+    optional bool full = 3;
+}
+
+message GetCodeResponse {
+    string bytecode = 1;
+    optional string contractAddress = 2;
+    optional string contractTweakedPublicKey = 3;
+    optional string contractHybridPublicKey = 4;
+    optional bool wasCompressed = 5;
+    optional string deployedTransactionId = 6;
+    optional string deployedTransactionHash = 7;
+    optional string deployerPubKey = 8;
+    optional string contractSeed = 9;
+    optional string contractSaltHash = 10;
+}
+
+message GetStorageAtRequest {
+    uint32 requestId = 1;
+    string contractAddress = 2;
+    string pointer = 3;
+    optional bool proofs = 4;
+}
+
+message GetStorageAtResponse {
+    string pointer = 1;
+    string value = 2;
+    string height = 3;
+    repeated string proofs = 4;
+}
+
+message CallRequest {
+    uint32 requestId = 1;
+    string to = 2;
+    string calldata = 3;
+    optional string from = 4;
+    optional string fromLegacy = 5;
+}
+
+message CallResponse {
+    oneof result {
+        CallResultData data = 1;
+        string error = 2;
+    }
+}
+
+message CallResultData {
+    string result = 1;
+    map<string, ContractEventList> events = 2;
+    optional string revert = 3;
+    map<string, AccessListItem> accessList = 4;
+    map<string, LoadedStorageItem> loadedStorage = 5;
+    string estimatedGas = 6;
+    string estimatedSpecialGas = 7;
+}
+
+message ContractEventList {
+    repeated EventReceiptData events = 1;
+}
+
+message AccessListItem {
+    map<string, string> items = 1;
+}
+
+message LoadedStorageItem {
+    repeated string pointers = 1;
+}
+
+// ============================================================================
+// Epoch Methods
+// ============================================================================
+
+message GetLatestEpochRequest {
+    uint32 requestId = 1;
+}
+
+message GetEpochByNumberRequest {
+    uint32 requestId = 1;
+    uint64 epochNumber = 2;
+}
+
+message GetEpochByHashRequest {
+    uint32 requestId = 1;
+    string epochHash = 2;
+}
+
+// Matches EpochAPIResult
+message EpochResponse {
+    string epochNumber = 1;
+    string epochHash = 2;
+    string epochRoot = 3;
+    string startBlock = 4;
+    string endBlock = 5;
+    string difficultyScaled = 6;
+    optional string minDifficulty = 7;
+    string targetHash = 8;
+    EpochMiner proposer = 9;
+    repeated string proofs = 10;
+    repeated EpochSubmission submissions = 11;
+}
+
+message EpochMiner {
+    string solution = 1;
+    string mldsaPublicKey = 2;
+    string legacyPublicKey = 3;
+    string salt = 4;
+    optional string graffiti = 5;
+}
+
+message EpochSubmission {
+    string confirmedAt = 1;
+    string submissionTxId = 2;
+    string submissionTxHash = 3;
+    string submissionHash = 4;
+    EpochMiner epochProposed = 5;
+}
+
+message GetEpochTemplateRequest {
+    uint32 requestId = 1;
+}
+
+message EpochTemplateResponse {
+    string epochNumber = 1;
+    string epochTarget = 2;
+}
+
+message SubmitEpochRequest {
+    uint32 requestId = 1;
+    string epochNumber = 2;
+    string targetHash = 3;
+    string salt = 4;
+    string mldsaPublicKey = 5;
+    optional string graffiti = 6;
+    string signature = 7;
+}
+
+enum SubmissionStatusEnum {
+    ACCEPTED = 0;
+    REJECTED = 1;
+}
+
+message SubmitEpochResponse {
+    string epochNumber = 1;
+    string submissionHash = 2;
+    uint32 difficulty = 3;
+    uint64 timestamp = 4;
+    SubmissionStatusEnum status = 5;
+    optional string message = 6;
+}
+
+// ============================================================================
+// Subscriptions
+// ============================================================================
+
+enum SubscriptionTypeEnum {
+    BLOCKS = 0;
+    EPOCHS = 1;
+}
+
+message SubscribeBlocksRequest {
+    uint32 requestId = 1;
+}
+
+message SubscribeBlocksResponse {
+    uint32 subscriptionId = 1;
+    SubscriptionTypeEnum type = 2;
+}
+
+message SubscribeEpochsRequest {
+    uint32 requestId = 1;
+}
+
+message SubscribeEpochsResponse {
+    uint32 subscriptionId = 1;
+    SubscriptionTypeEnum type = 2;
+}
+
+message UnsubscribeRequest {
+    uint32 requestId = 1;
+    uint32 subscriptionId = 2;
+}
+
+message UnsubscribeResponse {
+    bool success = 1;
+}
+
+// ============================================================================
+// Server Push Notifications
+// ============================================================================
+
+message NewBlockNotification {
+    uint32 subscriptionId = 1;
+    uint64 blockNumber = 2;
+    string blockHash = 3;
+    uint64 timestamp = 4;
+    uint32 txCount = 5;
+}
+
+message NewEpochNotification {
+    uint32 subscriptionId = 1;
+    string epochNumber = 2;
+    string epochHash = 3;
+}

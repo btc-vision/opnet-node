@@ -45,7 +45,8 @@ export interface EpochDataProof {
     readonly attestedEpochNumber: bigint;
     readonly attestedChecksumRoot: string;
     readonly winner?: {
-        readonly publicKey: string;
+        readonly mldsaPublicKey: string;
+        readonly legacyPublicKey: string;
         readonly matchingBits: number;
         readonly salt: string;
         readonly solutionHash: string;
@@ -195,7 +196,8 @@ export class EpochMerkleTree {
                 epochNumber: treeExport.epoch.epochNumber,
                 matchingBits: winner.matchingBits,
                 salt: stringToBuffer(winner.salt),
-                publicKey: Address.fromString(winner.publicKey),
+                mldsaPublicKey: Buffer.from(winner.mldsaPublicKey, 'hex'),
+                legacyPublicKey: Buffer.from(winner.legacyPublicKey, 'hex'),
                 solutionHash: stringToBuffer(winner.solutionHash),
                 graffiti: Buffer.from(winner.graffiti, 'hex'),
             },
@@ -315,7 +317,8 @@ export class EpochMerkleTree {
             ),
         );
 
-        writer.writeAddress(epochData.winner.publicKey); // 32
+        writer.writeBytes(epochData.winner.mldsaPublicKey); // 32
+        writer.writeBytes(epochData.winner.legacyPublicKey); // 32
         writer.writeU16(epochData.winner.matchingBits & 0xffff); // 2
         writer.writeBytes(epochData.winner.salt); // 32
         writer.writeBytes(epochData.winner.solutionHash); // 32
@@ -449,9 +452,8 @@ export class EpochMerkleTree {
             attestedChecksumRoot: this.epochData.attestedChecksumRoot.toString('hex'),
             winner: this.epochData.winner
                 ? {
-                      publicKey: this.epochData.winner.publicKey
-                          .originalPublicKeyBuffer()
-                          .toString('hex'),
+                      mldsaPublicKey: this.epochData.winner.mldsaPublicKey.toString('hex'),
+                      legacyPublicKey: this.epochData.winner.legacyPublicKey.toString('hex'),
                       matchingBits: this.epochData.winner.matchingBits,
                       salt: this.epochData.winner.salt.toString('hex'),
                       solutionHash: this.epochData.winner.solutionHash.toString('hex'),

@@ -1,4 +1,5 @@
 import { Binary } from 'mongodb';
+import { MLDSASecurityLevel } from '@btc-vision/transaction';
 
 export interface PublicKeyDocument {
     readonly tweakedPublicKey: Binary;
@@ -14,4 +15,8 @@ export interface PublicKeyDocument {
     readonly p2pkhHybrid?: string;
     readonly p2shp2wpkh?: string;
     readonly p2wpkh?: string;
+
+    readonly mldsaHashedPublicKey?: Binary;
+    readonly mldsaLevel?: MLDSASecurityLevel;
+    readonly mldsaPublicKey?: Binary;
 }

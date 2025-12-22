@@ -32,6 +32,7 @@ import {
     TransactionOutputFlags,
 } from '../../../poa/configurations/types/IOPNetConsensus.js';
 import { SpecialContract } from '../../../poa/configurations/types/SpecialContracts.js';
+import { MutableNumber } from '../../mutables/MutableNumber.js';
 
 export class ContractEvaluation implements ExecutionParameters {
     public readonly contractAddress: Address;
@@ -52,7 +53,7 @@ export class ContractEvaluation implements ExecutionParameters {
     public events: EvaluatedEvents = new AddressMap();
 
     public result: Uint8Array | undefined;
-    public contractDeployDepth: number;
+    public contractDeployDepth: MutableNumber;
 
     public readonly blockHash: Buffer;
     public readonly transactionId: Buffer;
@@ -79,6 +80,8 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public readonly specialContract: SpecialContract | undefined;
 
+    public mldsaLoadCounter: MutableNumber;
+
     private _totalEventSize: number = 0;
 
     constructor(params: ExecutionParameters) {
@@ -95,7 +98,8 @@ export class ContractEvaluation implements ExecutionParameters {
         this.isDeployment = params.isDeployment || false;
         this.memoryPagesUsed = params.memoryPagesUsed || 0n;
 
-        this.contractDeployDepth = params.contractDeployDepth || 0;
+        this.mldsaLoadCounter = params.mldsaLoadCounter || new MutableNumber();
+        this.contractDeployDepth = params.contractDeployDepth || new MutableNumber();
 
         if (this.isDeployment) {
             this.incrementContractDeployDepth();
@@ -211,13 +215,17 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public incrementContractDeployDepth(): void {
         if (
-            this.contractDeployDepth >=
+            this.contractDeployDepth.value >=
             OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_DEPLOYMENT_DEPTH
         ) {
             throw new Error('OP_NET: Contract deployment depth exceeded.');
         }
 
-        this.contractDeployDepth++;
+        this.contractDeployDepth.increment(1);
+    }
+
+    public incrementMLDSALoadCounter(): void {
+        this.mldsaLoadCounter.increment(1);
     }
 
     public isCallStackTooDeep(): boolean {
@@ -340,11 +348,11 @@ export class ContractEvaluation implements ExecutionParameters {
     }
 
     public addContractInformation(contract: ContractInformation): void {
-        if (this.deployedContracts.has(contract.contractTweakedPublicKey)) {
+        if (this.deployedContracts.has(contract.contractPublicKey)) {
             throw new Error('OP_NET: Contract already deployed.');
         }
 
-        this.deployedContracts.set(contract.contractTweakedPublicKey, contract);
+        this.deployedContracts.set(contract.contractPublicKey, contract);
     }
 
     public preloadedStorage(storage: ProvenPointers | null): void {

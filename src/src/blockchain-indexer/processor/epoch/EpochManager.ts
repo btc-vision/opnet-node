@@ -4,7 +4,7 @@ import { IndexingTask } from '../tasks/IndexingTask.js';
 import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
 import { SHA1 } from '../../../utils/SHA1.js';
 import { IEpoch, IEpochDocument } from '../../../db/documents/interfaces/IEpochDocument.js';
-import { DataConverter } from '@btc-vision/bsi-db';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import { EpochDifficultyConverter } from '../../../poa/epoch/EpochDifficultyConverter.js';
 import { EpochValidator } from '../../../poa/epoch/EpochValidator.js';
@@ -24,6 +24,10 @@ import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDoc
 import { BlockHeaderDocument } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { Submission } from '../transaction/features/Submission.js';
 import { PendingTargetEpoch } from '../../../db/documents/interfaces/ITargetEpochDocument.js';
+import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
+import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
+import { MessageType } from '../../../threading/enum/MessageType.js';
+import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 
 export interface ValidatedSolutionResult {
     readonly valid: boolean;
@@ -36,10 +40,23 @@ interface AttestationEpoch {
     readonly epochNumber: bigint;
 }
 
+const GENESIS_SALT = Buffer.alloc(32).fill(255);
+
 export class EpochManager extends Logger {
     public readonly logColor: string = '#009dff';
 
     private readonly epochValidator: EpochValidator;
+
+    /**
+     * Callback to send messages to other threads
+     * Assigned by BlockIndexer
+     */
+    public sendMessageToThread: (
+        type: ThreadTypes,
+        message: ThreadMessageBase<MessageType>,
+    ) => Promise<ThreadData | null> = () => {
+        throw new Error('sendMessageToThread not implemented.');
+    };
 
     public constructor(private readonly storage: VMStorage) {
         super();
@@ -57,6 +74,18 @@ export class EpochManager extends Logger {
         if (currentHeight % epochsPerBlock === 0n && currentHeight > 0n) {
             // We are at the first block of a new epoch, finalize the previous one
             const epochToFinalize = currentHeight / epochsPerBlock - 1n;
+
+            // Dispatch onEpochChange hook - epoch number has changed
+            const newEpochNumber = currentHeight / epochsPerBlock;
+            const newEpochStartBlock = newEpochNumber * epochsPerBlock;
+            const newEpochEndBlock = newEpochStartBlock + epochsPerBlock - 1n;
+
+            await this.dispatchEpochChange({
+                epochNumber: newEpochNumber,
+                startBlock: newEpochStartBlock,
+                endBlock: newEpochEndBlock,
+            });
+
             await this.finalizeEpochCompletion(epochToFinalize);
         }
     }
@@ -64,9 +93,9 @@ export class EpochManager extends Logger {
     public async submissionExists(
         epochNumber: bigint,
         salt: Buffer,
-        publicKey: Buffer | Binary,
+        mldsaPublicKey: Buffer | Binary,
     ): Promise<boolean> {
-        return this.storage.submissionExists(publicKey, salt, epochNumber);
+        return this.storage.submissionExists(mldsaPublicKey, salt, epochNumber);
     }
 
     public async getPendingEpochTarget(currentEpoch: bigint): Promise<PendingTargetEpoch> {
@@ -108,7 +137,7 @@ export class EpochManager extends Logger {
         // Reuse the static calculatePreimage method from EpochValidator
         const preimage = EpochValidator.calculatePreimage(
             pendingTarget.target,
-            new Address(submission.publicKey),
+            submission.mldsaPublicKey,
             submission.salt,
         );
 
@@ -173,7 +202,8 @@ export class EpochManager extends Logger {
             ).toString(),
             proposer: {
                 solution: new Binary(epoch.solution),
-                publicKey: new Binary(epoch.publicKey),
+                mldsaPublicKey: new Binary(epoch.mldsaPublicKey),
+                legacyPublicKey: new Binary(epoch.legacyPublicKey),
                 salt: new Binary(epoch.salt),
                 graffiti: epoch.graffiti ? new Binary(epoch.graffiti) : undefined,
             },
@@ -346,7 +376,8 @@ export class EpochManager extends Logger {
             epochNumber: DataConverter.fromDecimal128(winningSubmission.epochNumber),
             matchingBits: bestMatchingBits,
             salt: Buffer.from(winningSubmission.epochProposed.salt.buffer),
-            publicKey: new Address(Buffer.from(winningSubmission.epochProposed.publicKey.buffer)),
+            mldsaPublicKey: Buffer.from(winningSubmission.epochProposed.mldsaPublicKey.buffer),
+            legacyPublicKey: Buffer.from(winningSubmission.epochProposed.legacyPublicKey.buffer),
             solutionHash: Buffer.from(winningSubmission.submissionHash.buffer),
             graffiti: winningSubmission.epochProposed.graffiti
                 ? Buffer.from(winningSubmission.epochProposed.graffiti.buffer)
@@ -360,17 +391,14 @@ export class EpochManager extends Logger {
     ): IEpochSubmissionsDocument {
         const winner = [...submissions].sort((a, b) => {
             // Compare public keys (without pairing byte) - lower wins
-            const aPublicKey = Buffer.from(a.epochProposed.publicKey.buffer);
-            const bPublicKey = Buffer.from(b.epochProposed.publicKey.buffer);
+            const aPublicKey = Buffer.from(a.epochProposed.mldsaPublicKey.buffer);
+            const bPublicKey = Buffer.from(b.epochProposed.mldsaPublicKey.buffer);
 
-            if (aPublicKey.length < 33 || bPublicKey.length < 33) {
+            if (aPublicKey.length < 32 || bPublicKey.length < 32) {
                 throw new Error('Invalid public key length for comparison tiebreaker.');
             }
 
-            const aPublicKeyWithoutPairing = aPublicKey.subarray(1, 33);
-            const bPublicKeyWithoutPairing = bPublicKey.subarray(1, 33);
-
-            const pubKeyComparison = aPublicKeyWithoutPairing.compare(bPublicKeyWithoutPairing);
+            const pubKeyComparison = aPublicKey.compare(bPublicKey);
             if (pubKeyComparison !== 0) {
                 return pubKeyComparison; // Lower public key wins
             }
@@ -386,8 +414,8 @@ export class EpochManager extends Logger {
 
             // If public keys are equal, use public key matching bits as secondary tiebreaker
             // This adds an element of "mining luck" even among equal solutions
-            const aPublicKeySlice = aPublicKey.subarray(13); // Last 20 bytes
-            const bPublicKeySlice = bPublicKey.subarray(13);
+            const aPublicKeySlice = aPublicKey.subarray(12); // Last 20 bytes
+            const bPublicKeySlice = bPublicKey.subarray(12);
 
             if (aPublicKeySlice.length === 20 && bPublicKeySlice.length === 20) {
                 const aPublicKeyBits = this.epochValidator.countMatchingBits(
@@ -435,7 +463,6 @@ export class EpochManager extends Logger {
         checksumRoots: Map<bigint, Buffer>,
         submissions: IEpochSubmissionsDocument[],
         witnesses: IParsedBlockWitnessDocument[],
-        //task: IndexingTask,
         epochNumber: bigint,
         previousEpochHash: Buffer,
         attestationChecksumRoot: AttestationEpoch,
@@ -443,17 +470,16 @@ export class EpochManager extends Logger {
     ): Promise<void> {
         // For epoch 0, there's no mining target
         let checksumRoot: Buffer;
-        let targetHash: Buffer;
 
         if (epochNumber === 0n || !miningTargetChecksum) {
             // Epoch 0 can't be mined, use a zero hash
             checksumRoot = Buffer.alloc(32);
-            targetHash = SHA1.hashBuffer(checksumRoot);
         } else {
             // Use the mining target checksum (from the first block of the previous epoch)
             checksumRoot = miningTargetChecksum;
-            targetHash = SHA1.hashBuffer(checksumRoot);
         }
+
+        const targetHash: Buffer = SHA1.hashBuffer(checksumRoot);
 
         const winningSubmission = this.getBestSubmission(submissions, targetHash);
         if (winningSubmission && winningSubmission.epochNumber !== epochNumber) {
@@ -463,17 +489,21 @@ export class EpochManager extends Logger {
         }
 
         let salt: Buffer;
-        let publicKey: Address;
+        let mldsaPublicKey: Buffer;
+        let legacyPublicKey: Buffer;
         let graffiti: Buffer;
 
         if (!winningSubmission || epochNumber === 0n) {
             // No valid submission or epoch 0, use genesis proposer
-            salt = Buffer.alloc(32);
-            publicKey = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY;
+            salt = GENESIS_SALT; // All 0xFF for genesis
+            mldsaPublicKey = OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.toBuffer();
+            legacyPublicKey =
+                OPNetConsensus.consensus.EPOCH.GENESIS_PROPOSER_PUBLIC_KEY.originalPublicKeyBuffer();
             graffiti = Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH);
         } else {
             salt = winningSubmission.salt;
-            publicKey = winningSubmission.publicKey;
+            mldsaPublicKey = winningSubmission.mldsaPublicKey;
+            legacyPublicKey = winningSubmission.legacyPublicKey;
             graffiti = winningSubmission.graffiti;
         }
 
@@ -481,7 +511,7 @@ export class EpochManager extends Logger {
             throw new Error(`Invalid salt length: ${salt.length}. Expected 32 bytes.`);
         }
 
-        const solution = EpochValidator.calculatePreimage(checksumRoot, publicKey, salt);
+        const solution = EpochValidator.calculatePreimage(checksumRoot, mldsaPublicKey, salt);
         const solutionHash = SHA1.hashBuffer(solution);
         const matchingBits = this.epochValidator.countMatchingBits(solutionHash, targetHash);
 
@@ -500,7 +530,8 @@ export class EpochManager extends Logger {
         // Create winner object
         const epochWinner: EpochSubmissionWinner = {
             epochNumber: epochNumber,
-            publicKey: publicKey,
+            mldsaPublicKey: mldsaPublicKey,
+            legacyPublicKey: legacyPublicKey,
             solutionHash: solutionHash,
             salt: salt,
             matchingBits: matchingBits,
@@ -530,7 +561,8 @@ export class EpochManager extends Logger {
 
             solution: solutionHash,
             salt: salt,
-            publicKey: publicKey.originalPublicKeyBuffer(),
+            mldsaPublicKey: mldsaPublicKey,
+            legacyPublicKey: legacyPublicKey,
             graffiti: graffiti,
             solutionBits: matchingBits,
 
@@ -550,13 +582,21 @@ export class EpochManager extends Logger {
 
         if (Config.EPOCH.LOG_FINALIZATION) {
             this.debugBright(
-                `Epoch ${epochNumber} finalized with root: ${epochDocument.epochRoot.toString('hex')} (Hash: ${epochDocument.epochHash.toString('hex')} | Difficulty: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))}) | Winner: ${finalEpoch.publicKey.toString('hex')} | Solution: ${finalEpoch.solution.toString('hex')}) | Salt: ${finalEpoch.salt.toString('hex')} | Graffiti: ${finalEpoch.graffiti ? finalEpoch.graffiti.toString('hex') : 'None'}`,
+                `Epoch ${epochNumber} finalized with root: ${epochDocument.epochRoot.toString('hex')} (Hash: ${epochDocument.epochHash.toString('hex')} | Difficulty: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))}) | Winner: ${finalEpoch.mldsaPublicKey.toString('hex')} | Solution: ${finalEpoch.solution.toString('hex')}) | Salt: ${finalEpoch.salt.toString('hex')} | Graffiti: ${finalEpoch.graffiti ? finalEpoch.graffiti.toString('hex') : 'None'}`,
             );
         }
 
         this.log(
             `!! -- Finalized epoch ${epochNumber} [${epochDocument.proposer.solution.toString('hex')} (Diff: ${EpochDifficultyConverter.formatDifficulty(BigInt(epochDocument.difficultyScaled))})] (${epochDocument.epochHash.toString('hex')}) -- !!`,
         );
+
+        // Dispatch onEpochFinalized hook - epoch merkle tree is complete
+        await this.dispatchEpochFinalized({
+            epochNumber,
+            startBlock,
+            endBlock,
+            checksumRoot: epochDocument.epochRoot.toString('hex'),
+        });
     }
 
     private witnessToAttestation(
@@ -616,5 +656,45 @@ export class EpochManager extends Logger {
         }
 
         return { root, epochNumber: targetEpochNumber };
+    }
+
+    /**
+     * Dispatch onEpochChange hook to plugins via thread messaging
+     */
+    private async dispatchEpochChange(epochData: {
+        epochNumber: bigint;
+        startBlock: bigint;
+        endBlock: bigint;
+        checksumRoot?: string;
+    }): Promise<void> {
+        try {
+            const msg: ThreadMessageBase<MessageType> = {
+                type: MessageType.PLUGIN_EPOCH_CHANGE,
+                data: epochData,
+            };
+            await this.sendMessageToThread(ThreadTypes.PLUGIN, msg);
+        } catch (error) {
+            this.error(`Error dispatching onEpochChange to plugin thread: ${error}`);
+        }
+    }
+
+    /**
+     * Dispatch onEpochFinalized hook to plugins via thread messaging
+     */
+    private async dispatchEpochFinalized(epochData: {
+        epochNumber: bigint;
+        startBlock: bigint;
+        endBlock: bigint;
+        checksumRoot?: string;
+    }): Promise<void> {
+        try {
+            const msg: ThreadMessageBase<MessageType> = {
+                type: MessageType.PLUGIN_EPOCH_FINALIZED,
+                data: epochData,
+            };
+            await this.sendMessageToThread(ThreadTypes.PLUGIN, msg);
+        } catch (error) {
+            this.error(`Error dispatching onEpochFinalized to plugin thread: ${error}`);
+        }
     }
 }

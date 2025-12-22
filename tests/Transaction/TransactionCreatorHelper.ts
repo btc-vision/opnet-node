@@ -87,6 +87,9 @@ export async function CreateFakeTransaction(
     );
 
     vitest.spyOn(transaction, 'burnedFee', 'get').mockReturnValue(fees);
+    // Also mock gasSatFee to equal burnedFee for sorting tests (when priorityFee is 0)
+    vitest.spyOn(transaction, 'gasSatFee', 'get').mockReturnValue(fees);
+    vitest.spyOn(transaction, 'priorityFee', 'get').mockReturnValue(0n);
     // @ts-ignore
     vitest.spyOn(transaction, 'from', 'get').mockReturnValue('');
 

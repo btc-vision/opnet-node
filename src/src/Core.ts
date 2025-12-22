@@ -29,6 +29,9 @@ export class Core extends Logger {
 
     private readonly currentAuthority: TrustedAuthority = AuthorityManager.getCurrentAuthority();
 
+    private pluginReadyResolver?: () => void;
+    private pluginReadyPromise?: Promise<void>;
+
     constructor() {
         super();
 
@@ -39,8 +42,15 @@ export class Core extends Logger {
 
     /**
      * Isolate every module manager in a separate thread.
+     * Plugin thread is started first and must complete initialization before other threads.
      */
     public async createThreads(): Promise<void> {
+        // Start plugin thread FIRST and wait for it to be ready
+        // This ensures plugins are loaded and initialized before the indexer starts processing blocks
+        if (Config.PLUGINS.PLUGINS_ENABLED) {
+            await this.startPluginThread();
+        }
+
         if (Config.DOCS.ENABLED) {
             await this.createThread(ThreadTypes.DOCS);
         }
@@ -63,6 +73,50 @@ export class Core extends Logger {
         if (Config.SSH.ENABLED) {
             await this.createThread(ThreadTypes.SSH);
         }
+
+        // Notify plugin thread that all threads are ready
+        // This allows it to broadcast routes/opcodes to API threads
+        if (Config.PLUGINS.PLUGINS_ENABLED) {
+            this.notifyPluginThreadAllReady();
+        }
+    }
+
+    /**
+     * Notify plugin thread that all threads are started
+     */
+    private notifyPluginThreadAllReady(): void {
+        this.info('Notifying plugin thread that all threads are ready...');
+        this.sendMessageToThread(ThreadTypes.PLUGIN, {
+            type: MessageType.ALL_THREADS_READY,
+        });
+    }
+
+    /**
+     * Start the plugin thread and wait for it to signal ready
+     */
+    private async startPluginThread(): Promise<void> {
+        this.info('Starting plugin thread and waiting for initialization...');
+
+        // Create promise to wait for plugin ready signal
+        this.pluginReadyPromise = new Promise((resolve) => {
+            this.pluginReadyResolver = resolve;
+        });
+
+        // Create the thread
+        await this.createThread(ThreadTypes.PLUGIN);
+
+        // Wait for the plugin system to be ready (max 60 seconds)
+        const timeout = setTimeout(() => {
+            this.error('Plugin thread initialization timed out after 60 seconds');
+            if (this.pluginReadyResolver) {
+                this.pluginReadyResolver();
+            }
+        }, 60000);
+
+        await this.pluginReadyPromise;
+        clearTimeout(timeout);
+
+        this.info('Plugin thread ready, continuing with other threads...');
     }
 
     public async start(): Promise<void> {
@@ -139,11 +193,46 @@ export class Core extends Logger {
                 break;
             }
 
+            case MessageType.PLUGIN_READY: {
+                this.handlePluginReady(msg.data as { success: boolean; error?: string });
+                break;
+            }
+
             default: {
-                this.error(`[CORE] Unknown message type: ${msg.type}`);
+                this.debug(`[CORE] Unhandled message type: ${msg.type} from ${threadType}`);
                 break;
             }
         }
+    }
+
+    private handlePluginReady(data: { success: boolean; error?: string }): void {
+        if (data.success) {
+            this.success('Plugin system initialization complete');
+        } else {
+            this.error(`Plugin system initialization failed: ${data.error}`);
+        }
+
+        // Resolve the promise to unblock createThreads
+        if (this.pluginReadyResolver) {
+            this.pluginReadyResolver();
+            this.pluginReadyResolver = undefined;
+        }
+    }
+
+    /**
+     * Send a message to a specific thread type
+     */
+    private sendMessageToThread(
+        threadType: ThreadTypes,
+        msg: ThreadMessageBase<MessageType>,
+    ): void {
+        const thread = this.masterThreads[threadType];
+        if (!thread) {
+            this.error(`Cannot send message to thread ${threadType}: thread not found`);
+            return;
+        }
+
+        thread.postMessage(msg);
     }
 
     private listenEvents(): void {

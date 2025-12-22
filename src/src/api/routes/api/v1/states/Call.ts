@@ -1,7 +1,7 @@
 import { AddressVerificator, BufferHelper, NetEvent } from '@btc-vision/transaction';
-import { Request } from 'hyper-express/types/components/http/Request.js';
-import { Response } from 'hyper-express/types/components/http/Response.js';
-import { MiddlewareNext } from 'hyper-express/types/components/middleware/MiddlewareNext.js';
+import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
+import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
+import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { Config } from '../../../../../config/Config.js';
 import { MessageType } from '../../../../../threading/enum/MessageType.js';
@@ -41,13 +41,14 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
     private pendingRequests: number = 0;
 
     constructor() {
-        super(Routes.CALL, RouteType.POST);
+        super(Routes.CALL, RouteType.GET);
     }
 
     public static async requestThreadExecution(
         to: string,
         calldata: string,
         from?: string,
+        fromLegacy?: string,
         blockNumber?: bigint,
         transaction?: SimulatedTransaction,
         accessList?: AccessList,
@@ -61,6 +62,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                     to: to,
                     calldata: calldata,
                     from: from,
+                    fromLegacy: fromLegacy,
                     blockNumber: blockNumber,
                     transaction,
                     accessList,
@@ -90,13 +92,22 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 throw new Error('Storage not initialized');
             }
 
-            const [to, calldata, from, blockNumber, transaction, accessList, preloadStorage] =
-                this.getDecodedParams(params);
+            const [
+                to,
+                calldata,
+                from,
+                fromLegacy,
+                blockNumber,
+                transaction,
+                accessList,
+                preloadStorage,
+            ] = this.getDecodedParams(params);
 
             const res: CallRequestResponse = await Call.requestThreadExecution(
                 to,
                 calldata,
                 from,
+                fromLegacy,
                 blockNumber,
                 this.verifyPartialTransaction(transaction),
                 accessList as AccessList,
@@ -166,16 +177,14 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         try {
             const params = await this.getParams(req, res);
             if (!params) {
-                throw new Error('Invalid params.');
+                return; // getParams already sent error response
             }
 
             const data = await this.getData(params);
             if (data) {
-                res.status(200);
-                res.json(data);
+                this.safeJson(res, 200, data);
             } else {
-                res.status(400);
-                res.json({
+                this.safeJson(res, 400, {
                     error: 'Could not execute the given calldata at the requested contract.',
                 });
             }
@@ -192,17 +201,16 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         const to = req.query.to as string;
         const data = req.query.data as string;
         const from = req.query.from as string;
+        const fromLegacy = req.query.fromLegacy as string;
         const blockNumber = req.query.blockNumber as string;
 
         if (!to || to.length < 50) {
-            res.status(400);
-            res.json({ error: 'Invalid address. Address must be P2TR (taproot).' });
+            this.safeJson(res, 400, { error: 'Invalid address. Address must be P2TR (taproot).' });
             return;
         }
 
         if (!data || data.length < 4) {
-            res.status(400);
-            res.json({ error: 'Invalid calldata.' });
+            this.safeJson(res, 400, { error: 'Invalid calldata.' });
             return;
         }
 
@@ -215,6 +223,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             to,
             calldata: data,
             from,
+            fromLegacy,
             blockNumber,
             transaction,
         };
@@ -529,6 +538,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         string,
         string,
         string | undefined,
+        string | undefined,
         bigint | undefined,
         Partial<SimulatedTransaction> | undefined,
         Partial<AccessList> | undefined,
@@ -537,6 +547,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         let address: string | undefined;
         let calldata: string | undefined;
         let from: string | undefined;
+        let fromLegacy: string | undefined;
         let blockNumber: bigint | undefined;
         let transaction: Partial<SimulatedTransaction> | undefined;
         let accessList: Partial<AccessList> | undefined;
@@ -546,6 +557,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             address = params.shift() as string | undefined;
             calldata = params.shift() as string | undefined;
             from = params.shift() as string | undefined;
+            fromLegacy = params.shift() as string | undefined;
 
             const temp: string | undefined = params.shift() as string | undefined;
             if (temp && typeof temp !== 'string') {
@@ -565,6 +577,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             address = params.to;
             calldata = params.calldata;
             from = params.from;
+            fromLegacy = params.fromLegacy;
             blockNumber = params.blockNumber ? BigInt(params.blockNumber) : undefined;
             transaction = params.transaction;
             accessList = params.accessList;
@@ -642,6 +655,15 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             }
         }
 
-        return [address, calldata, from, blockNumber, transaction, accessList, preloadStorage];
+        return [
+            address,
+            calldata,
+            from,
+            fromLegacy,
+            blockNumber,
+            transaction,
+            accessList,
+            preloadStorage,
+        ];
     }
 }
