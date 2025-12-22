@@ -111,6 +111,7 @@ export class VMManager extends Logger {
 
     private mldsaToStore: AddressMap<MLDSAUpdateData> = new AddressMap();
     private mldsaToStoreLegacy: AddressMap<Address> = new AddressMap();
+    private mldsaToStoreByHash: AddressMap<Buffer> = new AddressMap();
 
     constructor(
         private readonly config: IBtcIndexerConfig,
@@ -636,6 +637,7 @@ export class VMManager extends Logger {
         this.mldsaCache.clear();
         this.mldsaToStore.clear();
         this.mldsaToStoreLegacy.clear();
+        this.mldsaToStoreByHash.clear();
         this.mldsaCacheFromLegacy.clear();
 
         for (const vmEvaluator of this.vmEvaluators.values()) {
@@ -698,14 +700,23 @@ export class VMManager extends Logger {
 
         // Verify we don't have a pending write on the mldsa public key.
         const address = new Address(mldsaPublicKey.hashedPublicKey, mldsaPublicKey.legacyPublicKey);
+        const hashedAddress = new Address(mldsaPublicKey.hashedPublicKey);
+
+        // This is OK - same user sending duplicate tx, the link will be stored from the first tx.
         if (this.mldsaToStore.has(address)) {
             return;
         }
 
-        // Verify we don't have a pending write on this tweaked key.
+        // This is a conflict - a legacy key can only be linked to one MLDSA key.
         const tweakedAddress = new Address(address.tweakedPublicKeyToBuffer());
         if (this.mldsaToStoreLegacy.has(tweakedAddress)) {
-            return;
+            throw new Error('Legacy key is already pending to be linked to a different MLDSA key in current block.');
+        }
+
+        // This prevents front-running attacks where attacker claims victim's hashedPublicKey.
+        const existingLegacyKey = this.mldsaToStoreByHash.get(hashedAddress);
+        if (existingLegacyKey && !existingLegacyKey.equals(mldsaPublicKey.legacyPublicKey)) {
+            throw new Error('MLDSA hashed public key is already pending to be linked to a different legacy key in current block.');
         }
 
         // Verify it does not exist in the database.
@@ -722,6 +733,7 @@ export class VMManager extends Logger {
             });
 
             this.mldsaToStoreLegacy.set(tweakedAddress, address);
+            this.mldsaToStoreByHash.set(hashedAddress, mldsaPublicKey.legacyPublicKey);
         }
     }
 
@@ -730,16 +742,24 @@ export class VMManager extends Logger {
             throw new Error('MLDSA public key must be defined.');
         }
 
-        // Verify we don't have a pending write on the mldsa public key.
         const address = new Address(mldsaPublicKey.hashedPublicKey, mldsaPublicKey.legacyPublicKey);
+        const hashedAddress = new Address(mldsaPublicKey.hashedPublicKey);
+
+        // Check 1: Exact same exposure request already pending - OK, return silently.
         if (this.mldsaToStore.has(address)) {
             return;
         }
 
-        // Verify we don't have a pending write on this tweaked key.
+        // Check 2: Same legacyPublicKey trying to expose a different hashedPublicKey.
         const tweakedAddress = new Address(address.tweakedPublicKeyToBuffer());
         if (this.mldsaToStoreLegacy.has(tweakedAddress)) {
-            return;
+            throw new Error('Legacy key is already pending to be linked to a different MLDSA key in current block.');
+        }
+
+        // Check 3: Same hashedPublicKey being claimed by a different legacyPublicKey.
+        const existingLegacyKey = this.mldsaToStoreByHash.get(hashedAddress);
+        if (existingLegacyKey && !existingLegacyKey.equals(mldsaPublicKey.legacyPublicKey)) {
+            throw new Error('MLDSA hashed public key is already pending to be linked to a different legacy key in current block.');
         }
 
         const exists = await this.shouldInsertMLDSAKey(
@@ -756,6 +776,7 @@ export class VMManager extends Logger {
             });
 
             this.mldsaToStoreLegacy.set(tweakedAddress, address);
+            this.mldsaToStoreByHash.set(hashedAddress, mldsaPublicKey.legacyPublicKey);
         }
     }
 
