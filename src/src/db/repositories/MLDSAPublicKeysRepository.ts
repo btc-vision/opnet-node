@@ -179,12 +179,13 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
         hashedPublicKey: Buffer | Binary | string,
         legacyPublicKey: Buffer | Binary | string,
     ): Promise<MLDSAPublicKeyExists> {
-        if (hashedPublicKey.length !== 32 || legacyPublicKey.length !== 33) {
-            throw new Error('Invalid public key lengths provided to compare existence');
-        }
-
+        // Convert to binary first, then validate lengths (handles hex strings correctly)
         const binHashed: Binary = this.toBinary(hashedPublicKey);
         const binLegacy: Binary = this.toBinary(legacyPublicKey);
+
+        if (binHashed.length() !== 32 || binLegacy.length() !== 33) {
+            throw new Error('Invalid public key lengths provided to compare existence');
+        }
 
         const collection = this.getCollection();
 

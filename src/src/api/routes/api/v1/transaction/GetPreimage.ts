@@ -138,7 +138,7 @@ export class GetPreimage extends Route<
             ? this.uint8ArrayToHex(targetEpoch.proposer.graffiti.buffer)
             : '0x' + '00'.repeat(16);
 
-        const difficulty = parseInt(targetEpoch.difficultyScaled);
+        const difficulty = parseInt(targetEpoch.difficultyScaled, 10);
 
         // Verification data
         const epochHash = this.uint8ArrayToHex(targetEpoch.epochHash.buffer);

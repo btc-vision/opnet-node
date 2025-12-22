@@ -202,7 +202,9 @@ export abstract class SharedInteractionParameters<
 
         const message = writer.getBuffer();
 
-        // First we check the schnorr signature
+        // Verify legacy signature - required for address rotation where each UTXO may have
+        // a different address, but the user needs to prove ownership of the specific Bitcoin
+        // key being linked to the MLDSA key.
         const isValidSchnorr = MessageSigner.verifySignature(
             tweakedKey,
             message,
@@ -239,7 +241,8 @@ export abstract class SharedInteractionParameters<
             });
         }
 
-        // From this point, even if the transaction fail, we still record the key link. (as long the provided signatures are valid.)
+        // From this point, even if the transaction fails, we still record the key link
+        // (as long as the provided signatures are valid).
 
         // The next action is safe here since if the public key (legacy) is already assigned OR the mldsa hashed value
         // is already assigned, then this will throw.
@@ -463,7 +466,7 @@ export abstract class SharedInteractionParameters<
         const binaryReader = new BinaryReader(data);
         const mldsaPublicKey = binaryReader.readBytes(32);
         const salt = binaryReader.readBytes(32);
-        const bytesLeft = data.length - 65;
+        const bytesLeft = binaryReader.bytesLeft();
 
         let graffiti: Uint8Array | undefined;
         if (bytesLeft > 0 && bytesLeft <= OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {

@@ -117,42 +117,44 @@ export class RPCBlockFetcher extends BlockFetcher {
 
     private async getBlockTransactionDataAndRetryIfNull(
         blockHash: string,
-        retries: number = 0,
     ): Promise<BlockDataWithTransactionData | null> {
-        try {
-            const resp = await this.rpc.getBlockInfoWithTransactionData(blockHash);
-            if (resp == null) {
-                throw new Error(`Error fetching block ${blockHash}. (response is null)`);
-            }
+        for (let retries = 0; retries <= this.maxRetries; retries++) {
+            try {
+                const resp = await this.rpc.getBlockInfoWithTransactionData(blockHash);
+                if (resp == null) {
+                    throw new Error(`Error fetching block ${blockHash}. (response is null)`);
+                }
 
-            return resp;
-        } catch {
-            if (retries >= this.maxRetries) {
-                throw new Error(`Error fetching block ${blockHash}. (response is null)`);
+                return resp;
+            } catch {
+                if (retries >= this.maxRetries) {
+                    throw new Error(`Error fetching block ${blockHash}. (response is null)`);
+                }
             }
-
-            return this.getBlockTransactionDataAndRetryIfNull(blockHash, retries + 1);
         }
+
+        throw new Error(`Error fetching block ${blockHash}. (response is null)`);
     }
 
     private async getBlockHashAndRetryIfNull(
         blockHeight: bigint,
-        retries: number = 0,
     ): Promise<string | null> {
-        try {
-            const blockHash: string | null = await this.rpc.getBlockHash(Number(blockHeight));
-            if (blockHash == null) {
-                throw new Error(`Error fetching block ${blockHeight}. (hash is null)`);
-            }
+        for (let retries = 0; retries <= this.maxRetries; retries++) {
+            try {
+                const blockHash: string | null = await this.rpc.getBlockHash(Number(blockHeight));
+                if (blockHash == null) {
+                    throw new Error(`Error fetching block ${blockHeight}. (hash is null)`);
+                }
 
-            return blockHash;
-        } catch {
-            if (retries >= this.maxRetries) {
-                throw new Error(`Error fetching block ${blockHeight}. (hash is null)`);
+                return blockHash;
+            } catch {
+                if (retries >= this.maxRetries) {
+                    throw new Error(`Error fetching block ${blockHeight}. (hash is null)`);
+                }
             }
-
-            return this.getBlockHashAndRetryIfNull(blockHeight, retries + 1);
         }
+
+        throw new Error(`Error fetching block ${blockHeight}. (hash is null)`);
     }
 
     private async processResponse(response: BlockDataWithTransactionData): Promise<void> {

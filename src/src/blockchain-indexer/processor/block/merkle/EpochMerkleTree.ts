@@ -278,8 +278,9 @@ export class EpochMerkleTree {
 
     public static epochDataToBytes(epochData: EpochData): Uint8Array {
         const baseSize = 64 + 8 + 8 + 8 + 32 + 32 + 8 + 32;
+        // mldsaPublicKey(32) + legacyPublicKey(32) + matchingBits(2) + salt(32) + solutionHash(20) + graffiti
         const winnerSize = epochData.winner
-            ? 32 + 2 + 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
+            ? 32 + 32 + 2 + 32 + 20 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
             : 0;
 
         const writer = new BinaryWriter(baseSize + winnerSize);
@@ -321,7 +322,7 @@ export class EpochMerkleTree {
         writer.writeBytes(epochData.winner.legacyPublicKey); // 32
         writer.writeU16(epochData.winner.matchingBits & 0xffff); // 2
         writer.writeBytes(epochData.winner.salt); // 32
-        writer.writeBytes(epochData.winner.solutionHash); // 32
+        writer.writeBytes(epochData.winner.solutionHash); // 20 (SHA1)
         writer.writeBytes(resizedGraffiti); // OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH
 
         return writer.getBuffer();
@@ -361,13 +362,13 @@ export class EpochMerkleTree {
             throw new Error('Epoch merkle tree is frozen');
         }
 
-        // Sort attestations by timestamp (descending)
-        this.attestations.sort((a, b) => b.timestamp - a.timestamp);
-
-        // If we have no attestations, add dummy values
+        // If we have fewer than 2 attestations, add dummy values for tree generation
         if (this.attestations.length < 2) {
             this.addDummyAttestations();
         }
+
+        // Sort attestations by timestamp (descending) - done after adding dummies to maintain order
+        this.attestations.sort((a, b) => b.timestamp - a.timestamp);
 
         // Take only up to maxAttestations
         const selectedAttestations = this.attestations.slice(0, this.maxAttestations);

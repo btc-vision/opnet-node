@@ -131,15 +131,23 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
     }
 
     public get strippedInputs(): StrippedTransactionInput[] {
-        return this.inputs
-            .slice(0, OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_INPUTS)
-            .map((input) => input.toStripped());
+        if (this.inputs.length > OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_INPUTS) {
+            throw new Error(
+                `Transaction exceeds maximum inputs limit: ${this.inputs.length} > ${OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_INPUTS}`,
+            );
+        }
+
+        return this.inputs.map((input) => input.toStripped());
     }
 
     public get strippedOutputs(): StrippedTransactionOutput[] {
-        const outputs = this.outputs
-            .slice(0, OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_OUTPUTS)
-            .map((output) => output.toStripped());
+        if (this.outputs.length > OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_OUTPUTS) {
+            throw new Error(
+                `Transaction exceeds maximum outputs limit: ${this.outputs.length} > ${OPNetConsensus.consensus.VM.UTXOS.MAXIMUM_OUTPUTS}`,
+            );
+        }
+
+        const outputs = this.outputs.map((output) => output.toStripped());
 
         return outputs.filter((output): output is StrippedTransactionOutput => !!output);
     }

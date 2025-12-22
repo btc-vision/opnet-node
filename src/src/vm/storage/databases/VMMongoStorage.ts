@@ -121,7 +121,7 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('MLDSA Public Key repository not initialized');
         }
 
-        return this.mldsaPublicKeysRepository.getByLegacyPublicKey(publicKey, blockHeight);
+        return this.mldsaPublicKeysRepository.getByHashedOrLegacy(publicKey, blockHeight);
     }
 
     public targetEpochExists(
