@@ -1,6 +1,7 @@
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { Transaction } from '../Transaction.js';
 import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
+import { PriorityQueue } from '@datastructures-js/priority-queue';
 
 type DependencyGraph = {
     transactionsById: Map<string, Transaction<OPNetTransactionTypes>>;
@@ -73,6 +74,9 @@ export class TransactionSorter {
         return newOrder;
     }
 
+    /**
+     * Sorts transactions based on their priority, but always placing parents before children.
+     */
     private sortWithDependencies(
         transactions: Transaction<OPNetTransactionTypes>[],
     ): Transaction<OPNetTransactionTypes>[] {
@@ -99,19 +103,19 @@ export class TransactionSorter {
             return this.compareHashes(a, b);
         };
 
-        const availableTxs: Transaction<OPNetTransactionTypes>[] = [];
+        const availableTxs = new PriorityQueue<Transaction<OPNetTransactionTypes>>(
+            compareByPriority,
+        );
         graph.inDegree.forEach((degree, txId) => {
             if (degree === 0) {
                 const tx = this.getTx(txId, graph);
-                availableTxs.push(tx);
+                availableTxs.enqueue(tx);
             }
         });
 
         const resultTxs: Transaction<OPNetTransactionTypes>[] = [];
-        while (availableTxs.length > 0) {
-            availableTxs.sort(compareByPriority);
-            const nextTx = availableTxs.shift();
-            if (!nextTx) break;
+        while (!availableTxs.isEmpty()) {
+            const nextTx = <Transaction<OPNetTransactionTypes>>availableTxs.dequeue();
 
             resultTxs.push(nextTx);
             const children = graph.adjacency.get(nextTx.transactionIdString);
@@ -120,7 +124,7 @@ export class TransactionSorter {
                 graph.inDegree.set(childId, updated);
                 if (updated === 0) {
                     const child = this.getTx(childId, graph);
-                    availableTxs.push(child);
+                    availableTxs.enqueue(child);
                 }
             });
         }
