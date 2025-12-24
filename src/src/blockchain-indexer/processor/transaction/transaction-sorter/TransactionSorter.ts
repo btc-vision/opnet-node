@@ -17,40 +17,6 @@ type DependencyGraph = {
  * Transactions with the same fee will get stored via a tie-breaking hash.
  */
 export class TransactionSorter {
-    public sortTransactions(
-        transactions: Transaction<OPNetTransactionTypes>[],
-    ): Transaction<OPNetTransactionTypes>[] {
-        const initialLength = transactions.length;
-
-        // Filter block rewards and non-block rewards
-        const blockRewards = transactions.filter((t) =>
-            t.inputs.some((input) => input.originalTransactionId.length === 0),
-        );
-
-        const nonBlockRewards = transactions.filter((t) =>
-            t.inputs.every((input) => input.originalTransactionId.length !== 0),
-        );
-
-        const sortedNonRewards = this.sortByFeeWithDependencies(nonBlockRewards);
-        const finalList: Transaction<OPNetTransactionTypes>[] = [
-            ...blockRewards,
-            ...sortedNonRewards,
-        ];
-
-        // Ensure the index of each transaction in the final list
-        finalList.forEach((tx, index) => {
-            tx.index = index;
-        });
-
-        if (finalList.length !== initialLength) {
-            throw new Error(
-                `Transaction count changed during sorting. Expected ${initialLength}, got ${finalList.length}.`,
-            );
-        }
-
-        return finalList;
-    }
-
     public sortTransactionsByOrder(
         transactionIds: string[],
         transactions: Transaction<OPNetTransactionTypes>[],
@@ -74,6 +40,49 @@ export class TransactionSorter {
         return newOrder;
     }
 
+    public sortTransactions(
+        transactions: Transaction<OPNetTransactionTypes>[],
+    ): Transaction<OPNetTransactionTypes>[] {
+        const initialLength = transactions.length;
+
+        // Keep coinbase-like rewards first, then sort all remaining txs by dependency-aware priority.
+        const { blockRewards, nonBlockRewards } = this.partitionByRewardStatus(transactions);
+
+        const sortedNonRewards = this.sortByFeeWithDependencies(nonBlockRewards);
+        const finalList: Transaction<OPNetTransactionTypes>[] = [
+            ...blockRewards,
+            ...sortedNonRewards,
+        ];
+
+        // Ensure the index of each transaction in the final list
+        finalList.forEach((tx, index) => {
+            tx.index = index;
+        });
+
+        if (finalList.length !== initialLength) {
+            throw new Error(
+                `Transaction count changed during sorting. Expected ${initialLength}, got ${finalList.length}.`,
+            );
+        }
+
+        return finalList;
+    }
+
+    /**
+     * Splits reward (coinbase-like) transactions from the rest.
+     */
+    private partitionByRewardStatus(transactions: Transaction<OPNetTransactionTypes>[]) {
+        const blockRewards = transactions.filter((t) =>
+            t.inputs.some((input) => input.originalTransactionId.length === 0),
+        );
+
+        const nonBlockRewards = transactions.filter((t) =>
+            t.inputs.every((input) => input.originalTransactionId.length !== 0),
+        );
+
+        return { blockRewards, nonBlockRewards };
+    }
+
     /**
      * Sorts transactions based on their priority, but always placing parents before children.
      */
@@ -84,24 +93,11 @@ export class TransactionSorter {
         const effectiveRankCache = new Map<string, bigint>();
         const visiting = new Set<string>();
 
-        const compareByPriority = (
-            a: Transaction<OPNetTransactionTypes>,
-            b: Transaction<OPNetTransactionTypes>,
-        ): number => {
-            const effA = this.computeEffectiveRank(a, graph, effectiveRankCache, visiting);
-            const effB = this.computeEffectiveRank(b, graph, effectiveRankCache, visiting);
-            if (effA !== effB) {
-                return effA < effB ? -1 : 1; // lower rank is better
-            }
-
-            const rankA = this.getTransactionRank(a);
-            const rankB = this.getTransactionRank(b);
-            if (rankA !== rankB) {
-                return rankA < rankB ? -1 : 1;
-            }
-
-            return this.compareHashes(a, b);
-        };
+        const compareByPriority = this.createPriorityComparator(
+            graph,
+            effectiveRankCache,
+            visiting,
+        );
 
         const availableTxs = new PriorityQueue<Transaction<OPNetTransactionTypes>>(
             compareByPriority,
@@ -114,6 +110,7 @@ export class TransactionSorter {
         });
 
         const resultTxs: Transaction<OPNetTransactionTypes>[] = [];
+        // Classic topological traversal that always emits the most valuable available tx next.
         while (!availableTxs.isEmpty()) {
             const nextTx = <Transaction<OPNetTransactionTypes>>availableTxs.dequeue();
 
@@ -134,6 +131,7 @@ export class TransactionSorter {
                 (txA) =>
                     !resultTxs.some((txB) => txA.transactionIdString === txB.transactionIdString),
             );
+            // Cycles or missing parents: fall back to pure priority ordering for the leftovers.
             remaining.sort(compareByPriority);
             resultTxs.push(...remaining);
         }
@@ -147,6 +145,9 @@ export class TransactionSorter {
         return tx;
     }
 
+    /**
+     * Build an adjacency list from parents to children and a matching in-degree map.
+     */
     private buildDependencyGraph(
         transactions: Transaction<OPNetTransactionTypes>[],
     ): DependencyGraph {
@@ -181,6 +182,32 @@ export class TransactionSorter {
         return { transactionsById, adjacency, inDegree };
     }
 
+    private createPriorityComparator(
+        graph: DependencyGraph,
+        effectiveRankCache: Map<string, bigint>,
+        visiting: Set<string>,
+    ) {
+        return (a: Transaction<OPNetTransactionTypes>, b: Transaction<OPNetTransactionTypes>) => {
+            const effA = this.computeEffectiveRank(a, graph, effectiveRankCache, visiting);
+            const effB = this.computeEffectiveRank(b, graph, effectiveRankCache, visiting);
+            if (effA !== effB) {
+                return effA < effB ? -1 : 1; // lower rank is better
+            }
+
+            const rankA = this.getTransactionRank(a);
+            const rankB = this.getTransactionRank(b);
+            if (rankA !== rankB) {
+                return rankA < rankB ? -1 : 1;
+            }
+
+            return this.compareHashes(a, b);
+        };
+    }
+
+    /**
+     * Returns the best (lowest) fee rank reachable from this transaction, so high-fee descendants
+     * pull their parents earlier in the ordering.
+     */
     private computeEffectiveRank(
         tx: Transaction<OPNetTransactionTypes>,
         graph: DependencyGraph,
