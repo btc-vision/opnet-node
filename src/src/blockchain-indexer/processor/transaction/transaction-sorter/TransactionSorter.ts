@@ -31,7 +31,7 @@ export class TransactionSorter {
             t.inputs.every((input) => input.originalTransactionId.length !== 0),
         );
 
-        const sortedNonRewards = this.sortWithDependencies(nonBlockRewards);
+        const sortedNonRewards = this.sortByFeeWithDependencies(nonBlockRewards);
         const finalList: Transaction<OPNetTransactionTypes>[] = [
             ...blockRewards,
             ...sortedNonRewards,
@@ -77,7 +77,7 @@ export class TransactionSorter {
     /**
      * Sorts transactions based on their priority, but always placing parents before children.
      */
-    private sortWithDependencies(
+    private sortByFeeWithDependencies(
         transactions: Transaction<OPNetTransactionTypes>[],
     ): Transaction<OPNetTransactionTypes>[] {
         const graph = this.buildDependencyGraph(transactions);
