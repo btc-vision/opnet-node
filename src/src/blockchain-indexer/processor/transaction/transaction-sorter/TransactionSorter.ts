@@ -1,6 +1,5 @@
 import { OPNetTransactionTypes } from '../enums/OPNetTransactionTypes.js';
 import { Transaction } from '../Transaction.js';
-import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
 import { PriorityQueue } from '@datastructures-js/priority-queue';
 
 type DependencyGraph = {
@@ -90,12 +89,12 @@ export class TransactionSorter {
         transactions: Transaction<OPNetTransactionTypes>[],
     ): Transaction<OPNetTransactionTypes>[] {
         const graph = this.buildDependencyGraph(transactions);
-        const effectiveRankCache = new Map<string, bigint>();
+        const effectivePriorityCache = new Map<string, bigint>();
         const visiting = new Set<string>();
 
         const compareByPriority = this.createPriorityComparator(
             graph,
-            effectiveRankCache,
+            effectivePriorityCache,
             visiting,
         );
 
@@ -184,20 +183,20 @@ export class TransactionSorter {
 
     private createPriorityComparator(
         graph: DependencyGraph,
-        effectiveRankCache: Map<string, bigint>,
+        effectivePriorityCache: Map<string, bigint>,
         visiting: Set<string>,
     ) {
         return (a: Transaction<OPNetTransactionTypes>, b: Transaction<OPNetTransactionTypes>) => {
-            const effA = this.computeEffectiveRank(a, graph, effectiveRankCache, visiting);
-            const effB = this.computeEffectiveRank(b, graph, effectiveRankCache, visiting);
+            const effA = this.computeEffectivePriority(a, graph, effectivePriorityCache, visiting);
+            const effB = this.computeEffectivePriority(b, graph, effectivePriorityCache, visiting);
             if (effA !== effB) {
-                return effA < effB ? -1 : 1; // lower rank is better
+                return effA > effB ? -1 : 1; // higher priority is better
             }
 
-            const rankA = this.getTransactionRank(a);
-            const rankB = this.getTransactionRank(b);
-            if (rankA !== rankB) {
-                return rankA < rankB ? -1 : 1;
+            const priorityA = this.getTransactionPriority(a);
+            const priorityB = this.getTransactionPriority(b);
+            if (priorityA !== priorityB) {
+                return priorityA > priorityB ? -1 : 1;
             }
 
             return this.compareHashes(a, b);
@@ -205,10 +204,10 @@ export class TransactionSorter {
     }
 
     /**
-     * Returns the best (lowest) fee rank reachable from this transaction, so high-fee descendants
+     * Returns the best (highest) priority reachable from this transaction, so high-fee descendants
      * pull their parents earlier in the ordering.
      */
-    private computeEffectiveRank(
+    private computeEffectivePriority(
         tx: Transaction<OPNetTransactionTypes>,
         graph: DependencyGraph,
         cache: Map<string, bigint>,
@@ -216,30 +215,30 @@ export class TransactionSorter {
     ): bigint {
         const txId = tx.transactionIdString;
 
-        const cachedRank = cache.get(txId);
-        if (cachedRank != null) {
-            return cachedRank;
+        const cachedPriority = cache.get(txId);
+        if (cachedPriority != null) {
+            return cachedPriority;
         }
 
         if (visiting.has(txId)) {
-            return this.getTransactionRank(tx);
+            return this.getTransactionPriority(tx);
         }
 
         visiting.add(txId);
 
-        let bestRank = this.getTransactionRank(tx);
+        let bestPriority = this.getTransactionPriority(tx);
         const children = graph.adjacency.get(txId);
         children?.forEach((childId) => {
             const child = this.getTx(childId, graph);
-            const childRank = this.computeEffectiveRank(child, graph, cache, visiting);
-            if (childRank < bestRank) {
-                bestRank = childRank;
+            const childPriority = this.computeEffectivePriority(child, graph, cache, visiting);
+            if (childPriority > bestPriority) {
+                bestPriority = childPriority;
             }
         });
 
         visiting.delete(txId);
-        cache.set(txId, bestRank);
-        return bestRank;
+        cache.set(txId, bestPriority);
+        return bestPriority;
     }
 
     private compareHashes(
@@ -254,10 +253,8 @@ export class TransactionSorter {
         return originalTransactionId.toString('hex');
     }
 
-    private getTransactionRank(tx: Transaction<OPNetTransactionTypes>): bigint {
-        const gas = this.safeBigInt(tx.gasSatFee);
-        const priority = this.safeBigInt(tx.priorityFee);
-        return gas * OPNetConsensus.consensus.GAS.GAS_PENALTY_FACTOR - priority;
+    private getTransactionPriority(tx: Transaction<OPNetTransactionTypes>): bigint {
+        return this.safeBigInt(tx.priorityFee);
     }
 
     private safeBigInt(value: unknown): bigint {
