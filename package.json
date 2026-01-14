@@ -76,6 +76,7 @@
         "bip174": "^2.1.1",
         "bip39": "^3.1.0",
         "bytenode": "^1.5.6",
+        "@datastructures-js/priority-queue": "^6.3.2",
         "cors": "^2.8.5",
         "datastore-level": "^12.0.2",
         "ecpair": "^2.1.0",
