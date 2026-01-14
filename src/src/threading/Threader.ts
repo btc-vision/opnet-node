@@ -35,7 +35,7 @@ export class Threader<T extends ThreadTypes> extends Logger {
 
     private readonly threads: Worker[] = [];
     private readonly tasks: FastStringMap<ThreadTaskCallback> = new FastStringMap();
-    private readonly subChannels: MessageChannel[] = [];
+    private readonly subChannels: Map<number, MessageChannel> = new Map();
 
     private currentId: number = 0;
 
@@ -236,8 +236,8 @@ export class Threader<T extends ThreadTypes> extends Logger {
                     const thread: Worker = new Worker(this.target, workerOpts);
                     const messageChannel = new MessageChannel();
 
-                    // keep track of subChannels by thread ID, or by index i
-                    this.subChannels[thread.threadId] = messageChannel;
+                    // keep track of subChannels by thread ID
+                    this.subChannels.set(thread.threadId, messageChannel);
 
                     messageChannel.port2.on('error', () => {
                         this.error('Something went wrong with the message port?');
@@ -454,8 +454,9 @@ export class Threader<T extends ThreadTypes> extends Logger {
 
             this.tasks.set(taskId, task);
 
-            if (this.subChannels[selectedThread.threadId]) {
-                this.subChannels[selectedThread.threadId].port2.postMessage(message);
+            const subChannel = this.subChannels.get(selectedThread.threadId);
+            if (subChannel) {
+                subChannel.port2.postMessage(message);
             } else {
                 selectedThread.postMessage(message);
             }
@@ -470,8 +471,9 @@ export class Threader<T extends ThreadTypes> extends Logger {
         //    message.taskId = this.generateRndTaskId();
         //}
 
-        if (this.subChannels[selectedThread.threadId]) {
-            this.subChannels[selectedThread.threadId].port2.postMessage(message);
+        const subChannel = this.subChannels.get(selectedThread.threadId);
+        if (subChannel) {
+            subChannel.port2.postMessage(message);
         } else {
             selectedThread.postMessage(message);
         }

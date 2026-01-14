@@ -246,7 +246,9 @@ export class ContractEvaluator extends Logger {
                 evaluation.specialContract.address.equals(address)
             );
 
-            const gasUsed = isSpecialContract ? evaluation.specialGasUsed : evaluation.gasUsed;
+            const gasUsed = isSpecialContract
+                ? evaluation.specialGasUsed + totalGasSpecial
+                : evaluation.gasUsed + totalGasCost;
             for (const [key, value] of states) {
                 let shouldThrow: boolean = false;
                 if (

@@ -49,8 +49,6 @@ export class BroadcastTransaction extends Route<
             const dataSize = data.length / 2;
 
             if (this.transactionSizeValidator.verifyTransactionSize(dataSize, psbt ?? false)) {
-                this.decrementPendingRequests();
-
                 return {
                     success: false,
                     result: 'Transaction too large',
@@ -69,8 +67,6 @@ export class BroadcastTransaction extends Route<
             );
 
             if (!verification) {
-                this.decrementPendingRequests();
-
                 return {
                     success: false,
                     error: 'Could not broadcast transaction',
@@ -89,8 +85,6 @@ export class BroadcastTransaction extends Route<
                 if (!parsedData) {
                     throw new Error('Could not parse data');
                 }
-
-                this.decrementPendingRequests();
 
                 const result: BroadcastResponse | undefined = await this.broadcastOPNetTransaction(
                     parsedData,
@@ -111,16 +105,14 @@ export class BroadcastTransaction extends Route<
                 } as BroadcastTransactionResult;
             }
 
-            this.decrementPendingRequests();
-
             return verification;
         } catch (e) {
-            this.decrementPendingRequests();
-
             return {
                 success: false,
                 error: 'Could not broadcast transaction',
             };
+        } finally {
+            this.decrementPendingRequests();
         }
     }
 
@@ -133,16 +125,12 @@ export class BroadcastTransaction extends Route<
         return data;
     }
 
-    protected checkRateLimit(): boolean {
-        return this.pendingRequests + 1 <= Config.API.MAXIMUM_TRANSACTION_BROADCAST;
-    }
-
     protected incrementPendingRequests(): void {
-        if (!this.checkRateLimit()) {
+        this.pendingRequests++;
+        if (this.pendingRequests > Config.API.MAXIMUM_TRANSACTION_BROADCAST) {
+            this.pendingRequests--;
             throw new Error(`Too many broadcast pending requests.`);
         }
-
-        this.pendingRequests++;
     }
 
     protected decrementPendingRequests(): void {

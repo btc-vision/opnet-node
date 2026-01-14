@@ -157,16 +157,12 @@ export abstract class EpochRoute<T extends Routes> extends Route<
         return apiResult;
     }
 
-    protected checkRateLimit(): boolean {
-        return this.pendingRequests + 1 <= Config.API.MAXIMUM_PARALLEL_EPOCH_QUERY;
-    }
-
     protected incrementPendingRequests(): void {
-        if (!this.checkRateLimit()) {
+        this.pendingRequests++;
+        if (this.pendingRequests > Config.API.MAXIMUM_PARALLEL_EPOCH_QUERY) {
+            this.pendingRequests--;
             throw new Error('Too many epoch pending requests');
         }
-
-        this.pendingRequests++;
     }
 
     protected decrementPendingRequests(): void {
