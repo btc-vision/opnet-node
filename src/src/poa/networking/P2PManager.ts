@@ -193,7 +193,7 @@ export class P2PManager extends Logger {
         await this.blockWitnessManager.setCurrentBlock();
 
         this.node = await this.createNode();
-        this._peerChecker = new PeerChecker(this.node);
+        this._peerChecker = new PeerChecker(this.node, this.onPeerUnreachable.bind(this));
         this.streamManager = new ReusableStreamManager(
             this.node,
             async (peerIdStr: PeerId, data: Uint8Array) => {
@@ -359,6 +359,31 @@ export class P2PManager extends Logger {
 
                 this.debug(`Removed stale peer ${peer.id.toString()} with no addresses`);
             }
+        }
+    }
+
+    /**
+     * Called when a peer has exceeded the dial failure threshold.
+     * Removes the peer from the peer store and temporarily blacklists it.
+     */
+    private async onPeerUnreachable(peerId: PeerId): Promise<void> {
+        if (!this.node) return;
+
+        const peerIdStr = peerId.toString();
+
+        try {
+            // Remove from peer store to stop future dial attempts from monitorConnectionHealth
+            await this.node.peerStore.delete(peerId);
+
+            // Add to in-memory blacklist (will expire after 30 seconds per PURGE_BLACKLISTED_PEER_AFTER)
+            // The peer will remain unreachable via PeerChecker's failure tracking for 1 hour
+            await this.blackListPeerId(peerId, DisconnectionCode.UNREACHABLE);
+
+            this.warn(
+                `Peer ${peerIdStr} marked as unreachable after repeated dial failures, removed from peer store`,
+            );
+        } catch (e) {
+            this.error(`Failed to handle unreachable peer ${peerIdStr}: ${e}`);
         }
     }
 
@@ -564,19 +589,29 @@ export class P2PManager extends Logger {
                         );
                     }
 
-                    for (const peer of knownPeers.slice(0, 5)) {
-                        // Try up to 5 peers
-                        if (!connectedPeerIds.has(peer.id.toString())) {
-                            try {
-                                await this.node.dial(peer.id);
-                            } catch (e) {
-                                if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
-                                    this.debug(`Failed to dial ${peer.id}: ${e}`);
-                                }
+                    // Filter out unreachable and already connected peers, then try up to 5
+                    const peersToTry = knownPeers.filter((peer) => {
+                        const peerIdStr = peer.id.toString();
+                        return (
+                            !connectedPeerIds.has(peerIdStr) &&
+                            !this._peerChecker?.isPeerUnreachable(peerIdStr)
+                        );
+                    });
 
-                                // remove peer
-                                if (this.removePeer) await this.node.peerStore.delete(peer.id);
+                    for (const peer of peersToTry.slice(0, 5)) {
+                        const peerIdStr = peer.id.toString();
+                        try {
+                            await this.node.dial(peer.id);
+
+                            // Reset failure count on successful dial
+                            this._peerChecker?.resetDialFailures(peerIdStr);
+                        } catch (e) {
+                            if (Config.DEBUG_LEVEL >= DebugLevel.DEBUG) {
+                                this.debug(`Failed to dial ${peer.id}: ${e}`);
                             }
+
+                            // Record failure - will trigger onPeerUnreachable if threshold exceeded
+                            await this._peerChecker?.recordExternalDialFailure(peer.id);
                         }
                     }
                 } catch (e) {
@@ -1127,6 +1162,10 @@ export class P2PManager extends Logger {
         const identified = await this.identifyPeer(peerId);
         if (identified) {
             this.success(`Identified peer: ${peerIdStr}`); // - Agent: ${agent} - Version: ${version}
+
+            // Reset dial failure count on successful connection
+            this._peerChecker?.resetDialFailures(peerIdStr);
+
             await this.createPeer(
                 {
                     agentVersion: `1.0.1`,
