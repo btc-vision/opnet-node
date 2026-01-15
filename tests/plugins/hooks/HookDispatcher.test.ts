@@ -24,24 +24,38 @@ describe('HookDispatcher', () => {
     let mockRegistry: PluginRegistry;
     let mockWorkerPool: PluginWorkerPool;
 
+    // Extract mock functions to avoid unbound-method warnings
+    let mockGetEnabled: ReturnType<typeof vi.fn>;
+    let mockGetWithPermission: ReturnType<typeof vi.fn>;
+    let mockExecuteHook: ReturnType<typeof vi.fn>;
+    let mockExecuteHookWithResult: ReturnType<typeof vi.fn>;
+
     beforeEach(() => {
-        // Create mock registry
+        // Create mock registry functions
+        mockGetEnabled = vi.fn(() => []);
+        mockGetWithPermission = vi.fn(() => []);
         mockRegistry = {
-            getEnabled: vi.fn(() => []),
-            getWithPermission: vi.fn(() => []),
+            getEnabled: mockGetEnabled,
+            getWithPermission: mockGetWithPermission,
         } as unknown as PluginRegistry;
 
-        // Create mock worker pool
-        mockWorkerPool = {
-            executeHook: vi.fn(async () => ({
+        // Create mock worker pool functions
+        mockExecuteHook = vi.fn(() =>
+            Promise.resolve({
                 success: true,
                 durationMs: 10,
-            })),
-            executeHookWithResult: vi.fn(async () => ({
+            }),
+        );
+        mockExecuteHookWithResult = vi.fn(() =>
+            Promise.resolve({
                 success: true,
                 durationMs: 10,
                 result: true,
-            })),
+            }),
+        );
+        mockWorkerPool = {
+            executeHook: mockExecuteHook,
+            executeHookWithResult: mockExecuteHookWithResult,
         } as unknown as PluginWorkerPool;
 
         dispatcher = new HookDispatcher(mockRegistry, mockWorkerPool);
@@ -54,22 +68,22 @@ describe('HookDispatcher', () => {
         });
 
         it('should use requiredPermission to filter plugins', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
             ]);
 
             await dispatcher.dispatch(HookType.BLOCK_CHANGE, {});
 
-            expect(mockRegistry.getWithPermission).toHaveBeenCalledWith('blocks.onChange');
+            expect(mockGetWithPermission).toHaveBeenCalledWith('blocks.onChange');
         });
 
         it('should get all enabled plugins when no permission required', async () => {
-            vi.mocked(mockRegistry.getEnabled).mockReturnValue([{ id: 'plugin-a' } as never]);
+            mockGetEnabled.mockReturnValue([{ id: 'plugin-a' } as never]);
 
             // LOAD hook has no requiredPermission
             await dispatcher.dispatch(HookType.LOAD, undefined);
 
-            expect(mockRegistry.getEnabled).toHaveBeenCalled();
+            expect(mockGetEnabled).toHaveBeenCalled();
         });
 
         it('should warn for unknown hook type', async () => {
@@ -81,7 +95,7 @@ describe('HookDispatcher', () => {
         });
 
         it('should execute hooks in parallel for PARALLEL mode', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
                 { id: 'plugin-b' } as never,
             ]);
@@ -89,19 +103,19 @@ describe('HookDispatcher', () => {
             const results = await dispatcher.dispatch(HookType.BLOCK_CHANGE, {});
 
             expect(results).toHaveLength(2);
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledTimes(2);
+            expect(mockExecuteHook).toHaveBeenCalledTimes(2);
         });
 
         it('should execute hooks sequentially for SEQUENTIAL mode', async () => {
-            vi.mocked(mockRegistry.getEnabled).mockReturnValue([
+            mockGetEnabled.mockReturnValue([
                 { id: 'plugin-a' } as never,
                 { id: 'plugin-b' } as never,
             ]);
 
             const callOrder: string[] = [];
-            vi.mocked(mockWorkerPool.executeHook).mockImplementation(async (pluginId) => {
+            mockExecuteHook.mockImplementation((pluginId: string) => {
                 callOrder.push(pluginId);
-                return { success: true, durationMs: 10 };
+                return Promise.resolve({ success: true, durationMs: 10 });
             });
 
             // LOAD is sequential
@@ -111,13 +125,13 @@ describe('HookDispatcher', () => {
         });
 
         it('should use custom timeout from options', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
             ]);
 
             await dispatcher.dispatch(HookType.BLOCK_CHANGE, {}, { timeoutMs: 10000 });
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.BLOCK_CHANGE,
                 {},
@@ -126,12 +140,12 @@ describe('HookDispatcher', () => {
         });
 
         it('should stop sequential execution on error when continueOnError is false', async () => {
-            vi.mocked(mockRegistry.getEnabled).mockReturnValue([
+            mockGetEnabled.mockReturnValue([
                 { id: 'plugin-a' } as never,
                 { id: 'plugin-b' } as never,
             ]);
 
-            vi.mocked(mockWorkerPool.executeHook).mockResolvedValueOnce({
+            mockExecuteHook.mockResolvedValueOnce({
                 success: false,
                 durationMs: 10,
                 error: 'Failed',
@@ -146,12 +160,12 @@ describe('HookDispatcher', () => {
         });
 
         it('should continue sequential execution on error when continueOnError is true', async () => {
-            vi.mocked(mockRegistry.getEnabled).mockReturnValue([
+            mockGetEnabled.mockReturnValue([
                 { id: 'plugin-a' } as never,
                 { id: 'plugin-b' } as never,
             ]);
 
-            vi.mocked(mockWorkerPool.executeHook)
+            mockExecuteHook
                 .mockResolvedValueOnce({
                     success: false,
                     durationMs: 10,
@@ -170,11 +184,11 @@ describe('HookDispatcher', () => {
         });
 
         it('should handle errors thrown by worker pool', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
             ]);
 
-            vi.mocked(mockWorkerPool.executeHook).mockRejectedValue(new Error('Worker error'));
+            mockExecuteHook.mockRejectedValue(new Error('Worker error'));
 
             const results = await dispatcher.dispatch(HookType.BLOCK_CHANGE, {});
 
@@ -184,12 +198,12 @@ describe('HookDispatcher', () => {
         });
 
         it('should handle parallel execution with continueOnError', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
                 { id: 'plugin-b' } as never,
             ]);
 
-            vi.mocked(mockWorkerPool.executeHook)
+            mockExecuteHook
                 .mockRejectedValueOnce(new Error('Plugin A failed'))
                 .mockResolvedValueOnce({ success: true, durationMs: 10 });
 
@@ -212,14 +226,14 @@ describe('HookDispatcher', () => {
 
     describe('dispatchBlockPreProcess', () => {
         it('should dispatch BLOCK_PRE_PROCESS hook', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
             ]);
 
             const blockData = { height: 100 } as never;
             await dispatcher.dispatchBlockPreProcess(blockData);
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.BLOCK_PRE_PROCESS,
                 blockData,
@@ -230,14 +244,14 @@ describe('HookDispatcher', () => {
 
     describe('dispatchBlockPostProcess', () => {
         it('should dispatch BLOCK_POST_PROCESS hook', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
             ]);
 
             const blockData = { blockHeight: 100n } as never;
             await dispatcher.dispatchBlockPostProcess(blockData);
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.BLOCK_POST_PROCESS,
                 blockData,
@@ -248,14 +262,14 @@ describe('HookDispatcher', () => {
 
     describe('dispatchBlockChange', () => {
         it('should dispatch BLOCK_CHANGE hook', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
             ]);
 
             const blockData = { blockHeight: 100n } as never;
             await dispatcher.dispatchBlockChange(blockData);
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.BLOCK_CHANGE,
                 blockData,
@@ -266,14 +280,14 @@ describe('HookDispatcher', () => {
 
     describe('dispatchEpochChange', () => {
         it('should dispatch EPOCH_CHANGE hook', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
             ]);
 
             const epochData = { epochNumber: 1n } as never;
             await dispatcher.dispatchEpochChange(epochData);
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.EPOCH_CHANGE,
                 epochData,
@@ -284,14 +298,14 @@ describe('HookDispatcher', () => {
 
     describe('dispatchEpochFinalized', () => {
         it('should dispatch EPOCH_FINALIZED hook', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
             ]);
 
             const epochData = { epochNumber: 1n } as never;
             await dispatcher.dispatchEpochFinalized(epochData);
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.EPOCH_FINALIZED,
                 epochData,
@@ -302,14 +316,14 @@ describe('HookDispatcher', () => {
 
     describe('dispatchMempoolTransaction', () => {
         it('should dispatch MEMPOOL_TRANSACTION hook', async () => {
-            vi.mocked(mockRegistry.getWithPermission).mockReturnValue([
+            mockGetWithPermission.mockReturnValue([
                 { id: 'plugin-a' } as never,
             ]);
 
             const txData = { txid: 'abc123' } as never;
             await dispatcher.dispatchMempoolTransaction(txData);
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.MEMPOOL_TRANSACTION,
                 txData,
@@ -320,12 +334,12 @@ describe('HookDispatcher', () => {
 
     describe('dispatchReorg', () => {
         it('should dispatch REORG hook with continueOnError false', async () => {
-            vi.mocked(mockRegistry.getEnabled).mockReturnValue([{ id: 'plugin-a' } as never]);
+            mockGetEnabled.mockReturnValue([{ id: 'plugin-a' } as never]);
 
             const reorgData = { fromBlock: 100n, toBlock: 95n } as never;
             await dispatcher.dispatchReorg(reorgData);
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.REORG,
                 reorgData,
@@ -334,8 +348,8 @@ describe('HookDispatcher', () => {
         });
 
         it('should log failures during reorg', async () => {
-            vi.mocked(mockRegistry.getEnabled).mockReturnValue([{ id: 'plugin-a' } as never]);
-            vi.mocked(mockWorkerPool.executeHook).mockResolvedValue({
+            mockGetEnabled.mockReturnValue([{ id: 'plugin-a' } as never]);
+            mockExecuteHook.mockResolvedValue({
                 success: false,
                 durationMs: 10,
                 error: 'Reorg failed',
@@ -365,7 +379,7 @@ describe('HookDispatcher', () => {
 
             const result = await dispatcher.dispatchReindexRequired('plugin-a', reindexCheck);
 
-            expect(mockWorkerPool.executeHookWithResult).toHaveBeenCalledWith(
+            expect(mockExecuteHookWithResult).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.REINDEX_REQUIRED,
                 reindexCheck,
@@ -377,7 +391,7 @@ describe('HookDispatcher', () => {
         });
 
         it('should handle errors from worker pool', async () => {
-            vi.mocked(mockWorkerPool.executeHookWithResult).mockRejectedValue(
+            mockExecuteHookWithResult.mockRejectedValue(
                 new Error('Reindex failed'),
             );
 
@@ -406,7 +420,7 @@ describe('HookDispatcher', () => {
         it('should dispatch purge to specific plugin', async () => {
             const result = await dispatcher.dispatchPurgeBlocks('plugin-a', 100n, 50n);
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.PURGE_BLOCKS,
                 { fromBlock: 100n, toBlock: 50n },
@@ -419,7 +433,7 @@ describe('HookDispatcher', () => {
         it('should handle undefined toBlock', async () => {
             await dispatcher.dispatchPurgeBlocks('plugin-a', 100n);
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.PURGE_BLOCKS,
                 { fromBlock: 100n, toBlock: undefined },
@@ -428,7 +442,7 @@ describe('HookDispatcher', () => {
         });
 
         it('should handle errors from worker pool', async () => {
-            vi.mocked(mockWorkerPool.executeHook).mockRejectedValue(new Error('Purge failed'));
+            mockExecuteHook.mockRejectedValue(new Error('Purge failed'));
 
             const errorSpy = vi.spyOn(dispatcher as never, 'error');
             const result = await dispatcher.dispatchPurgeBlocks('plugin-a', 100n);
@@ -448,7 +462,7 @@ describe('HookDispatcher', () => {
                 payload,
             );
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.BLOCK_CHANGE,
                 payload,
@@ -461,7 +475,7 @@ describe('HookDispatcher', () => {
         it('should use custom timeout', async () => {
             await dispatcher.dispatchToPlugin('plugin-a', HookType.BLOCK_CHANGE, {}, 15000);
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 HookType.BLOCK_CHANGE,
                 {},
@@ -470,7 +484,7 @@ describe('HookDispatcher', () => {
         });
 
         it('should handle errors', async () => {
-            vi.mocked(mockWorkerPool.executeHook).mockRejectedValue(new Error('Plugin error'));
+            mockExecuteHook.mockRejectedValue(new Error('Plugin error'));
 
             const result = await dispatcher.dispatchToPlugin('plugin-a', HookType.BLOCK_CHANGE, {});
 
@@ -481,7 +495,7 @@ describe('HookDispatcher', () => {
         it('should use default timeout when config not found', async () => {
             await dispatcher.dispatchToPlugin('plugin-a', 'unknown' as HookType, {});
 
-            expect(mockWorkerPool.executeHook).toHaveBeenCalledWith(
+            expect(mockExecuteHook).toHaveBeenCalledWith(
                 'plugin-a',
                 'unknown',
                 {},

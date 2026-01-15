@@ -138,7 +138,7 @@ describe('Plugin Hot Reload', () => {
             pluginManager = new PluginManager(createConfig(tempDir));
             await pluginManager.initialize();
 
-            expect(() => pluginManager!.enableHotReload()).not.toThrow();
+            expect(() => pluginManager?.enableHotReload()).not.toThrow();
             expect(pluginManager.isHotReloadEnabled()).toBe(true);
         });
 
@@ -150,12 +150,12 @@ describe('Plugin Hot Reload', () => {
             expect(pluginManager.isHotReloadEnabled()).toBe(true);
 
             // Second enable should not throw
-            expect(() => pluginManager!.enableHotReload()).not.toThrow();
+            expect(() => pluginManager?.enableHotReload()).not.toThrow();
             expect(pluginManager.isHotReloadEnabled()).toBe(true);
         });
 
         it('should handle non-existent plugins directory gracefully', async () => {
-            const nonExistentDir = path.join(tempDir, 'non-existent-' + Date.now());
+            const nonExistentDir = path.join(tempDir, `non-existent-${Date.now().toString()}`);
             pluginManager = new PluginManager(createConfig(nonExistentDir));
 
             await pluginManager.initialize();
@@ -164,7 +164,7 @@ describe('Plugin Hot Reload', () => {
             expect(fs.existsSync(nonExistentDir)).toBe(true);
 
             // Should not throw
-            expect(() => pluginManager!.enableHotReload()).not.toThrow();
+            expect(() => pluginManager?.enableHotReload()).not.toThrow();
         });
     });
 
@@ -187,7 +187,7 @@ describe('Plugin Hot Reload', () => {
             expect(pluginManager.isHotReloadEnabled()).toBe(false);
 
             // Should not throw when disabling without enabling first
-            expect(() => pluginManager!.disableHotReload()).not.toThrow();
+            expect(() => pluginManager?.disableHotReload()).not.toThrow();
             expect(pluginManager.isHotReloadEnabled()).toBe(false);
         });
 
@@ -199,7 +199,7 @@ describe('Plugin Hot Reload', () => {
             pluginManager.disableHotReload();
 
             // Second disable should not throw
-            expect(() => pluginManager!.disableHotReload()).not.toThrow();
+            expect(() => pluginManager?.disableHotReload()).not.toThrow();
             expect(pluginManager.isHotReloadEnabled()).toBe(false);
         });
     });
@@ -245,7 +245,7 @@ describe('Plugin Hot Reload', () => {
             expect(pluginManager.isHotReloadEnabled()).toBe(false);
 
             // Verify we can still manually enable
-            expect(() => pluginManager!.enableHotReload()).not.toThrow();
+            expect(() => pluginManager?.enableHotReload()).not.toThrow();
             expect(pluginManager.isHotReloadEnabled()).toBe(true);
         });
     });
@@ -461,8 +461,8 @@ describe('Plugin Hot Reload', () => {
             const networkInfo = pluginManager.getNetworkInfo();
 
             expect(networkInfo.reindex).toBeDefined();
-            expect(networkInfo.reindex!.enabled).toBe(true);
-            expect(networkInfo.reindex!.fromBlock).toBe(50n);
+            expect(networkInfo.reindex?.enabled).toBe(true);
+            expect(networkInfo.reindex?.fromBlock).toBe(50n);
         });
     });
 });

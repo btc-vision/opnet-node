@@ -22,6 +22,7 @@ import { createMockMetadata } from '../mocks/index.js';
 
 describe('PluginContext', () => {
     let mockLogger: IPluginLogger;
+    let mockLoggerError: ReturnType<typeof vi.fn>;
     let mockConfig: IPluginConfig;
     let mockFs: IPluginFilesystemAPI;
     let mockDb: IPluginDatabaseAPI;
@@ -33,11 +34,12 @@ describe('PluginContext', () => {
     let configStore: Record<string, unknown>;
 
     beforeEach(() => {
+        mockLoggerError = vi.fn();
         mockLogger = {
             debug: vi.fn(),
             info: vi.fn(),
             warn: vi.fn(),
-            error: vi.fn(),
+            error: mockLoggerError,
         };
 
         configStore = {};
@@ -253,7 +255,7 @@ describe('PluginContext', () => {
             context.on('test-event', errorHandler);
             context.emit('test-event', 'data');
 
-            expect(mockLogger.error).toHaveBeenCalled();
+            expect(mockLoggerError).toHaveBeenCalled();
         });
 
         it('should not log errors when emitErrorOrWarning is false', () => {
@@ -265,7 +267,7 @@ describe('PluginContext', () => {
             context.on('test-event', errorHandler);
             context.emit('test-event', 'data');
 
-            expect(mockLogger.error).not.toHaveBeenCalled();
+            expect(mockLoggerError).not.toHaveBeenCalled();
         });
     });
 
@@ -429,7 +431,7 @@ describe('PluginContext', () => {
             expect(mockSyncStateSetter).toHaveBeenCalledWith(
                 expect.objectContaining({
                     lastSyncedBlock: 150n,
-                    updatedAt: expect.any(Number),
+                    updatedAt: expect.any(Number) as unknown as number,
                 }),
             );
         });
@@ -443,7 +445,7 @@ describe('PluginContext', () => {
                 expect.objectContaining({
                     lastSyncedBlock: 200n,
                     syncCompleted: true,
-                    updatedAt: expect.any(Number),
+                    updatedAt: expect.any(Number) as unknown as number,
                 }),
             );
         });
@@ -456,7 +458,7 @@ describe('PluginContext', () => {
                 expect.objectContaining({
                     lastSyncedBlock: 50n,
                     syncCompleted: false,
-                    updatedAt: expect.any(Number),
+                    updatedAt: expect.any(Number) as unknown as number,
                 }),
             );
         });
@@ -537,11 +539,11 @@ describe('PluginContext', () => {
             const check = context.getReindexCheck();
 
             expect(check).toBeDefined();
-            expect(check!.action).toBe(ReindexAction.PURGE);
-            expect(check!.requiresPurge).toBe(true);
-            expect(check!.purgeToBlock).toBe(50n);
-            expect(check!.requiresSync).toBe(true);
-            expect(check!.syncFromBlock).toBe(50n);
+            expect(check?.action).toBe(ReindexAction.PURGE);
+            expect(check?.requiresPurge).toBe(true);
+            expect(check?.purgeToBlock).toBe(50n);
+            expect(check?.requiresSync).toBe(true);
+            expect(check?.syncFromBlock).toBe(50n);
         });
 
         it('should return SYNC action when plugin is behind reindex point', () => {
@@ -561,11 +563,11 @@ describe('PluginContext', () => {
             const check = context.getReindexCheck();
 
             expect(check).toBeDefined();
-            expect(check!.action).toBe(ReindexAction.SYNC);
-            expect(check!.requiresPurge).toBe(false);
-            expect(check!.requiresSync).toBe(true);
-            expect(check!.syncFromBlock).toBe(50n);
-            expect(check!.syncToBlock).toBe(100n);
+            expect(check?.action).toBe(ReindexAction.SYNC);
+            expect(check?.requiresPurge).toBe(false);
+            expect(check?.requiresSync).toBe(true);
+            expect(check?.syncFromBlock).toBe(50n);
+            expect(check?.syncToBlock).toBe(100n);
         });
 
         it('should return NONE action when plugin is at reindex point', () => {
@@ -585,9 +587,9 @@ describe('PluginContext', () => {
             const check = context.getReindexCheck();
 
             expect(check).toBeDefined();
-            expect(check!.action).toBe(ReindexAction.NONE);
-            expect(check!.requiresPurge).toBe(false);
-            expect(check!.requiresSync).toBe(false);
+            expect(check?.action).toBe(ReindexAction.NONE);
+            expect(check?.requiresPurge).toBe(false);
+            expect(check?.requiresSync).toBe(false);
         });
 
         it('should handle no sync state (defaults to 0n)', () => {
@@ -605,8 +607,8 @@ describe('PluginContext', () => {
             const check = context.getReindexCheck();
 
             expect(check).toBeDefined();
-            expect(check!.pluginLastSyncedBlock).toBe(0n);
-            expect(check!.action).toBe(ReindexAction.SYNC);
+            expect(check?.pluginLastSyncedBlock).toBe(0n);
+            expect(check?.action).toBe(ReindexAction.SYNC);
         });
     });
 
