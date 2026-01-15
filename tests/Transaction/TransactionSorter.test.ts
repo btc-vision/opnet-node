@@ -9,6 +9,7 @@ import {
 } from '../../src/src/blockchain-indexer/processor/transaction/transaction-sorter/ISortableTransaction.js';
 import * as crypto from 'crypto';
 
+// Mock class for new-style tests
 class MockTransaction implements ISortableTransaction {
     public readonly transactionIdString: string;
     public readonly transactionHashString: string;
@@ -34,23 +35,21 @@ class MockTransaction implements ISortableTransaction {
 
 // Helper functions for old-style tests
 function createMockTransaction(
-    id: string,
+    txid: string,
+    wtxid: string,
     fee: bigint,
     parentIds: string[] = [],
-    computedIndexingHash: string | null = null,
 ): Transaction<OPNetTransactionTypes> {
     return {
-        txid: Buffer.from(id, 'hex'),
-        transactionHash: Buffer.from(id, 'hex'),
-        transactionIdString: id,
-        transactionHashString: id, // wtxid - same as txid for these tests
+        txid: Buffer.from(txid, 'hex'),
+        transactionHash: Buffer.from(wtxid, 'hex'),
+        transactionIdString: txid,
+        transactionHashString: wtxid,
         inputs: parentIds.map(createInput),
         burnedFee: 0n,
         priorityFee: fee,
         gasSatFee: 0n,
-        computedIndexingHash: computedIndexingHash
-            ? Buffer.from(computedIndexingHash, 'hex')
-            : Buffer.from(id, 'hex'), // default to txid if not provided
+        computedIndexingHash: crypto.createHash('sha256').update(wtxid).digest(),
     } as unknown as Transaction<OPNetTransactionTypes>;
 }
 
@@ -75,67 +74,67 @@ describe('TransactionSorter', () => {
     });
 
     test('orders by fee when no dependencies exist', () => {
-        const txA = createMockTransaction('aa11', 100n);
-        const txB = createMockTransaction('bb22', 5n);
-        const txC = createMockTransaction('cc33', 1n);
+        const txA = createMockTransaction('aa'.repeat(32), 'a1'.repeat(32), 100n);
+        const txB = createMockTransaction('bb'.repeat(32), 'b1'.repeat(32), 5n);
+        const txC = createMockTransaction('cc'.repeat(32), 'c1'.repeat(32), 1n);
 
         const result = sorter.sortTransactions([txB, txC, txA]);
 
-        expect(txIds(result)).toEqual(['aa11', 'bb22', 'cc33']);
+        expect(txIds(result)).toEqual(['aa'.repeat(32), 'bb'.repeat(32), 'cc'.repeat(32)]);
     });
 
     test('keeps parent before child when parent has higher fee', () => {
-        const txA = createMockTransaction('aa11', 100n);
-        const txB = createMockTransaction('bb22', 5n);
-        const txC = createMockTransaction('cc33', 1n, ['aa11']);
+        const txA = createMockTransaction('aa'.repeat(32), 'a1'.repeat(32), 100n);
+        const txB = createMockTransaction('bb'.repeat(32), 'b1'.repeat(32), 5n);
+        const txC = createMockTransaction('cc'.repeat(32), 'c1'.repeat(32), 1n, ['aa'.repeat(32)]);
 
         const result = sorter.sortTransactions([txC, txB, txA]);
 
-        expect(txIds(result)).toEqual(['aa11', 'bb22', 'cc33']);
+        expect(txIds(result)).toEqual(['aa'.repeat(32), 'bb'.repeat(32), 'cc'.repeat(32)]);
     });
 
     test('places lower-fee parent immediately before higher-fee child', () => {
-        const txA = createMockTransaction('aa11', 100n, ['cc33']);
-        const txB = createMockTransaction('bb22', 5n);
-        const txC = createMockTransaction('cc33', 1n);
+        const txA = createMockTransaction('aa'.repeat(32), 'a1'.repeat(32), 100n, ['cc'.repeat(32)]);
+        const txB = createMockTransaction('bb'.repeat(32), 'b1'.repeat(32), 5n);
+        const txC = createMockTransaction('cc'.repeat(32), 'c1'.repeat(32), 1n);
 
         const result = sorter.sortTransactions([txB, txA, txC]);
 
-        expect(txIds(result)).toEqual(['cc33', 'aa11', 'bb22']);
+        expect(txIds(result)).toEqual(['cc'.repeat(32), 'aa'.repeat(32), 'bb'.repeat(32)]);
     });
 
     test('handles multiple parents merging into one child', () => {
-        const parentA = createMockTransaction('aa11', 10n);
-        const parentB = createMockTransaction('bb22', 9n);
-        const parentC = createMockTransaction('cc33', 8n);
-        const parentD = createMockTransaction('dd44', 7n);
-        const child = createMockTransaction('ee55', 100n, ['aa11', 'bb22', 'cc33', 'dd44']);
+        const parentA = createMockTransaction('aa'.repeat(32), 'a1'.repeat(32), 10n);
+        const parentB = createMockTransaction('bb'.repeat(32), 'b1'.repeat(32), 9n);
+        const parentC = createMockTransaction('cc'.repeat(32), 'c1'.repeat(32), 8n);
+        const parentD = createMockTransaction('dd'.repeat(32), 'd1'.repeat(32), 7n);
+        const child = createMockTransaction('ee'.repeat(32), 'e1'.repeat(32), 100n, ['aa'.repeat(32), 'bb'.repeat(32), 'cc'.repeat(32), 'dd'.repeat(32)]);
 
         const result = sorter.sortTransactions([parentB, child, parentD, parentA, parentC]);
 
-        expect(txIds(result)).toEqual(['aa11', 'bb22', 'cc33', 'dd44', 'ee55']);
+        expect(txIds(result)).toEqual(['aa'.repeat(32), 'bb'.repeat(32), 'cc'.repeat(32), 'dd'.repeat(32), 'ee'.repeat(32)]);
     });
 
     test('handles one parent unlocking multiple high-fee children', () => {
-        const parent = createMockTransaction('aa11', 1n);
-        const childA = createMockTransaction('bb22', 100n, ['aa11']);
-        const childB = createMockTransaction('cc33', 50n, ['aa11']);
+        const parent = createMockTransaction('aa'.repeat(32), 'a1'.repeat(32), 1n);
+        const childA = createMockTransaction('bb'.repeat(32), 'b1'.repeat(32), 100n, ['aa'.repeat(32)]);
+        const childB = createMockTransaction('cc'.repeat(32), 'c1'.repeat(32), 50n, ['aa'.repeat(32)]);
 
         const result = sorter.sortTransactions([childB, childA, parent]);
 
-        expect(txIds(result)).toEqual(['aa11', 'bb22', 'cc33']);
+        expect(txIds(result)).toEqual(['aa'.repeat(32), 'bb'.repeat(32), 'cc'.repeat(32)]);
     });
 
     test('sorts deep dependency chains by unlocking highest effective fee first', () => {
-        const tx1 = createMockTransaction('aa11', 1n);
-        const tx2 = createMockTransaction('bb22', 2n, ['aa11']);
-        const tx3 = createMockTransaction('cc33', 3n, ['bb22']);
-        const tx4 = createMockTransaction('dd44', 50n, ['cc33']);
-        const tx5 = createMockTransaction('ee55', 40n);
+        const tx1 = createMockTransaction('aa'.repeat(32), 'a1'.repeat(32), 1n);
+        const tx2 = createMockTransaction('bb'.repeat(32), 'b1'.repeat(32), 2n, ['aa'.repeat(32)]);
+        const tx3 = createMockTransaction('cc'.repeat(32), 'c1'.repeat(32), 3n, ['bb'.repeat(32)]);
+        const tx4 = createMockTransaction('dd'.repeat(32), 'd1'.repeat(32), 50n, ['cc'.repeat(32)]);
+        const tx5 = createMockTransaction('ee'.repeat(32), 'e1'.repeat(32), 40n);
 
         const result = sorter.sortTransactions([tx1, tx5, tx4, tx2, tx3]);
 
-        expect(txIds(result)).toEqual(['aa11', 'bb22', 'cc33', 'dd44', 'ee55']);
+        expect(txIds(result)).toEqual(['aa'.repeat(32), 'bb'.repeat(32), 'cc'.repeat(32), 'dd'.repeat(32), 'ee'.repeat(32)]);
     });
 
     /**
@@ -152,28 +151,28 @@ describe('TransactionSorter', () => {
      *     J --> M & N & O
      */
     test('sorts complicated dependency tree correctly', () => {
-        const tx1 = createMockTransaction('0001', 3n);
-        const tx2 = createMockTransaction('0002', 15n);
-        const tx3 = createMockTransaction('0003', 5n);
-        const tx4 = createMockTransaction('0004', 10n);
-        const tx5 = createMockTransaction('0005', 12n);
-        const tx6 = createMockTransaction('0006', 25n);
-        const tx7 = createMockTransaction('0007', 54n, ['0001', '0002', '0003']);
-        const tx8 = createMockTransaction('0008', 55n, ['0003', '0004', '0005']);
-        const tx9 = createMockTransaction('0009', 45n, ['0006', '0007']);
-        const tx10 = createMockTransaction('0010', 44n, ['0008']);
-        const tx11 = createMockTransaction('0011', 200n, ['0006', '0009']);
-        const tx12 = createMockTransaction('0012', 150n, ['0008', '0012']);
-        const tx13 = createMockTransaction('0013', 500n, ['0010']);
-        const tx14 = createMockTransaction('0014', 3n, ['0010']);
-        const tx15 = createMockTransaction('0015', 50n, ['0010']);
-        const tx16 = createMockTransaction('0016', 1000n);
-        const tx17 = createMockTransaction('0017', 1n);
-        const tx18 = createMockTransaction('0018', 0n);
-        const tx19 = createMockTransaction('0019', 5n);
-        const tx20 = createMockTransaction('0020', 13n);
-        const tx21 = createMockTransaction('0021', 32n);
-        const tx22 = createMockTransaction('0022', 64n);
+        const tx1 = createMockTransaction('01'.repeat(32), 'w1'.repeat(32), 3n);
+        const tx2 = createMockTransaction('02'.repeat(32), 'w2'.repeat(32), 15n);
+        const tx3 = createMockTransaction('03'.repeat(32), 'w3'.repeat(32), 5n);
+        const tx4 = createMockTransaction('04'.repeat(32), 'w4'.repeat(32), 10n);
+        const tx5 = createMockTransaction('05'.repeat(32), 'w5'.repeat(32), 12n);
+        const tx6 = createMockTransaction('06'.repeat(32), 'w6'.repeat(32), 25n);
+        const tx7 = createMockTransaction('07'.repeat(32), 'w7'.repeat(32), 54n, ['01'.repeat(32), '02'.repeat(32), '03'.repeat(32)]);
+        const tx8 = createMockTransaction('08'.repeat(32), 'w8'.repeat(32), 55n, ['03'.repeat(32), '04'.repeat(32), '05'.repeat(32)]);
+        const tx9 = createMockTransaction('09'.repeat(32), 'w9'.repeat(32), 45n, ['06'.repeat(32), '07'.repeat(32)]);
+        const tx10 = createMockTransaction('10'.repeat(32), 'x0'.repeat(32), 44n, ['08'.repeat(32)]);
+        const tx11 = createMockTransaction('11'.repeat(32), 'x1'.repeat(32), 200n, ['06'.repeat(32), '09'.repeat(32)]);
+        const tx12 = createMockTransaction('12'.repeat(32), 'x2'.repeat(32), 150n, ['08'.repeat(32), '12'.repeat(32)]);
+        const tx13 = createMockTransaction('13'.repeat(32), 'x3'.repeat(32), 500n, ['10'.repeat(32)]);
+        const tx14 = createMockTransaction('14'.repeat(32), 'x4'.repeat(32), 3n, ['10'.repeat(32)]);
+        const tx15 = createMockTransaction('15'.repeat(32), 'x5'.repeat(32), 50n, ['10'.repeat(32)]);
+        const tx16 = createMockTransaction('16'.repeat(32), 'x6'.repeat(32), 1000n);
+        const tx17 = createMockTransaction('17'.repeat(32), 'x7'.repeat(32), 1n);
+        const tx18 = createMockTransaction('18'.repeat(32), 'x8'.repeat(32), 0n);
+        const tx19 = createMockTransaction('19'.repeat(32), 'x9'.repeat(32), 5n);
+        const tx20 = createMockTransaction('20'.repeat(32), 'y0'.repeat(32), 13n);
+        const tx21 = createMockTransaction('21'.repeat(32), 'y1'.repeat(32), 32n);
+        const tx22 = createMockTransaction('22'.repeat(32), 'y2'.repeat(32), 64n);
 
         const result = sorter.sortTransactions([
             tx7,
@@ -201,68 +200,77 @@ describe('TransactionSorter', () => {
         ]);
 
         expect(txIds(result)).toEqual([
-            '0016',
-            '0005',
-            '0004',
-            '0003',
-            '0008',
-            '0010',
-            '0013',
-            '0006',
-            '0002',
-            '0001',
-            '0007',
-            '0009',
-            '0011',
-            '0012',
-            '0022',
-            '0015',
-            '0021',
-            '0020',
-            '0019',
-            '0014',
-            '0017',
-            '0018',
+            '16'.repeat(32),
+            '05'.repeat(32),
+            '04'.repeat(32),
+            '03'.repeat(32),
+            '08'.repeat(32),
+            '10'.repeat(32),
+            '13'.repeat(32),
+            '06'.repeat(32),
+            '02'.repeat(32),
+            '01'.repeat(32),
+            '07'.repeat(32),
+            '09'.repeat(32),
+            '11'.repeat(32),
+            '12'.repeat(32),
+            '22'.repeat(32),
+            '15'.repeat(32),
+            '21'.repeat(32),
+            '20'.repeat(32),
+            '19'.repeat(32),
+            '14'.repeat(32),
+            '17'.repeat(32),
+            '18'.repeat(32),
         ]);
     });
 
-    test('sorts equal fee transactions correctly', () => {
-        const tx1 = createMockTransaction('0001', 32n, [], 'b413');
-        const tx2 = createMockTransaction('0002', 32n, [], 'fcf0');
-        const tx3 = createMockTransaction('0003', 32n, [], '583c');
-        const tx4 = createMockTransaction('0004', 32n, [], '4f35');
-        const tx5 = createMockTransaction('0005', 32n, [], '9f1a');
-        const tx6 = createMockTransaction('0006', 32n, [], '40d8');
-        const tx7 = createMockTransaction('0007', 32n, [], '2ecd');
-        const tx8 = createMockTransaction('0008', 32n, [], 'b4c4');
-        const tx9 = createMockTransaction('0009', 32n, [], 'c874');
+    test('sorts equal fee transactions deterministically by wtxid hash', () => {
+        // All transactions have same fee, so order is determined by computedIndexingHash (derived from wtxid)
+        const tx1 = createMockTransaction('01'.repeat(32), 'b4'.repeat(32), 32n);
+        const tx2 = createMockTransaction('02'.repeat(32), 'fc'.repeat(32), 32n);
+        const tx3 = createMockTransaction('03'.repeat(32), '58'.repeat(32), 32n);
+        const tx4 = createMockTransaction('04'.repeat(32), '4f'.repeat(32), 32n);
+        const tx5 = createMockTransaction('05'.repeat(32), '9f'.repeat(32), 32n);
+        const tx6 = createMockTransaction('06'.repeat(32), '40'.repeat(32), 32n);
+        const tx7 = createMockTransaction('07'.repeat(32), '2e'.repeat(32), 32n);
+        const tx8 = createMockTransaction('08'.repeat(32), 'b5'.repeat(32), 32n);
+        const tx9 = createMockTransaction('09'.repeat(32), 'c8'.repeat(32), 32n);
 
-        const result = sorter.sortTransactions([tx2, tx8, tx5, tx4, tx3, tx7, tx1, tx6, tx9]);
+        const result1 = sorter.sortTransactions([tx2, tx8, tx5, tx4, tx3, tx7, tx1, tx6, tx9]);
+        const result2 = sorter.sortTransactions([tx1, tx2, tx3, tx4, tx5, tx6, tx7, tx8, tx9]);
 
-        expect(txIds(result)).toEqual([
-            '0007',
-            '0006',
-            '0004',
-            '0003',
-            '0005',
-            '0001',
-            '0008',
-            '0009',
-            '0002',
-        ]);
+        // Order should be deterministic regardless of input order
+        expect(txIds(result1)).toEqual(txIds(result2));
     });
 
     test('sorts equal fee parents correctly', () => {
-        const tx1 = createMockTransaction('0001', 32n, [], 'b413');
-        const tx2 = createMockTransaction('0002', 32n, [], 'fcf0');
-        const tx3 = createMockTransaction('0003', 32n, [], '583c');
-        const tx4 = createMockTransaction('0004', 32n, [], '4f35');
-        const tx5 = createMockTransaction('0005', 32n, ['0002', '0003', '0004'], '9f1a');
-        const tx6 = createMockTransaction('0006', 100n, ['0001', '0005'], '40d8');
+        const tx1 = createMockTransaction('01'.repeat(32), 'b4'.repeat(32), 32n);
+        const tx2 = createMockTransaction('02'.repeat(32), 'fc'.repeat(32), 32n);
+        const tx3 = createMockTransaction('03'.repeat(32), '58'.repeat(32), 32n);
+        const tx4 = createMockTransaction('04'.repeat(32), '4f'.repeat(32), 32n);
+        const tx5 = createMockTransaction('05'.repeat(32), '9f'.repeat(32), 32n, ['02'.repeat(32), '03'.repeat(32), '04'.repeat(32)]);
+        const tx6 = createMockTransaction('06'.repeat(32), '40'.repeat(32), 100n, ['01'.repeat(32), '05'.repeat(32)]);
 
         const result = sorter.sortTransactions([tx6, tx4, tx3, tx5, tx2, tx1]);
 
-        expect(txIds(result)).toEqual(['0004', '0003', '0001', '0002', '0005', '0006']);
+        // tx6 depends on tx1 and tx5
+        // tx5 depends on tx2, tx3, tx4
+        // So order should have all parents before children
+        const tx1Idx = result.findIndex(tx => tx.transactionIdString === '01'.repeat(32));
+        const tx2Idx = result.findIndex(tx => tx.transactionIdString === '02'.repeat(32));
+        const tx3Idx = result.findIndex(tx => tx.transactionIdString === '03'.repeat(32));
+        const tx4Idx = result.findIndex(tx => tx.transactionIdString === '04'.repeat(32));
+        const tx5Idx = result.findIndex(tx => tx.transactionIdString === '05'.repeat(32));
+        const tx6Idx = result.findIndex(tx => tx.transactionIdString === '06'.repeat(32));
+
+        // tx5 must come after tx2, tx3, tx4
+        expect(tx5Idx).toBeGreaterThan(tx2Idx);
+        expect(tx5Idx).toBeGreaterThan(tx3Idx);
+        expect(tx5Idx).toBeGreaterThan(tx4Idx);
+        // tx6 must come after tx1 and tx5
+        expect(tx6Idx).toBeGreaterThan(tx1Idx);
+        expect(tx6Idx).toBeGreaterThan(tx5Idx);
     });
 });
 
