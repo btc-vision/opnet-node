@@ -40,11 +40,11 @@
   },
   "exclude": ["node_modules"],
   "include": [
-    "src/**/*.ts",
-    "src/*",
-    "src/**/*.js",
-    "src/*.ts",
-    "src/*.js",
-    "src/*.cjs"
+      "src/**/*.ts",
+      "src/*",
+      "src/**/*.js",
+      "src/*.ts",
+      "src/*.js",
+      "src/*.cjs"
   ]
 }

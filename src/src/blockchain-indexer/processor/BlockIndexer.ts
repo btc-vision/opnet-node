@@ -29,6 +29,7 @@ import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import fs from 'fs';
 import { EpochManager } from './epoch/EpochManager.js';
 import { EpochReindexer } from './epoch/EpochReindexer.js';
+import { TransactionReindexer } from './transaction/TransactionReindexer.js';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -72,6 +73,10 @@ export class BlockIndexer extends Logger {
     private readonly epochReindexer: EpochReindexer = new EpochReindexer(
         this.vmStorage,
         this.epochManager,
+    );
+
+    private readonly transactionReindexer: TransactionReindexer = new TransactionReindexer(
+        this.vmStorage,
     );
 
     private readonly network: Network = NetworkConverter.getNetwork();
@@ -171,6 +176,11 @@ export class BlockIndexer extends Logger {
             await this.handleEpochReindex();
         }
 
+        // Check for transaction reindex mode (reorders transactions in blocks)
+        if (Config.OP_NET.TRANSACTION_REINDEX) {
+            await this.handleTransactionReindex();
+        }
+
         // Always purge, in case of bad indexing of the last block.
         const purgeFromBlock = Config.OP_NET.REINDEX
             ? BigInt(Config.OP_NET.REINDEX_FROM_BLOCK)
@@ -265,6 +275,35 @@ export class BlockIndexer extends Logger {
         }
 
         this.success(`Epoch reindex completed. Resuming normal operation.`);
+    }
+
+    private async handleTransactionReindex(): Promise<void> {
+        if (Config.OP_NET.REINDEX) {
+            throw new Error(
+                'Cannot use TRANSACTION_REINDEX and REINDEX at the same time. Please choose one.',
+            );
+        }
+
+        const fromBlock = BigInt(Config.OP_NET.TRANSACTION_REINDEX_FROM_BLOCK);
+        if (fromBlock < 0n) {
+            throw new Error(`TRANSACTION_REINDEX_FROM_BLOCK cannot be negative: ${fromBlock}`);
+        }
+
+        const currentBlockHeight = this.chainObserver.pendingBlockHeight;
+
+        this.warn(`---- TRANSACTION REINDEX MODE (Generic transactions only) ----`);
+        this.warn(`Starting from block: ${fromBlock}`);
+        this.warn(`Current block height: ${currentBlockHeight}`);
+
+        const success = await this.transactionReindexer.reindexTransactions(
+            fromBlock,
+            currentBlockHeight,
+        );
+        if (!success) {
+            throw new Error('Transaction reindex failed or was aborted');
+        }
+
+        this.success(`Transaction reindex completed. Resuming normal operation.`);
     }
 
     private async verifyMode(): Promise<void> {

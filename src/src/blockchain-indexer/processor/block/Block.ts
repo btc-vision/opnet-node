@@ -108,7 +108,7 @@ export class Block {
 
     // Private
     private readonly transactionFactory: TransactionFactory = new TransactionFactory();
-    private readonly transactionSorter: TransactionSorter = new TransactionSorter();
+    private readonly transactionSorter = new TransactionSorter<Transaction<OPNetTransactionTypes>>();
 
     private genericTransactions: Transaction<OPNetTransactionTypes>[] = [];
     private opnetTransactions: Transaction<OPNetTransactionTypes>[] = [];
@@ -404,15 +404,17 @@ export class Block {
 
         if (orderTransactions) {
             if (transactionOrder) {
-                // If the transaction order is provided, we can sort the transactions by their order
                 this.transactions = this.transactionSorter.sortTransactionsByOrder(
                     transactionOrder,
                     this.transactions,
                 );
             } else {
-                // Then, we can sort the transactions by their priority
                 this.transactions = this.transactionSorter.sortTransactions(this.transactions);
             }
+
+            this.transactions.forEach((tx, index) => {
+                tx.index = index;
+            });
         }
 
         this.defineGeneric();
@@ -736,7 +738,7 @@ export class Block {
                 submission: submissionData,
                 validationResult: null,
                 transactionId: transaction.transactionIdString,
-                txHash: transaction.hash.toString('hex'),
+                txHash: transaction.transactionHashString,
             });
         }
     }

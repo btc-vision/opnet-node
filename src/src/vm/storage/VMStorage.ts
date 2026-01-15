@@ -8,7 +8,7 @@ import {
     BlockHeaderDocument,
 } from '../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../db/interfaces/IReorgDocument.js';
-import { ITransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
+import { ITransactionDocument, TransactionDocument } from '../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../db/models/IBlockWitnessDocument.js';
 import { MemoryValue, ProvenMemoryValue, ProvenPointers } from './types/MemoryValue.js';
 import { StoragePointer } from './types/StoragePointer.js';
@@ -17,7 +17,7 @@ import { IPublicKeyInfoResult } from '../../api/json-rpc/types/interfaces/result
 import { Address, AddressMap } from '@btc-vision/transaction';
 import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js';
 import { IEpochSubmissionsDocument } from '../../db/documents/interfaces/IEpochSubmissionsDocument.js';
-import { Binary } from 'mongodb';
+import { Binary, Decimal128 } from 'mongodb';
 import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
 import { ITargetEpochDocument } from '../../db/documents/interfaces/ITargetEpochDocument.js';
 import { AttestationProof } from '../../blockchain-indexer/processor/block/merkle/EpochMerkleTree.js';
@@ -317,4 +317,21 @@ export abstract class VMStorage extends Logger {
         hashedPublicKey: Buffer | Binary | string,
         legacyPublicKey: Buffer | Binary | string,
     ): Promise<MLDSAPublicKeyExists>;
+
+    /**
+     * Get all transactions for a specific block height.
+     * Used for transaction reindexing.
+     */
+    public abstract getTransactionsByBlockHeight(
+        blockHeight: bigint,
+    ): Promise<TransactionDocument<OPNetTransactionTypes>[]>;
+
+    /**
+     * Update transaction indices in batch.
+     * Used for transaction reindexing.
+     */
+    public abstract updateTransactionIndices(
+        updates: { hash: Buffer; index: number; blockHeight: Decimal128 }[],
+    ): Promise<void>;
+
 }

@@ -1,6 +1,6 @@
 import { TransactionData, VIn, VOut } from '@btc-vision/bitcoin-rpc';
 import { DataConverter } from '@btc-vision/bsi-common';
-import { Network, script, Transaction as BitcoinTransaction } from '@btc-vision/bitcoin';
+import { Network, script } from '@btc-vision/bitcoin';
 import crypto from 'crypto';
 import { Binary, Long } from 'mongodb';
 import * as zlib from 'zlib';
@@ -20,6 +20,7 @@ import { OPNetHeader } from './interfaces/OPNetHeader.js';
 import * as ecc from 'tiny-secp256k1';
 import { AddressCache } from '../AddressCache.js';
 import { Submission } from './features/Submission.js';
+import { ISortableTransaction } from './transaction-sorter/ISortableTransaction.js';
 
 export const OPNet_MAGIC: Buffer = Buffer.from('op', 'utf-8');
 const GZIP_HEADER: Buffer = Buffer.from([0x1f, 0x8b]);
@@ -29,13 +30,14 @@ if (!ecc.isPoint(Buffer.alloc(33, 2))) {
     throw new Error('tiny-secp256k1 initialization check failed');
 }
 
-export abstract class Transaction<T extends OPNetTransactionTypes> {
+export abstract class Transaction<T extends OPNetTransactionTypes> implements ISortableTransaction {
     public abstract readonly transactionType: T;
 
     public readonly inputs: TransactionInput[] = [];
     public readonly outputs: TransactionOutput[] = [];
 
     public readonly txidHex: string;
+    public readonly txHashHex: string;
     public readonly raw: Buffer;
 
     public readonly inActiveChain: boolean | undefined;
@@ -76,6 +78,7 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
         this.txid = Buffer.from(rawTransactionData.txid, 'hex');
         this.txidHex = rawTransactionData.txid;
+        this.txHashHex = rawTransactionData.hash;
         this.transactionHash = Buffer.from(rawTransactionData.hash, 'hex');
         this.raw = rawTransactionData.hex
             ? Buffer.from(rawTransactionData.hex, 'hex')
@@ -235,6 +238,10 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
 
     public get transactionIdString(): string {
         return this.txidHex;
+    }
+
+    public get transactionHashString(): string {
+        return this.txHashHex;
     }
 
     public get hash(): Buffer {
@@ -432,52 +439,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
         this.parseOutputs(vOuts);
     }
 
-    /**
-     * DOES A TAPROOT SCRIPT-PATH SIGNATURE CHECK
-     * [OPTIONAL, NOT USED CURRENTLY]
-     *
-     * @param senderPubKey x-only or full public key. We'll convert it to x-only.
-     * @param senderSig The Schnorr signature from the witness
-     * @param leafScript The Tapscript used (extracted from witness)
-     * @param leafVersion Typically 0xc0 for Tapscript
-     * @param prevOutScript The UTXO's scriptPubKey (MUST be taproot)
-     * @param prevOutValue The UTXO's value in satoshis
-     */
-    protected verifySenderSignature(
-        senderPubKey: Buffer,
-        senderSig: Buffer,
-        leafScript: Buffer,
-        leafVersion: number,
-        prevOutScript: Buffer,
-        prevOutValue: number,
-    ): boolean {
-        if (!senderPubKey) {
-            throw new Error('OP_NET: No senderPubKey found to verify signature.');
-        }
-
-        const sighash = this.generateTapscriptSighashAll(
-            leafScript,
-            leafVersion,
-            prevOutScript,
-            prevOutValue,
-        );
-
-        let xOnlyPub: Buffer;
-        if (senderPubKey.length === 33 && (senderPubKey[0] === 0x02 || senderPubKey[0] === 0x03)) {
-            xOnlyPub = senderPubKey.subarray(1);
-        } else if (senderPubKey.length === 32) {
-            xOnlyPub = senderPubKey;
-        } else {
-            throw new Error('OP_NET: Unexpected public key length. Must be x-only or compressed.');
-        }
-
-        try {
-            return ecc.verifySchnorr(sighash, xOnlyPub, senderSig);
-        } catch {
-            return false;
-        }
-    }
-
     protected setGasFromHeader(header: OPNetHeader): void {
         if (this.totalFeeFund < header.priorityFeeSat) {
             throw new Error(`OP_NET: Priority fee is higher than actually received.`);
@@ -589,89 +550,6 @@ export abstract class Transaction<T extends OPNetTransactionTypes> {
             this.outputs.push(new TransactionOutput(vOuts[i]));
         }
     }
-
-    // ADDED: Compute the TapLeaf hash: leafVersion || varint(script.length) || script => taggedHash("TapLeaf", ...)
-    private computeTapLeafHash(leafScript: Buffer, leafVersion: number): Buffer {
-        // BIP341: leafVersion(1 byte) + varint(script.length) + script
-        const varint = this.encodeVarint(leafScript.length);
-        const toHash = Buffer.concat([Buffer.from([leafVersion]), varint, leafScript]);
-
-        // "TapLeaf" tagged hash
-        return this.taggedHash('TapLeaf', toHash);
-    }
-
-    // ADDED: replicate BIP341 "TapLeaf" or "TapSighash" tagged hashing
-    private taggedHash(prefix: string, data: Buffer): Buffer {
-        // This is the same approach as bip341, bip340, etc.
-        const h1 = crypto.createHash('sha256').update(prefix).digest();
-        const h2 = crypto.createHash('sha256').update(prefix).digest();
-
-        const tagHash = Buffer.concat([h1, h2]); // 64 bytes
-        return crypto.createHash('sha256').update(tagHash).update(data).digest();
-    }
-
-    // ADDED: minimal varint encoder for script length
-    private encodeVarint(num: number): Buffer {
-        if (num < 0xfd) {
-            return Buffer.from([num]);
-        } else if (num <= 0xffff) {
-            const buf = Buffer.alloc(3);
-            buf[0] = 0xfd;
-            buf.writeUInt16LE(num, 1);
-            return buf;
-        } else if (num <= 0xffffffff) {
-            const buf = Buffer.alloc(5);
-            buf[0] = 0xfe;
-            buf.writeUInt32LE(num, 1);
-            return buf;
-        } else {
-            const buf = Buffer.alloc(9);
-            buf[0] = 0xff;
-            buf.writeBigUInt64LE(BigInt(num), 1);
-            return buf;
-        }
-    }
-
-    /**
-     * BUILD A TAPROOT (SCRIPT-PATH) SIGHASH THAT OP_CHECKSIGVERIFY WOULD USE.
-     * This replicates BIP341 SIGHASH_ALL for Tapscript path (no ANYPREVOUT, no annex).
-     *
-     * @param leafScript The Tapscript used
-     * @param leafVersion The version (commonly 0xc0)
-     * @param prevOutScript The scriptPubKey of the UTXO being spent
-     * @param prevOutValue The value (satoshis) of that UTXO
-     */
-    private generateTapscriptSighashAll(
-        leafScript: Buffer,
-        leafVersion: number,
-        prevOutScript: Buffer,
-        prevOutValue: number,
-    ): Buffer {
-        // 1) parse the transaction from this.raw
-        const txObj = BitcoinTransaction.fromBuffer(this.raw);
-
-        // 2) build a leafHash for the Tapscript
-        const leafHash = this.computeTapLeafHash(leafScript, leafVersion);
-
-        // 3) we only do SIGHASH_ALL => hashType = 0x00
-        const hashType = 0x00;
-
-        // We must supply scriptPubKey & value for ALL inputs.
-        // For demonstration, we fill out arrays of length txObj.ins.length,
-        // with zero for everything except our vInputIndex.
-        const nIn = txObj.ins.length;
-        const prevOutScripts = new Array<Buffer>(nIn).fill(Buffer.alloc(0));
-        const values = new Array<number>(nIn).fill(0);
-
-        // fill our input with the real data
-        prevOutScripts[this.vInputIndex] = prevOutScript;
-        values[this.vInputIndex] = prevOutValue;
-
-        // 4) call hashForWitnessV1
-        // -> If leafHash is provided, it's Tapscript path
-        return txObj.hashForWitnessV1(this.vInputIndex, prevOutScripts, values, hashType, leafHash);
-    }
-
     private strToBuffer(str: string): Uint8Array {
         const writer = new BinaryWriter(str.length);
         writer.writeString(str);

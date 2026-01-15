@@ -41,8 +41,11 @@ export interface OPNetConfig {
 
     readonly REINDEX_FROM_BLOCK: number;
 
-    readonly EPOCH_REINDEX: boolean;           // Enable epoch-only reindex mode
-    readonly EPOCH_REINDEX_FROM_EPOCH: number; // Starting epoch number (default: 0)
+    readonly EPOCH_REINDEX: boolean;
+    readonly EPOCH_REINDEX_FROM_EPOCH: number;
+
+    readonly TRANSACTION_REINDEX: boolean;
+    readonly TRANSACTION_REINDEX_FROM_BLOCK: number;
 
     readonly DISABLE_SCANNED_BLOCK_STORAGE_CHECK: boolean;
     readonly VERIFY_INTEGRITY_ON_STARTUP: boolean;

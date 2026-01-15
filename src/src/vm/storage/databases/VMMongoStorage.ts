@@ -11,7 +11,7 @@ import {
     IBlockHeaderBlockDocument,
 } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { IReorgData, IReorgDocument } from '../../../db/interfaces/IReorgDocument.js';
-import { ITransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
+import { ITransactionDocument, TransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
 import { IParsedBlockWitnessDocument } from '../../../db/models/IBlockWitnessDocument.js';
 import { BlockRepository } from '../../../db/repositories/BlockRepository.js';
 import { BlockWitnessRepository } from '../../../db/repositories/BlockWitnessRepository.js';
@@ -31,7 +31,8 @@ import { PublicKeysRepository } from '../../../db/repositories/PublicKeysReposit
 import { IPublicKeyInfoResult } from '../../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
 import { EpochRepository } from '../../../db/repositories/EpochRepository.js';
 import { EpochSubmissionRepository } from '../../../db/repositories/EpochSubmissionsRepository.js';
-import { Binary } from 'mongodb';
+import { Binary, Decimal128 } from 'mongodb';
+import { DataConverter } from '@btc-vision/bsi-common';
 import { IEpochDocument } from '../../../db/documents/interfaces/IEpochDocument.js';
 import { IEpochSubmissionsDocument } from '../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
 import { TargetEpochRepository } from '../../../db/repositories/TargetEpochRepository.js';
@@ -517,6 +518,39 @@ export class VMMongoStorage extends VMStorage {
             throw new Error('Transaction repository not initialized');
         }
         return await this.transactionRepository.getTransactionByHash(hash);
+    }
+
+    public async getTransactionsByBlockHeight(
+        blockHeight: bigint,
+    ): Promise<TransactionDocument<OPNetTransactionTypes>[]> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+        return await this.transactionRepository.getTransactionsByBlockHash(
+            DataConverter.toDecimal128(blockHeight),
+        );
+    }
+
+    public async updateTransactionIndices(
+        updates: { hash: Buffer; index: number; blockHeight: Decimal128 }[],
+    ): Promise<void> {
+        if (!this.transactionRepository) {
+            throw new Error('Transaction repository not initialized');
+        }
+
+        const bulkOps = updates.map((update) => ({
+            updateOne: {
+                filter: {
+                    hash: new Binary(update.hash),
+                    blockHeight: update.blockHeight,
+                },
+                update: {
+                    $set: { index: update.index },
+                },
+            },
+        }));
+
+        await this.transactionRepository.bulkWrite(bulkOps);
     }
 
     public async close(): Promise<void> {

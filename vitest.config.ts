@@ -11,10 +11,7 @@ export default defineConfig({
             reporter: ['text', 'json', 'html'],
             reportsDirectory: './coverage',
             include: ['src/src/plugins/**/*.ts'],
-            exclude: [
-                'src/src/plugins/types/**',
-                '**/*.d.ts',
-            ],
+            exclude: ['src/src/plugins/types/**', '**/*.d.ts'],
             thresholds: {
                 lines: 80,
                 functions: 80,
@@ -25,11 +22,6 @@ export default defineConfig({
         testTimeout: 30000,
         hookTimeout: 30000,
         pool: 'forks',
-        poolOptions: {
-            forks: {
-                singleFork: true,
-            },
-        },
     },
     resolve: {
         alias: {
