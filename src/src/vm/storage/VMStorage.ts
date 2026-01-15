@@ -225,6 +225,8 @@ export abstract class VMStorage extends Logger {
      */
     public abstract deleteEpochFromBitcoinBlockNumber(bitcoinBlockNumber: bigint): Promise<void>;
 
+    public abstract deleteEpochsFromEpochNumber(epochNumber: bigint): Promise<void>;
+
     /**
      * Get all submissions for a specific epoch number
      */

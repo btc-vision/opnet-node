@@ -195,6 +195,10 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             REINDEX: false,
             REINDEX_FROM_BLOCK: 0,
+
+            EPOCH_REINDEX: false,
+            EPOCH_REINDEX_FROM_EPOCH: 0,
+
             ENABLE_BATCH_PROCESSING: true,
 
             VERIFY_INTEGRITY_ON_STARTUP: false,
@@ -437,6 +441,20 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 typeof parsedConfig.OP_NET.REINDEX_FROM_BLOCK !== 'number'
             ) {
                 throw new Error(`Oops the property OP_NET.REINDEX_FROM_BLOCK is not a number.`);
+            }
+
+            if (
+                parsedConfig.OP_NET.EPOCH_REINDEX !== undefined &&
+                typeof parsedConfig.OP_NET.EPOCH_REINDEX !== 'boolean'
+            ) {
+                throw new Error(`Oops the property OP_NET.EPOCH_REINDEX is not a boolean.`);
+            }
+
+            if (
+                parsedConfig.OP_NET.EPOCH_REINDEX_FROM_EPOCH !== undefined &&
+                typeof parsedConfig.OP_NET.EPOCH_REINDEX_FROM_EPOCH !== 'number'
+            ) {
+                throw new Error(`Oops the property OP_NET.EPOCH_REINDEX_FROM_EPOCH is not a number.`);
             }
 
             if (

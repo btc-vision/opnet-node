@@ -281,6 +281,19 @@ export class EpochRepository extends BaseRepository<IEpochDocument> {
         await this.delete(criteria, currentSession);
     }
 
+    public async deleteEpochsFromEpochNumber(
+        epochNumber: bigint,
+        currentSession?: ClientSession,
+    ): Promise<void> {
+        const criteria: Partial<Filter<IEpochDocument>> = {
+            epochNumber: {
+                $gte: DataConverter.toDecimal128(epochNumber),
+            },
+        };
+
+        await this.delete(criteria, currentSession);
+    }
+
     /**
      * Get epochs with specific difficulty
      */

@@ -168,6 +168,16 @@ export class VMMongoStorage extends VMStorage {
         return this.targetEpochRepository.deleteOldTargetEpochs(epochNumber);
     }
 
+    public async deleteEpochsFromEpochNumber(epochNumber: bigint): Promise<void> {
+        if (!this.epochRepository) {
+            throw new Error('Epoch repository not initialized');
+        }
+
+        this.warn(`Deleting epochs from epoch number ${epochNumber} onwards (epoch-only reindex)`);
+
+        await this.epochRepository.deleteEpochsFromEpochNumber(epochNumber);
+    }
+
     public async killAllPendingWrites(): Promise<void> {
         if (!this.databaseManager.db) {
             throw new Error('Database not connected');

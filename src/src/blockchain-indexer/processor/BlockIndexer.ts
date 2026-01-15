@@ -28,6 +28,7 @@ import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import fs from 'fs';
 import { EpochManager } from './epoch/EpochManager.js';
+import { EpochReindexer } from './epoch/EpochReindexer.js';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -68,6 +69,9 @@ export class BlockIndexer extends Logger {
     );
 
     private readonly epochManager: EpochManager = new EpochManager(this.vmStorage);
+    private readonly epochReindexer: EpochReindexer = new EpochReindexer(
+        this.vmStorage,
+    );
 
     private readonly network: Network = NetworkConverter.getNetwork();
 
@@ -161,6 +165,11 @@ export class BlockIndexer extends Logger {
             throw new Error('Database is locked or corrupted.');
         }
 
+        // Check for epoch-only reindex mode (preserves all data except epochs)
+        if (Config.OP_NET.EPOCH_REINDEX) {
+            await this.handleEpochReindex();
+        }
+
         // Always purge, in case of bad indexing of the last block.
         const purgeFromBlock = Config.OP_NET.REINDEX
             ? BigInt(Config.OP_NET.REINDEX_FROM_BLOCK)
@@ -229,6 +238,32 @@ export class BlockIndexer extends Logger {
         );
 
         this.taskInProgress = false;
+    }
+
+    private async handleEpochReindex(): Promise<void> {
+        if (Config.OP_NET.REINDEX) {
+            throw new Error(
+                'Cannot use EPOCH_REINDEX and REINDEX at the same time. Please choose one.',
+            );
+        }
+
+        const fromEpoch = BigInt(Config.OP_NET.EPOCH_REINDEX_FROM_EPOCH);
+        if (fromEpoch < 0n) {
+            throw new Error(`EPOCH_REINDEX_FROM_EPOCH cannot be negative: ${fromEpoch}`);
+        }
+
+        const currentBlockHeight = this.chainObserver.pendingBlockHeight;
+
+        this.warn(`---- EPOCH-ONLY REINDEX MODE (this will take a while) ----`);
+        this.warn(`Starting from epoch: ${fromEpoch}`);
+        this.warn(`Current block height: ${currentBlockHeight}`);
+
+        const success = await this.epochReindexer.reindexEpochs(fromEpoch, currentBlockHeight);
+        if (!success) {
+            throw new Error('Epoch reindex failed or was aborted');
+        }
+
+        this.success(`Epoch reindex completed. Resuming normal operation.`);
     }
 
     private async verifyMode(): Promise<void> {
