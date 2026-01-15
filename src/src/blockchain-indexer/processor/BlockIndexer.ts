@@ -71,6 +71,7 @@ export class BlockIndexer extends Logger {
     private readonly epochManager: EpochManager = new EpochManager(this.vmStorage);
     private readonly epochReindexer: EpochReindexer = new EpochReindexer(
         this.vmStorage,
+        this.epochManager,
     );
 
     private readonly network: Network = NetworkConverter.getNetwork();
