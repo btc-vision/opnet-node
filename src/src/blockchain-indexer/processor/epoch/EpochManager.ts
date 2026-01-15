@@ -224,7 +224,7 @@ export class EpochManager extends Logger {
         return Buffer.from(epoch.epochHash.buffer);
     }
 
-    private async finalizeEpochCompletion(epochNumber: bigint): Promise<void> {
+    public async finalizeEpochCompletion(epochNumber: bigint): Promise<void> {
         if (!OPNetConsensus.consensus.EPOCH.ENABLED) {
             return;
         }
