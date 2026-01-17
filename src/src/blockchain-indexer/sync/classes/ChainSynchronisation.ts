@@ -283,6 +283,15 @@ export class ChainSynchronisation extends Logger {
     }
 
     private queryUTXOs(block: Block, txs: TransactionData[]): void {
+        if (
+            Config.INDEXER.START_INDEXING_UTXO_AT_BLOCK_HEIGHT > 0n &&
+            block.header.height < Config.INDEXER.START_INDEXING_UTXO_AT_BLOCK_HEIGHT
+        ) {
+            return;
+        }
+
+        this.info(`Deserializing block ${block.header.height} with ${txs.length} transactions...`);
+
         block.setRawTransactionData(txs);
         block.deserialize(false);
 
