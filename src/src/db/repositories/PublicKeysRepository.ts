@@ -12,7 +12,6 @@ import {
     IPublicKeyInfoResult,
     PublicKeyInfo,
 } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
-import fs from 'fs';
 import { Config } from '../../config/Config.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
 import { MLDSAPublicKeyDocument } from '../interfaces/IMLDSAPublicKey.js';
@@ -25,6 +24,8 @@ interface MLDSALookupEntry {
     type: 'hashed' | 'legacy';
     key: Binary;
 }
+
+const DEAD_ADDRESS = Address.dead();
 
 export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocument> {
     public readonly logColor: string = '#afeeee';
@@ -534,7 +535,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
             const p2tr = this.tweakedPubKeyToAddress(tweakedPublicKey, this.network);
             const p2op = this.p2op(tweakedPublicKey, this.network);
-            const address = new Address(publicKey);
+            const address = new Address(DEAD_ADDRESS, publicKey);
 
             const p2pkh = this.getP2PKH(publicKey, this.network);
             const p2pkhHybrid = this.getP2PKH(address.toHybridPublicKeyBuffer(), this.network);
@@ -580,13 +581,13 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return wallet.address;
     }
 
-    private reportNonStandardScript(type: string, script: string, txId: Buffer): void {
+    /*private reportNonStandardScript(type: string, script: string, txId: Buffer): void {
         if (Config.DEV_MODE && !script.endsWith('ae')) {
             fs.appendFileSync('non-standard-scripts.txt', `${txId.toString('hex')}: ${script}\n`);
 
             this.warn(`Unknown script type: ${type}`);
         }
-    }
+    }*/
 
     private decodeOutput(
         publicKeys: PublicKeyDocument[],
@@ -632,11 +633,11 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 break;
             }
             case 'nonstandard': {
-                this.reportNonStandardScript(type, output.scriptPubKey.hex, txId);
+                //this.reportNonStandardScript(type, output.scriptPubKey.hex, txId);
                 break;
             }
             default: {
-                this.reportNonStandardScript(type, output.scriptPubKey.hex, txId);
+                //this.reportNonStandardScript(type, output.scriptPubKey.hex, txId);
                 break;
             }
         }
