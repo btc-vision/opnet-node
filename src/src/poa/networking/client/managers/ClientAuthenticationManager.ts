@@ -190,7 +190,7 @@ export abstract class ClientAuthenticationManager extends SharedAuthenticationMa
 
     protected override onAuthenticated(): void {
         if (!this.protocol) {
-            throw new Error(`Protocol not found.`);
+            throw new Error(`Protocol not found. (onAuth)`);
         }
 
         this.protocol.onAuthenticated();
