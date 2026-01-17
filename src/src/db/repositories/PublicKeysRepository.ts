@@ -1,12 +1,4 @@
-import {
-    AnyBulkWriteOperation,
-    Binary,
-    ClientSession,
-    Collection,
-    Db,
-    Document,
-    Filter,
-} from 'mongodb';
+import { AnyBulkWriteOperation, Binary, ClientSession, Collection, Db, Document, Filter, } from 'mongodb';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { PublicKeyDocument } from '../interfaces/PublicKeyDocument.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
@@ -277,7 +269,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return this._db.collection(OPNetCollections.PublicKeys);
     }
 
-    private buildPublicKeyInfoFromMLDSA(
+    /*private buildPublicKeyInfoFromMLDSA(
         legacyTweakedKey: Buffer,
         hashedKey: Buffer,
         mldsa: MLDSAPublicKeyDocument,
@@ -294,7 +286,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 ? Buffer.from(mldsa.publicKey.buffer).toString('hex')
                 : null,
         };
-    }
+    }*/
 
     private buildPublicKeyInfo(
         bufferKey: Buffer,
@@ -336,8 +328,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return info;
     }
 
-    private p2op(hashedKey: Buffer, network: Network): string {
-        const addy = new Address(hashedKey);
+    private p2op(hashedKey: Buffer, network: Network): string | undefined {
+        const realAddress = toXOnly(hashedKey);
+
+        const addy = new Address(realAddress);
         return addy.p2op(network);
     }
 
