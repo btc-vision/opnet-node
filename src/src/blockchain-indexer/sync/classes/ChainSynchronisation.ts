@@ -290,7 +290,7 @@ export class ChainSynchronisation extends Logger {
             return;
         }
 
-        this.info(`Deserializing block ${block.header.height} with ${txs.length} transactions...`);
+        //this.info(`Deserializing block ${block.header.height} with ${txs.length} transactions...`);
 
         block.setRawTransactionData(txs);
         block.deserialize(false);
