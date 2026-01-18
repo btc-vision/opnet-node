@@ -1152,7 +1152,7 @@ export class VMManager extends Logger {
                 this.vmBitcoinBlock.height,
             );
 
-        console.log('lastChecksum', lastChecksum);
+        console.log('lastChecksum', lastChecksum, Buffer.from(lastChecksum, 'hex'));
 
         if (lastChecksum) {
             this.receiptState.updateValue(
