@@ -185,6 +185,40 @@ export class P2PManager extends Logger {
         }
     }
 
+    /**
+     * Request witnesses for a block during IBD (Initial Block Download)
+     * This requests witnesses from peers and waits briefly for responses
+     * @param blockNumber The block number to request witnesses for
+     * @returns The number of witnesses received and success status
+     */
+    public async requestWitnessesForIBD(
+        blockNumber: bigint,
+    ): Promise<{ witnessCount: number; success: boolean }> {
+        try {
+            // Request witnesses from all authenticated peers
+            await this.requestBlockWitnessesFromPeer(blockNumber);
+
+            // Wait a short time for responses to arrive (non-blocking for P2P)
+            await this.sleep(100);
+
+            // Check how many witnesses we got from DB
+            const witnesses = await this.blockWitnessManager.requestBlockWitnesses(blockNumber);
+            const witnessCount =
+                witnesses.trustedWitnesses.length + witnesses.validatorWitnesses.length;
+
+            return {
+                witnessCount,
+                success: witnessCount > 0,
+            };
+        } catch (error) {
+            this.warn(`Failed to request witnesses for IBD block ${blockNumber}: ${error}`);
+            return {
+                witnessCount: 0,
+                success: false,
+            };
+        }
+    }
+
     public async init(): Promise<void> {
         DBManagerInstance.setup();
         await DBManagerInstance.connect();
@@ -302,6 +336,10 @@ export class P2PManager extends Logger {
 
         shuffleArray(peers);
         return peers.slice(0, 100);
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     private filterPrivateNodes(addrs: Multiaddr[]): Multiaddr[] {
@@ -627,6 +665,7 @@ export class P2PManager extends Logger {
         if (!this.node) return;
 
         const bootstrapPeers = this.p2pConfigurations.getBootstrapPeers();
+        const privateNodes = new Set(this.config.P2P.PRIVATE_NODES);
         const peersToTry: PeerInfo[] = [];
 
         for (const address of bootstrapPeers) {
@@ -641,7 +680,12 @@ export class P2PManager extends Logger {
             }
 
             const peerId = peerIdFromString(p2pComponent.value);
-            const reachableAddresses = this.filterReachableAddresses([addr]);
+
+            // Skip reachability filter for PRIVATE_NODES - they're explicitly trusted
+            const isPrivateNode = privateNodes.has(address);
+            const reachableAddresses = isPrivateNode
+                ? [addr]
+                : this.filterReachableAddresses([addr]);
 
             if (reachableAddresses.length === 0) {
                 this.warn(`No reachable addresses found for peer ${peerId.toString()}`);
@@ -705,10 +749,38 @@ export class P2PManager extends Logger {
             return;
         }
 
+        // Preserve peer addresses before they get cleared by libp2p
+        let savedAddresses: Multiaddr[] = [];
+        try {
+            const peerData = await this.node?.peerStore.get(peerId);
+            if (peerData?.addresses && peerData.addresses.length > 0) {
+                savedAddresses = peerData.addresses.map((a) => a.multiaddr);
+            }
+        } catch {
+            // Peer might already be removed from store
+        }
+
         const peer = this.peers.get(peerIdStr);
         if (peer) {
             this.peers.delete(peerIdStr);
             await peer.onDisconnect();
+        }
+
+        // Re-add addresses to peerStore so we can reconnect later
+        if (savedAddresses.length > 0 && this.node) {
+            try {
+                await this.node.peerStore.merge(peerId, {
+                    addresses: savedAddresses.map((addr) => ({
+                        multiaddr: addr,
+                        isCertified: false,
+                    })),
+                });
+                this.debug(
+                    `Preserved ${savedAddresses.length} addresses for disconnected peer ${peerIdStr}`,
+                );
+            } catch {
+                // Ignore errors re-adding addresses
+            }
         }
     }
 
