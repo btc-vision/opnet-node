@@ -10,7 +10,12 @@ import { DataConverter, DebugLevel, Globals, Logger } from '@btc-vision/bsi-comm
 import { Block } from '../blockchain-indexer/processor/block/Block.js';
 import { ReceiptMerkleTree } from '../blockchain-indexer/processor/block/merkle/ReceiptMerkleTree.js';
 import { StateMerkleTree } from '../blockchain-indexer/processor/block/merkle/StateMerkleTree.js';
-import { BTC_FAKE_ADDRESS, MAX_HASH, MAX_MINUS_ONE, } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
+import {
+    BTC_FAKE_ADDRESS,
+    MAX_HASH,
+    MAX_MINUS_ONE,
+    ZERO_HASH,
+} from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import {
@@ -1152,14 +1157,13 @@ export class VMManager extends Logger {
                 this.vmBitcoinBlock.height,
             );
 
-        console.log('lastChecksum', lastChecksum, Buffer.from(lastChecksum, 'hex'));
+        if (lastChecksum && lastChecksum !== ZERO_HASH) {
+            const checksumBuffer = Buffer.from(lastChecksum.replace('0x', ''), 'hex');
+            if (checksumBuffer.length !== 32) {
+                throw new Error('Invalid checksum length retrieved from block header validator.');
+            }
 
-        if (lastChecksum) {
-            this.receiptState.updateValue(
-                BTC_FAKE_ADDRESS,
-                MAX_HASH,
-                Buffer.from(lastChecksum, 'hex'),
-            );
+            this.receiptState.updateValue(BTC_FAKE_ADDRESS, MAX_HASH, checksumBuffer);
         } else {
             this.receiptState.updateValue(BTC_FAKE_ADDRESS, MAX_HASH, Buffer.alloc(0));
         }
