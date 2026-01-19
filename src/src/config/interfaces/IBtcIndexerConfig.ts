@@ -30,6 +30,21 @@ export interface RPCConfig {
     readonly CHILD_PROCESSES: number;
 }
 
+export interface IBDConfig {
+    /** Whether IBD (Initial Block Download) is enabled */
+    readonly ENABLED: boolean;
+    /** Number of headers to fetch per batch (default: 100) */
+    readonly HEADER_BATCH_SIZE: number;
+    /** Number of transactions to fetch per batch (default: 5) */
+    readonly TRANSACTION_BATCH_SIZE: number;
+    /** Minimum blocks behind OPNet activation to trigger IBD mode (default: 1000) */
+    readonly IBD_THRESHOLD: number;
+    /** How often to save checkpoints in blocks (default: 1000) */
+    readonly CHECKPOINT_INTERVAL: number;
+    /** Number of parallel workers/threads (default: 12) */
+    readonly WORKER_COUNT: number;
+}
+
 export interface OPNetConfig {
     readonly TRANSACTIONS_MAXIMUM_CONCURRENT: number;
     readonly PENDING_BLOCK_THRESHOLD: number;
@@ -49,6 +64,9 @@ export interface OPNetConfig {
 
     readonly MODE: OPNetIndexerMode;
     readonly LIGHT_MODE_FROM_BLOCK: number;
+
+    /** IBD (Initial Block Download) configuration */
+    readonly IBD: IBDConfig;
 }
 
 export interface PoC {

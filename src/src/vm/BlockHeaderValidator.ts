@@ -79,7 +79,7 @@ export class BlockHeaderValidator extends Logger {
             throw new Error('Block checksum not found');
         }
 
-        const prevBlockHash: string | undefined = blockHeader.previousBlockHash;
+        const prevBlockHash: string | null | undefined = blockHeader.previousBlockHash;
         const prevBlockChecksum: string | undefined = blockHeader.previousBlockChecksum;
 
         const blockHeight: bigint = DataConverter.fromDecimal128(blockHeader.height);

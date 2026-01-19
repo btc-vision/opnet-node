@@ -136,7 +136,7 @@ export abstract class Thread<T extends ThreadTypes> extends Logger implements IT
                         }
 
                         resolve(null);
-                    }, 240_000);
+                    }, 600_000); // 10 minutes - increased for IBD UTXO processing
 
                     const task: ThreadTaskCallback = {
                         timeout: timeout,

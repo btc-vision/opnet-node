@@ -10,6 +10,19 @@ import { RPCMessage } from '../threading/interfaces/thread-messages/messages/api
 import { BitcoinRPCThreadMessageType } from '../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { OPNetBroadcastData } from '../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 
+export interface IBDRequestWitnessesMessage extends ThreadMessageBase<MessageType> {
+    type: MessageType.IBD_REQUEST_WITNESSES;
+    data: {
+        blockNumber: bigint;
+    };
+}
+
+export interface IBDRequestWitnessesResponse {
+    blockNumber: bigint;
+    witnessCount: number;
+    success: boolean;
+}
+
 export class PoC extends Logger {
     public readonly logColor: string = '#00ffe1';
 
@@ -48,6 +61,9 @@ export class PoC extends Logger {
             case MessageType.GET_PEERS: {
                 return await this.handleGetPeerMessage();
             }
+            case MessageType.IBD_REQUEST_WITNESSES: {
+                return await this.handleIBDRequestWitnesses(m as IBDRequestWitnessesMessage);
+            }
             default:
                 throw new Error(`Unknown message type: ${m.type} received in PoC.`);
         }
@@ -85,5 +101,29 @@ export class PoC extends Logger {
         await this.p2p.generateBlockHeaderProof(data, true);
 
         return {};
+    }
+
+    private async handleIBDRequestWitnesses(
+        m: IBDRequestWitnessesMessage,
+    ): Promise<IBDRequestWitnessesResponse> {
+        const blockNumber = m.data.blockNumber;
+
+        try {
+            // Request witnesses from P2P peers and get count from DB
+            const result = await this.p2p.requestWitnessesForIBD(blockNumber);
+
+            return {
+                blockNumber,
+                witnessCount: result.witnessCount,
+                success: result.success,
+            };
+        } catch (error) {
+            this.warn(`Failed to request witnesses for block ${blockNumber}: ${error}`);
+            return {
+                blockNumber,
+                witnessCount: 0,
+                success: false,
+            };
+        }
     }
 }

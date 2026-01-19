@@ -36,4 +36,11 @@ export enum MessageType {
     PLUGIN_UNREGISTER_OPCODES, // Plugin notifies opcodes should be removed
     PLUGIN_EXECUTE_WS_HANDLER, // API thread requests WS handler execution
     PLUGIN_WS_RESULT, // Plugin thread returns WS result
+
+    // IBD (Initial Block Download) messages
+    IBD_DOWNLOAD_HEADERS, // Request to download block headers in batch
+    IBD_DOWNLOAD_TRANSACTIONS, // Request to download transactions in batch
+    IBD_PHASE_COMPLETE, // Notification that an IBD phase is complete
+    IBD_PROGRESS_UPDATE, // Progress update from IBD
+    IBD_REQUEST_WITNESSES, // Request to fetch witnesses from P2P for a block
 }

@@ -219,6 +219,10 @@ export class P2PManager extends Logger {
         }
     }
 
+    private sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
     public async init(): Promise<void> {
         DBManagerInstance.setup();
         await DBManagerInstance.connect();
@@ -336,10 +340,6 @@ export class P2PManager extends Logger {
 
         shuffleArray(peers);
         return peers.slice(0, 100);
-    }
-
-    private sleep(ms: number): Promise<void> {
-        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     private filterPrivateNodes(addrs: Multiaddr[]): Multiaddr[] {
@@ -683,9 +683,7 @@ export class P2PManager extends Logger {
 
             // Skip reachability filter for PRIVATE_NODES - they're explicitly trusted
             const isPrivateNode = privateNodes.has(address);
-            const reachableAddresses = isPrivateNode
-                ? [addr]
-                : this.filterReachableAddresses([addr]);
+            const reachableAddresses = isPrivateNode ? [addr] : this.filterReachableAddresses([addr]);
 
             if (reachableAddresses.length === 0) {
                 this.warn(`No reachable addresses found for peer ${peerId.toString()}`);
@@ -770,14 +768,9 @@ export class P2PManager extends Logger {
         if (savedAddresses.length > 0 && this.node) {
             try {
                 await this.node.peerStore.merge(peerId, {
-                    addresses: savedAddresses.map((addr) => ({
-                        multiaddr: addr,
-                        isCertified: false,
-                    })),
+                    addresses: savedAddresses.map((addr) => ({ multiaddr: addr, isCertified: false })),
                 });
-                this.debug(
-                    `Preserved ${savedAddresses.length} addresses for disconnected peer ${peerIdStr}`,
-                );
+                this.debug(`Preserved ${savedAddresses.length} addresses for disconnected peer ${peerIdStr}`);
             } catch {
                 // Ignore errors re-adding addresses
             }

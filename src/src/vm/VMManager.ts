@@ -18,12 +18,8 @@ import {
 } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import {
-    DeploymentTransaction
-} from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
-import {
-    InteractionTransaction
-} from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import {
     BlockHeader,
@@ -718,17 +714,13 @@ export class VMManager extends Logger {
         // This is a conflict - a legacy key can only be linked to one MLDSA key.
         const tweakedAddress = new Address(address.tweakedPublicKeyToBuffer());
         if (this.mldsaToStoreLegacy.has(tweakedAddress)) {
-            throw new Error(
-                'Legacy key is already pending to be linked to a different MLDSA key in current block.',
-            );
+            throw new Error('Legacy key is already pending to be linked to a different MLDSA key in current block.');
         }
 
         // This prevents front-running attacks where attacker claims victim's hashedPublicKey.
         const existingLegacyKey = this.mldsaToStoreByHash.get(hashedAddress);
         if (existingLegacyKey && !existingLegacyKey.equals(mldsaPublicKey.legacyPublicKey)) {
-            throw new Error(
-                'MLDSA hashed public key is already pending to be linked to a different legacy key in current block.',
-            );
+            throw new Error('MLDSA hashed public key is already pending to be linked to a different legacy key in current block.');
         }
 
         // Verify it does not exist in the database.
@@ -765,17 +757,13 @@ export class VMManager extends Logger {
         // Check 2: Same legacyPublicKey trying to expose a different hashedPublicKey.
         const tweakedAddress = new Address(address.tweakedPublicKeyToBuffer());
         if (this.mldsaToStoreLegacy.has(tweakedAddress)) {
-            throw new Error(
-                'Legacy key is already pending to be linked to a different MLDSA key in current block.',
-            );
+            throw new Error('Legacy key is already pending to be linked to a different MLDSA key in current block.');
         }
 
         // Check 3: Same hashedPublicKey being claimed by a different legacyPublicKey.
         const existingLegacyKey = this.mldsaToStoreByHash.get(hashedAddress);
         if (existingLegacyKey && !existingLegacyKey.equals(mldsaPublicKey.legacyPublicKey)) {
-            throw new Error(
-                'MLDSA hashed public key is already pending to be linked to a different legacy key in current block.',
-            );
+            throw new Error('MLDSA hashed public key is already pending to be linked to a different legacy key in current block.');
         }
 
         const exists = await this.shouldInsertMLDSAKey(

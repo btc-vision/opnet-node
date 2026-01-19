@@ -208,6 +208,16 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
 
             /* LIGHT MODE */
             LIGHT_MODE_FROM_BLOCK: 10000,
+
+            /* IBD (Initial Block Download) */
+            IBD: {
+                ENABLED: true,
+                HEADER_BATCH_SIZE: 100,
+                TRANSACTION_BATCH_SIZE: 5,
+                IBD_THRESHOLD: 1000,
+                CHECKPOINT_INTERVAL: 1000,
+                WORKER_COUNT: 12,
+            },
         },
     };
     private verifiedConfig: boolean = false;
@@ -1192,10 +1202,34 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             defaultConfigs.RPC,
         );
 
-        this.config.OP_NET = this.getConfigModified<
+        // Handle OP_NET config with nested IBD merge
+        const opnetConfig = this.getConfigModified<
             keyof IBtcIndexerConfig,
             IBtcIndexerConfig['OP_NET']
         >(parsedConfig.OP_NET, defaultConfigs.OP_NET);
+
+        // Merge IBD config separately to handle nested defaults properly
+        if (defaultConfigs.OP_NET?.IBD) {
+            const ibdConfig = parsedConfig.OP_NET?.IBD;
+            const defaultIbdConfig = defaultConfigs.OP_NET.IBD;
+            const mergedIbdConfig = {
+                ENABLED: ibdConfig?.ENABLED ?? defaultIbdConfig.ENABLED,
+                HEADER_BATCH_SIZE: ibdConfig?.HEADER_BATCH_SIZE ?? defaultIbdConfig.HEADER_BATCH_SIZE,
+                TRANSACTION_BATCH_SIZE:
+                    ibdConfig?.TRANSACTION_BATCH_SIZE ?? defaultIbdConfig.TRANSACTION_BATCH_SIZE,
+                IBD_THRESHOLD: ibdConfig?.IBD_THRESHOLD ?? defaultIbdConfig.IBD_THRESHOLD,
+                CHECKPOINT_INTERVAL:
+                    ibdConfig?.CHECKPOINT_INTERVAL ?? defaultIbdConfig.CHECKPOINT_INTERVAL,
+                WORKER_COUNT: ibdConfig?.WORKER_COUNT ?? defaultIbdConfig.WORKER_COUNT,
+            };
+            // Reconstruct OP_NET config with merged IBD
+            this.config.OP_NET = {
+                ...opnetConfig,
+                IBD: mergedIbdConfig,
+            };
+        } else {
+            this.config.OP_NET = opnetConfig;
+        }
 
         this.config.P2P = this.getConfigModified<keyof IBtcIndexerConfig, IBtcIndexerConfig['P2P']>(
             parsedConfig.P2P,

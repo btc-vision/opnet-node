@@ -18,12 +18,20 @@ import {
 import { DBManagerInstance } from '../../../db/DBManager.js';
 import { IChainReorg } from '../../../threading/interfaces/thread-messages/messages/indexer/IChainReorg.js';
 import { PublicKeysRepository } from '../../../db/repositories/PublicKeysRepository.js';
-import { BasicBlockInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/BasicBlockInfo.js';
 import { Classification, Utxo, UtxoSorter } from '../solver/UTXOSorter.js';
+import { BlockDataWithTransactionData } from '@btc-vision/bitcoin-rpc';
+import { BasicBlockInfo } from '@btc-vision/bitcoin-rpc/src/rpc/types/BasicBlockInfo.js';
 import { AnyoneCanSpendRepository } from '../../../db/repositories/AnyoneCanSpendRepository.js';
+import { TransactionRepository } from '../../../db/repositories/TransactionRepository.js';
+import { TransactionDocument } from '../../../db/interfaces/ITransactionDocument.js';
+import { OPNetTransactionTypes } from '../../processor/transaction/enums/OPNetTransactionTypes.js';
 import { ChallengeSolution } from '../../processor/interfaces/TransactionPreimage.js';
 import { AddressMap } from '@btc-vision/transaction';
 import { getMongodbMajorVersion } from '../../../vm/storage/databases/MongoUtils.js';
+import {
+    IBDDownloadTransactionsMessage,
+    IBDDownloadTransactionsResponse,
+} from '../../ibd/interfaces/IBDMessages.js';
 
 export class ChainSynchronisation extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -92,6 +100,16 @@ export class ChainSynchronisation extends Logger {
         return this._publicKeysRepository;
     }
 
+    private _transactionRepository: TransactionRepository | undefined;
+
+    private get transactionRepository(): TransactionRepository {
+        if (!this._transactionRepository) {
+            throw new Error('TransactionRepository not initialized');
+        }
+
+        return this._transactionRepository;
+    }
+
     private _blockFetcher: BlockFetcher | undefined;
 
     private get blockFetcher(): BlockFetcher {
@@ -127,6 +145,7 @@ export class ChainSynchronisation extends Logger {
         );
         this._anyoneCanSpend = new AnyoneCanSpendRepository(DBManagerInstance.db);
         this._publicKeysRepository = new PublicKeysRepository(DBManagerInstance.db);
+        this._transactionRepository = new TransactionRepository(DBManagerInstance.db);
         //this._epochRepository = new EpochRepository(DBManagerInstance.db);
 
         await this.startSaveLoop();
@@ -141,6 +160,12 @@ export class ChainSynchronisation extends Logger {
             }
             case MessageType.CHAIN_REORG: {
                 resp = await this.onReorg(m.data as IChainReorg);
+                break;
+            }
+            case MessageType.IBD_DOWNLOAD_TRANSACTIONS: {
+                resp = await this.handleIBDDownloadTransactions(
+                    m.data as IBDDownloadTransactionsMessage,
+                );
                 break;
             }
             default: {
@@ -290,7 +315,7 @@ export class ChainSynchronisation extends Logger {
             return;
         }
 
-        //this.info(`Deserializing block ${block.header.height} with ${txs.length} transactions...`);
+        this.info(`Deserializing block ${block.header.height} with ${txs.length} transactions...`);
 
         block.setRawTransactionData(txs);
         block.deserialize(false);
@@ -457,5 +482,172 @@ export class ChainSynchronisation extends Logger {
         } finally {
             this.abortControllers.delete(startBlock);
         }
+    }
+
+    /**
+     * Handle IBD transaction download request
+     * Downloads blocks in range, extracts UTXOs, and saves directly to MongoDB
+     */
+    private async handleIBDDownloadTransactions(
+        msg: IBDDownloadTransactionsMessage,
+    ): Promise<IBDDownloadTransactionsResponse> {
+        const { startHeight, endHeight } = msg;
+        const blocksToProcess = Number(endHeight - startHeight) + 1;
+
+        this.info(`IBD: Downloading transactions for blocks ${startHeight} -> ${endHeight}`);
+
+        let blocksProcessed = 0;
+        let transactionsProcessed = 0;
+        let utxosSaved = 0;
+
+        // Temporary storage for this batch - will be saved at the end
+        const batchUtxos: ProcessUnspentTransactionList = [];
+        const batchAcsClassifications: Classification[] = [];
+        const batchTransactions: TransactionDocument<OPNetTransactionTypes>[] = [];
+
+        try {
+            // Check if we should index UTXOs for this range
+            const shouldIndexUtxos =
+                Config.INDEXER.START_INDEXING_UTXO_AT_BLOCK_HEIGHT <= 0n ||
+                endHeight >= Config.INDEXER.START_INDEXING_UTXO_AT_BLOCK_HEIGHT;
+
+            // Process blocks in order (important for UTXO ordering)
+            for (let height = startHeight; height <= endHeight; height++) {
+                // Fetch block data
+                const blockData = await this.fetchBlockWithRetry(height, 3);
+                if (!blockData) {
+                    return {
+                        success: false,
+                        range: { startHeight, endHeight },
+                        blocksProcessed,
+                        transactionsProcessed,
+                        utxosSaved,
+                        error: `Failed to fetch block ${height}`,
+                    };
+                }
+
+                // Create block instance for transaction parsing
+                const abortController = new AbortController();
+                const solutions: ChallengeSolution = {
+                    solutions: new AddressMap(),
+                    legacyPublicKeys: new AddressMap(),
+                };
+
+                const block = new Block({
+                    network: this.network,
+                    abortController,
+                    header: blockData,
+                    processEverythingAsGeneric: true,
+                    allowedSolutions: solutions,
+                });
+
+                // Set raw transaction data and deserialize with sorting enabled
+                block.setRawTransactionData(blockData.tx);
+                block.deserialize(true);
+
+                // Get all transactions (already sorted by Block's TransactionSorter)
+                const transactions = block.getTransactions();
+                for (const tx of transactions) {
+                    batchTransactions.push(tx.toDocument());
+                }
+
+                transactionsProcessed += transactions.length;
+                blocksProcessed++;
+
+                // Extract UTXOs only if above configured start height
+                const shouldIndexThisBlock =
+                    shouldIndexUtxos &&
+                    (Config.INDEXER.START_INDEXING_UTXO_AT_BLOCK_HEIGHT <= 0n ||
+                        height >= Config.INDEXER.START_INDEXING_UTXO_AT_BLOCK_HEIGHT);
+
+                if (shouldIndexThisBlock) {
+                    const utxos = block.getUTXOs();
+
+                    if (utxos.length > 0) {
+                        batchUtxos.push({
+                            blockHeight: height,
+                            transactions: utxos,
+                        });
+                        utxosSaved += utxos.length;
+                    }
+
+                    // Handle ACS classification if enabled
+                    if (this.enableSolver) {
+                        const toSort: readonly Utxo[] = utxos
+                            .map((o) => {
+                                return o.outputs.map((output) => ({
+                                    txid: o.id.toString('hex'),
+                                    output,
+                                }));
+                            })
+                            .flat();
+
+                        const cls = this.utxoSorter.classifyBatch(toSort, {
+                            height: Number(height),
+                            mtp: Number(block.header.medianTime),
+                        });
+
+                        batchAcsClassifications.push(...cls);
+                    }
+                }
+            }
+
+            // Save all transactions to MongoDB
+            if (batchTransactions.length > 0) {
+                await this.transactionRepository.saveTransactions(batchTransactions);
+            }
+
+            // Add UTXOs to existing queue - startSaveLoop() handles periodic flushing
+            if (batchUtxos.length > 0) {
+                this.unspentTransactionOutputs.push(...batchUtxos);
+                this.amountOfUTXOs += utxosSaved;
+                this.acsClassifications.push(...batchAcsClassifications);
+            }
+
+            this.success(
+                `IBD: Processed ${blocksProcessed} blocks, ${transactionsProcessed} txs, ${utxosSaved} UTXOs`,
+            );
+
+            return {
+                success: true,
+                range: { startHeight, endHeight },
+                blocksProcessed,
+                transactionsProcessed,
+                utxosSaved,
+            };
+        } catch (error) {
+            const err = error as Error;
+            this.error(`IBD transaction download failed: ${err.message}`);
+            return {
+                success: false,
+                range: { startHeight, endHeight },
+                blocksProcessed,
+                transactionsProcessed,
+                utxosSaved,
+                error: err.message,
+            };
+        }
+    }
+
+    /**
+     * Fetch a block with retry logic for IBD
+     */
+    private async fetchBlockWithRetry(
+        height: bigint,
+        maxRetries: number,
+    ): Promise<BlockDataWithTransactionData | null> {
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                const blockData = await this.blockFetcher.getBlock(height);
+                if (blockData) {
+                    return blockData;
+                }
+            } catch (e) {
+                if (attempt < maxRetries - 1) {
+                    await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 100));
+                }
+            }
+        }
+        return null;
     }
 }

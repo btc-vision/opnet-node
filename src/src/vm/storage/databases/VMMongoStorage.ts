@@ -83,6 +83,14 @@ export class VMMongoStorage extends VMStorage {
         return this.blockchainInfoRepository;
     }
 
+    /**
+     * Get the underlying MongoDB database connection
+     * Used by IBD (Initial Block Download) coordinator for direct database access
+     */
+    public get db() {
+        return this.databaseManager.db;
+    }
+
     public getMLDSAPublicKeyFromHash(
         publicKey: Buffer | Binary,
         blockHeight: bigint,

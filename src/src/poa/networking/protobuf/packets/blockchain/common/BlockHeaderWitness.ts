@@ -20,7 +20,7 @@ export interface IBlockHeaderWitness extends PackedMessage {
     readonly blockNumber: Long | bigint;
 
     readonly blockHash: string;
-    readonly previousBlockHash?: string;
+    readonly previousBlockHash: string | null;
 
     readonly merkleRoot: string;
     readonly receiptRoot: string;

@@ -29,6 +29,10 @@ import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
 import fs from 'fs';
 import { EpochManager } from './epoch/EpochManager.js';
 import { EpochReindexer } from './epoch/EpochReindexer.js';
+import { IBDCoordinator } from '../ibd/IBDCoordinator.js';
+import { BlockRepository } from '../../db/repositories/BlockRepository.js';
+import { WitnessSyncResult } from '../ibd/phases/WitnessSyncPhase.js';
+import { IBDRequestWitnessesResponse } from '../../poa/PoC.js';
 
 export class BlockIndexer extends Logger {
     public readonly logColor: string = '#00ffe1';
@@ -49,6 +53,7 @@ export class BlockIndexer extends Logger {
     private currentTask?: IndexingTask;
 
     private started: boolean = false;
+    private initInProgress: boolean = false;
 
     private readonly indexingConfigs = {
         prefetchQueueSize: Config.OP_NET.MAXIMUM_PREFETCH_BLOCKS,
@@ -73,6 +78,10 @@ export class BlockIndexer extends Logger {
         this.vmStorage,
         this.epochManager,
     );
+
+    // IBD (Initial Block Download) coordinator - initialized lazily
+    private ibdCoordinator: IBDCoordinator | undefined;
+    private blockRepository: BlockRepository | undefined;
 
     private readonly network: Network = NetworkConverter.getNetwork();
 
@@ -128,7 +137,7 @@ export class BlockIndexer extends Logger {
                 break;
             }
             case MessageType.START_INDEXER: {
-                resp = await this.startIndexer();
+                resp = this.startIndexer();
                 break;
             }
             default:
@@ -166,43 +175,62 @@ export class BlockIndexer extends Logger {
             throw new Error('Database is locked or corrupted.');
         }
 
+        // Check if IBD is in progress BEFORE doing any purge
+        // IBD manages its own data and we don't want to purge what it downloaded
+        const ibdResult = await this.checkAndRunIBD();
+
+        if (ibdResult === 'completed') {
+            // IBD completed successfully - continue with normal initialization
+            this.info('IBD phase complete, continuing with normal initialization...');
+        } else if (ibdResult === 'failed') {
+            // IBD was attempted but failed - DO NOT purge, throw error
+            throw new Error(
+                'IBD failed or was aborted. Data has been partially synced. ' +
+                'Please check logs and restart to resume IBD from checkpoint.',
+            );
+        }
+
         // Check for epoch-only reindex mode (preserves all data except epochs)
         if (Config.OP_NET.EPOCH_REINDEX) {
             await this.handleEpochReindex();
         }
 
-        // Always purge, in case of bad indexing of the last block.
-        const purgeFromBlock = Config.OP_NET.REINDEX
-            ? BigInt(Config.OP_NET.REINDEX_FROM_BLOCK)
-            : this.chainObserver.pendingBlockHeight;
+        // Only purge if IBD was not needed (normal startup without IBD)
+        if (ibdResult === 'not_needed') {
+            // Always purge, in case of bad indexing of the last block.
+            const purgeFromBlock = Config.OP_NET.REINDEX
+                ? BigInt(Config.OP_NET.REINDEX_FROM_BLOCK)
+                : this.chainObserver.pendingBlockHeight;
 
-        this.warn(`Safely purging data from block ${purgeFromBlock}`);
+            this.warn(`Safely purging data from block ${purgeFromBlock}`);
 
-        // Purge.
-        const originalHeight = this.chainObserver.pendingBlockHeight;
-        await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
-        this.log(`Setting new height... ${purgeFromBlock}`);
+            // Purge.
+            const originalHeight = this.chainObserver.pendingBlockHeight;
+            await this.vmStorage.revertDataUntilBlock(purgeFromBlock);
+            this.log(`Setting new height... ${purgeFromBlock}`);
 
-        await this.chainObserver.setNewHeight(purgeFromBlock);
+            await this.chainObserver.setNewHeight(purgeFromBlock);
 
-        // Notify plugins of the startup purge so they can also clean their data
-        // Always notify when plugins enabled - the purge always happens for safety
-        if (Config.PLUGINS.PLUGINS_ENABLED) {
-            const reason = Config.OP_NET.REINDEX ? 'reindex' : 'startup-purge';
-            try {
-                await this.notifyPluginsOfReorg(purgeFromBlock, originalHeight, reason);
-            } catch (error) {
-                // Link to plugin thread may not be established yet during startup
-                // Log warning but continue - plugins should handle missing data on their own
-                this.warn(
-                    `Could not notify plugins of startup purge: ${error}. ` +
-                        `Plugins may need to resync data from block ${purgeFromBlock}.`,
-                );
+            // Notify plugins of the startup purge so they can also clean their data
+            // Always notify when plugins enabled - the purge always happens for safety
+            if (Config.PLUGINS.PLUGINS_ENABLED) {
+                const reason = Config.OP_NET.REINDEX ? 'reindex' : 'startup-purge';
+                try {
+                    await this.notifyPluginsOfReorg(purgeFromBlock, originalHeight, reason);
+                } catch (error) {
+                    // Link to plugin thread may not be established yet during startup
+                    // Log warning but continue - plugins should handle missing data on their own
+                    this.warn(
+                        `Could not notify plugins of startup purge: ${error}. ` +
+                            `Plugins may need to resync data from block ${purgeFromBlock}.`,
+                    );
+                }
             }
         }
 
         this.log(`Starting watchdog...`);
 
+        const originalHeight = this.chainObserver.pendingBlockHeight;
         await this.reorgWatchdog.init(originalHeight);
 
         // If we detect db corruption, we try to restore from the last known good block.
@@ -222,6 +250,119 @@ export class BlockIndexer extends Logger {
         }
 
         await this.registerEvents();
+    }
+
+    /**
+     * Check if IBD (Initial Block Download) is needed and run it if so
+     * IBD parallelizes block header and transaction downloads before OPNet activation
+     * @returns 'completed' if IBD finished successfully, 'failed' if IBD was attempted but failed, 'not_needed' if IBD wasn't required
+     */
+    private async checkAndRunIBD(): Promise<'completed' | 'failed' | 'not_needed'> {
+        // Only run IBD if not in read-only mode
+        if (Config.INDEXER.READONLY_MODE) {
+            return 'not_needed';
+        }
+
+        // Initialize BlockRepository for IBD if needed
+        const mongoStorage = this.vmStorage as VMMongoStorage;
+        if (!mongoStorage || !mongoStorage.db) {
+            this.warn('Cannot initialize IBD: VMStorage is not MongoDB-based');
+            return 'not_needed';
+        }
+
+        this.blockRepository = new BlockRepository(mongoStorage.db);
+
+        // Initialize IBD coordinator
+        this.ibdCoordinator = new IBDCoordinator(
+            mongoStorage.db,
+            this.rpcClient,
+            this.vmStorage,
+            this.blockRepository,
+            this.epochManager,
+        );
+        this.ibdCoordinator.sendMessageToThread = this.sendMessageToThread;
+
+        // Wire up the witness request callback for IBD
+        this.ibdCoordinator.requestWitnesses = this.createWitnessRequestCallback();
+
+        this.ibdCoordinator.init();
+
+        // Detect if IBD mode should be used (checks for existing checkpoint too)
+        const currentHeight = this.chainObserver.pendingBlockHeight;
+        const detection = await this.ibdCoordinator.detectIBDMode(currentHeight);
+
+        if (!detection.shouldUseIBD) {
+            this.info(`IBD mode not needed: ${detection.reason}`);
+            return 'not_needed';
+        }
+
+        this.success(`Starting IBD mode: ${detection.reason}`);
+
+        try {
+            // Run IBD - this blocks until complete
+            const success = await this.ibdCoordinator.run(
+                detection.startHeight,
+                detection.targetHeight,
+            );
+
+            if (success) {
+                this.success(
+                    `IBD completed successfully! ` +
+                        `Synced from ${detection.startHeight} to ${detection.targetHeight}`,
+                );
+
+                // Update chain observer with new height so normal sync continues from here
+                await this.chainObserver.setNewHeight(detection.targetHeight);
+                return 'completed';
+            } else {
+                this.warn('IBD was aborted or failed - NOT purging existing data');
+                return 'failed';
+            }
+        } catch (error) {
+            this.error(`IBD failed with error: ${error} - NOT purging existing data`);
+            return 'failed';
+        }
+    }
+
+    /**
+     * Create a callback function for requesting witnesses from P2P during IBD
+     * This sends a message to the P2P thread and converts the response
+     */
+    private createWitnessRequestCallback(): (blockNumber: bigint) => Promise<WitnessSyncResult> {
+        return async (blockNumber: bigint): Promise<WitnessSyncResult> => {
+            try {
+                const msg: ThreadMessageBase<MessageType> = {
+                    type: MessageType.IBD_REQUEST_WITNESSES,
+                    data: { blockNumber },
+                };
+
+                const response = (await this.sendMessageToThread(
+                    ThreadTypes.P2P,
+                    msg,
+                )) as IBDRequestWitnessesResponse | null;
+
+                if (!response) {
+                    return {
+                        blockNumber,
+                        witnessCount: 0,
+                        success: false,
+                    };
+                }
+
+                return {
+                    blockNumber: response.blockNumber,
+                    witnessCount: response.witnessCount,
+                    success: response.success,
+                };
+            } catch (error) {
+                this.warn(`Failed to request witnesses for block ${blockNumber}: ${error}`);
+                return {
+                    blockNumber,
+                    witnessCount: 0,
+                    success: false,
+                };
+            }
+        };
     }
 
     private async onHeightMismatch(originalHeight: bigint): Promise<void> {
@@ -741,26 +882,29 @@ export class BlockIndexer extends Logger {
         }
     }
 
-    private async startIndexer(): Promise<ThreadData> {
-        if (this.started) {
+    private startIndexer(): ThreadData {
+        if (this.started || this.initInProgress) {
             return {
                 started: false,
-                message: 'Indexer already started',
+                message: 'Indexer already started or initialization in progress',
             };
         }
 
-        try {
-            await this.init();
+        // Mark init as in progress and return immediately
+        // This prevents P2P timeout during long IBD operations
+        this.initInProgress = true;
 
-            //this.inspector.pause();
-        } catch (e) {
-            this.panic(`Failed to start indexer: ${e}`);
-
-            return {
-                started: false,
-                message: `Failed to start indexer: ${e}`,
-            };
-        }
+        // Run init in background - don't await
+        this.init()
+            .then(() => {
+                this.info('Indexer initialization completed successfully');
+            })
+            .catch((e: unknown) => {
+                this.panic(`Failed to start indexer: ${e}`);
+            })
+            .finally(() => {
+                this.initInProgress = false;
+            });
 
         return {
             started: true,

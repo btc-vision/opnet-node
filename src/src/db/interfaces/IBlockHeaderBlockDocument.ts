@@ -9,7 +9,7 @@ export interface BaseBlockDocument {
 
     hash: string;
 
-    previousBlockHash: string;
+    previousBlockHash: string | null;
     previousBlockChecksum: string;
 
     bits: string;

@@ -17,7 +17,7 @@ import { Config } from '../../config/Config.js';
 export interface IBlockHeader {
     readonly height: bigint;
     readonly hash: string;
-    readonly previousHash: string;
+    readonly previousHash: string | null;
     readonly merkleRoot: string;
     readonly timestamp: number;
     readonly receiptRoot: string;
@@ -415,7 +415,7 @@ export class PluginBlockchainAPI implements IPluginBlockchainAPI {
     private mapBlockHeader(block: {
         height?: { toString(): string };
         hash: string;
-        previousBlockHash: string;
+        previousBlockHash: string | null;
         merkleRoot: string;
         time: Date;
         receiptRoot: string;

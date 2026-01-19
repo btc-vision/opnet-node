@@ -37,6 +37,9 @@ export class OPNetPeer extends Logger {
 
     private eventHandlers: FastStringMap<NetworkingEventHandler[]> = new FastStringMap();
     private badPacketCount: number = 0;
+    private badPacketWindowStart: number = 0;
+    private readonly BAD_PACKET_THRESHOLD: number = 10;
+    private readonly BAD_PACKET_WINDOW_MS: number = 30_000; // 30 seconds
 
     constructor(
         private _peerIdentity: OPNetConnectionInfo | undefined,
@@ -198,8 +201,19 @@ export class OPNetPeer extends Logger {
                 this.fail(`BAD PACKET: ${e}`);
             }
 
-            if (++this.badPacketCount < 5) {
-                await this.disconnect(DisconnectionCode.BAD_PACKET, 'Bad packet.');
+            // Reset counter if window expired
+            const now = Date.now();
+            if (now - this.badPacketWindowStart > this.BAD_PACKET_WINDOW_MS) {
+                this.badPacketCount = 0;
+                this.badPacketWindowStart = now;
+            }
+
+            this.badPacketCount++;
+
+            // Only disconnect if threshold exceeded within time window
+            if (this.badPacketCount >= this.BAD_PACKET_THRESHOLD) {
+                this.warn(`Too many bad packets (${this.badPacketCount}) in ${this.BAD_PACKET_WINDOW_MS}ms window. Disconnecting.`);
+                await this.disconnect(DisconnectionCode.BAD_PACKET, 'Too many bad packets.');
                 await this.destroy(false);
             }
         }
