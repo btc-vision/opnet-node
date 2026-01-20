@@ -19,9 +19,9 @@ export interface IndexerConfig {
     readonly STORAGE_TYPE: IndexerStorageType;
     readonly READONLY_MODE: boolean;
 
-    readonly DISABLE_UTXO_INDEXING: boolean;
     readonly PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: number;
     readonly UTXO_SAVE_INTERVAL: number;
+    readonly START_INDEXING_UTXO_AT_BLOCK_HEIGHT: number;
 }
 
 export interface RPCConfig {
@@ -41,7 +41,7 @@ export interface OPNetConfig {
 
     readonly REINDEX_FROM_BLOCK: number;
 
-    readonly EPOCH_REINDEX: boolean;           // Enable epoch-only reindex mode
+    readonly EPOCH_REINDEX: boolean; // Enable epoch-only reindex mode
     readonly EPOCH_REINDEX_FROM_EPOCH: number; // Starting epoch number (default: 0)
 
     readonly DISABLE_SCANNED_BLOCK_STORAGE_CHECK: boolean;

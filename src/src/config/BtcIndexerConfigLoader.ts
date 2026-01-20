@@ -63,9 +63,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             SOLVE_UNKNOWN_UTXOS: false,
 
             /** UTXOs */
-            DISABLE_UTXO_INDEXING: false,
             PURGE_SPENT_UTXO_OLDER_THAN_BLOCKS: 1000,
             UTXO_SAVE_INTERVAL: 30000,
+            START_INDEXING_UTXO_AT_BLOCK_HEIGHT: 0,
         },
 
         DEV: {
@@ -114,7 +114,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             MAXIMUM_PEERS: 100,
             MAXIMUM_INCOMING_PENDING_PEERS: 50,
 
-            PEER_INACTIVITY_TIMEOUT: 60000,
+            PEER_INACTIVITY_TIMEOUT: 120_000,
 
             MAXIMUM_INBOUND_STREAMS: 100,
             MAXIMUM_OUTBOUND_STREAMS: 100,
@@ -348,11 +348,11 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             }
 
             if (
-                parsedConfig.INDEXER.DISABLE_UTXO_INDEXING !== undefined &&
-                typeof parsedConfig.INDEXER.DISABLE_UTXO_INDEXING !== 'boolean'
+                parsedConfig.INDEXER.START_INDEXING_UTXO_AT_BLOCK_HEIGHT !== undefined &&
+                typeof parsedConfig.INDEXER.START_INDEXING_UTXO_AT_BLOCK_HEIGHT !== 'number'
             ) {
                 throw new Error(
-                    `Oops the property INDEXER.DISABLE_UTXO_INDEXING is not a boolean.`,
+                    `Oops the property INDEXER.START_INDEXING_UTXO_AT_BLOCK_HEIGHT is not a number.`,
                 );
             }
 
@@ -454,7 +454,9 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
                 parsedConfig.OP_NET.EPOCH_REINDEX_FROM_EPOCH !== undefined &&
                 typeof parsedConfig.OP_NET.EPOCH_REINDEX_FROM_EPOCH !== 'number'
             ) {
-                throw new Error(`Oops the property OP_NET.EPOCH_REINDEX_FROM_EPOCH is not a number.`);
+                throw new Error(
+                    `Oops the property OP_NET.EPOCH_REINDEX_FROM_EPOCH is not a number.`,
+                );
             }
 
             if (

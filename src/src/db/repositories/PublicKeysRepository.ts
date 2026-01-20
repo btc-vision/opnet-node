@@ -20,7 +20,6 @@ import {
     IPublicKeyInfoResult,
     PublicKeyInfo,
 } from '../../api/json-rpc/types/interfaces/results/address/PublicKeyInfoResult.js';
-import fs from 'fs';
 import { Config } from '../../config/Config.js';
 import { IContractDocument } from '../documents/interfaces/IContractDocument.js';
 import { MLDSAPublicKeyDocument } from '../interfaces/IMLDSAPublicKey.js';
@@ -33,6 +32,8 @@ interface MLDSALookupEntry {
     type: 'hashed' | 'legacy';
     key: Binary;
 }
+
+const DEAD_ADDRESS = Address.dead();
 
 export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocument> {
     public readonly logColor: string = '#afeeee';
@@ -140,10 +141,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                                 const tweakedKey = this.tweakPublicKey(legacyKeyBuffer);
                                 info.originalPubKey = legacyKeyBuffer.toString('hex');
                                 info.p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
-                                info.p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(
+                                /*info.p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(
                                     ecKeyPair,
                                     this.network,
-                                );
+                                );*/
                                 info.p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
                                 info.lowByte = tweakedKey[0];
                             }
@@ -277,7 +278,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return this._db.collection(OPNetCollections.PublicKeys);
     }
 
-    private buildPublicKeyInfoFromMLDSA(
+    /*private buildPublicKeyInfoFromMLDSA(
         legacyTweakedKey: Buffer,
         hashedKey: Buffer,
         mldsa: MLDSAPublicKeyDocument,
@@ -294,7 +295,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 ? Buffer.from(mldsa.publicKey.buffer).toString('hex')
                 : null,
         };
-    }
+    }*/
 
     private buildPublicKeyInfo(
         bufferKey: Buffer,
@@ -317,7 +318,7 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             const ecKeyPair = EcKeyPair.fromPublicKey(bufferKey, this.network);
             info.originalPubKey = originalPubKey;
             info.p2pkh = EcKeyPair.getLegacyAddress(ecKeyPair, this.network);
-            info.p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(ecKeyPair, this.network);
+            //info.p2shp2wpkh = EcKeyPair.getLegacySegwitAddress(ecKeyPair, this.network);
             info.p2wpkh = EcKeyPair.getP2WPKHAddress(ecKeyPair, this.network);
             info.lowByte = tweakedKey[0];
         }
@@ -336,8 +337,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return info;
     }
 
-    private p2op(hashedKey: Buffer, network: Network): string {
-        const addy = new Address(hashedKey);
+    private p2op(hashedKey: Buffer, network: Network): string | undefined {
+        const realAddress = toXOnly(hashedKey);
+
+        const addy = new Address(realAddress);
         return addy.p2op(network);
     }
 
@@ -351,9 +354,9 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
             originalPubKey: publicKey.publicKey?.toString('hex'),
             tweakedPubkey: publicKey.tweakedPublicKey.toString('hex'),
             p2pkh: publicKey.p2pkh,
-            p2pkhUncompressed: publicKey.p2pkhUncompressed,
-            p2pkhHybrid: publicKey.p2pkhHybrid,
-            p2shp2wpkh: publicKey.p2shp2wpkh,
+            //p2pkhUncompressed: publicKey.p2pkhUncompressed,
+            //p2pkhHybrid: publicKey.p2pkhHybrid,
+            //p2shp2wpkh: publicKey.p2shp2wpkh,
             p2tr: publicKey.p2tr,
             p2op: publicKey.p2op,
             p2wpkh: publicKey.p2wpkh,
@@ -456,10 +459,10 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                     { tweakedPublicKey: keyBuffer },
                     { publicKey: keyBuffer },
                     { p2pkh: key },
-                    { p2shp2wpkh: key },
+                    //{ p2shp2wpkh: key },
                     { p2wpkh: key },
-                    { p2pkhUncompressed: key },
-                    { p2pkhHybrid: key },
+                    //{ p2pkhUncompressed: key },
+                    //{ p2pkhHybrid: key },
                 ],
             };
 
@@ -540,14 +543,14 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
 
             const p2tr = this.tweakedPubKeyToAddress(tweakedPublicKey, this.network);
             const p2op = this.p2op(tweakedPublicKey, this.network);
-            const address = new Address(publicKey);
+            const address = new Address(DEAD_ADDRESS, publicKey);
 
             const p2pkh = this.getP2PKH(publicKey, this.network);
-            const p2pkhHybrid = this.getP2PKH(address.toHybridPublicKeyBuffer(), this.network);
+            //const p2pkhHybrid = this.getP2PKH(address.toHybridPublicKeyBuffer(), this.network);
 
-            const p2pkhUncompressed = this.getP2PKH(address.toUncompressedBuffer(), this.network);
+            //const p2pkhUncompressed = this.getP2PKH(address.toUncompressedBuffer(), this.network);
 
-            const p2shp2wpkh = address.p2shp2wpkh(this.network);
+            //const p2shp2wpkh = address.p2shp2wpkh(this.network);
             const p2wpkh = address.p2wpkh(this.network);
 
             publicKeys.push({
@@ -557,9 +560,9 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 p2tr: p2tr,
                 p2op: p2op,
                 p2pkh: p2pkh,
-                p2pkhUncompressed: p2pkhUncompressed,
-                p2pkhHybrid: p2pkhHybrid,
-                p2shp2wpkh: p2shp2wpkh,
+                //p2pkhUncompressed: p2pkhUncompressed,
+                //p2pkhHybrid: p2pkhHybrid,
+                //p2shp2wpkh: p2shp2wpkh,
                 p2wpkh: p2wpkh,
             });
         } catch (err) {
@@ -586,13 +589,13 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
         return wallet.address;
     }
 
-    private reportNonStandardScript(type: string, script: string, txId: Buffer): void {
+    /*private reportNonStandardScript(type: string, script: string, txId: Buffer): void {
         if (Config.DEV_MODE && !script.endsWith('ae')) {
             fs.appendFileSync('non-standard-scripts.txt', `${txId.toString('hex')}: ${script}\n`);
 
             this.warn(`Unknown script type: ${type}`);
         }
-    }
+    }*/
 
     private decodeOutput(
         publicKeys: PublicKeyDocument[],
@@ -638,11 +641,11 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
                 break;
             }
             case 'nonstandard': {
-                this.reportNonStandardScript(type, output.scriptPubKey.hex, txId);
+                //this.reportNonStandardScript(type, output.scriptPubKey.hex, txId);
                 break;
             }
             default: {
-                this.reportNonStandardScript(type, output.scriptPubKey.hex, txId);
+                //this.reportNonStandardScript(type, output.scriptPubKey.hex, txId);
                 break;
             }
         }

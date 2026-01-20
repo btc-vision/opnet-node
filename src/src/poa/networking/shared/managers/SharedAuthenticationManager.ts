@@ -31,7 +31,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
 
     protected get protocol(): OPNetProtocolV1 {
         if (!this._protocol) {
-            throw new Error(`Protocol not found.`);
+            throw new Error(`Protocol not found. (protocolShared)`);
         }
 
         return this._protocol;

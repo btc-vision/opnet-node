@@ -102,8 +102,8 @@ export class WorkerPoolManager extends Logger {
             }
         });
 
-        w.on('error', (err) => {
-            this.error(`Worker ${index} error: ${err.message}`);
+        w.on('error', (err: unknown) => {
+            this.error(`Worker ${index} error: ${(err as Error).message}`);
 
             list.forEach((cb) => cb.reject(err));
             list.clear();

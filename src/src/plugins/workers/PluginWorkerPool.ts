@@ -482,7 +482,7 @@ export class PluginWorkerPool extends Logger {
             });
 
             // Handle worker errors
-            worker.on('error', (error) => {
+            worker.on('error', (error: Error) => {
                 this.error(`Worker ${workerId} error: ${error}`);
                 this.handleWorkerCrash(workerInfo, error);
             });
