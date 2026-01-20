@@ -114,7 +114,7 @@ export class BtcIndexerConfigManager extends ConfigManager<IConfig<IBtcIndexerCo
             MAXIMUM_PEERS: 100,
             MAXIMUM_INCOMING_PENDING_PEERS: 50,
 
-            PEER_INACTIVITY_TIMEOUT: 60000,
+            PEER_INACTIVITY_TIMEOUT: 120_000,
 
             MAXIMUM_INBOUND_STREAMS: 100,
             MAXIMUM_OUTBOUND_STREAMS: 100,
