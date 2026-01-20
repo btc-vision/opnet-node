@@ -43,7 +43,7 @@
         "@btc-vision/bsi-common": "^1.2.1",
         "@btc-vision/hyper-express": "^6.17.4",
         "@btc-vision/logger": "^1.0.8",
-        "@btc-vision/op-vm": "^0.6.1",
+        "@btc-vision/op-vm": "^1.0.0-alpha",
         "@btc-vision/plugin-sdk": "^1.0.0",
         "@btc-vision/post-quantum": "^0.5.3",
         "@btc-vision/rust-merkle-tree": "^0.0.5",

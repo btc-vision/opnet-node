@@ -12,6 +12,7 @@ import { ConsensusRules } from '../../../vm/consensus/ConsensusRules.js';
 
 const RoswellConsensusRules: ConsensusRules = new ConsensusRules();
 RoswellConsensusRules.insertFlag(ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWED);
+RoswellConsensusRules.insertFlag(ConsensusRules.CONTRACT_UPDATES_ALLOWED);
 
 export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     /** Information about the consensus */
@@ -192,6 +193,11 @@ export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
         SKIP_PROOF_VALIDATION_FOR_EXECUTION_BEFORE_TRANSACTION: true,
 
         ENABLE_ACCESS_LIST: false,
+
+        /**
+         * The maximum amount of contract updates in a single transaction
+         */
+        MAXIMUM_UPDATE_DEPTH: 1,
     },
 
     VM: {

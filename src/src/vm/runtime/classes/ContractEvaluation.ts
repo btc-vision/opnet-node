@@ -54,6 +54,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public result: Uint8Array | undefined;
     public contractDeployDepth: MutableNumber;
+    public contractUpdateDepth: MutableNumber;
 
     public readonly blockHash: Buffer;
     public readonly transactionId: Buffer;
@@ -68,6 +69,7 @@ export class ContractEvaluation implements ExecutionParameters {
 
     public callStack: AddressStack;
     public isDeployment: boolean = false;
+    public isUpdate: boolean = false;
 
     public readonly inputs: StrippedTransactionInput[] = [];
     public readonly outputs: StrippedTransactionOutput[] = [];
@@ -96,13 +98,19 @@ export class ContractEvaluation implements ExecutionParameters {
         this.blockMedian = params.blockMedian;
         this.deployedContracts = params.deployedContracts || new AddressMap();
         this.isDeployment = params.isDeployment || false;
+        this.isUpdate = params.isUpdate || false;
         this.memoryPagesUsed = params.memoryPagesUsed || 0n;
 
         this.mldsaLoadCounter = params.mldsaLoadCounter || new MutableNumber();
         this.contractDeployDepth = params.contractDeployDepth || new MutableNumber();
+        this.contractUpdateDepth = params.contractUpdateDepth || new MutableNumber();
 
         if (this.isDeployment) {
             this.incrementContractDeployDepth();
+        }
+
+        if (this.isUpdate) {
+            this.incrementContractUpdates();
         }
 
         this.blockHash = params.blockHash;
@@ -224,6 +232,17 @@ export class ContractEvaluation implements ExecutionParameters {
         this.contractDeployDepth.increment(1);
     }
 
+    public incrementContractUpdates(): void {
+        if (
+            this.contractUpdateDepth.value >=
+            OPNetConsensus.consensus.TRANSACTIONS.MAXIMUM_UPDATE_DEPTH
+        ) {
+            throw new Error('OP_NET: Contract update depth exceeded.');
+        }
+
+        this.contractUpdateDepth.increment(1);
+    }
+
     public incrementMLDSALoadCounter(): void {
         this.mldsaLoadCounter.increment(1);
     }
@@ -311,6 +330,7 @@ export class ContractEvaluation implements ExecutionParameters {
         }
 
         this.contractDeployDepth = extern.contractDeployDepth;
+        this.contractUpdateDepth = extern.contractUpdateDepth;
 
         if (extern.modifiedStorage) {
             this.mergeStorage(extern.modifiedStorage);

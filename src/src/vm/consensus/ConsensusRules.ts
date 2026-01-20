@@ -1,12 +1,10 @@
-/**
- * Consensus flags for protocol behavior control
- */
 export class ConsensusRules {
     // Flag constants
     public static readonly NONE: bigint = 0b00000000n;
-    public static readonly UNSAFE_QUANTUM_SIGNATURES_ALLOWED: bigint = 0b00000001n;
 
-    public static readonly RESERVED_FLAG_1: bigint = 0b00000010n;
+    public static readonly UNSAFE_QUANTUM_SIGNATURES_ALLOWED: bigint = 0b00000001n;
+    public static readonly CONTRACT_UPDATES_ALLOWED: bigint = 0b00000010n;
+
     public static readonly RESERVED_FLAG_2: bigint = 0b00000100n;
 
     private value: bigint;
@@ -220,10 +218,6 @@ export class ConsensusRules {
             val = val >> 1n;
         }
         return '0b' + result;
-    }
-
-    public unsafeSignaturesAllowed(): boolean {
-        return this.containsFlag(ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWED);
     }
 }
 
