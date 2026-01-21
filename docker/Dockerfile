@@ -51,8 +51,8 @@ COPY --from=builder --chown=opnet:opnet /app/build ./build
 COPY --from=builder --chown=opnet:opnet /app/node_modules ./node_modules
 COPY --from=builder --chown=opnet:opnet /app/package*.json ./
 
-# Copy sample config as reference
-COPY --from=builder --chown=opnet:opnet /app/src/config/btc.sample.conf /app/config/btc.sample.conf
+# Copy config example as reference (mount your config at /app/config/btc.conf)
+COPY --chown=opnet:opnet docker/config/btc.conf.example /app/config/btc.conf.example
 
 # Create symlink for config file location expected by the app
 RUN ln -sf /app/config/btc.conf /app/build/config/btc.conf
