@@ -87,6 +87,12 @@ const SIMULATION_DEFAULT_INPUT: StrippedTransactionInput = {
     flags: 0,
 };
 
+interface MLDSALinkResponse {
+    readonly address: Address;
+    readonly hashedAddress: Address;
+    readonly tweakedAddress: Address;
+}
+
 export class VMManager extends Logger {
     public initiated: boolean = false;
 
@@ -715,30 +721,12 @@ export class VMManager extends Logger {
             throw new Error('MLDSA public key block height mismatch.');
         }
 
-        // Verify we don't have a pending write on the mldsa public key.
-        const address = new Address(mldsaPublicKey.hashedPublicKey, mldsaPublicKey.legacyPublicKey);
-        const hashedAddress = new Address(mldsaPublicKey.hashedPublicKey);
-
-        // This is OK - same user sending duplicate tx, the link will be stored from the first tx.
-        if (this.mldsaToStore.has(address)) {
-            return;
+        const addresses = this.validateMLDSALinkRequest(mldsaPublicKey);
+        if (!addresses) {
+            return; // Duplicate request from same user, first one will be stored
         }
 
-        // This is a conflict - a legacy key can only be linked to one MLDSA key.
-        const tweakedAddress = new Address(address.tweakedPublicKeyToBuffer());
-        if (this.mldsaToStoreLegacy.has(tweakedAddress)) {
-            throw new Error(
-                'Legacy key is already pending to be linked to a different MLDSA key in current block.',
-            );
-        }
-
-        // This prevents front-running attacks where attacker claims victim's hashedPublicKey.
-        const existingLegacyKey = this.mldsaToStoreByHash.get(hashedAddress);
-        if (existingLegacyKey && !existingLegacyKey.equals(mldsaPublicKey.legacyPublicKey)) {
-            throw new Error(
-                'MLDSA hashed public key is already pending to be linked to a different legacy key in current block.',
-            );
-        }
+        const { address, hashedAddress, tweakedAddress } = addresses;
 
         // Verify it does not exist in the database.
         const exists = await this.shouldInsertMLDSAKey(
@@ -763,29 +751,12 @@ export class VMManager extends Logger {
             throw new Error('MLDSA public key must be defined.');
         }
 
-        const address = new Address(mldsaPublicKey.hashedPublicKey, mldsaPublicKey.legacyPublicKey);
-        const hashedAddress = new Address(mldsaPublicKey.hashedPublicKey);
-
-        // Check 1: Exact same exposure request already pending - OK, return silently.
-        if (this.mldsaToStore.has(address)) {
-            return;
+        const addresses = this.validateMLDSALinkRequest(mldsaPublicKey);
+        if (!addresses) {
+            return; // Duplicate request from same user, first one will be stored
         }
 
-        // Check 2: Same legacyPublicKey trying to expose a different hashedPublicKey.
-        const tweakedAddress = new Address(address.tweakedPublicKeyToBuffer());
-        if (this.mldsaToStoreLegacy.has(tweakedAddress)) {
-            throw new Error(
-                'Legacy key is already pending to be linked to a different MLDSA key in current block.',
-            );
-        }
-
-        // Check 3: Same hashedPublicKey being claimed by a different legacyPublicKey.
-        const existingLegacyKey = this.mldsaToStoreByHash.get(hashedAddress);
-        if (existingLegacyKey && !existingLegacyKey.equals(mldsaPublicKey.legacyPublicKey)) {
-            throw new Error(
-                'MLDSA hashed public key is already pending to be linked to a different legacy key in current block.',
-            );
-        }
+        const { address, hashedAddress, tweakedAddress } = addresses;
 
         const exists = await this.shouldInsertMLDSAKey(
             mldsaPublicKey.hashedPublicKey,
@@ -803,6 +774,48 @@ export class VMManager extends Logger {
             this.mldsaToStoreLegacy.set(tweakedAddress, address);
             this.mldsaToStoreByHash.set(hashedAddress, mldsaPublicKey.legacyPublicKey);
         }
+    }
+
+    /**
+     * Validates MLDSA link request against pending cache to prevent front-running attacks.
+     * Returns address objects if validation passes, null if duplicate request from same user.
+     * Throws on conflict (different legacy key claiming same hashedPublicKey or vice versa).
+     */
+    private validateMLDSALinkRequest(mldsaPublicKey: IMLDSAPublicKey): MLDSALinkResponse | null {
+        // Verify we don't have a pending write on the mldsa public key.
+        const address = new Address(mldsaPublicKey.hashedPublicKey, mldsaPublicKey.legacyPublicKey);
+        const hashedAddress = new Address(mldsaPublicKey.hashedPublicKey);
+
+        // Verify no conflicting pending write for this MLDSA hashed public key
+        const existingEntry = this.mldsaToStore.get(address);
+        if (existingEntry) {
+            if (existingEntry.data.legacyPublicKey.equals(mldsaPublicKey.legacyPublicKey)) {
+                return null; // Same user sending duplicate tx, first one will be stored
+            }
+
+            // Different legacy key trying to claim same hashedPublicKey (front-running attack)
+            throw new Error(
+                'MLDSA hashed public key is already pending to be linked to a different legacy key in current block.',
+            );
+        }
+
+        // Verify legacy key is not already pending for a different MLDSA key
+        const tweakedAddress = new Address(address.tweakedPublicKeyToBuffer());
+        if (this.mldsaToStoreLegacy.has(tweakedAddress)) {
+            throw new Error(
+                'Legacy key is already pending to be linked to a different MLDSA key in current block.',
+            );
+        }
+
+        // Defense in depth (verify hashedPublicKey not claimed by different legacy key)
+        const existingLegacyKey = this.mldsaToStoreByHash.get(hashedAddress);
+        if (existingLegacyKey && !existingLegacyKey.equals(mldsaPublicKey.legacyPublicKey)) {
+            throw new Error(
+                'MLDSA hashed public key is already pending to be linked to a different legacy key in current block.',
+            );
+        }
+
+        return { address, hashedAddress, tweakedAddress };
     }
 
     private async shouldInsertMLDSAKey(
