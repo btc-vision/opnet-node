@@ -6,7 +6,7 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { Route } from '../../../Route.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { BlockGasInformation } from '../../../../json-rpc/types/interfaces/results/blocks/BlockGasInformation.js';
-import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../../../poc/configurations/OPNetConsensus.js';
 import { BlockGasPredictor } from '../../../../../blockchain-indexer/processor/gas/BlockGasPredictor.js';
 import { RPCMessage } from '../../../../../threading/interfaces/thread-messages/messages/api/RPCMessage.js';
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';

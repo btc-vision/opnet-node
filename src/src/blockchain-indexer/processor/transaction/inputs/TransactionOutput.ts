@@ -2,8 +2,8 @@ import { ScriptPubKey, VOut } from '@btc-vision/bitcoin-rpc';
 import BigNumber from 'bignumber.js';
 import { opcodes, script } from '@btc-vision/bitcoin';
 import { Decimal128 } from 'mongodb';
-import { TransactionOutputFlags } from '../../../../poa/configurations/types/IOPNetConsensus.js';
-import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
+import { TransactionOutputFlags } from '../../../../poc/configurations/types/IOPNetConsensus.js';
+import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 
 export interface ITransactionOutputBase {
     readonly value: Decimal128 | string;

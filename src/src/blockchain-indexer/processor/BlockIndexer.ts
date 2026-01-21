@@ -25,7 +25,7 @@ import { IReorgData } from '../../db/interfaces/IReorgDocument.js';
 import { VMManager } from '../../vm/VMManager.js';
 import { SpecialManager } from './special-transaction/SpecialManager.js';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
-import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 import fs from 'fs';
 import { EpochManager } from './epoch/EpochManager.js';
 import { EpochReindexer } from './epoch/EpochReindexer.js';
@@ -132,7 +132,7 @@ export class BlockIndexer extends Logger {
                 break;
             }
             default:
-                throw new Error(`Unknown message type: ${m.type} received in PoA.`);
+                throw new Error(`Unknown message type: ${m.type} received in PoC.`);
         }
 
         return resp ?? undefined;

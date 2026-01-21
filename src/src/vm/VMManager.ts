@@ -46,7 +46,7 @@ import {
 } from './runtime/types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './runtime/classes/ContractEvaluation.js';
 import { GasTracker } from './runtime/GasTracker.js';
-import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../poc/configurations/OPNetConsensus.js';
 import bitcoin, { Network } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../config/network/NetworkConverter.js';
 import { Blockchain } from './Blockchain.js';
@@ -55,7 +55,7 @@ import { ParsedSimulatedTransaction } from '../api/json-rpc/types/interfaces/par
 import { FastStringMap } from '../utils/fast/FastStringMap.js';
 import { AccessList } from '../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { StrippedTransactionInput } from '../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
-import { SpecialContract } from '../poa/configurations/types/SpecialContracts.js';
+import { SpecialContract } from '../poc/configurations/types/SpecialContracts.js';
 import { calculateMaxGas } from '../utils/GasUtils.js';
 import { MutableNumber } from './mutables/MutableNumber.js';
 import { IMLDSAPublicKey, MLDSAUpdateData } from '../db/interfaces/IMLDSAPublicKey.js';

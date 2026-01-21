@@ -17,7 +17,7 @@ import {
     InternalContractCallParameters,
 } from './types/InternalContractCallParameters.js';
 import { ContractEvaluation } from './classes/ContractEvaluation.js';
-import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { Network, networks } from '@btc-vision/bitcoin';
 import { ContractParameters, RustContract } from '../rust/RustContract.js';

@@ -6,7 +6,7 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { Route } from '../../../Route.js';
 import { EpochTemplateResult } from '../../../../json-rpc/types/interfaces/results/epochs/EpochTemplateResult.js';
 import { EpochTemplateParams } from '../../../../json-rpc/types/interfaces/params/epochs/GetEpochTemplateParams.js';
-import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../../../poc/configurations/OPNetConsensus.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 
 export class GetEpochTemplateRoute extends Route<

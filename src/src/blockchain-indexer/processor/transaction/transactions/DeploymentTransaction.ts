@@ -22,7 +22,7 @@ import {
 } from '@btc-vision/transaction';
 import { Binary } from 'mongodb';
 import { EvaluatedEvents, EvaluatedResult } from '../../../../vm/evaluated/EvaluatedResult.js';
-import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { SharedInteractionParameters } from './SharedInteractionParameters.js';
 import { AddressCache } from '../../AddressCache.js';

@@ -9,7 +9,7 @@ import { BlockHeaderAPIBlockDocument } from '../../db/interfaces/IBlockHeaderBlo
 import { IEpochDocument } from '../../db/documents/interfaces/IEpochDocument.js';
 import { APIPacketType } from './packets/types/APIPacketTypes.js';
 import { WebSocketConfig } from '../../config/interfaces/IBtcIndexerConfig.js';
-import { P2PVersion } from '../../poa/configurations/P2PVersion.js';
+import { P2PVersion } from '../../poc/configurations/P2PVersion.js';
 import type { PluginOpcodeRegistry } from '../../plugins/api/websocket/PluginOpcodeRegistry.js';
 import type { IPluginOpcodeInfo } from '../../plugins/interfaces/IPluginMessages.js';
 

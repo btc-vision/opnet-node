@@ -1,5 +1,5 @@
 import { CustomOperationCommand } from './CustomOperationCommand.js';
-import { P2PVersion } from '../../../poa/configurations/P2PVersion.js';
+import { P2PVersion } from '../../../poc/configurations/P2PVersion.js';
 import * as os from 'node:os';
 import { clearInterval } from 'node:timers';
 

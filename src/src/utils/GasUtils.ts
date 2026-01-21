@@ -1,4 +1,4 @@
-import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../poc/configurations/OPNetConsensus.js';
 import { GasTracker } from '../vm/runtime/GasTracker.js';
 import { BlockGasPredictor } from '../blockchain-indexer/processor/gas/BlockGasPredictor.js';
 

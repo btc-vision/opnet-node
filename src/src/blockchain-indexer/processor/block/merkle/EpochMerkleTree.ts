@@ -2,7 +2,7 @@ import { Address, BinaryWriter } from '@btc-vision/transaction';
 import { MerkleProof, MerkleTree as RustMerkleTree } from '@btc-vision/rust-merkle-tree';
 import { ZERO_HASH } from '../types/ZeroValue.js';
 import { EpochSubmissionWinner } from '../../../../db/documents/interfaces/IEpochSubmissionsDocument.js';
-import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 import { NetworkConverter } from '../../../../config/network/NetworkConverter.js';
 import { getChainId } from '../../../../vm/rust/ChainIdHex.js';
 import { sha256 } from '@btc-vision/bitcoin';

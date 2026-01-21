@@ -1,4 +1,4 @@
-import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../poc/configurations/OPNetConsensus.js';
 import { Logger } from '@btc-vision/bsi-common';
 import figlet, { FontName } from 'figlet';
 

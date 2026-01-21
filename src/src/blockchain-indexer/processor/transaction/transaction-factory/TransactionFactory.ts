@@ -6,7 +6,7 @@ import { Transaction } from '../Transaction.js';
 import { AddressCache } from '../../AddressCache.js';
 import { ChallengeSolution } from '../../interfaces/TransactionPreimage.js';
 import { Address } from '@btc-vision/transaction';
-import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 
 const EXPIRED_TRANSACTION_ERROR: string =
     'Transaction was pending in the mempool for too long. It is no longer valid.';

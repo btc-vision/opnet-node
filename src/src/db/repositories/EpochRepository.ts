@@ -5,7 +5,7 @@ import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
 import { SafeBigInt } from '../../api/routes/safe/BlockParamsConverter.js';
 import { ChallengeSolution } from '../../blockchain-indexer/processor/interfaces/TransactionPreimage.js';
 import { Address, AddressMap } from '@btc-vision/transaction';
-import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 
 export class EpochRepository extends BaseRepository<IEpochDocument> {
     public readonly logColor: string = '#ffd700';

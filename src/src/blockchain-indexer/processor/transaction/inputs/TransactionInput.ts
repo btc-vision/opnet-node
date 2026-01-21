@@ -1,6 +1,6 @@
 import { ScriptSig, VIn } from '@btc-vision/bitcoin-rpc';
-import { TransactionInputFlags } from '../../../../poa/configurations/types/IOPNetConsensus.js';
-import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
+import { TransactionInputFlags } from '../../../../poc/configurations/types/IOPNetConsensus.js';
+import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 
 export interface ITransactionInput {
     readonly originalTransactionId: Buffer | undefined;

@@ -28,12 +28,12 @@ import {
 import { ServerThread } from '../../../../ServerThread.js';
 import { Route } from '../../../Route.js';
 import { EventReceiptDataForAPI } from '../../../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions';
-import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../../../poc/configurations/OPNetConsensus.js';
 import { FastStringMap } from '../../../../../utils/fast/FastStringMap.js';
 import {
     TransactionInputFlags,
     TransactionOutputFlags,
-} from '../../../../../poa/configurations/types/IOPNetConsensus.js';
+} from '../../../../../poc/configurations/types/IOPNetConsensus.js';
 import { StrippedTransactionInputAPI } from '../../../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
 import { StrippedTransactionOutputAPI } from '../../../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 

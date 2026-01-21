@@ -17,7 +17,7 @@ import { ServerThread } from '../../../../ServerThread.js';
 import { ThreadTypes } from '../../../../../threading/thread/enums/ThreadTypes.js';
 import { BroadcastResponse } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastRequest.js';
 import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
-import { TransactionSizeValidator } from '../../../../../poa/mempool/data-validator/TransactionSizeValidator.js';
+import { TransactionSizeValidator } from '../../../../../poc/mempool/data-validator/TransactionSizeValidator.js';
 import { Config } from '../../../../../config/Config.js';
 import { Transaction } from '@btc-vision/bitcoin';
 
