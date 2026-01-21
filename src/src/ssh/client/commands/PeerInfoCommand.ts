@@ -4,7 +4,7 @@ import { Channel } from 'ssh2';
 import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
-import { OPNetPeerInfo } from '../../../poa/networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
+import { OPNetPeerInfo } from '../../../poc/networking/protobuf/packets/peering/DiscoveryResponsePacket.js';
 import { ChainIds } from '../../../config/enums/ChainIds.js';
 import { peerIdFromCID } from '@libp2p/peer-id';
 import { CID } from 'multiformats/cid';

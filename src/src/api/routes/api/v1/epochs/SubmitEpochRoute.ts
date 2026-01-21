@@ -8,12 +8,12 @@ import {
     SubmitEpochParams,
     SubmitEpochParamsAsObject,
 } from '../../../../json-rpc/types/interfaces/params/epochs/SubmitEpochParams.js';
-import { OPNetConsensus } from '../../../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../../../poc/configurations/OPNetConsensus.js';
 import {
     SubmissionStatus,
     SubmittedEpochResult,
 } from '../../../../json-rpc/types/interfaces/results/epochs/SubmittedEpochResult.js';
-import { EpochValidationParams, EpochValidator } from '../../../../../poa/epoch/EpochValidator.js';
+import { EpochValidationParams, EpochValidator } from '../../../../../poc/epoch/EpochValidator.js';
 import { BlockHeaderAPIBlockDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import {
     BinaryWriter,

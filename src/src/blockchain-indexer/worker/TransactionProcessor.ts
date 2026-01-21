@@ -3,7 +3,7 @@ import { MessagePort, parentPort } from 'node:worker_threads';
 import { InteractionTransaction } from '../processor/transaction/transactions/InteractionTransaction.js';
 import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { MsgError, MsgFromMain, MsgResult, MsgToMain } from './interfaces.js';
-import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 import { Address } from '@btc-vision/transaction';
 
 const port: MessagePort = (() => {

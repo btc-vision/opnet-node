@@ -5,7 +5,7 @@ import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor
 import { AccessList } from '../../../api/json-rpc/types/interfaces/results/states/CallResult.js';
 import { AddressStack } from '../classes/AddressStack.js';
 import { GasTracker } from '../GasTracker.js';
-import { SpecialContract } from '../../../poa/configurations/types/SpecialContracts.js';
+import { SpecialContract } from '../../../poc/configurations/types/SpecialContracts.js';
 import { MutableNumber } from '../../mutables/MutableNumber.js';
 
 export interface InternalContractCallParameters {

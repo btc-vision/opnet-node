@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 import { TransactionSorter } from '../../src/src/blockchain-indexer/processor/transaction/transaction-sorter/TransactionSorter.js';
 import { Transaction } from '../../src/src/blockchain-indexer/processor/transaction/Transaction.js';
 import { OPNetTransactionTypes } from '../../src/src/blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { OPNetConsensus } from '../../src/src/poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../src/src/poc/configurations/OPNetConsensus.js';
 
 describe('TransactionSorter', () => {
     const sorter = new TransactionSorter();

@@ -1,7 +1,7 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { VMStorage } from '../../../vm/storage/VMStorage.js';
 import { EpochManager } from './EpochManager.js';
-import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../poc/configurations/OPNetConsensus.js';
 
 export class EpochReindexer extends Logger {
     public readonly logColor: string = '#ff9900';

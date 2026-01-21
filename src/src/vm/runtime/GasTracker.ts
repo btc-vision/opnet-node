@@ -1,6 +1,6 @@
-import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 import { Address } from '@btc-vision/transaction';
-import { SpecialContract } from '../../poa/configurations/types/SpecialContracts.js';
+import { SpecialContract } from '../../poc/configurations/types/SpecialContracts.js';
 
 export class GasTracker {
     #gasUsed: bigint = 0n;

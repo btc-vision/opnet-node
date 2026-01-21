@@ -12,11 +12,11 @@ import { Chalk } from 'chalk';
 import { BlockchainInfoRepository } from '../db/repositories/BlockchainInfoRepository.js';
 import { Config } from '../config/Config.js';
 import { BitcoinRPC } from '@btc-vision/bitcoin-rpc';
-import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
-import { OPNetIdentity } from '../poa/identity/OPNetIdentity.js';
-import { AuthorityManager } from '../poa/configurations/manager/AuthorityManager.js';
-import { P2PVersion } from '../poa/configurations/P2PVersion.js';
-import { TrustedAuthority } from '../poa/configurations/manager/TrustedAuthority.js';
+import { OPNetConsensus } from '../poc/configurations/OPNetConsensus.js';
+import { OPNetIdentity } from '../poc/identity/OPNetIdentity.js';
+import { AuthorityManager } from '../poc/configurations/manager/AuthorityManager.js';
+import { P2PVersion } from '../poc/configurations/P2PVersion.js';
+import { TrustedAuthority } from '../poc/configurations/manager/TrustedAuthority.js';
 import fs from 'fs';
 import { SendMessageToThreadFunction } from '../threading/thread/Thread.js';
 

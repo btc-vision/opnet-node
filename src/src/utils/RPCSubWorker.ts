@@ -20,7 +20,7 @@ import {
 } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { Blockchain } from '../vm/Blockchain.js';
 import { VMMongoStorage } from '../vm/storage/databases/VMMongoStorage.js';
-import { OPNetConsensus } from '../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../poc/configurations/OPNetConsensus.js';
 import { Address, AddressMap, BufferHelper, PointerStorage } from '@btc-vision/transaction';
 import {
     CallRequestError,
@@ -30,7 +30,7 @@ import {
     ParsedSimulatedTransaction,
     SimulatedTransaction,
 } from '../api/json-rpc/types/interfaces/params/states/CallParams.js';
-import { TransactionOutputFlags } from '../poa/configurations/types/IOPNetConsensus.js';
+import { TransactionOutputFlags } from '../poc/configurations/types/IOPNetConsensus.js';
 
 class RPCManager extends Logger {
     public readonly logColor: string = '#00ff66';

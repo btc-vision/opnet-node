@@ -18,7 +18,7 @@ import {
     PointerStorageMap,
 } from '../../evaluated/EvaluatedResult.js';
 import { GasTracker } from '../GasTracker.js';
-import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../poc/configurations/OPNetConsensus.js';
 import { ContractInformation } from '../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { StrippedTransactionOutput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionOutput.js';
 import { StrippedTransactionInput } from '../../../blockchain-indexer/processor/transaction/inputs/TransactionInput.js';
@@ -30,8 +30,8 @@ import { RustContract } from '../../rust/RustContract.js';
 import {
     TransactionInputFlags,
     TransactionOutputFlags,
-} from '../../../poa/configurations/types/IOPNetConsensus.js';
-import { SpecialContract } from '../../../poa/configurations/types/SpecialContracts.js';
+} from '../../../poc/configurations/types/IOPNetConsensus.js';
+import { SpecialContract } from '../../../poc/configurations/types/SpecialContracts.js';
 import { MutableNumber } from '../../mutables/MutableNumber.js';
 
 export class ContractEvaluation implements ExecutionParameters {

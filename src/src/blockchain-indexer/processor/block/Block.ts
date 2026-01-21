@@ -29,7 +29,7 @@ import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { GenericTransaction } from '../transaction/transactions/GenericTransaction.js';
 import assert from 'node:assert';
 import { BlockGasPredictor, CalculatedBlockGas } from '../gas/BlockGasPredictor.js';
-import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../poc/configurations/OPNetConsensus.js';
 import { Binary, Long } from 'mongodb';
 import { FastStringMap } from '../../../utils/fast/FastStringMap.js';
 import { ContractEvaluation } from '../../../vm/runtime/classes/ContractEvaluation.js';

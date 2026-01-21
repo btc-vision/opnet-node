@@ -28,8 +28,8 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
 
     [ThreadTypes.P2P]: {
         maxInstance: 1,
-        target: './src/poa/PoCThread.js',
-        managerTarget: './src/poa/PoCThreadManager.js',
+        target: './src/poc/PoCThread.js',
+        managerTarget: './src/poc/PoCThreadManager.js',
     },
 
     [ThreadTypes.SSH]: {
@@ -40,14 +40,14 @@ export const ServicesConfigurations: { [key in ThreadTypes]: ThreaderConfigurati
 
     [ThreadTypes.MEMPOOL]: {
         maxInstance: Config.MEMPOOL.THREADS,
-        target: './src/poa/mempool/MempoolThread.js',
-        managerTarget: './src/poa/mempool/MempoolThreadManager.js',
+        target: './src/poc/mempool/MempoolThread.js',
+        managerTarget: './src/poc/mempool/MempoolThreadManager.js',
     },
 
     [ThreadTypes.MEMPOOL_MANAGER]: {
         maxInstance: 1,
-        target: './src/poa/mempool/bitcoin-mempool/thread/BitcoinMempoolThread.js',
-        managerTarget: './src/poa/mempool/bitcoin-mempool/thread/BitcoinMempoolManager.js',
+        target: './src/poc/mempool/bitcoin-mempool/thread/BitcoinMempoolThread.js',
+        managerTarget: './src/poc/mempool/bitcoin-mempool/thread/BitcoinMempoolManager.js',
     },
 
     [ThreadTypes.SYNCHRONISATION]: {

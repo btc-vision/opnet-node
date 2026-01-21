@@ -15,7 +15,7 @@ import { OPNetTransactionTypes } from './enums/OPNetTransactionTypes.js';
 import { StrippedTransactionInput, TransactionInput } from './inputs/TransactionInput.js';
 import { StrippedTransactionOutput, TransactionOutput } from './inputs/TransactionOutput.js';
 import { Address, BinaryWriter, TimeLockGenerator } from '@btc-vision/transaction';
-import { OPNetConsensus } from '../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../poc/configurations/OPNetConsensus.js';
 import { OPNetHeader } from './interfaces/OPNetHeader.js';
 import * as ecc from 'tiny-secp256k1';
 import { AddressCache } from '../AddressCache.js';

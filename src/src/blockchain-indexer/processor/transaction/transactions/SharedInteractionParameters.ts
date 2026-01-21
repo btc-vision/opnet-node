@@ -7,7 +7,7 @@ import {
 } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
 import { opcodes, payments } from '@btc-vision/bitcoin';
-import { OPNetConsensus } from '../../../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 import {
     Address,
     AddressMap,
@@ -19,7 +19,7 @@ import {
     MLDSASecurityLevel,
     QuantumBIP32Factory,
 } from '@btc-vision/transaction';
-import { SpecialContract } from '../../../../poa/configurations/types/SpecialContracts.js';
+import { SpecialContract } from '../../../../poc/configurations/types/SpecialContracts.js';
 import { TransactionOutput } from '../inputs/TransactionOutput.js';
 import { Submission } from '../features/Submission.js';
 import { timingSafeEqual } from 'node:crypto';

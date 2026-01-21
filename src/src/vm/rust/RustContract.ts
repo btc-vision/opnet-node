@@ -8,7 +8,7 @@ import { Blockchain } from '../Blockchain.js';
 import { RustContractBinding } from './RustContractBindings.js';
 import { BinaryWriter, SELECTOR_BYTE_LENGTH, U32_BYTE_LENGTH } from '@btc-vision/transaction';
 import { getChainId } from './ChainIdHex.js';
-import { OPNetConsensus } from '../../poa/configurations/OPNetConsensus.js';
+import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 
 process.on('uncaughtException', (error) => {
     console.log('Uncaught Exception thrown:', error);

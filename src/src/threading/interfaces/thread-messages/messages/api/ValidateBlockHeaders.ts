@@ -1,6 +1,6 @@
 import { BitcoinRPCThreadMessageType } from '../../../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
 import { BlockHeaderDocument } from '../../../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import { IBlockHeaderWitness } from '../../../../../poa/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
+import { IBlockHeaderWitness } from '../../../../../poc/networking/protobuf/packets/blockchain/common/BlockHeaderWitness.js';
 import { RPCMessageData } from './RPCMessage.js';
 
 export interface BlockDataAtHeightData {
