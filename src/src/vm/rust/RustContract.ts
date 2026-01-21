@@ -58,6 +58,7 @@ export class RustContract {
                 tStore: this.params.tStore,
                 call: this.params.call,
                 deployContractAtAddress: this.params.deployContractAtAddress,
+                updateFromAddress: this.params.updateFromAddress,
                 log: this.params.log,
                 emit: this.params.emit,
                 inputs: this.params.inputs,
@@ -252,6 +253,24 @@ export class RustContract {
             );
         } catch (e) {
             if (this.enableDebug) console.log('Error in setEnvironment', e);
+
+            const error = e as Error;
+            throw this.getError(error);
+        }
+    }
+
+    public async onUpdate(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponse>> {
+        if (this.enableDebug) console.log('Setting onUpdate', calldata);
+
+        try {
+            const result = await this.contractManager.onUpdate(
+                this.id,
+                Buffer.copyBytesFrom(calldata),
+            );
+
+            return this.toReadonlyObject(result);
+        } catch (e) {
+            if (this.enableDebug) console.log('Error in onUpdate', e);
 
             const error = e as Error;
             throw this.getError(error);

@@ -1,8 +1,4 @@
-import {
-    IOPNetConsensus,
-    IOPNetConsensusObj,
-    OPNetEnabledConfigs,
-} from './types/IOPNetConsensus.js';
+import { IOPNetConsensus, IOPNetConsensusObj, OPNetEnabledConfigs, } from './types/IOPNetConsensus.js';
 import { Consensus } from './consensus/Consensus.js';
 import { RoswellConsensus } from './consensus/RoswellConsensus.js';
 import { Logger } from '@btc-vision/bsi-common';
@@ -71,6 +67,16 @@ class OPNetConsensusConfiguration extends Logger {
         }
 
         return network;
+    }
+
+    public allowContractUpdates(): boolean {
+        if (!this.#consensus) {
+            throw new Error('Consensus not set.');
+        }
+
+        return this.#consensus.VM.CONSENSUS_RULES.containsFlag(
+            ConsensusRules.CONTRACT_UPDATES_ALLOWED,
+        );
     }
 
     public calculateCurrentEpoch(blockHeight: bigint): bigint {

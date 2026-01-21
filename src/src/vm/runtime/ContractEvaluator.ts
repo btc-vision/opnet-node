@@ -47,6 +47,7 @@ interface InternalCallParameters {
     readonly evaluation: ContractEvaluation;
     readonly calldata: Buffer;
     readonly isDeployment: boolean;
+    readonly isUpdate: boolean;
     readonly contractAddress: Address;
 }
 
@@ -130,6 +131,18 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [deployContractAtAddress]');
     }
 
+    public updateFromAddressJsFunction(
+        _address: Address,
+        _evaluation: ContractEvaluation,
+    ): Promise<
+        | {
+              bytecodeLength: number;
+          }
+        | undefined
+    > {
+        throw new Error('Method not implemented. [updateFromAddressJsFunction]');
+    }
+
     public getMLDSAPublicKey = (_address: Address): Promise<IMLDSAPublicKey | null> => {
         throw new Error('Method not implemented. [getMLDSAPublicKey]');
     };
@@ -185,6 +198,8 @@ export class ContractEvaluator extends Logger {
                 // We execute the method.
                 if (params.isDeployment) {
                     await this.onDeploy(evaluation);
+                } else if (params.isUpdate) {
+                    await this.onUpdate(evaluation);
                 } else {
                     await this.execute(evaluation);
                 }
@@ -399,6 +414,7 @@ export class ContractEvaluator extends Logger {
                 evaluation,
                 calldata: Buffer.copyBytesFrom(calldata),
                 isDeployment: false,
+                isUpdate: false,
                 contractAddress,
             });
 
@@ -448,6 +464,8 @@ export class ContractEvaluator extends Logger {
             externalCall: true,
 
             isDeployment: params.isDeployment,
+            isUpdate: params.isUpdate,
+
             blockHeight: evaluation.blockNumber,
             blockMedian: evaluation.blockMedian,
 
@@ -459,6 +477,8 @@ export class ContractEvaluator extends Logger {
             transactionHash: evaluation.transactionHash,
 
             contractDeployDepth: evaluation.contractDeployDepth,
+            contractUpdateDepth: evaluation.contractUpdateDepth,
+
             mldsaLoadCounter: evaluation.mldsaLoadCounter,
             memoryPagesUsed: evaluation.memoryPagesUsed,
 
@@ -545,6 +565,7 @@ export class ContractEvaluator extends Logger {
                 evaluation,
                 calldata,
                 isDeployment: true,
+                isUpdate: false,
                 contractAddress: deployResult.contractAddress,
             });
 
@@ -575,6 +596,81 @@ export class ContractEvaluator extends Logger {
                 evaluation.revert as Uint8Array,
             );
         }
+    }
+
+    private async updateContractFromAddressRaw(
+        data: Buffer,
+        evaluation: ContractEvaluation,
+    ): Promise<Buffer | Uint8Array> {
+        let usedGas: bigint = evaluation.gasUsed;
+
+        try {
+            evaluation.incrementContractUpdates();
+
+            const reader = new BinaryReader(data);
+
+            usedGas = reader.readU64();
+            evaluation.setGasUsed(usedGas);
+
+            const sourceAddress: Address = reader.readAddress();
+            const calldata: Buffer = Buffer.from(reader.readBytes(reader.bytesLeft()));
+
+            const updateResult = await this.updateFromAddressJsFunction(sourceAddress, evaluation);
+            if (!updateResult) {
+                throw new Error('OP_NET: Unable to update contract.');
+            }
+
+            if (updateResult.bytecodeLength === 0) {
+                throw new Error('OP_NET: Update failed, no bytecode found at source address.');
+            }
+
+            const internalResult = await this.internalCall({
+                evaluation,
+                calldata,
+                isDeployment: false,
+                isUpdate: true,
+                contractAddress: evaluation.contractAddress,
+            });
+
+            let evaluationGasUsed: bigint;
+            if (evaluation.specialContract && evaluation.specialContract.freeGas) {
+                evaluationGasUsed = 0n;
+            } else {
+                evaluationGasUsed = internalResult.gasUsed - usedGas;
+            }
+
+            return this.buildUpdateFromAddressResponse(
+                updateResult.bytecodeLength,
+                evaluationGasUsed,
+                internalResult.status,
+                internalResult.result,
+            );
+        } catch (e) {
+            evaluation.revert = e as Error;
+
+            const difference = evaluation.gasUsed - usedGas;
+            return this.buildUpdateFromAddressResponse(
+                0,
+                difference,
+                1,
+                evaluation.revert as Uint8Array,
+            );
+        }
+    }
+
+    private buildUpdateFromAddressResponse(
+        bytecodeLength: number,
+        usedGas: bigint,
+        status: number,
+        response: Uint8Array,
+    ): Uint8Array {
+        const writer = new BinaryWriter();
+        writer.writeU32(bytecodeLength);
+        writer.writeU64(usedGas);
+        writer.writeU32(status);
+        writer.writeBytes(response);
+
+        return writer.getBuffer();
     }
 
     private buildDeployFromAddressResponse(
@@ -740,6 +836,9 @@ export class ContractEvaluator extends Logger {
             deployContractAtAddress: async (data: Buffer) => {
                 return await this.deployContractFromAddressRaw(data, evaluation);
             },
+            updateFromAddress: async (data: Buffer) => {
+                return await this.updateContractFromAddressRaw(data, evaluation);
+            },
             log: (buffer: Buffer) => {
                 this.onDebug(buffer);
             },
@@ -815,6 +914,19 @@ export class ContractEvaluator extends Logger {
 
         try {
             result = await this.contractInstance.onDeploy(evaluation.calldata);
+        } catch (e) {
+            error = (await e) as Error;
+        }
+
+        return this.onExecutionResult(evaluation, result, error);
+    }
+
+    private async onUpdate(evaluation: ContractEvaluation): Promise<ExitDataResponse | undefined> {
+        let error: Error | undefined;
+        let result: ExitDataResponse | undefined;
+
+        try {
+            result = await this.contractInstance.onUpdate(evaluation.calldata);
         } catch (e) {
             error = (await e) as Error;
         }
