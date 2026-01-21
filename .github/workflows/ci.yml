@@ -22,12 +22,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
 
@@ -57,15 +57,17 @@ jobs:
     permissions:
       contents: write
       packages: write
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24.x
 
@@ -105,9 +107,16 @@ jobs:
           sha256sum "opnet-node-${VERSION}.tar.gz" > "opnet-node-${VERSION}.tar.gz.sha256"
           sha256sum "opnet-node-${VERSION}.zip" > "opnet-node-${VERSION}.zip.sha256"
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            opnet-node-${{ github.ref_name }}.tar.gz
+            opnet-node-${{ github.ref_name }}.zip
+
       - name: Generate changelog
         id: changelog
-        uses: mikepenz/release-changelog-builder-action@v5
+        uses: mikepenz/release-changelog-builder-action@v6
         with:
           configurationJson: |
             {
