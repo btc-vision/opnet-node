@@ -43,7 +43,7 @@ RUN apt-get update && apt-get install -y \
     && groupadd -r opnet && useradd -r -g opnet opnet
 
 # Create directories for config, data, and plugins
-RUN mkdir -p /app/config /app/data /app/plugins /app/build/src/config \
+RUN mkdir -p /app/config /app/data /app/plugins /app/build/config \
     && chown -R opnet:opnet /app
 
 # Copy built application from builder (with correct ownership)
@@ -55,7 +55,7 @@ COPY --from=builder --chown=opnet:opnet /app/package*.json ./
 COPY --from=builder --chown=opnet:opnet /app/src/config/btc.sample.conf /app/config/btc.sample.conf
 
 # Create symlink for config file location expected by the app
-RUN ln -sf /app/config/btc.conf /app/build/src/config/btc.conf
+RUN ln -sf /app/config/btc.conf /app/build/config/btc.conf
 
 # Expose ports
 # API
