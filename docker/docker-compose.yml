@@ -1,0 +1,67 @@
+services:
+  opnet-node:
+    image: ghcr.io/btc-vision/opnet-node:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: opnet-node
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-9000}:9000"       # API/WebSocket
+      - "${P2P_PORT:-9805}:9805"       # P2P network
+      - "${DOCS_PORT:-7000}:7000"      # Documentation (if enabled)
+      - "${SSH_PORT:-4800}:4800"       # SSH (if enabled)
+    volumes:
+      - ./config/btc.conf:/app/config/btc.conf:ro
+      - opnet-data:/app/data
+      - opnet-plugins:/app/plugins
+    environment:
+      - NODE_ENV=production
+    networks:
+      - opnet-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/v1/states/block/latest"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 4G
+
+  # MongoDB for OPNet (optional - use if you don't have external MongoDB)
+  mongodb:
+    image: mongo:7
+    container_name: opnet-mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodb-data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME:-opnet}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-opnet}
+    networks:
+      - opnet-network
+    profiles:
+      - with-mongodb
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  opnet-data:
+  opnet-plugins:
+  mongodb-data:
+
+networks:
+  opnet-network:
+    driver: bridge

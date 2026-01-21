@@ -37,7 +37,7 @@ manage and execute smart contracts on the Bitcoin or any other UTXO-based blockc
 
 [![X](https://img.shields.io/badge/X-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/opnetbtc)
 [![Telegram](https://img.shields.io/badge/Telegram-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/opnetbtc)
-[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/opnet)
+[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/opnet)
 
 ## Table of Contents
 
@@ -282,4 +282,4 @@ See [SECURITY.md](SECURITY.md) for full details on:
 
 ## License
 
-View the license by clicking [here](https://github.com/btc-vision/bsi/blob/main/LICENSE.md).
+View the license by clicking [here](LICENSE).
