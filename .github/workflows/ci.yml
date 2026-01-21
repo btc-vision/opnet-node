@@ -1,0 +1,335 @@
+name: CI for OPNet Node
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [24.x, 25.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup test config
+        run: cp src/config/btc.sample.conf src/config/btc.conf
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (test)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: false
+          tags: opnet-node:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup config
+        run: cp src/config/btc.sample.conf src/config/btc.conf
+
+      - name: Build
+        run: npm run build
+
+      - name: Create release tarball
+        run: |
+          VERSION="${{ github.ref_name }}"
+          RELEASE_DIR="opnet-node-${VERSION}"
+          mkdir -p "${RELEASE_DIR}"
+
+          # Copy built source and necessary files
+          cp -r build/src "${RELEASE_DIR}/"
+          cp build/index.js "${RELEASE_DIR}/"
+          cp build/index.d.ts "${RELEASE_DIR}/" 2>/dev/null || true
+          cp package.json "${RELEASE_DIR}/"
+          cp package-lock.json "${RELEASE_DIR}/"
+          cp README.md "${RELEASE_DIR}/"
+          cp LICENSE "${RELEASE_DIR}/" 2>/dev/null || true
+          cp -r config "${RELEASE_DIR}/" 2>/dev/null || true
+
+          # Create tarball and zip
+          tar -czvf "opnet-node-${VERSION}.tar.gz" "${RELEASE_DIR}"
+          zip -r "opnet-node-${VERSION}.zip" "${RELEASE_DIR}"
+
+          # Generate checksums
+          sha256sum "opnet-node-${VERSION}.tar.gz" > "opnet-node-${VERSION}.tar.gz.sha256"
+          sha256sum "opnet-node-${VERSION}.zip" > "opnet-node-${VERSION}.zip.sha256"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            opnet-node-${{ github.ref_name }}.tar.gz
+            opnet-node-${{ github.ref_name }}.zip
+
+      - name: Generate changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v6
+        with:
+          configurationJson: |
+            {
+              "categories": [
+                {
+                  "title": "### Breaking Changes",
+                  "labels": ["breaking", "breaking-change", "BREAKING-CHANGE"]
+                },
+                {
+                  "title": "### Features",
+                  "labels": ["feature", "feat", "enhancement"]
+                },
+                {
+                  "title": "### Bug Fixes",
+                  "labels": ["bug", "fix", "bugfix"]
+                },
+                {
+                  "title": "### Performance",
+                  "labels": ["performance", "perf"]
+                },
+                {
+                  "title": "### Security",
+                  "labels": ["security"]
+                },
+                {
+                  "title": "### Consensus",
+                  "labels": ["consensus"]
+                },
+                {
+                  "title": "### Documentation",
+                  "labels": ["documentation", "docs"]
+                },
+                {
+                  "title": "### Dependencies",
+                  "labels": ["dependencies", "deps"]
+                },
+                {
+                  "title": "### Other Changes",
+                  "labels": []
+                }
+              ],
+              "sort": {
+                "order": "ASC",
+                "on_property": "mergedAt"
+              },
+              "template": "#{{CHANGELOG}}",
+              "pr_template": "- #{{TITLE}} ([#{{NUMBER}}](#{{URL}})) by @#{{AUTHOR}}",
+              "empty_template": "- No changes",
+              "max_tags_to_fetch": 200,
+              "max_pull_requests": 200,
+              "max_back_track_time_days": 365,
+              "tag_resolver": {
+                "method": "semver"
+              }
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update CHANGELOG.md
+        env:
+          CHANGELOG_CONTENT: ${{ steps.changelog.outputs.changelog }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          DATE=$(date +%Y-%m-%d)
+          NEW_HEADER="## [$TAG] - $DATE"
+
+          printf '%s\n' "$CHANGELOG_CONTENT" > /tmp/new_entry.md
+
+          if [ -f CHANGELOG.md ]; then
+            {
+              head -n 1 CHANGELOG.md
+              echo ""
+              echo "$NEW_HEADER"
+              echo ""
+              cat /tmp/new_entry.md
+              echo ""
+              tail -n +2 CHANGELOG.md
+            } > /tmp/CHANGELOG_NEW.md
+            mv /tmp/CHANGELOG_NEW.md CHANGELOG.md
+          else
+            {
+              echo "# Changelog"
+              echo ""
+              echo "All notable changes to this project will be documented in this file."
+              echo ""
+              echo "This changelog is automatically generated from merged pull requests."
+              echo ""
+              echo "$NEW_HEADER"
+              echo ""
+              cat /tmp/new_entry.md
+            } > CHANGELOG.md
+          fi
+
+          rm -f /tmp/new_entry.md
+
+      - name: Commit changelog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          git add CHANGELOG.md
+          git diff --staged --quiet || git commit -m "docs: update CHANGELOG.md for ${{ github.ref_name }}"
+          git push origin main || echo "No changes to push or push failed"
+
+      - name: Determine if prerelease
+        id: prerelease
+        run: |
+          VERSION="${{ github.ref_name }}"
+          if [[ "$VERSION" == *"-alpha"* ]] || [[ "$VERSION" == *"-beta"* ]] || [[ "$VERSION" == *"-rc"* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            ${{ steps.changelog.outputs.changelog }}
+
+            ## Installation
+
+            ### From source tarball
+            ```bash
+            tar -xzf opnet-node-${{ github.ref_name }}.tar.gz
+            cd opnet-node-${{ github.ref_name }}
+            npm install --production
+            npm start
+            ```
+
+            ### From Docker
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+
+            # Copy and configure
+            cp docker/config/btc.conf.example docker/config/btc.conf
+            # Edit docker/config/btc.conf with your settings
+
+            # Run with docker-compose
+            cd docker && docker compose up -d
+
+            # Or run standalone
+            docker run -p 9000:9000 -p 9805:9805 -v $(pwd)/docker/config/btc.conf:/app/config/btc.conf ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ```
+
+            ## Checksums
+            See `.sha256` files for verification.
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease == 'true' }}
+          generate_release_notes: false
+          files: |
+            opnet-node-${{ github.ref_name }}.tar.gz
+            opnet-node-${{ github.ref_name }}.tar.gz.sha256
+            opnet-node-${{ github.ref_name }}.zip
+            opnet-node-${{ github.ref_name }}.zip.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64

@@ -1,7 +1,7 @@
 {
     "type": "module",
     "name": "@btc-vision/opnet-node",
-    "version": "0.0.1",
+    "version": "1.0.0-alpha.0",
     "description": "Bitcoin Smart Contracts Node",
     "main": "build/index.js",
     "scripts": {
@@ -47,7 +47,7 @@
         "@btc-vision/plugin-sdk": "^1.0.0",
         "@btc-vision/post-quantum": "^0.5.3",
         "@btc-vision/rust-merkle-tree": "^0.0.5",
-        "@btc-vision/transaction": "^1.7.31",
+        "@btc-vision/transaction": "^1.8.0-alpha.2",
         "@btc-vision/uwebsockets.js": "^20.57.0",
         "@chainsafe/libp2p-noise": "^17.0.0",
         "@chainsafe/libp2p-quic": "^1.1.8",
@@ -70,8 +70,8 @@
         "@multiformats/multiaddr": "^13.0.1",
         "@noble/curves": "^2.0.1",
         "@noble/secp256k1": "^2.3.0",
-        "@typescript-eslint/eslint-plugin": "^8.53.0",
-        "@typescript-eslint/parser": "^8.53.0",
+        "@typescript-eslint/eslint-plugin": "^8.53.1",
+        "@typescript-eslint/parser": "^8.53.1",
         "asyncapi-validator": "^5.1.1",
         "bignumber.js": "^9.3.1",
         "bip174": "^2.1.1",
@@ -96,7 +96,7 @@
         "tiny-secp256k1": "^2.2.4",
         "toml": "^3.0.0",
         "typescript": "^5.9.3",
-        "typescript-eslint": "^8.53.0"
+        "typescript-eslint": "^8.53.1"
     },
     "devDependencies": {
         "@types/cors": "^2.8.19",

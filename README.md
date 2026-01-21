@@ -1,4 +1,4 @@
-# OP_NET - Node
+# OP_NET - Node (1.0.0-alpha.0)
 
 ![Bitcoin](https://img.shields.io/badge/Bitcoin-000?style=for-the-badge&logo=bitcoin&logoColor=white)
 ![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
@@ -11,24 +11,33 @@
 ![ESLint](https://img.shields.io/badge/ESLint-4B3263?style=for-the-badge&logo=eslint&logoColor=white)
 ![Swagger](https://img.shields.io/badge/-Swagger-%23Clojure?style=for-the-badge&logo=swagger&logoColor=white)
 
+<p align="center">
+  <a href="https://verichains.io">
+    <img src="https://img.shields.io/badge/Security%20Audit-Verichains-4C35E0?style=for-the-badge" alt="Audited by Verichains"/>
+  </a>
+</p>
+
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
+[![Security Audit](https://img.shields.io/badge/audit-Verichains-4C35E0?style=flat-square)](https://verichains.io)
 
 ## ⚠️ Important Notice ⚠️
 
-> **Main is the dev branch. Use releases for production.**
->
-> This repository is currently under development and is not yet ready for production use. We are actively working on
-> implementing the features and functionalities outlined in this document. Please check back regularly for updates and
-> progress reports.
->
-> **Mainnet usage is prohibited until the official release of OP\_NET. All actions taken on any main network will be
-discarded on release.**
+> Security audit in final review. Use releases for deployments, main branch is for development.
+
+| Network     | Status           |
+|-------------|------------------|
+| **Mainnet** | Alpha (NOT LIVE) |
+| **Testnet** | Ready            |
 
 ## Introduction
 
 Welcome to the official **OP\_NET Node** GitHub repository. This repository contains the source code and documentation
 for the OPNet Node, an essential component of a decentralized system that leverages Taproot/SegWit/Legacy technology to
 manage and execute smart contracts on the Bitcoin or any other UTXO-based blockchains.
+
+[![X](https://img.shields.io/badge/X-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/opnetbtc)
+[![Telegram](https://img.shields.io/badge/Telegram-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/opnetbtc)
+[![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/opnet)
 
 ## Table of Contents
 
@@ -45,6 +54,7 @@ manage and execute smart contracts on the Bitcoin or any other UTXO-based blockc
         - [Proof of Calculation (PoC): Deterministic State](#proof-of-calculation-poc-deterministic-state)
         - [Proof of Work (PoW): Epoch Finality](#proof-of-work-pow-epoch-finality)
 - [Potential Issues](#potential-issues)
+- [Security & Audit](#security--audit)
 - [License](#license)
 
 ## Getting Started
@@ -63,10 +73,10 @@ curl -fsSL https://autosetup.opnet.org/autoconfig.sh -o autoconfig.sh && sudo -E
 
 ### Prerequisites
 
-- **Node.js** version 24.x or higher (we recommend using Node.js 22.x).
+- **Node.js** version 24.x or higher.
 - **Bitcoin Node**: A fully synced Bitcoin Core node with RPC access.
-- **MongoDB**
-- **Rust**
+- **MongoDB** 8.0 or higher.
+- **Rust** programming language installed.
 
 ### Installation (Development)
 
@@ -96,19 +106,11 @@ curl -fsSL https://autosetup.opnet.org/autoconfig.sh -o autoconfig.sh && sudo -E
    npm install
    ```
 
-5. **Install MongoDB in a replica or sharded cluster mode**:
-
-   Visit the [MongoDB documentation](https://docs.mongodb.com/manual/tutorial/deploy-replica-set/) for instructions.
-
-   > *Why is this needed?* To use MongoDB transactions, a replica set or sharded cluster must be enabled. This is
-   crucial for the correct operation of the node, allowing rollback of transactions in case of errors. Refer to our
-   MongoDB setup guide for more details.
-
-6. **Configure your node**:
+5. **Configure your node**:
 
    Adjust the variables in the configuration file located in the `config/` directory to suit your needs.
 
-7. **Start the node**:
+6. **Start the node**:
 
    ```bash
    npm start
@@ -253,6 +255,31 @@ If you have Python 3.12 installed, you may encounter issues. Install `setuptools
 py -3 -m pip install setuptools
 ```
 
+## Security & Audit
+
+<p>
+  <a href="https://verichains.io">
+    <img src="https://raw.githubusercontent.com/btc-vision/contract-logo/refs/heads/main/public-assets/verichains.png" alt="Verichains" width="100"/>
+  </a>
+</p>
+
+| Component  | Status       | Auditor                             |
+|------------|--------------|-------------------------------------|
+| opnet-node | Final Review | [Verichains](https://verichains.io) |
+
+### Reporting Vulnerabilities
+
+**DO NOT** open public GitHub issues for security vulnerabilities.
+
+Report vulnerabilities privately
+via [GitHub Security Advisories](https://github.com/btc-vision/opnet-node/security/advisories/new).
+
+See [SECURITY.md](SECURITY.md) for full details on:
+
+- Supported versions
+- Security scope
+- Response timelines
+
 ## License
 
-View the license by clicking [here](https://github.com/btc-vision/bsi/blob/main/LICENSE.md).
+View the license by clicking [here](LICENSE).
