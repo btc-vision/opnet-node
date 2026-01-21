@@ -304,9 +304,12 @@ export class VMManager extends Logger {
                 allowCached: false,
                 externalCall: false,
                 isDeployment: false,
+                isUpdate: false,
 
                 callStack: undefined,
                 contractDeployDepth: new MutableNumber(),
+                contractUpdateDepth: new MutableNumber(),
+
                 mldsaLoadCounter: new MutableNumber(),
 
                 blockHash: blockHash,
@@ -411,12 +414,16 @@ export class VMManager extends Logger {
 
                 storage: new AddressMap(),
                 preloadStorage: new AddressMap(),
+
                 isDeployment: false,
+                isUpdate: false,
 
                 callStack: undefined,
                 allowCached: false,
                 externalCall: false,
+
                 contractDeployDepth: new MutableNumber(),
+                contractUpdateDepth: new MutableNumber(),
                 mldsaLoadCounter: new MutableNumber(),
 
                 inputs: interactionTransaction.strippedInputs,
@@ -517,6 +524,7 @@ export class VMManager extends Logger {
                 memoryPagesUsed: 0n,
 
                 contractDeployDepth: new MutableNumber(1),
+                contractUpdateDepth: new MutableNumber(),
                 mldsaLoadCounter: new MutableNumber(),
 
                 deployedContracts: deployedContracts,
@@ -524,6 +532,7 @@ export class VMManager extends Logger {
                 touchedAddresses: undefined,
 
                 isDeployment: true,
+                isUpdate: false,
 
                 inputs: contractDeploymentTransaction.strippedInputs,
                 outputs: contractDeploymentTransaction.strippedOutputs,
@@ -931,6 +940,7 @@ export class VMManager extends Logger {
             transactionHash: params.transactionHash,
 
             contractDeployDepth: params.contractDeployDepth,
+            contractUpdateDepth: params.contractUpdateDepth,
             mldsaLoadCounter: params.mldsaLoadCounter,
 
             deployedContracts: params.deployedContracts,
@@ -940,7 +950,9 @@ export class VMManager extends Logger {
             storage: params.storage,
             preloadStorage: params.preloadStorage,
             callStack: params.callStack,
+
             isDeployment: params.isDeployment || false,
+            isUpdate: params.isUpdate || false,
 
             inputs: params.inputs,
             outputs: params.outputs,

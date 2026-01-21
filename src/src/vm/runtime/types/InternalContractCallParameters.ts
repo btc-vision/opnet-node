@@ -32,6 +32,7 @@ export interface InternalContractCallParameters {
     readonly blockMedian: bigint;
 
     readonly contractDeployDepth: MutableNumber | undefined;
+    readonly contractUpdateDepth: MutableNumber | undefined;
 
     readonly callStack: AddressStack | undefined;
     allowCached?: boolean;
@@ -49,6 +50,7 @@ export interface InternalContractCallParameters {
     readonly serializedOutputs: Uint8Array | undefined;
 
     readonly isDeployment: boolean;
+    readonly isUpdate: boolean;
 
     readonly accessList?: AccessList;
     readonly preloadStorageList?: AddressMap<Uint8Array[]>;
@@ -74,6 +76,7 @@ export interface ExecutionParameters {
     readonly gasTracker: GasTracker;
 
     readonly contractDeployDepth: MutableNumber | undefined;
+    readonly contractUpdateDepth: MutableNumber | undefined;
     readonly externalCall: boolean;
 
     readonly storage: AddressMap<PointerStorage>;
@@ -85,7 +88,9 @@ export interface ExecutionParameters {
 
     readonly memoryPagesUsed: bigint | undefined;
     readonly mldsaLoadCounter: MutableNumber;
+
     readonly isDeployment: boolean;
+    readonly isUpdate: boolean;
 
     readonly inputs: StrippedTransactionInput[];
     readonly outputs: StrippedTransactionOutput[];

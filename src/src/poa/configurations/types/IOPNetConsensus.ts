@@ -170,6 +170,11 @@ export interface IOPNetConsensus<T extends Consensus> {
         /** The maximum amount of contract a transaction can deploy */
         readonly MAXIMUM_DEPLOYMENT_DEPTH: number;
 
+        /**
+         * The maximum amount of contract updates a transaction can perform
+         */
+        readonly MAXIMUM_UPDATE_DEPTH: number;
+
         /** The maximum amount of calls possible in a transaction */
         readonly MAXIMUM_CALL_DEPTH: number;
 

@@ -92,6 +92,7 @@ export class EncryptemServer extends Logger {
         if (!(this.#clientPublicKey && this.#serverPrivateKey && this.#clientSignaturePublicKey)) {
             throw new Error('Decryption failed. Client public key or server private key is null.');
         }
+
         const auth: Buffer = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
         const signature: Buffer = Buffer.from(msg.slice(auth.length, auth.length + 64));
         const data: Buffer = Buffer.from(msg.slice(auth.length + 64, msg.length));
@@ -178,6 +179,7 @@ export class EncryptemServer extends Logger {
         const decryptedMessage = this.sodium.sodium_malloc(
             cipher.length - this.sodium.crypto_box_MACBYTES,
         );
+
         this.sodium.crypto_box_open_easy(
             decryptedMessage,
             cipher,
