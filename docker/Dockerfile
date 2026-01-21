@@ -19,7 +19,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY package*.json ./
 
 # Install all dependencies (including dev for build)
-RUN npm ci
+RUN npm install
 
 # Copy source files
 COPY . .
