@@ -12,7 +12,7 @@ import { ConsensusRules } from '../../../vm/consensus/ConsensusRules.js';
 
 const RoswellConsensusRules: ConsensusRules = new ConsensusRules();
 RoswellConsensusRules.insertFlag(ConsensusRules.UNSAFE_QUANTUM_SIGNATURES_ALLOWED);
-RoswellConsensusRules.insertFlag(ConsensusRules.CONTRACT_UPDATES_ALLOWED);
+// RoswellConsensusRules.insertFlag(ConsensusRules.CONTRACT_UPDATES_ALLOWED);
 
 export const RoswellConsensus: IOPNetConsensus<Consensus.Roswell> = {
     /** Information about the consensus */
