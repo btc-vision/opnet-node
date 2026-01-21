@@ -59,10 +59,14 @@ RUN mkdir -p /app/build/src/config \
     && ln -sf /app/config/btc.conf /app/build/src/config/btc.conf
 
 # Expose ports
-EXPOSE 9000  # API
-EXPOSE 9805  # P2P
-EXPOSE 7000  # Docs
-EXPOSE 4800  # SSH
+# API
+EXPOSE 9000
+# P2P
+EXPOSE 9805
+# Docs
+EXPOSE 7000
+# SSH
+EXPOSE 4800
 
 # Set production environment
 ENV NODE_ENV=production
