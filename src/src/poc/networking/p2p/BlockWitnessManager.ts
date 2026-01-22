@@ -669,7 +669,7 @@ export class BlockWitnessManager extends Logger {
     ): Buffer {
         const generatedChecksum = Buffer.concat([
             Buffer.from(data.blockHash, 'hex'),
-            Buffer.from(data.previousBlockHash || '', 'hex'),
+            Buffer.from(data.previousBlockHash || '', 'hex'), // Will generate empty buffer if genesis block
             Buffer.from(data.checksumHash.replace('0x', ''), 'hex'),
             Buffer.from(data.previousBlockChecksum.replace('0x', ''), 'hex'),
         ]);

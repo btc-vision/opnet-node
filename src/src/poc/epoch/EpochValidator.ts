@@ -1,10 +1,7 @@
 import { DataConverter, Logger } from '@btc-vision/bsi-common';
 import { Binary } from 'mongodb';
 import crypto from 'crypto';
-import {
-    ITargetEpochDocument,
-    PendingTargetEpoch,
-} from '../../db/documents/interfaces/ITargetEpochDocument.js';
+import { ITargetEpochDocument, PendingTargetEpoch, } from '../../db/documents/interfaces/ITargetEpochDocument.js';
 import { VMStorage } from '../../vm/storage/VMStorage.js';
 import { OPNetConsensus } from '../configurations/OPNetConsensus.js';
 import { SHA1 } from '../../utils/SHA1.js';
@@ -12,7 +9,7 @@ import { stringToBuffer } from '../../utils/StringToBuffer.js';
 
 export interface EpochValidationParams {
     readonly epochNumber: bigint;
-    readonly targetHash: Buffer;
+    readonly checksumRoot: Buffer;
     readonly salt: Buffer;
     readonly mldsaPublicKey: Buffer;
     readonly graffiti?: Buffer;
@@ -30,7 +27,7 @@ export interface EpochValidationResult {
 
 interface ParamsToConvert {
     epochNumber: string;
-    targetHash: string;
+    checksumRoot: string;
     salt: string;
     mldsaPublicKey: string;
     graffiti?: string;
@@ -47,7 +44,7 @@ export class EpochValidator extends Logger {
     public static hexToValidationParams(params: ParamsToConvert): EpochValidationParams {
         return {
             epochNumber: BigInt(params.epochNumber),
-            targetHash: stringToBuffer(params.targetHash),
+            checksumRoot: stringToBuffer(params.checksumRoot),
             salt: stringToBuffer(params.salt),
             mldsaPublicKey: stringToBuffer(params.mldsaPublicKey),
             graffiti: params.graffiti ? stringToBuffer(params.graffiti) : undefined,
@@ -131,20 +128,20 @@ export class EpochValidator extends Logger {
             }
 
             // Verify the target hash matches the epoch
-            if (!this.verifyTargetHash(epoch, params.targetHash)) {
+            if (!this.verifyChecksumRoot(epoch, params.checksumRoot)) {
                 return {
                     valid: false,
                     matchingBits: 0,
                     hash: Buffer.alloc(0),
                     targetPattern: Buffer.alloc(0),
                     challenge: Buffer.alloc(0),
-                    message: `Target hash does not match epoch. Expected: ${epoch.target.toString('hex')}, got: ${params.targetHash.toString('hex')}`,
+                    message: `Checksum root does not match epoch. Expected: ${epoch.checksumRoot.toString('hex')}, got: ${params.checksumRoot.toString('hex')}`,
                 };
             }
 
             // Calculate the preimage
             const solution = EpochValidator.calculatePreimage(
-                epoch.target,
+                epoch.checksumRoot,
                 params.mldsaPublicKey,
                 params.salt,
             );
@@ -265,7 +262,7 @@ export class EpochValidator extends Logger {
      * Calculate submission hash for unique identification
      */
     public calculateSubmissionHash(params: EpochValidationParams): string {
-        const data = `${params.epochNumber}:${params.targetHash.toString('hex')}:${params.salt.toString('hex')}:${params.mldsaPublicKey.toString('hex')}`;
+        const data = `${params.epochNumber}:${params.checksumRoot.toString('hex')}:${params.salt.toString('hex')}:${params.mldsaPublicKey.toString('hex')}`;
         return crypto.createHash('sha256').update(data).digest('hex');
     }
 
@@ -286,11 +283,11 @@ export class EpochValidator extends Logger {
             );
         }
 
-        const target = stringToBuffer(blockHeader.checksumRoot);
-        const targetHash = SHA1.hashBuffer(target);
+        const checksumRoot = stringToBuffer(blockHeader.checksumRoot);
+        const targetHash = SHA1.hashBuffer(checksumRoot);
 
         return {
-            target,
+            checksumRoot: checksumRoot,
             targetHash: targetHash,
             nextEpochNumber: epochNumber,
         };
@@ -299,9 +296,12 @@ export class EpochValidator extends Logger {
     /**
      * Verify the target hash matches the epoch
      */
-    private verifyTargetHash(epoch: PendingTargetEpoch, targetHash: Buffer): boolean {
-        const epochTargetHash = epoch.target instanceof Binary ? epoch.target.buffer : epoch.target;
+    private verifyChecksumRoot(epoch: PendingTargetEpoch, targetHash: Buffer): boolean {
+        const epochTargetHash = epoch.checksumRoot;
+        if (!Buffer.isBuffer(epochTargetHash)) {
+            throw new Error('Epoch checksumRoot is not a Buffer');
+        }
 
-        return Buffer.isBuffer(epochTargetHash) && epochTargetHash.equals(targetHash);
+        return epochTargetHash.equals(targetHash);
     }
 }

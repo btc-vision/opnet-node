@@ -12,11 +12,15 @@ export interface ITransactionInput {
     readonly transactionInWitness: Buffer[];
 }
 
-export interface ITransactionInputWithoutWitnesses
-    extends Omit<ITransactionInput, 'transactionInWitness'> {}
+export interface ITransactionInputWithoutWitnesses extends Omit<
+    ITransactionInput,
+    'transactionInWitness'
+> {}
 
-export interface APIDocumentInput
-    extends Omit<ITransactionInputWithoutWitnesses, 'originalTransactionId'> {
+export interface APIDocumentInput extends Omit<
+    ITransactionInputWithoutWitnesses,
+    'originalTransactionId'
+> {
     readonly originalTransactionId: string | undefined;
 }
 
@@ -56,7 +60,7 @@ export class TransactionInput implements ITransactionInput {
     private readonly coinbase: Buffer | undefined = undefined;
 
     constructor(data: VIn) {
-        this.originalTransactionId = Buffer.from(data.txid || '', 'hex') || Buffer.alloc(32);
+        this.originalTransactionId = Buffer.from(data.txid, 'hex') || Buffer.alloc(32);
         this.outputTransactionIndex = data.vout;
 
         this.scriptSignature = data.scriptSig;

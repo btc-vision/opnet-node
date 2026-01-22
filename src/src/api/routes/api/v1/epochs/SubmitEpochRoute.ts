@@ -23,6 +23,9 @@ import {
 } from '@btc-vision/transaction';
 import { isEmptyBuffer } from '../../../../../utils/BufferUtils.js';
 
+// Validate that all strings contain only valid hex characters
+const hexRegex = /^[0-9a-fA-F]+$/;
+
 export class SubmitEpochRoute extends Route<
     Routes.SUBMIT_EPOCH,
     JSONRpcMethods.SUBMIT_EPOCH,
@@ -149,22 +152,19 @@ export class SubmitEpochRoute extends Route<
         }
 
         // Target hash validation: must be 20 bytes (40 hex characters)
-        if (!params.targetHash || typeof params.targetHash !== 'string') {
+        if (!params.checksumRoot || typeof params.checksumRoot !== 'string') {
             throw new Error('Target hash must be a hex string');
         }
 
-        const targetHashHex = params.targetHash.startsWith('0x')
-            ? params.targetHash.slice(2)
-            : params.targetHash;
+        const checksumRootHex = params.checksumRoot.startsWith('0x')
+            ? params.checksumRoot.slice(2)
+            : params.checksumRoot;
 
-        if (targetHashHex.length !== 64) {
+        if (checksumRootHex.length !== 64) {
             throw new Error(
-                `Target hash must be 32 bytes (64 hex characters). Received ${targetHashHex.length} characters`,
+                `Checksum root hash must be 32 bytes (64 hex characters). Received ${checksumRootHex.length} characters`,
             );
         }
-
-        // Validate that all strings contain only valid hex characters
-        const hexRegex = /^[0-9a-fA-F]+$/;
 
         if (!hexRegex.test(publicKeyHex)) {
             throw new Error('Public key contains invalid hex characters');
@@ -174,7 +174,7 @@ export class SubmitEpochRoute extends Route<
             throw new Error('Salt contains invalid hex characters');
         }
 
-        if (!hexRegex.test(targetHashHex)) {
+        if (!hexRegex.test(checksumRootHex)) {
             throw new Error('Target hash contains invalid hex characters');
         }
 
@@ -245,7 +245,7 @@ export class SubmitEpochRoute extends Route<
         // Convert to validation params with block height
         const validationParams = EpochValidator.hexToValidationParams({
             epochNumber: validatedParams.epochNumber,
-            targetHash: validatedParams.targetHash,
+            checksumRoot: validatedParams.checksumRoot,
             salt: validatedParams.salt,
             mldsaPublicKey: validatedParams.mldsaPublicKey,
             graffiti: validatedParams.graffiti,
@@ -260,7 +260,7 @@ export class SubmitEpochRoute extends Route<
             throw new Error('MLDSA public key cannot be empty');
         }
 
-        if (isEmptyBuffer(validationParams.targetHash)) {
+        if (isEmptyBuffer(validationParams.checksumRoot)) {
             throw new Error('Target hash cannot be empty');
         }
 
@@ -419,7 +419,7 @@ export class SubmitEpochRoute extends Route<
             throw new Error('MLDSA public key is required');
         }
 
-        if (!params.targetHash) {
+        if (!params.checksumRoot) {
             throw new Error('Target hash is required');
         }
 

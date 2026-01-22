@@ -278,6 +278,7 @@ export class EpochMerkleTree {
 
     public static epochDataToBytes(epochData: EpochData): Uint8Array {
         const baseSize = 64 + 8 + 8 + 8 + 32 + 32 + 8 + 32;
+
         // mldsaPublicKey(32) + legacyPublicKey(32) + matchingBits(2) + salt(32) + solutionHash(20) + graffiti
         const winnerSize = epochData.winner
             ? 32 + 32 + 2 + 32 + 20 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH

@@ -47,6 +47,12 @@ export class EpochManager extends Logger {
 
     private readonly epochValidator: EpochValidator;
 
+    public constructor(private readonly storage: VMStorage) {
+        super();
+
+        this.epochValidator = new EpochValidator(this.storage);
+    }
+
     /**
      * Callback to send messages to other threads
      * Assigned by BlockIndexer
@@ -57,12 +63,6 @@ export class EpochManager extends Logger {
     ) => Promise<ThreadData | null> = () => {
         throw new Error('sendMessageToThread not implemented.');
     };
-
-    public constructor(private readonly storage: VMStorage) {
-        super();
-
-        this.epochValidator = new EpochValidator(this.storage);
-    }
 
     public async updateEpoch(task: IndexingTask): Promise<void> {
         const currentHeight = task.tip;
@@ -100,9 +100,10 @@ export class EpochManager extends Logger {
 
     public async getPendingEpochTarget(currentEpoch: bigint): Promise<PendingTargetEpoch> {
         if (currentEpoch === 0n) {
+            const target = Buffer.alloc(32);
             return {
-                target: Buffer.alloc(32),
-                targetHash: SHA1.hashBuffer(Buffer.alloc(32)),
+                checksumRoot: target,
+                targetHash: SHA1.hashBuffer(target),
                 nextEpochNumber: 0n,
             };
         }
@@ -136,7 +137,7 @@ export class EpochManager extends Logger {
 
         // Reuse the static calculatePreimage method from EpochValidator
         const preimage = EpochValidator.calculatePreimage(
-            pendingTarget.target,
+            pendingTarget.checksumRoot,
             submission.mldsaPublicKey,
             submission.salt,
         );
@@ -185,45 +186,6 @@ export class EpochManager extends Logger {
         };
     }
 
-    private createEpoch(epoch: IEpoch): IEpochDocument {
-        return {
-            epochHash: new Binary(epoch.epochHash),
-            epochRoot: new Binary(epoch.epochRoot),
-            epochNumber: DataConverter.toDecimal128(
-                epoch.startBlock / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH,
-            ),
-            targetHash: new Binary(epoch.targetHash),
-            startBlock: DataConverter.toDecimal128(epoch.startBlock),
-            endBlock: DataConverter.toDecimal128(
-                epoch.startBlock + OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n,
-            ),
-            difficultyScaled: EpochDifficultyConverter.bitsToScaledDifficulty(
-                epoch.solutionBits,
-            ).toString(),
-            proposer: {
-                solution: new Binary(epoch.solution),
-                mldsaPublicKey: new Binary(epoch.mldsaPublicKey),
-                legacyPublicKey: new Binary(epoch.legacyPublicKey),
-                salt: new Binary(epoch.salt),
-                graffiti: epoch.graffiti ? new Binary(epoch.graffiti) : undefined,
-            },
-            proofs: epoch.proofs.map((proof) => new Binary(proof)),
-        };
-    }
-
-    private async getPreviousEpochHash(epochNumber: bigint): Promise<Buffer> {
-        if (epochNumber === 0n) {
-            return Buffer.alloc(32);
-        }
-
-        const epoch = await this.storage.getEpochByNumber(epochNumber - 1n);
-        if (!epoch) {
-            throw new Error(`No epoch found for number ${epochNumber - 1n}`);
-        }
-
-        return Buffer.from(epoch.epochHash.buffer);
-    }
-
     public async finalizeEpochCompletion(epochNumber: bigint): Promise<void> {
         if (!OPNetConsensus.consensus.EPOCH.ENABLED) {
             return;
@@ -270,6 +232,45 @@ export class EpochManager extends Logger {
             attestationChecksumRoot,
             miningTarget,
         );
+    }
+
+    private createEpoch(epoch: IEpoch): IEpochDocument {
+        return {
+            epochHash: new Binary(epoch.epochHash),
+            epochRoot: new Binary(epoch.epochRoot),
+            epochNumber: DataConverter.toDecimal128(
+                epoch.startBlock / OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH,
+            ),
+            targetHash: new Binary(epoch.targetHash),
+            startBlock: DataConverter.toDecimal128(epoch.startBlock),
+            endBlock: DataConverter.toDecimal128(
+                epoch.startBlock + OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH - 1n,
+            ),
+            difficultyScaled: EpochDifficultyConverter.bitsToScaledDifficulty(
+                epoch.solutionBits,
+            ).toString(),
+            proposer: {
+                solution: new Binary(epoch.solution),
+                mldsaPublicKey: new Binary(epoch.mldsaPublicKey),
+                legacyPublicKey: new Binary(epoch.legacyPublicKey),
+                salt: new Binary(epoch.salt),
+                graffiti: epoch.graffiti ? new Binary(epoch.graffiti) : undefined,
+            },
+            proofs: epoch.proofs.map((proof) => new Binary(proof)),
+        };
+    }
+
+    private async getPreviousEpochHash(epochNumber: bigint): Promise<Buffer> {
+        if (epochNumber === 0n) {
+            return Buffer.alloc(32);
+        }
+
+        const epoch = await this.storage.getEpochByNumber(epochNumber - 1n);
+        if (!epoch) {
+            throw new Error(`No epoch found for number ${epochNumber - 1n}`);
+        }
+
+        return Buffer.from(epoch.epochHash.buffer);
     }
 
     private getMiningTargetBlock(epochNumber: bigint): bigint | null {
