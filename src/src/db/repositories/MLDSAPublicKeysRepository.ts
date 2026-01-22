@@ -108,6 +108,8 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
             },
         );
 
+        console.log(bulkWriteOperations);
+
         await this.bulkWrite(bulkWriteOperations);
     }
 

@@ -639,8 +639,6 @@ export class Block {
             // Record MLDSA link if present
             await transaction.assignMLDSAToLegacy(vmManager);
 
-            console.log('interaction from', transaction.from);
-
             if (transaction.from.isDead()) {
                 throw new Error('Dead address interactions are not allowed');
             }
@@ -690,8 +688,6 @@ export class Block {
 
             // Record MLDSA link if present
             await transaction.assignMLDSAToLegacy(vmManager);
-
-            console.log('deployment from', transaction.from);
 
             if (transaction.from.isDead()) {
                 throw new Error('Dead address interactions are not allowed');

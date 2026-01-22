@@ -1272,10 +1272,10 @@ export class VMManager extends Logger {
             await this.vmStorage.setStoragePointers(storageToUpdate, this.vmBitcoinBlock.height);
         }
 
-        console.log('this.mldsaToStore', this.mldsaToStore);
-
         if (this.mldsaToStore.size) {
             const mldsaToStoreCopy = Array.from(this.mldsaToStore.values());
+
+            console.log('mldsaToStoreCopy', mldsaToStoreCopy);
 
             // Everything from this point is considered safe. The keys have been verified before insertion/update.
             await this.vmStorage.saveMLDSAPublicKeys(mldsaToStoreCopy);
