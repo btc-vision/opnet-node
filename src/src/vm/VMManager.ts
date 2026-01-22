@@ -1231,6 +1231,13 @@ export class VMManager extends Logger {
             throw new Error('Block state not found');
         }
 
+        if (this.mldsaToStore.size) {
+            const mldsaToStoreCopy = Array.from(this.mldsaToStore.values());
+
+            // Everything from this point is considered safe. The keys have been verified before insertion/update.
+            await this.vmStorage.saveMLDSAPublicKeys(mldsaToStoreCopy);
+        }
+
         const stateChanges = this.blockState.getEverythingWithProofs();
         if (!stateChanges) {
             return;
@@ -1264,13 +1271,6 @@ export class VMManager extends Logger {
 
         if (storageToUpdate.size) {
             await this.vmStorage.setStoragePointers(storageToUpdate, this.vmBitcoinBlock.height);
-        }
-
-        if (this.mldsaToStore.size) {
-            const mldsaToStoreCopy = Array.from(this.mldsaToStore.values());
-
-            // Everything from this point is considered safe. The keys have been verified before insertion/update.
-            await this.vmStorage.saveMLDSAPublicKeys(mldsaToStoreCopy);
         }
     }
 
