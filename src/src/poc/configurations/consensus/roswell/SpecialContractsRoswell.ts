@@ -10,9 +10,9 @@ const nativeSwapRegtest2: Address = Address.fromString(
     '0xb056ba05448cf4a5468b3e1190b0928443981a93c3aff568467f101e94302422',
 );
 
-/*const nativeSwapTestnet: Address = Address.fromString(
-    '',
-);*/
+const nativeSwapMainnet: Address = Address.fromString(
+    '0x035884f9ac2b6ae75d7778553e7d447899e9a82e247d7ced48f22aa102681e70',
+);
 
 // const nativeSwapMainnet: Address = Address.dead();
 
@@ -47,9 +47,9 @@ export const SPECIAL_CONTRACTS_ROSWELL_TESTNET: SpecialContracts = {
 };
 
 export const SPECIAL_CONTRACTS_ROSWELL_MAINNET: SpecialContracts = {
-    /* [nativeSwapMainnet.toHex()]: {
+    [nativeSwapMainnet.toHex()]: {
         ...nativeSwapContractSettings,
 
         address: nativeSwapMainnet,
-    },*/
+    },
 };
