@@ -1,22 +1,13 @@
 import { Address, AddressMap } from '@btc-vision/transaction';
-import { BlockDataWithTransactionData, TransactionData } from '@btc-vision/bitcoin-rpc';
+import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { DataConverter, DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { Network } from '@btc-vision/bitcoin';
 import { Config } from '../../../config/Config.js';
-import {
-    BlockHeaderChecksumProof,
-    BlockHeaderDocument,
-} from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
-import {
-    ITransactionDocumentBasic,
-    TransactionDocument,
-} from '../../../db/interfaces/ITransactionDocument.js';
+import { BlockHeaderChecksumProof, BlockHeaderDocument, } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
+import { ITransactionDocumentBasic, TransactionDocument, } from '../../../db/interfaces/ITransactionDocument.js';
 import { EvaluatedStates } from '../../../vm/evaluated/EvaluatedStates.js';
 import { VMManager } from '../../../vm/VMManager.js';
-import {
-    OPNetInteractionTypeValues,
-    OPNetTransactionTypes,
-} from '../transaction/enums/OPNetTransactionTypes.js';
+import { OPNetInteractionTypeValues, OPNetTransactionTypes, } from '../transaction/enums/OPNetTransactionTypes.js';
 import { TransactionFactory } from '../transaction/transaction-factory/TransactionFactory.js';
 import { TransactionSorter } from '../transaction/transaction-sorter/TransactionSorter.js';
 import { Transaction } from '../transaction/Transaction.js';
@@ -639,6 +630,10 @@ export class Block {
             // Record MLDSA link if present
             await transaction.assignMLDSAToLegacy(vmManager);
 
+            if (transaction.from.isDead()) {
+                throw new Error('Dead address interactions are not allowed');
+            }
+
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.executeTransaction(
                 this.blockHashBuffer,
@@ -684,6 +679,10 @@ export class Block {
 
             // Record MLDSA link if present
             await transaction.assignMLDSAToLegacy(vmManager);
+
+            if (transaction.from.isDead()) {
+                throw new Error('Dead address interactions are not allowed');
+            }
 
             /** We must create a transaction receipt. */
             const evaluation = await vmManager.deployContract(
