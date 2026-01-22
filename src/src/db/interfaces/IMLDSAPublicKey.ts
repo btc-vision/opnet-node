@@ -8,6 +8,8 @@ export interface IMLDSAPublicKey {
     readonly tweakedPublicKey: Buffer;
     // If null, wallet owner did not expose his public key on-chain yet.
     readonly publicKey: Buffer | null;
+
+    // Can be temporally wrong.
     readonly insertedBlockHeight: bigint | null;
     readonly exposedBlockHeight: bigint | null;
 }

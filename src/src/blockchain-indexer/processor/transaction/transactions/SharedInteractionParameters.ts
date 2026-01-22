@@ -314,7 +314,7 @@ export abstract class SharedInteractionParameters<
             tweakedPublicKey: tweakedKey,
             publicKey: mldsaLinkRequest.publicKey,
             level: mldsaLinkRequest.level,
-            insertedBlockHeight: null,
+            insertedBlockHeight: this.blockHeight,
             exposedBlockHeight: this.blockHeight,
         });
     }

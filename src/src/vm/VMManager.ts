@@ -18,12 +18,8 @@ import {
 } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import {
-    DeploymentTransaction
-} from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
-import {
-    InteractionTransaction
-} from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import {
     BlockHeader,
