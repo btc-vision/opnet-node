@@ -18,8 +18,12 @@ import {
 } from '../blockchain-indexer/processor/block/types/ZeroValue.js';
 import { ContractInformation } from '../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { OPNetTransactionTypes } from '../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
-import { DeploymentTransaction } from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
-import { InteractionTransaction } from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
+import {
+    DeploymentTransaction
+} from '../blockchain-indexer/processor/transaction/transactions/DeploymentTransaction.js';
+import {
+    InteractionTransaction
+} from '../blockchain-indexer/processor/transaction/transactions/InteractionTransaction.js';
 import { IBtcIndexerConfig } from '../config/interfaces/IBtcIndexerConfig.js';
 import {
     BlockHeader,
@@ -820,8 +824,17 @@ export class VMManager extends Logger {
         level: MLDSASecurityLevel,
         isExpose: boolean = false,
     ): Promise<boolean> {
+        console.log({
+            hashedPublicKey: hashedPublicKey.toString('hex'),
+            legacyPublicKey: legacyPublicKey.toString('hex'),
+            level,
+            isExpose,
+        });
+
         // Verify it does not exist in the database.
         const exists = await this.vmStorage.mldsaPublicKeyExists(hashedPublicKey, legacyPublicKey);
+
+        console.log('exists', exists);
 
         // Only error if it's a reassignment.
         if (exists.hashedExists !== exists.legacyExists) {
