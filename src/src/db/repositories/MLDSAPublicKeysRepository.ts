@@ -65,11 +65,11 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
     public async savePublicKeys(keys: MLDSAUpdateData[]): Promise<void> {
         const bulkWriteOperations: AnyBulkWriteOperation<MLDSAPublicKeyDocument>[] = keys.map(
             (key) => {
-                if (!key.exposePublicKey) {
-                    if (key.data.insertedBlockHeight === null) {
-                        throw new Error('Inserted block height is required for new public keys');
-                    }
+                if (key.data.insertedBlockHeight === null) {
+                    throw new Error('Inserted block height is required for new public keys');
+                }
 
+                if (!key.exposePublicKey) {
                     const documentToInsert: MLDSAPublicKeyDocument = this.toDocument(
                         key.data,
                         true,
@@ -100,8 +100,15 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
                                     publicKey: documentUpdate.publicKey,
                                     exposedBlockHeight: documentUpdate.exposedBlockHeight,
                                 },
+                                // Only push these fields if inserting a new document
+                                $setOnInsert: {
+                                    level: key.data.level,
+                                    insertedBlockHeight: Long.fromBigInt(
+                                        key.data.insertedBlockHeight,
+                                    ),
+                                },
                             },
-                            upsert: false,
+                            upsert: true,
                         },
                     };
                 }
