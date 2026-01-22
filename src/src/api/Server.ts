@@ -120,9 +120,9 @@ export class Server extends Logger {
 
         this.app.use(this.handleAny.bind(this));
         this.app.options(
-            // lgtm[js/cors-permissive-configuration] - Public blockchain API, intentionally open to all origins
             '*',
             cors({
+                // lgtm[js/cors-permissive-configuration] - Public blockchain API, intentionally open to all origins
                 origin: '*',
                 methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
                 preflightContinue: false,
