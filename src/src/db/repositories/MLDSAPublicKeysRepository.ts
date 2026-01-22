@@ -116,7 +116,9 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
         await this.bulkWrite(bulkWriteOperations);
     }
 
-    public override async bulkWrite(operations: AnyBulkWriteOperation<T>[]): Promise<void> {
+    public override async bulkWrite(
+        operations: AnyBulkWriteOperation<MLDSAPublicKeyDocument>[],
+    ): Promise<void> {
         if (operations.length === 0) {
             return;
         }
