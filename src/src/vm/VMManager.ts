@@ -1237,6 +1237,8 @@ export class VMManager extends Logger {
 
         const stateChanges = this.blockState.getEverythingWithProofs();
         if (!stateChanges) {
+            console.log('No state changes to save.');
+
             return;
         }
 
@@ -1269,6 +1271,8 @@ export class VMManager extends Logger {
         if (storageToUpdate.size) {
             await this.vmStorage.setStoragePointers(storageToUpdate, this.vmBitcoinBlock.height);
         }
+
+        console.log('this.mldsaToStore', this.mldsaToStore);
 
         if (this.mldsaToStore.size) {
             const mldsaToStoreCopy = Array.from(this.mldsaToStore.values());
