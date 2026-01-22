@@ -1233,8 +1233,6 @@ export class VMManager extends Logger {
 
         const stateChanges = this.blockState.getEverythingWithProofs();
         if (!stateChanges) {
-            console.log('No state changes to save.');
-
             return;
         }
 
@@ -1270,8 +1268,6 @@ export class VMManager extends Logger {
 
         if (this.mldsaToStore.size) {
             const mldsaToStoreCopy = Array.from(this.mldsaToStore.values());
-
-            console.log('mldsaToStoreCopy', mldsaToStoreCopy);
 
             // Everything from this point is considered safe. The keys have been verified before insertion/update.
             await this.vmStorage.saveMLDSAPublicKeys(mldsaToStoreCopy);
