@@ -167,8 +167,6 @@ export class PublicKeysRepository extends ExtendedBaseRepository<PublicKeyDocume
     }
 
     public async addTweakedPublicKey(tweaked: Buffer, session?: ClientSession): Promise<void> {
-        console.log(tweaked, tweaked.length);
-
         const filter = {
             tweakedPublicKey: new Binary(tweaked),
             p2tr: this.tweakedPubKeyToAddress(tweaked, this.network),
