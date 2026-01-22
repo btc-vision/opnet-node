@@ -4,7 +4,7 @@ import { JSONRpcParams } from '../../JSONRpcParams.js';
 export interface SubmitEpochParamsAsObject extends JSONRpcParams<JSONRpcMethods.SUBMIT_EPOCH> {
     readonly epochNumber: string;
 
-    readonly targetHash: string;
+    readonly checksumRoot: string;
     readonly salt: string;
     readonly mldsaPublicKey: string;
 

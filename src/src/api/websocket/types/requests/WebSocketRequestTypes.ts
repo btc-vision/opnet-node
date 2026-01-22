@@ -135,7 +135,7 @@ export interface GetEpochTemplateRequest extends BaseRequest {}
 
 export interface SubmitEpochRequest extends BaseRequest {
     readonly epochNumber: string;
-    readonly targetHash: string;
+    readonly checksumRoot: string;
     readonly salt: string;
     readonly mldsaPublicKey: string;
     readonly graffiti?: string;

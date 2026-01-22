@@ -571,7 +571,7 @@ message EpochTemplateResponse {
 message SubmitEpochRequest {
     uint32 requestId = 1;
     string epochNumber = 2;
-    string targetHash = 3;
+    string checksumRoot = 3;
     string salt = 4;
     string mldsaPublicKey = 5;
     optional string graffiti = 6;

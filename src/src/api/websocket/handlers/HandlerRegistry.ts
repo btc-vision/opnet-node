@@ -4,12 +4,16 @@ import { WebSocketRequestOpcode } from '../types/opcodes/WebSocketOpcodes.js';
 import { WSManager } from '../WebSocketManager.js';
 import { SubscriptionType } from '../types/enums/SubscriptionType.js';
 import { InternalError, ResourceError } from '../types/errors/WebSocketErrorCodes.js';
-import { PROTOCOL_VERSION, WebSocketAPIError } from '../ProtocolHandler.js';
+import { WebSocketAPIError } from '../ProtocolHandler.js';
 import { DefinedRoutes } from '../../routes/DefinedRoutes.js';
 import { Routes } from '../../enums/Routes.js';
 import { PackedMessage } from '../packets/APIPacket.js';
-import { BlockHeaderAPIDocumentWithTransactions } from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
-import { OPNetTransactionTypes } from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
+import {
+    BlockHeaderAPIDocumentWithTransactions
+} from '../../../db/documents/interfaces/BlockHeaderAPIDocumentWithTransactions.js';
+import {
+    OPNetTransactionTypes
+} from '../../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 
 // Import typed request interfaces
 import {
@@ -146,9 +150,7 @@ function convertTransactionResponse(tx: Record<string, unknown>): PackedMessage 
         : [];
 
     // Proto enum values: GENERIC=0, DEPLOYMENT=1, INTERACTION=2
-    const opnetType = convertOPNetTypeToProtoEnum(
-        tx.OPNetType as OPNetTransactionTypes | string,
-    );
+    const opnetType = convertOPNetTypeToProtoEnum(tx.OPNetType as OPNetTransactionTypes | string);
 
     // Build the base transaction response
     const response: Record<string, unknown> = {
@@ -721,7 +723,7 @@ export class HandlerRegistry extends Logger {
                 const route = DefinedRoutes[Routes.SUBMIT_EPOCH] as SubmitEpochRoute;
                 const result = await route.getData({
                     epochNumber: request.epochNumber,
-                    targetHash: request.targetHash,
+                    checksumRoot: request.checksumRoot,
                     salt: request.salt,
                     mldsaPublicKey: request.mldsaPublicKey,
                     graffiti: request.graffiti,
