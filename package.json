@@ -1,7 +1,7 @@
 {
     "type": "module",
     "name": "@btc-vision/opnet-node",
-    "version": "1.0.0-alpha.1",
+    "version": "1.0.0-beta.0",
     "description": "Bitcoin Smart Contracts Node",
     "main": "build/index.js",
     "scripts": {
