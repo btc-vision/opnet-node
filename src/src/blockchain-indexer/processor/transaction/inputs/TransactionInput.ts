@@ -120,14 +120,15 @@ export class TransactionInput implements ITransactionInput {
 
     // Decode public key for P2PK, SegWit (P2WPKH), and P2PKH
     private decodePubKey(): Buffer | null {
-        const secondWitnessLength = this.transactionInWitness[1]?.length || 0;
+        const secondWitnessLength = this.transactionInWitness[1]?.byteLength || 0;
 
         // Decode from SegWit witness (P2WPKH) or P2PKH
+        // Note: witnesses are Buffers, so we check for byte lengths (33/65), not hex string lengths (66/130)
         if (
             this.transactionInWitness.length === 2 &&
-            (secondWitnessLength === 66 || secondWitnessLength === 130)
+            (secondWitnessLength === 33 || secondWitnessLength === 65)
         ) {
-            return this.transactionInWitness[1]; // Return the public key in hex format
+            return this.transactionInWitness[1]; // Return the public key as Buffer
         }
 
         // Decode from scriptSig (P2PK)
@@ -145,17 +146,24 @@ export class TransactionInput implements ITransactionInput {
     }
 
     // for P2PKH and P2WPKH
+    // Note: This method has limited usefulness as P2WPKH witness[0] is a signature, not a pubkey hash.
+    // The pubkey hash is in the scriptPubKey of the UTXO being spent, not in the witness.
     private decodePubKeyHash(): Buffer | null {
         // Check for P2WPKH in witness data
-        if (this.transactionInWitness.length === 2 && this.transactionInWitness[0].length === 40) {
-            return this.transactionInWitness[0]; // Return the public key hash in hex format
+        // Note: witnesses are Buffers, so we check for byte length (20)
+        if (
+            this.transactionInWitness.length === 2 &&
+            this.transactionInWitness[0].byteLength === 20
+        ) {
+            return this.transactionInWitness[0]; // Return the public key hash as Buffer
         }
 
         // Check for P2PKH in scriptSig
+        // Note: scriptSig.asm is a string, so length 40 = 20 bytes hex-encoded
         if (this.scriptSignature && this.scriptSignature.asm) {
             const parts = this.scriptSignature.asm.split(' ');
             if (parts.length === 2 && parts[1].length === 40) {
-                return Buffer.from(parts[1], 'hex'); // Return the public key hash in hex format
+                return Buffer.from(parts[1], 'hex'); // Return the public key hash as Buffer
             }
         }
 
