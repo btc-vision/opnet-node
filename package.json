@@ -1,7 +1,7 @@
 {
     "type": "module",
     "name": "@btc-vision/opnet-node",
-    "version": "1.0.0-alpha.0",
+    "version": "1.0.0-alpha.1",
     "description": "Bitcoin Smart Contracts Node",
     "main": "build/index.js",
     "scripts": {
@@ -38,7 +38,7 @@
         "@asyncapi/html-template": "^3.5.0",
         "@bitauth/libauth": "^3.0.0",
         "@btc-vision/bip32": "^6.0.3",
-        "@btc-vision/bitcoin": "^6.5.4",
+        "@btc-vision/bitcoin": "^6.5.5",
         "@btc-vision/bitcoin-rpc": "^1.0.6",
         "@btc-vision/bsi-common": "^1.2.1",
         "@btc-vision/hyper-express": "^6.17.4",
@@ -47,7 +47,7 @@
         "@btc-vision/plugin-sdk": "^1.0.0",
         "@btc-vision/post-quantum": "^0.5.3",
         "@btc-vision/rust-merkle-tree": "^0.0.5",
-        "@btc-vision/transaction": "^1.8.0-alpha.2",
+        "@btc-vision/transaction": "^1.8.0-beta.0",
         "@btc-vision/uwebsockets.js": "^20.57.0",
         "@chainsafe/libp2p-noise": "^17.0.0",
         "@chainsafe/libp2p-quic": "^1.1.8",

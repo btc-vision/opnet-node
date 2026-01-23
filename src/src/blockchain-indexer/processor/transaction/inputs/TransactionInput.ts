@@ -60,7 +60,9 @@ export class TransactionInput implements ITransactionInput {
     private readonly coinbase: Buffer | undefined = undefined;
 
     constructor(data: VIn) {
-        this.originalTransactionId = data.txid ? Buffer.from(data.txid, 'hex') : Buffer.alloc(32);
+        this.originalTransactionId =
+            data.txid && data.txid !== '' ? Buffer.from(data.txid, 'hex') : Buffer.alloc(0);
+
         this.outputTransactionIndex = data.vout;
 
         this.scriptSignature = data.scriptSig;

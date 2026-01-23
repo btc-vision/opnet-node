@@ -190,7 +190,7 @@ export class DeploymentTransaction extends SharedInteractionParameters<OPNetTran
 
         /** We must verify the contract address */
         const inputTxId = this.inputs[this.vInputIndex].originalTransactionId;
-        if (!inputTxId) {
+        if (!inputTxId || inputTxId.length === 0) {
             throw new Error(`OP_NET: No input transaction id.`);
         }
 

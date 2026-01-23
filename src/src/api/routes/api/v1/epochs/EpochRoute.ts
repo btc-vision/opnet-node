@@ -256,7 +256,7 @@ export abstract class EpochRoute<T extends Routes> extends Route<
 
             const cleanHash: string | undefined = params.hash?.replace('0x', '');
             if (cleanHash.length !== 64) {
-                throw new Error('Invalid hash length. Expected 64 hex characters for SHA-1 hash');
+                throw new Error('Invalid hash length. Expected 64 hex characters for SHA-256 hash');
             }
 
             return { epochHash: cleanHash, includeSubmissions };
