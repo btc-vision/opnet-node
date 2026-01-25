@@ -387,6 +387,102 @@ describe('TransactionInput', () => {
             });
         });
 
+        describe('P2WSH (SegWit Script Hash) with 65-byte script', () => {
+            test('should NOT decode 65-byte witness script as uncompressed pubkey (bug fix for tx 0cf7a4e5...)', () => {
+                // This is the actual failing transaction: 0cf7a4e5f2fbe5d4eaf52e0024815a83f177419871960e5a6f98ce9bc7c97837
+                // The witness[1] is 65 bytes but it's a SCRIPT, not an uncompressed pubkey
+                // Script starts with 0x21 (OP_PUSHBYTES_33), not 0x04 (uncompressed pubkey prefix)
+                const witnessScript =
+                    '21031d3e15f127324e6f4cb97fa08240b285cc8393def5f4393e4249e5af0471e960ac736476a91449a18b46b83a494765040c626a55c587b76f06d488ad53b268';
+
+                const vin: VIn = {
+                    txid: '5649ac4a1b3190fc88587ed46db6df7912f63ea4ba558b2a34183e4bed76f86b',
+                    vout: 0,
+                    scriptSig: { asm: '', hex: '' },
+                    sequence: 4294967293, // 0xfffffffd
+                    txinwitness: [
+                        '304402206e3fe292634bdd360b240dda933c7507ddd0e81097d39791ac6a0d93a14f835b022020be76c3d3c34ecbdf93e91468884aafeb3edf6f9ee6952ffdffc27ef75b224f01',
+                        witnessScript,
+                    ],
+                };
+
+                const input = new TransactionInput(vin);
+
+                // Verify witness[1] is 65 bytes (the bug condition)
+                expect(input.transactionInWitness[1].length).toBe(65);
+                // Verify first byte is NOT 0x04 (uncompressed pubkey prefix)
+                expect(input.transactionInWitness[1][0]).toBe(0x21); // OP_PUSHBYTES_33
+                expect(input.transactionInWitness[1][0]).not.toBe(0x04);
+
+                // The fix: decodedPubKey should be null because this is a script, not a pubkey
+                expect(input.decodedPubKey).toBeNull();
+            });
+
+            test('should NOT decode 33-byte witness script starting with non-pubkey prefix', () => {
+                // A 33-byte script that starts with an opcode, not 0x02 or 0x03
+                // Example: OP_1 (0x51) followed by 32 bytes of data
+                const script33Bytes = '51' + 'a'.repeat(64); // 0x51 = OP_1
+
+                const vin: VIn = {
+                    txid: VALID_TXID,
+                    vout: 0,
+                    scriptSig: { asm: '', hex: '' },
+                    sequence: 4294967295,
+                    txinwitness: [DER_SIGNATURE, script33Bytes],
+                };
+
+                const input = new TransactionInput(vin);
+
+                expect(input.transactionInWitness[1].length).toBe(33);
+                expect(input.transactionInWitness[1][0]).toBe(0x51); // OP_1, not a valid pubkey prefix
+                expect(input.decodedPubKey).toBeNull();
+            });
+
+            test('should handle edge case: 33-byte script starting with 0x02 (OP_PUSHBYTES_2)', () => {
+                // This is an edge case: a 33-byte script that starts with 0x02
+                // 0x02 = OP_PUSHBYTES_2 in script context, but also compressed pubkey prefix (even y)
+                // Script: OP_PUSHBYTES_2 <2 bytes> <30 bytes of opcodes>
+                // This WILL be incorrectly identified as a pubkey, but it's extremely rare in practice
+                // and the subsequent EC operations will fail, catching the error downstream
+                const script = '02' + 'ab'.repeat(32); // 0x02 + 32 bytes = 33 bytes total
+
+                const vin: VIn = {
+                    txid: VALID_TXID,
+                    vout: 0,
+                    scriptSig: { asm: '', hex: '' },
+                    sequence: 4294967295,
+                    txinwitness: [DER_SIGNATURE, script],
+                };
+
+                const input = new TransactionInput(vin);
+
+                // Note: This will be identified as a pubkey due to prefix matching
+                // In practice, EC operations will fail on invalid curve points
+                expect(input.transactionInWitness[1].length).toBe(33);
+                expect(input.transactionInWitness[1][0]).toBe(0x02);
+                // This is a known limitation - prefix alone can't distinguish all cases
+                // The fix handles the common case (0x21 prefix scripts)
+            });
+
+            test('should correctly decode REAL uncompressed pubkey (65 bytes, starts with 0x04)', () => {
+                // A real uncompressed public key starts with 0x04
+                const vin: VIn = {
+                    txid: VALID_TXID,
+                    vout: 0,
+                    scriptSig: { asm: '', hex: '' },
+                    sequence: 4294967295,
+                    txinwitness: [DER_SIGNATURE, UNCOMPRESSED_PUBKEY],
+                };
+
+                const input = new TransactionInput(vin);
+
+                expect(input.transactionInWitness[1].length).toBe(65);
+                expect(input.transactionInWitness[1][0]).toBe(0x04); // Valid uncompressed prefix
+                expect(input.decodedPubKey).not.toBeNull();
+                expect(input.decodedPubKey!.toString('hex')).toBe(UNCOMPRESSED_PUBKEY);
+            });
+        });
+
         describe('Edge cases', () => {
             test('should NOT decode when witness has only 1 element', () => {
                 const vin: VIn = {
@@ -466,6 +562,44 @@ describe('TransactionInput', () => {
                     vout: 0,
                     scriptSig: {
                         asm: `${DER_SIGNATURE} ${'a'.repeat(64)}`, // 32 bytes, not 33 or 65
+                        hex: '',
+                    },
+                    sequence: 4294967295,
+                };
+
+                const input = new TransactionInput(vin);
+
+                expect(input.decodedPubKey).toBeNull();
+            });
+
+            test('should NOT decode from scriptSig when 33-byte data has invalid prefix', () => {
+                // scriptSig with 66 hex chars (33 bytes) but starts with 0x21 (OP_PUSHBYTES_33), not 0x02/0x03
+                const invalidPubkey = '21' + 'a'.repeat(64); // 0x21 prefix, 33 bytes total
+
+                const vin: VIn = {
+                    txid: VALID_TXID,
+                    vout: 0,
+                    scriptSig: {
+                        asm: `${DER_SIGNATURE} ${invalidPubkey}`,
+                        hex: '',
+                    },
+                    sequence: 4294967295,
+                };
+
+                const input = new TransactionInput(vin);
+
+                expect(input.decodedPubKey).toBeNull();
+            });
+
+            test('should NOT decode from scriptSig when 65-byte data has invalid prefix', () => {
+                // scriptSig with 130 hex chars (65 bytes) but starts with 0x21, not 0x04
+                const invalidPubkey = '21' + 'a'.repeat(128); // 0x21 prefix, 65 bytes total
+
+                const vin: VIn = {
+                    txid: VALID_TXID,
+                    vout: 0,
+                    scriptSig: {
+                        asm: `${DER_SIGNATURE} ${invalidPubkey}`,
                         hex: '',
                     },
                     sequence: 4294967295,
