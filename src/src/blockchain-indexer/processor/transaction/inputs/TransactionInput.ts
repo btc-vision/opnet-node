@@ -120,25 +120,31 @@ export class TransactionInput implements ITransactionInput {
 
     // Decode public key for P2PK, SegWit (P2WPKH), and P2PKH
     private decodePubKey(): Buffer | null {
-        const secondWitnessLength = this.transactionInWitness[1]?.byteLength || 0;
+        const secondWitness = this.transactionInWitness[1];
+        const secondWitnessLength = secondWitness?.length || 0;
 
         // Decode from SegWit witness (P2WPKH) or P2PKH
         // Note: witnesses are Buffers, so we check for byte lengths (33/65), not hex string lengths (66/130)
         if (
             this.transactionInWitness.length === 2 &&
-            (secondWitnessLength === 33 || secondWitnessLength === 65)
+            secondWitness &&
+            this.isValidPublicKeyBuffer(secondWitness, secondWitnessLength)
         ) {
-            return this.transactionInWitness[1]; // Return the public key as Buffer
+            return secondWitness; // Return the public key as Buffer
         }
 
-        // Decode from scriptSig (P2PK)
+        // Decode from scriptSig (P2PKH - signature + pubkey)
         if (this.scriptSignature && this.scriptSignature.asm) {
             const parts = this.scriptSignature.asm.split(' ');
             const secondPart = parts[1];
 
-            // Check for P2PK with compressed public key
-            if (parts.length === 2 && (secondPart.length === 66 || secondPart.length === 130)) {
-                return Buffer.from(secondPart, 'hex'); // Return the public key in hex format
+            // Check for P2PKH with compressed (66 hex = 33 bytes) or uncompressed (130 hex = 65 bytes) public key
+            if (parts.length === 2 && secondPart && (secondPart.length === 66 || secondPart.length === 130)) {
+                const pubkeyBuffer = Buffer.from(secondPart, 'hex');
+                // Validate the public key prefix to avoid mistaking scripts for pubkeys
+                if (this.isValidPublicKeyBuffer(pubkeyBuffer, pubkeyBuffer.length)) {
+                    return pubkeyBuffer;
+                }
             }
         }
 
@@ -150,11 +156,7 @@ export class TransactionInput implements ITransactionInput {
     // The pubkey hash is in the scriptPubKey of the UTXO being spent, not in the witness.
     private decodePubKeyHash(): Buffer | null {
         // Check for P2WPKH in witness data
-        // Note: witnesses are Buffers, so we check for byte length (20)
-        if (
-            this.transactionInWitness.length === 2 &&
-            this.transactionInWitness[0].byteLength === 20
-        ) {
+        if (this.transactionInWitness.length === 2 && this.transactionInWitness[0].length === 20) {
             return this.transactionInWitness[0]; // Return the public key hash as Buffer
         }
 
@@ -168,5 +170,21 @@ export class TransactionInput implements ITransactionInput {
         }
 
         return null; // No public key hash found
+    }
+
+    // Validate that a buffer contains a valid EC public key by checking the prefix byte
+    // Compressed keys (33 bytes): must start with 0x02 (even y) or 0x03 (odd y)
+    // Uncompressed keys (65 bytes): must start with 0x04
+    // This prevents mistaking scripts (like P2WSH witness scripts) for public keys
+    private isValidPublicKeyBuffer(buffer: Buffer, length: number): boolean {
+        if (length === 33) {
+            // Compressed public key must start with 0x02 or 0x03
+            const prefix = buffer[0];
+            return prefix === 0x02 || prefix === 0x03;
+        } else if (length === 65) {
+            // Uncompressed public key must start with 0x04
+            return buffer[0] === 0x04;
+        }
+        return false;
     }
 }
