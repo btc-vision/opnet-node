@@ -2,7 +2,7 @@
 
 ## Audit Reports
 
-This repository contains the final audit reports for this libary.
+This repository contains the final audit reports for this library.
 
 ## Reporting Security Issues
 
