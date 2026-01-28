@@ -37,7 +37,7 @@
         "@asyncapi/generator": "^3.1.0",
         "@asyncapi/html-template": "^3.5.0",
         "@bitauth/libauth": "^3.0.0",
-        "@btc-vision/bip32": "^6.0.3",
+        "@btc-vision/bip32": "^7.0.1",
         "@btc-vision/bitcoin": "^6.5.5",
         "@btc-vision/bitcoin-rpc": "^1.0.6",
         "@btc-vision/bsi-common": "^1.2.1",
