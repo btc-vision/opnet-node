@@ -20,9 +20,13 @@ declare global {
     }
 }
 
-Promise.safeAll = async function safeAll(values: Iterable<unknown>): Promise<unknown[]> {
+Promise.safeAll = async function safeAll<T extends readonly unknown[] | []>(
+    values: T,
+): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {
     const results = await Promise.allSettled(values);
-    const unwrappedValues: unknown[] = new Array(results.length);
+    const unwrappedValues = new Array(results.length) as {
+        -readonly [P in keyof T]: Awaited<T[P]>;
+    };
 
     for (let i = 0; i < results.length; i++) {
         const result = results[i];
