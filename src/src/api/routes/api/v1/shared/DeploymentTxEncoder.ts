@@ -1,3 +1,4 @@
+import { toBase64, toHex } from '@btc-vision/bitcoin';
 import { IContractAPIDocument } from '../../../../../db/documents/interfaces/IContractDocument.js';
 import { ContractInformation } from '../../../../../blockchain-indexer/processor/transaction/contract/ContractInformation.js';
 import { VMStorage } from '../../../../../vm/storage/VMStorage.js';
@@ -67,15 +68,13 @@ export class DeploymentTxEncoder {
     private convertToBlockHeaderAPIDocument(data: ContractInformation): IContractAPIDocument {
         return {
             contractAddress: data.contractAddress,
-            contractPublicKey: Buffer.from(data.contractPublicKey.buffer).toString('base64'),
-            deployedTransactionId: Buffer.from(data.deployedTransactionId.buffer).toString('hex'),
-            deployedTransactionHash: Buffer.from(data.deployedTransactionHash.buffer).toString(
-                'hex',
-            ),
-            bytecode: data.bytecode.toString('base64'),
-            deployerPubKey: data.deployerPubKey.toString('base64'),
-            contractSeed: data.contractSeed.toString('base64'),
-            contractSaltHash: data.contractSaltHash.toString('hex'),
+            contractPublicKey: toBase64(data.contractPublicKey.toBuffer()),
+            deployedTransactionId: toHex(data.deployedTransactionId),
+            deployedTransactionHash: toHex(data.deployedTransactionHash),
+            bytecode: toBase64(data.bytecode),
+            deployerPubKey: toBase64(data.deployerPubKey),
+            contractSeed: toBase64(data.contractSeed),
+            contractSaltHash: toHex(data.contractSaltHash),
             wasCompressed: data.wasCompressed,
             deployerAddress: data.deployerAddress.toHex(),
         };

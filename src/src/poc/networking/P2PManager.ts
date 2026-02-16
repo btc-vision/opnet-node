@@ -67,7 +67,7 @@ import { Config } from '../../config/Config.js';
 import { ping } from '@libp2p/ping';
 import { OPNetIndexerMode } from '../../config/interfaces/OPNetIndexerMode.js';
 import { FastStringSet } from '../../utils/fast/FastStringSet.js';
-import { Transaction } from '@btc-vision/bitcoin';
+import { fromBase64, Transaction } from '@btc-vision/bitcoin';
 import { enable } from '@libp2p/logger';
 import { autoNATv2 } from '@libp2p/autonat-v2';
 import {
@@ -818,7 +818,7 @@ export class P2PManager extends Logger {
 
     private async onBroadcastTransaction(tx: ITransactionPacket): Promise<void> {
         try {
-            const txRegenerated = Transaction.fromBuffer(Buffer.from(tx.transaction));
+            const txRegenerated = Transaction.fromBuffer(tx.transaction);
             const txHash = txRegenerated.getId();
 
             /** Already broadcasted. */
@@ -864,7 +864,7 @@ export class P2PManager extends Logger {
             }
 
             const modifiedTransaction: Uint8Array = verifiedTransaction.modifiedTransaction
-                ? Buffer.from(verifiedTransaction.modifiedTransaction, 'base64')
+                ? fromBase64(verifiedTransaction.modifiedTransaction)
                 : tx.transaction;
 
             const isPsbt: boolean = tx.psbt ? !verifiedTransaction.finalizedTransaction : false;

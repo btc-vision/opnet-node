@@ -11,6 +11,7 @@ import { JSONRpcMethods } from '../../../../json-rpc/types/enums/JSONRpcMethods.
 import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
 import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
 import { OPNetConsensus } from '../../../../../poc/configurations/OPNetConsensus.js';
+import { toHex } from '@btc-vision/bitcoin';
 
 export class GetPreimage extends Route<
     Routes.TRANSACTION_PREIMAGE,
@@ -95,8 +96,8 @@ export class GetPreimage extends Route<
         return await this.cachedData;
     }
 
-    private uint8ArrayToHex(data: Uint8Array | Buffer, prefix: boolean = true): string {
-        const hex = Buffer.from(data).toString('hex');
+    private uint8ArrayToHex(data: Uint8Array, prefix: boolean = true): string {
+        const hex = toHex(data);
         return prefix ? '0x' + hex : hex;
     }
 

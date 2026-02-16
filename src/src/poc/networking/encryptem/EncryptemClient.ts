@@ -21,43 +21,43 @@ export class EncryptemClient extends Logger {
         super();
     }
 
-    public setClientSecretKey(key: Buffer): void {
-        this.#clientSecretKey = key;
+    public setClientSecretKey(key: Uint8Array): void {
+        this.#clientSecretKey = Buffer.from(key.buffer, key.byteOffset, key.byteLength);
     }
 
-    public setClientPublicKey(key: Buffer): void {
-        this.#clientPublicKey = key;
+    public setClientPublicKey(key: Uint8Array): void {
+        this.#clientPublicKey = Buffer.from(key.buffer, key.byteOffset, key.byteLength);
     }
 
-    public setClientSignaturePublicKey(key: Buffer): void {
-        this.#clientSignaturePublicKey = key;
+    public setClientSignaturePublicKey(key: Uint8Array): void {
+        this.#clientSignaturePublicKey = Buffer.from(key.buffer, key.byteOffset, key.byteLength);
     }
 
-    public setClientSignaturePrivateKey(key: Buffer): void {
-        this.#clientSignaturePrivateKey = key;
+    public setClientSignaturePrivateKey(key: Uint8Array): void {
+        this.#clientSignaturePrivateKey = Buffer.from(key.buffer, key.byteOffset, key.byteLength);
     }
 
-    public setServerSignaturePublicKey(key: Buffer): void {
-        this.#serverSignaturePublicKey = key;
+    public setServerSignaturePublicKey(key: Uint8Array): void {
+        this.#serverSignaturePublicKey = Buffer.from(key.buffer, key.byteOffset, key.byteLength);
     }
 
-    public setServerPublicKey(key: Buffer): void {
-        this.#serverPublicKey = key;
+    public setServerPublicKey(key: Uint8Array): void {
+        this.#serverPublicKey = Buffer.from(key.buffer, key.byteOffset, key.byteLength);
     }
 
-    public getClientPublicKey(): Buffer | null {
+    public getClientPublicKey(): Uint8Array | null {
         return this.#clientPublicKey;
     }
 
-    public getClientSignaturePublicKey(): Buffer | null {
+    public getClientSignaturePublicKey(): Uint8Array | null {
         return this.#clientSignaturePublicKey;
     }
 
-    public getServerPublicKey(): Buffer | null {
+    public getServerPublicKey(): Uint8Array | null {
         return this.#serverPublicKey;
     }
 
-    public getServerSignaturePublicKey(): Buffer | null {
+    public getServerSignaturePublicKey(): Uint8Array | null {
         return this.#serverSignaturePublicKey;
     }
 
@@ -93,7 +93,7 @@ export class EncryptemClient extends Logger {
             throw new Error('One of the client key is null.');
         }
         return this.#encrypt(
-            Buffer.from(msg),
+            Buffer.from(msg.buffer, msg.byteOffset, msg.byteLength),
             this.#serverPublicKey,
             this.#clientSecretKey,
             this.#clientSignaturePublicKey,
@@ -105,9 +105,12 @@ export class EncryptemClient extends Logger {
         if (!(this.#serverPublicKey && this.#clientSecretKey && this.#serverSignaturePublicKey)) {
             throw new Error('One of the client key is null.');
         }
-        const auth = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
-        const signature = Buffer.from(msg.slice(auth.length, auth.length + 64));
-        const data = Buffer.from(msg.slice(auth.length + 64, msg.length));
+        const authSlice = msg.slice(0, this.sodium.crypto_auth_BYTES);
+        const auth = Buffer.from(authSlice.buffer, authSlice.byteOffset, authSlice.byteLength);
+        const sigSlice = msg.slice(auth.length, auth.length + 64);
+        const signature = Buffer.from(sigSlice.buffer, sigSlice.byteOffset, sigSlice.byteLength);
+        const dataSlice = msg.slice(auth.length + 64, msg.length);
+        const data = Buffer.from(dataSlice.buffer, dataSlice.byteOffset, dataSlice.byteLength);
 
         return this.#decrypt(
             data,
@@ -130,15 +133,17 @@ export class EncryptemClient extends Logger {
         this.#serverSignaturePublicKey = null;
     }
 
-    public verifyAuth(out: Buffer, input: Buffer): boolean {
+    public verifyAuth(out: Uint8Array, input: Uint8Array): boolean {
         if (!this.#serverSignaturePublicKey) {
             throw new Error('Client signature public key is null.');
         }
 
+        const outBuf = Buffer.from(out.buffer, out.byteOffset, out.byteLength);
+        const inputBuf = Buffer.from(input.buffer, input.byteOffset, input.byteLength);
         const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
         this.sodium.randombytes_buf_deterministic(k, this.#serverSignaturePublicKey);
 
-        return this.sodium.crypto_auth_verify(out, input, k);
+        return this.sodium.crypto_auth_verify(outBuf, inputBuf, k);
     }
 
     private generateNewCipherKey(): {
@@ -271,8 +276,8 @@ export class EncryptemClient extends Logger {
         const publicKey = authKey.slice(64, 96);
 
         return {
-            publicKey: Buffer.from(publicKey.buffer),
-            privateKey: Buffer.from(privateKey.buffer),
+            publicKey: Buffer.from(publicKey.buffer, publicKey.byteOffset, publicKey.byteLength),
+            privateKey: Buffer.from(privateKey.buffer, privateKey.byteOffset, privateKey.byteLength),
         };
     }
 }

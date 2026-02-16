@@ -1,3 +1,4 @@
+import { fromBase64, toHex } from '@btc-vision/bitcoin';
 import { ExecutionParameters } from '../types/InternalContractCallParameters.js';
 import {
     Address,
@@ -56,9 +57,9 @@ export class ContractEvaluation implements ExecutionParameters {
     public contractDeployDepth: MutableNumber;
     public contractUpdateDepth: MutableNumber;
 
-    public readonly blockHash: Buffer;
-    public readonly transactionId: Buffer;
-    public readonly transactionHash: Buffer;
+    public readonly blockHash: Uint8Array;
+    public readonly transactionId: Uint8Array;
+    public readonly transactionHash: Uint8Array;
 
     public readonly gasTracker: GasTracker;
 
@@ -197,20 +198,20 @@ export class ContractEvaluation implements ExecutionParameters {
         return this.touchedAddresses.get(address);
     }
 
-    public getSerializeInputUTXOs(): Buffer {
+    public getSerializeInputUTXOs(): Uint8Array {
         if (!this.serializedInputs) {
             this.serializedInputs = this.computeInputUTXOs();
         }
 
-        return Buffer.copyBytesFrom(this.serializedInputs);
+        return Uint8Array.from(this.serializedInputs);
     }
 
-    public getSerializeOutputUTXOs(): Buffer {
+    public getSerializeOutputUTXOs(): Uint8Array {
         if (!this.serializedOutputs) {
             this.serializedOutputs = this.computeOutputUTXOs();
         }
 
-        return Buffer.copyBytesFrom(this.serializedOutputs);
+        return Uint8Array.from(this.serializedOutputs);
     }
 
     public setGasUsed(gas: bigint, specialGas: bigint = 0n): void {
@@ -554,15 +555,15 @@ export class ContractEvaluation implements ExecutionParameters {
                     });
 
                 for (const [key, value] of Object.entries(storageKeys)) {
-                    const bigIntBuf = Buffer.from(key, 'base64');
-                    const valueBuf = Buffer.from(value, 'base64');
+                    const bigIntBuf = fromBase64(key);
+                    const valueBuf = fromBase64(value);
 
                     if (bigIntBuf.length !== 32 || valueBuf.length !== 32) {
                         throw new Error(`OP_NET: Invalid access list key or value.`);
                     }
 
-                    const pointerKey = BigInt('0x' + bigIntBuf.toString('hex'));
-                    const pointerValue = BigInt('0x' + valueBuf.toString('hex'));
+                    const pointerKey = BigInt('0x' + toHex(bigIntBuf));
+                    const pointerValue = BigInt('0x' + toHex(valueBuf));
                     current.set(pointerKey, pointerValue);
                 }
 

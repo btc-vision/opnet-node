@@ -1,4 +1,5 @@
 import { AddressVerificator, BufferHelper, NetEvent } from '@btc-vision/transaction';
+import { toBase64 } from '@btc-vision/bitcoin';
 import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
 import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -229,8 +230,8 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
             return data;
         }
 
-        const result: string = data.result ? Buffer.from(data.result).toString('base64') : '';
-        const revert: string = data.revert ? Buffer.from(data.revert).toString('base64') : '';
+        const result: string = data.result ? toBase64(data.result) : '';
+        const revert: string = data.revert ? toBase64(data.revert) : '';
 
         const accessList: AccessList = data.changedStorage
             ? this.getAccessList(data.changedStorage)
@@ -270,7 +271,7 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
                 const eventResult: EventReceiptDataForAPI = {
                     contractAddress: contract,
                     type: event.type,
-                    data: Buffer.from(event.data).toString('base64'),
+                    data: toBase64(event.data),
                 };
 
                 contractEventsListResult.push(eventResult);
@@ -296,13 +297,9 @@ export class Call extends Route<Routes.CALL, JSONRpcMethods.CALL, CallResult | u
         for (const [contract, pointerStorage] of changedStorage) {
             const accessListItem: AccessListItem = {};
             for (const [key, value] of pointerStorage) {
-                const keyStr: string = Buffer.from(BufferHelper.pointerToUint8Array(key)).toString(
-                    'base64',
-                );
+                const keyStr: string = toBase64(BufferHelper.pointerToUint8Array(key));
 
-                accessListItem[keyStr] = Buffer.from(
-                    BufferHelper.pointerToUint8Array(value),
-                ).toString('base64');
+                accessListItem[keyStr] = toBase64(BufferHelper.pointerToUint8Array(value));
             }
 
             accessList[contract] = accessListItem;

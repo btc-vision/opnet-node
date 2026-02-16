@@ -17,7 +17,7 @@ process.on('uncaughtException', (error) => {
 export interface ContractParameters extends Omit<RustContractBinding, 'id'> {
     readonly address: string;
 
-    readonly bytecode: Buffer;
+    readonly bytecode: Uint8Array;
     readonly gasMax: bigint;
     readonly gasUsed: bigint;
     readonly memoryPagesUsed: bigint;
@@ -106,7 +106,7 @@ export class RustContract {
         return errorWriter.getBuffer();
     }
 
-    public static decodeRevertData(revertDataBytes: Uint8Array | Buffer): Error {
+    public static decodeRevertData(revertDataBytes: Uint8Array): Error {
         if (RustContract.startsWithErrorSelector(revertDataBytes)) {
             const decoder = new TextDecoder();
             const revertMessage = decoder.decode(
@@ -197,7 +197,7 @@ export class RustContract {
         }
     }
 
-    public async execute(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponse>> {
+    public async execute(calldata: Uint8Array): Promise<Readonly<ExitDataResponse>> {
         if (this.enableDebug) console.log('execute', calldata);
 
         try {
@@ -230,23 +230,17 @@ export class RustContract {
                             blockMedianTime: BigInt(
                                 environmentVariables.blockMedianTime.toString(),
                             ),
-                            blockHash: Buffer.copyBytesFrom(environmentVariables.blockHash),
-                            txId: Buffer.copyBytesFrom(environmentVariables.txId),
-                            txHash: Buffer.copyBytesFrom(environmentVariables.txHash),
-                            contractAddress: Buffer.copyBytesFrom(
-                                environmentVariables.contractAddress,
-                            ),
-                            contractDeployer: Buffer.copyBytesFrom(
-                                environmentVariables.contractDeployer,
-                            ),
-                            caller: Buffer.copyBytesFrom(environmentVariables.caller),
-                            origin: Buffer.copyBytesFrom(environmentVariables.origin),
+                            blockHash: Uint8Array.from(environmentVariables.blockHash),
+                            txId: Uint8Array.from(environmentVariables.txId),
+                            txHash: Uint8Array.from(environmentVariables.txHash),
+                            contractAddress: Uint8Array.from(environmentVariables.contractAddress),
+                            contractDeployer: Uint8Array.from(environmentVariables.contractDeployer),
+                            caller: Uint8Array.from(environmentVariables.caller),
+                            origin: Uint8Array.from(environmentVariables.origin),
                             chainId: getChainId(this.params.network),
                             protocolId: OPNetConsensus.consensus.PROTOCOL_ID,
                             consensusFlags: BigInt(environmentVariables.consensusFlags.toString()),
-                            originTweakedPublicKey: Buffer.copyBytesFrom(
-                                environmentVariables.originTweakedPublicKey,
-                            ),
+                            originTweakedPublicKey: Uint8Array.from(environmentVariables.originTweakedPublicKey),
                         }),
                     ),
                 ),
@@ -259,7 +253,7 @@ export class RustContract {
         }
     }
 
-    public async onUpdate(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponse>> {
+    public async onUpdate(calldata: Uint8Array): Promise<Readonly<ExitDataResponse>> {
         if (this.enableDebug) console.log('Setting onUpdate', calldata);
 
         try {
@@ -277,7 +271,7 @@ export class RustContract {
         }
     }
 
-    public async onDeploy(calldata: Uint8Array | Buffer): Promise<Readonly<ExitDataResponse>> {
+    public async onDeploy(calldata: Uint8Array): Promise<Readonly<ExitDataResponse>> {
         if (this.enableDebug) console.log('Setting onDeployment', calldata);
 
         try {
@@ -297,7 +291,7 @@ export class RustContract {
 
     public getRevertError(): Error {
         const revertInfo = this.contractManager.getExitData(this.id);
-        const revertData = Buffer.copyBytesFrom(revertInfo.data);
+        const revertData = new Uint8Array(revertInfo.data);
 
         try {
             this.dispose();
@@ -332,8 +326,8 @@ export class RustContract {
                     gasUsed: BigInt(result.gasUsed.toString()),
                     proofs: result.proofs?.map((proof) => {
                         return {
-                            proof: Buffer.copyBytesFrom(proof.proof),
-                            vk: Buffer.copyBytesFrom(proof.vk),
+                            proof: proof.proof,
+                            vk: proof.vk,
                         };
                     }),
                 }),

@@ -15,9 +15,9 @@ import {
 import { Address } from '@btc-vision/transaction';
 
 export interface TransactionDocumentBasic<T extends OPNetTransactionTypes> {
-    readonly id: Buffer;
-    readonly hash: Buffer;
-    readonly raw: Buffer;
+    readonly id: Uint8Array;
+    readonly hash: Uint8Array;
+    readonly raw: Uint8Array;
 
     readonly index: number; // Mark the order of the transaction in the block
     readonly blockHeight: Decimal128 | string | undefined;
@@ -61,12 +61,12 @@ export interface TransactionSafeThread {
 }
 
 export interface InteractionTransactionSafeThread extends TransactionSafeThread {
-    readonly calldata: Buffer;
-    readonly preimage: Buffer;
-    readonly miner: Buffer;
-    readonly senderPubKeyHash: Buffer;
-    readonly contractSecret: Buffer;
-    readonly interactionPubKey: Buffer;
+    readonly calldata: Uint8Array;
+    readonly preimage: Uint8Array;
+    readonly miner: Uint8Array;
+    readonly senderPubKeyHash: Uint8Array;
+    readonly contractSecret: Uint8Array;
+    readonly interactionPubKey: Uint8Array;
     readonly contractAddress: Uint8Array;
     readonly from: Uint8Array;
     readonly fromLegacy: Uint8Array;

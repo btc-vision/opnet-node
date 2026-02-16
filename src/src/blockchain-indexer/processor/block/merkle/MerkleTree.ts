@@ -1,11 +1,12 @@
 import { Address, AddressMap } from '@btc-vision/transaction';
 import { BTC_FAKE_ADDRESS } from '../types/ZeroValue.js';
 import { MerkleTree as RustMerkleTree, safeInitRust } from '@btc-vision/rust-merkle-tree';
+import { fromHex } from '@btc-vision/bitcoin';
 
 safeInitRust();
 
-export function toBytes(bytesStr: string): Buffer {
-    return Buffer.from(bytesStr.replace('0x', ''), 'hex');
+export function toBytes(bytesStr: string): Uint8Array {
+    return fromHex(bytesStr.replace('0x', ''));
 }
 
 export abstract class MerkleTree<K, V> {
@@ -34,7 +35,7 @@ export abstract class MerkleTree<K, V> {
 
     public abstract toBytes(value: unknown[]): Uint8Array;
 
-    public getProofHashes(data: Buffer[]): Array<string> {
+    public getProofHashes(data: Uint8Array[]): Array<string> {
         return this.tree.getProof(this.tree.getIndexData(this.toBytes(data))).proofHashesHex();
     }
 
@@ -110,7 +111,7 @@ export abstract class MerkleTree<K, V> {
 
     public abstract updateValues(address: Address, val: Map<K, V>): void;
 
-    public abstract getValues(): [Buffer, Buffer][];
+    public abstract getValues(): [Uint8Array, Uint8Array][];
 
     protected abstract getDummyValues(): AddressMap<Map<K, V>>;
 

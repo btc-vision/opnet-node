@@ -112,8 +112,8 @@ export abstract class TransactionVerifier<
             if (input.partialSig) {
                 input.partialSig = input.partialSig.map(() => {
                     return {
-                        pubkey: Buffer.alloc(33),
-                        signature: Buffer.alloc(65),
+                        pubkey: new Uint8Array(33),
+                        signature: new Uint8Array(65),
                     };
                 });
             } else if (input.finalScriptWitness) {
@@ -122,7 +122,7 @@ export abstract class TransactionVerifier<
                 );
 
                 const decoded = [
-                    Buffer.alloc(decodedData.length - 2),
+                    new Uint8Array(decodedData.length - 2),
                     decodedData[decodedData.length - 1],
                     decodedData[decodedData.length - 2],
                 ];

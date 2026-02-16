@@ -1,3 +1,4 @@
+import { fromBase64, fromHex, toBase64 } from '@btc-vision/bitcoin';
 import { Logger } from '@btc-vision/bsi-common';
 import {
     AuthorityBufferKey,
@@ -62,8 +63,8 @@ export class TrustedAuthority extends Logger {
     }
 
     public verifyTrustedSignature(
-        data: Buffer,
-        signature: Buffer,
+        data: Uint8Array,
+        signature: Uint8Array,
     ): { validity: boolean; identity: string } {
         for (const trustedPublicKeyCompany in this.trustedKeys) {
             const trustedPublicKeys = this.trustedKeys[trustedPublicKeyCompany as TrustedEntities];
@@ -154,12 +155,12 @@ export class TrustedAuthority extends Logger {
                 })
                 .map((key: AuthorityKey): AuthorityBufferKey => {
                     return {
-                        publicKey: Buffer.from(key.publicKey, 'base64'),
-                        opnet: Buffer.from(key.opnet, 'base64'),
-                        signature: Buffer.from(key.signature, 'base64'),
+                        publicKey: fromBase64(key.publicKey),
+                        opnet: fromBase64(key.opnet),
+                        signature: fromBase64(key.signature),
                         wallet: new Address(
-                            Buffer.from(key.mldsaPublicKey.replace('0x', ''), 'hex'),
-                            Buffer.from(key.walletPubKey.replace('0x', ''), 'hex'),
+                            fromHex(key.mldsaPublicKey.replace('0x', '')),
+                            fromHex(key.walletPubKey.replace('0x', '')),
                         ),
                     };
                 })
@@ -193,7 +194,7 @@ export class TrustedAuthority extends Logger {
 
                 if (allKeys.includes(keyHash)) {
                     throw new Error(
-                        `Duplicate key found for ${trustedCompany} -> ${key.opnet.toString('base64')}`,
+                        `Duplicate key found for ${trustedCompany} -> ${toBase64(key.opnet)}`,
                     );
                 }
 

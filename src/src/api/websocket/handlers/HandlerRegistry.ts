@@ -1,4 +1,5 @@
 import { Logger } from '@btc-vision/bsi-common';
+import { fromBase64, toHex } from '@btc-vision/bitcoin';
 import { APIRegistry } from '../OpcodeRegistry.js';
 import { WebSocketRequestOpcode } from '../types/opcodes/WebSocketOpcodes.js';
 import { WSManager } from '../WebSocketManager.js';
@@ -108,17 +109,16 @@ function convertOPNetTypeToProtoEnum(type: OPNetTransactionTypes | string | unde
  * Uses oneof for type-specific data (interaction vs deployment).
  */
 function convertTransactionResponse(tx: Record<string, unknown>): PackedMessage {
-    // Helper to safely convert to Buffer for bytes fields
-    const toBuffer = (value: unknown): Buffer => {
-        if (!value) return Buffer.alloc(0);
-        if (Buffer.isBuffer(value)) return value;
-        if (typeof value === 'string') return Buffer.from(value, 'base64');
-        if (value instanceof Uint8Array) return Buffer.from(value);
+    // Helper to safely convert to Uint8Array for bytes fields
+    const toBytes = (value: unknown): Uint8Array => {
+        if (!value) return new Uint8Array(0);
+        if (value instanceof Uint8Array) return value;
+        if (typeof value === 'string') return fromBase64(value);
         // Handle MongoDB Binary
         if (typeof value === 'object' && 'buffer' in value) {
-            return Buffer.from((value as { buffer: Buffer }).buffer);
+            return new Uint8Array((value as { buffer: Uint8Array }).buffer);
         }
-        return Buffer.alloc(0);
+        return new Uint8Array(0);
     };
 
     // Convert inputs to ensure all fields are proper types
@@ -171,7 +171,7 @@ function convertTransactionResponse(tx: Record<string, unknown>): PackedMessage 
         priorityFee: tx.priorityFee ?? '0x0',
         outputs,
         inputs,
-        raw: toBuffer(tx.raw),
+        raw: toBytes(tx.raw),
         index: typeof tx.index === 'number' ? tx.index : 0,
         OPNetType: opnetType,
     };
@@ -422,9 +422,9 @@ export class HandlerRegistry extends Logger {
             WebSocketRequestOpcode.BROADCAST_TRANSACTION,
             async (request: PackedMessage<BroadcastTransactionRequest>) => {
                 const route = DefinedRoutes[Routes.BROADCAST_TRANSACTION] as BroadcastTransaction;
-                const txHex = Buffer.isBuffer(request.transaction)
-                    ? request.transaction.toString('hex')
-                    : Buffer.from(request.transaction).toString('hex');
+                const txHex = request.transaction instanceof Uint8Array
+                    ? toHex(request.transaction)
+                    : toHex(new Uint8Array(request.transaction));
 
                 const result = await route.getData({
                     data: txHex,

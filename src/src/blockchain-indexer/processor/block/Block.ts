@@ -1,7 +1,7 @@
 import { Address, AddressMap } from '@btc-vision/transaction';
 import { TransactionData } from '@btc-vision/bitcoin-rpc';
 import { DataConverter, DebugLevel, Logger } from '@btc-vision/bsi-common';
-import { Network } from '@btc-vision/bitcoin';
+import { fromHex, Network, toHex } from '@btc-vision/bitcoin';
 import { Config } from '../../../config/Config.js';
 import { BlockHeaderChecksumProof, BlockHeaderDocument, } from '../../../db/interfaces/IBlockHeaderBlockDocument.js';
 import { ITransactionDocumentBasic, TransactionDocument, } from '../../../db/interfaces/ITransactionDocument.js';
@@ -119,7 +119,7 @@ export class Block {
     private blockUsedGas: bigint = 0n;
 
     private readonly processEverythingAsGeneric: boolean = false;
-    private readonly _blockHashBuffer: Buffer;
+    private readonly _blockHashBuffer: Uint8Array;
     private readonly addressCache: AddressCache;
 
     private epochSubmissions: Map<string, EpochSubmission> = new Map();
@@ -140,7 +140,7 @@ export class Block {
 
         this.signal = this.abortController.signal;
         this.header = new BlockHeader(params.header);
-        this._blockHashBuffer = Buffer.from(this.header.hash, 'hex');
+        this._blockHashBuffer = fromHex(this.header.hash);
 
         this._allowedSolutions = params.allowedSolutions;
 
@@ -187,7 +187,7 @@ export class Block {
         return this.header.hash;
     }
 
-    public get blockHashBuffer(): Buffer {
+    public get blockHashBuffer(): Uint8Array {
         return this._blockHashBuffer;
     }
 
@@ -333,7 +333,7 @@ export class Block {
             header: dto.header,
             abortController,
             network: network,
-            allowedPreimages: dto.allowedPreimages.map((ab) => Buffer.from(ab)),
+            allowedPreimages: dto.allowedPreimages.map((ab) => new Uint8Array(ab)),
             processEverythingAsGeneric: dto.processEverythingAsGeneric,
         });
 
@@ -738,7 +738,7 @@ export class Block {
                 submission: submissionData,
                 validationResult: null,
                 transactionId: transaction.transactionIdString,
-                txHash: transaction.hash.toString('hex'),
+                txHash: toHex(transaction.hash),
             });
         }
     }
@@ -815,7 +815,7 @@ export class Block {
     }
 
     private generateSubmissionKey(submission: Submission): string {
-        return `${submission.salt.toString('hex')}-${submission.mldsaPublicKey.toString('hex')}`;
+        return `${toHex(submission.salt)}-${toHex(submission.mldsaPublicKey)}`;
     }
 
     private async saveEpochSubmissions(vmManager: VMManager): Promise<void> {
@@ -888,8 +888,8 @@ export class Block {
                     currentEpoch * OPNetConsensus.consensus.EPOCH.BLOCKS_PER_EPOCH,
                 ),
 
-                submissionTxId: new Binary(Buffer.from(data.transactionId, 'hex')),
-                submissionTxHash: new Binary(Buffer.from(data.txHash, 'hex')),
+                submissionTxId: new Binary(fromHex(data.transactionId)),
+                submissionTxHash: new Binary(fromHex(data.txHash)),
 
                 submissionHash: new Binary(validationResult.hash),
 
@@ -944,7 +944,7 @@ export class Block {
         vmManager.updateBlockValuesFromResult(
             evaluation,
             evaluation.contractAddress,
-            evaluation.transactionId.toString('hex'),
+            toHex(evaluation.transactionId),
             Config.OP_NET.DISABLE_SCANNED_BLOCK_STORAGE_CHECK,
         );
     }

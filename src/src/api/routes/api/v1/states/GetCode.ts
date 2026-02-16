@@ -1,3 +1,4 @@
+import { toBase64 } from '@btc-vision/bitcoin';
 import { Request } from '@btc-vision/hyper-express/types/components/http/Request.js';
 import { Response } from '@btc-vision/hyper-express/types/components/http/Response.js';
 import { MiddlewareNext } from '@btc-vision/hyper-express/types/components/middleware/MiddlewareNext.js';
@@ -37,7 +38,7 @@ export class GetCode extends Route<
         let result: GetCodeResult;
         if (onlyBytecode) {
             result = {
-                bytecode: contract.bytecode.toString('base64'),
+                bytecode: toBase64(contract.bytecode),
             };
         } else {
             const document = contract.toDocument();
@@ -54,7 +55,7 @@ export class GetCode extends Route<
                 deployerPubKey: document.deployerPubKey.toString('base64'),
                 deployerAddress: document.deployerAddress.toString('base64'),
 
-                bytecode: contract.bytecode.toString('base64'),
+                bytecode: toBase64(contract.bytecode),
 
                 wasCompressed: document.wasCompressed,
             } satisfies IContractAPIDocument;

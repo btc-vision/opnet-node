@@ -29,16 +29,16 @@ export interface IEpoch {
     readonly startBlock: bigint;
     readonly endBlock: bigint;
 
-    readonly targetHash: Buffer;
-    readonly target: Buffer;
-    readonly solution: Buffer;
-    readonly salt: Buffer;
-    readonly mldsaPublicKey: Buffer;
-    readonly legacyPublicKey: Buffer;
-    readonly graffiti?: Buffer;
+    readonly targetHash: Uint8Array;
+    readonly target: Uint8Array;
+    readonly solution: Uint8Array;
+    readonly salt: Uint8Array;
+    readonly mldsaPublicKey: Uint8Array;
+    readonly legacyPublicKey: Uint8Array;
+    readonly graffiti?: Uint8Array;
     readonly solutionBits: number;
-    readonly epochRoot: Buffer;
-    readonly epochHash: Buffer;
+    readonly epochRoot: Uint8Array;
+    readonly epochHash: Uint8Array;
 
-    readonly proofs: Buffer[];
+    readonly proofs: Uint8Array[];
 }

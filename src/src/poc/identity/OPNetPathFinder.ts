@@ -1,3 +1,4 @@
+import { fromBase64, toBase64, fromUtf8, toUtf8 } from '@btc-vision/bitcoin';
 import fs from 'fs';
 import path from 'path';
 import { Config } from '../../config/Config.js';
@@ -25,12 +26,12 @@ export class OPNetPathFinder {
     }
 
     protected encrypt(dataJson: string): Uint8Array {
-        const data: string = Buffer.from(dataJson).toString('base64');
+        const data: string = toBase64(fromUtf8(dataJson));
 
-        return this.encryptRaw(Buffer.from(data, 'utf8'));
+        return this.encryptRaw(fromUtf8(data));
     }
 
-    protected encryptRaw(data: Uint8Array | Buffer): Uint8Array {
+    protected encryptRaw(data: Uint8Array): Uint8Array {
         const encrypted: Uint8Array = new Uint8Array(data.length);
         for (let i = 0; i < data.length; i++) {
             encrypted[i] = data[i] ^ this.encKey[i % this.encKey.byteLength];
@@ -39,7 +40,7 @@ export class OPNetPathFinder {
         return encrypted;
     }
 
-    protected decrypt(encrypted: Uint8Array | Buffer): Uint8Array {
+    protected decrypt(encrypted: Uint8Array): Uint8Array {
         const data: Uint8Array = new Uint8Array(encrypted.byteLength);
         for (let i = 0; i < encrypted.byteLength; i++) {
             data[i] = encrypted[i] ^ this.encKey[i % this.encKey.byteLength];
@@ -52,7 +53,7 @@ export class OPNetPathFinder {
         const decrypted = this.decrypt(encrypted);
         const decoded = this.textDecoder.decode(decrypted);
 
-        return Buffer.from(decoded, 'base64').toString('utf8');
+        return toUtf8(fromBase64(decoded));
     }
 
     protected deriveKey(derivateKey?: Uint8Array): void {

@@ -34,27 +34,27 @@ export class EncryptemServer extends Logger {
         this.#clientPublicKey = null;
     }
 
-    public setClientPublicKey(key: Buffer): void {
-        this.#clientPublicKey = key;
+    public setClientPublicKey(key: Uint8Array): void {
+        this.#clientPublicKey = Buffer.from(key.buffer, key.byteOffset, key.byteLength);
     }
 
-    public setClientSignaturePublicKey(key: Buffer): void {
-        this.#clientSignaturePublicKey = key;
+    public setClientSignaturePublicKey(key: Uint8Array): void {
+        this.#clientSignaturePublicKey = Buffer.from(key.buffer, key.byteOffset, key.byteLength);
     }
 
-    public getClientPublicKey(): Buffer | null {
+    public getClientPublicKey(): Uint8Array | null {
         return this.#clientPublicKey;
     }
 
-    public getClientSignaturePublicKey(): Buffer | null {
+    public getClientSignaturePublicKey(): Uint8Array | null {
         return this.#clientSignaturePublicKey;
     }
 
-    public getServerPublicKey(): Buffer | null {
+    public getServerPublicKey(): Uint8Array | null {
         return this.#serverPublicKey;
     }
 
-    public getServerSignaturePublicKey(): Buffer | null {
+    public getServerSignaturePublicKey(): Uint8Array | null {
         return this.#serverSignaturePublicKey;
     }
 
@@ -74,18 +74,20 @@ export class EncryptemServer extends Logger {
             throw new Error('Encryption failed. Client public key or server private key is null.');
         }
 
-        return this.#encrypt(Buffer.from(msg), this.#clientPublicKey, this.#serverPrivateKey);
+        return this.#encrypt(Buffer.from(msg.buffer, msg.byteOffset, msg.byteLength), this.#clientPublicKey, this.#serverPrivateKey);
     }
 
-    public verifyAuth(out: Buffer, input: Buffer): boolean {
+    public verifyAuth(out: Uint8Array, input: Uint8Array): boolean {
         if (!this.#clientSignaturePublicKey) {
             throw new Error('Client signature public key is null.');
         }
 
+        const outBuf = Buffer.from(out.buffer, out.byteOffset, out.byteLength);
+        const inputBuf = Buffer.from(input.buffer, input.byteOffset, input.byteLength);
         const k = this.sodium.sodium_malloc(this.sodium.crypto_auth_KEYBYTES);
         this.sodium.randombytes_buf_deterministic(k, this.#clientSignaturePublicKey);
 
-        return this.sodium.crypto_auth_verify(out, input, k);
+        return this.sodium.crypto_auth_verify(outBuf, inputBuf, k);
     }
 
     public decrypt(msg: Uint8Array): Uint8Array | null {
@@ -93,9 +95,12 @@ export class EncryptemServer extends Logger {
             throw new Error('Decryption failed. Client public key or server private key is null.');
         }
 
-        const auth: Buffer = Buffer.from(msg.slice(0, this.sodium.crypto_auth_BYTES));
-        const signature: Buffer = Buffer.from(msg.slice(auth.length, auth.length + 64));
-        const data: Buffer = Buffer.from(msg.slice(auth.length + 64, msg.length));
+        const authSlice = msg.slice(0, this.sodium.crypto_auth_BYTES);
+        const auth: Buffer = Buffer.from(authSlice.buffer, authSlice.byteOffset, authSlice.byteLength);
+        const sigSlice = msg.slice(auth.length, auth.length + 64);
+        const signature: Buffer = Buffer.from(sigSlice.buffer, sigSlice.byteOffset, sigSlice.byteLength);
+        const dataSlice = msg.slice(auth.length + 64, msg.length);
+        const data: Buffer = Buffer.from(dataSlice.buffer, dataSlice.byteOffset, dataSlice.byteLength);
 
         if (!this.verifyAuth(auth, signature)) {
             throw new Error('[Server] Bad AHEAD authentication.');

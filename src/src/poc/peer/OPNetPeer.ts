@@ -1,3 +1,4 @@
+import { concat } from '@btc-vision/bitcoin';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import { PeerId } from '@libp2p/interface';
 import { Config } from '../../config/Config.js';
@@ -164,7 +165,7 @@ export class OPNetPeer extends Logger {
         await this.authenticate();
     }
 
-    public sendMsg: (peerId: PeerId, data: Uint8Array | Buffer) => Promise<void> = () => {
+    public sendMsg: (peerId: PeerId, data: Uint8Array) => Promise<void> = () => {
         throw new Error('Method not implemented.');
     };
 
@@ -254,11 +255,11 @@ export class OPNetPeer extends Logger {
         delete this._peerIdentity;
     }
 
-    public sendFromServer(data: Uint8Array | Buffer): Promise<void> {
+    public sendFromServer(data: Uint8Array): Promise<void> {
         return this.serverNetworkingManager.sendPacket(data);
     }
 
-    protected async sendInternal(data: Uint8Array | Buffer): Promise<void> {
+    protected async sendInternal(data: Uint8Array): Promise<void> {
         if (this.isDestroyed) return;
 
         await this.sendMsg(this.peerId, data);
@@ -293,11 +294,11 @@ export class OPNetPeer extends Logger {
 
     private defineServerNetworkingEvents(): void {
         this.serverNetworkingManager.disconnectPeer = this.disconnect.bind(this);
-        this.serverNetworkingManager.send = async (data: Uint8Array | Buffer) => {
+        this.serverNetworkingManager.send = async (data: Uint8Array) => {
             // to client
-            data = Buffer.concat([Buffer.from([0x01]), Buffer.from(data)]);
+            const prefixed = concat([new Uint8Array([0x01]), data]);
 
-            return this.sendInternal(data);
+            return this.sendInternal(prefixed);
         };
 
         this.serverNetworkingManager.onServerAuthenticationCompleted = () => {
@@ -328,11 +329,11 @@ export class OPNetPeer extends Logger {
 
     private defineClientNetworkingEvents(): void {
         this.clientNetworkingManager.disconnectPeer = this.disconnect.bind(this);
-        this.clientNetworkingManager.send = async (data: Uint8Array | Buffer) => {
+        this.clientNetworkingManager.send = async (data: Uint8Array) => {
             // to server
-            data = Buffer.concat([Buffer.from([0x00]), Buffer.from(data)]);
+            const prefixed = concat([new Uint8Array([0x00]), data]);
 
-            return this.sendInternal(data);
+            return this.sendInternal(prefixed);
         };
 
         this.clientNetworkingManager.onClientAuthenticationCompleted = () => {

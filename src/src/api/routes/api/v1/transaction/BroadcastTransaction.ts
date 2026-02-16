@@ -19,7 +19,7 @@ import { BroadcastResponse } from '../../../../../threading/interfaces/thread-me
 import { BroadcastOPNetRequest } from '../../../../../threading/interfaces/thread-messages/messages/api/BroadcastTransactionOPNet.js';
 import { TransactionSizeValidator } from '../../../../../poc/mempool/data-validator/TransactionSizeValidator.js';
 import { Config } from '../../../../../config/Config.js';
-import { Transaction } from '@btc-vision/bitcoin';
+import { fromBase64, fromHex, Transaction } from '@btc-vision/bitcoin';
 
 export class BroadcastTransaction extends Route<
     Routes.BROADCAST_TRANSACTION,
@@ -55,11 +55,9 @@ export class BroadcastTransaction extends Route<
                 };
             }
 
-            const parsedDataAsBuf = Buffer.from(data, 'hex');
-            const tx = Transaction.fromBuffer(parsedDataAsBuf);
+            let parsedData: Uint8Array = fromHex(data);
+            const tx = Transaction.fromBuffer(Uint8Array.from(parsedData));
             const txHash = tx.getId();
-
-            let parsedData: Uint8Array = Uint8Array.from(parsedDataAsBuf);
             const verification: BroadcastResponse | undefined = await this.verifyOPNetTransaction(
                 parsedData,
                 txHash,
@@ -74,7 +72,7 @@ export class BroadcastTransaction extends Route<
             }
 
             if (psbt && verification.modifiedTransaction) {
-                parsedData = Buffer.from(verification.modifiedTransaction, 'base64');
+                parsedData = fromBase64(verification.modifiedTransaction);
             }
 
             const isPsbt = verification.finalizedTransaction

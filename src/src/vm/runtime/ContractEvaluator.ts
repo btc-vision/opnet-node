@@ -45,7 +45,7 @@ import { IMLDSAPublicKey } from '../../db/interfaces/IMLDSAPublicKey.js';
 
 interface InternalCallParameters {
     readonly evaluation: ContractEvaluation;
-    readonly calldata: Buffer;
+    readonly calldata: Uint8Array;
     readonly isDeployment: boolean;
     readonly isUpdate: boolean;
     readonly contractAddress: Address;
@@ -53,7 +53,7 @@ interface InternalCallParameters {
 
 interface InternalCallResponse {
     readonly isWarm: boolean;
-    readonly result: Buffer;
+    readonly result: Uint8Array;
     readonly status: number;
     readonly gasUsed: bigint;
 }
@@ -66,7 +66,7 @@ export class ContractEvaluator extends Logger {
     private deployerAddress: Address | undefined;
     private contractAddress: Address | undefined;
 
-    private bytecode: Buffer | undefined;
+    private bytecode: Uint8Array | undefined;
     private version: number | undefined;
 
     constructor(private readonly network: Network) {
@@ -109,7 +109,7 @@ export class ContractEvaluator extends Logger {
         throw new Error('Method not implemented. [callExternal]');
     }
 
-    public getBlockHashForBlockNumber(_blockNumber: bigint): Promise<Buffer> {
+    public getBlockHashForBlockNumber(_blockNumber: bigint): Promise<Uint8Array> {
         throw new Error('Method not implemented. [getBlockHashForBlockNumber]');
     }
 
@@ -119,7 +119,7 @@ export class ContractEvaluator extends Logger {
 
     public deployContractAtAddress(
         _address: Address,
-        _salt: Buffer,
+        _salt: Uint8Array,
         _evaluation: ContractEvaluation,
     ): Promise<
         | {
@@ -358,7 +358,7 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Load a pointer */
-    private async load(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private async load(data: Uint8Array, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
         const reader: BinaryReader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
 
@@ -379,7 +379,7 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Store a pointer */
-    private store(data: Buffer, evaluation: ContractEvaluation): Buffer | Uint8Array {
+    private store(data: Uint8Array, evaluation: ContractEvaluation): Buffer | Uint8Array {
         const reader = new BinaryReader(data);
         const pointer: bigint = reader.readU256();
         const value: bigint = reader.readU256();
@@ -390,7 +390,7 @@ export class ContractEvaluator extends Logger {
     }
 
     /** Call a contract */
-    private async call(data: Buffer, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private async call(data: Uint8Array, evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
         let gasUsed: bigint = evaluation.gasUsed;
 
         try {
@@ -412,7 +412,7 @@ export class ContractEvaluator extends Logger {
 
             const response = await this.internalCall({
                 evaluation,
-                calldata: Buffer.copyBytesFrom(calldata),
+                calldata: Uint8Array.from(calldata),
                 isDeployment: false,
                 isUpdate: false,
                 contractAddress,
@@ -502,11 +502,11 @@ export class ContractEvaluator extends Logger {
         evaluation.merge(response);
 
         const status = response.revert ? 1 : 0;
-        const result = (status ? response.revert : response.result) || Buffer.alloc(0);
+        const result = (status ? response.revert : response.result) || new Uint8Array(0);
 
         return {
             isWarm,
-            result: Buffer.from(result.buffer, result.byteOffset, result.byteLength),
+            result: result,
             status,
             gasUsed: response.gasUsed,
         };
@@ -528,7 +528,7 @@ export class ContractEvaluator extends Logger {
     }
 
     private async deployContractFromAddressRaw(
-        data: Buffer,
+        data: Uint8Array,
         evaluation: ContractEvaluation,
     ): Promise<Buffer | Uint8Array> {
         let usedGas: bigint = evaluation.gasUsed;
@@ -545,11 +545,10 @@ export class ContractEvaluator extends Logger {
 
             // Read the contract address and salt.
             const address: Address = reader.readAddress();
-            const original = reader.readBytes(32);
-            const salt: Buffer = Buffer.from(original);
+            const salt: Uint8Array = reader.readBytes(32);
 
             // Read the calldata.
-            const calldata: Buffer = Buffer.from(reader.readBytes(reader.bytesLeft()));
+            const calldata: Uint8Array = reader.readBytes(reader.bytesLeft());
             const deployResult = await this.deployContractAtAddress(address, salt, evaluation);
 
             if (!deployResult) {
@@ -599,7 +598,7 @@ export class ContractEvaluator extends Logger {
     }
 
     private async updateContractFromAddressRaw(
-        data: Buffer,
+        data: Uint8Array,
         evaluation: ContractEvaluation,
     ): Promise<Buffer | Uint8Array> {
         let usedGas: bigint = evaluation.gasUsed;
@@ -613,7 +612,7 @@ export class ContractEvaluator extends Logger {
             evaluation.setGasUsed(usedGas);
 
             const sourceAddress: Address = reader.readAddress();
-            const calldata: Buffer = Buffer.from(reader.readBytes(reader.bytesLeft()));
+            const calldata: Uint8Array = reader.readBytes(reader.bytesLeft());
 
             const updateResult = await this.updateFromAddressJsFunction(sourceAddress, evaluation);
             if (!updateResult) {
@@ -690,14 +689,14 @@ export class ContractEvaluator extends Logger {
         return writer.getBuffer();
     }
 
-    private onDebug(buffer: Buffer): void {
-        const reader = new BinaryReader(buffer);
-        const logData = reader.readString(buffer.byteLength);
+    private onDebug(data: Uint8Array): void {
+        const reader = new BinaryReader(data);
+        const logData = reader.readString(data.byteLength);
 
         this.warn(`Contract log: ${logData}`);
     }
 
-    private onEvent(data: Buffer, evaluation: ContractEvaluation): void {
+    private onEvent(data: Uint8Array, evaluation: ContractEvaluation): void {
         const reader = new BinaryReader(data);
         const eventName = reader.readStringWithLength();
         const eventData = reader.readBytesWithLength();
@@ -706,16 +705,16 @@ export class ContractEvaluator extends Logger {
         evaluation.emitEvent(event);
     }
 
-    private onInputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private onInputsRequested(evaluation: ContractEvaluation): Promise<Uint8Array> {
         return Promise.resolve(evaluation.getSerializeInputUTXOs());
     }
 
-    private onOutputsRequested(evaluation: ContractEvaluation): Promise<Buffer | Uint8Array> {
+    private onOutputsRequested(evaluation: ContractEvaluation): Promise<Uint8Array> {
         return Promise.resolve(evaluation.getSerializeOutputUTXOs());
     }
 
     private async loadMLDSA(
-        data: Buffer,
+        data: Uint8Array,
         evaluation: ContractEvaluation,
     ): Promise<Buffer | Uint8Array> {
         const reader = new BinaryReader(data);
@@ -755,7 +754,7 @@ export class ContractEvaluator extends Logger {
     }
 
     private async getAccountType(
-        data: Buffer,
+        data: Uint8Array,
         evaluation: ContractEvaluation,
     ): Promise<AccountTypeResponse> {
         const reader = new BinaryReader(data);
@@ -785,7 +784,7 @@ export class ContractEvaluator extends Logger {
         }
 
         return {
-            blockHash: blockHash,
+            blockHash: Buffer.from(blockHash.buffer, blockHash.byteOffset, blockHash.byteLength),
             isBlockWarm: false,
         };
     }
@@ -814,36 +813,36 @@ export class ContractEvaluator extends Logger {
             gasMax: evaluation.maxGasVM,
             memoryPagesUsed: evaluation.memoryPagesUsed,
             isDebugMode: enableDebug,
-            accountType: async (data: Buffer): Promise<AccountTypeResponse> => {
+            accountType: async (data: Uint8Array): Promise<AccountTypeResponse> => {
                 return await this.getAccountType(data, evaluation);
             },
             blockHash: async (blockNumber: bigint): Promise<BlockHashResponse> => {
                 return await this.getBlockHashImport(blockNumber);
             },
-            load: async (data: Buffer) => {
+            load: async (data: Uint8Array) => {
                 return await this.load(data, evaluation);
             },
-            store: (data: Buffer) => {
+            store: (data: Uint8Array) => {
                 return new Promise<Buffer | Uint8Array>((resolve) => {
                     const resp = this.store(data, evaluation);
 
                     resolve(resp);
                 });
             },
-            call: async (data: Buffer) => {
+            call: async (data: Uint8Array) => {
                 return await this.call(data, evaluation);
             },
-            deployContractAtAddress: async (data: Buffer) => {
+            deployContractAtAddress: async (data: Uint8Array) => {
                 return await this.deployContractFromAddressRaw(data, evaluation);
             },
-            updateFromAddress: async (data: Buffer) => {
+            updateFromAddress: async (data: Uint8Array) => {
                 return await this.updateContractFromAddressRaw(data, evaluation);
             },
-            log: (buffer: Buffer) => {
-                this.onDebug(buffer);
+            log: (data: Uint8Array) => {
+                this.onDebug(data);
             },
-            emit: (buffer: Buffer) => {
-                this.onEvent(buffer, evaluation);
+            emit: (data: Uint8Array) => {
+                this.onEvent(data, evaluation);
             },
             inputs: () => {
                 return this.onInputsRequested(evaluation);
@@ -851,16 +850,16 @@ export class ContractEvaluator extends Logger {
             outputs: () => {
                 return this.onOutputsRequested(evaluation);
             },
-            loadMLDSA: async (data: Buffer) => {
+            loadMLDSA: async (data: Uint8Array) => {
                 return await this.loadMLDSA(data, evaluation);
             },
 
             // NOT SUPPORTED YET.
-            tLoad(_: Buffer): Promise<Buffer | Uint8Array> {
-                return Promise.resolve(Buffer.alloc(0));
+            tLoad(_: Uint8Array): Promise<Buffer | Uint8Array> {
+                return Promise.resolve(new Uint8Array(0));
             },
-            tStore(_: Buffer): Promise<Buffer | Uint8Array> {
-                return Promise.resolve(Buffer.alloc(0));
+            tStore(_: Uint8Array): Promise<Buffer | Uint8Array> {
+                return Promise.resolve(new Uint8Array(0));
             },
         };
     }

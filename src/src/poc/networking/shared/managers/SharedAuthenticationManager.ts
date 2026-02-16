@@ -82,7 +82,7 @@ export abstract class SharedAuthenticationManager extends PeerNetworkingManager 
         const opcode: number = raw[0];
         const packet: OPNetPacket = {
             opcode: opcode,
-            packet: Buffer.from(raw.slice(1)),
+            packet: raw.slice(1),
         };
 
         const managed: boolean = await this.onPacket(packet);

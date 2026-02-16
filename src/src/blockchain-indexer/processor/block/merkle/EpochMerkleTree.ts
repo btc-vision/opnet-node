@@ -5,7 +5,7 @@ import { EpochSubmissionWinner } from '../../../../db/documents/interfaces/IEpoc
 import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 import { NetworkConverter } from '../../../../config/network/NetworkConverter.js';
 import { getChainId } from '../../../../vm/rust/ChainIdHex.js';
-import { sha256 } from '@btc-vision/bitcoin';
+import { fromHex, sha256, toHex } from '@btc-vision/bitcoin';
 import { stringToBuffer } from '../../../../utils/StringToBuffer.js';
 
 export enum AttestationType {
@@ -16,8 +16,8 @@ export enum AttestationType {
 export interface Attestation {
     readonly type: AttestationType;
     readonly blockNumber: bigint;
-    readonly checksumRoot: Buffer;
-    readonly signature: Buffer;
+    readonly checksumRoot: Uint8Array;
+    readonly signature: Uint8Array;
     readonly timestamp: number;
     readonly publicKey: Address;
 }
@@ -26,12 +26,12 @@ export interface EpochData {
     readonly epochNumber: bigint;
     readonly startBlock: bigint;
     readonly endBlock: bigint;
-    readonly checksumRoot: Buffer;
-    readonly previousEpochHash: Buffer;
+    readonly checksumRoot: Uint8Array;
+    readonly previousEpochHash: Uint8Array;
 
     // Attestation about 4 epochs ago
     readonly attestedEpochNumber: bigint;
-    readonly attestedChecksumRoot: Buffer;
+    readonly attestedChecksumRoot: Uint8Array;
 
     winner?: EpochSubmissionWinner;
 }
@@ -52,7 +52,7 @@ export interface EpochDataProof {
         readonly solutionHash: string;
         readonly graffiti: string;
     };
-    readonly proof: Buffer[];
+    readonly proof: Uint8Array[];
     readonly leafHash: string;
 }
 
@@ -61,11 +61,11 @@ export interface AttestationProof {
         readonly type: AttestationType;
         readonly blockNumber: bigint;
         readonly checksumRoot: string;
-        readonly signature: Buffer;
+        readonly signature: Uint8Array;
         readonly timestamp: number;
         readonly publicKey: Address;
     };
-    readonly proofs: Buffer[];
+    readonly proofs: Uint8Array[];
     readonly leafHash: string;
     readonly index: number;
 }
@@ -106,7 +106,7 @@ export interface EpochTreeVerification {
 export interface AttestationVerificationProof {
     readonly root: string;
     readonly attestation: Attestation;
-    readonly proof: Buffer[];
+    readonly proof: Uint8Array[];
 }
 
 const chainId = getChainId(NetworkConverter.networkToBitcoinNetwork(NetworkConverter.getNetwork()));
@@ -151,9 +151,9 @@ export class EpochMerkleTree {
         return this.tree.root();
     }
 
-    private _epochHash: Buffer | undefined;
+    private _epochHash: Uint8Array | undefined;
 
-    public get epochHash(): Buffer {
+    public get epochHash(): Uint8Array {
         if (!this._epochHash) {
             throw new Error('Epoch hash not generated yet');
         }
@@ -162,16 +162,16 @@ export class EpochMerkleTree {
     }
 
     public static verifyAttestation(
-        root: Buffer | Uint8Array,
+        root: Uint8Array,
         attestation: Attestation,
-        proof: Buffer[],
+        proof: Uint8Array[],
     ): boolean {
         const attestationBytes = EpochMerkleTree.attestationToBytes(attestation);
         const merkleProof = new MerkleProof(proof);
         return merkleProof.verify(root, RustMerkleTree.hash(attestationBytes));
     }
 
-    public static verifyEpochData(root: Buffer, proofs: Buffer[], data: Uint8Array): boolean {
+    public static verifyEpochData(root: Uint8Array, proofs: Uint8Array[], data: Uint8Array): boolean {
         const merkleProof = new MerkleProof(proofs);
         return merkleProof.verifyData(root, data);
     }
@@ -196,10 +196,10 @@ export class EpochMerkleTree {
                 epochNumber: treeExport.epoch.epochNumber,
                 matchingBits: winner.matchingBits,
                 salt: stringToBuffer(winner.salt),
-                mldsaPublicKey: Buffer.from(winner.mldsaPublicKey, 'hex'),
-                legacyPublicKey: Buffer.from(winner.legacyPublicKey, 'hex'),
+                mldsaPublicKey: fromHex(winner.mldsaPublicKey),
+                legacyPublicKey: fromHex(winner.legacyPublicKey),
                 solutionHash: stringToBuffer(winner.solutionHash),
-                graffiti: Buffer.from(winner.graffiti, 'hex'),
+                graffiti: fromHex(winner.graffiti),
             },
         };
 
@@ -221,10 +221,7 @@ export class EpochMerkleTree {
             const attestation: Attestation = {
                 type: attPackage.attestation.type,
                 blockNumber: attPackage.attestation.blockNumber,
-                checksumRoot: Buffer.from(
-                    attPackage.attestation.checksumRoot.replace('0x', ''),
-                    'hex',
-                ),
+                checksumRoot: fromHex(attPackage.attestation.checksumRoot.replace('0x', '')),
                 signature: attPackage.attestation.signature,
                 timestamp: attPackage.attestation.timestamp,
                 publicKey: attPackage.attestation.publicKey,
@@ -232,7 +229,7 @@ export class EpochMerkleTree {
 
             const isValid = EpochMerkleTree.verifyAttestation(root, attestation, attPackage.proofs);
             const computedRoot = new MerkleProof(attPackage.proofs).rootHex(
-                Buffer.from(attPackage.leafHash.replace('0x', ''), 'hex'),
+                fromHex(attPackage.leafHash.replace('0x', '')),
             );
 
             return {
@@ -308,14 +305,14 @@ export class EpochMerkleTree {
             throw new Error(`Graffiti too long, was ${epochData.winner.graffiti.length}`);
         }
 
-        const resizedGraffiti = Buffer.alloc(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH, 0);
-        epochData.winner.graffiti.copy(
-            resizedGraffiti,
-            0,
-            0,
-            Math.min(
-                epochData.winner.graffiti.length,
-                OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH,
+        const resizedGraffiti = new Uint8Array(OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH);
+        resizedGraffiti.set(
+            epochData.winner.graffiti.subarray(
+                0,
+                Math.min(
+                    epochData.winner.graffiti.length,
+                    OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH,
+                ),
             ),
         );
 
@@ -378,7 +375,7 @@ export class EpochMerkleTree {
         const treeLeaves: Uint8Array[] = [];
 
         this.epochBytes = EpochMerkleTree.epochDataToBytes(this.epochData);
-        this._epochHash = Buffer.from(sha256(Buffer.from(this.epochBytes)));
+        this._epochHash = sha256(this.epochBytes);
 
         // Add epoch data as the first leaf
         treeLeaves.push(this.epochBytes);
@@ -397,7 +394,7 @@ export class EpochMerkleTree {
         this.frozen = true;
     }
 
-    public getProof(attestationIndex: number): Buffer[] {
+    public getProof(attestationIndex: number): Uint8Array[] {
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
@@ -414,10 +411,10 @@ export class EpochMerkleTree {
         return this.tree
             .getProof(this.tree.getIndexData(attestationBytes))
             .proofHashes()
-            .map((hash) => Buffer.from(hash));
+            .map((hash) => new Uint8Array(hash));
     }
 
-    public getEpochDataProof(epochDataBytes: Uint8Array | undefined = this.epochBytes): Buffer[] {
+    public getEpochDataProof(epochDataBytes: Uint8Array | undefined = this.epochBytes): Uint8Array[] {
         if (!epochDataBytes) {
             throw new Error('Epoch data bytes are not provided');
         }
@@ -429,7 +426,7 @@ export class EpochMerkleTree {
         return this.tree
             .getProof(this.tree.getIndexData(epochDataBytes))
             .proofHashes()
-            .map((hash) => Buffer.from(hash));
+            .map((hash) => new Uint8Array(hash));
     }
 
     public getEpochData(): EpochDataProof {
@@ -448,22 +445,22 @@ export class EpochMerkleTree {
             epochNumber: this.epochData.epochNumber,
             startBlock: this.epochData.startBlock,
             endBlock: this.epochData.endBlock,
-            checksumRoot: this.epochData.checksumRoot.toString('hex'),
-            previousEpochHash: this.epochData.previousEpochHash.toString('hex'),
+            checksumRoot: toHex(this.epochData.checksumRoot),
+            previousEpochHash: toHex(this.epochData.previousEpochHash),
             attestedEpochNumber: this.epochData.attestedEpochNumber,
-            attestedChecksumRoot: this.epochData.attestedChecksumRoot.toString('hex'),
+            attestedChecksumRoot: toHex(this.epochData.attestedChecksumRoot),
             winner: this.epochData.winner
                 ? {
-                      mldsaPublicKey: this.epochData.winner.mldsaPublicKey.toString('hex'),
-                      legacyPublicKey: this.epochData.winner.legacyPublicKey.toString('hex'),
+                      mldsaPublicKey: toHex(this.epochData.winner.mldsaPublicKey),
+                      legacyPublicKey: toHex(this.epochData.winner.legacyPublicKey),
                       matchingBits: this.epochData.winner.matchingBits,
-                      salt: this.epochData.winner.salt.toString('hex'),
-                      solutionHash: this.epochData.winner.solutionHash.toString('hex'),
-                      graffiti: this.epochData.winner.graffiti.toString('hex'),
+                      salt: toHex(this.epochData.winner.salt),
+                      solutionHash: toHex(this.epochData.winner.solutionHash),
+                      graffiti: toHex(this.epochData.winner.graffiti),
                   }
                 : undefined,
             proof,
-            leafHash: '0x' + Buffer.from(leafHash).toString('hex'),
+            leafHash: '0x' + toHex(new Uint8Array(leafHash)),
         };
     }
 
@@ -485,13 +482,13 @@ export class EpochMerkleTree {
             attestation: {
                 type: attestation.type,
                 blockNumber: attestation.blockNumber,
-                checksumRoot: attestation.checksumRoot.toString('hex'),
+                checksumRoot: toHex(attestation.checksumRoot),
                 signature: attestation.signature,
                 timestamp: attestation.timestamp,
                 publicKey: attestation.publicKey,
             },
             proofs: proof,
-            leafHash: '0x' + Buffer.from(leafHash).toString('hex'),
+            leafHash: '0x' + toHex(new Uint8Array(leafHash)),
             index: attestationIndex,
         };
     }
@@ -511,12 +508,12 @@ export class EpochMerkleTree {
 
         return {
             root: this.root,
-            hash: '0x' + this.epochHash.toString('hex'),
+            hash: '0x' + toHex(this.epochHash),
             epoch: this.getEpochData(),
             metadata: {
-                chainId: '0x' + Buffer.from(chainId).toString('hex'),
+                chainId: '0x' + toHex(new Uint8Array(chainId)),
                 protocolId:
-                    '0x' + Buffer.from(OPNetConsensus.consensus.PROTOCOL_ID).toString('hex'),
+                    '0x' + toHex(new Uint8Array(OPNetConsensus.consensus.PROTOCOL_ID)),
                 treeHeight: Math.ceil(Math.log2(this.attestations.length + 1)),
                 leafCount: this.attestations.length + 1,
                 generatedAt: Date.now(),
@@ -525,7 +522,7 @@ export class EpochMerkleTree {
         };
     }
 
-    public verifyProof(leafData: Uint8Array, proof: Buffer[]): boolean {
+    public verifyProof(leafData: Uint8Array, proof: Uint8Array[]): boolean {
         if (!this.tree) {
             throw new Error('Tree not generated');
         }
@@ -554,8 +551,8 @@ export class EpochMerkleTree {
         const dummyAttestation1: Attestation = {
             type: AttestationType.EMPTY_ATTESTATION,
             blockNumber: this.epochData.startBlock,
-            checksumRoot: Buffer.from(ZERO_HASH, 'hex'),
-            signature: Buffer.alloc(64, 0),
+            checksumRoot: fromHex(ZERO_HASH),
+            signature: new Uint8Array(64),
             timestamp: 0,
             publicKey: Address.dead(),
         };
@@ -563,8 +560,8 @@ export class EpochMerkleTree {
         const dummyAttestation2: Attestation = {
             type: AttestationType.EMPTY_ATTESTATION,
             blockNumber: this.epochData.endBlock - 1n,
-            checksumRoot: Buffer.from(ZERO_HASH, 'hex'),
-            signature: Buffer.alloc(64, 1),
+            checksumRoot: fromHex(ZERO_HASH),
+            signature: new Uint8Array(64).fill(1),
             timestamp: 1,
             publicKey: Address.dead(),
         };

@@ -9,9 +9,10 @@ import {
 } from '@btc-vision/transaction';
 import { MerkleProof, MerkleTree as MerkleTreeRust } from '@btc-vision/rust-merkle-tree';
 import { FastBigIntMap } from '../../../../utils/fast/FastBigintMap.js';
+import { toHex } from '@btc-vision/bitcoin';
 
 export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotData<bigint>> {
-    public static verify(root: string, values: Buffer[] | Uint8Array[], proof: string[]): boolean {
+    public static verify(root: string, values: Uint8Array[], proof: string[]): boolean {
         const writer = new BinaryWriter(32 * values.length);
         for (const value of values) {
             writer.writeBytes(value);
@@ -24,7 +25,7 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         );
     }
 
-    public toBytes(values: Buffer[]): Uint8Array {
+    public toBytes(values: Uint8Array[]): Uint8Array {
         const writer = new BinaryWriter(32 * values.length);
         for (const value of values) {
             writer.writeBytes(value);
@@ -38,11 +39,11 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         for (const [address, val] of this.values) {
             for (const [key, value] of val.entries()) {
                 const pointer = this.encodePointer(key);
-                const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
+                const valueAsBuffer = BufferHelper.valueToUint8Array(value);
 
                 const proof: string[] = this.getProofHashes([pointer, valueAsBuffer]);
                 if (!proof || !proof.length) {
-                    throw new Error(`Proof not found for ${pointer.toString('hex')}`);
+                    throw new Error(`Proof not found for ${toHex(pointer)}`);
                 }
 
                 if (!proofs.has(address)) {
@@ -130,16 +131,15 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         }
 
         const uint8Array = BufferHelper.valueToUint8Array(value);
-        const valueAsBuffer = Buffer.from(uint8Array);
         const pointer = this.encodePointer(key);
 
         if (!this._tree) {
             return [uint8Array, []];
         }
 
-        const proof: string[] = this.getProofHashes([pointer, valueAsBuffer]);
+        const proof: string[] = this.getProofHashes([pointer, uint8Array]);
         if (!proof || !proof.length) {
-            throw new Error(`Proof not found for ${pointer.toString('hex')}`);
+            throw new Error(`Proof not found for ${toHex(pointer)}`);
         }
 
         return [uint8Array, proof];
@@ -160,12 +160,12 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
 
         for (const [key, value] of map.entries()) {
             const pointer = this.encodePointer(key);
-            const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
+            const valueAsBuffer = BufferHelper.valueToUint8Array(value);
 
             const proof: string[] = this.getProofHashes([pointer, valueAsBuffer]);
 
             if (!proof || !proof.length) {
-                throw new Error(`Proof not found for pointer ${pointer.toString('hex')}`);
+                throw new Error(`Proof not found for pointer ${toHex(pointer)}`);
             }
 
             proofs.set(key, [value, proof]);
@@ -191,17 +191,17 @@ export class StateMerkleTree extends MerkleTree<MemorySlotPointer, MemorySlotDat
         return proofs;
     }
 
-    public encodePointer(pointer: bigint): Buffer {
-        return Buffer.from(BufferHelper.pointerToUint8Array(pointer));
+    public encodePointer(pointer: bigint): Uint8Array {
+        return BufferHelper.pointerToUint8Array(pointer);
     }
 
-    public getValues(): [Buffer, Buffer][] {
-        const entries: [Buffer, Buffer][] = [];
+    public getValues(): [Uint8Array, Uint8Array][] {
+        const entries: [Uint8Array, Uint8Array][] = [];
 
         for (const map of this.values.values()) {
             for (const [key, value] of map.entries()) {
                 const pointer = this.encodePointer(key);
-                const valueAsBuffer = Buffer.from(BufferHelper.valueToUint8Array(value));
+                const valueAsBuffer = BufferHelper.valueToUint8Array(value);
 
                 entries.push([pointer, valueAsBuffer]);
             }

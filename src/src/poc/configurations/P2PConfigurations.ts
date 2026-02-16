@@ -17,6 +17,7 @@ import { PeerToPeerMethod } from '../../config/interfaces/PeerToPeerMethod.js';
 import { OPNetPathFinder } from '../identity/OPNetPathFinder.js';
 import { BootstrapNodes } from './BootstrapNodes.js';
 import { P2PMajorVersion, P2PVersion } from './P2PVersion.js';
+import { fromBase64, toBase64 } from '@btc-vision/bitcoin';
 import { generateKeyPair, privateKeyFromRaw } from '@libp2p/crypto/keys';
 import { Config } from '../../config/Config.js';
 import { Multiaddr, multiaddr } from '@multiformats/multiaddr';
@@ -24,7 +25,7 @@ import { AutoNATv2ServiceInit } from '@libp2p/autonat-v2';
 
 interface BackedUpPeer {
     id: string;
-    privKey?: Buffer;
+    privKey?: Uint8Array;
     pubKey?: string;
 }
 
@@ -320,7 +321,7 @@ export class P2PConfigurations extends OPNetPathFinder {
 
         const peerIdentity: {
             id: string;
-            privKey: string | Buffer;
+            privKey: string;
             pubKey: string;
         } = {
             id: peer.toString(),
@@ -403,11 +404,15 @@ export class P2PConfigurations extends OPNetPathFinder {
             const decrypted = this.decryptToString(new Uint8Array(lastPeerIdentity));
             const decoded = JSON.parse(decrypted) as {
                 id: string;
-                privKey: string | Buffer;
+                privKey: string;
                 pubKey: string;
             };
-            decoded.privKey = Buffer.from(decoded.privKey as string, 'base64');
-            return decoded as BackedUpPeer;
+            const peer: BackedUpPeer = {
+                id: decoded.id,
+                privKey: fromBase64(decoded.privKey),
+                pubKey: decoded.pubKey,
+            };
+            return peer;
         } catch (e) {
             const error = e as Error;
             if (error.message.includes('no such file or directory')) {
@@ -429,6 +434,6 @@ export class P2PConfigurations extends OPNetPathFinder {
     }
 
     private uint8ArrayToString(uint8Array: Uint8Array): string {
-        return Buffer.from(uint8Array).toString('base64');
+        return toBase64(uint8Array);
     }
 }

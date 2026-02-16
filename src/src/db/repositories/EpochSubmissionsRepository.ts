@@ -30,7 +30,7 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
      * Get submission by transaction hash
      */
     public async getSubmissionByTxHash(
-        txHash: Buffer | Binary,
+        txHash: Uint8Array | Binary,
         currentSession?: ClientSession,
     ): Promise<IEpochSubmissionsDocument | undefined> {
         const binaryHash = txHash instanceof Binary ? txHash : new Binary(txHash);
@@ -55,7 +55,7 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
      * Get submission by transaction ID
      */
     public async getSubmissionByTxId(
-        txId: Buffer | Binary,
+        txId: Uint8Array | Binary,
         currentSession?: ClientSession,
     ): Promise<IEpochSubmissionsDocument | undefined> {
         const binaryId = txId instanceof Binary ? txId : new Binary(txId);
@@ -103,7 +103,7 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
      * Get submissions by proposer public key
      */
     public async getSubmissionsByProposer(
-        proposerPublicKey: Buffer | Binary,
+        proposerPublicKey: Uint8Array | Binary,
         currentSession?: ClientSession,
     ): Promise<IEpochSubmissionsDocument[]> {
         const binaryKey =
@@ -141,7 +141,7 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
      * Get submissions by submission hash
      */
     public async getSubmissionByHash(
-        submissionHash: Buffer | Binary,
+        submissionHash: Uint8Array | Binary,
         currentSession?: ClientSession,
     ): Promise<IEpochSubmissionsDocument | undefined> {
         const binaryHash =
@@ -235,8 +235,8 @@ export class EpochSubmissionRepository extends BaseRepository<IEpochSubmissionsD
      * Check if a submission exists
      */
     public async submissionExists(
-        mldsaPublicKey: Buffer | Binary,
-        salt: Buffer | Binary,
+        mldsaPublicKey: Uint8Array | Binary,
+        salt: Uint8Array | Binary,
         epochNumber: bigint,
     ): Promise<boolean> {
         const criteria: Partial<Filter<IEpochSubmissionsDocument>> = {

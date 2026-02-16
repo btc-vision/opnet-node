@@ -16,6 +16,7 @@ import {
 } from '../interfaces/IMLDSAPublicKey.js';
 import { ExtendedBaseRepository } from './ExtendedBaseRepository.js';
 import { MLDSASecurityLevel } from '@btc-vision/transaction';
+import { fromHex } from '@btc-vision/bitcoin';
 
 export interface MLDSAPublicKeyExists {
     readonly hashedExists: boolean;
@@ -119,7 +120,7 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
     }
 
     public async getByHashedPublicKey(
-        hashedPublicKey: Buffer | Binary | string,
+        hashedPublicKey: Uint8Array | Binary | string,
         blockHeight: bigint,
         currentSession?: ClientSession,
     ): Promise<IMLDSAPublicKey | null> {
@@ -139,7 +140,7 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
     }
 
     public async getByLegacyPublicKey(
-        legacyPublicKey: Buffer | Binary | string,
+        legacyPublicKey: Uint8Array | Binary | string,
         blockHeight: bigint,
         currentSession?: ClientSession,
     ): Promise<IMLDSAPublicKey | null> {
@@ -159,7 +160,7 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
     }
 
     public async getByHashedOrLegacy(
-        key: Buffer | Binary | string,
+        key: Uint8Array | Binary | string,
         blockHeight: bigint,
         currentSession?: ClientSession,
     ): Promise<IMLDSAPublicKey | null> {
@@ -183,8 +184,8 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
     }
 
     public async exists(
-        hashedPublicKey: Buffer | Binary | string,
-        legacyPublicKey: Buffer | Binary | string,
+        hashedPublicKey: Uint8Array | Binary | string,
+        legacyPublicKey: Uint8Array | Binary | string,
     ): Promise<MLDSAPublicKeyExists> {
         // Convert to binary first, then validate lengths (handles hex strings correctly)
         const binHashed: Binary = this.toBinary(hashedPublicKey);
@@ -224,13 +225,13 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
         return this._db.collection(OPNetCollections.MLDSAPublicKeys);
     }
 
-    private toBinary(value: Buffer | Binary | string): Binary {
+    private toBinary(value: Uint8Array | Binary | string): Binary {
         if (value instanceof Binary) {
             return value;
         }
 
         if (typeof value === 'string') {
-            return new Binary(Buffer.from(value, 'hex'));
+            return new Binary(fromHex(value));
         }
 
         return new Binary(value);
@@ -239,10 +240,10 @@ export class MLDSAPublicKeyRepository extends ExtendedBaseRepository<MLDSAPublic
     private parseResult(result: MLDSAPublicKeyDocument): IMLDSAPublicKey {
         return {
             level: result.level,
-            hashedPublicKey: Buffer.from(result.hashedPublicKey.buffer),
-            legacyPublicKey: Buffer.from(result.legacyPublicKey.buffer),
-            tweakedPublicKey: Buffer.from(result.tweakedPublicKey.buffer),
-            publicKey: result.publicKey ? Buffer.from(result.publicKey.buffer) : null,
+            hashedPublicKey: new Uint8Array(result.hashedPublicKey.buffer),
+            legacyPublicKey: new Uint8Array(result.legacyPublicKey.buffer),
+            tweakedPublicKey: new Uint8Array(result.tweakedPublicKey.buffer),
+            publicKey: result.publicKey ? new Uint8Array(result.publicKey.buffer) : null,
             insertedBlockHeight: Long.isLong(result.insertedBlockHeight)
                 ? result.insertedBlockHeight.toBigInt()
                 : BigInt(result.insertedBlockHeight),

@@ -1,9 +1,5 @@
-export function isEmptyBuffer(buffer: Buffer | Uint8Array): boolean {
-    for (let i = 0; i < buffer.length; i++) {
-        if (buffer[i] !== 0) {
-            return false;
-        }
-    }
+import { isZero } from '@btc-vision/bitcoin';
 
-    return true;
+export function isEmptyBuffer(buffer: Uint8Array): boolean {
+    return isZero(buffer);
 }

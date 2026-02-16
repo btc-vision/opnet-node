@@ -92,7 +92,7 @@ class BlockchainBase {
     ): Promise<AccountTypeResponse> => {
         if (this.enableDebug) console.log('ACCOUNT TYPE', value.buffer);
 
-        const buf = Buffer.from(Array.from(value.buffer));
+        const buf = new Uint8Array(value.buffer);
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
             throw new Error('Binding not found');
@@ -107,7 +107,7 @@ class BlockchainBase {
     ): Promise<void> => {
         return new Promise((resolve) => {
             if (Config.DEV.ENABLE_CONTRACT_DEBUG) {
-                const buf = Buffer.from(Array.from(value.buffer));
+                const buf = new Uint8Array(value.buffer);
                 const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
                 if (!c) {
                     throw new Error('Binding not found');
@@ -127,7 +127,7 @@ class BlockchainBase {
         value: ThreadSafeJsImportResponse,
     ): Promise<void> => {
         return new Promise<void>((resolve) => {
-            const buf = Buffer.from(Array.from(value.buffer));
+            const buf = new Uint8Array(value.buffer);
             const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
             if (!c) {
                 throw new Error('Binding not found');
@@ -194,7 +194,7 @@ class BlockchainBase {
     ): Promise<Buffer | Uint8Array> => {
         if (this.enableDebug) console.log('LOAD', value.buffer);
 
-        const buf = Buffer.from(Array.from(value.buffer));
+        const buf = new Uint8Array(value.buffer);
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
             throw new Error('Binding not found (load)');
@@ -212,7 +212,7 @@ class BlockchainBase {
     ): Promise<Buffer | Uint8Array> => {
         if (this.enableDebug) console.log('STORE', value.buffer);
 
-        const buf = Buffer.from(Array.from(value.buffer));
+        const buf = new Uint8Array(value.buffer);
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
             throw new Error('Binding not found (store)');
@@ -230,7 +230,7 @@ class BlockchainBase {
     ): Promise<Buffer | Uint8Array> => {
         if (this.enableDebug) console.log('CALL', value.buffer);
 
-        const buf = Buffer.from(Array.from(value.buffer));
+        const buf = new Uint8Array(value.buffer);
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
             throw new Error('Binding not found (call)');
@@ -248,7 +248,7 @@ class BlockchainBase {
     ): Promise<Buffer | Uint8Array> => {
         if (this.enableDebug) console.log('DEPLOY', value.buffer);
 
-        const buf = Buffer.from(Array.from(value.buffer));
+        const buf = new Uint8Array(value.buffer);
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
             throw new Error('Binding not found (deploy)');
@@ -266,7 +266,7 @@ class BlockchainBase {
     ): Promise<Buffer | Uint8Array> => {
         if (this.enableDebug) console.log('DEPLOY', value.buffer);
 
-        const buf = Buffer.from(Array.from(value.buffer));
+        const buf = new Uint8Array(value.buffer);
         const c = this.bindings.get(BigInt(`${value.contractId}`)); // otherwise unsafe.
         if (!c) {
             throw new Error('Binding not found (deploy)');

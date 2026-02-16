@@ -18,11 +18,11 @@ export interface IEpochSubmissionsDocument {
 export interface EpochSubmissionWinner {
     readonly epochNumber: bigint;
     readonly matchingBits: number;
-    readonly salt: Buffer;
-    readonly mldsaPublicKey: Buffer;
-    readonly legacyPublicKey: Buffer;
-    readonly solutionHash: Buffer;
-    readonly graffiti: Buffer;
+    readonly salt: Uint8Array;
+    readonly mldsaPublicKey: Uint8Array;
+    readonly legacyPublicKey: Uint8Array;
+    readonly solutionHash: Uint8Array;
+    readonly graffiti: Uint8Array;
 }
 
 export interface EpochSubmissionAPIResult {

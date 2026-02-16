@@ -1,3 +1,4 @@
+import { concat, fromHex } from '@btc-vision/bitcoin';
 import { DebugLevel, Logger } from '@btc-vision/bsi-common';
 import Long from 'long';
 import { BitcoinRPCThreadMessageType } from '../../../blockchain-indexer/rpc/thread/messages/BitcoinRPCThreadMessage.js';
@@ -438,7 +439,7 @@ export class BlockWitnessManager extends Logger {
                 );
             }
 
-            const blockChecksumHash: Buffer = this.generateBlockHeaderChecksumHash(witnessData);
+            const blockChecksumHash: Uint8Array = this.generateBlockHeaderChecksumHash(witnessData);
             const selfSignedWitness = this.identity.acknowledgeData(blockChecksumHash);
 
             /**
@@ -490,8 +491,8 @@ export class BlockWitnessManager extends Logger {
                 return {
                     identity: w.identity,
                     timestamp: Long.fromValue(w.timestamp.getTime(), true),
-                    signature: Buffer.from(w.signature.buffer),
-                    publicKey: w.publicKey ? Buffer.from(w.publicKey.buffer) : undefined,
+                    signature: new Uint8Array(w.signature.buffer),
+                    publicKey: w.publicKey ? new Uint8Array(w.publicKey.buffer) : undefined,
                 };
             });
     }
@@ -529,7 +530,7 @@ export class BlockWitnessManager extends Logger {
     private validateBlockHeaderSignatures(
         blockWitness: IBlockHeaderWitness,
     ): ValidWitnesses | undefined {
-        const blockChecksumHash: Buffer = this.generateBlockHeaderChecksumHash(blockWitness);
+        const blockChecksumHash: Uint8Array = this.generateBlockHeaderChecksumHash(blockWitness);
         const validatorWitnesses: OPNetBlockWitness[] = blockWitness.validatorWitnesses;
         const trustedWitnesses: OPNetBlockWitness[] = blockWitness.trustedWitnesses;
 
@@ -557,7 +558,7 @@ export class BlockWitnessManager extends Logger {
     }
 
     private getValidTrustedWitnesses(
-        blockChecksumHash: Buffer,
+        blockChecksumHash: Uint8Array,
         witnesses: OPNetBlockWitness[],
     ): OPNetBlockWitness[] {
         if (witnesses.length === 0) return [];
@@ -577,7 +578,7 @@ export class BlockWitnessManager extends Logger {
     }
 
     private validateOPNetWitnesses(
-        blockChecksumHash: Buffer,
+        blockChecksumHash: Uint8Array,
         witnesses: OPNetBlockWitness[],
     ): OPNetBlockWitness[] {
         if (witnesses.length === 0) return [];
@@ -666,12 +667,12 @@ export class BlockWitnessManager extends Logger {
 
     private generateBlockHeaderChecksumHash(
         data: BlockProcessedData | IBlockHeaderWitness,
-    ): Buffer {
-        const generatedChecksum = Buffer.concat([
-            Buffer.from(data.blockHash, 'hex'),
-            Buffer.from(data.previousBlockHash || '', 'hex'), // Will generate empty buffer if genesis block
-            Buffer.from(data.checksumHash.replace('0x', ''), 'hex'),
-            Buffer.from(data.previousBlockChecksum.replace('0x', ''), 'hex'),
+    ): Uint8Array {
+        const generatedChecksum = concat([
+            fromHex(data.blockHash),
+            fromHex(data.previousBlockHash || ''), // Will generate empty buffer if genesis block
+            fromHex(data.checksumHash.replace('0x', '')),
+            fromHex(data.previousBlockChecksum.replace('0x', '')),
         ]);
 
         return this.identity.hash(generatedChecksum);

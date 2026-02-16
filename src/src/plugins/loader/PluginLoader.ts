@@ -1,4 +1,5 @@
 import { Logger } from '@btc-vision/bsi-common';
+import { equals, toHex } from '@btc-vision/bitcoin';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -158,9 +159,9 @@ export class PluginLoader extends Logger {
         this.info(`Parsing plugin file: ${filePath}`);
 
         // Read file
-        let buffer: Buffer;
+        let buffer: Uint8Array;
         try {
-            buffer = fs.readFileSync(filePath);
+            buffer = new Uint8Array(fs.readFileSync(filePath));
         } catch (error) {
             throw new PluginLoadError(
                 `Failed to read plugin file: ${error}`,
@@ -193,7 +194,8 @@ export class PluginLoader extends Logger {
                 filePath,
             );
         }
-        const metadataLength = buffer.readUInt32LE(offset);
+        const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+        const metadataLength = view.getUint32(offset, true);
         offset += 4;
 
         if (metadataLength > MAX_METADATA_SIZE) {
@@ -212,7 +214,7 @@ export class PluginLoader extends Logger {
                 filePath,
             );
         }
-        const rawMetadata = buffer.subarray(offset, offset + metadataLength).toString('utf8');
+        const rawMetadata = new TextDecoder().decode(buffer.subarray(offset, offset + metadataLength));
         offset += metadataLength;
 
         let metadata: IPluginMetadata;
@@ -234,7 +236,7 @@ export class PluginLoader extends Logger {
                 filePath,
             );
         }
-        const bytecodeLength = buffer.readUInt32LE(offset);
+        const bytecodeLength = view.getUint32(offset, true);
         offset += 4;
 
         if (bytecodeLength > MAX_BYTECODE_SIZE) {
@@ -264,10 +266,10 @@ export class PluginLoader extends Logger {
                 filePath,
             );
         }
-        const protoLength = buffer.readUInt32LE(offset);
+        const protoLength = view.getUint32(offset, true);
         offset += 4;
 
-        let proto: Buffer | undefined;
+        let proto: Uint8Array | undefined;
         if (protoLength > 0) {
             if (protoLength > MAX_PROTO_SIZE) {
                 throw new PluginLoadError(
@@ -300,9 +302,9 @@ export class PluginLoader extends Logger {
 
         // Verify checksum
         const computedChecksum = this.computeChecksum(rawMetadata, bytecode, proto);
-        if (!checksum.equals(computedChecksum)) {
+        if (!equals(checksum, computedChecksum)) {
             throw new PluginLoadError(
-                `Checksum mismatch: expected ${checksum.toString('hex')}, got ${computedChecksum.toString('hex')}`,
+                `Checksum mismatch: expected ${toHex(checksum)}, got ${toHex(computedChecksum)}`,
                 'CHECKSUM_MISMATCH',
                 filePath,
             );
@@ -344,7 +346,7 @@ export class PluginLoader extends Logger {
     /**
      * Parse the file header
      */
-    private parseHeader(buffer: Buffer, filePath: string): IPluginFileHeader {
+    private parseHeader(buffer: Uint8Array, filePath: string): IPluginFileHeader {
         let offset = 0;
 
         // Minimum header size check (magic + version + mldsa level = 13 bytes)
@@ -360,16 +362,17 @@ export class PluginLoader extends Logger {
         const magic = buffer.subarray(offset, offset + 8);
         offset += 8;
 
-        if (!magic.equals(PLUGIN_MAGIC_BYTES)) {
+        if (!equals(magic, PLUGIN_MAGIC_BYTES)) {
             throw new PluginLoadError(
-                `Invalid magic bytes: expected ${PLUGIN_MAGIC_BYTES.toString('hex')}, got ${magic.toString('hex')}`,
+                `Invalid magic bytes: expected ${toHex(PLUGIN_MAGIC_BYTES)}, got ${toHex(magic)}`,
                 'INVALID_MAGIC',
                 filePath,
             );
         }
 
         // Version
-        const version = buffer.readUInt32LE(offset);
+        const headerView = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+        const version = headerView.getUint32(offset, true);
         offset += 4;
 
         if (version !== PLUGIN_FORMAT_VERSION) {
@@ -381,7 +384,7 @@ export class PluginLoader extends Logger {
         }
 
         // MLDSA level
-        const mldsaLevel = buffer.readUInt8(offset) as MLDSALevel;
+        const mldsaLevel = buffer[offset] as MLDSALevel;
         offset += 1;
 
         if (!(mldsaLevel in MLDSALevel)) {
@@ -427,13 +430,13 @@ export class PluginLoader extends Logger {
     /**
      * Compute SHA-256 checksum of metadata + bytecode + proto
      */
-    private computeChecksum(rawMetadata: string, bytecode: Buffer, proto?: Buffer): Buffer {
+    private computeChecksum(rawMetadata: string, bytecode: Uint8Array, proto?: Uint8Array): Uint8Array {
         const hash = crypto.createHash('sha256');
         hash.update(rawMetadata);
         hash.update(bytecode);
         if (proto) {
             hash.update(proto);
         }
-        return hash.digest();
+        return new Uint8Array(hash.digest());
     }
 }

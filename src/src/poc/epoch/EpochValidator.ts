@@ -1,4 +1,5 @@
 import { DataConverter, Logger } from '@btc-vision/bsi-common';
+import { equals, toHex } from '@btc-vision/bitcoin';
 import { Binary } from 'mongodb';
 import crypto from 'crypto';
 import { ITargetEpochDocument, PendingTargetEpoch, } from '../../db/documents/interfaces/ITargetEpochDocument.js';
@@ -9,19 +10,19 @@ import { stringToBuffer } from '../../utils/StringToBuffer.js';
 
 export interface EpochValidationParams {
     readonly epochNumber: bigint;
-    readonly checksumRoot: Buffer;
-    readonly salt: Buffer;
-    readonly mldsaPublicKey: Buffer;
-    readonly graffiti?: Buffer;
-    readonly signature: Buffer;
+    readonly checksumRoot: Uint8Array;
+    readonly salt: Uint8Array;
+    readonly mldsaPublicKey: Uint8Array;
+    readonly graffiti?: Uint8Array;
+    readonly signature: Uint8Array;
 }
 
 export interface EpochValidationResult {
     readonly valid: boolean;
     readonly matchingBits: number;
-    readonly hash: Buffer;
-    readonly targetPattern: Buffer;
-    readonly challenge: Buffer;
+    readonly hash: Uint8Array;
+    readonly targetPattern: Uint8Array;
+    readonly challenge: Uint8Array;
     readonly message?: string;
 }
 
@@ -56,19 +57,19 @@ export class EpochValidator extends Logger {
      * Calculate mining preimage using XOR operations
      */
     public static calculatePreimage(
-        checksumRoot: Buffer,
-        mldsaPublicKey: Buffer,
-        salt: Buffer,
-    ): Buffer {
-        const target32 = Buffer.alloc(32);
-        const pubKey32 = Buffer.alloc(32);
-        const salt32 = Buffer.alloc(32);
+        checksumRoot: Uint8Array,
+        mldsaPublicKey: Uint8Array,
+        salt: Uint8Array,
+    ): Uint8Array {
+        const target32 = new Uint8Array(32);
+        const pubKey32 = new Uint8Array(32);
+        const salt32 = new Uint8Array(32);
 
-        checksumRoot.copy(target32, 0, 0, Math.min(32, checksumRoot.length));
-        mldsaPublicKey.copy(pubKey32, 0, 0, Math.min(32, mldsaPublicKey.length));
-        salt.copy(salt32, 0, 0, Math.min(32, salt.length));
+        target32.set(checksumRoot.subarray(0, Math.min(32, checksumRoot.length)));
+        pubKey32.set(mldsaPublicKey.subarray(0, Math.min(32, mldsaPublicKey.length)));
+        salt32.set(salt.subarray(0, Math.min(32, salt.length)));
 
-        const preimage = Buffer.alloc(32);
+        const preimage = new Uint8Array(32);
         for (let i = 0; i < 32; i++) {
             preimage[i] = target32[i] ^ pubKey32[i] ^ salt32[i];
         }
@@ -90,9 +91,9 @@ export class EpochValidator extends Logger {
                 return {
                     valid: false,
                     matchingBits: 0,
-                    hash: Buffer.alloc(0),
-                    targetPattern: Buffer.alloc(0),
-                    challenge: Buffer.alloc(0),
+                    hash: new Uint8Array(0),
+                    targetPattern: new Uint8Array(0),
+                    challenge: new Uint8Array(0),
                     message: 'Epoch 0 cannot be mined',
                 };
             }
@@ -106,9 +107,9 @@ export class EpochValidator extends Logger {
                     return {
                         valid: false,
                         matchingBits: 0,
-                        hash: Buffer.alloc(0),
-                        targetPattern: Buffer.alloc(0),
-                        challenge: Buffer.alloc(0),
+                        hash: new Uint8Array(0),
+                        targetPattern: new Uint8Array(0),
+                        challenge: new Uint8Array(0),
                         message: `Cannot submit for epoch ${params.epochNumber} at block ${currentHeight}. Can only submit for epoch ${currentEpoch}`,
                     };
                 }
@@ -120,9 +121,9 @@ export class EpochValidator extends Logger {
                 return {
                     valid: false,
                     matchingBits: 0,
-                    hash: Buffer.alloc(0),
-                    targetPattern: Buffer.alloc(0),
-                    challenge: Buffer.alloc(0),
+                    hash: new Uint8Array(0),
+                    targetPattern: new Uint8Array(0),
+                    challenge: new Uint8Array(0),
                     message: 'Epoch not found',
                 };
             }
@@ -132,10 +133,10 @@ export class EpochValidator extends Logger {
                 return {
                     valid: false,
                     matchingBits: 0,
-                    hash: Buffer.alloc(0),
-                    targetPattern: Buffer.alloc(0),
-                    challenge: Buffer.alloc(0),
-                    message: `Checksum root does not match epoch. Expected: ${epoch.checksumRoot.toString('hex')}, got: ${params.checksumRoot.toString('hex')}`,
+                    hash: new Uint8Array(0),
+                    targetPattern: new Uint8Array(0),
+                    challenge: new Uint8Array(0),
+                    message: `Checksum root does not match epoch. Expected: ${toHex(epoch.checksumRoot)}, got: ${toHex(params.checksumRoot)}`,
                 };
             }
 
@@ -180,9 +181,9 @@ export class EpochValidator extends Logger {
             return {
                 valid: false,
                 matchingBits: 0,
-                hash: Buffer.alloc(0),
-                targetPattern: Buffer.alloc(0),
-                challenge: Buffer.alloc(0),
+                hash: new Uint8Array(0),
+                targetPattern: new Uint8Array(0),
+                challenge: new Uint8Array(0),
                 message: `Validation error: ${error}`,
             };
         }
@@ -193,8 +194,8 @@ export class EpochValidator extends Logger {
      */
     public async solutionExists(
         epochNumber: bigint,
-        salt: Buffer,
-        mldsaPublicKey: Buffer | Binary,
+        salt: Uint8Array,
+        mldsaPublicKey: Uint8Array | Binary,
     ): Promise<boolean> {
         return await this.storage.targetEpochExists(epochNumber, salt, mldsaPublicKey);
     }
@@ -212,7 +213,7 @@ export class EpochValidator extends Logger {
     public async saveEpochSolution(
         params: EpochValidationParams,
         validationResult: EpochValidationResult,
-        legacyPublicKey: Buffer,
+        legacyPublicKey: Uint8Array,
     ): Promise<ITargetEpochDocument> {
         const targetEpoch: ITargetEpochDocument = {
             epochNumber: DataConverter.toDecimal128(params.epochNumber),
@@ -232,7 +233,7 @@ export class EpochValidator extends Logger {
         return targetEpoch;
     }
 
-    public countMatchingBits(hash1: Buffer, hash2: Buffer): number {
+    public countMatchingBits(hash1: Uint8Array, hash2: Uint8Array): number {
         let matchingBits = 0;
         const minLength = Math.min(hash1.length, hash2.length);
 
@@ -262,7 +263,7 @@ export class EpochValidator extends Logger {
      * Calculate submission hash for unique identification
      */
     public calculateSubmissionHash(params: EpochValidationParams): string {
-        const data = `${params.epochNumber}:${params.checksumRoot.toString('hex')}:${params.salt.toString('hex')}:${params.mldsaPublicKey.toString('hex')}`;
+        const data = `${params.epochNumber}:${toHex(params.checksumRoot)}:${toHex(params.salt)}:${toHex(params.mldsaPublicKey)}`;
         return crypto.createHash('sha256').update(data).digest('hex');
     }
 
@@ -296,12 +297,12 @@ export class EpochValidator extends Logger {
     /**
      * Verify the target hash matches the epoch
      */
-    private verifyChecksumRoot(epoch: PendingTargetEpoch, targetHash: Buffer): boolean {
+    private verifyChecksumRoot(epoch: PendingTargetEpoch, targetHash: Uint8Array): boolean {
         const epochTargetHash = epoch.checksumRoot;
-        if (!Buffer.isBuffer(epochTargetHash)) {
-            throw new Error('Epoch checksumRoot is not a Buffer');
+        if (!(epochTargetHash instanceof Uint8Array)) {
+            throw new Error('Epoch checksumRoot is not a Uint8Array');
         }
 
-        return epochTargetHash.equals(targetHash);
+        return equals(epochTargetHash, targetHash);
     }
 }

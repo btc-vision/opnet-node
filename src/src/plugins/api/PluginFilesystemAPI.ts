@@ -36,12 +36,12 @@ export class PluginFilesystemAPI implements IPluginFilesystemAPI {
     }
 
     /**
-     * Read a file as a Buffer
+     * Read a file as a Uint8Array
      */
-    public async readFile(filePath: string): Promise<Buffer> {
+    public async readFile(filePath: string): Promise<Uint8Array> {
         const resolvedPath = await this.validateAndResolvePath(filePath);
         try {
-            return await fs.readFile(resolvedPath);
+            return new Uint8Array(await fs.readFile(resolvedPath));
         } catch (error) {
             throw new PluginFilesystemError(
                 `Failed to read file: ${error instanceof Error ? error.message : String(error)}`,
@@ -54,7 +54,7 @@ export class PluginFilesystemAPI implements IPluginFilesystemAPI {
     /**
      * Write data to a file
      */
-    public async writeFile(filePath: string, data: Buffer | string): Promise<void> {
+    public async writeFile(filePath: string, data: Uint8Array | string): Promise<void> {
         const resolvedPath = await this.validateAndResolvePath(filePath);
 
         // Ensure parent directory exists

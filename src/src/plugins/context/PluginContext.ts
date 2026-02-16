@@ -80,8 +80,8 @@ export interface IPluginCursor {
  * Plugin filesystem API interface
  */
 export interface IPluginFilesystemAPI {
-    readFile(path: string): Promise<Buffer>;
-    writeFile(path: string, data: Buffer | string): Promise<void>;
+    readFile(path: string): Promise<Uint8Array>;
+    writeFile(path: string, data: Uint8Array | string): Promise<void>;
     exists(path: string): Promise<boolean>;
     mkdir(path: string): Promise<void>;
     readdir(path: string): Promise<string[]>;

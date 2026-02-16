@@ -34,7 +34,7 @@ export abstract class AbstractPacketManager extends Logger {
         this.eventHandlers.get(event)?.push(eventHandler as NetworkingEventHandler);
     }
 
-    protected async sendMsg(data: Uint8Array | Buffer): Promise<void> {
+    protected async sendMsg(data: Uint8Array): Promise<void> {
         await this.emit(CommonHandlers.SEND, data);
     }
 

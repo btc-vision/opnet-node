@@ -60,7 +60,7 @@ export interface GetTransactionReceiptRequest extends BaseRequest {
 }
 
 export interface BroadcastTransactionRequest extends BaseRequest {
-    readonly transaction: Buffer | Uint8Array;
+    readonly transaction: Uint8Array;
     readonly psbt: boolean;
 }
 

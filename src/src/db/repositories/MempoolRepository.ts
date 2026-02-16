@@ -609,7 +609,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
     private convertToObj(data: IMempoolTransaction): IMempoolTransactionObj {
         return {
             ...data,
-            data: Buffer.from(data.data.buffer),
+            data: new Uint8Array(data.data.buffer),
             blockHeight: DataConverter.fromDecimal128(data.blockHeight),
             theoreticalGasLimit: Long.isLong(data.theoreticalGasLimit)
                 ? data.theoreticalGasLimit.toBigInt()
@@ -624,7 +624,7 @@ export class MempoolRepository extends BaseRepository<IMempoolTransaction> {
             }),
             outputs: data.outputs.map((output) => {
                 return {
-                    data: Buffer.from(output.data.buffer),
+                    data: new Uint8Array(output.data.buffer),
                     outputIndex: output.outputIndex,
                     value:
                         output.value instanceof Long ? output.value : Long.fromNumber(output.value),

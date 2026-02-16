@@ -62,7 +62,7 @@ describe('PluginFilesystemAPI', () => {
 
             // Should be able to read it
             const content = await api.readFile('test.txt');
-            expect(content.toString()).toBe('test content');
+            expect(new TextDecoder().decode(content)).toBe('test content');
         });
 
         it('should allow paths within temp directory', async () => {
@@ -73,7 +73,7 @@ describe('PluginFilesystemAPI', () => {
 
             // Should be able to read it
             const content = await api.readFile(tempPath);
-            expect(content.toString()).toBe('temp content');
+            expect(new TextDecoder().decode(content)).toBe('temp content');
         });
     });
 
@@ -85,7 +85,7 @@ describe('PluginFilesystemAPI', () => {
 
             const content = await api.readFile('data.txt');
 
-            expect(content.toString()).toBe('hello world');
+            expect(new TextDecoder().decode(content)).toBe('hello world');
         });
 
         it('should throw for non-existent file', async () => {
@@ -96,7 +96,7 @@ describe('PluginFilesystemAPI', () => {
         it('should read binary files', async () => {
             const configDir = path.join(tempDir, pluginId, 'config');
             fs.mkdirSync(configDir, { recursive: true });
-            const binaryData = Buffer.from([0x00, 0x01, 0x02, 0xff]);
+            const binaryData = new Uint8Array([0x00, 0x01, 0x02, 0xff]);
             fs.writeFileSync(path.join(configDir, 'binary.bin'), binaryData);
 
             const content = await api.readFile('binary.bin');
@@ -325,14 +325,14 @@ describe('PluginFilesystemAPI', () => {
             await api.writeFile('empty.txt', '');
 
             const content = await api.readFile('empty.txt');
-            expect(content.toString()).toBe('');
+            expect(new TextDecoder().decode(content)).toBe('');
         });
 
         it('should handle files with special characters in name', async () => {
             await api.writeFile('file with spaces.txt', 'content');
 
             const content = await api.readFile('file with spaces.txt');
-            expect(content.toString()).toBe('content');
+            expect(new TextDecoder().decode(content)).toBe('content');
         });
 
         it('should handle files with unicode content', async () => {
@@ -340,7 +340,7 @@ describe('PluginFilesystemAPI', () => {
             await api.writeFile('unicode.txt', unicodeContent);
 
             const content = await api.readFile('unicode.txt');
-            expect(content.toString()).toBe(unicodeContent);
+            expect(new TextDecoder().decode(content)).toBe(unicodeContent);
         });
 
         it('should handle large files', async () => {

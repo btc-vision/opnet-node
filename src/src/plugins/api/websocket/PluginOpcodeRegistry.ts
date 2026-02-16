@@ -281,9 +281,9 @@ export class PluginOpcodeRegistry extends Logger {
     /**
      * Load a plugin's proto schema
      */
-    private loadProtoSchema(pluginId: string, protoContent: Buffer, _namespace?: string): void {
+    private loadProtoSchema(pluginId: string, protoContent: Uint8Array, _namespace?: string): void {
         try {
-            const protoString = protoContent.toString('utf8');
+            const protoString = new TextDecoder().decode(protoContent);
             const root = protobuf.parse(protoString).root;
             this.protoRoots.set(pluginId, root);
             this.info(`Loaded proto schema for plugin ${pluginId}`);

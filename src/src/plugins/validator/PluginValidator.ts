@@ -1,6 +1,6 @@
 import { Logger } from '@btc-vision/bsi-common';
 import { MessageSigner, MLDSASecurityLevel, QuantumBIP32Factory } from '@btc-vision/transaction';
-import { Network } from '@btc-vision/bitcoin';
+import { alloc, Network } from '@btc-vision/bitcoin';
 import * as semver from 'semver';
 
 import { IParsedPluginFile, MLDSALevel } from '../interfaces/IPluginFile.js';
@@ -346,7 +346,7 @@ export class PluginValidator extends Logger {
         try {
             const keyPair = QuantumBIP32Factory.fromPublicKey(
                 plugin.publicKey,
-                Buffer.alloc(32), // Chain code can be zeroed for verification
+                alloc(32), // Chain code can be zeroed for verification
                 this.network,
                 securityLevel,
             );

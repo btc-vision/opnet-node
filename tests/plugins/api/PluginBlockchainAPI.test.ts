@@ -301,8 +301,8 @@ describe('PluginBlockchainAPI', () => {
 
         it('should return mapped transaction', async () => {
             const mockTx = {
-                id: 'txid123',
-                hash: 'txhash456',
+                id: new Binary(Buffer.from('aa'.repeat(32), 'hex')),
+                hash: new Binary(Buffer.from('bb'.repeat(32), 'hex')),
                 blockHeight: { toString: () => '100' },
                 index: 0,
                 inputs: [],
@@ -318,8 +318,8 @@ describe('PluginBlockchainAPI', () => {
             const result = await api.getTransaction('txid123');
 
             expect(result).not.toBeNull();
-            expect(result?.txid).toBe('txid123');
-            expect(result?.hash).toBe('txhash456');
+            expect(result?.txid).toBe('aa'.repeat(32));
+            expect(result?.hash).toBe('bb'.repeat(32));
         });
     });
 
@@ -339,8 +339,8 @@ describe('PluginBlockchainAPI', () => {
 
             const mockTxs = [
                 {
-                    id: 'txid1',
-                    hash: 'hash1',
+                    id: new Binary(Buffer.from('cc'.repeat(32), 'hex')),
+                    hash: new Binary(Buffer.from('dd'.repeat(32), 'hex')),
                     blockHeight: { toString: () => '100' },
                     index: 0,
                     inputs: [],
@@ -357,7 +357,7 @@ describe('PluginBlockchainAPI', () => {
             const result = await api.getTransactionsByBlock(100n);
 
             expect(result).toHaveLength(1);
-            expect(result[0].txid).toBe('txid1');
+            expect(result[0].txid).toBe('cc'.repeat(32));
         });
     });
 
@@ -407,7 +407,7 @@ describe('PluginBlockchainAPI', () => {
             const result = await api.getContractStorage('addr123', 0n);
 
             expect(result).not.toBeNull();
-            expect(result).toBeInstanceOf(Buffer);
+            expect(result).toBeInstanceOf(Uint8Array);
         });
     });
 
@@ -537,14 +537,15 @@ describe('PluginBlockchainAPI', () => {
 
     describe('transaction mapping', () => {
         it('should handle Binary inputs correctly', async () => {
+            const inputTxId = new Binary(Buffer.from('ee'.repeat(32), 'hex'));
             const mockTx = {
-                id: 'txid123',
-                hash: 'txhash456',
+                id: new Binary(Buffer.from('aa'.repeat(32), 'hex')),
+                hash: new Binary(Buffer.from('bb'.repeat(32), 'hex')),
                 blockHeight: { toString: () => '100' },
                 index: 0,
                 inputs: [
                     {
-                        originalTransactionId: 'input-txid',
+                        originalTransactionId: inputTxId,
                         outputIndex: 0,
                         scriptSig: new Binary(Buffer.from([0x01, 0x02])),
                         witness: [new Binary(Buffer.from([0x03, 0x04]))],
@@ -572,14 +573,14 @@ describe('PluginBlockchainAPI', () => {
 
             expect(result).not.toBeNull();
             expect(result?.inputs).toHaveLength(1);
-            expect(result?.inputs[0].txid).toBe('input-txid');
+            expect(result?.inputs[0].txid).toBe('ee'.repeat(32));
         });
 
         it('should handle revert data correctly', async () => {
             const revertBuffer = Buffer.from('Revert reason');
             const mockTx = {
-                id: 'txid123',
-                hash: 'txhash456',
+                id: new Binary(Buffer.from('aa'.repeat(32), 'hex')),
+                hash: new Binary(Buffer.from('bb'.repeat(32), 'hex')),
                 blockHeight: { toString: () => '100' },
                 index: 0,
                 inputs: [],
@@ -601,8 +602,8 @@ describe('PluginBlockchainAPI', () => {
 
         it('should handle successful transaction (no revert)', async () => {
             const mockTx = {
-                id: 'txid123',
-                hash: 'txhash456',
+                id: new Binary(Buffer.from('aa'.repeat(32), 'hex')),
+                hash: new Binary(Buffer.from('bb'.repeat(32), 'hex')),
                 blockHeight: { toString: () => '100' },
                 index: 0,
                 inputs: [],
@@ -625,8 +626,8 @@ describe('PluginBlockchainAPI', () => {
 
     describe('script type detection', () => {
         const createOutputWithScript = (hex: string) => ({
-            id: 'txid123',
-            hash: 'txhash456',
+            id: new Binary(Buffer.from('aa'.repeat(32), 'hex')),
+            hash: new Binary(Buffer.from('bb'.repeat(32), 'hex')),
             blockHeight: { toString: () => '100' },
             index: 0,
             inputs: [],

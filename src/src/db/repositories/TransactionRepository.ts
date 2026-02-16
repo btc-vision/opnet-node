@@ -15,6 +15,7 @@ import {
 import { OPNetTransactionTypes } from '../../blockchain-indexer/processor/transaction/enums/OPNetTransactionTypes.js';
 import { ITransactionDocument, TransactionDocument } from '../interfaces/ITransactionDocument.js';
 import { OPNetCollections } from '../indexes/required/IndexedCollection.js';
+import { fromHex } from '@btc-vision/bitcoin';
 
 /**
  * Reworked repository that stores hash/id purely as binary.
@@ -125,19 +126,19 @@ export class TransactionRepository extends BaseRepository<
      * Retrieves a single transaction by its hash or id (both are stored as binary).
      *
      * If you still have external code that provides the hash as a hex string,
-     * you must convert it to Binary/Buffer here.
+     * you must convert it to Binary/Uint8Array here.
      *
-     * @param hashOrId - a Buffer or a string (hex) to be matched against `hash` or `id` in binary form
+     * @param hashOrId - a Uint8Array or a string (hex) to be matched against `hash` or `id` in binary form
      * @param currentSession
      */
     public async getTransactionByHash(
-        hashOrId: Buffer | string,
+        hashOrId: Uint8Array | string,
         currentSession?: ClientSession,
     ): Promise<TransactionDocument<OPNetTransactionTypes> | undefined> {
-        // If `hashOrId` is string (hex?), convert to a Buffer. Then wrap in Binary to query.
+        // If `hashOrId` is string (hex?), convert to a Uint8Array. Then wrap in Binary to query.
         let binHash: Binary;
         if (typeof hashOrId === 'string') {
-            binHash = new Binary(Buffer.from(hashOrId, 'hex'));
+            binHash = new Binary(fromHex(hashOrId));
         } else {
             binHash = new Binary(hashOrId);
         }

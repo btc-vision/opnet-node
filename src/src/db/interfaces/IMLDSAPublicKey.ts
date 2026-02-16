@@ -3,11 +3,11 @@ import { MLDSASecurityLevel } from '@btc-vision/transaction';
 
 export interface IMLDSAPublicKey {
     readonly level: MLDSASecurityLevel;
-    readonly hashedPublicKey: Buffer;
-    readonly legacyPublicKey: Buffer;
-    readonly tweakedPublicKey: Buffer;
+    readonly hashedPublicKey: Uint8Array;
+    readonly legacyPublicKey: Uint8Array;
+    readonly tweakedPublicKey: Uint8Array;
     // If null, wallet owner did not expose his public key on-chain yet.
-    readonly publicKey: Buffer | null;
+    readonly publicKey: Uint8Array | null;
 
     // Can be temporally wrong.
     readonly insertedBlockHeight: bigint | null;

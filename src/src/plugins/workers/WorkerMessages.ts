@@ -112,7 +112,7 @@ export interface ISerializedPluginInstallState {
 export interface ILoadPluginMessage extends IWorkerMessage {
     readonly type: WorkerMessageType.LOAD_PLUGIN;
     readonly pluginId: string;
-    readonly bytecode: Buffer;
+    readonly bytecode: Uint8Array;
     readonly metadata: string; // JSON serialized
     readonly dataDir: string;
     readonly config: string; // JSON serialized

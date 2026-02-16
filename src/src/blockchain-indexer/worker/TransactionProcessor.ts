@@ -5,6 +5,7 @@ import { NetworkConverter } from '../../config/network/NetworkConverter.js';
 import { MsgError, MsgFromMain, MsgResult, MsgToMain } from './interfaces.js';
 import { OPNetConsensus } from '../../poc/configurations/OPNetConsensus.js';
 import { Address } from '@btc-vision/transaction';
+import { equals, fromHex } from '@btc-vision/bitcoin';
 
 const port: MessagePort = (() => {
     if (parentPort == null) {
@@ -28,11 +29,11 @@ port.on('message', (msg: MsgFromMain): void => {
             undefined,
         );
 
-        const buf = msg.allowedPreimages.map((preimage) => Buffer.from(preimage, 'hex'));
-        itx.verifyPreImage = (_miner: Address, preimage: Buffer): Buffer | undefined => {
+        const buf = msg.allowedPreimages.map((preimage) => fromHex(preimage));
+        itx.verifyPreImage = (_miner: Address, preimage: Uint8Array): Uint8Array | undefined => {
             console.warn('!!! verifyPreImage is not implemented in TxParseWorker !!!');
 
-            const isValid = buf.some((allowedPreimage) => allowedPreimage.equals(preimage));
+            const isValid = buf.some((allowedPreimage) => equals(allowedPreimage, preimage));
             if (!isValid) {
                 throw new Error('Invalid preimage');
             }

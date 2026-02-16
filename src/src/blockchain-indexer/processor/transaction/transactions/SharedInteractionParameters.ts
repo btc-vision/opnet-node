@@ -6,7 +6,7 @@ import {
     MLDSALinkRequest,
 } from '../features/Features.js';
 import { OPNetHeader } from '../interfaces/OPNetHeader.js';
-import { equals, opcodes, payments, Script } from '@btc-vision/bitcoin';
+import { alloc, concat, equals, fromHex, opcodes, payments, Script } from '@btc-vision/bitcoin';
 import { OPNetConsensus } from '../../../../poc/configurations/OPNetConsensus.js';
 import {
     Address,
@@ -39,15 +39,13 @@ export abstract class SharedInteractionParameters<
 
     protected _accessList: AddressMap<Uint8Array[]> | undefined;
 
-    protected _calldata: Buffer | undefined;
+    protected _calldata: Uint8Array | undefined;
 
-    public get calldata(): Buffer {
-        const calldata = Buffer.alloc(this._calldata?.length || 0);
+    public get calldata(): Uint8Array {
+        if (!this._calldata) return new Uint8Array(0);
 
-        if (this._calldata) {
-            this._calldata.copy(calldata);
-        }
-
+        const calldata = new Uint8Array(this._calldata.length);
+        calldata.set(this._calldata);
         return calldata;
     }
 
@@ -64,8 +62,8 @@ export abstract class SharedInteractionParameters<
     public static getDataFromScript(
         scriptData: Array<number | Uint8Array>,
         breakWhenReachOpcode: number = opcodes.OP_ELSE,
-    ): Buffer | undefined {
-        let data: Buffer | undefined;
+    ): Uint8Array | undefined {
+        let data: Uint8Array | undefined;
 
         // Keep reading until we see the break opcode or run out of script data.
         while (scriptData.length > 0) {
@@ -86,14 +84,14 @@ export abstract class SharedInteractionParameters<
             }
 
             // Accumulate the data
-            data = data ? Buffer.concat([data, currentItem]) : Buffer.from(currentItem);
+            data = data ? concat([data, currentItem]) : currentItem;
         }
 
         return data;
     }
 
-    public static getDataUntilBufferEnd(scriptData: Array<number | Uint8Array>): Buffer | undefined {
-        let data: Buffer | undefined;
+    public static getDataUntilBufferEnd(scriptData: Array<number | Uint8Array>): Uint8Array | undefined {
+        let data: Uint8Array | undefined;
 
         // Keep reading until we see the break opcode or run out of script data.
         while (scriptData.length > 0) {
@@ -108,7 +106,7 @@ export abstract class SharedInteractionParameters<
             scriptData.shift();
 
             // Accumulate the data
-            data = data ? Buffer.concat([data, currentItem]) : Buffer.from(currentItem);
+            data = data ? concat([data, currentItem]) : currentItem;
         }
 
         return data;
@@ -147,7 +145,7 @@ export abstract class SharedInteractionParameters<
             return;
         }
 
-        return new OPNetHeader(Buffer.from(header), Buffer.from(minerMLDSAPublicKey), Buffer.from(preimage));
+        return new OPNetHeader(header, minerMLDSAPublicKey, preimage);
     }
 
     protected static decodeFeatures(
@@ -188,8 +186,8 @@ export abstract class SharedInteractionParameters<
             return;
         }
 
-        const tweakedKey = Buffer.from(this.from.tweakedPublicKeyToBuffer());
-        const originalKey = Buffer.from(this.from.originalPublicKeyBuffer());
+        const tweakedKey = this.from.tweakedPublicKeyToBuffer();
+        const originalKey = this.from.originalPublicKeyBuffer();
         const chainId = getChainId(NetworkConverter.networkToBitcoinNetwork(this.network));
 
         const writer = new BinaryWriter();
@@ -253,8 +251,8 @@ export abstract class SharedInteractionParameters<
 
     public async verifyMLDSASignature(
         mldsaLinkRequest: MLDSARequestData,
-        originalKey: Buffer,
-        tweakedKey: Buffer,
+        originalKey: Uint8Array,
+        tweakedKey: Uint8Array,
         chainId: Uint8Array,
         vmManager: VMManager,
     ): Promise<void> {
@@ -293,7 +291,7 @@ export abstract class SharedInteractionParameters<
         // Then we check the ML-DSA signature
         const mldsaKeyPair = QuantumBIP32Factory.fromPublicKey(
             mldsaLinkRequest.publicKey,
-            Buffer.alloc(32, 0),
+            alloc(32),
             this.network,
             mldsaLinkRequest.level,
         );
@@ -319,7 +317,7 @@ export abstract class SharedInteractionParameters<
         });
     }
 
-    protected safeEq(a: Buffer, b: Buffer): boolean {
+    protected safeEq(a: Uint8Array, b: Uint8Array): boolean {
         if (a.length !== b.length) return false;
         return timingSafeEqual(a, b);
     }
@@ -327,18 +325,12 @@ export abstract class SharedInteractionParameters<
     /*public getAddress(str: string): Address {
         if (this.addressCache) {
             const addr: string | undefined = this.addressCache.get(str);
-
-            if (!addr) {
-                const newAddr = new Address(, str);
-                this.addressCache.set(str, newAddr.toHex());
-
-                return newAddr;
-            } else {
-                return Address.fromString(str);
+            if (addr) {
+                return Address.fromString(addr);
             }
-        } else {
-            return Address.fromString(str);
         }
+
+        return Address.fromString(str);
     }*/
 
     protected decodeAddress(outputWitness: TransactionOutput): string | undefined {
@@ -348,14 +340,14 @@ export abstract class SharedInteractionParameters<
         }
 
         const { address } = payments.p2op({
-            output: new Uint8Array(Buffer.from(outputWitness.scriptPubKey.hex, 'hex')) as Script,
+            output: fromHex(outputWitness.scriptPubKey.hex) as Script,
             network: this.network,
         });
 
         return address;
     }
 
-    protected decompressData(buffer: Buffer): Buffer {
+    protected decompressData(buffer: Uint8Array): Uint8Array {
         const decompressed = Transaction.decompressBuffer(buffer);
         if (decompressed.compressed) {
             this.wasCompressed = true;
@@ -375,7 +367,7 @@ export abstract class SharedInteractionParameters<
     }
 
     private async regenerateProvenance(vmManager: VMManager): Promise<void> {
-        const originalKey = Buffer.from(this.from.tweakedPublicKeyToBuffer());
+        const originalKey = this.from.tweakedPublicKeyToBuffer();
 
         // Get the key assigned to the legacy address.
         const keyData = await vmManager.getMLDSAPublicKeyFromLegacyKey(originalKey);
@@ -411,7 +403,7 @@ export abstract class SharedInteractionParameters<
     }
 
     private decodeMLDSALinkRequest(feature: MLDSALinkRequest): MLDSARequestData {
-        const data: Buffer = feature.data;
+        const data = feature.data;
 
         const reader = new BinaryReader(data);
         const level: MLDSASecurityLevel = reader.readU8() as MLDSASecurityLevel;
@@ -420,21 +412,21 @@ export abstract class SharedInteractionParameters<
             throw new Error(`OP_NET: ML-DSA level ${level} is not enabled.`);
         }
 
-        const hashedPublicKey = Buffer.from(reader.readBytes(32));
+        const hashedPublicKey = reader.readBytes(32);
         if (isEmptyBuffer(hashedPublicKey)) {
             throw new Error(`OP_NET: ML-DSA hashed public key cannot be empty.`);
         }
 
         const verifyRequest = reader.readBoolean();
 
-        let publicKey: Buffer | null = null;
-        let signature: Buffer | null = null;
+        let publicKey: Uint8Array | null = null;
+        let signature: Uint8Array | null = null;
         if (verifyRequest) {
             const publicKeyLength = MLDSAMetadata.fromLevel(level);
             const signatureLength = MLDSAMetadata.signatureLen(publicKeyLength);
 
-            publicKey = Buffer.from(reader.readBytes(publicKeyLength));
-            signature = Buffer.from(reader.readBytes(signatureLength));
+            publicKey = reader.readBytes(publicKeyLength);
+            signature = reader.readBytes(signatureLength);
 
             if (isEmptyBuffer(publicKey)) {
                 throw new Error(`OP_NET: ML-DSA public key cannot be empty.`);
@@ -450,12 +442,12 @@ export abstract class SharedInteractionParameters<
             publicKey: publicKey,
             level: level,
             mldsaSignature: signature,
-            legacySignature: Buffer.from(legacySignature),
+            legacySignature,
         };
     }
 
     private decodeEpochSubmission(feature: EpochSubmissionFeature): Submission {
-        const data: Buffer = feature.data;
+        const data = feature.data;
 
         if (data.length > 32 + 32 + OPNetConsensus.consensus.EPOCH.GRAFFITI_LENGTH) {
             throw new Error(
@@ -482,9 +474,9 @@ export abstract class SharedInteractionParameters<
         }
 
         return {
-            mldsaPublicKey: Buffer.from(mldsaPublicKey),
-            salt: Buffer.from(salt),
-            graffiti: graffiti ? Buffer.from(graffiti) : undefined,
+            mldsaPublicKey,
+            salt,
+            graffiti,
         };
     }
 

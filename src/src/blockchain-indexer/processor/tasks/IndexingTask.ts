@@ -8,7 +8,7 @@ import { MessageType } from '../../../threading/enum/MessageType.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
 import { Config } from '../../../config/Config.js';
 import { Block, DeserializedBlock } from '../block/Block.js';
-import { Network } from '@btc-vision/bitcoin';
+import { Network, toHex } from '@btc-vision/bitcoin';
 import { VMManager } from '../../../vm/VMManager.js';
 import { SpecialManager } from '../special-transaction/SpecialManager.js';
 import { BlockGasPredictor } from '../gas/BlockGasPredictor.js';
@@ -268,7 +268,7 @@ export class IndexingTask extends Logger {
             const batchDummies: DummyMempoolTx[] = batch.map((tx) => ({
                 id: tx.transactionIdString,
                 inputs: tx.inputs.map((input) => ({
-                    transactionId: input.originalTransactionId.toString('hex'),
+                    transactionId: toHex(input.originalTransactionId),
                     outputIndex: input.outputTransactionIndex,
                 })) as DummyTxInput[],
             }));

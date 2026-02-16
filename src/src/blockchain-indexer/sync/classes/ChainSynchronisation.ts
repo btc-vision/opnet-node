@@ -3,7 +3,7 @@ import { ThreadTypes } from '../../../threading/thread/enums/ThreadTypes.js';
 import { ThreadMessageBase } from '../../../threading/interfaces/thread-messages/ThreadMessageBase.js';
 import { MessageType } from '../../../threading/enum/MessageType.js';
 import { ThreadData } from '../../../threading/interfaces/ThreadData.js';
-import { Network } from '@btc-vision/bitcoin';
+import { Network, toHex } from '@btc-vision/bitcoin';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
 import { BlockFetcher } from '../../fetcher/abstract/BlockFetcher.js';
 import { Config } from '../../../config/Config.js';
@@ -307,7 +307,7 @@ export class ChainSynchronisation extends Logger {
             const toSort: readonly Utxo[] = utxos
                 .map((o) => {
                     return o.outputs.map((output) => ({
-                        txid: o.id.toString('hex'),
+                        txid: toHex(o.id),
                         output,
                     }));
                 })

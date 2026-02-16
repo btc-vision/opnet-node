@@ -18,7 +18,7 @@ import { BitcoinRPC, FeeEstimation, SmartFeeEstimation } from '@btc-vision/bitco
 import { Config } from '../../../config/Config.js';
 import { MempoolRepository } from '../../../db/repositories/MempoolRepository.js';
 import { NetworkConverter } from '../../../config/network/NetworkConverter.js';
-import { Network } from '@btc-vision/bitcoin';
+import { concat, Network, toBase64, toHex } from '@btc-vision/bitcoin';
 import { IMempoolTransactionObj } from '../../../db/interfaces/IMempoolTransaction.js';
 import { OPNetConsensus } from '../../configurations/OPNetConsensus.js';
 import { BlockchainInfoRepository } from '../../../db/repositories/BlockchainInfoRepository.js';
@@ -351,7 +351,7 @@ export class Mempool extends Logger {
                 theoreticalGasLimit: 0n,
                 isOPNet: false,
                 priorityFee: 0n,
-                data: Buffer.from(raw),
+                data: raw,
                 firstSeen: new Date(),
                 blockHeight: OPNetConsensus.getBlockHeight(),
                 inputs: [],
@@ -390,14 +390,13 @@ export class Mempool extends Logger {
             };
         }
 
-        const buf = Buffer.from(transaction.data);
-        const rawHex: string = buf.toString('hex');
+        const rawHex: string = toHex(transaction.data);
         const broadcast = await this.broadcastBitcoinTransaction(rawHex);
 
         if (broadcast && broadcast.result) {
             transaction.id = broadcast.result;
 
-            parseAndStoreInputOutputs(buf, transaction);
+            parseAndStoreInputOutputs(transaction.data, transaction);
 
             const stored = await this.mempoolRepository.storeTransaction(transaction);
             if (!stored) {
@@ -530,7 +529,7 @@ export class Mempool extends Logger {
 
             const txBuffer = finalized.toBuffer();
             const finalTransaction: IMempoolTransactionObj = {
-                id: finalized.getHash(false).toString('hex'),
+                id: toHex(finalized.getHash(false)),
                 previousPsbtId:
                     transaction.previousPsbtId || decodedPsbt.data.hash || transaction.id,
 
@@ -570,7 +569,7 @@ export class Mempool extends Logger {
                 return {
                     ...broadcastResult,
                     id: finalTransaction.id,
-                    modifiedTransaction: Buffer.from(finalTransaction.data).toString('base64'),
+                    modifiedTransaction: toBase64(finalTransaction.data),
                     finalizedTransaction: true,
                 };
             } else {
@@ -583,11 +582,11 @@ export class Mempool extends Logger {
             }
         } else if (processed.modified) {
             const buffer = processed.psbt.toBuffer();
-            const header = Buffer.from([decodedPsbt.type, decodedPsbt.version]);
+            const header = new Uint8Array([decodedPsbt.type, decodedPsbt.version]);
 
             const modifiedTransaction = processed.finalized
                 ? buffer
-                : Buffer.concat([header, buffer]);
+                : concat([header, buffer]);
 
             const newTransaction: IMempoolTransactionObj = {
                 data: modifiedTransaction,
@@ -605,7 +604,7 @@ export class Mempool extends Logger {
                 success: true,
                 result: 'PSBT decoded successfully',
                 id: newTransaction.id,
-                modifiedTransaction: modifiedTransaction.toString('base64'),
+                modifiedTransaction: toBase64(modifiedTransaction),
                 finalizedTransaction: processed.finalized ?? false,
             };
         } else {
