@@ -56,7 +56,7 @@ export class BroadcastTransaction extends Route<
             }
 
             let parsedData: Uint8Array = fromHex(data);
-            const tx = Transaction.fromBuffer(parsedData.slice());
+            const tx = Transaction.fromBuffer(Uint8Array.from(parsedData));
             const txHash = tx.getId();
             const verification: BroadcastResponse | undefined = await this.verifyOPNetTransaction(
                 parsedData,

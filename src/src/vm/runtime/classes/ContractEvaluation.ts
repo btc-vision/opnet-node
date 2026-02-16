@@ -203,7 +203,7 @@ export class ContractEvaluation implements ExecutionParameters {
             this.serializedInputs = this.computeInputUTXOs();
         }
 
-        return this.serializedInputs.slice();
+        return Uint8Array.from(this.serializedInputs);
     }
 
     public getSerializeOutputUTXOs(): Uint8Array {
@@ -211,7 +211,7 @@ export class ContractEvaluation implements ExecutionParameters {
             this.serializedOutputs = this.computeOutputUTXOs();
         }
 
-        return this.serializedOutputs.slice();
+        return Uint8Array.from(this.serializedOutputs);
     }
 
     public setGasUsed(gas: bigint, specialGas: bigint = 0n): void {

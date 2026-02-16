@@ -412,7 +412,7 @@ export class ContractEvaluator extends Logger {
 
             const response = await this.internalCall({
                 evaluation,
-                calldata: calldata.slice(),
+                calldata: Uint8Array.from(calldata),
                 isDeployment: false,
                 isUpdate: false,
                 contractAddress,
