@@ -230,7 +230,7 @@ describe('PluginLoader', () => {
             const parsed = loader.parsePluginFile(filePath);
 
             expect(parsed.proto).toBeDefined();
-            expect(parsed.proto?.toString()).toContain('proto3');
+            expect(new TextDecoder().decode(parsed.proto)).toContain('proto3');
         });
 
         it('should parse file without proto', () => {

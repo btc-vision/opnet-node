@@ -2,11 +2,15 @@
 
 import tseslint from 'typescript-eslint';
 import eslint from '@eslint/js';
+import noUint8ArrayToString from './eslint-rules/no-uint8array-tostring.ts';
 
 export default tseslint.config(
     eslint.configs.recommended,
     ...tseslint.configs.strictTypeChecked,
     {
+        plugins: {
+            'opnet': noUint8ArrayToString,
+        },
         languageOptions: {
             parserOptions: {
                 projectService: true,
@@ -35,6 +39,7 @@ export default tseslint.config(
             '@typescript-eslint/no-unnecessary-type-arguments': 'off',
             'no-debugger': 'off',
             '@typescript-eslint/no-unnecessary-type-conversion': 'warn',
+            'opnet/no-uint8array-tostring': 'error',
         },
     },
     {
